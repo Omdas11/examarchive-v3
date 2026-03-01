@@ -1,11 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabaseServer";
 import { getServerUser } from "@/lib/auth";
+import { uploadFileToAppwrite, getAppwriteFileUrl } from "@/lib/appwrite";
 
 /**
  * POST /api/upload
- * Accepts a multipart form upload, stores the file in Supabase Storage and
- * inserts a *pending* paper row.  Requires authentication.
+ * Accepts a multipart form upload, stores the **file in Appwrite Storage** and
+ * inserts a *pending* paper metadata row in **Supabase**.
+ * Requires authentication (enforced here and in middleware).
  */
 export async function POST(request: NextRequest) {
   const user = await getServerUser();
@@ -28,23 +30,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "All fields are required." }, { status: 400 });
   }
 
-  const supabase = await createClient();
-
-  // Upload file to Supabase Storage
-  const filePath = `papers/${Date.now()}_${file.name}`;
-  const { error: uploadError } = await supabase.storage
-    .from("uploads")
-    .upload(filePath, file, { contentType: file.type });
-
-  if (uploadError) {
-    return NextResponse.json({ error: uploadError.message }, { status: 500 });
+  // ── 1. Upload file to Appwrite Storage (server-only key, never exposed) ──
+  let fileUrl: string;
+  try {
+    const { fileId } = await uploadFileToAppwrite(file);
+    fileUrl = getAppwriteFileUrl(fileId);
+  } catch (err) {
+    const message =
+      err instanceof Error
+        ? err.message
+        : `File upload failed: ${String(err)}`;
+    console.error("[api/upload] Appwrite upload error:", err);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 
-  const {
-    data: { publicUrl },
-  } = supabase.storage.from("uploads").getPublicUrl(filePath);
-
-  // Insert paper record (unapproved by default)
+  // ── 2. Persist metadata in Supabase ──
+  const supabase = await createClient();
   const { error: insertError } = await supabase.from("papers").insert({
     title,
     course_code: courseCode,
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest) {
     year: Number(year),
     semester,
     exam_type: examType,
-    file_url: publicUrl,
+    file_url: fileUrl,
     uploaded_by: user.id,
     approved: false,
   });
