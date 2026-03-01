@@ -4,8 +4,9 @@ import { getServerUser } from "@/lib/auth";
 import { isAdmin } from "@/lib/roles";
 
 /**
- * POST /api/admin?action=approve&id=<paper_id>
+ * POST /api/admin
  * Admin-only route handler for managing papers.
+ * Accepts `action` and `id` via query params or form body.
  */
 export async function POST(request: NextRequest) {
   const user = await getServerUser();
@@ -14,8 +15,19 @@ export async function POST(request: NextRequest) {
   }
 
   const { searchParams } = new URL(request.url);
-  const action = searchParams.get("action");
-  const id = searchParams.get("id");
+  let action = searchParams.get("action");
+  let id = searchParams.get("id");
+
+  // Also support form-encoded body (used by the admin page HTML form).
+  if (!action || !id) {
+    try {
+      const formData = await request.formData();
+      action = action ?? (formData.get("action") as string | null);
+      id = id ?? (formData.get("id") as string | null);
+    } catch {
+      // body may not be form-encoded – ignore
+    }
+  }
 
   if (!action || !id) {
     return NextResponse.json({ error: "Missing action or id." }, { status: 400 });

@@ -53,7 +53,9 @@ export default async function AdminPage() {
                     {p.course_code} &middot; {p.department} &middot; {p.year}
                   </p>
                 </div>
-                <form action={`/api/admin?action=approve&id=${p.id}`} method="POST">
+                <form action="/api/admin" method="POST">
+                  <input type="hidden" name="action" value="approve" />
+                  <input type="hidden" name="id" value={p.id} />
                   <button
                     type="submit"
                     className="rounded bg-green-600 px-3 py-1 text-xs font-semibold text-white hover:bg-green-700"
