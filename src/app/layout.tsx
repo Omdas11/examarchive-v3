@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import { getServerUser } from "@/lib/auth";
 
 const SITE_URL = "https://examarchive.dev";
 const SITE_NAME = "ExamArchive";
@@ -62,11 +63,13 @@ const jsonLd = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const user = await getServerUser();
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -82,7 +85,7 @@ export default function RootLayout({
       </head>
       <body className="font-sans antialiased">
         <div className="flex min-h-screen flex-col">
-          <Navbar />
+          <Navbar user={user} />
           <main className="flex-1">{children}</main>
           <Footer />
         </div>
