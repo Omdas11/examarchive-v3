@@ -5,8 +5,8 @@ import { cookies } from "next/headers";
  * Supabase client for use in **Server Components**, **Route Handlers** and
  * **Server Actions**.  Reads / writes cookies via the Next.js `cookies()` API.
  */
-export function createClient() {
-  const cookieStore = cookies();
+export async function createClient() {
+  const cookieStore = await cookies();
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

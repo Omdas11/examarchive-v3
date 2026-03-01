@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Missing action or id." }, { status: 400 });
   }
 
-  const supabase = createClient();
+  const supabase = await createClient();
 
   switch (action) {
     case "approve": {

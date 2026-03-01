@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabaseServer";
  */
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const supabase = createClient();
+  const supabase = await createClient();
 
   let query = supabase
     .from("papers")

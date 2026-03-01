@@ -17,7 +17,7 @@ export default async function AdminPage() {
     redirect("/");
   }
 
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: pending } = await supabase
     .from("papers")
     .select("*")

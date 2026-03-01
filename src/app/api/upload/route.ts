@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "All fields are required." }, { status: 400 });
   }
 
-  const supabase = createClient();
+  const supabase = await createClient();
 
   // Upload file to Supabase Storage
   const filePath = `papers/${Date.now()}_${file.name}`;

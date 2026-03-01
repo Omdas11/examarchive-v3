@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 };
 
 export default async function SyllabusPage() {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const { data: syllabi } = await supabase
     .from("syllabi")

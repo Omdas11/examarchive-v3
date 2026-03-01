@@ -8,23 +8,26 @@ export const metadata: Metadata = {
   description: "Search and filter past exam papers by department, course, year and more.",
 };
 
-interface BrowsePageProps {
-  searchParams: {
-    department?: string;
-    course_code?: string;
-    year?: string;
-    semester?: string;
-    exam_type?: string;
-    search?: string;
-  };
+interface BrowseSearchParams {
+  department?: string;
+  course_code?: string;
+  year?: string;
+  semester?: string;
+  exam_type?: string;
+  search?: string;
 }
 
 const programmes = ["ALL", "CBCS", "FYUG"];
 const streams = ["SCIENCE", "ARTS", "COMMERCE"];
 const years = ["2020", "2021", "2022", "2023", "2024"];
 
-export default async function BrowsePage({ searchParams }: BrowsePageProps) {
-  const supabase = createClient();
+export default async function BrowsePage({
+  searchParams,
+}: {
+  searchParams: Promise<BrowseSearchParams>;
+}) {
+  const params = await searchParams;
+  const supabase = await createClient();
 
   let query = supabase
     .from("papers")
@@ -32,12 +35,12 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
     .eq("approved", true)
     .order("created_at", { ascending: false });
 
-  if (searchParams.department) query = query.eq("department", searchParams.department);
-  if (searchParams.course_code) query = query.eq("course_code", searchParams.course_code);
-  if (searchParams.year) query = query.eq("year", Number(searchParams.year));
-  if (searchParams.semester) query = query.eq("semester", searchParams.semester);
-  if (searchParams.exam_type) query = query.eq("exam_type", searchParams.exam_type);
-  if (searchParams.search) query = query.ilike("title", `%${searchParams.search}%`);
+  if (params.department) query = query.eq("department", params.department);
+  if (params.course_code) query = query.eq("course_code", params.course_code);
+  if (params.year) query = query.eq("year", Number(params.year));
+  if (params.semester) query = query.eq("semester", params.semester);
+  if (params.exam_type) query = query.eq("exam_type", params.exam_type);
+  if (params.search) query = query.ilike("title", `%${params.search}%`);
 
   const { data: papers } = await query;
 
@@ -77,7 +80,7 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
         <input
           type="text"
           placeholder="Search papers…"
-          defaultValue={searchParams.search ?? ""}
+          defaultValue={params.search ?? ""}
           className="input-field flex-1"
         />
         <span className="toggle-btn">Sort ▾</span>

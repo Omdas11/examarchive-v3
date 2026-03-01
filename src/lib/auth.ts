@@ -7,7 +7,7 @@ import type { UserProfile, UserRole } from "@/types";
  * it cannot be bypassed on the client.
  */
 export async function getServerUser(): Promise<UserProfile | null> {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const {
     data: { user },

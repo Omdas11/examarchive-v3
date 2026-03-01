@@ -3,15 +3,16 @@ import { createClient } from "@/lib/supabaseServer";
 import type { Paper } from "@/types";
 
 interface PaperPageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export async function generateMetadata({ params }: PaperPageProps): Promise<Metadata> {
-  const supabase = createClient();
+  const { id } = await params;
+  const supabase = await createClient();
   const { data: paper } = await supabase
     .from("papers")
     .select("title, course_code, course_name")
-    .eq("id", params.id)
+    .eq("id", id)
     .single();
 
   if (!paper) return { title: "Paper Not Found" };
@@ -23,11 +24,12 @@ export async function generateMetadata({ params }: PaperPageProps): Promise<Meta
 }
 
 export default async function PaperPage({ params }: PaperPageProps) {
-  const supabase = createClient();
+  const { id } = await params;
+  const supabase = await createClient();
   const { data: paper } = await supabase
     .from("papers")
     .select("*")
-    .eq("id", params.id)
+    .eq("id", id)
     .single<Paper>();
 
   if (!paper) {
