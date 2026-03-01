@@ -77,7 +77,7 @@ export default function UploadForm() {
             borderWidth: "2px",
             background: dragOver ? "var(--color-accent-soft)" : undefined,
           }}
-          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragOver={(e) => { e.preventDefault(); if (!dragOver) setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
           onDrop={(e) => {
             e.preventDefault();

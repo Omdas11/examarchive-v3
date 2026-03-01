@@ -88,7 +88,7 @@ export default async function AdminPage() {
                     </button>
                   </form>
                   <form action="/api/admin" method="POST">
-                    <input type="hidden" name="action" value="reject" />
+                    <input type="hidden" name="action" value="delete" />
                     <input type="hidden" name="id" value={p.id} />
                     <button
                       type="submit"
