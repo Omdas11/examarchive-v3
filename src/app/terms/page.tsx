@@ -10,7 +10,7 @@ export default function TermsPage() {
     <section className="mx-auto px-4 py-10" style={{ maxWidth: "var(--max-w)" }}>
       <h1 className="text-2xl font-bold">Terms of Use</h1>
       <p className="mt-1 text-sm" style={{ color: "var(--color-text-muted)" }}>
-        Last updated: {new Date().getFullYear()}
+        Last updated: February 2026
       </p>
 
       <div className="mt-6 space-y-6 text-sm leading-relaxed" style={{ color: "var(--color-text-muted)" }}>
