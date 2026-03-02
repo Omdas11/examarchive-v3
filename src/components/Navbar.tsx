@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import { signOut } from "@/app/auth/actions";
+import type { UserProfile } from "@/types";
 
 const navLinks = [
   { href: "/browse", label: "Browse" },
@@ -11,7 +13,11 @@ const navLinks = [
   { href: "/support", label: "Support" },
 ];
 
-export default function Navbar() {
+interface NavbarProps {
+  user: UserProfile | null;
+}
+
+export default function Navbar({ user }: NavbarProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [dark, setDark] = useState(false);
 
@@ -71,14 +77,35 @@ export default function Navbar() {
             ))}
           </div>
 
-          {/* Theme toggle */}
-          <button onClick={toggleTheme} aria-label={dark ? "Switch to light theme" : "Switch to dark theme"} className="p-1.5 rounded-md transition-colors hover:opacity-70">
-            {dark ? (
-              <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0V4a1 1 0 0 1 1-1Zm0 15a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0v-1a1 1 0 0 1 1-1Zm9-9a1 1 0 0 1 0 2h-1a1 1 0 1 1 0-2h1ZM5 11a1 1 0 0 1 0 2H4a1 1 0 1 1 0-2h1Zm14.07-5.66a1 1 0 0 1 0 1.41l-.71.71a1 1 0 1 1-1.41-1.41l.7-.71a1 1 0 0 1 1.42 0ZM7.05 17.66a1 1 0 0 1 0 1.41l-.7.71a1 1 0 0 1-1.42-1.41l.71-.71a1 1 0 0 1 1.41 0Zm12.02 2.12a1 1 0 0 1-1.41 0l-.71-.71a1 1 0 0 1 1.41-1.41l.71.7a1 1 0 0 1 0 1.42ZM7.05 6.34a1 1 0 0 1-1.41 0l-.71-.7a1 1 0 0 1 1.41-1.42l.71.71a1 1 0 0 1 0 1.41ZM12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10Z"/></svg>
+          {/* Theme toggle + Auth */}
+          <div className="flex items-center gap-2">
+            <button onClick={toggleTheme} aria-label={dark ? "Switch to light theme" : "Switch to dark theme"} className="p-1.5 rounded-md transition-colors hover:opacity-70">
+              {dark ? (
+                <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0V4a1 1 0 0 1 1-1Zm0 15a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0v-1a1 1 0 0 1 1-1Zm9-9a1 1 0 0 1 0 2h-1a1 1 0 1 1 0-2h1ZM5 11a1 1 0 0 1 0 2H4a1 1 0 1 1 0-2h1Zm14.07-5.66a1 1 0 0 1 0 1.41l-.71.71a1 1 0 1 1-1.41-1.41l.7-.71a1 1 0 0 1 1.42 0ZM7.05 17.66a1 1 0 0 1 0 1.41l-.7.71a1 1 0 0 1-1.42-1.41l.71-.71a1 1 0 0 1 1.41 0Zm12.02 2.12a1 1 0 0 1-1.41 0l-.71-.71a1 1 0 0 1 1.41-1.41l.71.7a1 1 0 0 1 0 1.42ZM7.05 6.34a1 1 0 0 1-1.41 0l-.71-.7a1 1 0 0 1 1.41-1.42l.71.71a1 1 0 0 1 0 1.41ZM12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10Z"/></svg>
+              ) : (
+                <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M12.1 22c5.52 0 10-4.48 10-10 0-4.75-3.31-8.72-7.75-9.74a.78.78 0 0 0-.9 1.01 8.27 8.27 0 0 1-8.17 10.36.78.78 0 0 0-.56 1.3A9.98 9.98 0 0 0 12.1 22Z"/></svg>
+              )}
+            </button>
+            {user ? (
+              <div className="hidden md:flex items-center gap-2">
+                <span
+                  className="text-xs truncate max-w-[140px]"
+                  style={{ color: "var(--color-text-muted)" }}
+                  aria-label={`Signed in as ${user.email}`}
+                  title={user.email}
+                >
+                  {user.email}
+                </span>
+                <form action={signOut}>
+                  <button type="submit" className="btn text-xs px-3 py-1.5">Sign out</button>
+                </form>
+              </div>
             ) : (
-              <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M12.1 22c5.52 0 10-4.48 10-10 0-4.75-3.31-8.72-7.75-9.74a.78.78 0 0 0-.9 1.01 8.27 8.27 0 0 1-8.17 10.36.78.78 0 0 0-.56 1.3A9.98 9.98 0 0 0 12.1 22Z"/></svg>
+              <Link href="/login" className="btn-primary hidden md:inline-flex text-xs px-4 py-1.5">
+                Sign in
+              </Link>
             )}
-          </button>
+          </div>
         </div>
       </nav>
 
@@ -111,13 +138,31 @@ export default function Navbar() {
               </Link>
             ))}
             <hr style={{ borderColor: "var(--color-border)" }} className="my-1" />
-            <Link
-              href="/admin"
-              onClick={() => setDrawerOpen(false)}
-              className="block rounded-md px-3 py-2.5 text-sm font-medium transition-colors hover:opacity-70"
-            >
-              Admin
-            </Link>
+            {user ? (
+              <>
+                <p className="px-3 py-1.5 text-xs truncate" style={{ color: "var(--color-text-muted)" }}>
+                  {user.email}
+                </p>
+                <form action={signOut}>
+                  <button
+                    type="submit"
+                    onClick={() => setDrawerOpen(false)}
+                    className="block w-full rounded-md px-3 py-2.5 text-left text-sm font-medium transition-colors hover:opacity-70"
+                  >
+                    Sign out
+                  </button>
+                </form>
+              </>
+            ) : (
+              <Link
+                href="/login"
+                onClick={() => setDrawerOpen(false)}
+                className="block rounded-md px-3 py-2.5 text-sm font-medium transition-colors hover:opacity-70"
+                style={{ color: "var(--color-primary)" }}
+              >
+                Sign in
+              </Link>
+            )}
           </div>
         </div>
       )}

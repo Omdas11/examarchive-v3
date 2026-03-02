@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
+import { getServerUser } from "@/lib/auth";
 import UploadForm from "@/components/UploadForm";
 
 export const metadata: Metadata = {
@@ -14,18 +16,15 @@ const guidelines = [
   "Uploads are reviewed by admins before publishing.",
 ];
 
-export default function UploadPage() {
+export default async function UploadPage() {
+  const user = await getServerUser();
+
+  if (!user) {
+    redirect("/login?next=/upload");
+  }
+
   return (
     <section className="mx-auto px-4 py-10" style={{ maxWidth: "var(--max-w)" }}>
-      {/* Auth wall placeholder */}
-      <div className="card mb-8 p-6 text-center" id="auth-wall">
-        <h2 className="text-lg font-semibold">Sign in Required</h2>
-        <p className="mt-1 text-sm" style={{ color: "var(--color-text-muted)" }}>
-          You need to sign in to upload papers.
-        </p>
-        <a href="/admin" className="btn-primary mt-4 inline-block">Sign In</a>
-      </div>
-
       {/* Intro */}
       <h1 className="text-2xl font-bold">Upload to ExamArchive</h1>
       <p className="mt-1 text-sm" style={{ color: "var(--color-text-muted)" }}>

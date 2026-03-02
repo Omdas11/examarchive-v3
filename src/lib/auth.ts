@@ -3,6 +3,19 @@ import { isValidCustomRole, isValidTier, isValidUserRole } from "./roles";
 import type { Achievement, CustomRole, ExtendedUserProfile, UserProfile, UserRole, UserTier } from "@/types";
 
 /**
+ * Lightweight helper that returns the authenticated Supabase `User` object or
+ * `null` when unauthenticated.  Prefer this when you only need to check
+ * whether the request is authenticated without fetching the full profile.
+ */
+export async function getUser() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return user;
+}
+
+/**
  * Return the currently authenticated user's profile (including role) or `null`
  * if the request is unauthenticated.  Always performs the check server-side so
  * it cannot be bypassed on the client.

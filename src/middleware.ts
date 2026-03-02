@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 /** Routes that require an authenticated session. */
-const PROTECTED_PATHS = ["/admin", "/api/upload", "/api/admin"];
+const PROTECTED_PATHS = ["/upload", "/dashboard", "/admin", "/api/upload", "/api/admin"];
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -39,8 +39,8 @@ export async function middleware(request: NextRequest) {
   const isProtected = PROTECTED_PATHS.some((p) => pathname.startsWith(p));
   if (isProtected && !user) {
     const url = request.nextUrl.clone();
-    url.pathname = "/";
-    url.searchParams.set("message", "login_required");
+    url.pathname = "/login";
+    url.searchParams.set("next", pathname);
     return NextResponse.redirect(url);
   }
 
