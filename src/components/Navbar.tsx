@@ -88,14 +88,15 @@ export default function Navbar({ user }: NavbarProps) {
             </button>
             {user ? (
               <div className="hidden md:flex items-center gap-2">
-                <span
-                  className="text-xs truncate max-w-[140px]"
+                <Link
+                  href="/profile"
+                  className="text-xs truncate max-w-[140px] transition-colors hover:opacity-70"
                   style={{ color: "var(--color-text-muted)" }}
                   aria-label={`Signed in as ${user.email}`}
                   title={user.email}
                 >
                   {user.email}
-                </span>
+                </Link>
                 <form action={signOut}>
                   <button type="submit" className="btn text-xs px-3 py-1.5">Sign out</button>
                 </form>
@@ -140,9 +141,14 @@ export default function Navbar({ user }: NavbarProps) {
             <hr style={{ borderColor: "var(--color-border)" }} className="my-1" />
             {user ? (
               <>
-                <p className="px-3 py-1.5 text-xs truncate" style={{ color: "var(--color-text-muted)" }}>
+                <Link
+                  href="/profile"
+                  onClick={() => setDrawerOpen(false)}
+                  className="block rounded-md px-3 py-2.5 text-sm font-medium transition-colors hover:opacity-70"
+                  style={{ color: "var(--color-text-muted)" }}
+                >
                   {user.email}
-                </p>
+                </Link>
                 <form action={signOut}>
                   <button
                     type="submit"

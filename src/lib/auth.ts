@@ -42,7 +42,30 @@ export async function getServerUser(): Promise<UserProfile | null> {
       .eq("id", user.id)
       .single();
 
-    if (!profile) return null;
+    if (!profile) {
+      // Auto-create profile row on first login (no DB trigger required).
+      const { data: newProfile, error: insertError } = await supabase
+        .from("profiles")
+        .insert({
+          id: user.id,
+          email: user.email ?? "",
+          role: "student",
+        })
+        .select()
+        .single();
+
+      if (insertError || !newProfile) {
+        console.error("[auth] Failed to create profile for user", user.id, insertError?.message);
+        return null;
+      }
+
+      return {
+        id: newProfile.id,
+        email: newProfile.email ?? user.email ?? "",
+        role: "student" as UserRole,
+        created_at: newProfile.created_at,
+      };
+    }
 
     return {
       id: profile.id,
