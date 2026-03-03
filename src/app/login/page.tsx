@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { signInWithOtp } from "@/app/auth/actions";
+import LoginForm from "./LoginForm";
 
 export const metadata: Metadata = {
   title: "Sign In",
@@ -14,6 +14,8 @@ interface Props {
 const ERROR_MESSAGES: Record<string, string> = {
   email_required: "Please enter your email address.",
   auth_callback_error: "The sign-in link has expired or is invalid. Please try again.",
+  auth_callback_expired: "Your sign-in link has expired. Please request a new one.",
+  rate_limit: "Too many sign-in attempts. Please wait before trying again.",
 };
 
 export default async function LoginPage({ searchParams }: Props) {
@@ -22,6 +24,7 @@ export default async function LoginPage({ searchParams }: Props) {
   const errorText = error
     ? (ERROR_MESSAGES[error] ?? decodeURIComponent(error))
     : null;
+  const isRateLimit = error === "rate_limit";
 
   return (
     <div className="mx-auto flex min-h-[calc(100vh-14rem)] items-center justify-center px-4 py-16">
@@ -58,45 +61,7 @@ export default async function LoginPage({ searchParams }: Props) {
               </p>
             </div>
           ) : (
-            <form action={signInWithOtp} className="space-y-4">
-              {/* Error banner */}
-              {errorText && (
-                <div
-                  role="alert"
-                  className="rounded-lg px-4 py-3 text-sm"
-                  style={{
-                    background: "var(--color-accent-soft)",
-                    color: "var(--color-primary)",
-                    border: "1px solid var(--color-primary)",
-                  }}
-                >
-                  {errorText}
-                </div>
-              )}
-
-              <div>
-                <label
-                  htmlFor="email"
-                  className="mb-1.5 block text-xs font-medium"
-                  style={{ color: "var(--color-text-muted)" }}
-                >
-                  Email address
-                </label>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  placeholder="you@example.com"
-                  className="input-field"
-                />
-              </div>
-
-              <button type="submit" className="btn-primary w-full">
-                Send magic link
-              </button>
-            </form>
+            <LoginForm errorText={errorText} isRateLimit={isRateLimit} />
           )}
         </div>
 
