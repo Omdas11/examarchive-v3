@@ -6,43 +6,53 @@ import type { Achievement, CustomRole, ExtendedUserProfile, UserProfile, UserRol
  * Lightweight helper that returns the authenticated Supabase `User` object or
  * `null` when unauthenticated.  Prefer this when you only need to check
  * whether the request is authenticated without fetching the full profile.
+ * Returns null gracefully when Supabase is not configured (e.g. during build).
  */
 export async function getUser() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return user;
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    return user;
+  } catch {
+    return null;
+  }
 }
 
 /**
  * Return the currently authenticated user's profile (including role) or `null`
  * if the request is unauthenticated.  Always performs the check server-side so
  * it cannot be bypassed on the client.
+ * Returns null gracefully when Supabase is not configured (e.g. during build).
  */
 export async function getServerUser(): Promise<UserProfile | null> {
-  const supabase = await createClient();
+  try {
+    const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-  if (!user) return null;
+    if (!user) return null;
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .single();
 
-  if (!profile) return null;
+    if (!profile) return null;
 
-  return {
-    id: profile.id,
-    email: profile.email ?? user.email ?? "",
-    role: (profile.role as UserRole) ?? "student",
-    created_at: profile.created_at,
-  };
+    return {
+      id: profile.id,
+      email: profile.email ?? user.email ?? "",
+      role: (profile.role as UserRole) ?? "student",
+      created_at: profile.created_at,
+    };
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -53,53 +63,58 @@ export async function getServerUser(): Promise<UserProfile | null> {
  *
  * All validation is performed server-side; no client-supplied values are
  * trusted.
+ * Returns null gracefully when Supabase is not configured (e.g. during build).
  */
 export async function getExtendedServerUser(): Promise<ExtendedUserProfile | null> {
-  const supabase = await createClient();
+  try {
+    const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-  if (!user) return null;
+    if (!user) return null;
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .single();
 
-  if (!profile) return null;
+    if (!profile) return null;
 
-  // Validate primary_role – fall back to "student" for unknown values.
-  const rawPrimary = profile.primary_role ?? profile.role;
-  const primaryRole: UserRole = isValidUserRole(rawPrimary) ? rawPrimary : "student";
+    // Validate primary_role – fall back to "student" for unknown values.
+    const rawPrimary = profile.primary_role ?? profile.role;
+    const primaryRole: UserRole = isValidUserRole(rawPrimary) ? rawPrimary : "student";
 
-  // Validate secondary / tertiary custom roles.
-  const rawSecondary = profile.secondary_role ?? null;
-  const secondaryRole: CustomRole = isValidCustomRole(rawSecondary) ? rawSecondary : null;
+    // Validate secondary / tertiary custom roles.
+    const rawSecondary = profile.secondary_role ?? null;
+    const secondaryRole: CustomRole = isValidCustomRole(rawSecondary) ? rawSecondary : null;
 
-  const rawTertiary = profile.tertiary_role ?? null;
-  const tertiaryRole: CustomRole = isValidCustomRole(rawTertiary) ? rawTertiary : null;
+    const rawTertiary = profile.tertiary_role ?? null;
+    const tertiaryRole: CustomRole = isValidCustomRole(rawTertiary) ? rawTertiary : null;
 
-  // Validate tier.
-  const rawTier = profile.tier ?? "bronze";
-  const tier: UserTier = isValidTier(rawTier) ? rawTier : "bronze";
+    // Validate tier.
+    const rawTier = profile.tier ?? "bronze";
+    const tier: UserTier = isValidTier(rawTier) ? rawTier : "bronze";
 
-  // Fetch achievements (table may not exist yet – silently return empty array).
-  const { data: achievements } = await supabase
-    .from("achievements")
-    .select("*")
-    .eq("user_id", user.id);
+    // Fetch achievements (table may not exist yet – silently return empty array).
+    const { data: achievements } = await supabase
+      .from("achievements")
+      .select("*")
+      .eq("user_id", user.id);
 
-  return {
-    id: profile.id,
-    email: profile.email ?? user.email ?? "",
-    primary_role: primaryRole,
-    secondary_role: secondaryRole,
-    tertiary_role: tertiaryRole,
-    tier,
-    achievements: (achievements as Achievement[]) ?? [],
-    created_at: profile.created_at,
-  };
+    return {
+      id: profile.id,
+      email: profile.email ?? user.email ?? "",
+      primary_role: primaryRole,
+      secondary_role: secondaryRole,
+      tertiary_role: tertiaryRole,
+      tier,
+      achievements: (achievements as Achievement[]) ?? [],
+      created_at: profile.created_at,
+    };
+  } catch {
+    return null;
+  }
 }

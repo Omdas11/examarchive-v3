@@ -12,15 +12,21 @@ function requireEnv(name: string): string {
   return value;
 }
 
-const url = requireEnv("NEXT_PUBLIC_SUPABASE_URL");
-const anonKey = requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY");
-
 /**
  * Supabase client for use in **Server Components**, **Route Handlers** and
  * **Server Actions**.  Reads / writes cookies via the Next.js `cookies()` API.
+ *
+ * Environment variables are validated lazily (at request time) so that the
+ * module can be imported during the Next.js build without throwing.
  */
 export async function createClient() {
+  // `cookies()` is a Next.js dynamic API – calling it first ensures any page
+  // that creates a Supabase client is automatically treated as dynamically
+  // rendered (not prerendered at build time).  Env vars are then validated at
+  // request time when they are guaranteed to be present in production.
   const cookieStore = await cookies();
+  const url = requireEnv("NEXT_PUBLIC_SUPABASE_URL");
+  const anonKey = requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY");
 
   return createServerClient(url, anonKey, {
     cookies: {
