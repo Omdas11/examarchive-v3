@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 /** Routes that require an authenticated session. */
-const PROTECTED_PATHS = ["/upload", "/dashboard", "/admin", "/api/upload", "/api/admin"];
+const PROTECTED_PATHS = ["/upload", "/dashboard", "/admin", "/profile", "/api/upload", "/api/admin"];
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
