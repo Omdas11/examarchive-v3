@@ -7,24 +7,32 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+type Mode = "magic" | "signin" | "signup";
+
 interface Props {
-  searchParams: Promise<{ error?: string; message?: string }>;
+  searchParams: Promise<{ error?: string; message?: string; mode?: string }>;
 }
 
 const ERROR_MESSAGES: Record<string, string> = {
   email_required: "Please enter your email address.",
+  fields_required: "Please enter your email and password.",
   auth_callback_error: "The sign-in link has expired or is invalid. Please try again.",
   auth_callback_expired: "Your sign-in link has expired. Please request a new one.",
-  rate_limit: "Too many sign-in attempts. Please wait before trying again.",
+  rate_limit: "Too many attempts. Please wait before trying again.",
+  invalid_credentials: "Invalid email or password. Please try again.",
+  already_registered: "An account with this email already exists. Try signing in instead.",
 };
 
+const VALID_MODES: Mode[] = ["magic", "signin", "signup"];
+
 export default async function LoginPage({ searchParams }: Props) {
-  const { error, message } = await searchParams;
+  const { error, message, mode } = await searchParams;
 
   const errorText = error
     ? (ERROR_MESSAGES[error] ?? decodeURIComponent(error))
     : null;
   const isRateLimit = error === "rate_limit";
+  const initialMode: Mode = VALID_MODES.includes(mode as Mode) ? (mode as Mode) : "magic";
 
   return (
     <div className="mx-auto flex min-h-[calc(100vh-14rem)] items-center justify-center px-4 py-16">
@@ -39,36 +47,16 @@ export default async function LoginPage({ searchParams }: Props) {
             >
               EA
             </span>
-            <h1 className="mt-3 text-xl font-bold">Welcome back</h1>
-            <p className="mt-1 text-sm" style={{ color: "var(--color-text-muted)" }}>
-              Enter your email to receive a sign-in link.
-            </p>
+            <h1 className="mt-3 text-xl font-bold">Welcome to ExamArchive</h1>
           </div>
 
-          {/* Success state */}
-          {message === "check_email" ? (
-            <div
-              className="rounded-lg p-4 text-center text-sm"
-              style={{
-                background: "var(--color-accent-soft)",
-                color: "var(--color-primary)",
-                border: "1px solid var(--color-primary)",
-              }}
-            >
-              <p className="font-semibold">Check your inbox!</p>
-              <p className="mt-1" style={{ color: "var(--color-text-muted)" }}>
-                We&apos;ve sent a magic link to your email. Click it to sign in.
-              </p>
-            </div>
-          ) : (
-            <LoginForm errorText={errorText} isRateLimit={isRateLimit} />
-          )}
+          <LoginForm
+            errorText={errorText}
+            isRateLimit={isRateLimit}
+            message={message ?? null}
+            initialMode={initialMode}
+          />
         </div>
-
-        {/* Footer note */}
-        <p className="mt-4 text-center text-xs" style={{ color: "var(--color-text-muted)" }}>
-          No password needed — we&apos;ll email you a one-time sign-in link.
-        </p>
       </div>
     </div>
   );
