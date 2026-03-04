@@ -111,6 +111,15 @@ export default function LoginForm({ errorText, isRateLimit, message, initialMode
             Resend link
           </button>
         )}
+
+        {/* Always visible so users can sign in immediately without waiting for the cooldown */}
+        <button
+          type="button"
+          onClick={() => { setSent(false); setCooling(false); setMode("signin"); }}
+          className="btn w-full text-sm"
+        >
+          Sign in with password instead
+        </button>
       </div>
     );
   }

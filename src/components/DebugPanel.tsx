@@ -26,6 +26,9 @@ function getSupabase() {
   return createBrowserClient(url, key);
 }
 
+/** Maximum number of log entries retained in memory to avoid performance degradation. */
+const MAX_LOGS = 50;
+
 export default function DebugPanel() {
   const [open, setOpen] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
@@ -33,7 +36,10 @@ export default function DebugPanel() {
   const [cookiesText, setCookiesText] = useState<string | null>(null);
 
   const addLog = useCallback((label: string, data: unknown) => {
-    setLogs((l) => [...l, { ts: now(), label, data }]);
+    setLogs((l) => {
+      const next = [...l, { ts: now(), label, data }];
+      return next.length > MAX_LOGS ? next.slice(next.length - MAX_LOGS) : next;
+    });
   }, []);
 
   const refreshSession = useCallback(async () => {

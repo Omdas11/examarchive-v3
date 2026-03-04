@@ -89,7 +89,7 @@ export default async function RootLayout({
           <Navbar user={user} />
           <main className="flex-1">{children}</main>
           <Footer />
-          {process.env.NODE_ENV !== "production" && <DebugPanel />}
+          {process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_ENABLE_DEBUG_PANEL === "true" && <DebugPanel />}
         </div>
       </body>
     </html>
