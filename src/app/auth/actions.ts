@@ -100,12 +100,17 @@ export async function signUp(formData: FormData) {
 
   if (error) {
     const status = (error as { status?: number }).status;
+    // Treat "already registered" identically to success to prevent account
+    // enumeration – the user always sees the generic "check email" message.
+    // Check both the Supabase error code (stable) and message (fallback).
+    const isAlreadyRegistered =
+      (error as { code?: string }).code === "user_already_exists" ||
+      error.message.toLowerCase().includes("already registered");
+    if (isAlreadyRegistered) {
+      redirect("/login?message=check_email");
+    }
     const code =
-      status === 429
-        ? "rate_limit"
-        : error.message.toLowerCase().includes("already registered")
-          ? "already_registered"
-          : encodeURIComponent(error.message);
+      status === 429 ? "rate_limit" : encodeURIComponent(error.message);
     redirect(`/login?mode=signup&error=${code}`);
   }
 

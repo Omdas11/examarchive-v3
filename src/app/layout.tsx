@@ -3,6 +3,7 @@ import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { getServerUser } from "@/lib/auth";
+import DebugPanel from "@/components/DebugPanel";
 
 const SITE_URL = "https://examarchive.dev";
 const SITE_NAME = "ExamArchive";
@@ -88,6 +89,7 @@ export default async function RootLayout({
           <Navbar user={user} />
           <main className="flex-1">{children}</main>
           <Footer />
+          {process.env.NODE_ENV !== "production" && <DebugPanel />}
         </div>
       </body>
     </html>
