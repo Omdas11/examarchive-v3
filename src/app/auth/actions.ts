@@ -31,7 +31,13 @@ export async function signInWithOtp(formData: FormData) {
   });
 
   if (error) {
-    redirect(`/login?error=${encodeURIComponent(error.message)}`);
+    // Map HTTP 429 (rate-limited) to a stable error code so the login page
+    // can show a countdown timer rather than raw API text.
+    const code =
+      (error as { status?: number }).status === 429
+        ? "rate_limit"
+        : encodeURIComponent(error.message);
+    redirect(`/login?error=${code}`);
   }
 
   redirect("/login?message=check_email");

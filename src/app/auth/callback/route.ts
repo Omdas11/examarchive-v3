@@ -20,6 +20,18 @@ export async function GET(request: NextRequest) {
       const safePath = next.startsWith("/") ? next : "/";
       return NextResponse.redirect(`${origin}${safePath}`);
     }
+
+    // Return a specific error code so the login page can display a tailored
+    // message instead of the raw Supabase error string.
+    const status = (error as { status?: number }).status;
+    const errorCode =
+      status === 429
+        ? "rate_limit"
+        : error.message.toLowerCase().includes("expired")
+          ? "auth_callback_expired"
+          : "auth_callback_error";
+
+    return NextResponse.redirect(`${origin}/login?error=${errorCode}`);
   }
 
   return NextResponse.redirect(`${origin}/login?error=auth_callback_error`);
