@@ -1,7 +1,13 @@
 import type { Metadata } from "next";
-import { createClient } from "@/lib/supabaseServer";
+import {
+  adminDatabases,
+  DATABASE_ID,
+  COLLECTION,
+  Query,
+} from "@/lib/appwrite";
 import PaperCard from "@/components/PaperCard";
 import type { Paper } from "@/types";
+import { toPaper } from "@/types";
 
 export const metadata: Metadata = {
   title: "Browse Papers",
@@ -27,22 +33,31 @@ export default async function BrowsePage({
   searchParams: Promise<BrowseSearchParams>;
 }) {
   const params = await searchParams;
-  const supabase = await createClient();
 
-  let query = supabase
-    .from("papers")
-    .select("*")
-    .eq("approved", true)
-    .order("created_at", { ascending: false });
+  const queries: string[] = [
+    Query.equal("approved", true),
+    Query.orderDesc("$createdAt"),
+  ];
 
-  if (params.department) query = query.eq("department", params.department);
-  if (params.course_code) query = query.eq("course_code", params.course_code);
-  if (params.year) query = query.eq("year", Number(params.year));
-  if (params.semester) query = query.eq("semester", params.semester);
-  if (params.exam_type) query = query.eq("exam_type", params.exam_type);
-  if (params.search) query = query.ilike("title", `%${params.search}%`);
+  if (params.department) queries.push(Query.equal("department", params.department));
+  if (params.course_code) queries.push(Query.equal("course_code", params.course_code));
+  if (params.year) queries.push(Query.equal("year", Number(params.year)));
+  if (params.semester) queries.push(Query.equal("semester", params.semester));
+  if (params.exam_type) queries.push(Query.equal("exam_type", params.exam_type));
+  if (params.search) queries.push(Query.search("title", params.search));
 
-  const { data: papers } = await query;
+  let papers: Paper[] = [];
+  try {
+    const db = adminDatabases();
+    const { documents } = await db.listDocuments(
+      DATABASE_ID,
+      COLLECTION.papers,
+      queries,
+    );
+    papers = documents.map(toPaper);
+  } catch {
+    // collection may not exist yet
+  }
 
   return (
     <section className="mx-auto px-4 py-10" style={{ maxWidth: "var(--max-w)" }}>

@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
-import { createClient } from "@/lib/supabaseServer";
+import {
+  adminDatabases,
+  DATABASE_ID,
+  COLLECTION,
+} from "@/lib/appwrite";
 import type { Paper } from "@/types";
+import { toPaper } from "@/types";
 
 interface PaperPageProps {
   params: Promise<{ id: string }>;
@@ -8,29 +13,28 @@ interface PaperPageProps {
 
 export async function generateMetadata({ params }: PaperPageProps): Promise<Metadata> {
   const { id } = await params;
-  const supabase = await createClient();
-  const { data: paper } = await supabase
-    .from("papers")
-    .select("title, course_code, course_name")
-    .eq("id", id)
-    .single();
-
-  if (!paper) return { title: "Paper Not Found" };
-
-  return {
-    title: `${paper.title} – ${paper.course_code}`,
-    description: `Download ${paper.title} for ${paper.course_name} (${paper.course_code}).`,
-  };
+  try {
+    const db = adminDatabases();
+    const doc = await db.getDocument(DATABASE_ID, COLLECTION.papers, id);
+    return {
+      title: `${doc.title} – ${doc.course_code}`,
+      description: `Download ${doc.title} for ${doc.course_name} (${doc.course_code}).`,
+    };
+  } catch {
+    return { title: "Paper Not Found" };
+  }
 }
 
 export default async function PaperPage({ params }: PaperPageProps) {
   const { id } = await params;
-  const supabase = await createClient();
-  const { data: paper } = await supabase
-    .from("papers")
-    .select("*")
-    .eq("id", id)
-    .single<Paper>();
+  let paper: Paper | null = null;
+  try {
+    const db = adminDatabases();
+    const doc = await db.getDocument(DATABASE_ID, COLLECTION.papers, id);
+    paper = toPaper(doc);
+  } catch {
+    // document not found
+  }
 
   if (!paper) {
     return (

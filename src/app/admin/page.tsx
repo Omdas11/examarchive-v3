@@ -2,8 +2,14 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getServerUser } from "@/lib/auth";
 import { isAdmin } from "@/lib/roles";
-import { createClient } from "@/lib/supabaseServer";
+import {
+  adminDatabases,
+  DATABASE_ID,
+  COLLECTION,
+  Query,
+} from "@/lib/appwrite";
 import type { Paper } from "@/types";
+import { toPaper } from "@/types";
 
 export const metadata: Metadata = {
   title: "Admin Dashboard",
@@ -17,17 +23,34 @@ export default async function AdminPage() {
     redirect("/");
   }
 
-  const supabase = await createClient();
-  const { data: pending } = await supabase
-    .from("papers")
-    .select("*")
-    .eq("approved", false)
-    .order("created_at", { ascending: false });
+  const db = adminDatabases();
 
-  const { count: approvedCount } = await supabase
-    .from("papers")
-    .select("*", { count: "exact", head: true })
-    .eq("approved", true);
+  let pending: Paper[] = [];
+  let approvedCount = 0;
+
+  try {
+    const { documents } = await db.listDocuments(
+      DATABASE_ID,
+      COLLECTION.papers,
+      [Query.equal("approved", false), Query.orderDesc("$createdAt")],
+    );
+    pending = documents.map(toPaper);
+  } catch {
+    // collection may not exist yet
+  }
+
+  try {
+    const { total } = await db.listDocuments(
+      DATABASE_ID,
+      COLLECTION.papers,
+      [Query.equal("approved", true), Query.limit(1)],
+      undefined,
+      true,
+    );
+    approvedCount = total;
+  } catch {
+    // collection may not exist yet
+  }
 
   const stats = [
     { label: "Pending", value: pending?.length ?? 0 },

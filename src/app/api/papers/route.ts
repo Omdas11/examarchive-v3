@@ -1,5 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@/lib/supabaseServer";
+import {
+  adminDatabases,
+  DATABASE_ID,
+  COLLECTION,
+  Query,
+} from "@/lib/appwrite";
 
 /**
  * GET /api/papers
@@ -7,33 +12,37 @@ import { createClient } from "@/lib/supabaseServer";
  */
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const supabase = await createClient();
 
-  let query = supabase
-    .from("papers")
-    .select("*")
-    .eq("approved", true)
-    .order("created_at", { ascending: false });
+  try {
+    const queries: string[] = [
+      Query.equal("approved", true),
+      Query.orderDesc("$createdAt"),
+    ];
 
-  const department = searchParams.get("department");
-  const courseCode = searchParams.get("course_code");
-  const year = searchParams.get("year");
-  const semester = searchParams.get("semester");
-  const examType = searchParams.get("exam_type");
-  const search = searchParams.get("search");
+    const department = searchParams.get("department");
+    const courseCode = searchParams.get("course_code");
+    const year = searchParams.get("year");
+    const semester = searchParams.get("semester");
+    const examType = searchParams.get("exam_type");
+    const search = searchParams.get("search");
 
-  if (department) query = query.eq("department", department);
-  if (courseCode) query = query.eq("course_code", courseCode);
-  if (year) query = query.eq("year", Number(year));
-  if (semester) query = query.eq("semester", semester);
-  if (examType) query = query.eq("exam_type", examType);
-  if (search) query = query.ilike("title", `%${search}%`);
+    if (department) queries.push(Query.equal("department", department));
+    if (courseCode) queries.push(Query.equal("course_code", courseCode));
+    if (year) queries.push(Query.equal("year", Number(year)));
+    if (semester) queries.push(Query.equal("semester", semester));
+    if (examType) queries.push(Query.equal("exam_type", examType));
+    if (search) queries.push(Query.search("title", search));
 
-  const { data, error } = await query;
+    const db = adminDatabases();
+    const { documents } = await db.listDocuments(
+      DATABASE_ID,
+      COLLECTION.papers,
+      queries,
+    );
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(documents);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  return NextResponse.json(data);
 }

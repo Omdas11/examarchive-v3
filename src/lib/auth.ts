@@ -1,20 +1,50 @@
-import { createClient } from "./supabaseServer";
+import { cookies } from "next/headers";
+import {
+  createSessionClient,
+  adminDatabases,
+  DATABASE_ID,
+  COLLECTION,
+  Account,
+  Query,
+} from "./appwrite";
 import { isValidCustomRole, isValidTier, isValidUserRole } from "./roles";
-import type { Achievement, CustomRole, ExtendedUserProfile, UserProfile, UserRole, UserTier } from "@/types";
+import type {
+  Achievement,
+  CustomRole,
+  ExtendedUserProfile,
+  UserProfile,
+  UserRole,
+  UserTier,
+} from "@/types";
+
+/** Name of the cookie that stores the Appwrite session secret. */
+export const SESSION_COOKIE = "ea_session";
 
 /**
- * Lightweight helper that returns the authenticated Supabase `User` object or
- * `null` when unauthenticated.  Prefer this when you only need to check
- * whether the request is authenticated without fetching the full profile.
- * Returns null gracefully when Supabase is not configured (e.g. during build).
+ * Read the Appwrite session secret from the request cookies.
+ * Returns `null` when no session cookie is present.
+ */
+export async function getSessionSecret(): Promise<string | null> {
+  try {
+    const cookieStore = await cookies();
+    return cookieStore.get(SESSION_COOKIE)?.value ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Lightweight helper that returns the authenticated Appwrite `User` object or
+ * `null` when unauthenticated.
  */
 export async function getUser() {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    return user;
+    const session = await getSessionSecret();
+    if (!session) return null;
+
+    const client = createSessionClient(session);
+    const account = new Account(client);
+    return await account.get();
   } catch {
     return null;
   }
@@ -22,120 +52,131 @@ export async function getUser() {
 
 /**
  * Return the currently authenticated user's profile (including role) or `null`
- * if the request is unauthenticated.  Always performs the check server-side so
- * it cannot be bypassed on the client.
- * Returns null gracefully when Supabase is not configured (e.g. during build).
+ * if the request is unauthenticated.
  */
 export async function getServerUser(): Promise<UserProfile | null> {
   try {
-    const supabase = await createClient();
+    const session = await getSessionSecret();
+    if (!session) return null;
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const client = createSessionClient(session);
+    const account = new Account(client);
+    const user = await account.get();
 
-    if (!user) return null;
+    const db = adminDatabases();
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", user.id)
-      .single();
+    // Try to find existing profile document
+    const { documents } = await db.listDocuments(
+      DATABASE_ID,
+      COLLECTION.users,
+      [Query.equal("email", user.email)],
+    );
 
-    if (!profile) {
-      // Auto-create profile row on first login (no DB trigger required).
-      const { data: newProfile, error: insertError } = await supabase
-        .from("profiles")
-        .insert({
-          id: user.id,
-          email: user.email ?? "",
-          role: "student",
-        })
-        .select()
-        .single();
-
-      if (insertError || !newProfile) {
-        console.error("[auth] Failed to create profile for user", user.id, insertError?.message);
-        return null;
-      }
-
+    if (documents.length > 0) {
+      const profile = documents[0];
       return {
-        id: newProfile.id,
-        email: newProfile.email ?? user.email ?? "",
-        role: "student" as UserRole,
-        created_at: newProfile.created_at,
+        id: profile.$id,
+        email: profile.email ?? user.email,
+        role: (profile.role as UserRole) ?? "student",
+        created_at: profile.$createdAt,
       };
     }
 
-    return {
-      id: profile.id,
-      email: profile.email ?? user.email ?? "",
-      role: (profile.role as UserRole) ?? "student",
-      created_at: profile.created_at,
-    };
+    // Auto-create profile document on first login
+    try {
+      const newProfile = await db.createDocument(
+        DATABASE_ID,
+        COLLECTION.users,
+        user.$id,
+        {
+          email: user.email,
+          role: "student",
+        },
+      );
+
+      return {
+        id: newProfile.$id,
+        email: newProfile.email ?? user.email,
+        role: "student" as UserRole,
+        created_at: newProfile.$createdAt,
+      };
+    } catch (insertError) {
+      console.error(
+        "[auth] Failed to create profile for user",
+        user.$id,
+        insertError,
+      );
+      return null;
+    }
   } catch {
     return null;
   }
 }
 
 /**
- * Return the extended user profile including the v2-style role columns
- * (`primary_role`, `secondary_role`, `tertiary_role`), `tier`, and
- * `achievements`.  Falls back to safe defaults when columns are absent so the
- * function remains compatible with the current single-`role` schema.
- *
- * All validation is performed server-side; no client-supplied values are
- * trusted.
- * Returns null gracefully when Supabase is not configured (e.g. during build).
+ * Return the extended user profile including v2-style role columns,
+ * tier, and achievements.
  */
 export async function getExtendedServerUser(): Promise<ExtendedUserProfile | null> {
   try {
-    const supabase = await createClient();
+    const session = await getSessionSecret();
+    if (!session) return null;
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const client = createSessionClient(session);
+    const account = new Account(client);
+    const user = await account.get();
 
-    if (!user) return null;
+    const db = adminDatabases();
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", user.id)
-      .single();
+    const { documents } = await db.listDocuments(
+      DATABASE_ID,
+      COLLECTION.users,
+      [Query.equal("email", user.email)],
+    );
 
-    if (!profile) return null;
+    if (documents.length === 0) return null;
+    const profile = documents[0];
 
-    // Validate primary_role – fall back to "student" for unknown values.
     const rawPrimary = profile.primary_role ?? profile.role;
-    const primaryRole: UserRole = isValidUserRole(rawPrimary) ? rawPrimary : "student";
+    const primaryRole: UserRole = isValidUserRole(rawPrimary)
+      ? rawPrimary
+      : "student";
 
-    // Validate secondary / tertiary custom roles.
     const rawSecondary = profile.secondary_role ?? null;
-    const secondaryRole: CustomRole = isValidCustomRole(rawSecondary) ? rawSecondary : null;
+    const secondaryRole: CustomRole = isValidCustomRole(rawSecondary)
+      ? rawSecondary
+      : null;
 
     const rawTertiary = profile.tertiary_role ?? null;
-    const tertiaryRole: CustomRole = isValidCustomRole(rawTertiary) ? rawTertiary : null;
+    const tertiaryRole: CustomRole = isValidCustomRole(rawTertiary)
+      ? rawTertiary
+      : null;
 
-    // Validate tier.
     const rawTier = profile.tier ?? "bronze";
     const tier: UserTier = isValidTier(rawTier) ? rawTier : "bronze";
 
-    // Fetch achievements (table may not exist yet – silently return empty array).
-    const { data: achievements } = await supabase
-      .from("achievements")
-      .select("*")
-      .eq("user_id", user.id);
+    // Fetch achievements (collection may not exist yet)
+    let achievements: Achievement[] = [];
+    try {
+      const { documents: achDocs } = await db.listDocuments(
+        DATABASE_ID,
+        "achievements",
+        [Query.equal("user_id", user.$id)],
+      );
+      achievements = achDocs as unknown as Achievement[];
+    } catch {
+      // collection may not exist yet
+    }
 
     return {
-      id: profile.id,
-      email: profile.email ?? user.email ?? "",
+      id: profile.$id,
+      email: profile.email ?? user.email,
       primary_role: primaryRole,
       secondary_role: secondaryRole,
       tertiary_role: tertiaryRole,
       tier,
-      achievements: (achievements as Achievement[]) ?? [],
-      created_at: profile.created_at,
+      achievements,
+      created_at: profile.$createdAt,
     };
   } catch {
     return null;
