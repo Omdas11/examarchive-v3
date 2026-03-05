@@ -14,7 +14,7 @@ export default function HomePage() {
         <div className="mt-8 flex flex-wrap justify-center gap-3">
           <Link href="/browse" className="btn-primary">Browse Papers</Link>
           <Link href="/upload" className="btn">Upload Paper</Link>
-          <Link href="/admin" className="btn">Login</Link>
+          <Link href="/login" className="btn">Login</Link>
         </div>
       </section>
 

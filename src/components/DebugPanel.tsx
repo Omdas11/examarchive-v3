@@ -7,8 +7,8 @@ import type { Session } from "@supabase/supabase-js";
 /**
  * Dev-only floating debug panel.
  * Shows session state, current user email, Supabase response logs, auth errors,
- * and environment variables.  Includes Refresh session / Clear session / Show
- * cookies buttons.
+ * redirect URLs, auth events, and environment variables.
+ * Includes Refresh session / Check user / Clear cookies / View last auth response buttons.
  *
  * Only rendered when NODE_ENV !== "production" (enforced by the parent layout).
  */
@@ -29,17 +29,43 @@ function getSupabase() {
 /** Maximum number of log entries retained in memory to avoid performance degradation. */
 const MAX_LOGS = 50;
 
+// Module-level log queue so auth events fired before the panel mounts are captured.
+const pendingLogs: LogEntry[] = [];
+
+/**
+ * Push a log entry from anywhere in the app (e.g. auth actions).
+ * If the panel is mounted it receives the entry immediately; otherwise it is
+ * queued and flushed when the panel first mounts.
+ */
+export function addDebugLog(label: string, data: unknown) {
+  pendingLogs.push({ ts: now(), label, data });
+  if (pendingLogs.length > MAX_LOGS) pendingLogs.splice(0, pendingLogs.length - MAX_LOGS);
+}
+
 export default function DebugPanel() {
   const [open, setOpen] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [cookiesText, setCookiesText] = useState<string | null>(null);
+  const [lastAuthResponse, setLastAuthResponse] = useState<unknown>(null);
+  const [showLastResponse, setShowLastResponse] = useState(false);
 
   const addLog = useCallback((label: string, data: unknown) => {
     setLogs((l) => {
       const next = [...l, { ts: now(), label, data }];
       return next.length > MAX_LOGS ? next.slice(next.length - MAX_LOGS) : next;
     });
+  }, []);
+
+  // Flush any logs that arrived before the panel mounted.
+  useEffect(() => {
+    if (pendingLogs.length > 0) {
+      setLogs((l) => {
+        const merged = [...pendingLogs, ...l];
+        return merged.length > MAX_LOGS ? merged.slice(merged.length - MAX_LOGS) : merged;
+      });
+      pendingLogs.length = 0;
+    }
   }, []);
 
   const refreshSession = useCallback(async () => {
@@ -50,6 +76,7 @@ export default function DebugPanel() {
     }
     const result = await client.auth.getSession();
     setSession(result.data.session);
+    setLastAuthResponse(result);
     addLog("getSession", {
       user: result.data.session?.user?.email ?? null,
       expires_at: result.data.session?.expires_at ?? null,
@@ -57,17 +84,65 @@ export default function DebugPanel() {
     });
   }, [addLog]);
 
+  const checkUser = useCallback(async () => {
+    const client = getSupabase();
+    if (!client) {
+      addLog("error", "Supabase env vars not configured");
+      return;
+    }
+    const result = await client.auth.getUser();
+    setLastAuthResponse(result);
+    addLog("getUser", {
+      email: result.data.user?.email ?? null,
+      id: result.data.user?.id ?? null,
+      role: result.data.user?.role ?? null,
+      last_sign_in: result.data.user?.last_sign_in_at ?? null,
+      error: result.error?.message ?? null,
+    });
+  }, [addLog]);
+
+  // Subscribe to auth state changes and log each event.
+  useEffect(() => {
+    const client = getSupabase();
+    if (!client) return;
+
+    const { data: sub } = client.auth.onAuthStateChange((event, s) => {
+      setSession(s);
+      addLog(`authStateChange: ${event}`, {
+        user: s?.user?.email ?? null,
+        expires_at: s?.expires_at ?? null,
+      });
+    });
+
+    // Log current redirect URL to help debug callback issues.
+    if (typeof window !== "undefined") {
+      addLog("redirect URL (current page)", window.location.href);
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get("code");
+      if (code) addLog("callback: code param present", code.slice(0, 8) + "…");
+      const authError = params.get("error");
+      if (authError) addLog("callback: error param", authError);
+    }
+
+    return () => {
+      sub.subscription.unsubscribe();
+    };
+  }, [addLog]);
+
   // Refresh on open
   useEffect(() => {
     if (open) refreshSession();
   }, [open, refreshSession]);
 
-  const clearSession = useCallback(async () => {
-    const client = getSupabase();
-    if (!client) return;
-    const result = await client.auth.signOut();
-    addLog("signOut", { error: result.error?.message ?? null });
-    setSession(null);
+  const clearCookies = useCallback(() => {
+    // Clear all non-httpOnly cookies accessible from JS.
+    document.cookie.split(";").forEach((c) => {
+      const name = c.split("=")[0].trim();
+      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/`;
+    });
+    const remaining = document.cookie || "(no non-httpOnly cookies remaining)";
+    setCookiesText(remaining);
+    addLog("clearCookies", remaining);
   }, [addLog]);
 
   const showCookies = useCallback(() => {
@@ -204,7 +279,7 @@ export default function DebugPanel() {
 
             {/* Cookies */}
             {cookiesText !== null && (
-              <DebugSection title="Cookies">
+              <DebugSection title="Cookies (non-httpOnly)">
                 <pre
                   style={{
                     whiteSpace: "pre-wrap",
@@ -214,6 +289,22 @@ export default function DebugPanel() {
                   }}
                 >
                   {cookiesText}
+                </pre>
+              </DebugSection>
+            )}
+
+            {/* Last auth response */}
+            {showLastResponse && lastAuthResponse !== null && (
+              <DebugSection title="Last auth response">
+                <pre
+                  style={{
+                    whiteSpace: "pre-wrap",
+                    wordBreak: "break-all",
+                    color: "#94a3b8",
+                    margin: 0,
+                  }}
+                >
+                  {JSON.stringify(lastAuthResponse, null, 2)}
                 </pre>
               </DebugSection>
             )}
@@ -252,7 +343,15 @@ export default function DebugPanel() {
               {(
                 [
                   { label: "Refresh session", fn: refreshSession },
-                  { label: "Clear session", fn: clearSession },
+                  { label: "Check user", fn: checkUser },
+                  { label: "Clear cookies", fn: clearCookies },
+                  {
+                    label: "View last auth response",
+                    fn: async () => {
+                      if (lastAuthResponse === null) await refreshSession();
+                      setShowLastResponse((v) => !v);
+                    },
+                  },
                   { label: "Show cookies", fn: showCookies },
                 ] as const
               ).map(({ label, fn }) => (
