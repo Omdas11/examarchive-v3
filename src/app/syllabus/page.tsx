@@ -1,6 +1,12 @@
 import type { Metadata } from "next";
-import { createClient } from "@/lib/supabaseServer";
+import {
+  adminDatabases,
+  DATABASE_ID,
+  COLLECTION,
+  Query,
+} from "@/lib/appwrite";
 import type { Syllabus } from "@/types";
+import { toSyllabus } from "@/types";
 
 export const metadata: Metadata = {
   title: "Syllabus",
@@ -8,12 +14,18 @@ export const metadata: Metadata = {
 };
 
 export default async function SyllabusPage() {
-  const supabase = await createClient();
-
-  const { data: syllabi } = await supabase
-    .from("syllabi")
-    .select("*")
-    .order("course_code", { ascending: true });
+  let syllabi: Syllabus[] = [];
+  try {
+    const db = adminDatabases();
+    const { documents } = await db.listDocuments(
+      DATABASE_ID,
+      COLLECTION.syllabus,
+      [Query.orderAsc("course_code")],
+    );
+    syllabi = documents.map(toSyllabus);
+  } catch {
+    // collection may not exist yet
+  }
 
   return (
     <section className="mx-auto px-4 py-10" style={{ maxWidth: "var(--max-w)" }}>

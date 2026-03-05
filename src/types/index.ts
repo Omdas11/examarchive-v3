@@ -24,7 +24,7 @@ export interface Syllabus {
   created_at: string;
 }
 
-/** Application-level user profile stored alongside Supabase Auth. */
+/** Application-level user profile stored alongside Appwrite Auth. */
 export interface UserProfile {
   id: string;
   email: string;
@@ -80,4 +80,38 @@ export interface BrowseFilters {
   semester?: string;
   exam_type?: string;
   search?: string;
+}
+
+// ── Appwrite document mapping helpers ────────────────────────────────────
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+/** Map an Appwrite document to our `Paper` type. */
+export function toPaper(doc: any): Paper {
+  return {
+    id: doc.$id ?? doc.id,
+    title: doc.title,
+    course_code: doc.course_code,
+    course_name: doc.course_name,
+    year: doc.year,
+    semester: doc.semester,
+    exam_type: doc.exam_type,
+    department: doc.department,
+    file_url: doc.file_url,
+    uploaded_by: doc.uploaded_by,
+    approved: doc.approved,
+    created_at: doc.$createdAt ?? doc.created_at,
+  };
+}
+
+/** Map an Appwrite document to our `Syllabus` type. */
+export function toSyllabus(doc: any): Syllabus {
+  return {
+    id: doc.$id ?? doc.id,
+    course_code: doc.course_code,
+    course_name: doc.course_name,
+    department: doc.department,
+    file_url: doc.file_url,
+    created_at: doc.$createdAt ?? doc.created_at,
+  };
 }

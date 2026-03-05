@@ -1,7 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@/lib/supabaseServer";
 import { getServerUser } from "@/lib/auth";
 import { isAdmin } from "@/lib/roles";
+import {
+  adminDatabases,
+  DATABASE_ID,
+  COLLECTION,
+} from "@/lib/appwrite";
 
 /**
  * POST /api/admin
@@ -33,29 +37,28 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Missing action or id." }, { status: 400 });
   }
 
-  const supabase = await createClient();
+  const db = adminDatabases();
 
   switch (action) {
     case "approve": {
-      const { error } = await supabase
-        .from("papers")
-        .update({ approved: true })
-        .eq("id", id);
-
-      if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+      try {
+        await db.updateDocument(DATABASE_ID, COLLECTION.papers, id, {
+          approved: true,
+        });
+        return NextResponse.json({ success: true });
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return NextResponse.json({ error: message }, { status: 500 });
       }
-
-      return NextResponse.json({ success: true });
     }
     case "delete": {
-      const { error } = await supabase.from("papers").delete().eq("id", id);
-
-      if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+      try {
+        await db.deleteDocument(DATABASE_ID, COLLECTION.papers, id);
+        return NextResponse.json({ success: true });
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return NextResponse.json({ error: message }, { status: 500 });
       }
-
-      return NextResponse.json({ success: true });
     }
     default:
       return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });

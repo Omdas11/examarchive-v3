@@ -1,77 +1,119 @@
-import { Client, Storage, ID } from "node-appwrite";
+import {
+  Client,
+  Account,
+  Databases,
+  Storage,
+  Users,
+  ID,
+  Query,
+  Permission,
+  Role,
+} from "node-appwrite";
 
+// ── Environment helpers ────────────────────────────────────────────────────
+export const APPWRITE_ENDPOINT =
+  process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT ?? "";
+export const APPWRITE_PROJECT_ID =
+  process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID ?? "";
+const APPWRITE_API_KEY = process.env.APPWRITE_API_KEY ?? "";
+
+/** Appwrite database that holds all ExamArchive collections. */
+export const DATABASE_ID = "examarchive";
+
+/** Collection IDs inside the `examarchive` database. */
+export const COLLECTION = {
+  users: "users",
+  papers: "papers",
+  syllabus: "syllabus",
+  uploads: "uploads",
+  activity_logs: "activity_logs",
+} as const;
+
+/** Storage bucket for uploaded PDFs and files. */
+export const BUCKET_ID = process.env.APPWRITE_BUCKET_ID ?? "papers";
+
+// ── Server-side admin client (uses API key) ─────────────────────────────
 /**
- * Server-side Appwrite client for file storage (PDFs, profile images).
- * All three variables below are server-only – never prefixed with NEXT_PUBLIC_.
+ * Create an Appwrite client authenticated with the server-side API key.
+ * Use this for all server-only operations (database writes, user management,
+ * file storage, etc.).
  */
-function createAppwriteClient(): Client {
-  const endpoint = process.env.APPWRITE_ENDPOINT;
-  const projectId = process.env.APPWRITE_PROJECT_ID;
-  const apiKey = process.env.APPWRITE_API_KEY;
-
-  if (!endpoint || !projectId || !apiKey) {
+export function createAdminClient(): Client {
+  if (!APPWRITE_ENDPOINT || !APPWRITE_PROJECT_ID || !APPWRITE_API_KEY) {
     throw new Error(
-      "Missing Appwrite environment variables: APPWRITE_ENDPOINT, APPWRITE_PROJECT_ID, APPWRITE_API_KEY",
+      "Missing Appwrite environment variables: " +
+        "NEXT_PUBLIC_APPWRITE_ENDPOINT, NEXT_PUBLIC_APPWRITE_PROJECT_ID, APPWRITE_API_KEY",
     );
   }
 
   return new Client()
-    .setEndpoint(endpoint)
-    .setProject(projectId)
-    .setKey(apiKey);
+    .setEndpoint(APPWRITE_ENDPOINT)
+    .setProject(APPWRITE_PROJECT_ID)
+    .setKey(APPWRITE_API_KEY);
 }
 
 /**
+ * Create an Appwrite client scoped to a user session.
+ * Pass the session secret (from cookie) so the client acts on behalf of that user.
+ */
+export function createSessionClient(session: string): Client {
+  if (!APPWRITE_ENDPOINT || !APPWRITE_PROJECT_ID) {
+    throw new Error(
+      "Missing Appwrite environment variables: " +
+        "NEXT_PUBLIC_APPWRITE_ENDPOINT, NEXT_PUBLIC_APPWRITE_PROJECT_ID",
+    );
+  }
+
+  return new Client()
+    .setEndpoint(APPWRITE_ENDPOINT)
+    .setProject(APPWRITE_PROJECT_ID)
+    .setSession(session);
+}
+
+// ── Convenience service factories ───────────────────────────────────────
+export function adminDatabases() {
+  return new Databases(createAdminClient());
+}
+
+export function adminStorage() {
+  return new Storage(createAdminClient());
+}
+
+export function adminUsers() {
+  return new Users(createAdminClient());
+}
+
+export function adminAccount() {
+  return new Account(createAdminClient());
+}
+
+// ── File storage helpers ────────────────────────────────────────────────
+/**
  * Upload a file to the configured Appwrite bucket and return its file ID.
- * The caller can then build the public view URL using the project/bucket IDs.
- * A unique file ID is always generated server-side.
  */
 export async function uploadFileToAppwrite(
   file: File,
 ): Promise<{ fileId: string; bucketId: string }> {
-  const bucketId = process.env.APPWRITE_BUCKET_ID;
-  if (!bucketId) {
-    throw new Error("Missing APPWRITE_BUCKET_ID environment variable");
-  }
-
-  const client = createAppwriteClient();
-  const storage = new Storage(client);
+  const storage = adminStorage();
   const fileId = ID.unique();
-
-  await storage.createFile(bucketId, fileId, file);
-
-  return { fileId, bucketId };
+  await storage.createFile(BUCKET_ID, fileId, file);
+  return { fileId, bucketId: BUCKET_ID };
 }
 
 /**
  * Build the public view URL for a file stored in Appwrite.
- * This does not expose any server-only keys.
  */
 export function getAppwriteFileUrl(fileId: string): string {
-  const endpoint = process.env.APPWRITE_ENDPOINT;
-  const projectId = process.env.APPWRITE_PROJECT_ID;
-  const bucketId = process.env.APPWRITE_BUCKET_ID;
-
-  if (!endpoint || !projectId || !bucketId) {
-    throw new Error(
-      "Missing Appwrite environment variables for URL construction",
-    );
-  }
-
-  return `${endpoint}/storage/buckets/${bucketId}/files/${fileId}/view?project=${projectId}`;
+  return `${APPWRITE_ENDPOINT}/storage/buckets/${BUCKET_ID}/files/${fileId}/view?project=${APPWRITE_PROJECT_ID}`;
 }
 
 /**
  * Delete a file from Appwrite storage by its file ID.
  */
 export async function deleteFileFromAppwrite(fileId: string): Promise<void> {
-  const bucketId = process.env.APPWRITE_BUCKET_ID;
-  if (!bucketId) {
-    throw new Error("Missing APPWRITE_BUCKET_ID environment variable");
-  }
-
-  const client = createAppwriteClient();
-  const storage = new Storage(client);
-
-  await storage.deleteFile(bucketId, fileId);
+  const storage = adminStorage();
+  await storage.deleteFile(BUCKET_ID, fileId);
 }
+
+// Re-export utilities so consumers can import from a single module.
+export { Account, Databases, Storage, Users, ID, Query, Permission, Role };

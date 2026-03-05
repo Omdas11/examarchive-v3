@@ -1,12 +1,18 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@/lib/supabaseServer";
 import { getServerUser } from "@/lib/auth";
-import { uploadFileToAppwrite, getAppwriteFileUrl } from "@/lib/appwrite";
+import {
+  adminDatabases,
+  uploadFileToAppwrite,
+  getAppwriteFileUrl,
+  DATABASE_ID,
+  COLLECTION,
+  ID,
+} from "@/lib/appwrite";
 
 /**
  * POST /api/upload
  * Accepts a multipart form upload, stores the **file in Appwrite Storage** and
- * inserts a *pending* paper metadata row in **Supabase**.
+ * inserts a *pending* paper metadata document in **Appwrite Databases**.
  * Requires authentication (enforced here and in middleware).
  */
 export async function POST(request: NextRequest) {
@@ -30,7 +36,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "All fields are required." }, { status: 400 });
   }
 
-  // ── 1. Upload file to Appwrite Storage (server-only key, never exposed) ──
+  // ── 1. Upload file to Appwrite Storage ──
   let fileUrl: string;
   try {
     const { fileId } = await uploadFileToAppwrite(file);
@@ -44,23 +50,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 
-  // ── 2. Persist metadata in Supabase ──
-  const supabase = await createClient();
-  const { error: insertError } = await supabase.from("papers").insert({
-    title,
-    course_code: courseCode,
-    course_name: courseName,
-    department,
-    year: Number(year),
-    semester,
-    exam_type: examType,
-    file_url: fileUrl,
-    uploaded_by: user.id,
-    approved: false,
-  });
-
-  if (insertError) {
-    return NextResponse.json({ error: insertError.message }, { status: 500 });
+  // ── 2. Persist metadata in Appwrite Databases ──
+  try {
+    const db = adminDatabases();
+    await db.createDocument(DATABASE_ID, COLLECTION.papers, ID.unique(), {
+      title,
+      course_code: courseCode,
+      course_name: courseName,
+      department,
+      year: Number(year),
+      semester,
+      exam_type: examType,
+      file_url: fileUrl,
+      uploaded_by: user.id,
+      approved: false,
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 
   return NextResponse.json({ success: true });

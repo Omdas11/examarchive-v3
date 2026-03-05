@@ -7,7 +7,7 @@ import { signInWithOtp, signInWithPassword, signUp } from "@/app/auth/actions";
 /** Available login modes. */
 type Mode = "magic" | "signin" | "signup";
 
-/** Supabase OTP rate-limit window in seconds (matches the default 60s policy). */
+/** OTP rate-limit cooldown in seconds. */
 const COOLDOWN_SECONDS = 60;
 
 /**

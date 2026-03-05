@@ -1,29 +1,27 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { createBrowserClient } from "@supabase/ssr";
-import type { Session } from "@supabase/supabase-js";
 
 /**
  * Dev-only floating debug panel.
- * Shows session state, current user email, Supabase response logs, auth errors,
- * redirect URLs, auth events, and environment variables.
- * Includes Refresh session / Check user / Clear cookies / View last auth response buttons.
+ * Shows Appwrite session state, current user email, auth events, environment
+ * variables, and cookies.
  *
  * Only rendered when NODE_ENV !== "production" (enforced by the parent layout).
  */
 
 type LogEntry = { ts: string; label: string; data: unknown };
 
-function now() {
-  return new Date().toLocaleTimeString();
+/** Shape of user info fetched from the debug API. */
+interface DebugUserInfo {
+  email?: string;
+  id?: string;
+  name?: string;
+  error?: string;
 }
 
-function getSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) return null;
-  return createBrowserClient(url, key);
+function now() {
+  return new Date().toLocaleTimeString();
 }
 
 /** Maximum number of log entries retained in memory to avoid performance degradation. */
@@ -44,11 +42,9 @@ export function addDebugLog(label: string, data: unknown) {
 
 export default function DebugPanel() {
   const [open, setOpen] = useState(false);
-  const [session, setSession] = useState<Session | null>(null);
+  const [userInfo, setUserInfo] = useState<DebugUserInfo | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [cookiesText, setCookiesText] = useState<string | null>(null);
-  const [lastAuthResponse, setLastAuthResponse] = useState<unknown>(null);
-  const [showLastResponse, setShowLastResponse] = useState(false);
 
   const addLog = useCallback((label: string, data: unknown) => {
     setLogs((l) => {
@@ -69,64 +65,28 @@ export default function DebugPanel() {
   }, []);
 
   const refreshSession = useCallback(async () => {
-    const client = getSupabase();
-    if (!client) {
-      addLog("error", "Supabase env vars not configured");
-      return;
+    try {
+      // Check for session cookie presence (non-httpOnly cookies only)
+      const hasSession = document.cookie.includes("ea_session");
+      addLog("session check", { hasSessionCookie: hasSession });
+      setUserInfo(hasSession ? { email: "(session present – verify server-side)" } : null);
+    } catch (err) {
+      addLog("error", String(err));
     }
-    const result = await client.auth.getSession();
-    setSession(result.data.session);
-    setLastAuthResponse(result);
-    addLog("getSession", {
-      user: result.data.session?.user?.email ?? null,
-      expires_at: result.data.session?.expires_at ?? null,
-      error: result.error?.message ?? null,
-    });
   }, [addLog]);
 
-  const checkUser = useCallback(async () => {
-    const client = getSupabase();
-    if (!client) {
-      addLog("error", "Supabase env vars not configured");
-      return;
-    }
-    const result = await client.auth.getUser();
-    setLastAuthResponse(result);
-    addLog("getUser", {
-      email: result.data.user?.email ?? null,
-      id: result.data.user?.id ?? null,
-      role: result.data.user?.role ?? null,
-      last_sign_in: result.data.user?.last_sign_in_at ?? null,
-      error: result.error?.message ?? null,
-    });
-  }, [addLog]);
-
-  // Subscribe to auth state changes and log each event.
+  // Log useful debug info on mount.
   useEffect(() => {
-    const client = getSupabase();
-    if (!client) return;
-
-    const { data: sub } = client.auth.onAuthStateChange((event, s) => {
-      setSession(s);
-      addLog(`authStateChange: ${event}`, {
-        user: s?.user?.email ?? null,
-        expires_at: s?.expires_at ?? null,
-      });
-    });
-
-    // Log current redirect URL to help debug callback issues.
     if (typeof window !== "undefined") {
       addLog("redirect URL (current page)", window.location.href);
       const params = new URLSearchParams(window.location.search);
-      const code = params.get("code");
-      if (code) addLog("callback: code param present", code.slice(0, 8) + "…");
+      const userId = params.get("userId");
+      if (userId) addLog("callback: userId param present", userId.slice(0, 8) + "…");
+      const secret = params.get("secret");
+      if (secret) addLog("callback: secret param present", "(hidden)");
       const authError = params.get("error");
       if (authError) addLog("callback: error param", authError);
     }
-
-    return () => {
-      sub.subscription.unsubscribe();
-    };
   }, [addLog]);
 
   // Refresh on open
@@ -135,7 +95,6 @@ export default function DebugPanel() {
   }, [open, refreshSession]);
 
   const clearCookies = useCallback(() => {
-    // Clear all non-httpOnly cookies accessible from JS.
     document.cookie.split(";").forEach((c) => {
       const name = c.split("=")[0].trim();
       document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/`;
@@ -146,8 +105,6 @@ export default function DebugPanel() {
   }, [addLog]);
 
   const showCookies = useCallback(() => {
-    // document.cookie only exposes non-httpOnly cookies; session tokens
-    // stored as httpOnly cookies are intentionally not visible here.
     const text = document.cookie || "(no non-httpOnly cookies)";
     setCookiesText(text);
     addLog("cookies", text);
@@ -156,9 +113,11 @@ export default function DebugPanel() {
   const envVars: Record<string, string> = {
     NODE_ENV: process.env.NODE_ENV ?? "(not set)",
     NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL ?? "(not set)",
-    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL
-      ? process.env.NEXT_PUBLIC_SUPABASE_URL.slice(0, 30) + "…"
+    NEXT_PUBLIC_APPWRITE_ENDPOINT: process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT
+      ? process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT.slice(0, 30) + "…"
       : "(not set)",
+    NEXT_PUBLIC_APPWRITE_PROJECT_ID:
+      process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID ?? "(not set)",
   };
 
   return (
@@ -250,23 +209,15 @@ export default function DebugPanel() {
             </div>
 
             {/* Session state */}
-            <DebugSection title="Session">
+            <DebugSection title="Session (Appwrite)">
               <DebugRow
                 label="Status"
-                value={session ? "✓ Authenticated" : "✗ Not authenticated"}
-                highlight={!!session}
+                value={userInfo ? "✓ Session present" : "✗ Not authenticated"}
+                highlight={!!userInfo}
               />
               <DebugRow
-                label="User email"
-                value={session?.user?.email ?? "(none)"}
-              />
-              <DebugRow
-                label="Expires at"
-                value={
-                  session?.expires_at
-                    ? new Date(session.expires_at * 1000).toLocaleString()
-                    : "(none)"
-                }
+                label="User"
+                value={userInfo?.email ?? "(none)"}
               />
             </DebugSection>
 
@@ -293,21 +244,7 @@ export default function DebugPanel() {
               </DebugSection>
             )}
 
-            {/* Last auth response */}
-            {showLastResponse && lastAuthResponse !== null && (
-              <DebugSection title="Last auth response">
-                <pre
-                  style={{
-                    whiteSpace: "pre-wrap",
-                    wordBreak: "break-all",
-                    color: "#94a3b8",
-                    margin: 0,
-                  }}
-                >
-                  {JSON.stringify(lastAuthResponse, null, 2)}
-                </pre>
-              </DebugSection>
-            )}
+            {/* Last auth response – removed (no client-side Appwrite SDK) */}
 
             {/* Logs */}
             {logs.length > 0 && (
@@ -343,15 +280,7 @@ export default function DebugPanel() {
               {(
                 [
                   { label: "Refresh session", fn: refreshSession },
-                  { label: "Check user", fn: checkUser },
                   { label: "Clear cookies", fn: clearCookies },
-                  {
-                    label: "View last auth response",
-                    fn: async () => {
-                      if (lastAuthResponse === null) await refreshSession();
-                      setShowLastResponse((v) => !v);
-                    },
-                  },
                   { label: "Show cookies", fn: showCookies },
                 ] as const
               ).map(({ label, fn }) => (
