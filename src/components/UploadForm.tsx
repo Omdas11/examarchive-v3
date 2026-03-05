@@ -24,11 +24,11 @@ export default function UploadForm() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Upload failed");
 
-      setMessage("Paper uploaded successfully — pending approval.");
+      setMessage("success:Upload successful — awaiting admin approval.");
       setFileName("");
       (e.target as HTMLFormElement).reset();
     } catch (err: unknown) {
-      setMessage(err instanceof Error ? err.message : "Upload failed");
+      setMessage("error:" + (err instanceof Error ? err.message : "Upload failed"));
     } finally {
       setLoading(false);
     }
@@ -120,7 +120,16 @@ export default function UploadForm() {
       </div>
 
       {message && (
-        <p className="text-sm text-center" style={{ color: "var(--color-primary)" }}>{message}</p>
+        <p
+          className="text-sm text-center font-medium"
+          style={{
+            color: message.startsWith("success:") ? "#16a34a" : "var(--color-primary)",
+          }}
+        >
+          {message.startsWith("success:") || message.startsWith("error:")
+            ? message.split(":").slice(1).join(":")
+            : message}
+        </p>
       )}
     </form>
   );

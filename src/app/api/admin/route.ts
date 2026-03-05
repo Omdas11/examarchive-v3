@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getServerUser } from "@/lib/auth";
-import { isAdmin } from "@/lib/roles";
+import { isModerator } from "@/lib/roles";
 import {
   adminDatabases,
   DATABASE_ID,
@@ -9,12 +9,13 @@ import {
 
 /**
  * POST /api/admin
- * Admin-only route handler for managing papers.
- * Accepts `action` and `id` via query params or form body.
+ * Admin/moderator-only route handler for managing papers.
+ * Accepts `action` and `id` via JSON body, query params, or form body.
+ * Role is verified server-side — cannot be bypassed from the client.
  */
 export async function POST(request: NextRequest) {
   const user = await getServerUser();
-  if (!user || !isAdmin(user.role)) {
+  if (!user || !isModerator(user.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -22,14 +23,21 @@ export async function POST(request: NextRequest) {
   let action = searchParams.get("action");
   let id = searchParams.get("id");
 
-  // Also support form-encoded body (used by the admin page HTML form).
+  // Support JSON body (used by the client-side AdminActions component)
   if (!action || !id) {
     try {
-      const formData = await request.formData();
-      action = action ?? (formData.get("action") as string | null);
-      id = id ?? (formData.get("id") as string | null);
+      const contentType = request.headers.get("content-type") ?? "";
+      if (contentType.includes("application/json")) {
+        const json = await request.json();
+        action = action ?? json.action;
+        id = id ?? json.id;
+      } else {
+        const formData = await request.formData();
+        action = action ?? (formData.get("action") as string | null);
+        id = id ?? (formData.get("id") as string | null);
+      }
     } catch {
-      // body may not be form-encoded – ignore
+      // body parsing may fail – ignore
     }
   }
 
