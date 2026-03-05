@@ -106,25 +106,33 @@ export default async function PaperPage({ params }: PaperPageProps) {
       {/* Syllabus */}
       <div className="card p-6">
         <h2 className="text-lg font-semibold">Syllabus</h2>
-        <p className="mt-2 text-sm" style={{ color: "var(--color-text-muted)" }}>
-          Syllabus not available yet.
-        </p>
+        <div className="mt-3 text-center py-4">
+          <p className="text-sm font-medium" style={{ color: "var(--color-text-muted)" }}>Coming Soon</p>
+          <p className="text-xs mt-1" style={{ color: "var(--color-text-muted)" }}>
+            Syllabus information will be available here once added.
+          </p>
+        </div>
       </div>
 
       {/* Repeated Questions */}
       <div className="card p-6">
         <h2 className="text-lg font-semibold">Repeated Questions</h2>
-        <p className="mt-2 text-sm" style={{ color: "var(--color-text-muted)" }}>
-          Loading repeated questions…
-        </p>
+        <div className="mt-3 text-center py-4">
+          <p className="text-sm font-medium" style={{ color: "var(--color-text-muted)" }}>Under Development</p>
+          <p className="text-xs mt-1" style={{ color: "var(--color-text-muted)" }}>
+            Repeated question analysis is being built and will be available soon.
+          </p>
+        </div>
       </div>
 
       {/* Notes & Resources */}
       <div className="card p-6">
         <h2 className="text-lg font-semibold">Notes &amp; Resources</h2>
-        <div className="mt-3 space-y-2">
-          <div className="h-4 w-3/4 animate-pulse rounded" style={{ background: "var(--color-border)" }} />
-          <div className="h-4 w-1/2 animate-pulse rounded" style={{ background: "var(--color-border)" }} />
+        <div className="mt-3 text-center py-4">
+          <p className="text-sm font-medium" style={{ color: "var(--color-text-muted)" }}>Coming Soon</p>
+          <p className="text-xs mt-1" style={{ color: "var(--color-text-muted)" }}>
+            Notes and additional resources will be linked here in the future.
+          </p>
         </div>
       </div>
     </section>

@@ -2,16 +2,18 @@
 
 import { useState } from "react";
 
+type MessageState = { type: "success" | "error"; text: string } | null;
+
 export default function UploadForm() {
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState<MessageState>(null);
   const [dragOver, setDragOver] = useState(false);
   const [fileName, setFileName] = useState("");
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
-    setMessage("");
+    setMessage(null);
 
     const form = new FormData(e.currentTarget);
 
@@ -24,11 +26,11 @@ export default function UploadForm() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Upload failed");
 
-      setMessage("Paper uploaded successfully — pending approval.");
+      setMessage({ type: "success", text: "Upload successful — awaiting admin approval." });
       setFileName("");
       (e.target as HTMLFormElement).reset();
     } catch (err: unknown) {
-      setMessage(err instanceof Error ? err.message : "Upload failed");
+      setMessage({ type: "error", text: err instanceof Error ? err.message : "Upload failed" });
     } finally {
       setLoading(false);
     }
@@ -120,7 +122,14 @@ export default function UploadForm() {
       </div>
 
       {message && (
-        <p className="text-sm text-center" style={{ color: "var(--color-primary)" }}>{message}</p>
+        <p
+          className="text-sm text-center font-medium"
+          style={{
+            color: message.type === "success" ? "#16a34a" : "var(--color-primary)",
+          }}
+        >
+          {message.text}
+        </p>
       )}
     </form>
   );

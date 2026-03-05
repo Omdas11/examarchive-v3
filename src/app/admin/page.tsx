@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getServerUser } from "@/lib/auth";
-import { isAdmin } from "@/lib/roles";
+import { isModerator } from "@/lib/roles";
 import {
   adminDatabases,
   DATABASE_ID,
@@ -10,6 +10,7 @@ import {
 } from "@/lib/appwrite";
 import type { Paper } from "@/types";
 import { toPaper } from "@/types";
+import AdminActions from "@/components/AdminActions";
 
 export const metadata: Metadata = {
   title: "Admin Dashboard",
@@ -19,7 +20,7 @@ export const metadata: Metadata = {
 export default async function AdminPage() {
   const user = await getServerUser();
 
-  if (!user || !isAdmin(user.role)) {
+  if (!user || !isModerator(user.role)) {
     redirect("/");
   }
 
@@ -40,14 +41,12 @@ export default async function AdminPage() {
   }
 
   try {
-    // Fetch only the total count of approved papers (no document data needed)
-    const { total } = await db.listDocuments({
-      databaseId: DATABASE_ID,
-      collectionId: COLLECTION.papers,
-      queries: [Query.equal("approved", true), Query.limit(1)],
-      total: true,
-    });
-    approvedCount = total;
+    const approvedResult = await db.listDocuments(
+      DATABASE_ID,
+      COLLECTION.papers,
+      [Query.equal("approved", true), Query.limit(1)],
+    );
+    approvedCount = approvedResult.total;
   } catch {
     // collection may not exist yet
   }
@@ -89,47 +88,7 @@ export default async function AdminPage() {
       {/* Submissions area */}
       <div className="mt-6">
         <h2 className="text-lg font-semibold">Pending Approvals</h2>
-        {pending && pending.length > 0 ? (
-          <ul className="mt-4 space-y-3">
-            {pending.map((p: Paper) => (
-              <li key={p.id} className="card flex items-center justify-between p-4">
-                <div>
-                  <p className="font-medium">{p.title}</p>
-                  <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
-                    {p.course_code} · {p.department} · {p.year}
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <form action="/api/admin" method="POST">
-                    <input type="hidden" name="action" value="approve" />
-                    <input type="hidden" name="id" value={p.id} />
-                    <button
-                      type="submit"
-                      className="rounded-full bg-green-600 px-3 py-1 text-xs font-semibold text-white hover:bg-green-700"
-                    >
-                      Approve
-                    </button>
-                  </form>
-                  <form action="/api/admin" method="POST">
-                    <input type="hidden" name="action" value="delete" />
-                    <input type="hidden" name="id" value={p.id} />
-                    <button
-                      type="submit"
-                      className="rounded-full px-3 py-1 text-xs font-semibold"
-                      style={{ border: "1px solid var(--color-border)", color: "var(--color-text-muted)" }}
-                    >
-                      Reject
-                    </button>
-                  </form>
-                </div>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <div className="mt-6 text-center card p-8">
-            <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>No papers pending approval.</p>
-          </div>
-        )}
+        <AdminActions papers={pending} />
       </div>
     </section>
   );

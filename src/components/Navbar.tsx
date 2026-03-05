@@ -181,6 +181,24 @@ export default function Navbar({ user }: NavbarProps) {
                     >
                       Profile
                     </Link>
+                    <Link
+                      href="/settings"
+                      onClick={() => setDropdownOpen(false)}
+                      className="block px-4 py-2 text-sm transition-colors hover:opacity-70"
+                      role="menuitem"
+                    >
+                      Settings
+                    </Link>
+                    {(user.role === "admin" || user.role === "moderator") && (
+                      <Link
+                        href="/admin"
+                        onClick={() => setDropdownOpen(false)}
+                        className="block px-4 py-2 text-sm transition-colors hover:opacity-70"
+                        role="menuitem"
+                      >
+                        Admin Dashboard
+                      </Link>
+                    )}
                     <form action={signOut}>
                       <button
                         type="submit"
@@ -251,6 +269,22 @@ export default function Navbar({ user }: NavbarProps) {
             >
               Profile
             </Link>
+            <Link
+              href="/settings"
+              onClick={() => setDrawerOpen(false)}
+              className="block rounded-md px-3 py-2.5 text-sm font-medium transition-colors hover:opacity-70"
+            >
+              Settings
+            </Link>
+            {(user.role === "admin" || user.role === "moderator") && (
+              <Link
+                href="/admin"
+                onClick={() => setDrawerOpen(false)}
+                className="block rounded-md px-3 py-2.5 text-sm font-medium transition-colors hover:opacity-70"
+              >
+                Admin Dashboard
+              </Link>
+            )}
             <form action={signOut}>
               <button
                 type="submit"
