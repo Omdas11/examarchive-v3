@@ -69,7 +69,7 @@ export async function getServerUser(): Promise<UserProfile | null> {
     const { documents } = await db.listDocuments(
       DATABASE_ID,
       COLLECTION.users,
-      [Query.equal("email", user.email)],
+      [Query.equal("email", user.email), Query.limit(1)],
     );
 
     if (documents.length > 0) {
@@ -131,7 +131,7 @@ export async function getExtendedServerUser(): Promise<ExtendedUserProfile | nul
     const { documents } = await db.listDocuments(
       DATABASE_ID,
       COLLECTION.users,
-      [Query.equal("email", user.email)],
+      [Query.equal("email", user.email), Query.limit(1)],
     );
 
     if (documents.length === 0) return null;

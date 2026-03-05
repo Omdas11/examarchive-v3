@@ -143,8 +143,8 @@ export async function signUp(formData: FormData) {
  * Server Action – sign the current user out and redirect to the home page.
  */
 export async function signOut() {
+  const cookieStore = await cookies();
   try {
-    const cookieStore = await cookies();
     const session = cookieStore.get(SESSION_COOKIE)?.value;
 
     if (session) {
@@ -152,16 +152,10 @@ export async function signOut() {
       const account = new Account(client);
       await account.deleteSession("current");
     }
-
-    cookieStore.delete(SESSION_COOKIE);
   } catch {
-    // Ensure cookie is cleared even if session deletion fails
-    try {
-      const cookieStore = await cookies();
-      cookieStore.delete(SESSION_COOKIE);
-    } catch {
-      // ignore
-    }
+    // Session deletion may fail if already expired – continue to clear cookie
+  } finally {
+    cookieStore.delete(SESSION_COOKIE);
   }
 
   redirect("/");

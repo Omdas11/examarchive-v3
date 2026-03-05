@@ -40,13 +40,13 @@ export default async function AdminPage() {
   }
 
   try {
-    const { total } = await db.listDocuments(
-      DATABASE_ID,
-      COLLECTION.papers,
-      [Query.equal("approved", true), Query.limit(1)],
-      undefined,
-      true,
-    );
+    // Fetch only the total count of approved papers (no document data needed)
+    const { total } = await db.listDocuments({
+      databaseId: DATABASE_ID,
+      collectionId: COLLECTION.papers,
+      queries: [Query.equal("approved", true), Query.limit(1)],
+      total: true,
+    });
     approvedCount = total;
   } catch {
     // collection may not exist yet
