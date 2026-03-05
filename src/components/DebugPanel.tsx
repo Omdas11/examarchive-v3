@@ -4,15 +4,16 @@ import { useCallback, useEffect, useState } from "react";
 
 /**
  * Dev-only floating debug panel.
- * Shows Appwrite session state, current user email, auth events, environment
- * variables, and cookies.
+ * Shows Appwrite session state, auth events, environment variables, cookies,
+ * network status, and viewport dimensions.
  *
- * Only rendered when NODE_ENV !== "production" (enforced by the parent layout).
+ * Only rendered when NODE_ENV !== "production" AND
+ * NEXT_PUBLIC_ENABLE_DEBUG_PANEL === "true" (enforced by the parent layout).
  */
 
 type LogEntry = { ts: string; label: string; data: unknown };
 
-/** Shape of user info fetched from the debug API. */
+/** Shape of user info derived from cookie inspection. */
 interface DebugUserInfo {
   email?: string;
   id?: string;
@@ -40,11 +41,30 @@ export function addDebugLog(label: string, data: unknown) {
   if (pendingLogs.length > MAX_LOGS) pendingLogs.splice(0, pendingLogs.length - MAX_LOGS);
 }
 
+/** Read a Network Information API value safely (not available in all browsers). */
+function getConnectionInfo(): string {
+  try {
+    // @ts-expect-error – NetworkInformation is not in all TS lib types
+    const conn = navigator.connection;
+    if (!conn) return "unknown";
+    const parts: string[] = [];
+    if (conn.effectiveType) parts.push(conn.effectiveType);
+    if (conn.downlink !== undefined) parts.push(`↓${conn.downlink} Mbps`);
+    if (conn.rtt !== undefined) parts.push(`RTT ${conn.rtt} ms`);
+    return parts.join(" · ") || "unknown";
+  } catch {
+    return "unavailable";
+  }
+}
+
 export default function DebugPanel() {
   const [open, setOpen] = useState(false);
   const [userInfo, setUserInfo] = useState<DebugUserInfo | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [cookiesText, setCookiesText] = useState<string | null>(null);
+  const [copyFeedback, setCopyFeedback] = useState("");
+  const [isOnline, setIsOnline] = useState(true);
+  const [viewport, setViewport] = useState({ w: 0, h: 0 });
 
   const addLog = useCallback((label: string, data: unknown) => {
     setLogs((l) => {
@@ -64,6 +84,27 @@ export default function DebugPanel() {
     }
   }, []);
 
+  // Track online/offline status.
+  useEffect(() => {
+    setIsOnline(navigator.onLine);
+    const onOnline = () => { setIsOnline(true); addLog("network", "online"); };
+    const onOffline = () => { setIsOnline(false); addLog("network", "offline"); };
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+    return () => {
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+    };
+  }, [addLog]);
+
+  // Track viewport dimensions (updates on resize).
+  useEffect(() => {
+    const update = () => setViewport({ w: window.innerWidth, h: window.innerHeight });
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+
   const refreshSession = useCallback(async () => {
     try {
       // Check for session cookie presence (non-httpOnly cookies only)
@@ -78,7 +119,7 @@ export default function DebugPanel() {
   // Log useful debug info on mount.
   useEffect(() => {
     if (typeof window !== "undefined") {
-      addLog("redirect URL (current page)", window.location.href);
+      addLog("current page URL", window.location.href);
       const params = new URLSearchParams(window.location.search);
       const userId = params.get("userId");
       if (userId) addLog("callback: userId param present", userId.slice(0, 8) + "…");
@@ -89,7 +130,7 @@ export default function DebugPanel() {
     }
   }, [addLog]);
 
-  // Refresh on open
+  // Refresh session info when panel opens.
   useEffect(() => {
     if (open) refreshSession();
   }, [open, refreshSession]);
@@ -110,6 +151,19 @@ export default function DebugPanel() {
     addLog("cookies", text);
   }, [addLog]);
 
+  const copyLogs = useCallback(async () => {
+    const text = logs
+      .map((e) => `[${e.ts}] ${e.label}\n${JSON.stringify(e.data, null, 2)}`)
+      .join("\n\n");
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopyFeedback("Copied!");
+    } catch {
+      setCopyFeedback("Copy failed");
+    }
+    setTimeout(() => setCopyFeedback(""), 2000);
+  }, [logs]);
+
   const envVars: Record<string, string> = {
     NODE_ENV: process.env.NODE_ENV ?? "(not set)",
     NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL ?? "(not set)",
@@ -122,7 +176,7 @@ export default function DebugPanel() {
 
   return (
     <>
-      {/* Floating trigger */}
+      {/* Floating trigger – large touch target for mobile */}
       <button
         onClick={() => setOpen(true)}
         aria-label="Open debug panel"
@@ -135,12 +189,15 @@ export default function DebugPanel() {
           color: "#f1f5f9",
           border: "1px solid #334155",
           borderRadius: "9999px",
-          padding: "0.4rem 0.8rem",
-          fontSize: "0.7rem",
+          padding: "0.55rem 1rem",
+          fontSize: "0.75rem",
           fontWeight: 700,
           cursor: "pointer",
           boxShadow: "0 4px 16px rgba(0,0,0,0.5)",
           letterSpacing: "0.03em",
+          minHeight: "2.75rem",
+          minWidth: "5rem",
+          touchAction: "manipulation",
         }}
       >
         🛠 Debug
@@ -182,6 +239,18 @@ export default function DebugPanel() {
               fontSize: "0.72rem",
             }}
           >
+            {/* Drag handle – visual affordance for mobile */}
+            <div
+              aria-hidden="true"
+              style={{
+                width: "2.5rem",
+                height: "0.25rem",
+                background: "#334155",
+                borderRadius: "9999px",
+                margin: "0 auto 1rem",
+              }}
+            />
+
             {/* Header */}
             <div
               style={{
@@ -202,6 +271,10 @@ export default function DebugPanel() {
                   cursor: "pointer",
                   fontSize: "1.1rem",
                   lineHeight: 1,
+                  padding: "0.4rem",
+                  minWidth: "2.2rem",
+                  minHeight: "2.2rem",
+                  touchAction: "manipulation",
                 }}
               >
                 ✕
@@ -218,6 +291,27 @@ export default function DebugPanel() {
               <DebugRow
                 label="User"
                 value={userInfo?.email ?? "(none)"}
+              />
+            </DebugSection>
+
+            {/* Network & viewport */}
+            <DebugSection title="Device">
+              <DebugRow
+                label="Network"
+                value={isOnline ? `✓ Online · ${getConnectionInfo()}` : "✗ Offline"}
+                highlight={isOnline}
+              />
+              <DebugRow
+                label="Viewport"
+                value={viewport.w ? `${viewport.w} × ${viewport.h} px` : "–"}
+              />
+              <DebugRow
+                label="User Agent"
+                value={
+                  typeof navigator !== "undefined"
+                    ? navigator.userAgent.slice(0, 60) + (navigator.userAgent.length > 60 ? "…" : "")
+                    : "–"
+                }
               />
             </DebugSection>
 
@@ -244,8 +338,6 @@ export default function DebugPanel() {
               </DebugSection>
             )}
 
-            {/* Last auth response – removed (no client-side Appwrite SDK) */}
-
             {/* Logs */}
             {logs.length > 0 && (
               <DebugSection title={`Logs (${logs.length})`}>
@@ -268,7 +360,7 @@ export default function DebugPanel() {
               </DebugSection>
             )}
 
-            {/* Action buttons */}
+            {/* Action buttons – larger tap targets for mobile */}
             <div
               style={{
                 display: "flex",
@@ -280,8 +372,8 @@ export default function DebugPanel() {
               {(
                 [
                   { label: "Refresh session", fn: refreshSession },
-                  { label: "Clear cookies", fn: clearCookies },
                   { label: "Show cookies", fn: showCookies },
+                  { label: "Clear cookies", fn: clearCookies },
                 ] as const
               ).map(({ label, fn }) => (
                 <button
@@ -292,14 +384,34 @@ export default function DebugPanel() {
                     color: "#e2e8f0",
                     border: "1px solid #334155",
                     borderRadius: "0.375rem",
-                    padding: "0.35rem 0.7rem",
+                    padding: "0.5rem 0.8rem",
                     fontSize: "0.7rem",
                     cursor: "pointer",
+                    minHeight: "2.2rem",
+                    touchAction: "manipulation",
                   }}
                 >
                   {label}
                 </button>
               ))}
+              {logs.length > 0 && (
+                <button
+                  onClick={() => void copyLogs()}
+                  style={{
+                    background: "#1e293b",
+                    color: copyFeedback ? "#4ade80" : "#e2e8f0",
+                    border: "1px solid #334155",
+                    borderRadius: "0.375rem",
+                    padding: "0.5rem 0.8rem",
+                    fontSize: "0.7rem",
+                    cursor: "pointer",
+                    minHeight: "2.2rem",
+                    touchAction: "manipulation",
+                  }}
+                >
+                  {copyFeedback || "Copy logs"}
+                </button>
+              )}
               <button
                 onClick={() => setLogs([])}
                 style={{
@@ -307,9 +419,11 @@ export default function DebugPanel() {
                   color: "#64748b",
                   border: "1px solid #334155",
                   borderRadius: "0.375rem",
-                  padding: "0.35rem 0.7rem",
+                  padding: "0.5rem 0.8rem",
                   fontSize: "0.7rem",
                   cursor: "pointer",
+                  minHeight: "2.2rem",
+                  touchAction: "manipulation",
                 }}
               >
                 Clear logs
