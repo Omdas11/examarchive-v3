@@ -35,7 +35,7 @@ export default function SettingsForm({ user }: SettingsFormProps) {
     }
   }
 
-  const joinedDate = new Date(user.created_at).toLocaleDateString("en-GB", {
+  const joinedDate = new Date(user.created_at).toLocaleDateString(undefined, {
     year: "numeric",
     month: "long",
     day: "numeric",

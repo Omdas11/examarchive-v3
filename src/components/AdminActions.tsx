@@ -10,9 +10,11 @@ interface AdminActionsProps {
 export default function AdminActions({ papers }: AdminActionsProps) {
   const [items, setItems] = useState<Paper[]>(papers);
   const [loading, setLoading] = useState<Record<string, string>>({});
+  const [error, setError] = useState<string | null>(null);
 
   async function handleAction(id: string, action: "approve" | "delete") {
     setLoading((prev) => ({ ...prev, [id]: action }));
+    setError(null);
 
     try {
       const res = await fetch("/api/admin", {
@@ -29,7 +31,7 @@ export default function AdminActions({ papers }: AdminActionsProps) {
       // Remove from list on success
       setItems((prev) => prev.filter((p) => p.id !== id));
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Action failed");
+      setError(err instanceof Error ? err.message : "Action failed");
     } finally {
       setLoading((prev) => {
         const next = { ...prev };
@@ -59,7 +61,20 @@ export default function AdminActions({ papers }: AdminActionsProps) {
   }
 
   return (
-    <ul className="mt-4 space-y-3">
+    <>
+      {error && (
+        <div
+          className="mt-4 rounded-lg px-4 py-3 text-sm"
+          style={{
+            background: "var(--color-accent-soft)",
+            color: "var(--color-primary)",
+            border: "1px solid var(--color-primary)",
+          }}
+        >
+          {error}
+        </div>
+      )}
+      <ul className="mt-4 space-y-3">
       {items.map((p) => (
         <li key={p.id} className="card p-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -112,5 +127,6 @@ export default function AdminActions({ papers }: AdminActionsProps) {
         </li>
       ))}
     </ul>
+    </>
   );
 }
