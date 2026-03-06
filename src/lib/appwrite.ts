@@ -32,6 +32,9 @@ export const COLLECTION = {
 /** Storage bucket for uploaded PDFs and files. */
 export const BUCKET_ID = process.env.APPWRITE_BUCKET_ID ?? "papers";
 
+/** Storage bucket for user avatar images. */
+export const AVATARS_BUCKET_ID = process.env.APPWRITE_AVATARS_BUCKET_ID ?? "avatars";
+
 // ── Server-side admin client (uses API key) ─────────────────────────────
 /**
  * Create an Appwrite client authenticated with the server-side API key.
@@ -98,6 +101,33 @@ export async function uploadFileToAppwrite(
   const fileId = ID.unique();
   await storage.createFile(BUCKET_ID, fileId, file);
   return { fileId, bucketId: BUCKET_ID };
+}
+
+/**
+ * Upload an avatar image to the avatars bucket and return its file ID.
+ */
+export async function uploadAvatarToAppwrite(
+  file: File,
+): Promise<{ fileId: string; bucketId: string }> {
+  const storage = adminStorage();
+  const fileId = ID.unique();
+  await storage.createFile(AVATARS_BUCKET_ID, fileId, file);
+  return { fileId, bucketId: AVATARS_BUCKET_ID };
+}
+
+/**
+ * Delete an avatar file from the avatars bucket.
+ */
+export async function deleteAvatarFromAppwrite(fileId: string): Promise<void> {
+  const storage = adminStorage();
+  await storage.deleteFile(AVATARS_BUCKET_ID, fileId);
+}
+
+/**
+ * Build the preview URL for an avatar stored in the avatars bucket.
+ */
+export function getAvatarPreviewUrl(fileId: string, width = 96): string {
+  return `${APPWRITE_ENDPOINT}/storage/buckets/${AVATARS_BUCKET_ID}/files/${fileId}/preview?project=${APPWRITE_PROJECT_ID}&width=${width}&height=${width}&gravity=center&quality=80`;
 }
 
 /**
