@@ -19,26 +19,28 @@
 
 ## 2. Permission Role Hierarchy
 
-| Level | Role | Dashboard | Users Tab | Approve Papers | Upload | Browse |
-|-------|------|-----------|-----------|---------------|--------|--------|
-| 2 | **admin** | ✅ Full | ✅ | ✅ | ✅ | ✅ |
-| 1 | **moderator** | ✅ Submissions | ❌ | ✅ | ✅ | ✅ |
-| 0 | **student** | ❌ | ❌ | ❌ | ✅ (pending) | ✅ |
+| Level | Role | Dashboard | Users Tab | DevTool | Approve Papers | Upload | Browse |
+|-------|------|-----------|-----------|---------|---------------|--------|--------|
+| 3 | **founder** | ✅ Full | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 2 | **admin** | ✅ Full | ✅ | ❌ | ✅ | ✅ | ✅ |
+| 1 | **moderator** | ✅ Submissions | ❌ | ❌ | ✅ | ✅ | ✅ |
+| 0 | **student** | ❌ | ❌ | ❌ | ❌ | ✅ (pending) | ✅ |
 
 ### Access Details
 
+- **founder**: Single user (Om Das). Full system access including the DevTool page for root-level operations. Supersedes all other roles.
 - **admin**: Full admin dashboard including Users tab. Manage users, roles, and tiers. Approve/reject/publish papers.
 - **moderator**: Dashboard access limited to Pending (submissions) and Activity Log tabs. Approve/reject papers. Cannot manage user roles.
 - **student**: Default role for all new sign-ups. Can upload papers (subject to approval) and browse/download published papers.
 
-Checked server-side in every protected API route using `isModerator()` / `isAdmin()` from `src/lib/roles.ts`.
+Checked server-side in every protected API route using `isModerator()` / `isAdmin()` / `isFounder()` from `src/lib/roles.ts`.
 
 ---
 
 ## 3. Promotion Rules
 
 - **Manual only** — Admins assign roles via the Admin Dashboard → Users tab or via `PATCH /api/admin/users`.
-- **Admins** can assign any role (`student`, `moderator`, `admin`).
+- **Admins** can assign any role (`student`, `moderator`, `admin`). Only founders can assign the `founder` role.
 - **Moderators** cannot change roles.
 - **Auto-promotion exception** — `secondary_role` is auto-set to `"contributor"` when `upload_count` reaches 3 (logic in `POST /api/admin`).
 - **Tier auto-upgrade** — `tier` is auto-upgraded to `"silver"` when `upload_count` reaches 20.
@@ -49,15 +51,19 @@ Checked server-side in every protected API route using `isModerator()` / `isAdmi
 
 Admins can assign a `secondary_role` and `tertiary_role` from the preset list below. These are display-only badges — they never affect access control.
 
-| Value | Display Label |
-|-------|--------------|
-| `contributor` | Contributor |
-| `reviewer` | Reviewer |
-| `curator` | Curator |
-| `mentor` | Mentor |
+| Value | Display Label | Description |
+|-------|--------------|-------------|
+| `contributor` | Contributor | Active paper contributor |
+| `reviewer` | Reviewer | Paper quality reviewer |
+| `curator` | Curator | Archive organiser/curator |
+| `mentor` | Mentor | Community mentor |
+| `archivist` | Archivist | Specialist archivist |
+| `ambassador` | Ambassador | Community ambassador |
+| `pioneer` | Pioneer | Early adopter and pioneer |
+| `researcher` | Researcher | Academic researcher |
 
 Rules:
-- Only admins can manually assign secondary/tertiary roles.
+- Only admins/founders can manually assign secondary/tertiary roles.
 - `secondary_role` may be `null` (no badge assigned).
 - `secondary_role` and `tertiary_role` cannot be the same value.
 - Backend validates values against the above preset list (`isValidCustomRole()` in `src/lib/roles.ts`).
@@ -85,7 +91,7 @@ Fields stored in the `users` collection:
 | Field | Type | Description |
 |-------|------|-------------|
 | `xp` | integer | Cumulative experience points earned |
-| `streak_days` | integer | Current consecutive daily activity streak |
+| `streak` | integer | Current consecutive daily activity streak |
 | `last_activity` | ISO 8601 string | Timestamp of the user's last activity |
 
 ### XP Award Guide
@@ -101,29 +107,40 @@ Fields stored in the `users` collection:
 
 ### Avatar Ring Levels (Visual Only)
 
-The avatar ring colour reflects the user's activity streak:
+Role rings take priority over streak rings:
+
+| Role | Ring |
+|------|------|
+| `founder` | Animated purple/gold gradient ring |
+| `admin` | Solid red ring |
+| `moderator` | Solid orange ring |
+| community roles | Solid blue ring |
+
+Streak rings (when no role ring applies):
 
 | Streak | Ring Colour |
 |--------|------------|
-| 0 days | Gray (default) |
+| 0 days | None |
 | 1–6 days | Blue |
 | 7–29 days | Green |
-| 30+ days | Gold / Amber |
+| 30+ days | Animated 4-color Google-style ring |
 
 ---
 
 ## 7. Achievement Badges (Auto-Earned)
 
-Stored in the `achievements` collection, linked by `user_id`.
+Stored in the `achievements` collection, linked by `user_id`. See `docs/badges.md` for full badge documentation.
 
 | Slug | Display Name | Trigger |
 |------|-------------|---------|
 | `first_upload` | First Upload | First paper submission approved |
 | `10_uploads` | 10 Uploads | 10 approved submissions |
-| `early_user` | Early Adopter | Among the first 50 registered users |
+| `explorer` | Explorer | 100 XP earned |
+| `contributor_badge` | Contributor | 300 XP earned |
 | `7_day_streak` | 7-Day Streak | 7 consecutive daily logins |
 | `30_day_streak` | 30-Day Streak | 30 consecutive daily logins |
-| `top_contributor` | Top Contributor | Highest upload count in a calendar month |
+| `silver_tier` | Silver Tier | Tier upgraded to Silver+ |
+| `gold_tier` | Gold Tier | Tier upgraded to Gold+ |
 
 ---
 
@@ -132,9 +149,10 @@ Stored in the `achievements` collection, linked by `user_id`.
 | Field | Type | Default | Notes |
 |-------|------|---------|-------|
 | `email` | string | — | Appwrite Auth email |
-| `name` | string | `""` | Display name (user-editable) |
+| `display_name` | string | `""` | Display name (user-editable) |
 | `username` | string | `""` | Short handle (user-editable) |
 | `avatar_url` | string | `""` | URL to profile picture |
+| `avatar_file_id` | string | `""` | Appwrite Storage file ID for avatar |
 | `role` | string | `"student"` | Legacy single-role field (mirrors `primary_role`) |
 | `primary_role` | string | `"student"` | Permission role |
 | `secondary_role` | string \| null | `null` | Custom badge 1 |
@@ -142,7 +160,7 @@ Stored in the `achievements` collection, linked by `user_id`.
 | `tier` | string | `"bronze"` | Activity tier |
 | `upload_count` | integer | `0` | Approved upload count |
 | `xp` | integer | `0` | Cumulative XP |
-| `streak_days` | integer | `0` | Current streak |
+| `streak` | integer | `0` | Current streak |
 | `last_activity` | string | `""` | ISO 8601 last-active timestamp |
 
 ---
@@ -153,3 +171,5 @@ Stored in the `achievements` collection, linked by `user_id`.
 2. **Appwrite as authority** — all user data is fetched from the Appwrite database; no role data is stored in the client.
 3. **httpOnly session cookie** — the `ea_session` cookie is not accessible from JavaScript; cannot be stolen via XSS.
 4. **Admin API key** — server-only operations use `APPWRITE_API_KEY` (never exposed to the browser).
+5. **Founder role** — the `isFounder()` function in `src/lib/roles.ts` is the authoritative check for DevTool access. It checks `role === "founder"` strictly.
+

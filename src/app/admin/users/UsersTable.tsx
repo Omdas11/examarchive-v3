@@ -12,6 +12,23 @@ interface UsersTableProps {
   currentAdminRole: string;
 }
 
+/** Format an ISO timestamp to IST (Asia/Kolkata). */
+function toIST(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  try {
+    return new Date(iso).toLocaleString("en-IN", {
+      timeZone: "Asia/Kolkata",
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return iso;
+  }
+}
+
 export default function UsersTable({ users, currentAdminId, currentAdminRole }: UsersTableProps) {
   const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
   const [list, setList] = useState<AdminUser[]>(users);
@@ -19,7 +36,9 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
   function handleUpdated(updated: AdminUser) {
     setList((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
     setEditingUser(null);
-  }  if (list.length === 0) {
+  }
+
+  if (list.length === 0) {
     return (
       <div className="card p-12 text-center">
         <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
@@ -40,10 +59,14 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
               <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold" style={{ color: "var(--color-text-muted)" }}>Display Name</th>
               <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold" style={{ color: "var(--color-text-muted)" }}>Username</th>
               <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold" style={{ color: "var(--color-text-muted)" }}>Email</th>
-              <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold" style={{ color: "var(--color-text-muted)" }}>Role</th>
+              <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold" style={{ color: "var(--color-text-muted)" }}>Primary Role</th>
+              <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold" style={{ color: "var(--color-text-muted)" }}>Secondary</th>
+              <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold" style={{ color: "var(--color-text-muted)" }}>Tertiary</th>
               <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold" style={{ color: "var(--color-text-muted)" }}>Tier</th>
               <th className="whitespace-nowrap px-4 py-3 text-right text-xs font-semibold" style={{ color: "var(--color-text-muted)" }}>XP</th>
               <th className="whitespace-nowrap px-4 py-3 text-right text-xs font-semibold" style={{ color: "var(--color-text-muted)" }}>Streak</th>
+              <th className="whitespace-nowrap px-4 py-3 text-right text-xs font-semibold" style={{ color: "var(--color-text-muted)" }}>Uploads</th>
+              <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold" style={{ color: "var(--color-text-muted)" }}>Last Login (IST)</th>
               <th className="whitespace-nowrap px-4 py-3 text-center text-xs font-semibold" style={{ color: "var(--color-text-muted)" }}>Actions</th>
             </tr>
           </thead>
@@ -62,6 +85,7 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
                     displayName={u.name || u.username || u.email}
                     avatarUrl={u.avatar_url || undefined}
                     streakDays={u.streak_days}
+                    role={u.primary_role}
                     size={32}
                   />
                 </td>
@@ -81,12 +105,23 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
                   <span title={u.email} className="max-w-[180px] block truncate">{u.email}</span>
                 </td>
 
-                {/* Role */}
+                {/* Primary Role */}
                 <td className="whitespace-nowrap px-4 py-3">
-                  <div className="flex flex-wrap gap-1">
-                    <RoleBadge role={u.primary_role} />
-                    {u.secondary_role && <RoleBadge role={u.secondary_role} />}
-                  </div>
+                  <RoleBadge role={u.primary_role} />
+                </td>
+
+                {/* Secondary Role */}
+                <td className="whitespace-nowrap px-4 py-3">
+                  {u.secondary_role
+                    ? <RoleBadge role={u.secondary_role} />
+                    : <span style={{ color: "var(--color-text-muted)" }}>—</span>}
+                </td>
+
+                {/* Tertiary Role */}
+                <td className="whitespace-nowrap px-4 py-3">
+                  {u.tertiary_role
+                    ? <RoleBadge role={u.tertiary_role} />
+                    : <span style={{ color: "var(--color-text-muted)" }}>—</span>}
                 </td>
 
                 {/* Tier */}
@@ -104,9 +139,27 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
                   {u.streak_days}d
                 </td>
 
+                {/* Upload count */}
+                <td className="whitespace-nowrap px-4 py-3 text-right text-xs">
+                  {u.upload_count}
+                </td>
+
+                {/* Last login (IST) */}
+                <td className="whitespace-nowrap px-4 py-3 text-xs" style={{ color: "var(--color-text-muted)" }}>
+                  {toIST(u.last_login)}
+                </td>
+
                 {/* Actions */}
                 <td className="whitespace-nowrap px-4 py-3 text-center">
                   {currentAdminRole === "admin" && u.id !== currentAdminId && (
+                    <button
+                      onClick={() => setEditingUser(u)}
+                      className="btn text-xs px-2 py-1"
+                    >
+                      Edit
+                    </button>
+                  )}
+                  {(currentAdminRole === "founder") && u.id !== currentAdminId && (
                     <button
                       onClick={() => setEditingUser(u)}
                       className="btn text-xs px-2 py-1"

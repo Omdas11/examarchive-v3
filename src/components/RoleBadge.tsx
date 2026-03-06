@@ -4,12 +4,17 @@ import type { UserRole, CustomRole, UserTier } from "@/types";
 
 /** Color map for user roles. */
 const ROLE_COLORS: Record<string, { bg: string; text: string }> = {
+  founder: { bg: "#7c3aed", text: "#ffffff" },
   admin: { bg: "#d32f2f", text: "#ffffff" },
   moderator: { bg: "#e65100", text: "#ffffff" },
   contributor: { bg: "#1565c0", text: "#ffffff" },
   reviewer: { bg: "#6a1b9a", text: "#ffffff" },
   curator: { bg: "#00695c", text: "#ffffff" },
   mentor: { bg: "#4527a0", text: "#ffffff" },
+  archivist: { bg: "#0277bd", text: "#ffffff" },
+  ambassador: { bg: "#558b2f", text: "#ffffff" },
+  pioneer: { bg: "#ef6c00", text: "#ffffff" },
+  researcher: { bg: "#37474f", text: "#ffffff" },
   student: { bg: "#9e9e9e", text: "#ffffff" },
 };
 
@@ -30,7 +35,7 @@ export function RoleBadge({ role }: { role: UserRole | CustomRole }) {
       className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold leading-tight"
       style={{ background: colors.bg, color: colors.text }}
     >
-      {role}
+      {role === "founder" ? "👑 " : ""}{role}
     </span>
   );
 }

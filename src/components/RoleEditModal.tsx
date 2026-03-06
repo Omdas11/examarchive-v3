@@ -3,13 +3,17 @@
 import { useState } from "react";
 import type { AdminUser, UserRole, CustomRole, UserTier } from "@/types";
 
-const ROLES: UserRole[] = ["student", "moderator", "admin"];
+const ROLES: UserRole[] = ["student", "moderator", "admin", "founder"];
 const CUSTOM_ROLES: string[] = [
   "none",
   "contributor",
   "reviewer",
   "curator",
   "mentor",
+  "archivist",
+  "ambassador",
+  "pioneer",
+  "researcher",
 ];
 const TIERS: UserTier[] = ["bronze", "silver", "gold", "platinum", "diamond"];
 

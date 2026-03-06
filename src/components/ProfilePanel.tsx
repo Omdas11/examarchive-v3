@@ -192,7 +192,7 @@ export default function ProfilePanel({ user, open, onClose }: ProfilePanelProps)
   }, [pathname]);
 
   const displayName = user.name || user.username || user.email;
-  const roleForBadge = user.role as "student" | "moderator" | "admin";
+  const roleForBadge = user.role as import("@/types").UserRole;
   const tier = (user.tier ?? "bronze") as import("@/types").UserTier;
 
   const navItems = [
@@ -215,12 +215,29 @@ export default function ProfilePanel({ user, open, onClose }: ProfilePanelProps)
     },
   ];
 
-  if (user.role === "admin" || user.role === "moderator") {
+  if (user.role === "admin" || user.role === "moderator" || user.role === "founder") {
     navItems.push({
       href: "/admin",
       label: "Admin Dashboard",
       icon: (
         <path d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" strokeLinecap="round" strokeLinejoin="round" />
+      ),
+    });
+    navItems.push({
+      href: "/admin/users",
+      label: "User Management",
+      icon: (
+        <path d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" strokeLinecap="round" strokeLinejoin="round" />
+      ),
+    });
+  }
+
+  if (user.role === "founder") {
+    navItems.push({
+      href: "/devtool",
+      label: "👑 DevTool",
+      icon: (
+        <path d="M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 0 0 4.486-6.336l-3.276 3.277a3.004 3.004 0 0 1-2.25-2.25l3.276-3.276a4.5 4.5 0 0 0-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437 1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008Z" strokeLinecap="round" strokeLinejoin="round" />
       ),
     });
   }
@@ -271,6 +288,7 @@ export default function ProfilePanel({ user, open, onClose }: ProfilePanelProps)
               displayName={displayName}
               avatarUrl={user.avatar_url || undefined}
               streakDays={user.streak_days}
+              role={user.role}
               size={64}
             />
             {user.name && (

@@ -17,7 +17,9 @@ const EDGE_THRESHOLD = 48;
 const RIGHT_EDGE_THRESHOLD = 48;
 
 const navLinks = [
+  { href: "/", label: "Home" },
   { href: "/browse", label: "Browse" },
+  { href: "/papers", label: "Papers" },
   { href: "/upload", label: "Upload" },
   { href: "/syllabus", label: "Syllabus" },
   { href: "/about", label: "About" },
@@ -133,6 +135,8 @@ export default function Navbar({ user }: NavbarProps) {
     if (href === "/") return pathname === "/";
     return pathname.startsWith(href);
   }
+
+  const isAdminOrAbove = user && (user.role === "admin" || user.role === "moderator" || user.role === "founder");
 
   return (
     <>
@@ -269,7 +273,7 @@ export default function Navbar({ user }: NavbarProps) {
                     >
                       Settings
                     </Link>
-                    {(user.role === "admin" || user.role === "moderator") && (
+                    {isAdminOrAbove && (
                       <Link
                         href="/admin"
                         onClick={() => setDropdownOpen(false)}
@@ -277,6 +281,27 @@ export default function Navbar({ user }: NavbarProps) {
                         role="menuitem"
                       >
                         Admin Dashboard
+                      </Link>
+                    )}
+                    {isAdminOrAbove && (
+                      <Link
+                        href="/admin/users"
+                        onClick={() => setDropdownOpen(false)}
+                        className="block px-4 py-2 text-sm transition-colors hover:opacity-70"
+                        role="menuitem"
+                      >
+                        User Management
+                      </Link>
+                    )}
+                    {user && user.role === "founder" && (
+                      <Link
+                        href="/devtool"
+                        onClick={() => setDropdownOpen(false)}
+                        className="block px-4 py-2 text-sm transition-colors hover:opacity-70"
+                        role="menuitem"
+                        style={{ color: "#7c3aed" }}
+                      >
+                        👑 DevTool
                       </Link>
                     )}
                     <hr style={{ borderColor: "var(--color-border)" }} />
@@ -382,7 +407,7 @@ export default function Navbar({ user }: NavbarProps) {
             >
               Settings
             </Link>
-            {(user.role === "admin" || user.role === "moderator") && (
+            {isAdminOrAbove && (
               <Link
                 href="/admin"
                 onClick={() => setDrawerOpen(false)}
@@ -390,6 +415,26 @@ export default function Navbar({ user }: NavbarProps) {
                 style={isActive("/admin") ? { color: "var(--color-primary)", fontWeight: 700 } : undefined}
               >
                 Admin Dashboard
+              </Link>
+            )}
+            {isAdminOrAbove && (
+              <Link
+                href="/admin/users"
+                onClick={() => setDrawerOpen(false)}
+                className="block rounded-md px-3 py-2.5 text-sm font-medium transition-colors hover:opacity-70"
+                style={isActive("/admin/users") ? { color: "var(--color-primary)", fontWeight: 700 } : undefined}
+              >
+                User Management
+              </Link>
+            )}
+            {user && user.role === "founder" && (
+              <Link
+                href="/devtool"
+                onClick={() => setDrawerOpen(false)}
+                className="block rounded-md px-3 py-2.5 text-sm font-medium transition-colors hover:opacity-70"
+                style={{ color: "#7c3aed", fontWeight: isActive("/devtool") ? 700 : undefined }}
+              >
+                👑 DevTool
               </Link>
             )}
             <form action={signOut}>

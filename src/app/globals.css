@@ -13,6 +13,7 @@
   --color-text-muted: #6b7280;
   --color-border: #e5e7eb;
   --color-input-bg: #ffffff;
+  --color-footer-bg: #f8f9fa;
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
@@ -30,6 +31,7 @@
   --color-text-muted: #9ca3af;
   --color-border: #2a2a2a;
   --color-input-bg: #1a1a1a;
+  --color-footer-bg: #181818;
 }
 
 body {
