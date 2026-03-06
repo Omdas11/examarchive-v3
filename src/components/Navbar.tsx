@@ -301,7 +301,7 @@ export default function Navbar({ user }: NavbarProps) {
                         role="menuitem"
                         style={{ color: "#7c3aed" }}
                       >
-                        👑 DevTool
+                        DevTool
                       </Link>
                     )}
                     <hr style={{ borderColor: "var(--color-border)" }} />
@@ -434,7 +434,7 @@ export default function Navbar({ user }: NavbarProps) {
                 className="block rounded-md px-3 py-2.5 text-sm font-medium transition-colors hover:opacity-70"
                 style={{ color: "#7c3aed", fontWeight: isActive("/devtool") ? 700 : undefined }}
               >
-                👑 DevTool
+                DevTool
               </Link>
             )}
             <form action={signOut}>

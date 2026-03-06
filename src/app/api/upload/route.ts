@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { fileId, title, course_code, course_name, department, year, semester, exam_type } = body as {
+    const { fileId, title, course_code, course_name, department, year, semester, exam_type, institution } = body as {
       fileId?: string;
       title?: string;
       course_code?: string;
@@ -58,6 +58,7 @@ export async function POST(request: NextRequest) {
       year?: number | string;
       semester?: string;
       exam_type?: string;
+      institution?: string;
     };
 
     if (!fileId || !title || !course_code || !course_name || !department || !year || !semester || !exam_type) {
@@ -92,6 +93,7 @@ export async function POST(request: NextRequest) {
         file_url: fileUrl,
         uploaded_by: user.id,
         approved: false,
+        ...(institution ? { institution } : {}),
       });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);

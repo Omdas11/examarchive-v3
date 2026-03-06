@@ -78,6 +78,7 @@ export default function UploadForm() {
     const course_name = data.get("course_name") as string;
     const department = data.get("department") as string;
     const year = data.get("year") as string;
+    const institution = data.get("institution") as string | null;
     const file = data.get("file") as File | null;
 
     // Client-side file size guard
@@ -138,6 +139,7 @@ export default function UploadForm() {
           year,
           semester,
           exam_type: examType,
+          institution: institution || undefined,
         }),
       });
 
@@ -197,10 +199,10 @@ export default function UploadForm() {
             value={examType}
             onChange={setExamType}
           />
+
+          <input name="institution" placeholder="University / Institution (optional)" className="input-field sm:col-span-2" />
         </div>
       </div>
-
-      {/* Step 2: Upload PDF */}
       <div>
         <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--color-text-muted)" }}>
           Step 2: Upload PDF

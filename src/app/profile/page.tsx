@@ -143,23 +143,27 @@ export default async function ProfilePage() {
         {/* Activity badges */}
         <div className="mt-4 flex flex-wrap gap-2">
           {user.streak_days >= 30 && (
-            <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium" style={{ background: "#fef3c7", color: "#92400e" }}>
-              🔥 30-day streak
+            <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium" style={{ background: "var(--color-border)", color: "#92400e" }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 2c0 0-5 3-5 8a5 5 0 0 0 10 0c0-2.5-1.5-4-1.5-4s-.5 1.5-1.5 1.5c-1 0-1.5-1.5-2-3z" /></svg>
+              30-day streak
             </span>
           )}
           {user.streak_days >= 7 && user.streak_days < 30 && (
-            <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium" style={{ background: "#dcfce7", color: "#166534" }}>
-              🔥 {user.streak_days}-day streak
+            <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium" style={{ background: "var(--color-border)", color: "#065f46" }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 2c0 0-5 3-5 8a5 5 0 0 0 10 0c0-2.5-1.5-4-1.5-4s-.5 1.5-1.5 1.5c-1 0-1.5-1.5-2-3z" /></svg>
+              {user.streak_days}-day streak
             </span>
           )}
           {user.streak_days > 0 && user.streak_days < 7 && (
-            <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium" style={{ background: "#dbeafe", color: "#1e40af" }}>
-              🔥 {user.streak_days}-day streak
+            <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium" style={{ background: "var(--color-border)", color: "#1e40af" }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 2c0 0-5 3-5 8a5 5 0 0 0 10 0c0-2.5-1.5-4-1.5-4s-.5 1.5-1.5 1.5c-1 0-1.5-1.5-2-3z" /></svg>
+              {user.streak_days}-day streak
             </span>
           )}
           {user.xp >= 100 && (
-            <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium" style={{ background: "var(--color-accent-soft)", color: "var(--color-primary)" }}>
-              ⚡ {user.xp} XP
+            <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium" style={{ background: "var(--color-border)", color: "var(--color-primary)" }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>
+              {user.xp} XP
             </span>
           )}
         </div>
@@ -169,69 +173,89 @@ export default async function ProfilePage() {
       <div className="card p-6">
         <h2 className="text-base font-semibold mb-3">Achievements</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {/* Activity-earned badges */}
+          {/* First Upload */}
           <div
             className="flex flex-col items-center rounded-lg p-3 text-center"
             style={{
-              background: user.xp >= 50 ? "var(--color-accent-soft)" : "var(--color-border)",
+              background: "var(--color-border)",
               opacity: user.xp >= 50 ? 1 : 0.45,
             }}
           >
-            <span className="text-2xl mb-1">📄</span>
+            <svg className="mb-2" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ color: user.xp >= 50 ? "var(--color-primary)" : "var(--color-text-muted)" }}>
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
+            </svg>
             <p className="text-xs font-semibold">First Upload</p>
             <p className="text-[10px] mt-0.5" style={{ color: "var(--color-text-muted)" }}>Submit your first paper</p>
           </div>
+          {/* 7-Day Streak */}
           <div
             className="flex flex-col items-center rounded-lg p-3 text-center"
             style={{
-              background: user.streak_days >= 7 ? "#dcfce7" : "var(--color-border)",
+              background: "var(--color-border)",
               opacity: user.streak_days >= 7 ? 1 : 0.45,
             }}
           >
-            <span className="text-2xl mb-1">🔥</span>
+            <svg className="mb-2" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ color: user.streak_days >= 7 ? "#16a34a" : "var(--color-text-muted)" }}>
+              <path d="M12 2c0 0-5 3-5 8a5 5 0 0 0 10 0c0-2.5-1.5-4-1.5-4s-.5 1.5-1.5 1.5c-1 0-1.5-1.5-2-3z" />
+            </svg>
             <p className="text-xs font-semibold">7-Day Streak</p>
             <p className="text-[10px] mt-0.5" style={{ color: "var(--color-text-muted)" }}>7 consecutive logins</p>
           </div>
+          {/* 30-Day Streak */}
           <div
             className="flex flex-col items-center rounded-lg p-3 text-center"
             style={{
-              background: user.streak_days >= 30 ? "#fef3c7" : "var(--color-border)",
+              background: "var(--color-border)",
               opacity: user.streak_days >= 30 ? 1 : 0.45,
             }}
           >
-            <span className="text-2xl mb-1">⭐</span>
+            <svg className="mb-2" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ color: user.streak_days >= 30 ? "#b45309" : "var(--color-text-muted)" }}>
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+            </svg>
             <p className="text-xs font-semibold">30-Day Streak</p>
             <p className="text-[10px] mt-0.5" style={{ color: "var(--color-text-muted)" }}>30 consecutive logins</p>
           </div>
+          {/* Contributor */}
           <div
             className="flex flex-col items-center rounded-lg p-3 text-center"
             style={{
-              background: user.xp >= 300 ? "var(--color-accent-soft)" : "var(--color-border)",
+              background: "var(--color-border)",
               opacity: user.xp >= 300 ? 1 : 0.45,
             }}
           >
-            <span className="text-2xl mb-1">🏅</span>
+            <svg className="mb-2" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ color: user.xp >= 300 ? "#1d4ed8" : "var(--color-text-muted)" }}>
+              <circle cx="12" cy="8" r="6" /><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11" />
+            </svg>
             <p className="text-xs font-semibold">Contributor</p>
             <p className="text-[10px] mt-0.5" style={{ color: "var(--color-text-muted)" }}>300+ XP earned</p>
           </div>
+          {/* Senior */}
           <div
             className="flex flex-col items-center rounded-lg p-3 text-center"
             style={{
-              background: user.xp >= 1500 ? "#fef3c7" : "var(--color-border)",
+              background: "var(--color-border)",
               opacity: user.xp >= 1500 ? 1 : 0.45,
             }}
           >
-            <span className="text-2xl mb-1">🥇</span>
+            <svg className="mb-2" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ color: user.xp >= 1500 ? "#92400e" : "var(--color-text-muted)" }}>
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+            </svg>
             <p className="text-xs font-semibold">Senior</p>
             <p className="text-[10px] mt-0.5" style={{ color: "var(--color-text-muted)" }}>1500+ XP earned</p>
           </div>
-          {/* Role-cosmetic badge */}
+          {/* Role badge */}
           {(user.role === "admin" || user.role === "moderator" || user.role === "founder") && (
             <div
               className="flex flex-col items-center rounded-lg p-3 text-center"
-              style={{ background: user.role === "founder" ? "#ede9fe" : "var(--color-accent-soft)" }}
+              style={{ background: "var(--color-border)" }}
             >
-              <span className="text-2xl mb-1">{user.role === "founder" ? "👑" : "🛡️"}</span>
+              <svg className="mb-2" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ color: user.role === "founder" ? "#7c3aed" : "var(--color-primary)" }}>
+                {user.role === "founder" ? (
+                  <path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7z" />
+                ) : (
+                  <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="M9 12l2 2 4-4" /></>
+                )}
+              </svg>
               <p className="text-xs font-semibold capitalize">{user.role}</p>
               <p className="text-[10px] mt-0.5" style={{ color: "var(--color-text-muted)" }}>Role badge</p>
             </div>
