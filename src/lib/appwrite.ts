@@ -9,6 +9,7 @@ import {
   Permission,
   Role,
 } from "node-appwrite";
+import { InputFile } from "node-appwrite/file";
 
 // ── Environment helpers ────────────────────────────────────────────────────
 export const APPWRITE_ENDPOINT =
@@ -92,6 +93,16 @@ export function adminAccount() {
 
 // ── File storage helpers ────────────────────────────────────────────────
 /**
+ * Convert a Web API File (from formData) into a node-appwrite-compatible File.
+ * This ensures the file is properly read as a Buffer before being passed to
+ * the server SDK, which prevents issues with unreadable streams.
+ */
+async function toNodeFile(webFile: File): Promise<File> {
+  const buffer = Buffer.from(await webFile.arrayBuffer());
+  return InputFile.fromBuffer(buffer, webFile.name);
+}
+
+/**
  * Upload a file to the configured Appwrite bucket and return its file ID.
  */
 export async function uploadFileToAppwrite(
@@ -99,7 +110,8 @@ export async function uploadFileToAppwrite(
 ): Promise<{ fileId: string; bucketId: string }> {
   const storage = adminStorage();
   const fileId = ID.unique();
-  await storage.createFile(BUCKET_ID, fileId, file);
+  const nodeFile = await toNodeFile(file);
+  await storage.createFile(BUCKET_ID, fileId, nodeFile);
   return { fileId, bucketId: BUCKET_ID };
 }
 
