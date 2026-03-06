@@ -97,6 +97,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   try {
+    console.log("[api/profile] Updating profile for user:", user.id, "with:", update);
     const db = adminDatabases();
     const updated = await db.updateDocument(
       DATABASE_ID,
@@ -104,6 +105,7 @@ export async function PATCH(request: NextRequest) {
       user.id,
       update,
     );
+    console.log("[api/profile] Profile updated successfully");
 
     return NextResponse.json({
       id: updated.$id,
@@ -112,9 +114,10 @@ export async function PATCH(request: NextRequest) {
       avatar_url: updated.avatar_url ?? "",
     });
   } catch (err: unknown) {
-    console.error("[api/profile] Failed to update profile:", err);
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error("[api/profile] Failed to update profile:", errorMessage, err);
     return NextResponse.json(
-      { error: "Failed to update profile" },
+      { error: "Failed to update profile", details: errorMessage },
       { status: 500 },
     );
   }

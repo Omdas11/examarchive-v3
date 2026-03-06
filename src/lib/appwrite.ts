@@ -105,13 +105,17 @@ export async function uploadFileToAppwrite(
 
 /**
  * Upload an avatar image to the avatars bucket and return its file ID.
+ * Sets public read permissions so avatar images can be viewed by anyone.
  */
 export async function uploadAvatarToAppwrite(
   file: File,
 ): Promise<{ fileId: string; bucketId: string }> {
   const storage = adminStorage();
   const fileId = ID.unique();
-  await storage.createFile(AVATARS_BUCKET_ID, fileId, file);
+  // Set public read permission so avatars can be viewed by anyone
+  await storage.createFile(AVATARS_BUCKET_ID, fileId, file, [
+    Permission.read(Role.any()),
+  ]);
   return { fileId, bucketId: AVATARS_BUCKET_ID };
 }
 
@@ -125,9 +129,10 @@ export async function deleteAvatarFromAppwrite(fileId: string): Promise<void> {
 
 /**
  * Build the preview URL for an avatar stored in the avatars bucket.
+ * Uses output=webp for better compression and quality.
  */
-export function getAvatarPreviewUrl(fileId: string, width = 96): string {
-  return `${APPWRITE_ENDPOINT}/storage/buckets/${AVATARS_BUCKET_ID}/files/${fileId}/preview?project=${APPWRITE_PROJECT_ID}&width=${width}&height=${width}&gravity=center&quality=80`;
+export function getAvatarPreviewUrl(fileId: string, width = 200): string {
+  return `${APPWRITE_ENDPOINT}/storage/buckets/${AVATARS_BUCKET_ID}/files/${fileId}/preview?project=${APPWRITE_PROJECT_ID}&width=${width}&height=${width}&gravity=center&quality=90&output=webp`;
 }
 
 /**
