@@ -157,7 +157,7 @@ export default function SettingsForm({ user }: SettingsFormProps) {
             }}
           >
             <span
-              className="inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform"
+              className="inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200"
               style={{ transform: reduceMotion ? "translateX(22px)" : "translateX(4px)" }}
             />
           </button>

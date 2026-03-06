@@ -333,7 +333,6 @@ export default function BadgeDisplay({ badges, showAll = false }: BadgeDisplayPr
             style={{
               background: "var(--color-border)",
               color: badge.earned ? accent : "var(--color-text-muted)",
-              border: `1px solid transparent`,
               opacity: badge.earned ? 1 : 0.45,
             }}
             title={badge.description}

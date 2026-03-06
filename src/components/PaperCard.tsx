@@ -36,7 +36,7 @@ export default function PaperCard({ paper }: PaperCardProps) {
   const accent = subjectColor(paper.department);
 
   return (
-    <div className="card group p-4 transition-all hover:shadow-md hover:-translate-y-0.5">
+    <div className="card group p-4 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
       {/* Subject color bar */}
       <div
         className="mb-3 h-0.5 w-8 rounded-full"
