@@ -16,10 +16,18 @@ export interface Paper {
   stream?: string;
   /** University or institution name. */
   institution?: string;
+  /** Academic programme (e.g. CBCS, FYUG). */
+  programme?: string;
   /** Total marks for the paper. */
   marks?: number;
   /** Exam duration in minutes. */
   duration?: number;
+  /** Number of times the paper has been viewed. */
+  view_count?: number;
+  /** Number of times the paper has been downloaded. */
+  download_count?: number;
+  /** Username of the uploader (denormalised for display). */
+  uploaded_by_username?: string;
 }
 
 /** Represents a syllabus entry. */
@@ -200,8 +208,12 @@ export function toPaper(doc: any): Paper {
     created_at: doc.$createdAt ?? doc.created_at,
     stream: doc.stream ?? undefined,
     institution: doc.institution ?? undefined,
+    programme: doc.programme ?? undefined,
     marks: doc.marks ?? undefined,
     duration: doc.duration ?? undefined,
+    view_count: doc.view_count ?? 0,
+    download_count: doc.download_count ?? 0,
+    uploaded_by_username: doc.uploaded_by_username ?? undefined,
   };
 }
 

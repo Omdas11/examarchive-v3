@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import {
   adminDatabases,
   DATABASE_ID,
@@ -25,6 +26,13 @@ export async function generateMetadata({ params }: PaperPageProps): Promise<Meta
   }
 }
 
+function toRoman(num: number): string {
+  const map: [string, number][] = [["X", 10], ["IX", 9], ["V", 5], ["IV", 4], ["I", 1]];
+  let r = "";
+  for (const [k, v] of map) while (num >= v) { r += k; num -= v; }
+  return r;
+}
+
 export default async function PaperPage({ params }: PaperPageProps) {
   const { id } = await params;
   let paper: Paper | null = null;
@@ -40,40 +48,90 @@ export default async function PaperPage({ params }: PaperPageProps) {
     return (
       <section className="mx-auto px-4 py-20 text-center" style={{ maxWidth: "var(--max-w)" }}>
         <h1 className="text-2xl font-bold">Paper Not Found</h1>
-        <p className="mt-2" style={{ color: "var(--color-text-muted)" }}>The requested paper does not exist.</p>
+        <p className="mt-2" style={{ color: "var(--color-text-muted)" }}>
+          The requested paper does not exist or has been removed.
+        </p>
+        <Link href="/browse" className="btn-primary mt-5 inline-block">← Browse Papers</Link>
       </section>
     );
   }
 
-  const badges = [
-    paper.year,
-    paper.semester,
+  const semRoman = paper.semester ? toRoman(parseInt(paper.semester, 10)) : paper.semester;
+
+  const metaBadges = [
+    paper.institution,
+    paper.programme,
     paper.department,
+    semRoman ? `Sem ${semRoman}` : null,
+    paper.year && String(paper.year),
     paper.exam_type,
-  ];
+  ].filter(Boolean) as string[];
+
+  const uploaderDisplay = paper.uploaded_by_username
+    ? `@${paper.uploaded_by_username}`
+    : null;
 
   return (
-    <section className="mx-auto px-4 py-10 space-y-6" style={{ maxWidth: "var(--max-w)" }}>
-      {/* Paper header card */}
-      <div className="card p-6">
-        <p className="text-xs font-medium" style={{ color: "var(--color-text-muted)" }}>
+    <section className="mx-auto px-4 py-8 space-y-4" style={{ maxWidth: "var(--max-w)" }}>
+
+      {/* ── Back link ── */}
+      <Link
+        href="/browse"
+        className="inline-flex items-center gap-1.5 text-sm transition-colors"
+        style={{ color: "var(--color-text-muted)" }}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M19 12H5M12 5l-7 7 7 7" />
+        </svg>
+        Browse Papers
+      </Link>
+
+      {/* ── Paper header card ── */}
+      <div className="card p-5 sm:p-6">
+        <p className="text-xs font-medium mb-1" style={{ color: "var(--color-text-muted)" }}>
           {paper.course_code}
         </p>
-        <h1 className="mt-1 text-2xl font-bold">{paper.title}</h1>
-        <p className="mt-1 text-sm" style={{ color: "var(--color-text-muted)" }}>
-          {paper.course_name}
-        </p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {badges.map((b) => (
+        <h1 className="text-xl sm:text-2xl font-bold leading-snug">{paper.title}</h1>
+        {paper.course_name && paper.course_name !== paper.title && (
+          <p className="mt-1 text-sm" style={{ color: "var(--color-text-muted)" }}>{paper.course_name}</p>
+        )}
+
+        {/* Meta badges */}
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {metaBadges.map((b) => (
             <span
               key={b}
-              className="inline-block rounded-full px-3 py-0.5 text-xs font-medium"
+              className="inline-block rounded-full px-2.5 py-0.5 text-xs font-medium"
               style={{ background: "var(--color-accent-soft)", color: "var(--color-primary)" }}
             >
               {b}
             </span>
           ))}
         </div>
+
+        {/* Uploader + stats */}
+        {(uploaderDisplay || (paper.view_count ?? 0) > 0 || (paper.download_count ?? 0) > 0) && (
+          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs" style={{ color: "var(--color-text-muted)" }}>
+            {uploaderDisplay && <span>Uploaded by {uploaderDisplay}</span>}
+            {(paper.view_count ?? 0) > 0 && (
+              <span className="inline-flex items-center gap-1">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
+                </svg>
+                {paper.view_count} views
+              </span>
+            )}
+            {(paper.download_count ?? 0) > 0 && (
+              <span className="inline-flex items-center gap-1">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M12 3v12" /><path d="M7 10l5 5 5-5" /><path d="M5 21h14" />
+                </svg>
+                {paper.download_count} downloads
+              </span>
+            )}
+          </div>
+        )}
+
         <a
           href={paper.file_url}
           target="_blank"
@@ -84,17 +142,23 @@ export default async function PaperPage({ params }: PaperPageProps) {
         </a>
       </div>
 
-      {/* Available papers */}
-      <div className="card p-6">
-        <h2 className="text-lg font-semibold">Available Papers</h2>
-        <ul className="mt-3 divide-y" style={{ borderColor: "var(--color-border)" }}>
-          <li className="flex items-center justify-between py-2.5 text-sm">
-            <span>{paper.year} — {paper.semester} {paper.exam_type}</span>
+      {/* ── Available papers ── */}
+      <div className="card p-5 sm:p-6">
+        <h2 className="text-base font-semibold mb-3">Available Question Papers</h2>
+        <ul className="space-y-2">
+          <li
+            className="flex items-center justify-between rounded-lg px-3 py-2.5 text-sm"
+            style={{ border: "1px solid var(--color-border)", background: "var(--color-surface)" }}
+          >
+            <span>
+              {paper.year} — Sem {semRoman}
+              {paper.exam_type && ` · ${paper.exam_type}`}
+            </span>
             <a
               href={paper.file_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="font-medium"
+              className="font-medium ml-4 shrink-0"
               style={{ color: "var(--color-primary)" }}
             >
               View PDF
@@ -103,35 +167,35 @@ export default async function PaperPage({ params }: PaperPageProps) {
         </ul>
       </div>
 
-      {/* Syllabus */}
-      <div className="card p-6">
-        <h2 className="text-lg font-semibold">Syllabus</h2>
-        <div className="mt-3 text-center py-4">
+      {/* ── Syllabus ── */}
+      <div className="card p-5 sm:p-6">
+        <h2 className="text-base font-semibold mb-3">Syllabus</h2>
+        <div className="rounded-lg px-4 py-5 text-center" style={{ background: "var(--color-accent-soft)" }}>
           <p className="text-sm font-medium" style={{ color: "var(--color-text-muted)" }}>Coming Soon</p>
           <p className="text-xs mt-1" style={{ color: "var(--color-text-muted)" }}>
-            Syllabus information will be available here once added.
+            Syllabus information will be linked here once available.
           </p>
         </div>
       </div>
 
-      {/* Repeated Questions */}
-      <div className="card p-6">
-        <h2 className="text-lg font-semibold">Repeated Questions</h2>
-        <div className="mt-3 text-center py-4">
+      {/* ── Repeated Questions ── */}
+      <div className="card p-5 sm:p-6">
+        <h2 className="text-base font-semibold mb-3">Repeated Questions</h2>
+        <div className="rounded-lg px-4 py-5 text-center" style={{ background: "var(--color-accent-soft)" }}>
           <p className="text-sm font-medium" style={{ color: "var(--color-text-muted)" }}>Under Development</p>
           <p className="text-xs mt-1" style={{ color: "var(--color-text-muted)" }}>
-            Repeated question analysis is being built and will be available soon.
+            Repeated question analysis is being built and will appear here soon.
           </p>
         </div>
       </div>
 
-      {/* Notes & Resources */}
-      <div className="card p-6">
-        <h2 className="text-lg font-semibold">Notes &amp; Resources</h2>
-        <div className="mt-3 text-center py-4">
+      {/* ── Notes & Resources ── */}
+      <div className="card p-5 sm:p-6">
+        <h2 className="text-base font-semibold mb-3">Notes &amp; Resources</h2>
+        <div className="rounded-lg px-4 py-5 text-center" style={{ background: "var(--color-accent-soft)" }}>
           <p className="text-sm font-medium" style={{ color: "var(--color-text-muted)" }}>Coming Soon</p>
           <p className="text-xs mt-1" style={{ color: "var(--color-text-muted)" }}>
-            Notes and additional resources will be linked here in the future.
+            Notes, formulas, and additional resources will be linked here.
           </p>
         </div>
       </div>

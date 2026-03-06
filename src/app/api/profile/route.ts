@@ -2,10 +2,12 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getServerUser } from "@/lib/auth";
 import { adminDatabases, DATABASE_ID, COLLECTION, Query } from "@/lib/appwrite";
 
+const USERNAME_COOLDOWN_DAYS = 7;
+
 /**
  * PATCH /api/profile
- * Update the authenticated user's display profile (display_name → "name", username).
- * Role and tier changes are NOT permitted here — use /api/admin/users for that.
+ * Update the authenticated user's display profile (display_name, username).
+ * Username changes are rate-limited to once every 7 days.
  */
 export async function PATCH(request: NextRequest) {
   const user = await getServerUser();
@@ -20,8 +22,6 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  // Only allow editing safe display fields.
-  // Note: "name" from the frontend maps to "display_name" in the Appwrite schema.
   const allowedFields = ["name", "username"] as const;
   type AllowedField = (typeof allowedFields)[number];
 
@@ -47,7 +47,7 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
-  // Validate username: alphanumeric + underscores, 1–30 chars, or empty string to clear
+  // Validate username
   if (update.username !== undefined && update.username !== "") {
     if (!/^[a-zA-Z0-9_]{1,30}$/.test(update.username)) {
       return NextResponse.json(
@@ -56,7 +56,26 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    // Validate username uniqueness (exclude current user's own document)
+    // Enforce 7-day cooldown on username changes
+    try {
+      const db = adminDatabases();
+      const profile = await db.getDocument(DATABASE_ID, COLLECTION.users, user.id);
+      const lastChanged = profile.username_last_changed as string | null;
+      if (lastChanged) {
+        const daysSince = (Date.now() - new Date(lastChanged).getTime()) / (1000 * 60 * 60 * 24);
+        if (daysSince < USERNAME_COOLDOWN_DAYS && profile.username !== update.username) {
+          const daysLeft = Math.ceil(USERNAME_COOLDOWN_DAYS - daysSince);
+          return NextResponse.json(
+            { error: `Username can only be changed once every ${USERNAME_COOLDOWN_DAYS} days. Try again in ${daysLeft} day${daysLeft !== 1 ? "s" : ""}.` },
+            { status: 429 },
+          );
+        }
+      }
+    } catch {
+      // If document lookup fails, allow the change (graceful degradation)
+    }
+
+    // Validate username uniqueness
     try {
       const db = adminDatabases();
       const { documents } = await db.listDocuments(
@@ -72,12 +91,11 @@ export async function PATCH(request: NextRequest) {
         );
       }
     } catch (err) {
-      // If uniqueness check fails (e.g. missing index), log and continue rather than block
       console.warn("[api/profile] Username uniqueness check failed:", err);
     }
   }
 
-  // Validate name: max 60 chars
+  // Validate name length
   if (update.name !== undefined && update.name.length > 60) {
     return NextResponse.json(
       { error: "Name must be 60 characters or fewer" },
@@ -86,13 +104,14 @@ export async function PATCH(request: NextRequest) {
   }
 
   try {
-    console.log("[api/profile] Updating profile for user:", user.id, "with:", update);
     const db = adminDatabases();
 
-    // Map frontend field "name" → Appwrite attribute "display_name"
     const dbUpdate: Record<string, string> = {};
     if (update.name !== undefined) dbUpdate.display_name = update.name;
-    if (update.username !== undefined) dbUpdate.username = update.username;
+    if (update.username !== undefined) {
+      dbUpdate.username = update.username;
+      dbUpdate.username_last_changed = new Date().toISOString();
+    }
 
     const updated = await db.updateDocument(
       DATABASE_ID,
@@ -100,12 +119,12 @@ export async function PATCH(request: NextRequest) {
       user.id,
       dbUpdate,
     );
-    console.log("[api/profile] Profile updated successfully");
 
     return NextResponse.json({
       id: updated.$id,
       name: (updated.display_name as string) ?? "",
       username: (updated.username as string) ?? "",
+      username_last_changed: (updated.username_last_changed as string) ?? null,
     });
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : String(err);
@@ -127,6 +146,16 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Fetch username_last_changed from the DB
+  let username_last_changed: string | null = null;
+  try {
+    const db = adminDatabases();
+    const profile = await db.getDocument(DATABASE_ID, COLLECTION.users, user.id);
+    username_last_changed = (profile.username_last_changed as string) ?? null;
+  } catch {
+    // ignore
+  }
+
   return NextResponse.json({
     id: user.id,
     email: user.email,
@@ -136,5 +165,6 @@ export async function GET() {
     xp: user.xp,
     streak_days: user.streak_days,
     last_activity: user.last_activity,
+    username_last_changed,
   });
 }
