@@ -13,18 +13,23 @@ type MessageState = { type: "success" | "error"; text: string } | null;
 const MAX_MB = MAX_UPLOAD_BYTES / (1024 * 1024); // 20
 
 const semesterOptions = [
-  { value: "1st", label: "1st" },
-  { value: "2nd", label: "2nd" },
-  { value: "3rd", label: "3rd" },
-  { value: "4th", label: "4th" },
-  { value: "5th", label: "5th" },
-  { value: "6th", label: "6th" },
+  { value: "1st", label: "1st Semester" },
+  { value: "2nd", label: "2nd Semester" },
+  { value: "3rd", label: "3rd Semester" },
+  { value: "4th", label: "4th Semester" },
+  { value: "5th", label: "5th Semester" },
+  { value: "6th", label: "6th Semester" },
 ];
 
 const examTypeOptions = [
-  { value: "Midterm", label: "Midterm" },
-  { value: "Final", label: "Final" },
-  { value: "Quiz", label: "Quiz" },
+  { value: "Theory", label: "Theory" },
+  { value: "Practical", label: "Practical" },
+];
+
+const programmeOptions = [
+  { value: "CBCS", label: "CBCS" },
+  { value: "FYUG", label: "FYUG" },
+  { value: "Other", label: "Other" },
 ];
 
 /** Interpolate between two hex colors by fraction 0..1. */
@@ -55,14 +60,15 @@ function formatTime(seconds: number): string {
 
 export default function UploadForm() {
   const [loading, setLoading] = useState(false);
-  const [progress, setProgress] = useState(0); // 0–100
-  const [uploadSpeed, setUploadSpeed] = useState(0); // bytes/s
-  const [eta, setEta] = useState(0); // seconds remaining
+  const [progress, setProgress] = useState(0);
+  const [uploadSpeed, setUploadSpeed] = useState(0);
+  const [eta, setEta] = useState(0);
   const [message, setMessage] = useState<MessageState>(null);
   const [dragOver, setDragOver] = useState(false);
   const [fileName, setFileName] = useState("");
   const [semester, setSemester] = useState("");
   const [examType, setExamType] = useState("");
+  const [programme, setProgramme] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
   const startTimeRef = useRef<number>(0);
 
@@ -81,7 +87,6 @@ export default function UploadForm() {
     const institution = data.get("institution") as string | null;
     const file = data.get("file") as File | null;
 
-    // Client-side file size guard
     if (file && file.size > MAX_UPLOAD_BYTES) {
       setMessage({
         type: "error",
@@ -102,7 +107,6 @@ export default function UploadForm() {
     startTimeRef.current = Date.now();
 
     try {
-      // ── Step 1: Obtain a short-lived JWT so the browser can talk to Appwrite ──
       const tokenRes = await fetch("/api/upload/token");
       const tokenJson = await tokenRes.json().catch(() => null) as { jwt?: string; error?: string } | null;
       if (!tokenRes.ok || !tokenJson?.jwt) {
@@ -110,10 +114,8 @@ export default function UploadForm() {
       }
       const { jwt } = tokenJson;
 
-      // ── Step 2: Upload file directly from the browser to Appwrite Storage ──
       const fileId = await uploadFileDirectly(jwt, file, (evt: UploadProgress) => {
         setProgress(evt.progress);
-
         const elapsed = (Date.now() - startTimeRef.current) / 1000;
         if (elapsed > 0 && evt.loaded > 0) {
           const bps = evt.loaded / elapsed;
@@ -123,10 +125,8 @@ export default function UploadForm() {
         }
       });
 
-      // Ensure progress bar reaches 100% before metadata save
       setProgress(100);
 
-      // ── Step 3: Save metadata via the Next.js API (no file payload) ──
       const metaRes = await fetch("/api/upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -140,6 +140,7 @@ export default function UploadForm() {
           semester,
           exam_type: examType,
           institution: institution || undefined,
+          programme: programme || undefined,
         }),
       });
 
@@ -152,6 +153,7 @@ export default function UploadForm() {
       setFileName("");
       setSemester("");
       setExamType("");
+      setProgramme("");
       formRef.current?.reset();
     } catch (err: unknown) {
       const text = err instanceof Error ? err.message : "Upload failed. Please try again.";
@@ -161,7 +163,6 @@ export default function UploadForm() {
     }
   }
 
-  // Button color: transitions from red (0%) → amber (50%) → green (100%)
   const btnColor = progress === 0 || !loading
     ? "var(--color-primary)"
     : progress < 50
@@ -170,18 +171,28 @@ export default function UploadForm() {
 
   return (
     <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
-      {/* Step 1: Paper details */}
       <div>
         <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--color-text-muted)" }}>
           Step 1: Paper Details
         </h3>
         <div className="grid gap-4 sm:grid-cols-2">
-          <input name="title" placeholder="Subject / Paper Name" required className="input-field" />
+          <input
+            name="institution"
+            placeholder="University / Institution"
+            className="input-field sm:col-span-2"
+          />
+          <CustomSelect
+            name="programme"
+            options={programmeOptions}
+            placeholder="Programme"
+            value={programme}
+            onChange={setProgramme}
+          />
+          <input name="department" placeholder="Department / Stream" required className="input-field" />
           <input name="course_code" placeholder="Paper Code" required className="input-field" />
           <input name="course_name" placeholder="Course Name" required className="input-field" />
-          <input name="department" placeholder="Stream / Department" required className="input-field" />
-          <input name="year" type="number" placeholder="Year" required className="input-field" />
-
+          <input name="title" placeholder="Subject / Paper Name" required className="input-field sm:col-span-2" />
+          <input name="year" type="number" placeholder="Year (e.g. 2024)" required className="input-field" />
           <CustomSelect
             name="semester"
             options={semesterOptions}
@@ -190,7 +201,6 @@ export default function UploadForm() {
             value={semester}
             onChange={setSemester}
           />
-
           <CustomSelect
             name="exam_type"
             options={examTypeOptions}
@@ -199,10 +209,9 @@ export default function UploadForm() {
             value={examType}
             onChange={setExamType}
           />
-
-          <input name="institution" placeholder="University / Institution (optional)" className="input-field sm:col-span-2" />
         </div>
       </div>
+
       <div>
         <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--color-text-muted)" }}>
           Step 2: Upload PDF
@@ -222,10 +231,7 @@ export default function UploadForm() {
             const file = e.dataTransfer.files[0];
             if (file) {
               if (file.size > MAX_UPLOAD_BYTES) {
-                setMessage({
-                  type: "error",
-                  text: `File is too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum allowed size is ${MAX_MB} MB.`,
-                });
+                setMessage({ type: "error", text: `File too large. Max ${MAX_MB} MB.` });
               } else {
                 setMessage(null);
                 setFileName(file.name);
@@ -252,10 +258,7 @@ export default function UploadForm() {
               const file = e.target.files?.[0];
               if (file) {
                 if (file.size > MAX_UPLOAD_BYTES) {
-                  setMessage({
-                    type: "error",
-                    text: `File is too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum allowed size is ${MAX_MB} MB.`,
-                  });
+                  setMessage({ type: "error", text: `File too large. Max ${MAX_MB} MB.` });
                   e.target.value = "";
                   setFileName("");
                 } else {
@@ -268,23 +271,15 @@ export default function UploadForm() {
         </label>
       </div>
 
-      {/* Step 3: Submit */}
       <div>
         <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--color-text-muted)" }}>
           Step 3: Submit
         </h3>
 
-        {/* Progress bar */}
         {loading && (
           <div className="mb-3 space-y-1">
-            <div
-              className="h-2 w-full overflow-hidden rounded-full"
-              style={{ background: "var(--color-border)" }}
-            >
-              <div
-                className="h-full rounded-full transition-all duration-300"
-                style={{ width: `${progress}%`, background: btnColor }}
-              />
+            <div className="h-2 w-full overflow-hidden rounded-full" style={{ background: "var(--color-border)" }}>
+              <div className="h-full rounded-full transition-all duration-300" style={{ width: `${progress}%`, background: btnColor }} />
             </div>
             <div className="flex items-center justify-between text-xs" style={{ color: "var(--color-text-muted)" }}>
               <span>{progress}%</span>
@@ -300,10 +295,7 @@ export default function UploadForm() {
           type="submit"
           disabled={loading}
           className="btn-primary w-full disabled:opacity-50 transition-colors duration-300"
-          style={{
-            background: btnColor,
-            borderColor: btnColor,
-          }}
+          style={{ background: btnColor, borderColor: btnColor }}
         >
           {loading ? `Uploading… ${progress}%` : "Upload Paper"}
         </button>
@@ -315,9 +307,7 @@ export default function UploadForm() {
       {message && (
         <p
           className="text-sm text-center font-medium"
-          style={{
-            color: message.type === "success" ? "#16a34a" : "var(--color-primary)",
-          }}
+          style={{ color: message.type === "success" ? "#16a34a" : "var(--color-primary)" }}
         >
           {message.text}
         </p>
@@ -325,4 +315,3 @@ export default function UploadForm() {
     </form>
   );
 }
-
