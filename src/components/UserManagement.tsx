@@ -33,7 +33,12 @@ export default function UserManagement({
 
     if (search.trim()) {
       const q = search.toLowerCase();
-      result = result.filter((u) => u.email.toLowerCase().includes(q));
+      result = result.filter(
+        (u) =>
+          u.email.toLowerCase().includes(q) ||
+          (u.name && u.name.toLowerCase().includes(q)) ||
+          (u.username && u.username.toLowerCase().includes(q)),
+      );
     }
 
     if (roleFilter !== "all") {
@@ -82,7 +87,7 @@ export default function UserManagement({
       <div className="mt-4 flex flex-col sm:flex-row gap-3">
         <input
           type="text"
-          placeholder="Search by email…"
+          placeholder="Search by name, username, or email…"
           className="input-field flex-1"
           value={search}
           onChange={(e) => {
@@ -139,8 +144,76 @@ export default function UserManagement({
         Showing {filtered.length} user{filtered.length !== 1 ? "s" : ""}
       </p>
 
-      {/* Users Table */}
-      <div className="mt-3 overflow-x-auto">
+      {/* Mobile: stacked cards (visible below sm) */}
+      <div className="mt-3 flex flex-col gap-3 sm:hidden">
+        {paginated.map((u) => (
+          <div
+            key={u.id}
+            className="card p-4 space-y-2"
+          >
+            {/* Header row */}
+            <div className="flex items-center gap-2">
+              <span
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+                style={{ background: "var(--color-primary)" }}
+              >
+                {(u.name || u.email).charAt(0).toUpperCase()}
+              </span>
+              <div className="min-w-0">
+                {u.name && (
+                  <p className="text-sm font-semibold truncate">{u.name}</p>
+                )}
+                <p className="text-xs truncate" style={{ color: "var(--color-text-muted)" }}>
+                  {u.email}
+                </p>
+              </div>
+            </div>
+
+            {/* Badges */}
+            <div className="flex flex-wrap gap-1">
+              <RoleBadge role={u.primary_role} />
+              {u.secondary_role && <RoleBadge role={u.secondary_role} />}
+              <TierBadge tier={u.tier} />
+            </div>
+
+            {/* Stats row */}
+            <div className="flex gap-4 text-xs" style={{ color: "var(--color-text-muted)" }}>
+              <span>📤 {u.upload_count} uploads</span>
+              {u.xp > 0 && <span>⚡ {u.xp} XP</span>}
+              {u.streak_days > 0 && <span>🔥 {u.streak_days}d streak</span>}
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                className="btn text-[11px] px-3 py-1"
+                onClick={() => setEditingUser(u)}
+              >
+                Edit Roles
+              </button>
+              <button
+                type="button"
+                className="btn text-[11px] px-3 py-1"
+                style={{ color: "var(--color-text-muted)" }}
+                onClick={() =>
+                  setViewingActivity(viewingActivity === u.id ? null : u.id)
+                }
+              >
+                Activity
+              </button>
+            </div>
+          </div>
+        ))}
+        {paginated.length === 0 && (
+          <p className="py-6 text-center text-sm" style={{ color: "var(--color-text-muted)" }}>
+            No users found.
+          </p>
+        )}
+      </div>
+
+      {/* Desktop: table (hidden below sm) */}
+      <div className="mt-3 overflow-x-auto hidden sm:block">
         <table className="w-full text-sm">
           <thead>
             <tr
@@ -151,10 +224,11 @@ export default function UserManagement({
               }}
             >
               <th className="pb-2 pr-3">User</th>
-              <th className="pb-2 pr-3 hidden sm:table-cell">Role</th>
-              <th className="pb-2 pr-3 hidden md:table-cell">Roles</th>
+              <th className="pb-2 pr-3">Role</th>
+              <th className="pb-2 pr-3 hidden md:table-cell">Badges</th>
               <th className="pb-2 pr-3 hidden lg:table-cell">Tier</th>
               <th className="pb-2 pr-3 hidden lg:table-cell">Uploads</th>
+              <th className="pb-2 pr-3 hidden xl:table-cell">XP</th>
               <th className="pb-2 pr-3 hidden md:table-cell">Joined</th>
               <th className="pb-2 text-right">Actions</th>
             </tr>
@@ -172,12 +246,19 @@ export default function UserManagement({
                       className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
                       style={{ background: "var(--color-primary)" }}
                     >
-                      {u.email.charAt(0).toUpperCase()}
+                      {(u.name || u.email).charAt(0).toUpperCase()}
                     </span>
-                    <span className="truncate max-w-[180px]">{u.email}</span>
+                    <div className="min-w-0">
+                      {u.name && (
+                        <p className="text-xs font-semibold truncate max-w-[140px]">{u.name}</p>
+                      )}
+                      <p className="text-xs truncate max-w-[180px]" style={{ color: u.name ? "var(--color-text-muted)" : undefined }}>
+                        {u.email}
+                      </p>
+                    </div>
                   </div>
                 </td>
-                <td className="py-3 pr-3 hidden sm:table-cell">
+                <td className="py-3 pr-3">
                   <RoleBadge role={u.role} />
                 </td>
                 <td className="py-3 pr-3 hidden md:table-cell">
@@ -196,6 +277,9 @@ export default function UserManagement({
                 </td>
                 <td className="py-3 pr-3 hidden lg:table-cell">
                   {u.upload_count}
+                </td>
+                <td className="py-3 pr-3 hidden xl:table-cell text-xs" style={{ color: "var(--color-text-muted)" }}>
+                  {u.xp}
                 </td>
                 <td
                   className="py-3 pr-3 hidden md:table-cell text-xs"
@@ -246,7 +330,7 @@ export default function UserManagement({
             {paginated.length === 0 && (
               <tr>
                 <td
-                  colSpan={7}
+                  colSpan={8}
                   className="py-8 text-center text-sm"
                   style={{ color: "var(--color-text-muted)" }}
                 >
