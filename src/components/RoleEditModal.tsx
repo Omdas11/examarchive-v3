@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { AdminUser, UserRole, CustomRole, UserTier } from "@/types";
 
 const ROLES: UserRole[] = ["student", "moderator", "admin"];
-const CUSTOM_ROLES: (CustomRole | "none")[] = [
+const CUSTOM_ROLES: string[] = [
   "none",
   "contributor",
   "reviewer",
@@ -190,7 +190,7 @@ export default function RoleEditModal({
               }
             >
               {CUSTOM_ROLES.map((r) => (
-                <option key={r ?? "none"} value={r ?? "none"}>
+                <option key={r} value={r}>
                   {r === "none" ? "None" : r}
                 </option>
               ))}
@@ -209,7 +209,7 @@ export default function RoleEditModal({
               }
             >
               {CUSTOM_ROLES.map((r) => (
-                <option key={r ?? "none"} value={r ?? "none"}>
+                <option key={r} value={r}>
                   {r === "none" ? "None" : r}
                 </option>
               ))}
