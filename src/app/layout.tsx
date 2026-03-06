@@ -6,6 +6,7 @@ import { getServerUser } from "@/lib/auth";
 import DebugPanel from "@/components/DebugPanel";
 import { ToastProvider } from "@/components/ToastContext";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { Analytics } from "@vercel/analytics/next";
 
 const SITE_URL = "https://examarchive.dev";
 const SITE_NAME = "ExamArchive";
@@ -99,6 +100,7 @@ export default async function RootLayout({
           </ToastProvider>
         </div>
         <SpeedInsights />
+        <Analytics />
       </body>
     </html>
   );
