@@ -5,14 +5,12 @@ import { useToast } from "@/components/ToastContext";
 import AvatarRing from "@/components/AvatarRing";
 
 interface ProfileEditorProps {
-  userId: string;
   initialName: string;
   initialUsername: string;
   initialAvatarUrl: string;
 }
 
 export default function ProfileEditor({
-  userId,
   initialName,
   initialUsername,
   initialAvatarUrl,
@@ -23,7 +21,7 @@ export default function ProfileEditor({
   const [saving, setSaving] = useState(false);
   const { showToast } = useToast();
 
-  const displayName = name || username || userId;
+  const displayName = name || username || "User";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

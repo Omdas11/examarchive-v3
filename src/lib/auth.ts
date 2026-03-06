@@ -115,7 +115,7 @@ export async function getServerUser(): Promise<UserProfile | null> {
         role: "student" as UserRole,
         xp: 0,
         streak_days: 0,
-        last_activity: "",
+        last_activity: (newProfile.last_activity as string) ?? new Date().toISOString(),
         created_at: newProfile.$createdAt,
       };
     } catch (insertError) {

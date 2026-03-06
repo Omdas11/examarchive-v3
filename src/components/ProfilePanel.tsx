@@ -67,14 +67,13 @@ function StreakBadge({ days }: { days: number }) {
         height="16"
         viewBox="0 0 24 24"
         fill={days > 0 ? color : "none"}
-        stroke={color}
+        stroke={days > 0 ? "none" : color}
         strokeWidth="1.5"
         aria-hidden="true"
       >
-        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z" />
         <path
           fill={days > 0 ? color : "none"}
-          d="M13.5 6.5c0 2-1.5 3.5-1.5 5-.5-1.5-2-3-2-5a3.5 3.5 0 0 1 3.5-3.5A3.5 3.5 0 0 1 17 6.5c0 2-1.5 3.5-1.5 5-.5-1.5-2-3-2-5z"
+          d="M12 2c0 0-5 4-5 10a5 5 0 0 0 10 0c0-3-2-5-2-5s-1 2-2 2c-1.5 0-2-2-2-4 0 0-2 3-2 5a3 3 0 0 0 6 0c0-1.5-1-3-1-3s1 1.5 1 3a2 2 0 0 1-4 0c0-1.5 1-3 1-3z"
         />
       </svg>
       <span className="text-sm font-semibold" style={{ color }}>
@@ -98,10 +97,7 @@ export default function ProfilePanel({ user, open, onClose }: ProfilePanelProps)
   }, [open, onClose]);
 
   // Prevent body scroll when open
-  useEffect(() => {
-    document.body.style.overflow = open ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
-  }, [open]);
+  // Body scroll is managed by Navbar to avoid conflicts with other overlays
 
   const displayName = user.name || user.username || user.email;
   const roleForBadge = user.role as "student" | "moderator" | "admin";

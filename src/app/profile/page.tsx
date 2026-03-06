@@ -130,7 +130,6 @@ export default async function ProfilePage() {
 
       {/* Profile editor */}
       <ProfileEditor
-        userId={user.id}
         initialName={user.name}
         initialUsername={user.username}
         initialAvatarUrl={user.avatar_url}

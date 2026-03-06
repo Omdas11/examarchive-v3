@@ -39,13 +39,17 @@ export default function Navbar({ user }: NavbarProps) {
     setDark(document.documentElement.getAttribute("data-theme") === "dark");
   }, []);
 
-  // Prevent body scroll when mobile drawer is open.
+  // Prevent body scroll when any overlay panel is open.
   useEffect(() => {
-    document.body.style.overflow = drawerOpen ? "hidden" : "";
+    const anyOpen = drawerOpen || profilePanelOpen;
+    document.body.style.overflow = anyOpen ? "hidden" : "";
     return () => {
-      document.body.style.overflow = "";
+      // Only reset if no panel remains open after this effect re-runs
+      if (!drawerOpen && !profilePanelOpen) {
+        document.body.style.overflow = "";
+      }
     };
-  }, [drawerOpen]);
+  }, [drawerOpen, profilePanelOpen]);
 
   // Close avatar dropdown on outside click.
   useEffect(() => {

@@ -36,8 +36,15 @@ let counter = 0;
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const timersRef = React.useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   const dismissToast = useCallback((id: string) => {
+    // Clear the auto-dismiss timer if it hasn't fired yet
+    const timer = timersRef.current.get(id);
+    if (timer !== undefined) {
+      clearTimeout(timer);
+      timersRef.current.delete(id);
+    }
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
@@ -45,11 +52,21 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     (message: string, type: ToastType = "info") => {
       const id = String(++counter);
       setToasts((prev) => [...prev, { id, message, type }]);
-      // Auto-dismiss after 4 s
-      setTimeout(() => dismissToast(id), 4000);
+      // Auto-dismiss after 4 s; store timer so we can cancel on unmount
+      const timer = setTimeout(() => dismissToast(id), 4000);
+      timersRef.current.set(id, timer);
     },
     [dismissToast],
   );
+
+  // Clear all pending timers when the provider unmounts
+  React.useEffect(() => {
+    const timers = timersRef.current;
+    return () => {
+      timers.forEach((t) => clearTimeout(t));
+      timers.clear();
+    };
+  }, []);
 
   return (
     <ToastContext.Provider value={{ toasts, showToast, dismissToast }}>

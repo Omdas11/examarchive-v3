@@ -46,11 +46,11 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
-  // Validate username: alphanumeric + underscores, max 30 chars
-  if (update.username !== undefined) {
-    if (!/^[a-zA-Z0-9_]{0,30}$/.test(update.username)) {
+  // Validate username: alphanumeric + underscores, 1–30 chars, or empty string to clear
+  if (update.username !== undefined && update.username !== "") {
+    if (!/^[a-zA-Z0-9_]{1,30}$/.test(update.username)) {
       return NextResponse.json(
-        { error: "Username must be alphanumeric (underscores allowed), max 30 characters" },
+        { error: "Username must be 1–30 alphanumeric characters (underscores allowed)" },
         { status: 400 },
       );
     }

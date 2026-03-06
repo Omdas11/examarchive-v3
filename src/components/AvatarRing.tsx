@@ -3,11 +3,15 @@
  * indicates the user's daily streak level.
  *
  * Ring colours:
- *   0 days   → gray  (inactive / default)
+ *   0 days   → no ring (transparent)
  *   1–6 days → blue
  *   7–29 days → green
  *   30+ days  → gold / amber
  */
+
+"use client";
+
+import { useState } from "react";
 
 interface AvatarRingProps {
   /** Email or display name used to generate the fallback initial. */
@@ -46,11 +50,14 @@ export default function AvatarRing({
   size = 32,
   className = "",
 }: AvatarRingProps) {
+  const [imgError, setImgError] = useState(false);
   const color = ringColor(streakDays);
   const hasRing = streakDays > 0;
   // Ring border is ~2px for small avatars, 3px for larger ones
   const ringWidth = size >= 48 ? 3 : 2;
   const ringGap = 2;
+
+  const showImage = !!avatarUrl && !imgError;
 
   return (
     <span
@@ -75,7 +82,7 @@ export default function AvatarRing({
       )}
 
       {/* Avatar circle */}
-      {avatarUrl ? (
+      {showImage ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={avatarUrl}
@@ -84,10 +91,7 @@ export default function AvatarRing({
           height={size}
           className="rounded-full object-cover"
           style={{ width: size, height: size }}
-          onError={(e) => {
-            // Fallback to initials on broken image
-            (e.currentTarget as HTMLElement).style.display = "none";
-          }}
+          onError={() => setImgError(true)}
         />
       ) : (
         <span
