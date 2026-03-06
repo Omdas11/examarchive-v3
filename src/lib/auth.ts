@@ -6,6 +6,8 @@ import {
   COLLECTION,
   Account,
   Query,
+  Permission,
+  Role,
 } from "./appwrite";
 import { isValidCustomRole, isValidTier, isValidUserRole } from "./roles";
 import type {
@@ -70,14 +72,16 @@ export async function getServerUser(): Promise<UserProfile | null> {
       const profile = await db.getDocument(DATABASE_ID, COLLECTION.users, user.$id);
       return {
         id: profile.$id,
-        email: profile.email ?? user.email,
-        name: (profile.name as string) ?? "",
+        email: (profile.email as string) ?? user.email,
+        // DB field is `display_name`; TypeScript property is `name`
+        name: (profile.display_name as string) ?? "",
         username: (profile.username as string) ?? "",
         avatar_url: (profile.avatar_url as string) ?? "",
         avatar_file_id: (profile.avatar_file_id as string) ?? undefined,
         role: (profile.role as UserRole) ?? "student",
         xp: (profile.xp as number) ?? 0,
-        streak_days: (profile.streak_days as number) ?? 0,
+        // DB field is `streak`; TypeScript property is `streak_days`
+        streak_days: (profile.streak as number) ?? 0,
         last_activity: (profile.last_activity as string) ?? "",
         created_at: profile.$createdAt,
       };
@@ -97,20 +101,21 @@ export async function getServerUser(): Promise<UserProfile | null> {
       // Return the actual document ID (which may differ from Auth user ID)
       return {
         id: profile.$id,
-        email: profile.email ?? user.email,
-        name: (profile.name as string) ?? "",
+        email: (profile.email as string) ?? user.email,
+        name: (profile.display_name as string) ?? "",
         username: (profile.username as string) ?? "",
         avatar_url: (profile.avatar_url as string) ?? "",
         avatar_file_id: (profile.avatar_file_id as string) ?? undefined,
         role: (profile.role as UserRole) ?? "student",
         xp: (profile.xp as number) ?? 0,
-        streak_days: (profile.streak_days as number) ?? 0,
+        streak_days: (profile.streak as number) ?? 0,
         last_activity: (profile.last_activity as string) ?? "",
         created_at: profile.$createdAt,
       };
     }
 
-    // Auto-create profile document on first login
+    // Auto-create profile document on first login.
+    // Only write fields that exist in the current DB schema.
     try {
       const newProfile = await db.createDocument(
         DATABASE_ID,
@@ -119,19 +124,20 @@ export async function getServerUser(): Promise<UserProfile | null> {
         {
           email: user.email,
           role: "student",
-          name: "",
+          display_name: "",
           username: "",
-          avatar_url: "",
-          avatar_file_id: null,
           xp: 0,
-          streak_days: 0,
-          last_activity: new Date().toISOString(),
+          streak: 0,
         },
+        [
+          Permission.read(Role.user(user.$id)),
+          Permission.update(Role.user(user.$id)),
+        ],
       );
 
       return {
         id: newProfile.$id,
-        email: newProfile.email ?? user.email,
+        email: (newProfile.email as string) ?? user.email,
         name: "",
         username: "",
         avatar_url: "",
@@ -139,7 +145,7 @@ export async function getServerUser(): Promise<UserProfile | null> {
         role: "student" as UserRole,
         xp: 0,
         streak_days: 0,
-        last_activity: (newProfile.last_activity as string) ?? new Date().toISOString(),
+        last_activity: "",
         created_at: newProfile.$createdAt,
       };
     } catch (insertError) {
@@ -212,8 +218,8 @@ export async function getExtendedServerUser(): Promise<ExtendedUserProfile | nul
 
     return {
       id: profile.$id,
-      email: profile.email ?? user.email,
-      name: (profile.name as string) ?? "",
+      email: (profile.email as string) ?? user.email,
+      name: (profile.display_name as string) ?? "",
       username: (profile.username as string) ?? "",
       avatar_url: (profile.avatar_url as string) ?? "",
       primary_role: primaryRole,
@@ -221,7 +227,7 @@ export async function getExtendedServerUser(): Promise<ExtendedUserProfile | nul
       tertiary_role: tertiaryRole,
       tier,
       xp: (profile.xp as number) ?? 0,
-      streak_days: (profile.streak_days as number) ?? 0,
+      streak_days: (profile.streak as number) ?? 0,
       last_activity: (profile.last_activity as string) ?? "",
       achievements,
       created_at: profile.$createdAt,

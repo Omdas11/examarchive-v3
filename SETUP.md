@@ -92,6 +92,18 @@ In **Databases**, create a new database with the ID **`examarchive`**.
 
 Then create the following **collections** inside that database. Enable **Document Security** on every collection so that the API key can bypass it server-side.
 
+> **Existing installation? Add missing columns now.**
+> If your `users` collection was created before avatar support was added, you must add the following columns or avatar upload and activity tracking will fail with "Unknown attribute" errors:
+>
+> | Column | Type | Size / Constraints | Default |
+> |--------|------|--------------------|---------|
+> | `avatar_url` | String | 512 | `""` (empty string) |
+> | `avatar_file_id` | String | 36 | `""` (empty string) |
+> | `last_activity` | DateTime | – | *(none)* |
+> | `upload_count` | Integer | Min: 0 | `0` |
+>
+> In the Appwrite Console go to **Databases → examarchive → users → Columns → Create column** and add each one above.
+
 ---
 
 #### Collection: `users`
@@ -106,11 +118,25 @@ Stores user profile data alongside Appwrite Auth accounts.
 | `secondary_role` | String (50) | no | – | Custom community role: `contributor` \| `reviewer` \| `curator` \| `mentor` |
 | `tertiary_role` | String (50) | no | – | Additional optional designation (same values as secondary_role) |
 | `tier` | String (50) | no | `bronze` | Activity tier: `bronze` \| `silver` \| `gold` \| `platinum` \| `diamond` |
+| `display_name` | String (60) | no | `""` | User's chosen display name (shown in UI as "Display Name") |
+| `username` | String (30) | no | `""` | Unique handle, alphanumeric + underscores only |
+| `xp` | Integer (min: 0) | no | `0` | Experience points |
+| `streak` | Integer | no | `0` | Current daily-activity streak in days |
+| `avatar_url` | String (512) | no | `""` | Appwrite Storage preview URL for the user's avatar |
+| `avatar_file_id` | String (36) | no | `""` | Appwrite Storage file `$id` in the `avatars` bucket |
+| `last_activity` | DateTime | no | – | ISO-8601 timestamp of the user's last recorded activity |
+| `upload_count` | Integer (min: 0) | no | `0` | Number of approved paper uploads (used for gamification) |
+
+> **Important field names:** The database attribute for the display name is `display_name` (not `name`). The streak attribute is `streak` (not `streak_days`). The code maps these automatically — do not rename them.
 
 **Permissions:**
-- Role `any` → **Read** (so profiles can be looked up)
+- Role `any` → **Read** (so profiles can be looked up publicly)
 - Role `users` → **Create**, **Update**
 - API Key (server) → **Create**, **Read**, **Update**, **Delete**
+
+Enable **Document Security** on this collection. When the app auto-creates a profile document on first login, it sets document-level permissions:
+- `read("user:{userId}")` — the owner can always read their own document
+- `update("user:{userId}")` — the owner can update their own document
 
 ---
 

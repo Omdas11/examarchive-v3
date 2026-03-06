@@ -4,7 +4,7 @@ import { adminDatabases, DATABASE_ID, COLLECTION, Query } from "@/lib/appwrite";
 
 /**
  * PATCH /api/profile
- * Update the authenticated user's display profile (name, username, avatar_url).
+ * Update the authenticated user's display profile (display_name → "name", username).
  * Role and tier changes are NOT permitted here — use /api/admin/users for that.
  */
 export async function PATCH(request: NextRequest) {
@@ -20,8 +20,9 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  // Only allow editing safe display fields
-  const allowedFields = ["name", "username", "avatar_url"] as const;
+  // Only allow editing safe display fields.
+  // Note: "name" from the frontend maps to "display_name" in the Appwrite schema.
+  const allowedFields = ["name", "username"] as const;
   type AllowedField = (typeof allowedFields)[number];
 
   const update: Partial<Record<AllowedField, string>> = {};
@@ -84,34 +85,27 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
-  // Validate avatar_url: must be a URL or empty string
-  if (update.avatar_url !== undefined && update.avatar_url !== "") {
-    try {
-      new URL(update.avatar_url);
-    } catch {
-      return NextResponse.json(
-        { error: "avatar_url must be a valid URL or empty" },
-        { status: 400 },
-      );
-    }
-  }
-
   try {
     console.log("[api/profile] Updating profile for user:", user.id, "with:", update);
     const db = adminDatabases();
+
+    // Map frontend field "name" → Appwrite attribute "display_name"
+    const dbUpdate: Record<string, string> = {};
+    if (update.name !== undefined) dbUpdate.display_name = update.name;
+    if (update.username !== undefined) dbUpdate.username = update.username;
+
     const updated = await db.updateDocument(
       DATABASE_ID,
       COLLECTION.users,
       user.id,
-      update,
+      dbUpdate,
     );
     console.log("[api/profile] Profile updated successfully");
 
     return NextResponse.json({
       id: updated.$id,
-      name: updated.name ?? "",
-      username: updated.username ?? "",
-      avatar_url: updated.avatar_url ?? "",
+      name: (updated.display_name as string) ?? "",
+      username: (updated.username as string) ?? "",
     });
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : String(err);
