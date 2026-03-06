@@ -2,8 +2,15 @@
 
 import { useState, useRef } from "react";
 import CustomSelect from "./CustomSelect";
+import {
+  uploadFileDirectly,
+  MAX_UPLOAD_BYTES,
+  type UploadProgress,
+} from "@/lib/appwrite-client";
 
 type MessageState = { type: "success" | "error"; text: string } | null;
+
+const MAX_MB = MAX_UPLOAD_BYTES / (1024 * 1024); // 20
 
 const semesterOptions = [
   { value: "1st", label: "1st" },
@@ -35,10 +42,10 @@ function lerpColor(from: string, to: string, t: number): string {
   return `rgb(${r},${g},${b})`;
 }
 
-function formatBytes(bps: number): string {
-  if (bps > 1_000_000) return `${(bps / 1_000_000).toFixed(1)} MB/s`;
-  if (bps > 1_000) return `${(bps / 1_000).toFixed(0)} KB/s`;
-  return `${bps.toFixed(0)} B/s`;
+function formatBytes(bytes: number): string {
+  if (bytes > 1_000_000) return `${(bytes / 1_000_000).toFixed(1)} MB/s`;
+  if (bytes > 1_000) return `${(bytes / 1_000).toFixed(0)} KB/s`;
+  return `${bytes.toFixed(0)} B/s`;
 }
 
 function formatTime(seconds: number): string {
@@ -58,67 +65,98 @@ export default function UploadForm() {
   const [examType, setExamType] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
   const startTimeRef = useRef<number>(0);
-  const lastLoadedRef = useRef<number>(0);
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    setMessage(null);
+
+    const formEl = e.currentTarget;
+    const data = new FormData(formEl);
+
+    const title = data.get("title") as string;
+    const course_code = data.get("course_code") as string;
+    const course_name = data.get("course_name") as string;
+    const department = data.get("department") as string;
+    const year = data.get("year") as string;
+    const file = data.get("file") as File | null;
+
+    // Client-side file size guard
+    if (file && file.size > MAX_UPLOAD_BYTES) {
+      setMessage({
+        type: "error",
+        text: `File is too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum allowed size is ${MAX_MB} MB.`,
+      });
+      return;
+    }
+
+    if (!file || file.size === 0) {
+      setMessage({ type: "error", text: "Please select a file to upload." });
+      return;
+    }
+
     setLoading(true);
     setProgress(0);
     setUploadSpeed(0);
     setEta(0);
-    setMessage(null);
-
-    const form = new FormData(e.currentTarget);
-
-    const xhr = new XMLHttpRequest();
     startTimeRef.current = Date.now();
-    lastLoadedRef.current = 0;
 
-    xhr.upload.addEventListener("progress", (ev) => {
-      if (!ev.lengthComputable) return;
-      const pct = Math.round((ev.loaded / ev.total) * 100);
-      setProgress(pct);
-
-      const elapsed = (Date.now() - startTimeRef.current) / 1000;
-      if (elapsed > 0) {
-        const bps = ev.loaded / elapsed;
-        setUploadSpeed(bps);
-        const remaining = ev.total - ev.loaded;
-        setEta(bps > 0 ? remaining / bps : 0);
+    try {
+      // ── Step 1: Obtain a short-lived JWT so the browser can talk to Appwrite ──
+      const tokenRes = await fetch("/api/upload/token");
+      const tokenJson = await tokenRes.json().catch(() => null) as { jwt?: string; error?: string } | null;
+      if (!tokenRes.ok || !tokenJson?.jwt) {
+        throw new Error(tokenJson?.error ?? "Failed to get upload token");
       }
-    });
+      const { jwt } = tokenJson;
 
-    xhr.addEventListener("load", () => {
-      setLoading(false);
-      setProgress(100);
-      try {
-        const json = JSON.parse(xhr.responseText);
-        if (xhr.status >= 200 && xhr.status < 300 && json.success) {
-          setMessage({ type: "success", text: "Upload successful — awaiting admin approval." });
-          setFileName("");
-          setSemester("");
-          setExamType("");
-          formRef.current?.reset();
-        } else {
-          setMessage({ type: "error", text: json.error ?? "Upload failed" });
+      // ── Step 2: Upload file directly from the browser to Appwrite Storage ──
+      const fileId = await uploadFileDirectly(jwt, file, (evt: UploadProgress) => {
+        setProgress(evt.progress);
+
+        const elapsed = (Date.now() - startTimeRef.current) / 1000;
+        if (elapsed > 0 && evt.loaded > 0) {
+          const bps = evt.loaded / elapsed;
+          setUploadSpeed(bps);
+          const remaining = evt.total - evt.loaded;
+          setEta(bps > 0 ? remaining / bps : 0);
         }
-      } catch {
-        setMessage({ type: "error", text: `Server error (status ${xhr.status})` });
+      });
+
+      // Ensure progress bar reaches 100% before metadata save
+      setProgress(100);
+
+      // ── Step 3: Save metadata via the Next.js API (no file payload) ──
+      const metaRes = await fetch("/api/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileId,
+          title,
+          course_code,
+          course_name,
+          department,
+          year,
+          semester,
+          exam_type: examType,
+        }),
+      });
+
+      const metaJson = await metaRes.json().catch(() => null) as { success?: boolean; error?: string } | null;
+      if (!metaRes.ok || !metaJson?.success) {
+        throw new Error(metaJson?.error ?? "Failed to save paper metadata");
       }
-    });
 
-    xhr.addEventListener("error", () => {
+      setMessage({ type: "success", text: "Upload successful — awaiting admin approval." });
+      setFileName("");
+      setSemester("");
+      setExamType("");
+      formRef.current?.reset();
+    } catch (err: unknown) {
+      const text = err instanceof Error ? err.message : "Upload failed. Please try again.";
+      setMessage({ type: "error", text });
+    } finally {
       setLoading(false);
-      setMessage({ type: "error", text: "Network error – please check your connection." });
-    });
-
-    xhr.addEventListener("abort", () => {
-      setLoading(false);
-      setMessage({ type: "error", text: "Upload was cancelled." });
-    });
-
-    xhr.open("POST", "/api/upload");
-    xhr.send(form);
+    }
   }
 
   // Button color: transitions from red (0%) → amber (50%) → green (100%)
@@ -180,7 +218,17 @@ export default function UploadForm() {
             e.preventDefault();
             setDragOver(false);
             const file = e.dataTransfer.files[0];
-            if (file) setFileName(file.name);
+            if (file) {
+              if (file.size > MAX_UPLOAD_BYTES) {
+                setMessage({
+                  type: "error",
+                  text: `File is too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum allowed size is ${MAX_MB} MB.`,
+                });
+              } else {
+                setMessage(null);
+                setFileName(file.name);
+              }
+            }
           }}
         >
           <svg className="h-10 w-10 mb-2 opacity-40" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
@@ -188,6 +236,9 @@ export default function UploadForm() {
           </svg>
           <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
             {fileName || "Drag & drop a PDF here or click to browse"}
+          </p>
+          <p className="mt-1 text-xs" style={{ color: "var(--color-text-muted)" }}>
+            Maximum file size: {MAX_MB} MB
           </p>
           <input
             name="file"
@@ -197,7 +248,19 @@ export default function UploadForm() {
             className="sr-only"
             onChange={(e) => {
               const file = e.target.files?.[0];
-              if (file) setFileName(file.name);
+              if (file) {
+                if (file.size > MAX_UPLOAD_BYTES) {
+                  setMessage({
+                    type: "error",
+                    text: `File is too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum allowed size is ${MAX_MB} MB.`,
+                  });
+                  e.target.value = "";
+                  setFileName("");
+                } else {
+                  setMessage(null);
+                  setFileName(file.name);
+                }
+              }
             }}
           />
         </label>
