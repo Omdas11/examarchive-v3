@@ -4,6 +4,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { getServerUser } from "@/lib/auth";
 import DebugPanel from "@/components/DebugPanel";
+import { ToastProvider } from "@/components/ToastContext";
 
 const SITE_URL = "https://examarchive.dev";
 const SITE_NAME = "ExamArchive";
@@ -86,13 +87,15 @@ export default async function RootLayout({
       </head>
       <body className="font-sans antialiased">
         <div className="flex min-h-screen flex-col">
-          <Navbar user={user} />
-          <main className="flex-1">{children}</main>
-          <Footer />
-          {process.env.NODE_ENV !== "production" &&
-            process.env.NEXT_PUBLIC_ENABLE_DEBUG_PANEL === "true" && (
-              <DebugPanel />
-            )}
+          <ToastProvider>
+            <Navbar user={user} />
+            <main className="flex-1">{children}</main>
+            <Footer />
+            {process.env.NODE_ENV !== "production" &&
+              process.env.NEXT_PUBLIC_ENABLE_DEBUG_PANEL === "true" && (
+                <DebugPanel />
+              )}
+          </ToastProvider>
         </div>
       </body>
     </html>

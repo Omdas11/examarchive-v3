@@ -4,11 +4,15 @@ import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
 import { signOut } from "@/app/auth/actions";
 import type { UserProfile } from "@/types";
+import AvatarRing from "./AvatarRing";
+import ProfilePanel from "./ProfilePanel";
 
 /** Minimum horizontal swipe distance (px) to trigger drawer open/close. */
 const SWIPE_THRESHOLD = 60;
 /** Maximum x-origin (px) from the left edge that counts as an "open" swipe. */
 const EDGE_THRESHOLD = 40;
+/** Minimum x-origin (px) from the right edge that counts as a right-swipe open. */
+const RIGHT_EDGE_THRESHOLD = 40;
 
 const navLinks = [
   { href: "/browse", label: "Browse" },
@@ -24,6 +28,7 @@ interface NavbarProps {
 
 export default function Navbar({ user }: NavbarProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [profilePanelOpen, setProfilePanelOpen] = useState(false);
   const [dark, setDark] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -60,14 +65,28 @@ export default function Navbar({ user }: NavbarProps) {
       touchStartY.current = e.touches[0].clientY;
     }
     function onTouchEnd(e: TouchEvent) {
-      const dx = e.changedTouches[0].clientX - touchStartX.current;
+      const endX = e.changedTouches[0].clientX;
+      const dx = endX - touchStartX.current;
       const dy = e.changedTouches[0].clientY - touchStartY.current;
       // Ignore predominantly vertical swipes.
       if (Math.abs(dy) > Math.abs(dx)) return;
+
+      const screenW = window.innerWidth;
+
+      // Left drawer: swipe right from left edge → open; swipe left when open → close
       if (!drawerOpen && dx > SWIPE_THRESHOLD && touchStartX.current < EDGE_THRESHOLD) {
         setDrawerOpen(true);
       } else if (drawerOpen && dx < -SWIPE_THRESHOLD) {
         setDrawerOpen(false);
+      }
+
+      // Profile panel (logged-in only): swipe left from right edge → open; swipe right when open → close
+      if (user) {
+        if (!profilePanelOpen && dx < -SWIPE_THRESHOLD && touchStartX.current > screenW - RIGHT_EDGE_THRESHOLD) {
+          setProfilePanelOpen(true);
+        } else if (profilePanelOpen && dx > SWIPE_THRESHOLD) {
+          setProfilePanelOpen(false);
+        }
       }
     }
     document.addEventListener("touchstart", onTouchStart, { passive: true });
@@ -76,7 +95,7 @@ export default function Navbar({ user }: NavbarProps) {
       document.removeEventListener("touchstart", onTouchStart);
       document.removeEventListener("touchend", onTouchEnd);
     };
-  }, [drawerOpen]);
+  }, [drawerOpen, profilePanelOpen, user]);
 
   function toggleTheme() {
     const next = !dark;
@@ -85,10 +104,21 @@ export default function Navbar({ user }: NavbarProps) {
     localStorage.setItem("theme", next ? "dark" : "light");
   }
 
-  const avatarInitial = user ? user.email.charAt(0).toUpperCase() : "";
+  const displayName = user
+    ? user.name || user.username || user.email
+    : "";
 
   return (
     <>
+      {/* Profile panel (logged-in users) */}
+      {user && (
+        <ProfilePanel
+          user={user}
+          open={profilePanelOpen}
+          onClose={() => setProfilePanelOpen(false)}
+        />
+      )}
+
       <nav
         className="sticky top-0 z-50 backdrop-blur"
         style={{
@@ -142,18 +172,22 @@ export default function Navbar({ user }: NavbarProps) {
               )}
             </button>
 
-            {/* Desktop: avatar circle + dropdown */}
+            {/* Desktop: avatar circle (opens profile panel) + dropdown fallback */}
             {user ? (
               <div ref={dropdownRef} className="relative hidden md:block">
                 <button
                   onClick={() => setDropdownOpen((d) => !d)}
-                  className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold text-white transition-opacity hover:opacity-80"
-                  style={{ background: "var(--color-primary)" }}
-                  aria-label={`Account menu for ${user.email}`}
+                  className="transition-opacity hover:opacity-80 flex items-center"
+                  aria-label={`Account menu for ${displayName}`}
                   aria-haspopup="true"
                   aria-expanded={dropdownOpen}
                 >
-                  {avatarInitial}
+                  <AvatarRing
+                    displayName={displayName}
+                    avatarUrl={user.avatar_url || undefined}
+                    streakDays={user.streak_days}
+                    size={32}
+                  />
                 </button>
 
                 {dropdownOpen && (
@@ -170,16 +204,23 @@ export default function Navbar({ user }: NavbarProps) {
                       style={{ color: "var(--color-text-muted)" }}
                       title={user.email}
                     >
-                      {user.email}
+                      {user.name || user.email}
                     </p>
                     <hr style={{ borderColor: "var(--color-border)" }} />
+                    <button
+                      onClick={() => { setDropdownOpen(false); setProfilePanelOpen(true); }}
+                      className="block w-full text-left px-4 py-2 text-sm transition-colors hover:opacity-70"
+                      role="menuitem"
+                    >
+                      View Profile
+                    </button>
                     <Link
                       href="/profile"
                       onClick={() => setDropdownOpen(false)}
                       className="block px-4 py-2 text-sm transition-colors hover:opacity-70"
                       role="menuitem"
                     >
-                      Profile
+                      Edit Profile
                     </Link>
                     <Link
                       href="/settings"
@@ -199,6 +240,7 @@ export default function Navbar({ user }: NavbarProps) {
                         Admin Dashboard
                       </Link>
                     )}
+                    <hr style={{ borderColor: "var(--color-border)" }} />
                     <form action={signOut}>
                       <button
                         type="submit"
@@ -255,19 +297,33 @@ export default function Navbar({ user }: NavbarProps) {
         <hr style={{ borderColor: "var(--color-border)" }} className="my-1" />
         {user ? (
           <>
-            <p
-              className="truncate px-3 py-1 text-xs"
-              style={{ color: "var(--color-text-muted)" }}
-              title={user.email}
+            <div className="flex items-center gap-2 px-3 py-1">
+              <AvatarRing
+                displayName={displayName}
+                avatarUrl={user.avatar_url || undefined}
+                streakDays={user.streak_days}
+                size={28}
+              />
+              <p
+                className="truncate text-xs"
+                style={{ color: "var(--color-text-muted)" }}
+                title={user.email}
+              >
+                {user.name || user.email}
+              </p>
+            </div>
+            <button
+              onClick={() => { setDrawerOpen(false); setProfilePanelOpen(true); }}
+              className="block w-full text-left rounded-md px-3 py-2.5 text-sm font-medium transition-colors hover:opacity-70"
             >
-              {user.email}
-            </p>
+              View Profile
+            </button>
             <Link
               href="/profile"
               onClick={() => setDrawerOpen(false)}
               className="block rounded-md px-3 py-2.5 text-sm font-medium transition-colors hover:opacity-70"
             >
-              Profile
+              Edit Profile
             </Link>
             <Link
               href="/settings"

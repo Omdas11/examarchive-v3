@@ -77,7 +77,13 @@ export async function getServerUser(): Promise<UserProfile | null> {
       return {
         id: profile.$id,
         email: profile.email ?? user.email,
+        name: (profile.name as string) ?? "",
+        username: (profile.username as string) ?? "",
+        avatar_url: (profile.avatar_url as string) ?? "",
         role: (profile.role as UserRole) ?? "student",
+        xp: (profile.xp as number) ?? 0,
+        streak_days: (profile.streak_days as number) ?? 0,
+        last_activity: (profile.last_activity as string) ?? "",
         created_at: profile.$createdAt,
       };
     }
@@ -91,13 +97,25 @@ export async function getServerUser(): Promise<UserProfile | null> {
         {
           email: user.email,
           role: "student",
+          name: "",
+          username: "",
+          avatar_url: "",
+          xp: 0,
+          streak_days: 0,
+          last_activity: new Date().toISOString(),
         },
       );
 
       return {
         id: newProfile.$id,
         email: newProfile.email ?? user.email,
+        name: "",
+        username: "",
+        avatar_url: "",
         role: "student" as UserRole,
+        xp: 0,
+        streak_days: 0,
+        last_activity: "",
         created_at: newProfile.$createdAt,
       };
     } catch (insertError) {
@@ -171,10 +189,16 @@ export async function getExtendedServerUser(): Promise<ExtendedUserProfile | nul
     return {
       id: profile.$id,
       email: profile.email ?? user.email,
+      name: (profile.name as string) ?? "",
+      username: (profile.username as string) ?? "",
+      avatar_url: (profile.avatar_url as string) ?? "",
       primary_role: primaryRole,
       secondary_role: secondaryRole,
       tertiary_role: tertiaryRole,
       tier,
+      xp: (profile.xp as number) ?? 0,
+      streak_days: (profile.streak_days as number) ?? 0,
+      last_activity: (profile.last_activity as string) ?? "",
       achievements,
       created_at: profile.$createdAt,
     };

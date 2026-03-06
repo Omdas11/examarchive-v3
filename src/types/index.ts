@@ -28,7 +28,13 @@ export interface Syllabus {
 export interface UserProfile {
   id: string;
   email: string;
+  name: string;
+  username: string;
+  avatar_url: string;
   role: UserRole;
+  xp: number;
+  streak_days: number;
+  last_activity: string;
   created_at: string;
 }
 
@@ -60,6 +66,9 @@ export interface Achievement {
 export interface ExtendedUserProfile {
   id: string;
   email: string;
+  name: string;
+  username: string;
+  avatar_url: string;
   /** Primary role: the main access-control role. */
   primary_role: UserRole;
   /** Secondary role: a community/custom role, optional. */
@@ -68,6 +77,9 @@ export interface ExtendedUserProfile {
   tertiary_role: CustomRole;
   /** Activity-based tier. */
   tier: UserTier;
+  xp: number;
+  streak_days: number;
+  last_activity: string;
   achievements: Achievement[];
   created_at: string;
 }
@@ -88,12 +100,16 @@ export interface ActivityLogEntry {
 export interface AdminUser {
   id: string;
   email: string;
+  name: string;
+  username: string;
   role: UserRole;
   primary_role: UserRole;
   secondary_role: CustomRole;
   tertiary_role: CustomRole;
   tier: UserTier;
   upload_count: number;
+  xp: number;
+  streak_days: number;
   created_at: string;
 }
 
@@ -102,12 +118,16 @@ export function toAdminUser(doc: Record<string, unknown>): AdminUser {
   return {
     id: (doc.$id ?? doc.id) as string,
     email: (doc.email ?? "") as string,
+    name: (doc.name ?? "") as string,
+    username: (doc.username ?? "") as string,
     role: ((doc.role as string) ?? "student") as UserRole,
     primary_role: ((doc.primary_role ?? doc.role ?? "student") as string) as UserRole,
     secondary_role: (doc.secondary_role ?? null) as CustomRole,
     tertiary_role: (doc.tertiary_role ?? null) as CustomRole,
     tier: ((doc.tier ?? "bronze") as string) as UserTier,
     upload_count: (doc.upload_count ?? 0) as number,
+    xp: (doc.xp ?? 0) as number,
+    streak_days: (doc.streak_days ?? 0) as number,
     created_at: ((doc.$createdAt ?? doc.created_at) as string) ?? "",
   };
 }
