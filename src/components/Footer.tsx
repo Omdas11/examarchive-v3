@@ -5,7 +5,7 @@ export default function Footer() {
     <footer
       className="mt-12 pt-10 pb-6 text-sm"
       style={{
-        background: "var(--color-accent-soft)",
+        background: "var(--color-footer-bg, #f8f9fa)",
         borderTop: "1px solid var(--color-border)",
         color: "var(--color-text-muted)",
       }}

@@ -12,6 +12,14 @@ export interface Paper {
   uploaded_by: string;
   approved: boolean;
   created_at: string;
+  /** Academic stream or branch (e.g. Science, Arts, Commerce). */
+  stream?: string;
+  /** University or institution name. */
+  institution?: string;
+  /** Total marks for the paper. */
+  marks?: number;
+  /** Exam duration in minutes. */
+  duration?: number;
 }
 
 /** Represents a syllabus entry. */
@@ -45,7 +53,7 @@ export interface UserProfile {
 }
 
 /** Supported user roles. */
-export type UserRole = "student" | "moderator" | "admin";
+export type UserRole = "student" | "moderator" | "admin" | "founder";
 
 /** Extended roles migrated from ExamArchive-v2 (custom/community roles). */
 export type CustomRole =
@@ -53,6 +61,10 @@ export type CustomRole =
   | "reviewer"
   | "curator"
   | "mentor"
+  | "archivist"
+  | "ambassador"
+  | "pioneer"
+  | "researcher"
   | null;
 
 /** User tier based on activity and achievements. */
@@ -117,6 +129,8 @@ export interface AdminUser {
   upload_count: number;
   xp: number;
   streak_days: number;
+  /** Last login / activity timestamp (ISO 8601). */
+  last_login: string;
   created_at: string;
 }
 
@@ -125,7 +139,7 @@ export function toAdminUser(doc: Record<string, unknown>): AdminUser {
   return {
     id: (doc.$id ?? doc.id) as string,
     email: (doc.email ?? "") as string,
-    name: (doc.name ?? "") as string,
+    name: (doc.display_name ?? doc.name ?? "") as string,
     username: (doc.username ?? "") as string,
     avatar_url: (doc.avatar_url ?? "") as string,
     role: ((doc.role as string) ?? "student") as UserRole,
@@ -135,7 +149,8 @@ export function toAdminUser(doc: Record<string, unknown>): AdminUser {
     tier: ((doc.tier ?? "bronze") as string) as UserTier,
     upload_count: (doc.upload_count ?? 0) as number,
     xp: (doc.xp ?? 0) as number,
-    streak_days: (doc.streak_days ?? 0) as number,
+    streak_days: ((doc.streak_days ?? doc.streak ?? 0) as number),
+    last_login: ((doc.last_login ?? doc.last_activity ?? "") as string),
     created_at: ((doc.$createdAt ?? doc.created_at) as string) ?? "",
   };
 }
@@ -183,6 +198,10 @@ export function toPaper(doc: any): Paper {
     uploaded_by: doc.uploaded_by,
     approved: doc.approved,
     created_at: doc.$createdAt ?? doc.created_at,
+    stream: doc.stream ?? undefined,
+    institution: doc.institution ?? undefined,
+    marks: doc.marks ?? undefined,
+    duration: doc.duration ?? undefined,
   };
 }
 

@@ -5,6 +5,7 @@ const ROLE_LEVELS: Record<UserRole, number> = {
   student: 0,
   moderator: 1,
   admin: 2,
+  founder: 3,
 };
 
 /** Tier hierarchy – higher number = higher standing. */
@@ -17,14 +18,23 @@ const TIER_LEVELS: Record<UserTier, number> = {
 };
 
 /** Valid custom (secondary / tertiary) role values. */
-const VALID_CUSTOM_ROLES = new Set<string>(["contributor", "reviewer", "curator", "mentor"]);
+const VALID_CUSTOM_ROLES = new Set<string>([
+  "contributor",
+  "reviewer",
+  "curator",
+  "mentor",
+  "archivist",
+  "ambassador",
+  "pioneer",
+  "researcher",
+]);
 
 /** Returns `true` when `userRole` meets or exceeds the `requiredRole`. */
 export function hasRole(userRole: UserRole, requiredRole: UserRole): boolean {
   return ROLE_LEVELS[userRole] >= ROLE_LEVELS[requiredRole];
 }
 
-/** Convenience check for admin-level access. */
+/** Convenience check for admin-level access (admin and above). */
 export function isAdmin(role: UserRole): boolean {
   return hasRole(role, "admin");
 }
@@ -32,6 +42,11 @@ export function isAdmin(role: UserRole): boolean {
 /** Convenience check for moderator-or-above access. */
 export function isModerator(role: UserRole): boolean {
   return hasRole(role, "moderator");
+}
+
+/** Convenience check for founder-only access. */
+export function isFounder(role: UserRole): boolean {
+  return role === "founder";
 }
 
 /** Returns `true` when `userTier` meets or exceeds the `requiredTier`. */
