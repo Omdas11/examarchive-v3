@@ -168,7 +168,9 @@ export default function AvatarRing({
         />
       )}
 
-      {/* Avatar circle */}
+      {/* Avatar circle – rendered with relative+z-index so it sits above the
+          absolutely-positioned ring layers (CSS paints positioned elements
+          after non-positioned siblings within the same stacking context). */}
       {showImage ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -176,13 +178,13 @@ export default function AvatarRing({
           alt={displayName}
           width={size}
           height={size}
-          className="rounded-full object-cover"
+          className="relative z-10 rounded-full object-cover"
           style={{ width: size, height: size }}
           onError={() => setImgError(true)}
         />
       ) : (
         <span
-          className="flex items-center justify-center rounded-full font-bold text-white select-none"
+          className="relative z-10 flex items-center justify-center rounded-full font-bold text-white select-none"
           style={{
             width: size,
             height: size,

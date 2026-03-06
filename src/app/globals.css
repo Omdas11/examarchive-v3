@@ -79,7 +79,7 @@ body {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
-    @apply transition-shadow;
+    @apply transition-all duration-200;
   }
   .card:hover {
     @apply shadow-sm;
@@ -100,6 +100,26 @@ body {
     background: var(--color-primary);
     border-color: var(--color-primary);
     color: #ffffff;
+  }
+
+  /* Skeleton loader base */
+  .skeleton {
+    background: var(--color-border);
+    border-radius: var(--radius-sm);
+    position: relative;
+    overflow: hidden;
+  }
+  .skeleton::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      color-mix(in srgb, var(--color-surface) 60%, transparent) 50%,
+      transparent 100%
+    );
+    animation: shimmer 1.4s ease-in-out infinite;
   }
 }
 
@@ -142,3 +162,40 @@ body {
   align-items: center;
   justify-content: center;
 }
+
+/* ── Shimmer for skeleton loaders ── */
+@keyframes shimmer {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* ── Page fade-in ── */
+@keyframes page-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-page-in {
+  animation: page-in 0.25s ease-out forwards;
+}
+
+/* ── Respect OS / user "reduce motion" preference ── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Same, but driven by our in-app toggle ── */
+[data-reduce-motion="true"] *,
+[data-reduce-motion="true"] *::before,
+[data-reduce-motion="true"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+

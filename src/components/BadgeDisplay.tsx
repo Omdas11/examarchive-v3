@@ -1,6 +1,122 @@
 "use client";
 
+import type { ReactNode } from "react";
 import type { UserRole, CustomRole, UserTier } from "@/types";
+
+// ── SVG icon helpers ────────────────────────────────────────────────────────
+
+/** Thin wrapper so we don't repeat svg boilerplate on every badge. */
+function Icon({ children, size = 12 }: { children: ReactNode; size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      style={{ flexShrink: 0 }}
+    >
+      {children}
+    </svg>
+  );
+}
+
+const BadgeIcons: Record<string, ReactNode> = {
+  first_upload: (
+    <Icon>
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+    </Icon>
+  ),
+  "10_uploads": (
+    <Icon>
+      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+    </Icon>
+  ),
+  explorer: (
+    <Icon>
+      <circle cx="12" cy="12" r="10" />
+      <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
+    </Icon>
+  ),
+  contributor_badge: (
+    <Icon>
+      <circle cx="12" cy="8" r="6" />
+      <path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11" />
+    </Icon>
+  ),
+  veteran: (
+    <Icon>
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    </Icon>
+  ),
+  senior: (
+    <Icon>
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+    </Icon>
+  ),
+  "7_day_streak": (
+    <Icon>
+      <path d="M12 2c0 0-5 3-5 8a5 5 0 0 0 10 0c0-2.5-1.5-4-1.5-4s-.5 1.5-1.5 1.5c-1 0-1.5-1.5-2-3z" />
+    </Icon>
+  ),
+  "30_day_streak": (
+    <Icon>
+      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+    </Icon>
+  ),
+  silver_tier: (
+    <Icon>
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 8v4l3 3" />
+    </Icon>
+  ),
+  gold_tier: (
+    <Icon>
+      <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+      <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+      <path d="M4 22h16" />
+      <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
+      <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
+      <path d="M18 2H6v7a6 6 0 0 0 12 0V2z" />
+    </Icon>
+  ),
+  role_founder: (
+    <Icon>
+      <path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7z" />
+    </Icon>
+  ),
+  role_admin: (
+    <Icon>
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+      <path d="M9 12l2 2 4-4" />
+    </Icon>
+  ),
+  role_moderator: (
+    <Icon>
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="8" x2="12" y2="12" />
+      <line x1="12" y1="16" x2="12.01" y2="16" />
+    </Icon>
+  ),
+  role_secondary: (
+    <Icon>
+      <circle cx="12" cy="8" r="6" />
+      <path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11" />
+    </Icon>
+  ),
+  role_tertiary: (
+    <Icon>
+      <circle cx="12" cy="8" r="6" />
+      <path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11" />
+    </Icon>
+  ),
+};
 
 /** Tier level map for comparison. */
 const TIER_LEVELS: Record<UserTier, number> = {
@@ -21,10 +137,9 @@ export interface BadgeData {
   slug: string;
   label: string;
   description: string;
-  icon: string;
   type: "activity" | "role";
   earned: boolean;
-  color?: string;
+  accentColor?: string;
 }
 
 /** Build the list of badges for a given user profile. */
@@ -51,7 +166,6 @@ export function buildBadges({
       slug: "first_upload",
       label: "First Upload",
       description: "Submitted your first exam paper.",
-      icon: "📄",
       type: "activity",
       earned: xp >= 50 || (upload_count ?? 0) >= 1,
     },
@@ -59,7 +173,6 @@ export function buildBadges({
       slug: "10_uploads",
       label: "10 Uploads",
       description: "Had 10 papers approved.",
-      icon: "📚",
       type: "activity",
       earned: (upload_count ?? 0) >= 10,
     },
@@ -67,7 +180,6 @@ export function buildBadges({
       slug: "explorer",
       label: "Explorer",
       description: "Reached 100 XP.",
-      icon: "🔭",
       type: "activity",
       earned: xp >= 100,
     },
@@ -75,34 +187,30 @@ export function buildBadges({
       slug: "contributor_badge",
       label: "Contributor",
       description: "Reached 300 XP.",
-      icon: "🏅",
       type: "activity",
       earned: xp >= 300,
-      color: "#1565c0",
+      accentColor: "#1565c0",
     },
     {
       slug: "veteran",
       label: "Veteran",
       description: "Reached 800 XP.",
-      icon: "🥈",
       type: "activity",
       earned: xp >= 800,
-      color: "#6a1b9a",
+      accentColor: "#6a1b9a",
     },
     {
       slug: "senior",
       label: "Senior",
       description: "Reached 1500 XP.",
-      icon: "🥇",
       type: "activity",
       earned: xp >= 1500,
-      color: "#e65100",
+      accentColor: "#e65100",
     },
     {
       slug: "7_day_streak",
       label: "7-Day Streak",
       description: "Logged in 7 days in a row.",
-      icon: "🔥",
       type: "activity",
       earned: streak_days >= 7,
     },
@@ -110,28 +218,25 @@ export function buildBadges({
       slug: "30_day_streak",
       label: "30-Day Streak",
       description: "Logged in 30 days in a row.",
-      icon: "⭐",
       type: "activity",
       earned: streak_days >= 30,
-      color: "#f59e0b",
+      accentColor: "#b45309",
     },
     {
       slug: "silver_tier",
       label: "Silver Tier",
       description: "Reached Silver activity tier.",
-      icon: "🥈",
       type: "activity",
       earned: hasTierOrAbove(tier, "silver"),
-      color: "#c0c0c0",
+      accentColor: "#64748b",
     },
     {
       slug: "gold_tier",
       label: "Gold Tier",
       description: "Reached Gold activity tier.",
-      icon: "🥇",
       type: "activity",
       earned: hasTierOrAbove(tier, "gold"),
-      color: "#ffd700",
+      accentColor: "#92400e",
     },
 
     // ── Role-cosmetic badges ──────────────────────────────────
@@ -139,28 +244,25 @@ export function buildBadges({
       slug: "role_founder",
       label: "Founder",
       description: "Founder of ExamArchive.",
-      icon: "👑",
       type: "role",
       earned: role === "founder",
-      color: "#7c3aed",
+      accentColor: "#7c3aed",
     },
     {
       slug: "role_admin",
       label: "Admin",
       description: "Platform administrator.",
-      icon: "🛡️",
       type: "role",
       earned: role === "admin",
-      color: "#d32f2f",
+      accentColor: "#b91c1c",
     },
     {
       slug: "role_moderator",
       label: "Moderator",
       description: "Content moderator.",
-      icon: "⚖️",
       type: "role",
       earned: role === "moderator",
-      color: "#e65100",
+      accentColor: "#c2410c",
     },
     ...(secondary_role
       ? [
@@ -168,10 +270,9 @@ export function buildBadges({
             slug: `role_secondary_${secondary_role}`,
             label: secondary_role.charAt(0).toUpperCase() + secondary_role.slice(1),
             description: `Community role: ${secondary_role}.`,
-            icon: "🎖️",
             type: "role" as const,
             earned: true,
-            color: "#00695c",
+            accentColor: "#047857",
           },
         ]
       : []),
@@ -181,16 +282,26 @@ export function buildBadges({
             slug: `role_tertiary_${tertiary_role}`,
             label: tertiary_role.charAt(0).toUpperCase() + tertiary_role.slice(1),
             description: `Community role: ${tertiary_role}.`,
-            icon: "🎗️",
             type: "role" as const,
             earned: true,
-            color: "#4527a0",
+            accentColor: "#4338ca",
           },
         ]
       : []),
   ];
 
   return badges;
+}
+
+/** Resolve the SVG icon for a badge slug.  Falls back to a generic award icon. */
+function getBadgeIcon(slug: string): ReactNode {
+  // secondary/tertiary role slugs share a common icon
+  const key = slug.startsWith("role_secondary")
+    ? "role_secondary"
+    : slug.startsWith("role_tertiary")
+    ? "role_tertiary"
+    : slug;
+  return BadgeIcons[key] ?? BadgeIcons["contributor_badge"];
 }
 
 interface BadgeDisplayProps {
@@ -212,32 +323,26 @@ export default function BadgeDisplay({ badges, showAll = false }: BadgeDisplayPr
   }
 
   return (
-    <div className="flex flex-wrap gap-2">
-      {displayed.map((badge) => (
-        <div
-          key={badge.slug}
-          className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium"
-          style={{
-            background: badge.earned
-              ? badge.color
-                ? `${badge.color}22`
-                : "var(--color-accent-soft)"
-              : "var(--color-border)",
-            color: badge.earned
-              ? badge.color ?? "var(--color-primary)"
-              : "var(--color-text-muted)",
-            border: `1px solid ${badge.earned ? badge.color ?? "var(--color-primary)" : "transparent"}`,
-            opacity: badge.earned ? 1 : 0.5,
-          }}
-          title={badge.description}
-        >
-          <span>{badge.icon}</span>
-          <span>{badge.label}</span>
-          {badge.type === "role" && (
-            <span className="text-[9px] opacity-60 ml-0.5">(role)</span>
-          )}
-        </div>
-      ))}
+    <div className="flex flex-wrap gap-1.5">
+      {displayed.map((badge) => {
+        const accent = badge.accentColor ?? "var(--color-primary)";
+        return (
+          <div
+            key={badge.slug}
+            className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
+            style={{
+              background: "var(--color-border)",
+              color: badge.earned ? accent : "var(--color-text-muted)",
+              border: `1px solid transparent`,
+              opacity: badge.earned ? 1 : 0.45,
+            }}
+            title={badge.description}
+          >
+            {getBadgeIcon(badge.slug)}
+            <span>{badge.label}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }
