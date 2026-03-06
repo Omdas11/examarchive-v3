@@ -63,7 +63,8 @@ export async function PATCH(request: NextRequest) {
       const lastChanged = profile.username_last_changed as string | null;
       if (lastChanged) {
         const daysSince = (Date.now() - new Date(lastChanged).getTime()) / (1000 * 60 * 60 * 24);
-        if (daysSince < USERNAME_COOLDOWN_DAYS && profile.username !== update.username) {
+        const currentUsername = (profile.username as string | null | undefined) ?? "";
+        if (daysSince < USERNAME_COOLDOWN_DAYS && currentUsername !== update.username) {
           const daysLeft = Math.ceil(USERNAME_COOLDOWN_DAYS - daysSince);
           return NextResponse.json(
             { error: `Username can only be changed once every ${USERNAME_COOLDOWN_DAYS} days. Try again in ${daysLeft} day${daysLeft !== 1 ? "s" : ""}.` },

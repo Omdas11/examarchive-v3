@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Paper } from "@/types";
+import { toRoman } from "@/lib/utils";
 
 interface PaperCardProps {
   paper: Paper;
@@ -23,12 +24,6 @@ function subjectColor(department: string): string {
   return "var(--color-text-muted)";
 }
 
-function toRoman(num: number): string {
-  const map: [string, number][] = [["X", 10], ["IX", 9], ["V", 5], ["IV", 4], ["I", 1]];
-  let r = "";
-  for (const [k, v] of map) while (num >= v) { r += k; num -= v; }
-  return r;
-}
 
 export default function PaperCard({ paper }: PaperCardProps) {
   const accent = subjectColor(paper.department);

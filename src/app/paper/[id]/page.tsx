@@ -7,6 +7,7 @@ import {
 } from "@/lib/appwrite";
 import type { Paper } from "@/types";
 import { toPaper } from "@/types";
+import { toRoman } from "@/lib/utils";
 
 interface PaperPageProps {
   params: Promise<{ id: string }>;
@@ -24,13 +25,6 @@ export async function generateMetadata({ params }: PaperPageProps): Promise<Meta
   } catch {
     return { title: "Paper Not Found" };
   }
-}
-
-function toRoman(num: number): string {
-  const map: [string, number][] = [["X", 10], ["IX", 9], ["V", 5], ["IV", 4], ["I", 1]];
-  let r = "";
-  for (const [k, v] of map) while (num >= v) { r += k; num -= v; }
-  return r;
 }
 
 export default async function PaperPage({ params }: PaperPageProps) {
