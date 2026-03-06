@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
       const msg =
         parseErr instanceof Error
           ? parseErr.message
-          : "Failed to parse form data – file may be too large";
+          : "Failed to parse form data";
       return NextResponse.json({ error: msg }, { status: 413 });
     }
 

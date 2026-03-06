@@ -114,7 +114,7 @@ export default function BrowseClient({
   }
 
   const activeSort = SORT_OPTIONS.find((o) => o.value === sortKey)!;
-  const streams = availableStreams.length > 0 ? availableStreams : ["SCIENCE", "ARTS", "COMMERCE"];
+  const streams = availableStreams.length > 0 ? availableStreams : [];
   const years = availableYears.length > 0 ? availableYears : [];
 
   return (

@@ -207,7 +207,7 @@ export async function POST(request: NextRequest) {
           target_paper_id: id,
           admin_id: user.id,
           admin_email: user.email,
-          details: `Soft-deleted (hidden) paper "${paperTitle}"`,
+          details: `Soft-deleted (hidden from browse) paper "${paperTitle}"`,
         });
 
         return NextResponse.json({ success: true });

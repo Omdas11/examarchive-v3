@@ -19,7 +19,7 @@ interface CustomSelectProps {
 
 /**
  * Accessible custom dropdown that:
- * - Stays open during page scroll (uses fixed positioning)
+ * - Stays open during page scroll (uses absolute positioning relative to the wrapper)
  * - Doesn't close on touch-scroll (only closes on explicit select or outside click)
  * - Prevents overlap issues with adjacent dropdowns via z-index management
  * - Styled with the red accent theme
@@ -37,36 +37,12 @@ export default function CustomSelect({
   const [internalValue, setInternalValue] = useState("");
   const buttonRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
-  const [dropPos, setDropPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const instanceId = useId();
 
   const value = controlledValue !== undefined ? controlledValue : internalValue;
   const selectedOption = options.find((o) => o.value === value);
 
-  // Re-position the dropdown panel on open / scroll / resize
-  useEffect(() => {
-    if (!open) return;
-
-    function updatePos() {
-      if (!buttonRef.current) return;
-      const rect = buttonRef.current.getBoundingClientRect();
-      setDropPos({
-        top: rect.bottom + window.scrollY,
-        left: rect.left + window.scrollX,
-        width: rect.width,
-      });
-    }
-
-    updatePos();
-    window.addEventListener("scroll", updatePos, { capture: true, passive: true });
-    window.addEventListener("resize", updatePos, { passive: true });
-    return () => {
-      window.removeEventListener("scroll", updatePos, { capture: true });
-      window.removeEventListener("resize", updatePos);
-    };
-  }, [open]);
-
-  // Close on outside pointer-down (but NOT during touch-scroll)
+  // Close on outside click (but NOT during touch-scroll)
   useEffect(() => {
     if (!open) return;
     let touchMoved = false;
@@ -74,7 +50,7 @@ export default function CustomSelect({
     function onTouchStart() { touchMoved = false; }
     function onTouchMove() { touchMoved = true; }
 
-    function onPointerDown(e: MouseEvent) {
+    function onMouseDown(e: MouseEvent) {
       if (touchMoved) return;
       const target = e.target as Node;
       if (
@@ -84,11 +60,11 @@ export default function CustomSelect({
       setOpen(false);
     }
 
-    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("mousedown", onMouseDown);
     document.addEventListener("touchstart", onTouchStart, { passive: true });
     document.addEventListener("touchmove", onTouchMove, { passive: true });
     return () => {
-      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("mousedown", onMouseDown);
       document.removeEventListener("touchstart", onTouchStart);
       document.removeEventListener("touchmove", onTouchMove);
     };
@@ -186,8 +162,8 @@ export default function CustomSelect({
         </svg>
       </button>
 
-      {/* Dropdown panel – portal-like, rendered at fixed screen coords */}
-      {open && dropPos && (
+      {/* Dropdown panel – absolutely positioned below trigger, scrolls with page */}
+      {open && (
         <ul
           ref={listRef}
           id={listboxId}
@@ -208,7 +184,7 @@ export default function CustomSelect({
             overflowY: "auto",
             listStyle: "none",
             padding: "4px 0",
-            margin: 0,
+            margin: "4px 0 0",
           }}
         >
           {options.map((opt) => {
@@ -251,3 +227,4 @@ export default function CustomSelect({
     </span>
   );
 }
+
