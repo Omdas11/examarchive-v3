@@ -22,6 +22,7 @@ export default function PaperCard({ paper }: PaperCardProps) {
           <h3 className="text-base font-semibold leading-tight truncate">{paper.title}</h3>
           <p className="mt-0.5 text-xs" style={{ color: "var(--color-text-muted)" }}>
             {paper.course_code}
+            {/* Only show course_name if it differs from the card title to avoid redundancy */}
             {paper.course_name && paper.course_name !== paper.title && (
               <> · {paper.course_name}</>
             )}

@@ -2,6 +2,21 @@
 
 import type { UserRole, CustomRole, UserTier } from "@/types";
 
+/** Tier level map for comparison. */
+const TIER_LEVELS: Record<UserTier, number> = {
+  bronze: 0,
+  silver: 1,
+  gold: 2,
+  platinum: 3,
+  diamond: 4,
+};
+
+/** Returns true if `tier` meets or exceeds `minTier`. */
+function hasTierOrAbove(tier: UserTier | undefined, minTier: UserTier): boolean {
+  if (!tier) return false;
+  return (TIER_LEVELS[tier] ?? 0) >= TIER_LEVELS[minTier];
+}
+
 export interface BadgeData {
   slug: string;
   label: string;
@@ -106,7 +121,7 @@ export function buildBadges({
       description: "Reached Silver activity tier.",
       icon: "🥈",
       type: "activity",
-      earned: tier !== undefined && ["silver", "gold", "platinum", "diamond"].includes(tier),
+      earned: hasTierOrAbove(tier, "silver"),
       color: "#c0c0c0",
     },
     {
@@ -115,7 +130,7 @@ export function buildBadges({
       description: "Reached Gold activity tier.",
       icon: "🥇",
       type: "activity",
-      earned: tier !== undefined && ["gold", "platinum", "diamond"].includes(tier),
+      earned: hasTierOrAbove(tier, "gold"),
       color: "#ffd700",
     },
 

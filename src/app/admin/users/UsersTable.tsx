@@ -151,15 +151,7 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
 
                 {/* Actions */}
                 <td className="whitespace-nowrap px-4 py-3 text-center">
-                  {currentAdminRole === "admin" && u.id !== currentAdminId && (
-                    <button
-                      onClick={() => setEditingUser(u)}
-                      className="btn text-xs px-2 py-1"
-                    >
-                      Edit
-                    </button>
-                  )}
-                  {(currentAdminRole === "founder") && u.id !== currentAdminId && (
+                  {(currentAdminRole === "admin" || currentAdminRole === "founder") && u.id !== currentAdminId && (
                     <button
                       onClick={() => setEditingUser(u)}
                       className="btn text-xs px-2 py-1"
