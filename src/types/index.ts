@@ -72,6 +72,60 @@ export interface ExtendedUserProfile {
   created_at: string;
 }
 
+/** A single activity log entry for moderation/admin actions. */
+export interface ActivityLogEntry {
+  id: string;
+  action: "approve" | "reject" | "role_change" | "tier_change";
+  target_user_id: string | null;
+  target_paper_id: string | null;
+  admin_id: string;
+  admin_email: string;
+  details: string;
+  created_at: string;
+}
+
+/** Admin-facing user record with all fields from the users collection. */
+export interface AdminUser {
+  id: string;
+  email: string;
+  role: UserRole;
+  primary_role: UserRole;
+  secondary_role: CustomRole;
+  tertiary_role: CustomRole;
+  tier: UserTier;
+  upload_count: number;
+  created_at: string;
+}
+
+/** Map an Appwrite document to our `AdminUser` type. */
+export function toAdminUser(doc: Record<string, unknown>): AdminUser {
+  return {
+    id: (doc.$id ?? doc.id) as string,
+    email: (doc.email ?? "") as string,
+    role: ((doc.role as string) ?? "student") as UserRole,
+    primary_role: ((doc.primary_role ?? doc.role ?? "student") as string) as UserRole,
+    secondary_role: (doc.secondary_role ?? null) as CustomRole,
+    tertiary_role: (doc.tertiary_role ?? null) as CustomRole,
+    tier: ((doc.tier ?? "bronze") as string) as UserTier,
+    upload_count: (doc.upload_count ?? 0) as number,
+    created_at: ((doc.$createdAt ?? doc.created_at) as string) ?? "",
+  };
+}
+
+/** Map an Appwrite document to our `ActivityLogEntry` type. */
+export function toActivityLog(doc: Record<string, unknown>): ActivityLogEntry {
+  return {
+    id: (doc.$id ?? doc.id) as string,
+    action: (doc.action as ActivityLogEntry["action"]) ?? "approve",
+    target_user_id: (doc.target_user_id as string) ?? null,
+    target_paper_id: (doc.target_paper_id as string) ?? null,
+    admin_id: (doc.admin_id as string) ?? "",
+    admin_email: (doc.admin_email as string) ?? "",
+    details: (doc.details as string) ?? "",
+    created_at: ((doc.$createdAt ?? doc.created_at) as string) ?? "",
+  };
+}
+
 /** Shape returned by the browse / search RPC. */
 export interface BrowseFilters {
   department?: string;
