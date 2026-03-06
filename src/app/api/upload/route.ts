@@ -2,10 +2,11 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getServerUser } from "@/lib/auth";
 import {
   adminDatabases,
-  uploadFileToAppwrite,
+  adminStorage,
   getAppwriteFileUrl,
   DATABASE_ID,
   COLLECTION,
+  BUCKET_ID,
   ID,
 } from "@/lib/appwrite";
 
@@ -13,67 +14,81 @@ export const dynamic = "force-dynamic";
 
 /**
  * POST /api/upload
- * Accepts a multipart form upload, stores the **file in Appwrite Storage** and
- * inserts a *pending* paper metadata document in **Appwrite Databases**.
- * Requires authentication (enforced here and in middleware).
+ *
+ * Accepts **JSON metadata only** — the file itself has already been uploaded
+ * directly from the browser to Appwrite Storage (see UploadForm.tsx).
+ * This route simply stores the paper metadata in the Appwrite Database
+ * with `approved: false` so it enters the admin moderation queue.
+ *
+ * Expected JSON body:
+ * {
+ *   fileId:     string  — Appwrite file ID returned by the client-side upload
+ *   title:      string
+ *   course_code:  string
+ *   course_name:  string
+ *   department:   string
+ *   year:         number | string
+ *   semester:     string
+ *   exam_type:    string
+ * }
  */
 export async function POST(request: NextRequest) {
-  // Always return JSON so clients can safely call res.json()
   try {
     const user = await getServerUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    let formData: FormData;
+    let body: Record<string, unknown>;
     try {
-      formData = await request.formData();
-    } catch (parseErr) {
-      const msg =
-        parseErr instanceof Error
-          ? parseErr.message
-          : "Failed to parse form data";
-      return NextResponse.json({ error: msg }, { status: 413 });
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid JSON body" },
+        { status: 400 },
+      );
     }
 
-    const title = formData.get("title") as string | null;
-    const courseCode = formData.get("course_code") as string | null;
-    const courseName = formData.get("course_name") as string | null;
-    const department = formData.get("department") as string | null;
-    const year = formData.get("year") as string | null;
-    const semester = formData.get("semester") as string | null;
-    const examType = formData.get("exam_type") as string | null;
-    const file = formData.get("file") as File | null;
+    const { fileId, title, course_code, course_name, department, year, semester, exam_type } = body as {
+      fileId?: string;
+      title?: string;
+      course_code?: string;
+      course_name?: string;
+      department?: string;
+      year?: number | string;
+      semester?: string;
+      exam_type?: string;
+    };
 
-    if (!title || !courseCode || !courseName || !department || !year || !semester || !examType || !file) {
+    if (!fileId || !title || !course_code || !course_name || !department || !year || !semester || !exam_type) {
       return NextResponse.json({ error: "All fields are required." }, { status: 400 });
     }
 
-    // ── 1. Upload file to Appwrite Storage ──
-    let fileUrl: string;
+    const fileUrl = getAppwriteFileUrl(fileId);
+
+    // Verify the file actually exists in Appwrite Storage.
+    // This prevents a malicious request from associating an arbitrary fileId
+    // (e.g. belonging to another user) with a new database entry.
     try {
-      const { fileId } = await uploadFileToAppwrite(file);
-      fileUrl = getAppwriteFileUrl(fileId);
-    } catch (err) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : `File upload failed: ${String(err)}`;
-      console.error("[api/upload] Appwrite upload error:", err);
-      return NextResponse.json({ error: message }, { status: 500 });
+      const storage = adminStorage();
+      await storage.getFile(BUCKET_ID, fileId);
+    } catch {
+      return NextResponse.json(
+        { error: "File not found in storage. Please re-upload the file." },
+        { status: 404 },
+      );
     }
 
-    // ── 2. Persist metadata in Appwrite Databases ──
     try {
       const db = adminDatabases();
       await db.createDocument(DATABASE_ID, COLLECTION.papers, ID.unique(), {
         title,
-        course_code: courseCode,
-        course_name: courseName,
+        course_code,
+        course_name,
         department,
         year: Number(year),
         semester,
-        exam_type: examType,
+        exam_type,
         file_url: fileUrl,
         uploaded_by: user.id,
         approved: false,
@@ -85,9 +100,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (err: unknown) {
-    // Final safety net – never let an unhandled exception reach the client as HTML
     const message = err instanceof Error ? err.message : "Internal server error";
     console.error("[api/upload] Unhandled error:", err);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
