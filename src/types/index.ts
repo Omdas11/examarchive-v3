@@ -31,6 +31,8 @@ export interface UserProfile {
   name: string;
   username: string;
   avatar_url: string;
+  /** File ID of the avatar in Appwrite Storage (avatars bucket). */
+  avatar_file_id?: string;
   role: UserRole;
   xp: number;
   streak_days: number;

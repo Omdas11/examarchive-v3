@@ -65,7 +65,27 @@ export async function getServerUser(): Promise<UserProfile | null> {
 
     const db = adminDatabases();
 
-    // Try to find existing profile document
+    // First try to get the document by Auth user ID (the preferred approach)
+    try {
+      const profile = await db.getDocument(DATABASE_ID, COLLECTION.users, user.$id);
+      return {
+        id: profile.$id,
+        email: profile.email ?? user.email,
+        name: (profile.name as string) ?? "",
+        username: (profile.username as string) ?? "",
+        avatar_url: (profile.avatar_url as string) ?? "",
+        avatar_file_id: (profile.avatar_file_id as string) ?? undefined,
+        role: (profile.role as UserRole) ?? "student",
+        xp: (profile.xp as number) ?? 0,
+        streak_days: (profile.streak_days as number) ?? 0,
+        last_activity: (profile.last_activity as string) ?? "",
+        created_at: profile.$createdAt,
+      };
+    } catch {
+      // Document with Auth user ID doesn't exist, try fallback lookup by email
+    }
+
+    // Fallback: Try to find existing profile document by email (legacy documents)
     const { documents } = await db.listDocuments(
       DATABASE_ID,
       COLLECTION.users,
@@ -74,12 +94,14 @@ export async function getServerUser(): Promise<UserProfile | null> {
 
     if (documents.length > 0) {
       const profile = documents[0];
+      // Return the actual document ID (which may differ from Auth user ID)
       return {
         id: profile.$id,
         email: profile.email ?? user.email,
         name: (profile.name as string) ?? "",
         username: (profile.username as string) ?? "",
         avatar_url: (profile.avatar_url as string) ?? "",
+        avatar_file_id: (profile.avatar_file_id as string) ?? undefined,
         role: (profile.role as UserRole) ?? "student",
         xp: (profile.xp as number) ?? 0,
         streak_days: (profile.streak_days as number) ?? 0,
@@ -100,6 +122,7 @@ export async function getServerUser(): Promise<UserProfile | null> {
           name: "",
           username: "",
           avatar_url: "",
+          avatar_file_id: null,
           xp: 0,
           streak_days: 0,
           last_activity: new Date().toISOString(),
@@ -112,6 +135,7 @@ export async function getServerUser(): Promise<UserProfile | null> {
         name: "",
         username: "",
         avatar_url: "",
+        avatar_file_id: undefined,
         role: "student" as UserRole,
         xp: 0,
         streak_days: 0,

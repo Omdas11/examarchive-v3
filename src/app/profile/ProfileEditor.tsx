@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ToastContext";
 import AvatarRing from "@/components/AvatarRing";
 
@@ -15,6 +16,7 @@ export default function ProfileEditor({
   initialUsername,
   initialAvatarUrl,
 }: ProfileEditorProps) {
+  const router = useRouter();
   const [name, setName] = useState(initialName);
   const [username, setUsername] = useState(initialUsername);
   const [avatarUrl, setAvatarUrl] = useState(initialAvatarUrl);
@@ -54,6 +56,8 @@ export default function ProfileEditor({
         setAvatarUrl(data.avatar_url ?? "");
         setAvatarPreview(null); // use the real URL from server
         showToast("Avatar updated", "success");
+        // Refresh server-side data so Navbar/ProfilePanel show the new avatar
+        router.refresh();
       }
     } catch {
       showToast("Network error – please try again", "error");
@@ -77,6 +81,8 @@ export default function ProfileEditor({
         setAvatarUrl("");
         setAvatarPreview(null);
         showToast("Avatar removed", "success");
+        // Refresh server-side data so Navbar/ProfilePanel reflect the removal
+        router.refresh();
       }
     } catch {
       showToast("Network error – please try again", "error");
@@ -101,6 +107,8 @@ export default function ProfileEditor({
         showToast(data.error ?? "Failed to save profile", "error");
       } else {
         showToast("Profile updated successfully", "success");
+        // Refresh server-side data so Navbar/ProfilePanel show the updated name/username
+        router.refresh();
       }
     } catch {
       showToast("Network error – please try again", "error");

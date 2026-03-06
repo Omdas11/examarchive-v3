@@ -50,9 +50,13 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    // Upload new avatar
+    // Upload new avatar to Appwrite Storage
+    console.log("[api/profile/avatar] Uploading avatar for user:", user.id);
     const { fileId } = await uploadAvatarToAppwrite(file);
+    console.log("[api/profile/avatar] Uploaded file with ID:", fileId);
+    
     const previewUrl = getAvatarPreviewUrl(fileId);
+    console.log("[api/profile/avatar] Generated preview URL:", previewUrl);
 
     const db = adminDatabases();
 
@@ -61,22 +65,28 @@ export async function POST(request: NextRequest) {
     try {
       const doc = await db.getDocument(DATABASE_ID, COLLECTION.users, user.id);
       oldFileId = (doc.avatar_file_id as string) ?? null;
-    } catch {
-      // document may not have avatar_file_id field yet
+      console.log("[api/profile/avatar] Found existing avatar_file_id:", oldFileId);
+    } catch (docErr) {
+      // Document may not have avatar_file_id field yet
+      console.log("[api/profile/avatar] No existing avatar found or field missing");
     }
 
     // Update user document with new fileId and preview URL
+    console.log("[api/profile/avatar] Updating user document with new avatar data");
     await db.updateDocument(DATABASE_ID, COLLECTION.users, user.id, {
       avatar_file_id: fileId,
       avatar_url: previewUrl,
     });
+    console.log("[api/profile/avatar] User document updated successfully");
 
     // Delete old avatar file after successful update
     if (oldFileId) {
       try {
         await deleteAvatarFromAppwrite(oldFileId);
-      } catch {
+        console.log("[api/profile/avatar] Deleted old avatar file:", oldFileId);
+      } catch (delErr) {
         // Non-fatal: file may have already been deleted
+        console.warn("[api/profile/avatar] Failed to delete old avatar:", delErr);
       }
     }
 
@@ -86,9 +96,10 @@ export async function POST(request: NextRequest) {
       bucket_id: AVATARS_BUCKET_ID,
     });
   } catch (err: unknown) {
-    console.error("[api/profile/avatar] Upload failed:", err);
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error("[api/profile/avatar] Upload failed:", errorMessage, err);
     return NextResponse.json(
-      { error: "Avatar upload failed" },
+      { error: "Avatar upload failed", details: errorMessage },
       { status: 500 },
     );
   }
