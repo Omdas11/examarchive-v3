@@ -193,7 +193,7 @@ export default function ProfilePanel({ user, open, onClose }: ProfilePanelProps)
 
   const displayName = user.name || user.username || user.email;
   const roleForBadge = user.role as "student" | "moderator" | "admin";
-  const tier = "bronze" as const;
+  const tier = (user.tier ?? "bronze") as import("@/types").UserTier;
 
   const navItems = [
     {
@@ -289,6 +289,7 @@ export default function ProfilePanel({ user, open, onClose }: ProfilePanelProps)
           {/* Role + tier badges */}
           <div className="flex flex-wrap justify-center gap-2">
             <RoleBadge role={roleForBadge} />
+            {user.secondary_role && <RoleBadge role={user.secondary_role} />}
             <TierBadge tier={tier} />
           </div>
 

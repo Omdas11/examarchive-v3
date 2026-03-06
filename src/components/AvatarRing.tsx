@@ -1,12 +1,12 @@
 /**
- * AvatarRing – Google-style avatar with a coloured ring that visually
- * indicates the user's daily streak level.
+ * AvatarRing – avatar with a coloured ring that visually indicates the user's
+ * daily streak level.
  *
- * Ring colours:
- *   0 days   → no ring (transparent)
- *   1–6 days → blue
- *   7–29 days → green
- *   30+ days  → gold / amber
+ * Ring styles:
+ *   0 days   → no ring
+ *   1–6 days → solid blue ring
+ *   7–29 days → solid green ring
+ *   30+ days  → Google-style animated 4-color rotating ring (red/blue/yellow/green)
  */
 
 "use client";
@@ -18,7 +18,7 @@ interface AvatarRingProps {
   displayName: string;
   /** URL of the user's avatar image. When empty the initials fallback is shown. */
   avatarUrl?: string;
-  /** Current streak in days. Drives the ring colour. */
+  /** Current streak in days. Drives the ring style. */
   streakDays?: number;
   /** Diameter of the avatar in px (default 32). */
   size?: number;
@@ -26,12 +26,11 @@ interface AvatarRingProps {
   className?: string;
 }
 
-/** Return a ring colour based on streak level. */
-function ringColor(streak: number): string {
-  if (streak >= 30) return "#f59e0b"; // amber-400  (gold)
+/** Return a ring colour based on streak level (for non-animated rings). */
+function solidRingColor(streak: number): string {
   if (streak >= 7) return "#22c55e";  // green-500
   if (streak >= 1) return "#3b82f6";  // blue-500
-  return "transparent";              // no ring
+  return "transparent";
 }
 
 /** Return the initials to display when no avatar image is provided. */
@@ -51,32 +50,47 @@ export default function AvatarRing({
   className = "",
 }: AvatarRingProps) {
   const [imgError, setImgError] = useState(false);
-  const color = ringColor(streakDays);
+
   const hasRing = streakDays > 0;
-  // Ring border is ~2px for small avatars, 3px for larger ones
+  // 30+ days → animated Google-style 4-color rotating ring
+  const useAnimatedRing = streakDays >= 30;
   const ringWidth = size >= 48 ? 3 : 2;
   const ringGap = 2;
+  const totalSize = size + (hasRing ? (ringWidth + ringGap) * 2 : 0);
 
   const showImage = !!avatarUrl && !imgError;
 
   return (
     <span
-      className={`relative inline-flex items-center justify-center shrink-0 rounded-full ${hasRing ? "avatar-ring-active" : ""} ${className}`}
-      style={{
-        width: size + (hasRing ? (ringWidth + ringGap) * 2 : 0),
-        height: size + (hasRing ? (ringWidth + ringGap) * 2 : 0),
-      }}
-      title={
-        streakDays > 0 ? `${streakDays}-day streak` : undefined
-      }
+      className={`relative inline-flex items-center justify-center shrink-0 rounded-full ${className}`}
+      style={{ width: totalSize, height: totalSize }}
+      title={streakDays > 0 ? `${streakDays}-day streak` : undefined}
     >
-      {/* Ring */}
-      {hasRing && (
+      {/* Animated 4-color Google-style ring (30+ day streak) */}
+      {hasRing && useAnimatedRing && (
+        <span
+          aria-hidden="true"
+          className="absolute inset-0 rounded-full avatar-ring-google"
+          style={{
+            padding: ringWidth + ringGap,
+            background:
+              "conic-gradient(#4285F4 0deg, #EA4335 90deg, #FBBC05 180deg, #34A853 270deg, #4285F4 360deg)",
+          }}
+        >
+          <span
+            className="block rounded-full w-full h-full"
+            style={{ background: "var(--color-surface)" }}
+          />
+        </span>
+      )}
+
+      {/* Solid ring (1–29 day streak) */}
+      {hasRing && !useAnimatedRing && (
         <span
           aria-hidden="true"
           className="absolute inset-0 rounded-full"
           style={{
-            boxShadow: `0 0 0 ${ringWidth}px ${color}`,
+            boxShadow: `0 0 0 ${ringWidth}px ${solidRingColor(streakDays)}`,
           }}
         />
       )}

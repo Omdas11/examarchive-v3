@@ -9,6 +9,7 @@ import {
   Permission,
   Role,
 } from "node-appwrite";
+import { InputFile } from "node-appwrite/file";
 
 // ── Environment helpers ────────────────────────────────────────────────────
 export const APPWRITE_ENDPOINT =
@@ -93,13 +94,17 @@ export function adminAccount() {
 // ── File storage helpers ────────────────────────────────────────────────
 /**
  * Upload a file to the configured Appwrite bucket and return its file ID.
+ * Uses InputFile.fromBuffer so large files are sent correctly to Appwrite.
  */
 export async function uploadFileToAppwrite(
   file: File,
 ): Promise<{ fileId: string; bucketId: string }> {
   const storage = adminStorage();
   const fileId = ID.unique();
-  await storage.createFile(BUCKET_ID, fileId, file);
+  const arrayBuffer = await file.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+  const inputFile = InputFile.fromBuffer(buffer, file.name);
+  await storage.createFile(BUCKET_ID, fileId, inputFile);
   return { fileId, bucketId: BUCKET_ID };
 }
 
@@ -112,8 +117,11 @@ export async function uploadAvatarToAppwrite(
 ): Promise<{ fileId: string; bucketId: string }> {
   const storage = adminStorage();
   const fileId = ID.unique();
+  const arrayBuffer = await file.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+  const inputFile = InputFile.fromBuffer(buffer, file.name);
   // Set public read permission so avatars can be viewed by anyone
-  await storage.createFile(AVATARS_BUCKET_ID, fileId, file, [
+  await storage.createFile(AVATARS_BUCKET_ID, fileId, inputFile, [
     Permission.read(Role.any()),
   ]);
   return { fileId, bucketId: AVATARS_BUCKET_ID };

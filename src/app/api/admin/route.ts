@@ -185,6 +185,37 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: message }, { status: 500 });
       }
     }
+    case "soft-delete": {
+      // Soft-delete: set approved=false so the paper disappears from browse
+      // but is preserved in the database for audit purposes.
+      try {
+        let paperTitle = id;
+        try {
+          const paper = await db.getDocument(DATABASE_ID, COLLECTION.papers, id);
+          paperTitle = (paper.title as string) ?? id;
+        } catch {
+          // continue
+        }
+
+        await db.updateDocument(DATABASE_ID, COLLECTION.papers, id, {
+          approved: false,
+        });
+
+        await logActivity(db, {
+          action: "reject",
+          target_user_id: null,
+          target_paper_id: id,
+          admin_id: user.id,
+          admin_email: user.email,
+          details: `Soft-deleted (hidden from browse) paper "${paperTitle}"`,
+        });
+
+        return NextResponse.json({ success: true });
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return NextResponse.json({ error: message }, { status: 500 });
+      }
+    }
     default:
       return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });
   }
