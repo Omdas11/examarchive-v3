@@ -34,6 +34,10 @@ export interface UserProfile {
   /** File ID of the avatar in Appwrite Storage (avatars bucket). */
   avatar_file_id?: string;
   role: UserRole;
+  /** Community/custom secondary role, if any. */
+  secondary_role?: CustomRole;
+  /** Activity-based tier. */
+  tier?: UserTier;
   xp: number;
   streak_days: number;
   last_activity: string;

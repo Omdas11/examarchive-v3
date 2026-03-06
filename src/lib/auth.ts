@@ -70,6 +70,8 @@ export async function getServerUser(): Promise<UserProfile | null> {
     // First try to get the document by Auth user ID (the preferred approach)
     try {
       const profile = await db.getDocument(DATABASE_ID, COLLECTION.users, user.$id);
+      const rawSecondary = profile.secondary_role ?? null;
+      const rawTier = profile.tier ?? "bronze";
       return {
         id: profile.$id,
         email: (profile.email as string) ?? user.email,
@@ -79,6 +81,8 @@ export async function getServerUser(): Promise<UserProfile | null> {
         avatar_url: (profile.avatar_url as string) ?? "",
         avatar_file_id: (profile.avatar_file_id as string) ?? undefined,
         role: (profile.role as UserRole) ?? "student",
+        secondary_role: isValidCustomRole(rawSecondary) ? rawSecondary : null,
+        tier: isValidTier(rawTier) ? rawTier : "bronze",
         xp: (profile.xp as number) ?? 0,
         // DB field is `streak`; TypeScript property is `streak_days`
         streak_days: (profile.streak as number) ?? 0,
@@ -98,6 +102,8 @@ export async function getServerUser(): Promise<UserProfile | null> {
 
     if (documents.length > 0) {
       const profile = documents[0];
+      const rawSecondary = profile.secondary_role ?? null;
+      const rawTier = profile.tier ?? "bronze";
       // Return the actual document ID (which may differ from Auth user ID)
       return {
         id: profile.$id,
@@ -107,6 +113,8 @@ export async function getServerUser(): Promise<UserProfile | null> {
         avatar_url: (profile.avatar_url as string) ?? "",
         avatar_file_id: (profile.avatar_file_id as string) ?? undefined,
         role: (profile.role as UserRole) ?? "student",
+        secondary_role: isValidCustomRole(rawSecondary) ? rawSecondary : null,
+        tier: isValidTier(rawTier) ? rawTier : "bronze",
         xp: (profile.xp as number) ?? 0,
         streak_days: (profile.streak as number) ?? 0,
         last_activity: (profile.last_activity as string) ?? "",

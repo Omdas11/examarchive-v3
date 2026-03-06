@@ -126,3 +126,17 @@ body {
 .avatar-ring-active {
   animation: ring-pulse 2s ease-in-out infinite;
 }
+
+/* ── Google-style 4-color rotating avatar ring ── */
+@keyframes ring-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.avatar-ring-google {
+  animation: ring-spin 2s linear infinite;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

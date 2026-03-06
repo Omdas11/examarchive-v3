@@ -206,7 +206,7 @@ export default function Navbar({ user }: NavbarProps) {
                   displayName={displayName}
                   avatarUrl={user.avatar_url || undefined}
                   streakDays={user.streak_days}
-                  size={28}
+                  size={40}
                 />
               </button>
             )}

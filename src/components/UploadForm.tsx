@@ -1,43 +1,135 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
+import CustomSelect from "./CustomSelect";
 
 type MessageState = { type: "success" | "error"; text: string } | null;
 
+const semesterOptions = [
+  { value: "1st", label: "1st" },
+  { value: "2nd", label: "2nd" },
+  { value: "3rd", label: "3rd" },
+  { value: "4th", label: "4th" },
+  { value: "5th", label: "5th" },
+  { value: "6th", label: "6th" },
+];
+
+const examTypeOptions = [
+  { value: "Midterm", label: "Midterm" },
+  { value: "Final", label: "Final" },
+  { value: "Quiz", label: "Quiz" },
+];
+
+/** Interpolate between two hex colors by fraction 0..1. */
+function lerpColor(from: string, to: string, t: number): string {
+  const f = (h: string) => [
+    parseInt(h.slice(1, 3), 16),
+    parseInt(h.slice(3, 5), 16),
+    parseInt(h.slice(5, 7), 16),
+  ];
+  const [fr, fg, fb] = f(from);
+  const [tr, tg, tb] = f(to);
+  const r = Math.round(fr + (tr - fr) * t);
+  const g = Math.round(fg + (tg - fg) * t);
+  const b = Math.round(fb + (tb - fb) * t);
+  return `rgb(${r},${g},${b})`;
+}
+
+function formatBytes(bps: number): string {
+  if (bps > 1_000_000) return `${(bps / 1_000_000).toFixed(1)} MB/s`;
+  if (bps > 1_000) return `${(bps / 1_000).toFixed(0)} KB/s`;
+  return `${bps.toFixed(0)} B/s`;
+}
+
+function formatTime(seconds: number): string {
+  if (seconds < 60) return `${Math.ceil(seconds)}s`;
+  return `${Math.floor(seconds / 60)}m ${Math.ceil(seconds % 60)}s`;
+}
+
 export default function UploadForm() {
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState(0); // 0–100
+  const [uploadSpeed, setUploadSpeed] = useState(0); // bytes/s
+  const [eta, setEta] = useState(0); // seconds remaining
   const [message, setMessage] = useState<MessageState>(null);
   const [dragOver, setDragOver] = useState(false);
   const [fileName, setFileName] = useState("");
+  const [semester, setSemester] = useState("");
+  const [examType, setExamType] = useState("");
+  const formRef = useRef<HTMLFormElement>(null);
+  const startTimeRef = useRef<number>(0);
+  const lastLoadedRef = useRef<number>(0);
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
+    setProgress(0);
+    setUploadSpeed(0);
+    setEta(0);
     setMessage(null);
 
     const form = new FormData(e.currentTarget);
 
-    try {
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        body: form,
-      });
+    const xhr = new XMLHttpRequest();
+    startTimeRef.current = Date.now();
+    lastLoadedRef.current = 0;
 
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Upload failed");
+    xhr.upload.addEventListener("progress", (ev) => {
+      if (!ev.lengthComputable) return;
+      const pct = Math.round((ev.loaded / ev.total) * 100);
+      setProgress(pct);
 
-      setMessage({ type: "success", text: "Upload successful — awaiting admin approval." });
-      setFileName("");
-      (e.target as HTMLFormElement).reset();
-    } catch (err: unknown) {
-      setMessage({ type: "error", text: err instanceof Error ? err.message : "Upload failed" });
-    } finally {
+      const elapsed = (Date.now() - startTimeRef.current) / 1000;
+      if (elapsed > 0) {
+        const bps = ev.loaded / elapsed;
+        setUploadSpeed(bps);
+        const remaining = ev.total - ev.loaded;
+        setEta(bps > 0 ? remaining / bps : 0);
+      }
+    });
+
+    xhr.addEventListener("load", () => {
       setLoading(false);
-    }
+      setProgress(100);
+      try {
+        const json = JSON.parse(xhr.responseText);
+        if (xhr.status >= 200 && xhr.status < 300 && json.success) {
+          setMessage({ type: "success", text: "Upload successful — awaiting admin approval." });
+          setFileName("");
+          setSemester("");
+          setExamType("");
+          formRef.current?.reset();
+        } else {
+          setMessage({ type: "error", text: json.error ?? "Upload failed" });
+        }
+      } catch {
+        setMessage({ type: "error", text: `Server error (status ${xhr.status})` });
+      }
+    });
+
+    xhr.addEventListener("error", () => {
+      setLoading(false);
+      setMessage({ type: "error", text: "Network error – please check your connection." });
+    });
+
+    xhr.addEventListener("abort", () => {
+      setLoading(false);
+      setMessage({ type: "error", text: "Upload was cancelled." });
+    });
+
+    xhr.open("POST", "/api/upload");
+    xhr.send(form);
   }
 
+  // Button color: transitions from red (0%) → amber (50%) → green (100%)
+  const btnColor = progress === 0 || !loading
+    ? "var(--color-primary)"
+    : progress < 50
+    ? lerpColor("#d32f2f", "#f59e0b", progress / 50)
+    : lerpColor("#f59e0b", "#16a34a", (progress - 50) / 50);
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
       {/* Step 1: Paper details */}
       <div>
         <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--color-text-muted)" }}>
@@ -49,21 +141,24 @@ export default function UploadForm() {
           <input name="course_name" placeholder="Course Name" required className="input-field" />
           <input name="department" placeholder="Stream / Department" required className="input-field" />
           <input name="year" type="number" placeholder="Year" required className="input-field" />
-          <select name="semester" required className="input-field">
-            <option value="">Semester</option>
-            <option value="1st">1st</option>
-            <option value="2nd">2nd</option>
-            <option value="3rd">3rd</option>
-            <option value="4th">4th</option>
-            <option value="5th">5th</option>
-            <option value="6th">6th</option>
-          </select>
-          <select name="exam_type" required className="input-field">
-            <option value="">Exam Type</option>
-            <option value="Midterm">Midterm</option>
-            <option value="Final">Final</option>
-            <option value="Quiz">Quiz</option>
-          </select>
+
+          <CustomSelect
+            name="semester"
+            options={semesterOptions}
+            placeholder="Semester"
+            required
+            value={semester}
+            onChange={setSemester}
+          />
+
+          <CustomSelect
+            name="exam_type"
+            options={examTypeOptions}
+            placeholder="Exam Type"
+            required
+            value={examType}
+            onChange={setExamType}
+          />
         </div>
       </div>
 
@@ -113,8 +208,39 @@ export default function UploadForm() {
         <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--color-text-muted)" }}>
           Step 3: Submit
         </h3>
-        <button type="submit" disabled={loading} className="btn-primary w-full disabled:opacity-50">
-          {loading ? "Uploading…" : "Upload Paper"}
+
+        {/* Progress bar */}
+        {loading && (
+          <div className="mb-3 space-y-1">
+            <div
+              className="h-2 w-full overflow-hidden rounded-full"
+              style={{ background: "var(--color-border)" }}
+            >
+              <div
+                className="h-full rounded-full transition-all duration-300"
+                style={{ width: `${progress}%`, background: btnColor }}
+              />
+            </div>
+            <div className="flex items-center justify-between text-xs" style={{ color: "var(--color-text-muted)" }}>
+              <span>{progress}%</span>
+              <span>
+                {uploadSpeed > 0 && `${formatBytes(uploadSpeed)}`}
+                {eta > 0 && ` · ${formatTime(eta)} left`}
+              </span>
+            </div>
+          </div>
+        )}
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="btn-primary w-full disabled:opacity-50 transition-colors duration-300"
+          style={{
+            background: btnColor,
+            borderColor: btnColor,
+          }}
+        >
+          {loading ? `Uploading… ${progress}%` : "Upload Paper"}
         </button>
         <p className="mt-2 text-xs text-center" style={{ color: "var(--color-text-muted)" }}>
           Your upload will be reviewed by an admin before publishing.
@@ -134,3 +260,4 @@ export default function UploadForm() {
     </form>
   );
 }
+
