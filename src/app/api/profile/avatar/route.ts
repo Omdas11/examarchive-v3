@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
       const doc = await db.getDocument(DATABASE_ID, COLLECTION.users, user.id);
       oldFileId = (doc.avatar_file_id as string) ?? null;
       console.log("[api/profile/avatar] Found existing avatar_file_id:", oldFileId);
-    } catch (docErr) {
+    } catch {
       // Document may not have avatar_file_id field yet
       console.log("[api/profile/avatar] No existing avatar found or field missing");
     }

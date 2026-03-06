@@ -11,6 +11,16 @@ interface ProfileEditorProps {
   initialAvatarUrl: string;
 }
 
+/** Safely extract a human-readable message from any thrown value. */
+function toErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof Error) return err.message;
+  if (err && typeof err === "object" && "message" in err) {
+    return String((err as { message: unknown }).message);
+  }
+  if (typeof err === "string" && err) return err;
+  return fallback;
+}
+
 export default function ProfileEditor({
   initialName,
   initialUsername,
@@ -50,7 +60,9 @@ export default function ProfileEditor({
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        showToast(data.error ?? "Avatar upload failed", "error");
+        const msg = data.error ?? "Avatar upload failed";
+        const detail = data.details ? ` (${data.details})` : "";
+        showToast(msg + detail, "error");
         setAvatarPreview(null); // revert preview on failure
       } else {
         setAvatarUrl(data.avatar_url ?? "");
@@ -59,8 +71,8 @@ export default function ProfileEditor({
         // Refresh server-side data so Navbar/ProfilePanel show the new avatar
         router.refresh();
       }
-    } catch {
-      showToast("Network error – please try again", "error");
+    } catch (err) {
+      showToast(toErrorMessage(err, "Network error – please try again"), "error");
       setAvatarPreview(null);
     } finally {
       setUploadingAvatar(false);
@@ -104,14 +116,16 @@ export default function ProfileEditor({
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        showToast(data.error ?? "Failed to save profile", "error");
+        const msg = data.error ?? "Failed to save profile";
+        const detail = data.details ? ` (${data.details})` : "";
+        showToast(msg + detail, "error");
       } else {
         showToast("Profile updated successfully", "success");
         // Refresh server-side data so Navbar/ProfilePanel show the updated name/username
         router.refresh();
       }
-    } catch {
-      showToast("Network error – please try again", "error");
+    } catch (err) {
+      showToast(toErrorMessage(err, "Network error – please try again"), "error");
     } finally {
       setSaving(false);
     }
