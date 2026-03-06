@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getServerUser } from "@/lib/auth";
-import { adminDatabases, DATABASE_ID, COLLECTION } from "@/lib/appwrite";
+import { adminDatabases, DATABASE_ID, COLLECTION, Query } from "@/lib/appwrite";
 
 /**
  * PATCH /api/profile
@@ -53,6 +53,26 @@ export async function PATCH(request: NextRequest) {
         { error: "Username must be 1–30 alphanumeric characters (underscores allowed)" },
         { status: 400 },
       );
+    }
+
+    // Validate username uniqueness (exclude current user's own document)
+    try {
+      const db = adminDatabases();
+      const { documents } = await db.listDocuments(
+        DATABASE_ID,
+        COLLECTION.users,
+        [Query.equal("username", update.username), Query.limit(2)],
+      );
+      const takenByOther = documents.some((doc) => doc.$id !== user.id);
+      if (takenByOther) {
+        return NextResponse.json(
+          { error: "Username is already taken" },
+          { status: 409 },
+        );
+      }
+    } catch (err) {
+      // If uniqueness check fails (e.g. missing index), log and continue rather than block
+      console.warn("[api/profile] Username uniqueness check failed:", err);
     }
   }
 

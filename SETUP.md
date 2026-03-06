@@ -47,6 +47,7 @@ cp .env.example .env.local
 | `NEXT_PUBLIC_APPWRITE_PROJECT_ID` | Public (browser + server) | Your Appwrite project ID (found in **Settings → Overview**) |
 | `APPWRITE_API_KEY` | **Server only** | Appwrite server-side API key. **Never use a `NEXT_PUBLIC_` prefix here.** |
 | `APPWRITE_BUCKET_ID` | **Server only** | ID of the Appwrite storage bucket for exam PDFs (default: `papers`) |
+| `APPWRITE_AVATARS_BUCKET_ID` | **Server only** | ID of the Appwrite storage bucket for user avatars (default: `avatars`) |
 | `NEXT_PUBLIC_SITE_URL` | Public | Your deployed site origin, e.g. `https://examarchive.dev`. Used for magic-link email redirects. In production Vercel sets `VERCEL_PROJECT_PRODUCTION_URL` automatically – you can also pin it here. |
 | `NEXT_PUBLIC_ENABLE_DEBUG_PANEL` | Public (dev only) | Set to `"true"` to show the floating debug panel in development. Never set this in production. |
 
@@ -205,7 +206,9 @@ Tracks badges/achievements earned by users.
 
 ---
 
-### 4. Create the Storage Bucket
+### 4. Create the Storage Buckets
+
+#### Bucket: `papers` (exam PDFs)
 
 1. Go to **Storage → Buckets** and click **Create Bucket**.
 2. Set the **Bucket ID** to `papers` (or any ID – copy it into `APPWRITE_BUCKET_ID`).
@@ -214,6 +217,15 @@ Tracks badges/achievements earned by users.
 5. **Permissions:**
    - Role `any` → **Read** (so students can view/download PDFs by URL)
    - Role `users` → **Create**
+   - API Key (server) → **Create**, **Read**, **Update**, **Delete**
+
+#### Bucket: `avatars` (user profile images)
+
+1. Create another bucket with **Bucket ID** `avatars` (copy it into `APPWRITE_AVATARS_BUCKET_ID`).
+2. Set **Maximum File Size** to `2 MB`.
+3. Set **Allowed File Extensions** to `jpg,jpeg,png,webp,gif`.
+4. **Permissions:**
+   - Role `any` → **Read** (avatar previews are public)
    - API Key (server) → **Create**, **Read**, **Update**, **Delete**
 
 ### 5. Create an API Key
@@ -264,6 +276,7 @@ npm run dev
    | `NEXT_PUBLIC_APPWRITE_PROJECT_ID` | Appwrite Console → Settings → Overview → Project ID |
    | `APPWRITE_API_KEY` | Appwrite Console → Overview → API Keys |
    | `APPWRITE_BUCKET_ID` | Appwrite Console → Storage → your bucket → Bucket ID |
+   | `APPWRITE_AVATARS_BUCKET_ID` | Appwrite Console → Storage → avatars bucket → Bucket ID |
    | `NEXT_PUBLIC_SITE_URL` | Your production domain, e.g. `https://examarchive.dev` |
 
    > **Do not** add `NEXT_PUBLIC_ENABLE_DEBUG_PANEL` in Production.

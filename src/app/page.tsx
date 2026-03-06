@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getServerUser } from "@/lib/auth";
+import HomeSearch from "@/components/HomeSearch";
 
 export default async function HomePage() {
   const user = await getServerUser();
@@ -24,15 +25,7 @@ export default async function HomePage() {
 
       {/* Search */}
       <section className="py-6">
-        <div className="card flex flex-col gap-3 p-5 sm:flex-row sm:items-center">
-          <input
-            type="text"
-            placeholder="Search papers, subjects, codes…"
-            className="input-field flex-1"
-          />
-          <button className="btn text-xs">Mode ▾</button>
-          <button className="btn-primary text-xs">Search</button>
-        </div>
+        <HomeSearch />
       </section>
 
       {/* Notices & Updates */}

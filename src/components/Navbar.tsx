@@ -2,17 +2,19 @@
 
 import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
 import { signOut } from "@/app/auth/actions";
 import type { UserProfile } from "@/types";
 import AvatarRing from "./AvatarRing";
 import ProfilePanel from "./ProfilePanel";
+import EALogo from "./EALogo";
 
 /** Minimum horizontal swipe distance (px) to trigger drawer open/close. */
-const SWIPE_THRESHOLD = 60;
+const SWIPE_THRESHOLD = 50;
 /** Maximum x-origin (px) from the left edge that counts as an "open" swipe. */
-const EDGE_THRESHOLD = 40;
+const EDGE_THRESHOLD = 48;
 /** Minimum x-origin (px) from the right edge that counts as a right-swipe open. */
-const RIGHT_EDGE_THRESHOLD = 40;
+const RIGHT_EDGE_THRESHOLD = 48;
 
 const navLinks = [
   { href: "/browse", label: "Browse" },
@@ -27,6 +29,7 @@ interface NavbarProps {
 }
 
 export default function Navbar({ user }: NavbarProps) {
+  const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [profilePanelOpen, setProfilePanelOpen] = useState(false);
   const [dark, setDark] = useState(false);
@@ -34,6 +37,7 @@ export default function Navbar({ user }: NavbarProps) {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
+  const touchCurrentX = useRef(0);
 
   useEffect(() => {
     setDark(document.documentElement.getAttribute("data-theme") === "dark");
@@ -44,10 +48,7 @@ export default function Navbar({ user }: NavbarProps) {
     const anyOpen = drawerOpen || profilePanelOpen;
     document.body.style.overflow = anyOpen ? "hidden" : "";
     return () => {
-      // Only reset if no panel remains open after this effect re-runs
-      if (!drawerOpen && !profilePanelOpen) {
-        document.body.style.overflow = "";
-      }
+      document.body.style.overflow = "";
     };
   }, [drawerOpen, profilePanelOpen]);
 
@@ -62,44 +63,60 @@ export default function Navbar({ user }: NavbarProps) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Swipe-to-open/close sidebar via touch events on the document.
+  // Swipe-to-open/close sidebar via touch events.
   useEffect(() => {
     function onTouchStart(e: TouchEvent) {
       touchStartX.current = e.touches[0].clientX;
       touchStartY.current = e.touches[0].clientY;
+      touchCurrentX.current = e.touches[0].clientX;
     }
+
+    function onTouchMove(e: TouchEvent) {
+      touchCurrentX.current = e.touches[0].clientX;
+    }
+
     function onTouchEnd(e: TouchEvent) {
       const endX = e.changedTouches[0].clientX;
       const dx = endX - touchStartX.current;
       const dy = e.changedTouches[0].clientY - touchStartY.current;
       // Ignore predominantly vertical swipes.
-      if (Math.abs(dy) > Math.abs(dx)) return;
+      if (Math.abs(dy) > Math.abs(dx) * 0.8) return;
+      if (Math.abs(dx) < SWIPE_THRESHOLD) return;
 
       const screenW = window.innerWidth;
 
       // Left drawer: swipe right from left edge → open; swipe left when open → close
-      if (!drawerOpen && dx > SWIPE_THRESHOLD && touchStartX.current < EDGE_THRESHOLD) {
+      if (!drawerOpen && dx > 0 && touchStartX.current < EDGE_THRESHOLD) {
         setDrawerOpen(true);
-      } else if (drawerOpen && dx < -SWIPE_THRESHOLD) {
+      } else if (drawerOpen && dx < 0) {
         setDrawerOpen(false);
       }
 
       // Profile panel (logged-in only): swipe left from right edge → open; swipe right when open → close
       if (user) {
-        if (!profilePanelOpen && dx < -SWIPE_THRESHOLD && touchStartX.current > screenW - RIGHT_EDGE_THRESHOLD) {
+        if (!profilePanelOpen && dx < 0 && touchStartX.current > screenW - RIGHT_EDGE_THRESHOLD) {
           setProfilePanelOpen(true);
-        } else if (profilePanelOpen && dx > SWIPE_THRESHOLD) {
+        } else if (profilePanelOpen && dx > 0) {
           setProfilePanelOpen(false);
         }
       }
     }
+
     document.addEventListener("touchstart", onTouchStart, { passive: true });
+    document.addEventListener("touchmove", onTouchMove, { passive: true });
     document.addEventListener("touchend", onTouchEnd, { passive: true });
     return () => {
       document.removeEventListener("touchstart", onTouchStart);
+      document.removeEventListener("touchmove", onTouchMove);
       document.removeEventListener("touchend", onTouchEnd);
     };
   }, [drawerOpen, profilePanelOpen, user]);
+
+  // Close drawer when route changes
+  useEffect(() => {
+    setDrawerOpen(false);
+    setProfilePanelOpen(false);
+  }, [pathname]);
 
   function toggleTheme() {
     const next = !dark;
@@ -111,6 +128,11 @@ export default function Navbar({ user }: NavbarProps) {
   const displayName = user
     ? user.name || user.username || user.email
     : "";
+
+  function isActive(href: string) {
+    if (href === "/") return pathname === "/";
+    return pathname.startsWith(href);
+  }
 
   return (
     <>
@@ -133,7 +155,7 @@ export default function Navbar({ user }: NavbarProps) {
         <div className="mx-auto flex h-14 items-center justify-between px-4" style={{ maxWidth: "var(--max-w)" }}>
           {/* Mobile hamburger */}
           <button
-            className="mr-3 md:hidden"
+            className="mr-2 md:hidden"
             onClick={() => setDrawerOpen(true)}
             aria-label="Open menu"
           >
@@ -144,12 +166,7 @@ export default function Navbar({ user }: NavbarProps) {
 
           {/* Logo */}
           <Link href="/" className="flex items-center gap-1.5 text-lg font-bold tracking-tight">
-            <span
-              className="flex h-7 w-7 items-center justify-center rounded-md text-xs font-black text-white"
-              style={{ background: "var(--color-primary)" }}
-            >
-              EA
-            </span>
+            <EALogo size={28} />
             <span>ExamArchive</span>
           </Link>
 
@@ -160,6 +177,8 @@ export default function Navbar({ user }: NavbarProps) {
                 key={l.href}
                 href={l.href}
                 className="transition-colors hover:opacity-70"
+                style={isActive(l.href) ? { color: "var(--color-primary)", fontWeight: 700 } : undefined}
+                aria-current={isActive(l.href) ? "page" : undefined}
               >
                 {l.label}
               </Link>
@@ -176,7 +195,23 @@ export default function Navbar({ user }: NavbarProps) {
               )}
             </button>
 
-            {/* Desktop: avatar circle (opens profile panel) + dropdown fallback */}
+            {/* Mobile: show avatar when logged in */}
+            {user && (
+              <button
+                className="md:hidden"
+                onClick={() => setProfilePanelOpen(true)}
+                aria-label="Open profile"
+              >
+                <AvatarRing
+                  displayName={displayName}
+                  avatarUrl={user.avatar_url || undefined}
+                  streakDays={user.streak_days}
+                  size={28}
+                />
+              </button>
+            )}
+
+            {/* Desktop: avatar circle (opens profile panel) + dropdown */}
             {user ? (
               <div ref={dropdownRef} className="relative hidden md:block">
                 <button
@@ -266,14 +301,14 @@ export default function Navbar({ user }: NavbarProps) {
         </div>
       </nav>
 
-      {/* Mobile drawer overlay — always rendered for smooth CSS transition */}
+      {/* Mobile drawer overlay */}
       <div
         className={`fixed inset-0 z-[60] bg-black/40 transition-opacity duration-300 md:hidden ${drawerOpen ? "opacity-100" : "pointer-events-none opacity-0"}`}
         onClick={() => setDrawerOpen(false)}
         aria-hidden="true"
       />
 
-      {/* Mobile drawer panel — slides in from the left */}
+      {/* Mobile drawer panel – slides in from the left */}
       <div
         className={`fixed inset-y-0 left-0 z-[70] flex w-64 flex-col gap-1 p-5 shadow-xl transition-transform duration-300 ease-in-out md:hidden ${drawerOpen ? "translate-x-0" : "-translate-x-full"}`}
         style={{ background: "var(--color-surface)", borderRight: "1px solid var(--color-border)" }}
@@ -282,7 +317,10 @@ export default function Navbar({ user }: NavbarProps) {
         aria-label="Navigation menu"
       >
         <div className="mb-4 flex items-center justify-between">
-          <span className="text-lg font-bold">ExamArchive</span>
+          <Link href="/" onClick={() => setDrawerOpen(false)} className="flex items-center gap-1.5 font-bold text-base">
+            <EALogo size={24} />
+            <span>ExamArchive</span>
+          </Link>
           <button onClick={() => setDrawerOpen(false)} aria-label="Close menu">
             <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
           </button>
@@ -293,7 +331,13 @@ export default function Navbar({ user }: NavbarProps) {
             key={l.href}
             href={l.href}
             onClick={() => setDrawerOpen(false)}
-            className="block rounded-md px-3 py-2.5 text-sm font-medium transition-colors hover:opacity-70"
+            className="flex items-center rounded-md px-3 py-2.5 text-sm font-medium transition-colors"
+            style={
+              isActive(l.href)
+                ? { color: "var(--color-primary)", background: "var(--color-accent-soft)", fontWeight: 700 }
+                : undefined
+            }
+            aria-current={isActive(l.href) ? "page" : undefined}
           >
             {l.label}
           </Link>
@@ -326,6 +370,7 @@ export default function Navbar({ user }: NavbarProps) {
               href="/profile"
               onClick={() => setDrawerOpen(false)}
               className="block rounded-md px-3 py-2.5 text-sm font-medium transition-colors hover:opacity-70"
+              style={isActive("/profile") ? { color: "var(--color-primary)", fontWeight: 700 } : undefined}
             >
               Edit Profile
             </Link>
@@ -333,6 +378,7 @@ export default function Navbar({ user }: NavbarProps) {
               href="/settings"
               onClick={() => setDrawerOpen(false)}
               className="block rounded-md px-3 py-2.5 text-sm font-medium transition-colors hover:opacity-70"
+              style={isActive("/settings") ? { color: "var(--color-primary)", fontWeight: 700 } : undefined}
             >
               Settings
             </Link>
@@ -341,6 +387,7 @@ export default function Navbar({ user }: NavbarProps) {
                 href="/admin"
                 onClick={() => setDrawerOpen(false)}
                 className="block rounded-md px-3 py-2.5 text-sm font-medium transition-colors hover:opacity-70"
+                style={isActive("/admin") ? { color: "var(--color-primary)", fontWeight: 700 } : undefined}
               >
                 Admin Dashboard
               </Link>

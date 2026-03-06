@@ -102,6 +102,7 @@ export interface AdminUser {
   email: string;
   name: string;
   username: string;
+  avatar_url: string;
   role: UserRole;
   primary_role: UserRole;
   secondary_role: CustomRole;
@@ -120,6 +121,7 @@ export function toAdminUser(doc: Record<string, unknown>): AdminUser {
     email: (doc.email ?? "") as string,
     name: (doc.name ?? "") as string,
     username: (doc.username ?? "") as string,
+    avatar_url: (doc.avatar_url ?? "") as string,
     role: ((doc.role as string) ?? "student") as UserRole,
     primary_role: ((doc.primary_role ?? doc.role ?? "student") as string) as UserRole,
     secondary_role: (doc.secondary_role ?? null) as CustomRole,
