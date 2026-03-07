@@ -147,7 +147,10 @@ function StatsPanel({ xp, streakDays }: { xp: number; streakDays: number }) {
     <div className="grid grid-cols-2 gap-2">
       <div
         className="rounded-lg p-3 text-center"
-        style={{ background: "var(--color-accent-soft)" }}
+        style={{
+          background: "var(--color-surface)",
+          border: "1px solid var(--color-border)",
+        }}
       >
         <p className="text-lg font-bold" style={{ color: "var(--color-primary)" }}>
           {xp}
@@ -158,7 +161,10 @@ function StatsPanel({ xp, streakDays }: { xp: number; streakDays: number }) {
       </div>
       <div
         className="rounded-lg p-3 text-center"
-        style={{ background: "var(--color-accent-soft)" }}
+        style={{
+          background: "var(--color-surface)",
+          border: "1px solid var(--color-border)",
+        }}
       >
         <p className="text-lg font-bold" style={{ color: "var(--color-primary)" }}>
           {streakDays}
@@ -310,6 +316,17 @@ export default function ProfilePanel({ user, open, onClose }: ProfilePanelProps)
             {user.secondary_role && <RoleBadge role={user.secondary_role} />}
             <TierBadge tier={tier} />
           </div>
+
+          {/* Member since */}
+          {user.created_at && (
+            <p className="text-center text-[11px]" style={{ color: "var(--color-text-muted)" }}>
+              Member since{" "}
+              {new Date(user.created_at).toLocaleDateString("en-US", {
+                month: "long",
+                year: "numeric",
+              })}
+            </p>
+          )}
 
           <hr style={{ borderColor: "var(--color-border)" }} />
 

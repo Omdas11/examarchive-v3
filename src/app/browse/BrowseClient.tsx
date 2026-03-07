@@ -2,16 +2,18 @@
 
 import { useState, useMemo } from "react";
 import PaperCard from "@/components/PaperCard";
+import { PAPER_TYPE_COLORS } from "@/components/PaperCard";
 import type { Paper } from "@/types";
 
 interface BrowseClientProps {
   initialPapers: Paper[];
   availableYears: number[];
   availableStreams: string[];
+  availablePaperTypes: string[];
   isAdmin: boolean;
 }
 
-const PROGRAMMES = ["ALL", "CBCS", "FYUG"];
+const PROGRAMMES = ["ALL", "FYUGP", "CBCS", "Other"];
 
 type SortKey = "newest" | "oldest" | "title_asc" | "title_desc";
 
@@ -26,10 +28,12 @@ export default function BrowseClient({
   initialPapers,
   availableYears,
   availableStreams,
+  availablePaperTypes,
   isAdmin,
 }: BrowseClientProps) {
   const [search, setSearch] = useState("");
   const [activeProgramme, setActiveProgramme] = useState("ALL");
+  const [activePaperType, setActivePaperType] = useState<string | null>(null);
   const [activeStream, setActiveStream] = useState<string | null>(null);
   const [activeYear, setActiveYear] = useState<number | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("newest");
@@ -51,10 +55,17 @@ export default function BrowseClient({
     }
 
     if (activeProgramme !== "ALL") {
-      list = list.filter((p) =>
-        p.course_name.toUpperCase().includes(activeProgramme) ||
-        p.department.toUpperCase().includes(activeProgramme),
-      );
+      if (activeProgramme === "Other") {
+        list = list.filter(
+          (p) => !p.programme || (p.programme !== "FYUGP" && p.programme !== "CBCS"),
+        );
+      } else {
+        list = list.filter((p) => p.programme === activeProgramme);
+      }
+    }
+
+    if (activePaperType) {
+      list = list.filter((p) => p.paper_type === activePaperType);
     }
 
     if (activeStream) {
@@ -89,7 +100,7 @@ export default function BrowseClient({
     }
 
     return list;
-  }, [initialPapers, hiddenIds, search, activeProgramme, activeStream, activeYear, sortKey]);
+  }, [initialPapers, hiddenIds, search, activeProgramme, activePaperType, activeStream, activeYear, sortKey]);
 
   async function handleSoftDelete(paperId: string) {
     if (!confirm("Hide this paper from Browse? It can be restored from the admin panel.")) return;
@@ -125,13 +136,38 @@ export default function BrowseClient({
           <button
             key={p}
             type="button"
-            onClick={() => setActiveProgramme(p)}
+            onClick={() => { setActiveProgramme(p); setActivePaperType(null); }}
             className={`toggle-btn${activeProgramme === p ? " active" : ""}`}
           >
             {p}
           </button>
         ))}
       </div>
+
+      {/* Paper type toggles — shown when there are types from the data OR programme is FYUGP/CBCS */}
+      {availablePaperTypes.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {availablePaperTypes.map((pt) => {
+            const colors = PAPER_TYPE_COLORS[pt];
+            const isActive = activePaperType === pt;
+            return (
+              <button
+                key={pt}
+                type="button"
+                onClick={() => setActivePaperType(isActive ? null : pt)}
+                className={`toggle-btn${isActive ? " active" : ""}`}
+                style={
+                  isActive && colors
+                    ? { borderColor: colors.text, color: colors.text, background: colors.bg }
+                    : undefined
+                }
+              >
+                {pt}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Stream toggles */}
       {streams.length > 0 && (
