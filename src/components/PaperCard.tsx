@@ -6,7 +6,20 @@ interface PaperCardProps {
   paper: Paper;
 }
 
-/** Returns a subtle subject-based accent color for the department/stream. */
+/** Category badge colours — shared with browse filters. */
+export const PAPER_TYPE_COLORS: Record<string, { bg: string; text: string }> = {
+  // FYUGP
+  DSC: { bg: "#dbeafe", text: "#1d4ed8" },
+  DSM: { bg: "#dcfce7", text: "#166534" },
+  IDC: { bg: "#f3e8ff", text: "#7e22ce" },
+  GE:  { bg: "#ffe4e6", text: "#9f1239" },
+  // CBCS
+  CC:  { bg: "#fce7f3", text: "#9d174d" },
+  DSE: { bg: "#ffedd5", text: "#9a3412" },
+  GEC: { bg: "#ecfdf5", text: "#065f46" },
+  // shared
+  SEC: { bg: "#fef9c3", text: "#854d0e" },
+};
 function subjectColor(department: string): string {
   const d = department.toLowerCase();
   if (d.includes("physics")) return "#2563eb";
@@ -81,6 +94,18 @@ export default function PaperCard({ paper }: PaperCardProps) {
               style={{ background: "var(--color-accent-soft)", color: "var(--color-primary)" }}
             >
               {paper.exam_type}
+            </span>
+          )}
+          {paper.paper_type && (
+            <span
+              className="inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold"
+              style={
+                PAPER_TYPE_COLORS[paper.paper_type]
+                  ? { background: PAPER_TYPE_COLORS[paper.paper_type].bg, color: PAPER_TYPE_COLORS[paper.paper_type].text }
+                  : { background: "var(--color-border)", color: "var(--color-text-muted)" }
+              }
+            >
+              {paper.paper_type}
             </span>
           )}
           {paper.semester && (

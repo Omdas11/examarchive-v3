@@ -6,6 +6,7 @@ import type { Syllabus } from "@/types";
 import { toRoman } from "@/lib/utils";
 import { SYLLABUS_REGISTRY, groupBySemester } from "@/data/syllabus-registry";
 import type { SyllabusRegistryEntry } from "@/data/syllabus-registry";
+import { PAPER_TYPE_COLORS } from "@/components/PaperCard";
 
 type Tab = "pdfs" | "library";
 
@@ -136,14 +137,8 @@ function PaperLibrary() {
     setFilterCategory("ALL");
   }
 
-  // Category badge colours
-  const CAT_COLORS: Record<string, { bg: string; text: string }> = {
-    DSC: { bg: "#dbeafe", text: "#1d4ed8" },
-    DSM: { bg: "#dcfce7", text: "#166534" },
-    SEC: { bg: "#fef9c3", text: "#854d0e" },
-    IDC: { bg: "#f3e8ff", text: "#7e22ce" },
-    GE:  { bg: "#ffe4e6", text: "#9f1239" },
-  };
+  // Category badge colours — shared with PaperCard
+  const CAT_COLORS = PAPER_TYPE_COLORS;
 
   return (
     <div className="mt-6 space-y-6">

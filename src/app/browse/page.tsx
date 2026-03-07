@@ -32,9 +32,10 @@ export default async function BrowsePage() {
     // collection may not exist yet
   }
 
-  // Compute distinct years and streams from the fetched papers
+  // Compute distinct years, streams, and paper types from the fetched papers
   const yearSet = new Set<number>();
   const streamSet = new Set<string>();
+  const paperTypeSet = new Set<string>();
   for (const p of papers) {
     if (p.year) yearSet.add(p.year);
     if (p.department) {
@@ -44,9 +45,11 @@ export default async function BrowsePage() {
       else if (upper.includes("COMMERCE")) streamSet.add("COMMERCE");
       else streamSet.add(p.department.toUpperCase());
     }
+    if (p.paper_type) paperTypeSet.add(p.paper_type);
   }
   const availableYears = [...yearSet].sort((a, b) => b - a);
   const availableStreams = [...streamSet].sort();
+  const availablePaperTypes = [...paperTypeSet].sort();
 
   return (
     <section className="mx-auto px-4 py-10" style={{ maxWidth: "var(--max-w)" }}>
@@ -59,6 +62,7 @@ export default async function BrowsePage() {
         initialPapers={papers}
         availableYears={availableYears}
         availableStreams={availableStreams}
+        availablePaperTypes={availablePaperTypes}
         isAdmin={isAdmin}
       />
     </section>

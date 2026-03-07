@@ -28,6 +28,12 @@ export interface Paper {
   download_count?: number;
   /** Username of the uploader (denormalised for display). */
   uploaded_by_username?: string;
+  /**
+   * Paper type / category within the programme.
+   * FYUGP: "DSC" | "DSM" | "SEC" | "IDC" | "GE"
+   * CBCS:  "CC"  | "DSC" | "DSE" | "GEC" | "SEC"
+   */
+  paper_type?: string;
 }
 
 /** Represents a syllabus entry. */
@@ -233,6 +239,7 @@ export function toPaper(doc: any): Paper {
     view_count: doc.view_count ?? 0,
     download_count: doc.download_count ?? 0,
     uploaded_by_username: doc.uploaded_by_username ?? undefined,
+    paper_type: doc.paper_type ?? undefined,
   };
 }
 

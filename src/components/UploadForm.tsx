@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import CustomSelect from "./CustomSelect";
 import {
   uploadFileDirectly,
   MAX_UPLOAD_BYTES,
   type UploadProgress,
 } from "@/lib/appwrite-client";
+import { SYLLABUS_REGISTRY } from "@/data/syllabus-registry";
 
 type MessageState = { type: "success" | "error"; text: string } | null;
 
@@ -19,6 +20,8 @@ const semesterOptions = [
   { value: "4th", label: "4th Semester" },
   { value: "5th", label: "5th Semester" },
   { value: "6th", label: "6th Semester" },
+  { value: "7th", label: "7th Semester" },
+  { value: "8th", label: "8th Semester" },
 ];
 
 const examTypeOptions = [
@@ -27,10 +30,28 @@ const examTypeOptions = [
 ];
 
 const programmeOptions = [
+  { value: "FYUGP", label: "FYUGP (NEP 2020)" },
   { value: "CBCS", label: "CBCS" },
-  { value: "FYUG", label: "FYUG" },
   { value: "Other", label: "Other" },
 ];
+
+/** Paper type options keyed by programme. */
+const PAPER_TYPE_OPTIONS: Record<string, { value: string; label: string }[]> = {
+  FYUGP: [
+    { value: "DSC", label: "DSC — Discipline Specific Core" },
+    { value: "DSM", label: "DSM — Discipline Specific Minor" },
+    { value: "SEC", label: "SEC — Skill Enhancement Course" },
+    { value: "IDC", label: "IDC — Interdisciplinary Course" },
+    { value: "GE",  label: "GE — Generic Elective" },
+  ],
+  CBCS: [
+    { value: "CC",  label: "CC — Core Course (Honours)" },
+    { value: "DSC", label: "DSC — Discipline Specific Core" },
+    { value: "DSE", label: "DSE — Discipline Specific Elective" },
+    { value: "GEC", label: "GEC — Generic Elective Course" },
+    { value: "SEC", label: "SEC — Skill Enhancement Course" },
+  ],
+};
 
 /** Interpolate between two hex colors by fraction 0..1. */
 function lerpColor(from: string, to: string, t: number): string {
@@ -69,8 +90,35 @@ export default function UploadForm() {
   const [semester, setSemester] = useState("");
   const [examType, setExamType] = useState("");
   const [programme, setProgramme] = useState("");
+  const [paperType, setPaperType] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
   const startTimeRef = useRef<number>(0);
+
+  /** When the paper code changes, try to auto-fill from the registry. */
+  const handlePaperCodeChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const code = e.target.value.trim().toUpperCase();
+      if (!code) return;
+      const entry = SYLLABUS_REGISTRY.find(
+        (r) => r.paper_code.toUpperCase() === code,
+      );
+      if (!entry) return;
+      // Auto-fill programme if blank
+      if (!programme && entry.programme) setProgramme(entry.programme);
+      // Auto-fill paper type if blank
+      if (!paperType && entry.category) setPaperType(entry.category);
+      // Auto-fill semester
+      if (!semester) {
+        const n = entry.semester;
+        const suffix = n === 1 ? "st" : n === 2 ? "nd" : n === 3 ? "rd" : "th";
+        setSemester(`${n}${suffix}`);
+      }
+    },
+    [programme, paperType, semester],
+  );
+
+  const paperTypeOptions =
+    PAPER_TYPE_OPTIONS[programme] ?? [];
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -141,6 +189,7 @@ export default function UploadForm() {
           exam_type: examType,
           institution: institution || undefined,
           programme: programme || undefined,
+          paper_type: paperType || undefined,
         }),
       });
 
@@ -154,6 +203,7 @@ export default function UploadForm() {
       setSemester("");
       setExamType("");
       setProgramme("");
+      setPaperType("");
       formRef.current?.reset();
     } catch (err: unknown) {
       const text = err instanceof Error ? err.message : "Upload failed. Please try again.";
@@ -186,10 +236,34 @@ export default function UploadForm() {
             options={programmeOptions}
             placeholder="Programme"
             value={programme}
-            onChange={setProgramme}
+            onChange={(v) => { setProgramme(v); setPaperType(""); }}
           />
+          {/* Paper Type — shown when programme is FYUGP or CBCS */}
+          {paperTypeOptions.length > 0 ? (
+            <CustomSelect
+              name="paper_type"
+              options={paperTypeOptions}
+              placeholder="Paper Type (e.g. DSC)"
+              value={paperType}
+              onChange={setPaperType}
+            />
+          ) : (
+            <input
+              name="paper_type"
+              placeholder="Paper Type (e.g. DSC, CC)"
+              className="input-field"
+              value={paperType}
+              onChange={(e) => setPaperType(e.target.value)}
+            />
+          )}
           <input name="department" placeholder="Department / Stream" required className="input-field" />
-          <input name="course_code" placeholder="Paper Code" required className="input-field" />
+          <input
+            name="course_code"
+            placeholder="Paper Code (e.g. PHYDSC101T)"
+            required
+            className="input-field"
+            onChange={handlePaperCodeChange}
+          />
           <input name="course_name" placeholder="Course Name" required className="input-field" />
           <input name="title" placeholder="Subject / Paper Name" required className="input-field sm:col-span-2" />
           <input name="year" type="number" placeholder="Year (e.g. 2024)" required className="input-field" />

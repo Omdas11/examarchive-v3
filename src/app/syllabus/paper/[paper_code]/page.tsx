@@ -112,14 +112,10 @@ function UnitsSection({ units }: { units: SyllabusUnit[] }) {
   );
 }
 
+import { PAPER_TYPE_COLORS } from "@/components/PaperCard";
+
 /** Category badge colour mapping. */
-const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
-  DSC: { bg: "#dbeafe", text: "#1d4ed8" },
-  DSM: { bg: "#dcfce7", text: "#166534" },
-  SEC: { bg: "#fef9c3", text: "#854d0e" },
-  IDC: { bg: "#f3e8ff", text: "#7e22ce" },
-  GE:  { bg: "#ffe4e6", text: "#9f1239" },
-};
+const CATEGORY_COLORS = PAPER_TYPE_COLORS;
 
 export default async function SyllabusDetailPage({ params }: PageProps) {
   const { paper_code } = await params;
