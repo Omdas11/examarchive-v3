@@ -596,7 +596,7 @@ export const SYLLABUS_REGISTRY: SyllabusRegistryEntry[] = [
     credits: 4,
     programme: "CBCS",
     university: "Assam University",
-    category: "CC",
+    category: "HCC",
   },
   {
     paper_code: "PHSHCC601P",
@@ -606,7 +606,7 @@ export const SYLLABUS_REGISTRY: SyllabusRegistryEntry[] = [
     credits: 2,
     programme: "CBCS",
     university: "Assam University",
-    category: "CC",
+    category: "HCC",
   },
   {
     paper_code: "PHSHCC602T",
@@ -616,7 +616,7 @@ export const SYLLABUS_REGISTRY: SyllabusRegistryEntry[] = [
     credits: 4,
     programme: "CBCS",
     university: "Assam University",
-    category: "CC",
+    category: "HCC",
   },
   {
     paper_code: "PHSHCC602P",
@@ -626,7 +626,7 @@ export const SYLLABUS_REGISTRY: SyllabusRegistryEntry[] = [
     credits: 2,
     programme: "CBCS",
     university: "Assam University",
-    category: "CC",
+    category: "HCC",
   },
 
   // ── DSC (Discipline Specific Core) — B.Sc. Physics ─────────────────────

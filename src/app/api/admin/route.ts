@@ -260,6 +260,44 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: message }, { status: 500 });
       }
     }
+    case "hide-syllabus": {
+      // Soft-hide: set is_hidden=true so the syllabus disappears from public pages
+      // but is preserved in the database for audit purposes.
+      try {
+        await db.updateDocument(DATABASE_ID, COLLECTION.syllabus, id, {
+          is_hidden: true,
+        });
+        await logActivity(db, {
+          action: "reject",
+          target_user_id: null,
+          target_paper_id: id,
+          admin_id: user.id,
+          admin_email: user.email,
+          details: `Soft-hidden syllabus ${id}`,
+        });
+        return NextResponse.json({ success: true });
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return NextResponse.json({ error: message }, { status: 500 });
+      }
+    }
+    case "delete-syllabus": {
+      try {
+        await db.deleteDocument(DATABASE_ID, COLLECTION.syllabus, id);
+        await logActivity(db, {
+          action: "reject",
+          target_user_id: null,
+          target_paper_id: id,
+          admin_id: user.id,
+          admin_email: user.email,
+          details: `Deleted syllabus ${id}`,
+        });
+        return NextResponse.json({ success: true });
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return NextResponse.json({ error: message }, { status: 500 });
+      }
+    }
     case "approve-syllabus": {
       try {
         await db.updateDocument(DATABASE_ID, COLLECTION.syllabus, id, {

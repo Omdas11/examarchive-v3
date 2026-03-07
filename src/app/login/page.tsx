@@ -20,6 +20,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   auth_callback_expired: "Your sign-in link has expired. Please request a new one.",
   rate_limit: "Too many attempts. Please wait before trying again.",
   invalid_credentials: "Invalid email or password. Please try again.",
+  oauth_failed: "Google sign-in failed. Please try again.",
 };
 
 const VALID_MODES: Mode[] = ["magic", "signin", "signup"];

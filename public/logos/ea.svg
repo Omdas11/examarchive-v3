@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- EA monogram badge -->
+  <rect width="64" height="64" rx="14" fill="var(--color-primary, #2563eb)"/>
+  <!-- E -->
+  <path d="M8 12h18v6.4H13.6v7.2h10.4v6.4H13.6v8H26V46H8V12Z" fill="white"/>
+  <!-- A -->
+  <path d="M34 12h7.4L52 46H44.8l-1.94-6.8H32.74L30.8 46H24L34 12Zm3.7 7.8-3.6 13.2h7.2L37.7 19.8Z" fill="white"/>
+</svg>

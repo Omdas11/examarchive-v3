@@ -53,7 +53,8 @@ export interface Syllabus {
   year: number | null;
   /** Appwrite user ID of the uploader. */
   uploader_id: string;
-  /** Whether the syllabus has been approved by an admin. */
+  /** Whether the syllabus has been hidden by an admin. */
+  is_hidden?: boolean;
   approval_status: "pending" | "approved" | "rejected";
   /** Public URL of the syllabus PDF. */
   file_url: string;
@@ -260,5 +261,6 @@ export function toSyllabus(doc: any): Syllabus {
     course_code: doc.course_code,
     course_name: doc.course_name ?? doc.subject,
     uploaded_by_username: doc.uploaded_by_username ?? undefined,
+    is_hidden: doc.is_hidden ?? false,
   };
 }

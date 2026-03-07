@@ -8,6 +8,9 @@ import {
 import type { Paper } from "@/types";
 import { toPaper } from "@/types";
 import { toRoman } from "@/lib/utils";
+import { SYLLABUS_REGISTRY } from "@/data/syllabus-registry";
+import type { SyllabusRegistryEntry, SyllabusUnit } from "@/data/syllabus-registry";
+import { PAPER_TYPE_COLORS } from "@/components/PaperCard";
 
 interface PaperPageProps {
   params: Promise<{ id: string }>;
@@ -64,6 +67,13 @@ export default async function PaperPage({ params }: PaperPageProps) {
   const uploaderDisplay = paper.uploaded_by_username
     ? `@${paper.uploaded_by_username}`
     : null;
+
+  // Look up structured syllabus data from the registry by course_code
+  const syllabusEntry: SyllabusRegistryEntry | undefined = paper.course_code
+    ? SYLLABUS_REGISTRY.find(
+        (e) => e.paper_code.toUpperCase() === paper.course_code.toUpperCase(),
+      )
+    : undefined;
 
   return (
     <section className="mx-auto px-4 py-8 space-y-4" style={{ maxWidth: "var(--max-w)" }}>
@@ -164,12 +174,82 @@ export default async function PaperPage({ params }: PaperPageProps) {
       {/* ── Syllabus ── */}
       <div className="card p-5 sm:p-6">
         <h2 className="text-base font-semibold mb-3">Syllabus</h2>
-        <div className="rounded-lg px-4 py-5 text-center" style={{ background: "var(--color-accent-soft)" }}>
-          <p className="text-sm font-medium" style={{ color: "var(--color-text-muted)" }}>Coming Soon</p>
-          <p className="text-xs mt-1" style={{ color: "var(--color-text-muted)" }}>
-            Syllabus information will be linked here once available.
-          </p>
-        </div>
+        {syllabusEntry ? (
+          <div className="space-y-4">
+            {/* Paper meta */}
+            <div className="flex flex-wrap gap-1.5">
+              {syllabusEntry.category && PAPER_TYPE_COLORS[syllabusEntry.category] && (
+                <span
+                  className="inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold"
+                  style={{
+                    background: PAPER_TYPE_COLORS[syllabusEntry.category].bg,
+                    color: PAPER_TYPE_COLORS[syllabusEntry.category].text,
+                  }}
+                >
+                  {syllabusEntry.category}
+                </span>
+              )}
+              <span
+                className="inline-block rounded-full px-2.5 py-0.5 text-xs"
+                style={{ background: "var(--color-border)", color: "var(--color-text-muted)" }}
+              >
+                {syllabusEntry.credits} Credits
+              </span>
+              {syllabusEntry.contact_hours != null && (
+                <span
+                  className="inline-block rounded-full px-2.5 py-0.5 text-xs"
+                  style={{ background: "var(--color-border)", color: "var(--color-text-muted)" }}
+                >
+                  {syllabusEntry.contact_hours} hrs
+                </span>
+              )}
+            </div>
+
+            {/* Units summary */}
+            {syllabusEntry.units && syllabusEntry.units.length > 0 && (
+              <div className="space-y-2">
+                {syllabusEntry.units.map((unit: SyllabusUnit) => (
+                  <div
+                    key={unit.unit}
+                    className="flex gap-3 rounded-lg px-3 py-2.5 text-sm"
+                    style={{ border: "1px solid var(--color-border)", background: "var(--color-surface)" }}
+                  >
+                    <span
+                      className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
+                      style={{ background: "var(--color-accent-soft)", color: "var(--color-primary)" }}
+                    >
+                      {unit.unit}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-xs leading-snug">{unit.name}</p>
+                      {unit.lectures != null && (
+                        <p className="text-[11px] mt-0.5" style={{ color: "var(--color-text-muted)" }}>
+                          {unit.lectures} lectures
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Link to full syllabus detail */}
+            <Link
+              href={`/syllabus/paper/${encodeURIComponent(syllabusEntry.paper_code)}`}
+              className="inline-flex items-center gap-1 text-xs font-medium"
+              style={{ color: "var(--color-primary)" }}
+            >
+              View full syllabus →
+            </Link>
+          </div>
+        ) : (
+          <div className="rounded-lg px-4 py-5 text-center" style={{ background: "var(--color-accent-soft)" }}>
+            <p className="text-sm font-medium" style={{ color: "var(--color-text-muted)" }}>Coming Soon</p>
+            <p className="text-xs mt-1" style={{ color: "var(--color-text-muted)" }}>
+              Syllabus information will be linked here once available.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* ── Repeated Questions ── */}

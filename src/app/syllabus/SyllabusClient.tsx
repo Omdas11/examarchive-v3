@@ -12,6 +12,7 @@ type Tab = "pdfs" | "library";
 
 interface SyllabusClientProps {
   syllabi: Syllabus[];
+  isAdmin?: boolean;
 }
 
 /** Format a semester value for display (e.g. "1" → "Semester I"). */
@@ -22,84 +23,123 @@ function semLabel(sem: string | number | null | undefined): string {
   return String(sem);
 }
 
-/** A single uploaded syllabus PDF card. */
-function SyllabusPdfCard({ s }: { s: Syllabus }) {
+/** A single uploaded syllabus PDF card — styled like Browse page cards. */
+function SyllabusPdfCard({
+  s,
+  isAdmin,
+  onHide,
+}: {
+  s: Syllabus;
+  isAdmin?: boolean;
+  onHide?: (id: string) => void;
+}) {
+  const [hiding, setHiding] = useState(false);
+
+  async function handleHide() {
+    if (!confirm("Hide this syllabus PDF from public view? It can be restored from the admin panel.")) return;
+    setHiding(true);
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "hide-syllabus", id: s.id }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        onHide?.(s.id);
+      } else {
+        alert(data.error ?? "Action failed");
+      }
+    } catch {
+      alert("Network error");
+    } finally {
+      setHiding(false);
+    }
+  }
+
+  const displayTitle = s.course_name || s.subject || "Unnamed Syllabus";
+  const displayCode = s.course_code;
+
   return (
-    <div className="card p-4 flex flex-col gap-2 hover:shadow-md transition-all duration-200 hover:-translate-y-0.5">
-      {/* University + programme */}
-      <div className="flex flex-wrap items-center gap-1.5">
-        <span
-          className="inline-block rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
-          style={{ background: "var(--color-accent-soft)", color: "var(--color-primary)" }}
-        >
-          {s.university || "Unknown University"}
-        </span>
-        {s.programme && (
-          <span
-            className="inline-block rounded-full px-2 py-0.5 text-[11px]"
-            style={{ background: "var(--color-border)", color: "var(--color-text-muted)" }}
-          >
-            {s.programme}
-          </span>
-        )}
-      </div>
+    <div className="relative group card overflow-hidden flex hover:shadow-md transition-all duration-200 hover:-translate-y-0.5">
+      {/* Coloured accent bar */}
+      <div
+        className="w-1 shrink-0 rounded-l-lg"
+        style={{ background: "var(--color-primary)" }}
+        aria-hidden="true"
+      />
 
-      {/* Subject / Paper name */}
-      <p className="text-sm font-semibold leading-snug">
-        {s.subject || s.course_name || "Unnamed Subject"}
-      </p>
-
-      {/* Paper code */}
-      {s.course_code && (
-        <p className="text-xs font-mono" style={{ color: "var(--color-text-muted)" }}>
-          {s.course_code}
-        </p>
-      )}
-
-      {/* Tags row */}
-      <div className="flex flex-wrap gap-1">
-        {s.semester && (
-          <span
-            className="inline-block rounded-full px-2 py-0.5 text-[11px]"
-            style={{ background: "var(--color-border)", color: "var(--color-primary)" }}
-          >
-            {semLabel(s.semester)}
-          </span>
-        )}
-        {s.department && (
-          <span
-            className="inline-block rounded-full px-2 py-0.5 text-[11px]"
-            style={{ background: "var(--color-border)", color: "var(--color-text-muted)" }}
-          >
-            {s.department}
-          </span>
-        )}
-        {s.year != null && s.year > 0 && (
-          <span
-            className="inline-block rounded-full px-2 py-0.5 text-[11px]"
-            style={{ background: "var(--color-border)", color: "var(--color-text-muted)" }}
-          >
-            {s.year}
-          </span>
-        )}
-      </div>
-
-      {/* Download */}
-      {s.file_url && (
-        <div className="flex justify-end pt-1">
-          <a
-            href={s.file_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-xs font-medium transition-opacity hover:opacity-70"
-            style={{ color: "var(--color-primary)" }}
-          >
-            Download PDF
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M12 3v12" /><path d="M7 10l5 5 5-5" /><path d="M5 21h14" />
-            </svg>
-          </a>
+      {/* Card body */}
+      <a
+        href={s.file_url || "#"}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex-1 min-w-0 p-4 flex flex-col gap-2"
+        style={{ textDecoration: "none", color: "inherit" }}
+      >
+        {/* Paper code + programme tags */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          {displayCode && (
+            <span
+              className="inline-block rounded-full px-2.5 py-0.5 text-[11px] font-semibold font-mono"
+              style={{ background: "var(--color-accent-soft)", color: "var(--color-primary)" }}
+            >
+              {displayCode}
+            </span>
+          )}
+          {s.programme && (
+            <span
+              className="inline-block rounded-full px-2 py-0.5 text-[11px]"
+              style={{ background: "var(--color-border)", color: "var(--color-text-muted)" }}
+            >
+              {s.programme}
+            </span>
+          )}
         </div>
+
+        {/* Paper name / subject (prominent) */}
+        <p className="text-sm font-semibold leading-snug line-clamp-2">{displayTitle}</p>
+
+        {/* Meta: university, semester, dept */}
+        <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+          {[
+            s.university || "Unknown University",
+            s.semester ? semLabel(s.semester) : null,
+            s.department || null,
+            s.year && s.year > 0 ? String(s.year) : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </p>
+
+        {/* Open PDF indicator */}
+        {s.file_url && (
+          <div className="flex justify-end pt-1">
+            <span
+              className="inline-flex items-center gap-1 text-xs font-medium"
+              style={{ color: "var(--color-primary)" }}
+            >
+              Open PDF
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" />
+              </svg>
+            </span>
+          </div>
+        )}
+      </a>
+
+      {/* Admin hide button */}
+      {isAdmin && (
+        <button
+          type="button"
+          title="Hide this syllabus"
+          disabled={hiding}
+          onClick={handleHide}
+          className="absolute top-2 right-2 rounded-full px-2 py-0.5 text-[10px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity"
+          style={{ background: "var(--color-primary)", color: "#fff" }}
+        >
+          {hiding ? "…" : "Hide"}
+        </button>
       )}
     </div>
   );
@@ -137,25 +177,22 @@ function PaperLibrary() {
     setFilterCategory("ALL");
   }
 
-  // Category badge colours — shared with PaperCard
   const CAT_COLORS = PAPER_TYPE_COLORS;
 
   return (
     <div className="mt-6 space-y-6">
       {/* Programme filter */}
-      <div className="flex flex-wrap gap-2">
-        <div className="flex flex-wrap gap-1">
-          {programmes.map((p) => (
-            <button
-              key={p}
-              type="button"
-              onClick={() => handleProgClick(p)}
-              className={`toggle-btn${filterProg === p ? " active" : ""}`}
-            >
-              {p}
-            </button>
-          ))}
-        </div>
+      <div className="flex flex-wrap gap-1">
+        {programmes.map((p) => (
+          <button
+            key={p}
+            type="button"
+            onClick={() => handleProgClick(p)}
+            className={`toggle-btn${filterProg === p ? " active" : ""}`}
+          >
+            {p}
+          </button>
+        ))}
       </div>
 
       {/* Category filter */}
@@ -225,7 +262,7 @@ function PaperLibrary() {
                       >
                         <td className="py-2 pr-3">
                           <Link
-                            href={`/syllabus/paper/${encodeURIComponent(e.paper_code)}`}
+                            href={`/browse?q=${encodeURIComponent(e.paper_code)}`}
                             className="font-mono text-xs font-semibold hover:underline"
                             style={{ color: "var(--color-primary)" }}
                           >
@@ -234,7 +271,7 @@ function PaperLibrary() {
                         </td>
                         <td className="py-2 pr-3">
                           <Link
-                            href={`/syllabus/paper/${encodeURIComponent(e.paper_code)}`}
+                            href={`/browse?q=${encodeURIComponent(e.paper_code)}`}
                             className="hover:underline text-xs"
                           >
                             {e.paper_name}
@@ -277,8 +314,15 @@ function PaperLibrary() {
   );
 }
 
-export default function SyllabusClient({ syllabi }: SyllabusClientProps) {
+export default function SyllabusClient({ syllabi, isAdmin }: SyllabusClientProps) {
   const [activeTab, setActiveTab] = useState<Tab>("pdfs");
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
+
+  const visibleSyllabi = syllabi.filter((s) => !hiddenIds.has(s.id));
+
+  function handleHide(id: string) {
+    setHiddenIds((prev) => new Set([...prev, id]));
+  }
 
   return (
     <div className="mt-6">
@@ -293,7 +337,7 @@ export default function SyllabusClient({ syllabi }: SyllabusClientProps) {
           aria-selected={activeTab === "pdfs"}
           type="button"
           onClick={() => setActiveTab("pdfs")}
-          className="px-4 py-2.5 text-sm font-medium transition-colors relative"
+          className="inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors relative"
           style={
             activeTab === "pdfs"
               ? {
@@ -305,12 +349,12 @@ export default function SyllabusClient({ syllabi }: SyllabusClientProps) {
           }
         >
           Available Syllabus PDFs
-          {syllabi.length > 0 && (
+          {visibleSyllabi.length > 0 && (
             <span
-              className="ml-1.5 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
+              className="inline-flex items-center justify-center rounded-full px-1.5 min-w-[1.25rem] h-5 text-[10px] font-semibold"
               style={{ background: "var(--color-accent-soft)", color: "var(--color-primary)" }}
             >
-              {syllabi.length}
+              {visibleSyllabi.length}
             </span>
           )}
         </button>
@@ -319,7 +363,7 @@ export default function SyllabusClient({ syllabi }: SyllabusClientProps) {
           aria-selected={activeTab === "library"}
           type="button"
           onClick={() => setActiveTab("library")}
-          className="px-4 py-2.5 text-sm font-medium transition-colors relative"
+          className="inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors relative"
           style={
             activeTab === "library"
               ? {
@@ -332,7 +376,7 @@ export default function SyllabusClient({ syllabi }: SyllabusClientProps) {
         >
           Paper Syllabus Library
           <span
-            className="ml-1.5 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
+            className="inline-flex items-center justify-center rounded-full px-1.5 min-w-[1.25rem] h-5 text-[10px] font-semibold"
             style={{ background: "var(--color-accent-soft)", color: "var(--color-primary)" }}
           >
             {SYLLABUS_REGISTRY.length}
@@ -342,18 +386,19 @@ export default function SyllabusClient({ syllabi }: SyllabusClientProps) {
 
       {/* Tab content */}
       {activeTab === "pdfs" && (
-        <div
-          role="tabpanel"
-          aria-label="Available Syllabus PDFs"
-          className="mt-6"
-        >
-          {syllabi.length > 0 ? (
+        <div role="tabpanel" aria-label="Available Syllabus PDFs" className="mt-6">
+          {visibleSyllabi.length > 0 ? (
             <div
               className="grid gap-4"
               style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}
             >
-              {syllabi.map((s) => (
-                <SyllabusPdfCard key={s.id} s={s} />
+              {visibleSyllabi.map((s) => (
+                <SyllabusPdfCard
+                  key={s.id}
+                  s={s}
+                  isAdmin={isAdmin}
+                  onHide={handleHide}
+                />
               ))}
             </div>
           ) : (
