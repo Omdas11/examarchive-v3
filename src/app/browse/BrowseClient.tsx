@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import PaperCard from "@/components/PaperCard";
 import { PAPER_TYPE_COLORS } from "@/components/PaperCard";
+import CustomSelect from "@/components/CustomSelect";
 import type { Paper } from "@/types";
 
 interface BrowseClientProps {
@@ -39,7 +40,6 @@ export default function BrowseClient({
   const [activeStream, setActiveStream] = useState<string | null>(null);
   const [activeYear, setActiveYear] = useState<number | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("newest");
-  const [sortOpen, setSortOpen] = useState(false);
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState<string | null>(null);
 
@@ -126,7 +126,6 @@ export default function BrowseClient({
     }
   }
 
-  const activeSort = SORT_OPTIONS.find((o) => o.value === sortKey)!;
   const streams = availableStreams.length > 0 ? availableStreams : [];
   const years = availableYears.length > 0 ? availableYears : [];
 
@@ -214,39 +213,14 @@ export default function BrowseClient({
         />
 
         {/* Sort dropdown */}
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setSortOpen((o) => !o)}
-            className="toggle-btn whitespace-nowrap"
-            style={sortOpen ? { borderColor: "var(--color-primary)", color: "var(--color-primary)" } : undefined}
-          >
-            {activeSort.label} ▾
-          </button>
-          {sortOpen && (
-            <ul
-              className="absolute right-0 mt-1 z-50 rounded-lg py-1 shadow-lg min-w-[160px]"
-              style={{
-                background: "var(--color-surface)",
-                border: "1px solid var(--color-border)",
-              }}
-              role="listbox"
-            >
-              {SORT_OPTIONS.map((opt) => (
-                <li
-                  key={opt.value}
-                  role="option"
-                  aria-selected={opt.value === sortKey}
-                  onMouseDown={() => { setSortKey(opt.value); setSortOpen(false); }}
-                  className="cursor-pointer px-4 py-2 text-sm transition-colors hover:opacity-70"
-                  style={opt.value === sortKey ? { color: "var(--color-primary)", fontWeight: 600 } : undefined}
-                >
-                  {opt.label}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+        <CustomSelect
+          name="sort"
+          options={SORT_OPTIONS}
+          placeholder="Sort by"
+          value={sortKey}
+          onChange={(v) => setSortKey(v as SortKey)}
+          className="sm:w-44"
+        />
       </div>
 
       <p className="mt-3 text-xs" style={{ color: "var(--color-text-muted)" }}>

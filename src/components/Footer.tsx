@@ -1,4 +1,5 @@
 import Link from "next/link";
+import FooterContactModal from "@/components/FooterContactModal";
 
 export default function Footer() {
   return (
@@ -39,9 +40,9 @@ export default function Footer() {
           {/* Help & Support */}
           <div className="flex flex-col gap-2">
             <h4 className="mb-1 text-sm font-semibold" style={{ color: "var(--color-text)" }}>Help &amp; Support</h4>
-            <Link href="/support" className="hover:underline hover:opacity-80 transition-opacity text-xs">Help &amp; Support</Link>
-            <a href="mailto:omdasg11@gmail.com" className="hover:underline hover:opacity-80 transition-opacity text-xs">Contact Us</a>
-            <a href="mailto:omdasg11@gmail.com?subject=Feedback for ExamArchive" className="hover:underline hover:opacity-80 transition-opacity text-xs">Send Feedback</a>
+            <FooterContactModal label="Help &amp; Support" />
+            <FooterContactModal label="Contact Us" />
+            <FooterContactModal label="Send Feedback" />
             <Link href="/terms" className="hover:underline hover:opacity-80 transition-opacity text-xs">Terms &amp; Conditions</Link>
           </div>
         </div>
