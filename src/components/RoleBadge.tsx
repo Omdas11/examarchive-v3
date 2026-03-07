@@ -32,7 +32,7 @@ export function RoleBadge({ role }: { role: UserRole | CustomRole }) {
   const colors = ROLE_COLORS[role] ?? ROLE_COLORS.student;
   return (
     <span
-      className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold leading-tight capitalize"
+      className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold leading-tight capitalize"
       style={{ background: colors.bg, color: colors.text }}
     >
       {role}
@@ -44,7 +44,7 @@ export function TierBadge({ tier }: { tier: UserTier }) {
   const colors = TIER_COLORS[tier] ?? TIER_COLORS.bronze;
   return (
     <span
-      className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold leading-tight capitalize"
+      className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold leading-tight capitalize"
       style={{ background: colors.bg, color: colors.text }}
     >
       {tier}

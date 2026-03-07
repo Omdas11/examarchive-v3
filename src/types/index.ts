@@ -33,11 +33,28 @@ export interface Paper {
 /** Represents a syllabus entry. */
 export interface Syllabus {
   id: string;
-  course_code: string;
-  course_name: string;
+  /** University or institution name. */
+  university: string;
+  /** Subject/course name. */
+  subject: string;
+  /** Department or stream. */
   department: string;
+  /** Semester (e.g. "1st", "2nd"). */
+  semester: string;
+  /** Academic programme (e.g. CBCS, FYUG). */
+  programme: string;
+  /** Academic year (e.g. 2024). */
+  year: number | null;
+  /** Appwrite user ID of the uploader. */
+  uploader_id: string;
+  /** Whether the syllabus has been approved by an admin. */
+  approval_status: "pending" | "approved" | "rejected";
+  /** Public URL of the syllabus PDF. */
   file_url: string;
   created_at: string;
+  // Legacy fields for backwards compatibility
+  course_code?: string;
+  course_name?: string;
 }
 
 /** Application-level user profile stored alongside Appwrite Auth. */
@@ -221,10 +238,17 @@ export function toPaper(doc: any): Paper {
 export function toSyllabus(doc: any): Syllabus {
   return {
     id: doc.$id ?? doc.id,
+    university: doc.university ?? doc.institution ?? "",
+    subject: doc.subject ?? doc.course_name ?? "",
+    department: doc.department ?? "",
+    semester: doc.semester ?? "",
+    programme: doc.programme ?? "",
+    year: doc.year ?? null,
+    uploader_id: doc.uploader_id ?? doc.uploaded_by ?? "",
+    approval_status: (doc.approval_status ?? "pending") as Syllabus["approval_status"],
+    file_url: doc.file_url ?? "",
+    created_at: doc.$createdAt ?? doc.created_at ?? "",
     course_code: doc.course_code,
-    course_name: doc.course_name,
-    department: doc.department,
-    file_url: doc.file_url,
-    created_at: doc.$createdAt ?? doc.created_at,
+    course_name: doc.course_name ?? doc.subject,
   };
 }

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getServerUser } from "@/lib/auth";
 import { isFounder } from "@/lib/roles";
+import { isValidUserRole } from "@/lib/roles";
 import {
   adminDatabases,
   DATABASE_ID,
@@ -18,7 +19,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden: Founder access only." }, { status: 403 });
   }
 
-  let body: { action?: string };
+  let body: { action?: string; userId?: string; role?: string; amount?: number };
   try {
     body = await request.json();
   } catch {
@@ -55,6 +56,35 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
           success: true,
           message: `Deleted ${deleted} pending upload${deleted !== 1 ? "s" : ""}.`,
+        });
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return NextResponse.json({ error: msg }, { status: 500 });
+      }
+    }
+
+    case "clear_pending_syllabus": {
+      try {
+        let deleted = 0;
+        let hasMore = true;
+        while (hasMore) {
+          const { documents } = await db.listDocuments(
+            DATABASE_ID,
+            COLLECTION.syllabus,
+            [Query.equal("approval_status", "pending"), Query.limit(100)],
+          );
+          if (documents.length === 0) {
+            hasMore = false;
+          } else {
+            for (const doc of documents) {
+              await db.deleteDocument(DATABASE_ID, COLLECTION.syllabus, doc.$id);
+              deleted++;
+            }
+          }
+        }
+        return NextResponse.json({
+          success: true,
+          message: `Deleted ${deleted} pending syllabus submission${deleted !== 1 ? "s" : ""}.`,
         });
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -120,7 +150,89 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    case "role_override": {
+      const { userId, role } = body;
+      if (!userId || typeof userId !== "string") {
+        return NextResponse.json({ error: "Missing userId" }, { status: 400 });
+      }
+      if (!role || !isValidUserRole(role)) {
+        return NextResponse.json({ error: "Invalid role value" }, { status: 400 });
+      }
+      try {
+        // Verify the document exists before updating
+        await db.getDocument(DATABASE_ID, COLLECTION.users, userId);
+        await db.updateDocument(DATABASE_ID, COLLECTION.users, userId, {
+          role,
+          primary_role: role,
+        });
+        return NextResponse.json({
+          success: true,
+          message: `Role overridden to "${role}" for user ${userId}.`,
+        });
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return NextResponse.json({ error: msg }, { status: 500 });
+      }
+    }
+
+    case "xp_add":
+    case "xp_set": {
+      const { userId, amount } = body;
+      if (!userId || typeof userId !== "string") {
+        return NextResponse.json({ error: "Missing userId" }, { status: 400 });
+      }
+      if (typeof amount !== "number" || isNaN(amount)) {
+        return NextResponse.json({ error: "Invalid or missing amount" }, { status: 400 });
+      }
+      try {
+        const doc = await db.getDocument(DATABASE_ID, COLLECTION.users, userId);
+        const currentXp = (doc.xp as number) ?? 0;
+        const newXp = action === "xp_add" ? Math.max(0, currentXp + amount) : Math.max(0, amount);
+        await db.updateDocument(DATABASE_ID, COLLECTION.users, userId, { xp: newXp });
+        return NextResponse.json({
+          success: true,
+          message: `XP ${action === "xp_add" ? "adjusted" : "set"} to ${newXp} for user ${userId}.`,
+        });
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return NextResponse.json({ error: msg }, { status: 500 });
+      }
+    }
+
+    case "reset_users_xp": {
+      try {
+        let updated = 0;
+        let hasMore = true;
+        while (hasMore) {
+          const { documents } = await db.listDocuments(
+            DATABASE_ID,
+            COLLECTION.users,
+            [Query.limit(100)],
+          );
+          if (documents.length === 0) {
+            hasMore = false;
+          } else {
+            for (const doc of documents) {
+              await db.updateDocument(DATABASE_ID, COLLECTION.users, doc.$id, {
+                xp: 0,
+                streak_days: 0,
+              });
+              updated++;
+            }
+          }
+        }
+        return NextResponse.json({
+          success: true,
+          message: `Reset XP and streak for ${updated} user${updated !== 1 ? "s" : ""}.`,
+        });
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return NextResponse.json({ error: msg }, { status: 500 });
+      }
+    }
+
     default:
       return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });
   }
 }
+

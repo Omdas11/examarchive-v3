@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getServerUser } from "@/lib/auth";
 import UploadForm from "@/components/UploadForm";
+import SyllabusUploadForm from "@/components/SyllabusUploadForm";
 
 export const metadata: Metadata = {
   title: "Upload",
-  description: "Upload a question paper or notes to ExamArchive.",
+  description: "Upload a question paper, syllabus, or notes to ExamArchive.",
 };
 
 const guidelines = [
@@ -16,37 +17,82 @@ const guidelines = [
   "Uploads are reviewed by admins before publishing.",
 ];
 
-export default async function UploadPage() {
-  const user = await getServerUser();
+const syllabusGuidelines = [
+  "Only upload syllabi you have permission to share.",
+  "PDF format is preferred for best compatibility.",
+  "Ensure all metadata fields are accurately filled.",
+  "Syllabi are reviewed by admins before publishing.",
+];
 
+export default async function UploadPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ type?: string }>;
+}) {
+  const user = await getServerUser();
   if (!user) {
     redirect("/login?next=/upload");
   }
+
+  const params = await searchParams;
+  const uploadType = params.type === "syllabus" ? "syllabus" : "paper";
 
   return (
     <section className="mx-auto px-4 py-10" style={{ maxWidth: "var(--max-w)" }}>
       {/* Intro */}
       <h1 className="text-2xl font-bold">Upload to ExamArchive</h1>
       <p className="mt-1 text-sm" style={{ color: "var(--color-text-muted)" }}>
-        Share question papers with the community. All uploads are reviewed before publishing.
+        Share question papers and syllabi with the community. All uploads are reviewed before publishing.
       </p>
 
       {/* Upload type selector */}
-      <div className="mt-6 grid gap-4 sm:grid-cols-2">
-        <div className="card p-4 cursor-pointer" style={{ borderColor: "var(--color-primary)" }}>
+      <div className="mt-6 grid gap-4 sm:grid-cols-3">
+        <a
+          href="/upload?type=paper"
+          className="card p-4"
+          style={uploadType === "paper" ? { borderColor: "var(--color-primary)" } : undefined}
+        >
           <div className="flex items-center gap-3">
-            <span
-              className="flex h-5 w-5 items-center justify-center rounded-full text-white text-xs"
-              style={{ background: "var(--color-primary)" }}
-            >
-              ✓
-            </span>
+            {uploadType === "paper" ? (
+              <span
+                className="flex h-5 w-5 items-center justify-center rounded-full text-white text-xs"
+                style={{ background: "var(--color-primary)" }}
+              >
+                ✓
+              </span>
+            ) : (
+              <span className="flex h-5 w-5 items-center justify-center rounded-full text-xs" style={{ border: "1px solid var(--color-border)" }}>&nbsp;</span>
+            )}
             <div>
               <p className="font-semibold text-sm">Question Paper</p>
               <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>Upload an exam question paper</p>
             </div>
           </div>
-        </div>
+        </a>
+
+        <a
+          href="/upload?type=syllabus"
+          className="card p-4"
+          style={uploadType === "syllabus" ? { borderColor: "var(--color-primary)" } : undefined}
+        >
+          <div className="flex items-center gap-3">
+            {uploadType === "syllabus" ? (
+              <span
+                className="flex h-5 w-5 items-center justify-center rounded-full text-white text-xs"
+                style={{ background: "var(--color-primary)" }}
+              >
+                ✓
+              </span>
+            ) : (
+              <span className="flex h-5 w-5 items-center justify-center rounded-full text-xs" style={{ border: "1px solid var(--color-border)" }}>&nbsp;</span>
+            )}
+            <div>
+              <p className="font-semibold text-sm">Syllabus</p>
+              <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>Upload a course syllabus</p>
+            </div>
+          </div>
+        </a>
+
         <div className="card p-4 opacity-50 cursor-not-allowed">
           <div className="flex items-center gap-3">
             <span className="flex h-5 w-5 items-center justify-center rounded-full text-xs" style={{ border: "1px solid var(--color-border)" }}>
@@ -62,14 +108,14 @@ export default async function UploadPage() {
 
       {/* Upload form */}
       <div className="card mt-6 p-6">
-        <UploadForm />
+        {uploadType === "syllabus" ? <SyllabusUploadForm /> : <UploadForm />}
       </div>
 
       {/* Guidelines */}
       <div className="card mt-6 p-6">
         <h2 className="text-base font-semibold mb-3">Upload Guidelines</h2>
         <ul className="space-y-2 text-sm" style={{ color: "var(--color-text-muted)" }}>
-          {guidelines.map((g, i) => (
+          {(uploadType === "syllabus" ? syllabusGuidelines : guidelines).map((g, i) => (
             <li key={i} className="flex gap-2">
               <span style={{ color: "var(--color-primary)" }}>•</span>
               {g}
@@ -80,3 +126,4 @@ export default async function UploadPage() {
     </section>
   );
 }
+

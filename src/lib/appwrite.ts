@@ -36,6 +36,9 @@ export const BUCKET_ID = process.env.APPWRITE_BUCKET_ID ?? "papers";
 /** Storage bucket for user avatar images. */
 export const AVATARS_BUCKET_ID = process.env.APPWRITE_AVATARS_BUCKET_ID ?? "avatars";
 
+/** Storage bucket for syllabus PDFs. */
+export const SYLLABUS_BUCKET_ID = process.env.APPWRITE_SYLLABUS_BUCKET_ID ?? "syllabus-files";
+
 // ── Server-side admin client (uses API key) ─────────────────────────────
 /**
  * Create an Appwrite client authenticated with the server-side API key.

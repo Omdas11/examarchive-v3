@@ -216,6 +216,44 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: message }, { status: 500 });
       }
     }
+    case "approve-syllabus": {
+      try {
+        await db.updateDocument(DATABASE_ID, COLLECTION.syllabus, id, {
+          approval_status: "approved",
+        });
+        await logActivity(db, {
+          action: "approve",
+          target_user_id: null,
+          target_paper_id: id,
+          admin_id: user.id,
+          admin_email: user.email,
+          details: `Approved syllabus ${id}`,
+        });
+        return NextResponse.json({ success: true });
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return NextResponse.json({ error: message }, { status: 500 });
+      }
+    }
+    case "reject-syllabus": {
+      try {
+        await db.updateDocument(DATABASE_ID, COLLECTION.syllabus, id, {
+          approval_status: "rejected",
+        });
+        await logActivity(db, {
+          action: "reject",
+          target_user_id: null,
+          target_paper_id: id,
+          admin_id: user.id,
+          admin_email: user.email,
+          details: `Rejected syllabus ${id}`,
+        });
+        return NextResponse.json({ success: true });
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return NextResponse.json({ error: message }, { status: 500 });
+      }
+    }
     default:
       return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });
   }

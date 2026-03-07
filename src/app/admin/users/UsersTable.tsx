@@ -39,7 +39,9 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
           <thead>
             <tr style={{ borderBottom: "1px solid var(--color-border)", background: "var(--color-surface)" }}>
               <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold" style={{ color: "var(--color-text-muted)" }}>User</th>
-              <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold" style={{ color: "var(--color-text-muted)" }}>Role</th>
+              <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold" style={{ color: "var(--color-text-muted)" }}>Primary Role</th>
+              <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold" style={{ color: "var(--color-text-muted)" }}>Secondary Role</th>
+              <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold" style={{ color: "var(--color-text-muted)" }}>Tertiary Role</th>
               <th className="whitespace-nowrap px-4 py-3 text-right text-xs font-semibold" style={{ color: "var(--color-text-muted)" }}>Uploads</th>
               <th className="whitespace-nowrap px-4 py-3 text-right text-xs font-semibold" style={{ color: "var(--color-text-muted)" }}>Approved</th>
               <th className="whitespace-nowrap px-4 py-3 text-right text-xs font-semibold" style={{ color: "var(--color-text-muted)" }}>Approval %</th>
@@ -87,6 +89,16 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
                   {/* Primary Role */}
                   <td className="whitespace-nowrap px-4 py-3">
                     <RoleBadge role={u.primary_role} />
+                  </td>
+
+                  {/* Secondary Role */}
+                  <td className="whitespace-nowrap px-4 py-3">
+                    {u.secondary_role ? <RoleBadge role={u.secondary_role} /> : <span style={{ color: "var(--color-text-muted)" }}>—</span>}
+                  </td>
+
+                  {/* Tertiary Role */}
+                  <td className="whitespace-nowrap px-4 py-3">
+                    {u.tertiary_role ? <RoleBadge role={u.tertiary_role} /> : <span style={{ color: "var(--color-text-muted)" }}>—</span>}
                   </td>
 
                   {/* Uploads (= approved papers; v3 tracks upload_count on approval) */}
