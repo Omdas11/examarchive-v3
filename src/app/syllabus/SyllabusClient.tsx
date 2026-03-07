@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import type { Syllabus } from "@/types";
 import { toRoman } from "@/lib/utils";
@@ -128,15 +128,15 @@ function SyllabusPdfCard({
         )}
       </a>
 
-      {/* Admin hide button */}
+      {/* Admin hide button — neutral grey to indicate moderation, not a destructive action */}
       {isAdmin && (
         <button
           type="button"
-          title="Hide this syllabus"
+          title="Hide this syllabus from public view"
           disabled={hiding}
           onClick={handleHide}
           className="absolute top-2 right-2 rounded-full px-2 py-0.5 text-[10px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity"
-          style={{ background: "var(--color-primary)", color: "#fff" }}
+          style={{ background: "#6b7280", color: "#fff" }}
         >
           {hiding ? "…" : "Hide"}
         </button>
@@ -145,13 +145,18 @@ function SyllabusPdfCard({
   );
 }
 
+type SortKey = "code" | "name" | "semester" | "credits";
+
 /** Tab 2: Paper Syllabus Library from the registry. */
 function PaperLibrary() {
   const [filterProg, setFilterProg] = useState<string>("ALL");
   const [filterCategory, setFilterCategory] = useState<string>("ALL");
+  const [filterSubject, setFilterSubject] = useState<string>("ALL");
+  const [sortKey, setSortKey] = useState<SortKey>("semester");
 
   const programmes = ["ALL", ...Array.from(new Set(SYLLABUS_REGISTRY.map((e) => e.programme))).sort()];
-  const categories = [
+
+  const categories = useMemo(() => [
     "ALL",
     ...Array.from(
       new Set(
@@ -162,25 +167,66 @@ function PaperLibrary() {
           .filter(Boolean),
       ),
     ).sort() as string[],
-  ];
+  ], [filterProg]);
 
-  const filtered = SYLLABUS_REGISTRY.filter((e) => {
-    if (filterProg !== "ALL" && e.programme !== filterProg) return false;
-    if (filterCategory !== "ALL" && e.category !== filterCategory) return false;
-    return true;
-  });
+  const subjects = useMemo(() => [
+    "ALL",
+    ...Array.from(
+      new Set(
+        SYLLABUS_REGISTRY.filter((e) => {
+          if (filterProg !== "ALL" && e.programme !== filterProg) return false;
+          if (filterCategory !== "ALL" && e.category !== filterCategory) return false;
+          return true;
+        }).map((e) => e.subject),
+      ),
+    ).sort(),
+  ], [filterProg, filterCategory]);
 
-  const grouped = groupBySemester(filtered);
+  const filtered = useMemo(() => {
+    const entries = SYLLABUS_REGISTRY.filter((e) => {
+      if (filterProg !== "ALL" && e.programme !== filterProg) return false;
+      if (filterCategory !== "ALL" && e.category !== filterCategory) return false;
+      if (filterSubject !== "ALL" && e.subject !== filterSubject) return false;
+      return true;
+    });
+    return [...entries].sort((a, b) => {
+      switch (sortKey) {
+        case "code": return a.paper_code.localeCompare(b.paper_code);
+        case "name": return a.paper_name.localeCompare(b.paper_name);
+        case "credits": return b.credits - a.credits;
+        case "semester":
+        default: return a.semester - b.semester;
+      }
+    });
+  }, [filterProg, filterCategory, filterSubject, sortKey]);
+
+  // When grouping by subject, sort=semester still applies within each group.
+  // Group: subject → semester → entries
+  const groupedBySubject = useMemo(() => {
+    const map = new Map<string, SyllabusRegistryEntry[]>();
+    for (const entry of filtered) {
+      const subj = entry.subject;
+      if (!map.has(subj)) map.set(subj, []);
+      map.get(subj)!.push(entry);
+    }
+    return map;
+  }, [filtered]);
 
   function handleProgClick(p: string) {
     setFilterProg(p);
     setFilterCategory("ALL");
+    setFilterSubject("ALL");
+  }
+
+  function handleCategoryClick(c: string) {
+    setFilterCategory(c);
+    setFilterSubject("ALL");
   }
 
   const CAT_COLORS = PAPER_TYPE_COLORS;
 
   return (
-    <div className="mt-6 space-y-6">
+    <div className="mt-6 space-y-4">
       {/* Programme filter */}
       <div className="flex flex-wrap gap-1">
         {programmes.map((p) => (
@@ -204,7 +250,7 @@ function PaperLibrary() {
               <button
                 key={c}
                 type="button"
-                onClick={() => setFilterCategory(c)}
+                onClick={() => handleCategoryClick(c)}
                 className={`toggle-btn${filterCategory === c ? " active" : ""}`}
                 style={
                   filterCategory === c && colors
@@ -219,97 +265,174 @@ function PaperLibrary() {
         </div>
       )}
 
-      <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
-        {filtered.length} paper{filtered.length !== 1 ? "s" : ""} in registry
-      </p>
+      {/* Subject filter */}
+      {subjects.length > 2 && (
+        <div className="flex flex-wrap gap-1">
+          {subjects.map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setFilterSubject(s)}
+              className={`toggle-btn${filterSubject === s ? " active" : ""}`}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
 
-      {grouped.size === 0 ? (
+      {/* Sort controls + count */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+          {filtered.length} paper{filtered.length !== 1 ? "s" : ""} in registry
+        </p>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>Sort:</span>
+          {(["semester", "code", "name", "credits"] as SortKey[]).map((key) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setSortKey(key)}
+              className="text-[11px] px-2 py-0.5 rounded-full border transition-colors"
+              style={
+                sortKey === key
+                  ? { background: "var(--color-primary)", color: "#fff", borderColor: "var(--color-primary)" }
+                  : { background: "transparent", color: "var(--color-text-muted)", borderColor: "var(--color-border)" }
+              }
+            >
+              {key === "semester" ? "Semester" : key === "code" ? "Code" : key === "name" ? "Name" : "Credits"}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {filtered.length === 0 ? (
         <p className="text-sm text-center py-8" style={{ color: "var(--color-text-muted)" }}>
           No papers match the selected filters.
         </p>
       ) : (
-        Array.from(grouped.entries()).map(([sem, entries]) => (
-          <div key={sem}>
-            <h3
-              className="text-sm font-semibold mb-2 pb-1"
-              style={{ borderBottom: "1px solid var(--color-border)" }}
-            >
-              {semLabel(sem)}
-            </h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr
-                    className="text-xs uppercase text-left"
-                    style={{ color: "var(--color-text-muted)" }}
-                  >
-                    <th className="pb-2 pr-3 font-medium">Paper Code</th>
-                    <th className="pb-2 pr-3 font-medium">Paper Name</th>
-                    <th className="pb-2 pr-3 font-medium">Cat.</th>
-                    <th className="pb-2 pr-3 font-medium">Credits</th>
-                    <th className="pb-2 font-medium">Units</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {entries.map((e: SyllabusRegistryEntry) => {
-                    const colors = e.category && CAT_COLORS[e.category] ? CAT_COLORS[e.category] : null;
-                    const hasUnits = (e.units?.length ?? 0) > 0;
-                    return (
-                      <tr
-                        key={e.paper_code}
-                        className="border-t transition-colors hover:opacity-80"
-                        style={{ borderColor: "var(--color-border)" }}
-                      >
-                        <td className="py-2 pr-3">
-                          <Link
-                            href={`/browse?q=${encodeURIComponent(e.paper_code)}`}
-                            className="font-mono text-xs font-semibold hover:underline"
-                            style={{ color: "var(--color-primary)" }}
-                          >
-                            {e.paper_code}
-                          </Link>
-                        </td>
-                        <td className="py-2 pr-3">
-                          <Link
-                            href={`/browse?q=${encodeURIComponent(e.paper_code)}`}
-                            className="hover:underline text-xs"
-                          >
-                            {e.paper_name}
-                          </Link>
-                        </td>
-                        <td className="py-2 pr-3">
-                          {e.category && colors ? (
-                            <span
-                              className="inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold"
-                              style={{ background: colors.bg, color: colors.text }}
-                            >
-                              {e.category}
-                            </span>
-                          ) : (
-                            <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>
-                              {e.category ?? "—"}
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-2 pr-3 text-xs" style={{ color: "var(--color-text-muted)" }}>
-                          {e.credits}
-                        </td>
-                        <td className="py-2 text-xs">
-                          {hasUnits ? (
-                            <span style={{ color: "#16a34a" }}>✓ {e.units!.length}</span>
-                          ) : (
-                            <span style={{ color: "var(--color-text-muted)" }}>—</span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+        Array.from(groupedBySubject.entries()).map(([subject, subjectEntries]) => {
+          // Sub-group by semester within each subject
+          const bySem = groupBySemester(subjectEntries);
+          return (
+            <div key={subject}>
+              {/* Subject heading */}
+              <h3
+                className="text-base font-bold mt-6 mb-3 pb-1 flex items-center gap-2"
+                style={{ borderBottom: "2px solid var(--color-primary)" }}
+              >
+                <span style={{ color: "var(--color-primary)" }}>{subject}</span>
+                <span
+                  className="text-[11px] font-normal rounded-full px-2 py-0.5"
+                  style={{ background: "var(--color-accent-soft)", color: "var(--color-text-muted)" }}
+                >
+                  {subjectEntries.length} paper{subjectEntries.length !== 1 ? "s" : ""}
+                </span>
+              </h3>
+
+              {sortKey === "semester" ? (
+                // Group by semester when sorting by semester
+                Array.from(bySem.entries()).map(([sem, entries]) => (
+                  <div key={sem} className="mb-4">
+                    <h4
+                      className="text-sm font-semibold mb-2 pb-1"
+                      style={{ borderBottom: "1px solid var(--color-border)", color: "var(--color-text-muted)" }}
+                    >
+                      {semLabel(sem)}
+                    </h4>
+                    <PaperTable entries={entries} catColors={CAT_COLORS} />
+                  </div>
+                ))
+              ) : (
+                <PaperTable entries={subjectEntries} catColors={CAT_COLORS} />
+              )}
             </div>
-          </div>
-        ))
+          );
+        })
       )}
+    </div>
+  );
+}
+
+/** Reusable paper rows table. */
+function PaperTable({
+  entries,
+  catColors,
+}: {
+  entries: SyllabusRegistryEntry[];
+  catColors: typeof PAPER_TYPE_COLORS;
+}) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr
+            className="text-xs uppercase text-left"
+            style={{ color: "var(--color-text-muted)" }}
+          >
+            <th className="pb-2 pr-3 font-medium">Paper Code</th>
+            <th className="pb-2 pr-3 font-medium">Paper Name</th>
+            <th className="pb-2 pr-3 font-medium">Cat.</th>
+            <th className="pb-2 pr-3 font-medium">Credits</th>
+            <th className="pb-2 font-medium">Units</th>
+          </tr>
+        </thead>
+        <tbody>
+          {entries.map((e: SyllabusRegistryEntry) => {
+            const colors = e.category && catColors[e.category] ? catColors[e.category] : null;
+            const hasUnits = (e.units?.length ?? 0) > 0;
+            return (
+              <tr
+                key={e.paper_code}
+                className="border-t transition-colors hover:opacity-80"
+                style={{ borderColor: "var(--color-border)" }}
+              >
+                <td className="py-2 pr-3">
+                  <Link
+                    href={`/syllabus/paper/${encodeURIComponent(e.paper_code)}`}
+                    className="font-mono text-xs font-semibold hover:underline"
+                    style={{ color: "var(--color-primary)" }}
+                  >
+                    {e.paper_code}
+                  </Link>
+                </td>
+                <td className="py-2 pr-3">
+                  <Link
+                    href={`/syllabus/paper/${encodeURIComponent(e.paper_code)}`}
+                    className="hover:underline text-xs"
+                  >
+                    {e.paper_name}
+                  </Link>
+                </td>
+                <td className="py-2 pr-3">
+                  {e.category && colors ? (
+                    <span
+                      className="inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                      style={{ background: colors.bg, color: colors.text }}
+                    >
+                      {e.category}
+                    </span>
+                  ) : (
+                    <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+                      {e.category ?? "—"}
+                    </span>
+                  )}
+                </td>
+                <td className="py-2 pr-3 text-xs" style={{ color: "var(--color-text-muted)" }}>
+                  {e.credits}
+                </td>
+                <td className="py-2 text-xs">
+                  {hasUnits ? (
+                    <span style={{ color: "#16a34a" }}>✓ {e.units!.length}</span>
+                  ) : (
+                    <span style={{ color: "var(--color-text-muted)" }}>—</span>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }

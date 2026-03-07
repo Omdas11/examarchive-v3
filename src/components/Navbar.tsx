@@ -275,6 +275,14 @@ export default function Navbar({ user }: NavbarProps) {
                     >
                       Settings
                     </Link>
+                    <Link
+                      href="/stats"
+                      onClick={() => setDropdownOpen(false)}
+                      className="block px-4 py-2 text-sm transition-colors hover:opacity-70"
+                      role="menuitem"
+                    >
+                      Platform Stats
+                    </Link>
                     {isAdminOrAbove && (
                       <Link
                         href="/admin"
@@ -409,6 +417,14 @@ export default function Navbar({ user }: NavbarProps) {
               style={isActive("/settings") ? { color: "var(--color-primary)", fontWeight: 700 } : undefined}
             >
               Settings
+            </Link>
+            <Link
+              href="/stats"
+              onClick={() => setDrawerOpen(false)}
+              className="block rounded-md px-3 py-2.5 text-sm font-medium transition-colors hover:opacity-70"
+              style={isActive("/stats") ? { color: "var(--color-primary)", fontWeight: 700 } : undefined}
+            >
+              Platform Stats
             </Link>
             {isAdminOrAbove && (
               <Link

@@ -1,7 +1,18 @@
 /**
- * EALogo – reusable ExamArchive SVG logo component.
- * Swap the SVG content here to update the logo site-wide.
+ * EALogo – reusable ExamArchive logo component.
+ *
+ * Custom branding:
+ *   Place a PNG file at /public/branding/logo.png (or logo.svg) and it will
+ *   automatically be used instead of the default inline SVG monogram.
+ *   The file is loaded via a standard <img> tag; if it fails to load (e.g.
+ *   the file doesn't exist yet) the inline SVG "EA" badge is shown as a
+ *   fallback so the site always renders correctly.
+ *
+ * To revert to the built-in monogram, simply remove /public/branding/logo.png.
  */
+"use client";
+
+import { useState } from "react";
 
 interface EALogoProps {
   /** Width/height of the logo badge in px (default 28). */
@@ -11,6 +22,25 @@ interface EALogoProps {
 }
 
 export default function EALogo({ size = 28, className = "" }: EALogoProps) {
+  // Try the PNG first, then SVG; fall back to the inline monogram on error.
+  const [imgFailed, setImgFailed] = useState(false);
+
+  if (!imgFailed) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src="/branding/logo.png"
+        width={size}
+        height={size}
+        alt="ExamArchive"
+        className={`rounded-md select-none ${className}`}
+        style={{ width: size, height: size, objectFit: "contain" }}
+        onError={() => setImgFailed(true)}
+      />
+    );
+  }
+
+  // Inline SVG fallback (always works, no network request)
   return (
     <span
       className={`inline-flex items-center justify-center rounded-md font-black text-white select-none ${className}`}
@@ -23,7 +53,7 @@ export default function EALogo({ size = 28, className = "" }: EALogoProps) {
       }}
       aria-hidden="true"
     >
-      {/* SVG "EA" monogram – replace this SVG to update the logo globally */}
+      {/* SVG "EA" monogram – displayed when no /public/branding/logo.png exists */}
       <svg
         width={size * 0.72}
         height={size * 0.72}
