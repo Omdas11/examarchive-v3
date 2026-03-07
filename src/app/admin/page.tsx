@@ -8,8 +8,8 @@ import {
   COLLECTION,
   Query,
 } from "@/lib/appwrite";
-import type { Paper, AdminUser, ActivityLogEntry } from "@/types";
-import { toPaper, toAdminUser, toActivityLog } from "@/types";
+import type { Paper, AdminUser, ActivityLogEntry, Syllabus } from "@/types";
+import { toPaper, toAdminUser, toActivityLog, toSyllabus } from "@/types";
 import AdminDashboard from "@/components/AdminDashboard";
 
 export const metadata: Metadata = {
@@ -51,6 +51,19 @@ export default async function AdminPage() {
     // collection may not exist yet
   }
 
+  // Fetch pending syllabi for moderation
+  let pendingSyllabi: Syllabus[] = [];
+  try {
+    const { documents } = await db.listDocuments(
+      DATABASE_ID,
+      COLLECTION.syllabus,
+      [Query.equal("approval_status", "pending"), Query.orderDesc("$createdAt")],
+    );
+    pendingSyllabi = documents.map((d) => toSyllabus(d));
+  } catch {
+    // collection may not exist yet
+  }
+
   // Fetch all users (admin only)
   let users: AdminUser[] = [];
   if (isAdmin(user.role)) {
@@ -80,10 +93,10 @@ export default async function AdminPage() {
   }
 
   const stats = [
-    { label: "Pending", value: pending?.length ?? 0 },
+    { label: "Pending Papers", value: pending?.length ?? 0 },
     { label: "Approved", value: approvedCount ?? 0 },
+    { label: "Pending Syllabi", value: pendingSyllabi.length },
     { label: "Users", value: users.length },
-    { label: "Actions Logged", value: activityLogs.length },
   ];
 
   return (
@@ -96,6 +109,7 @@ export default async function AdminPage() {
 
       <AdminDashboard
         pending={pending}
+        pendingSyllabi={pendingSyllabi}
         users={users}
         activityLogs={activityLogs}
         currentAdminId={user.id}

@@ -55,6 +55,8 @@ export interface Syllabus {
   // Legacy fields for backwards compatibility
   course_code?: string;
   course_name?: string;
+  /** Username of the uploader (denormalised for display). */
+  uploaded_by_username?: string;
 }
 
 /** Application-level user profile stored alongside Appwrite Auth. */
@@ -250,5 +252,6 @@ export function toSyllabus(doc: any): Syllabus {
     created_at: doc.$createdAt ?? doc.created_at ?? "",
     course_code: doc.course_code,
     course_name: doc.course_name ?? doc.subject,
+    uploaded_by_username: doc.uploaded_by_username ?? undefined,
   };
 }

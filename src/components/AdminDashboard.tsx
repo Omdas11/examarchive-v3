@@ -2,13 +2,15 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import type { Paper, AdminUser, ActivityLogEntry } from "@/types";
+import type { Paper, AdminUser, ActivityLogEntry, Syllabus } from "@/types";
 import AdminActions from "./AdminActions";
 import UserManagement from "./UserManagement";
 import ActivityLog from "./ActivityLog";
+import SyllabusModeration from "./SyllabusModeration";
 
 interface AdminDashboardProps {
   pending: Paper[];
+  pendingSyllabi: Syllabus[];
   users: AdminUser[];
   activityLogs: ActivityLogEntry[];
   currentAdminId: string;
@@ -16,10 +18,11 @@ interface AdminDashboardProps {
   stats: { label: string; value: number }[];
 }
 
-const TABS = ["Pending", "Users", "Activity Log"] as const;
+const TABS = ["Pending", "Syllabus", "Users", "Activity Log"] as const;
 
 export default function AdminDashboard({
   pending,
+  pendingSyllabi,
   users,
   activityLogs,
   currentAdminId,
@@ -88,6 +91,16 @@ export default function AdminDashboard({
           <>
             <h2 className="text-lg font-semibold">Pending Approvals</h2>
             <AdminActions papers={pending} />
+          </>
+        )}
+
+        {activeTab === "Syllabus" && (
+          <>
+            <h2 className="text-lg font-semibold">Syllabus Moderation</h2>
+            <p className="mt-1 text-sm" style={{ color: "var(--color-text-muted)" }}>
+              Review and approve or reject pending syllabus uploads.
+            </p>
+            <SyllabusModeration syllabi={pendingSyllabi} />
           </>
         )}
 
