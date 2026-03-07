@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ToastContext";
 import AvatarRing from "@/components/AvatarRing";
-import { IconCamera, IconEdit, IconRefresh } from "@/components/Icons";
+import { IconEdit, IconRefresh } from "@/components/Icons";
 import type { UserRole } from "@/types";
 
 interface ProfileEditorProps {
@@ -164,10 +164,10 @@ export default function ProfileEditor({
           style={{ background: "var(--color-primary)", color: "#fff" }}
           aria-label="Change profile photo"
         >
-        {uploadingAvatar ? (
+          {uploadingAvatar ? (
             <IconRefresh size={15} className="animate-spin" aria-hidden="true" />
           ) : (
-            <IconCamera size={15} aria-hidden="true" />
+            <IconEdit size={15} aria-hidden="true" />
           )}
         </button>
 

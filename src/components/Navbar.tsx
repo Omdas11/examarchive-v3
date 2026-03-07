@@ -210,6 +210,7 @@ export default function Navbar({ user }: NavbarProps) {
                   displayName={displayName}
                   avatarUrl={user.avatar_url || undefined}
                   streakDays={user.streak_days}
+                  role={user.role}
                   size={40}
                 />
               </button>
@@ -229,6 +230,7 @@ export default function Navbar({ user }: NavbarProps) {
                     displayName={displayName}
                     avatarUrl={user.avatar_url || undefined}
                     streakDays={user.streak_days}
+                    role={user.role}
                     size={32}
                   />
                 </button>
@@ -375,6 +377,7 @@ export default function Navbar({ user }: NavbarProps) {
                 displayName={displayName}
                 avatarUrl={user.avatar_url || undefined}
                 streakDays={user.streak_days}
+                role={user.role}
                 size={28}
               />
               <p

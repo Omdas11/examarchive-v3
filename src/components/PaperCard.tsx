@@ -42,7 +42,11 @@ export default function PaperCard({ paper }: PaperCardProps) {
     : null;
 
   return (
-    <div className="card group p-4 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
+    <Link
+      href={`/paper/${paper.id}`}
+      className="card group block p-4 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5"
+      style={{ textDecoration: "none" }}
+    >
       {/* Accent color bar */}
       <div
         className="mb-3 h-0.5 w-8 rounded-full"
@@ -102,7 +106,7 @@ export default function PaperCard({ paper }: PaperCardProps) {
         </p>
       )}
 
-      {/* Footer: uploader + stats + link */}
+      {/* Footer: uploader + stats + link indicator */}
       <div className="mt-3 flex items-center justify-between gap-2">
         <div className="flex items-center gap-3 text-[11px]" style={{ color: "var(--color-text-muted)" }}>
           {uploaderDisplay && (
@@ -129,8 +133,7 @@ export default function PaperCard({ paper }: PaperCardProps) {
           )}
         </div>
 
-        <Link
-          href={`/paper/${paper.id}`}
+        <span
           className="shrink-0 inline-flex items-center gap-1 text-xs font-medium transition-colors"
           style={{ color: "var(--color-primary)" }}
         >
@@ -138,8 +141,9 @@ export default function PaperCard({ paper }: PaperCardProps) {
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M5 12h14M12 5l7 7-7 7" />
           </svg>
-        </Link>
+        </span>
       </div>
-    </div>
+    </Link>
   );
 }
+

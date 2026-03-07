@@ -18,6 +18,8 @@ export const APPWRITE_ENDPOINT =
 export const APPWRITE_PROJECT_ID =
   process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID ?? "";
 export const BUCKET_ID = process.env.NEXT_PUBLIC_APPWRITE_BUCKET_ID ?? "papers";
+export const SYLLABUS_BUCKET_ID =
+  process.env.NEXT_PUBLIC_APPWRITE_SYLLABUS_BUCKET_ID ?? "syllabus-files";
 
 /** Maximum allowed upload size (bytes). Enforced client-side before upload. */
 export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024; // 20 MB
@@ -58,6 +60,46 @@ export async function uploadFileDirectly(
     fileId,
     file,
     undefined, // permissions – inherit bucket defaults
+    onProgress
+      ? (event) => {
+          onProgress({
+            progress: Math.round(event.progress),
+            loaded: event.sizeUploaded,
+            total: file.size,
+          });
+        }
+      : undefined,
+  );
+
+  return fileId;
+}
+
+/**
+ * Upload a file directly from the browser to the syllabus-files Appwrite bucket.
+ *
+ * @param jwt       Short-lived JWT obtained from `/api/upload/token`.
+ * @param file      Browser `File` object selected by the user.
+ * @param onProgress Optional callback receiving upload progress (0–100).
+ * @returns The Appwrite file ID of the uploaded file.
+ */
+export async function uploadSyllabusFileDirectly(
+  jwt: string,
+  file: File,
+  onProgress?: (evt: UploadProgress) => void,
+): Promise<string> {
+  const client = new Client()
+    .setEndpoint(APPWRITE_ENDPOINT)
+    .setProject(APPWRITE_PROJECT_ID)
+    .setJWT(jwt);
+
+  const storage = new Storage(client);
+  const fileId = ID.unique();
+
+  await storage.createFile(
+    SYLLABUS_BUCKET_ID,
+    fileId,
+    file,
+    undefined,
     onProgress
       ? (event) => {
           onProgress({
