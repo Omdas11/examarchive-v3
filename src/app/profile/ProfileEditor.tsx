@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ToastContext";
 import AvatarRing from "@/components/AvatarRing";
+import { IconCamera, IconEdit, IconRefresh } from "@/components/Icons";
+import type { UserRole } from "@/types";
 
 interface ProfileEditorProps {
   initialName: string;
@@ -11,6 +13,8 @@ interface ProfileEditorProps {
   initialAvatarUrl: string;
   /** ISO string of when the username was last changed (for cooldown display). */
   initialUsernameLastChanged?: string | null;
+  /** User role – used to colour the avatar ring. */
+  role?: UserRole;
 }
 
 function toErrorMessage(err: unknown, fallback: string): string {
@@ -34,6 +38,7 @@ export default function ProfileEditor({
   initialUsername,
   initialAvatarUrl,
   initialUsernameLastChanged,
+  role,
 }: ProfileEditorProps) {
   const router = useRouter();
   const [name, setName] = useState(initialName);
@@ -140,135 +145,117 @@ export default function ProfileEditor({
   }
 
   return (
-    <div className="space-y-4">
-      {/* Avatar with pencil overlay */}
-      <div className="flex items-center gap-5">
-        <div className="relative shrink-0">
-          <AvatarRing
-            displayName={displayName}
-            avatarUrl={shownAvatar || undefined}
-            streakDays={0}
-            size={72}
-          />
-          {/* Pencil overlay button */}
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploadingAvatar}
-            className="absolute bottom-0 right-0 flex items-center justify-center rounded-full w-6 h-6 shadow-md transition-opacity hover:opacity-90"
-            style={{ background: "var(--color-primary)", color: "#fff" }}
-            aria-label="Change profile photo"
-          >
-            {uploadingAvatar ? (
-              <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-              </svg>
-            ) : (
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-              </svg>
-            )}
-          </button>
-
-          {/* Hidden file input */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif"
-            className="sr-only"
-            onChange={handleAvatarChange}
-            disabled={uploadingAvatar}
-            aria-label="Upload avatar image"
-          />
-        </div>
-
-        <div className="flex-1 min-w-0">
-          {/* Display name inline */}
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            maxLength={60}
-            placeholder="Display name"
-            className="input-field text-base font-semibold py-1.5 mb-1"
-            style={{ fontWeight: 600 }}
-            aria-label="Display name"
-          />
-
-          {/* Username inline – locked unless cooldown passed */}
-          {editingUsername ? (
-            <div className="relative">
-              <span
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-sm pointer-events-none"
-                style={{ color: "var(--color-text-muted)" }}
-              >@</span>
-              <input
-                ref={usernameInputRef}
-                type="text"
-                value={username}
-                maxLength={30}
-                pattern="[a-zA-Z0-9_]*"
-                onChange={(e) => setUsername(e.target.value.replace(/[^a-zA-Z0-9_]/g, ""))}
-                onBlur={() => { if (!username) setEditingUsername(false); }}
-                className="input-field pl-7 text-sm py-1.5"
-                aria-label="Username"
-              />
-            </div>
-          ) : (
-            <div className="flex items-center gap-1.5">
-              <span className="text-sm truncate" style={{ color: "var(--color-text-muted)" }}>
-                @{username || <em>no username</em>}
-              </span>
-              {canChangeUsername ? (
-                <button
-                  type="button"
-                  onClick={() => setEditingUsername(true)}
-                  className="shrink-0 opacity-50 hover:opacity-100 transition-opacity"
-                  title="Edit username"
-                  aria-label="Edit username"
-                >
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                  </svg>
-                </button>
-              ) : (
-                <span className="text-[10px] shrink-0" style={{ color: "var(--color-text-muted)" }}>
-                  ({daysLeft}d cooldown)
-                </span>
-              )}
-            </div>
-          )}
-
-          {shownAvatar && !uploadingAvatar && (
-            <button
-              type="button"
-              onClick={handleRemoveAvatar}
-              className="mt-1 text-[11px] block"
-              style={{ color: "var(--color-text-muted)" }}
-            >
-              Remove photo
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Save button */}
-      <div className="flex items-center gap-3">
+    <div className="flex flex-col items-center gap-2 text-center">
+      {/* ── Centered avatar with red camera button ── */}
+      <div className="relative inline-block">
+        <AvatarRing
+          displayName={displayName}
+          avatarUrl={shownAvatar || undefined}
+          streakDays={0}
+          role={role}
+          size={96}
+        />
+        {/* Camera overlay button */}
         <button
           type="button"
-          onClick={handleSave}
-          className="btn-primary text-sm px-5 py-2"
-          disabled={saving || uploadingAvatar}
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploadingAvatar}
+          className="absolute bottom-0 right-0 flex items-center justify-center rounded-full w-8 h-8 shadow-md transition-opacity hover:opacity-90"
+          style={{ background: "var(--color-primary)", color: "#fff" }}
+          aria-label="Change profile photo"
         >
-          {saving ? "Saving…" : "Save Changes"}
+        {uploadingAvatar ? (
+            <IconRefresh size={15} className="animate-spin" aria-hidden="true" />
+          ) : (
+            <IconCamera size={15} aria-hidden="true" />
+          )}
         </button>
-        <p className="text-[11px]" style={{ color: "var(--color-text-muted)" }}>
-          JPEG, PNG, WebP or GIF · max 2 MB
-        </p>
+
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          className="sr-only"
+          onChange={handleAvatarChange}
+          disabled={uploadingAvatar}
+          aria-label="Upload avatar image"
+        />
       </div>
+
+      {/* Display name – styled as a large heading, editable inline */}
+      <input
+        type="text"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        maxLength={60}
+        placeholder="Display name"
+        className="text-2xl font-bold text-center w-full max-w-xs bg-transparent border-b-2 border-transparent hover:border-gray-300 focus:border-[var(--color-primary)] focus:outline-none transition-colors"
+        aria-label="Display name"
+      />
+
+      {/* Username – static display with toggle-edit */}
+      {editingUsername ? (
+        <div className="flex items-center gap-1">
+          <span className="text-sm" style={{ color: "var(--color-text-muted)" }}>@</span>
+          <input
+            ref={usernameInputRef}
+            type="text"
+            value={username}
+            maxLength={30}
+            pattern="[a-zA-Z0-9_]*"
+            onChange={(e) => setUsername(e.target.value.replace(/[^a-zA-Z0-9_]/g, ""))}
+            onBlur={() => { if (!username) setEditingUsername(false); }}
+            className="input-field text-sm py-1 text-center"
+            aria-label="Username"
+          />
+        </div>
+      ) : (
+        <div className="flex items-center justify-center gap-1.5">
+          <span className="text-sm" style={{ color: "var(--color-text-muted)" }}>
+            @{username || <em>no username</em>}
+          </span>
+          {canChangeUsername ? (
+            <button
+              type="button"
+              onClick={() => setEditingUsername(true)}
+              className="shrink-0 opacity-50 hover:opacity-100 transition-opacity"
+              title="Edit username"
+              aria-label="Edit username"
+            >
+              <IconEdit size={11} strokeWidth={2.5} aria-hidden="true" />
+            </button>
+          ) : (
+            <span className="text-[10px] shrink-0" style={{ color: "var(--color-text-muted)" }}>
+              ({daysLeft}d cooldown)
+            </span>
+          )}
+        </div>
+      )}
+
+      {shownAvatar && !uploadingAvatar && (
+        <button
+          type="button"
+          onClick={handleRemoveAvatar}
+          className="text-[11px]"
+          style={{ color: "var(--color-text-muted)" }}
+        >
+          Remove photo
+        </button>
+      )}
+
+      {/* Save button */}
+      <button
+        type="button"
+        onClick={handleSave}
+        className="btn-primary text-sm px-5 py-1.5 mt-1"
+        disabled={saving || uploadingAvatar}
+      >
+        {saving ? "Saving…" : "Save Changes"}
+      </button>
+      <p className="text-[10px]" style={{ color: "var(--color-text-muted)" }}>
+        JPEG, PNG, WebP or GIF · max 2 MB
+      </p>
     </div>
   );
 }

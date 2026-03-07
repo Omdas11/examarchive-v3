@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getServerUser } from "@/lib/auth";
-import { adminDatabases, DATABASE_ID, COLLECTION } from "@/lib/appwrite";
+import { adminDatabases, DATABASE_ID, COLLECTION, Query } from "@/lib/appwrite";
 import { signOut } from "@/app/auth/actions";
 import ProfileEditor from "./ProfileEditor";
-import { RoleBadge, TierBadge } from "@/components/RoleBadge";
+import { TierBadge } from "@/components/RoleBadge";
+import { Icon, type IconName } from "@/components/Icons";
 
 export const metadata: Metadata = {
   title: "Profile",
@@ -12,169 +13,331 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-function xpTitle(xp: number): string {
-  if (xp >= 5000) return "Legend";
-  if (xp >= 3000) return "Elite";
-  if (xp >= 1500) return "Senior";
-  if (xp >= 800) return "Veteran";
-  if (xp >= 300) return "Contributor";
-  if (xp >= 100) return "Explorer";
-  return "Visitor";
+// ── XP tier system (mirrors v2 ROLES.md §7 and profile-panel.js XP_LEVELS) ─
+const XP_TIERS = [
+  { xp: 0,    level: 0,   label: "Visitor" },
+  { xp: 100,  level: 5,   label: "Explorer" },
+  { xp: 300,  level: 10,  label: "Contributor" },
+  { xp: 800,  level: 25,  label: "Veteran" },
+  { xp: 1500, level: 50,  label: "Senior" },
+  { xp: 3000, level: 90,  label: "Elite" },
+  { xp: 5000, level: 100, label: "Legend" },
+];
+
+function xpRank(xp: number): string {
+  let rank = XP_TIERS[0].label;
+  for (const tier of XP_TIERS) {
+    if (xp >= tier.xp) rank = tier.label;
+  }
+  return rank;
 }
 
-const XP_TIERS = [0, 100, 300, 800, 1500, 3000, 5000];
-
-function xpProgress(xp: number): { progress: number; next: number | null } {
-  const currentIndex = XP_TIERS.reduce((acc, t, i) => (xp >= t ? i : acc), 0);
-  const next = XP_TIERS[currentIndex + 1] ?? null;
-  const prev = XP_TIERS[currentIndex];
-  const progress = next ? Math.min(((xp - prev) / (next - prev)) * 100, 100) : 100;
-  return { progress, next };
+function xpProgress(xp: number): { progress: number; nextXp: number | null; nextLabel: string | null } {
+  const idx = XP_TIERS.reduce((acc, t, i) => (xp >= t.xp ? i : acc), 0);
+  const next = XP_TIERS[idx + 1] ?? null;
+  const prev = XP_TIERS[idx].xp;
+  const progress = next ? Math.min(((xp - prev) / (next.xp - prev)) * 100, 100) : 100;
+  return { progress, nextXp: next?.xp ?? null, nextLabel: next?.label ?? null };
 }
+
+// ── Streak week visualisation ────────────────────────────────────────────────
+const WEEK_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+/**
+ * Returns boolean[7] (Mon–Sun) indicating which days of the current calendar
+ * week belong to the user's active streak.
+ *
+ * If last_activity is today or yesterday the streak is live; we mark the last
+ * `streakDays` days (up to 7) ending at `lastActivity`.
+ */
+function getWeekActiveDays(streakDays: number, lastActivity: string): boolean[] {
+  const active = new Array(7).fill(false) as boolean[];
+  if (streakDays === 0 || !lastActivity) return active;
+
+  const now = new Date();
+  now.setHours(12, 0, 0, 0);
+
+  const lastDate = new Date(lastActivity);
+  lastDate.setHours(12, 0, 0, 0);
+
+  const daysSince = Math.round((now.getTime() - lastDate.getTime()) / 86_400_000);
+  if (daysSince > 1) return active; // streak broken
+
+  // Start of current week (Monday = index 0)
+  const weekStart = new Date(now);
+  const dow = now.getDay(); // 0 = Sun
+  const daysFromMon = dow === 0 ? 6 : dow - 1;
+  weekStart.setDate(weekStart.getDate() - daysFromMon);
+  weekStart.setHours(12, 0, 0, 0);
+
+  for (let i = 0; i < Math.min(streakDays, 7); i++) {
+    const d = new Date(lastDate);
+    d.setDate(d.getDate() - i);
+    d.setHours(12, 0, 0, 0);
+    const idx = Math.round((d.getTime() - weekStart.getTime()) / 86_400_000);
+    if (idx >= 0 && idx <= 6) active[idx] = true;
+  }
+  return active;
+}
+
+/** Next streak milestone — mirrors v2 renderStreak milestones [7,14,30,60,100] */
+function nextStreakGoal(streak: number): number {
+  const milestones = [7, 14, 30, 60, 100];
+  return milestones.find((m) => m > streak) ?? 100;
+}
+
+// ── Role badge SVG icon name (matches v2 roles.js getBadgeIcon) ─────────────
+function roleBadgeIconName(role: string): IconName {
+  if (role === "founder")   return "crown";
+  if (role === "admin")     return "shield";
+  if (role === "moderator") return "badge";
+  return "user";
+}
+
+// ── Achievement types matching v2 ACHIEVEMENTS.md ───────────────────────────
+type EarnedAchievement = { icon: IconName; label: string };
 
 export default async function ProfilePage() {
   const user = await getServerUser();
   if (!user) redirect("/login?next=/profile");
 
-  // Fetch username_last_changed for cooldown display
+  const db = adminDatabases();
+
+  // `upload_count` in the users collection tracks approved papers (incremented on
+  // approval in the gamification logic). Total submissions (all statuses) are
+  // queried separately from the papers collection.
   let usernameLastChanged: string | null = null;
+  let approvedCount = 0;
   try {
-    const db = adminDatabases();
-    const profile = await db.getDocument(DATABASE_ID, COLLECTION.users, user.id);
-    usernameLastChanged = (profile.username_last_changed as string) ?? null;
+    const profileDoc = await db.getDocument(DATABASE_ID, COLLECTION.users, user.id);
+    usernameLastChanged = (profileDoc.username_last_changed as string) ?? null;
+    approvedCount = (profileDoc.upload_count as number) ?? 0;
+  } catch {
+    // ignore – not found or env missing
+  }
+
+  // Total papers submitted by this user (all statuses)
+  let totalUploads = 0;
+  try {
+    const { total } = await db.listDocuments(DATABASE_ID, COLLECTION.papers, [
+      Query.equal("uploaded_by", user.id),
+      Query.limit(1),
+    ]);
+    totalUploads = total;
   } catch {
     // ignore
   }
 
-  const joinedDate = new Date(user.created_at).toLocaleDateString("en-GB", {
+  const approvalPct = totalUploads > 0 ? Math.round((approvedCount / totalUploads) * 100) : 0;
+
+  // Date format: "Jan 2026" matches v2 screenshot "Member since Feb 2026".
+  // Using en-US with { month: 'short', year: 'numeric' } gives the same output
+  // regardless of browser locale (e.g. "Feb 2026"), which is what v2 renders.
+  const joinedDate = new Date(user.created_at).toLocaleDateString("en-US", {
     year: "numeric",
-    month: "long",
-    day: "numeric",
+    month: "short",
   });
 
   const tier = (user.tier ?? "bronze") as import("@/types").UserTier;
-  const { progress: xpPercent, next: xpNext } = xpProgress(user.xp);
+  const { progress: xpPercent, nextXp, nextLabel } = xpProgress(user.xp);
+  const currentRank = xpRank(user.xp);
+
+  const streakDays = user.streak_days;
+  const weekActive = getWeekActiveDays(streakDays, user.last_activity ?? "");
+  const streakGoal = nextStreakGoal(streakDays);
+
+  // ── Earned achievements (v2 badge types from ACHIEVEMENTS.md) ────────────
+  // Badges that can't be auto-computed (first_review, first_publish, early_user)
+  // use best available proxies; see docs/XP_ACHIEVEMENTS.md for full details.
+  const earnedAchievements: EarnedAchievement[] = [
+    totalUploads >= 1   ? { icon: "upload",    label: "First Upload" }    : null,
+    totalUploads >= 10  ? { icon: "trophy",    label: "10 Uploads" }      : null,
+    totalUploads >= 100 ? { icon: "sparkles",  label: "100 Uploads" }     : null,
+    streakDays >= 7     ? { icon: "fire",      label: "7-Day Streak" }    : null,
+    streakDays >= 30    ? { icon: "lightning", label: "30-Day Streak" }   : null,
+    (approvalPct >= 90 && totalUploads >= 10) ? { icon: "badge", label: "90% Approval" } : null,
+    // Top Contributor proxy: Veteran XP level (800+) — mirrors v2 xp ≥ 800 threshold
+    user.xp >= 800      ? { icon: "medal",     label: "Top Contributor" } : null,
+  ].filter(Boolean) as EarnedAchievement[];
+
+  const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+  // XP bar left label: show primary role name for system roles, XP rank for students
+  // mirrors v2 profile-panel.js xpCurrentTierEl logic
+  const xpLabel = (user.role === "student") ? currentRank : capitalise(user.role);
 
   return (
-    <section className="mx-auto px-4 py-10 space-y-5" style={{ maxWidth: "var(--max-w)" }}>
+    <section className="mx-auto px-4 py-8 space-y-4" style={{ maxWidth: "var(--max-w)" }}>
 
-      {/* ── Profile hero card ── */}
+      {/* ── Main profile card ── */}
       <div className="card p-6">
-        <div className="flex flex-col sm:flex-row items-start gap-6">
-          <div className="flex-1 min-w-0">
-            {/* Inline profile editor with pencil-avatar */}
-            <ProfileEditor
-              initialName={user.name}
-              initialUsername={user.username}
-              initialAvatarUrl={user.avatar_url}
-              initialUsernameLastChanged={usernameLastChanged}
-            />
+        <div className="flex flex-col items-center">
 
-            <div className="mt-3 flex flex-wrap gap-1.5 items-center">
-              <RoleBadge role={user.role} />
-              {user.secondary_role && <RoleBadge role={user.secondary_role} />}
-              <TierBadge tier={tier} />
+          {/* Avatar + name + username (client component for interactive editing) */}
+          <ProfileEditor
+            initialName={user.name}
+            initialUsername={user.username}
+            initialAvatarUrl={user.avatar_url}
+            initialUsernameLastChanged={usernameLastChanged}
+            role={user.role}
+          />
+
+          {/* Member since */}
+          <p className="text-sm mt-3" style={{ color: "var(--color-text-muted)" }}>
+            Member since {joinedDate}
+          </p>
+
+          {/* Role badge – outlined pill with SVG icon (v2 style) */}
+          <div className="mt-3">
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium"
+              style={{ border: "1px solid var(--color-border)" }}
+            >
+              <Icon name={roleBadgeIconName(user.role)} size={14} aria-hidden="true" />
+              {capitalise(user.role)}
+            </span>
+          </div>
+
+          {/* ── Achievements (v2 ACHIEVEMENTS.md badge types) ── */}
+          {earnedAchievements.length === 0 ? (
+            <p className="mt-4 text-sm" style={{ color: "var(--color-text-muted)" }}>
+              No achievements yet
+            </p>
+          ) : (
+            <div className="mt-4 flex flex-wrap justify-center gap-2">
+              {earnedAchievements.map((a) => (
+                <span
+                  key={a.label}
+                  className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium"
+                  style={{
+                    background: "var(--color-accent-soft)",
+                    color: "var(--color-primary)",
+                    border: "1px solid rgba(211,47,47,0.2)",
+                  }}
+                >
+                  <Icon name={a.icon} size={11} aria-hidden="true" />
+                  {a.label}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* ── XP progress bar ── */}
+          {/* Left: "{xp} XP · {role_or_rank}" — Right: "Next: {rank} ({xp} XP)"  */}
+          {/* Matches v2 profile-panel.js xpCurrentTierEl / xpNextInfoEl logic      */}
+          <div className="w-full mt-5">
+            <div
+              className="h-2 w-full overflow-hidden rounded-full"
+              style={{ background: "var(--color-border)" }}
+            >
+              <div
+                className="h-full rounded-full transition-all duration-500"
+                style={{ width: `${xpPercent}%`, background: "var(--color-primary)" }}
+              />
+            </div>
+            <div className="flex justify-between mt-1.5 text-xs" style={{ color: "var(--color-text-muted)" }}>
+              <span>{user.xp} XP · {xpLabel}</span>
+              {nextXp && nextLabel && (
+                <span>Next: {nextLabel} ({nextXp} XP)</span>
+              )}
+            </div>
+          </div>
+
+          {/* ── Daily Streak ── */}
+          {/* Header uses fire icon matching v2 renderStreak (SvgIcons.inline('fire')) */}
+          <div className="w-full mt-6">
+            <div className="flex items-center gap-2 mb-3">
+              <Icon
+                name="fire"
+                size={18}
+                style={{ color: "var(--color-primary)" }}
+                aria-hidden="true"
+              />
+              <span className="font-bold text-base">Daily Streak</span>
             </div>
 
-            <p className="text-[11px] mt-1.5" style={{ color: "var(--color-text-muted)" }}>
-              {user.email} · Member since {joinedDate}
-            </p>
-          </div>
-        </div>
+            {/* 7 circular day indicators (Mon–Sun) */}
+            {/* Active days: red bg + check SVG. Inactive: gray bg + day number (1–7) */}
+            <div className="flex justify-between">
+              {WEEK_DAYS.map((day, i) => (
+                <div key={day} className="flex flex-col items-center gap-1">
+                  <div
+                    className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold"
+                    style={
+                      weekActive[i]
+                        ? { background: "var(--color-primary)", color: "#fff" }
+                        : { background: "var(--color-border)", color: "var(--color-text-muted)" }
+                    }
+                  >
+                    {weekActive[i] ? (
+                      <Icon name="check" size={16} strokeWidth={3} aria-hidden="true" />
+                    ) : (
+                      i + 1
+                    )}
+                  </div>
+                  <span className="text-[10px]" style={{ color: "var(--color-text-muted)" }}>{day}</span>
+                </div>
+              ))}
+            </div>
 
-        <hr className="mt-5" style={{ borderColor: "var(--color-border)" }} />
-
-        {/* Stats row */}
-        <dl className="mt-4 grid grid-cols-3 gap-3 text-center">
-          <div className="rounded-lg p-3" style={{ background: "var(--color-accent-soft)" }}>
-            <dt className="text-[11px] mb-1" style={{ color: "var(--color-text-muted)" }}>XP</dt>
-            <dd className="text-xl font-bold" style={{ color: "var(--color-primary)" }}>
-              {user.xp.toLocaleString()}
-            </dd>
-            <p className="text-[10px] mt-0.5" style={{ color: "var(--color-text-muted)" }}>{xpTitle(user.xp)}</p>
-          </div>
-          <div className="rounded-lg p-3" style={{ background: "var(--color-accent-soft)" }}>
-            <dt className="text-[11px] mb-1" style={{ color: "var(--color-text-muted)" }}>Streak</dt>
-            <dd className="text-xl font-bold">{user.streak_days}</dd>
-            <p className="text-[10px] mt-0.5" style={{ color: "var(--color-text-muted)" }}>days</p>
-          </div>
-          <div className="rounded-lg p-3" style={{ background: "var(--color-accent-soft)" }}>
-            <dt className="text-[11px] mb-1" style={{ color: "var(--color-text-muted)" }}>Role</dt>
-            <dd className="text-base font-semibold capitalize">{user.role}</dd>
-          </div>
-        </dl>
-      </div>
-
-      {/* ── XP Progress card ── */}
-      <div className="card p-6">
-        <div className="flex items-center justify-between text-sm mb-2">
-          <span className="font-semibold">{user.xp} XP</span>
-          <span style={{ color: "var(--color-text-muted)" }}>{xpTitle(user.xp)}</span>
-        </div>
-        <div className="h-2 w-full overflow-hidden rounded-full" style={{ background: "var(--color-border)" }}>
-          <div
-            className="h-full rounded-full transition-all duration-500"
-            style={{ width: `${xpPercent}%`, background: "var(--color-primary)" }}
-          />
-        </div>
-        {xpNext && (
-          <p className="mt-1.5 text-xs" style={{ color: "var(--color-text-muted)" }}>
-            {user.xp} / {xpNext} XP → {xpTitle(xpNext)}
-          </p>
-        )}
-
-        {/* Streak + XP activity badges */}
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {user.streak_days >= 30 && (
-            <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium" style={{ background: "rgba(245,124,0,0.1)", color: "#e65100", border: "1px solid rgba(245,124,0,0.25)" }}>
-              🔥 {user.streak_days}-day streak
-            </span>
-          )}
-          {user.streak_days >= 7 && user.streak_days < 30 && (
-            <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium" style={{ background: "rgba(16,163,74,0.1)", color: "#065f46", border: "1px solid rgba(16,163,74,0.25)" }}>
-              🔥 {user.streak_days}-day streak
-            </span>
-          )}
-          {user.xp >= 100 && (
-            <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium" style={{ background: "rgba(211,47,47,0.08)", color: "var(--color-primary)", border: "1px solid rgba(211,47,47,0.2)" }}>
-              ⚡ {user.xp} XP
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* ── Achievements ── */}
-      <div className="card p-6">
-        <h2 className="text-base font-semibold mb-3">Achievements</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {[
-            { slug: "first_upload", label: "First Upload", desc: "Submit your first paper", earned: user.xp >= 50, color: "#2e7d32", bg: "rgba(76,175,80,0.1)", border: "rgba(76,175,80,0.25)", icon: "📄" },
-            { slug: "7_day_streak", label: "7-Day Streak", desc: "7 consecutive logins", earned: user.streak_days >= 7, color: "#c62828", bg: "rgba(244,67,54,0.1)", border: "rgba(244,67,54,0.25)", icon: "🔥" },
-            { slug: "30_day_streak", label: "30-Day Streak", desc: "30 consecutive logins", earned: user.streak_days >= 30, color: "#a07818", bg: "rgba(210,160,20,0.1)", border: "rgba(210,160,20,0.3)", icon: "⭐" },
-            { slug: "contributor", label: "Contributor", desc: "300+ XP earned", earned: user.xp >= 300, color: "#1565c0", bg: "rgba(25,118,210,0.1)", border: "rgba(25,118,210,0.25)", icon: "🏅" },
-            { slug: "senior", label: "Senior", desc: "1500+ XP earned", earned: user.xp >= 1500, color: "#e65100", bg: "rgba(245,124,0,0.1)", border: "rgba(245,124,0,0.25)", icon: "��" },
-            ...(user.role === "admin" || user.role === "moderator" || user.role === "founder"
-              ? [{ slug: "staff", label: user.role.charAt(0).toUpperCase() + user.role.slice(1), desc: "Role badge", earned: true, color: user.role === "founder" ? "#7c3aed" : "var(--color-primary)", bg: user.role === "founder" ? "rgba(124,58,237,0.1)" : "rgba(211,47,47,0.08)", border: user.role === "founder" ? "rgba(124,58,237,0.25)" : "rgba(211,47,47,0.2)", icon: user.role === "founder" ? "👑" : "🛡️" }]
-              : []),
-          ].map((ach) => (
+            {/* Streak stats row: Current / Best / Next goal */}
+            {/* "Best" shows streak_days; a separate best_streak field is not yet  */}
+            {/* stored in the users collection — tracked as a future enhancement.  */}
             <div
-              key={ach.slug}
-              className="flex flex-col items-center rounded-lg p-3 text-center"
+              className="flex justify-around mt-4 pt-3"
+              style={{ borderTop: "1px solid var(--color-border)" }}
+            >
+              <div className="text-center">
+                <p className="text-2xl font-bold">{streakDays}</p>
+                <p className="text-xs mt-0.5" style={{ color: "var(--color-text-muted)" }}>Current</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold">{streakDays}</p>
+                <p className="text-xs mt-0.5" style={{ color: "var(--color-text-muted)" }}>Best</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold">{streakGoal}</p>
+                <p className="text-xs mt-0.5" style={{ color: "var(--color-text-muted)" }}>Next goal</p>
+              </div>
+            </div>
+          </div>
+
+          {/* ── 4-stat grid (Uploads / Approved / Approval % / XP) ── */}
+          {/* Matches v2 profile stats layout (get_user_upload_stats RPC equivalent) */}
+          <div className="w-full mt-5 grid grid-cols-2 gap-y-0">
+            <div
+              className="text-center py-4"
+              style={{ borderRight: "1px solid var(--color-border)" }}
+            >
+              <p className="text-3xl font-bold" style={{ color: "var(--color-primary)" }}>{totalUploads}</p>
+              <p className="text-[11px] tracking-wider mt-1 uppercase" style={{ color: "var(--color-text-muted)" }}>Uploads</p>
+            </div>
+            <div className="text-center py-4">
+              <p className="text-3xl font-bold" style={{ color: "var(--color-primary)" }}>{approvedCount}</p>
+              <p className="text-[11px] tracking-wider mt-1 uppercase" style={{ color: "var(--color-text-muted)" }}>Approved</p>
+            </div>
+            <div
+              className="text-center py-4"
               style={{
-                background: ach.earned ? ach.bg : "var(--color-border)",
-                border: `1px solid ${ach.earned ? ach.border : "transparent"}`,
-                opacity: ach.earned ? 1 : 0.45,
+                borderRight: "1px solid var(--color-border)",
+                borderTop: "1px solid var(--color-border)",
               }}
             >
-              <span className="text-2xl mb-1.5" aria-hidden="true">{ach.icon}</span>
-              <p className="text-xs font-semibold" style={{ color: ach.earned ? ach.color : undefined }}>{ach.label}</p>
-              <p className="text-[10px] mt-0.5" style={{ color: "var(--color-text-muted)" }}>{ach.desc}</p>
+              <p className="text-3xl font-bold" style={{ color: "var(--color-primary)" }}>{approvalPct}%</p>
+              <p className="text-[11px] tracking-wider mt-1 uppercase" style={{ color: "var(--color-text-muted)" }}>Approval</p>
             </div>
-          ))}
+            <div
+              className="text-center py-4"
+              style={{ borderTop: "1px solid var(--color-border)" }}
+            >
+              <p className="text-3xl font-bold" style={{ color: "var(--color-primary)" }}>{user.xp}</p>
+              <p className="text-[11px] tracking-wider mt-1 uppercase" style={{ color: "var(--color-text-muted)" }}>XP</p>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* ── Account info (read-only) ── */}
+      {/* ── Account Info (read-only) ── */}
       <div className="card p-6">
         <h2 className="text-base font-semibold mb-3">Account Info</h2>
         <dl className="space-y-3 text-sm">
@@ -186,6 +349,11 @@ export default async function ProfilePage() {
           <div className="flex justify-between">
             <dt style={{ color: "var(--color-text-muted)" }}>Role</dt>
             <dd className="capitalize font-medium">{user.role}</dd>
+          </div>
+          <hr style={{ borderColor: "var(--color-border)" }} />
+          <div className="flex justify-between items-center">
+            <dt style={{ color: "var(--color-text-muted)" }}>Rank</dt>
+            <dd className="font-medium">{currentRank}</dd>
           </div>
           <hr style={{ borderColor: "var(--color-border)" }} />
           <div className="flex justify-between items-center">
