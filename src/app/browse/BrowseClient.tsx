@@ -11,6 +11,7 @@ interface BrowseClientProps {
   availableStreams: string[];
   availablePaperTypes: string[];
   isAdmin: boolean;
+  initialSearch?: string;
 }
 
 const PROGRAMMES = ["ALL", "FYUGP", "CBCS", "Other"];
@@ -30,8 +31,9 @@ export default function BrowseClient({
   availableStreams,
   availablePaperTypes,
   isAdmin,
+  initialSearch = "",
 }: BrowseClientProps) {
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialSearch);
   const [activeProgramme, setActiveProgramme] = useState("ALL");
   const [activePaperType, setActivePaperType] = useState<string | null>(null);
   const [activeStream, setActiveStream] = useState<string | null>(null);

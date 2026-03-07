@@ -14,7 +14,7 @@ export const PAPER_TYPE_COLORS: Record<string, { bg: string; text: string }> = {
   IDC: { bg: "#f3e8ff", text: "#7e22ce" },
   GE:  { bg: "#ffe4e6", text: "#9f1239" },
   // CBCS
-  CC:  { bg: "#fce7f3", text: "#9d174d" },
+  HCC: { bg: "#fce7f3", text: "#9d174d" },
   DSE: { bg: "#ffedd5", text: "#9a3412" },
   GEC: { bg: "#ecfdf5", text: "#065f46" },
   // shared

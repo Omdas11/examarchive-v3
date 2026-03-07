@@ -15,9 +15,14 @@ export const metadata: Metadata = {
   description: "Search and filter past exam papers by department, course, year and more.",
 };
 
-export default async function BrowsePage() {
+interface BrowsePageProps {
+  searchParams: Promise<{ q?: string }>;
+}
+
+export default async function BrowsePage({ searchParams }: BrowsePageProps) {
+  const { q } = await searchParams;
   const user = await getServerUser();
-  const isAdmin = user?.role === "admin" || user?.role === "moderator";
+  const isAdmin = user?.role === "admin" || user?.role === "moderator" || user?.role === "founder";
 
   let papers: Paper[] = [];
   try {
@@ -64,6 +69,7 @@ export default async function BrowsePage() {
         availableStreams={availableStreams}
         availablePaperTypes={availablePaperTypes}
         isAdmin={isAdmin}
+        initialSearch={q ?? ""}
       />
     </section>
   );

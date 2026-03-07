@@ -8,7 +8,33 @@ import {
   Account,
   ID,
 } from "@/lib/appwrite";
+import { OAuthProvider } from "node-appwrite";
 import { SESSION_COOKIE } from "@/lib/auth";
+
+/**
+ * Server Action – initiate Google OAuth sign-in via Appwrite.
+ * Redirects the user to the Google consent screen; on success Appwrite
+ * calls /auth/callback with the session credentials.
+ */
+export async function signInWithGoogle() {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
+  const successUrl = siteUrl ? `${siteUrl}/auth/callback` : "/auth/callback";
+  const failureUrl = siteUrl ? `${siteUrl}/login?error=oauth_failed` : "/login?error=oauth_failed";
+
+  try {
+    const client = createAdminClient();
+    const account = new Account(client);
+    const oauthUrl = await account.createOAuth2Token(
+      OAuthProvider.Google,
+      successUrl,
+      failureUrl,
+    );
+    redirect(oauthUrl);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    redirect(`/login?error=${encodeURIComponent(message)}`);
+  }
+}
 
 /**
  * Server Action – send a magic-link to the provided email address.

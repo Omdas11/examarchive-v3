@@ -7,6 +7,7 @@ import {
 } from "@/lib/appwrite";
 import type { Syllabus } from "@/types";
 import { toSyllabus } from "@/types";
+import { getServerUser } from "@/lib/auth";
 import SyllabusClient from "./SyllabusClient";
 
 export const metadata: Metadata = {
@@ -15,6 +16,9 @@ export const metadata: Metadata = {
 };
 
 export default async function SyllabusPage() {
+  const user = await getServerUser();
+  const isAdmin = user?.role === "admin" || user?.role === "moderator" || user?.role === "founder";
+
   let syllabi: Syllabus[] = [];
   try {
     const db = adminDatabases();
@@ -26,7 +30,7 @@ export default async function SyllabusPage() {
         Query.orderDesc("$createdAt"),
       ],
     );
-    syllabi = documents.map(toSyllabus);
+    syllabi = documents.map(toSyllabus).filter((s) => !s.is_hidden);
   } catch {
     // collection may not exist yet
   }
@@ -38,7 +42,7 @@ export default async function SyllabusPage() {
         Browse approved syllabus PDFs or explore the structured paper syllabus library.
       </p>
 
-      <SyllabusClient syllabi={syllabi} />
+      <SyllabusClient syllabi={syllabi} isAdmin={isAdmin} />
     </section>
   );
 }
