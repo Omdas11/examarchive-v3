@@ -3,327 +3,586 @@
  *
  * Each entry represents a course paper with its canonical metadata.
  * When users upload a syllabus PDF they only need to enter paper_code +
- * university; the rest of the metadata (paper_name, semester, subject,
- * credits, programme) auto-fills from this registry.
+ * university; the rest of the metadata auto-fills from this registry.
  *
- * To add new entries, append objects conforming to SyllabusRegistryEntry
- * below. Group entries by university for readability.
+ * To add new entries, append objects conforming to SyllabusRegistryEntry.
+ * Group entries by university → category for readability.
  *
  * See docs/syllabus-system.md for the full schema specification.
  */
 
+/** A single unit (chapter) within a paper's syllabus. */
+export interface SyllabusUnit {
+  /** 1-based unit number. */
+  unit: number;
+  /** Unit title, e.g. "Vector Algebra and Matrices". */
+  name: string;
+  /** Number of lectures allocated to this unit, if known. */
+  lectures?: number;
+  /** List of topics / subtopics covered in this unit. */
+  topics: string[];
+}
+
 export interface SyllabusRegistryEntry {
-  /** Unique paper identifier, e.g. "CC-1.1CH" or "DSC101". */
+  /** Unique paper identifier, e.g. "PHYDSC101T". */
   paper_code: string;
   /** Full descriptive name of the paper. */
   paper_name: string;
   /** Semester number (1–8). */
   semester: number;
-  /** Subject / disciplinary area (e.g. "Chemistry", "Political Science"). */
+  /** Subject / disciplinary area (e.g. "Physics", "Mathematics"). */
   subject: string;
   /** Credit weighting for the paper. */
   credits: number;
-  /** Academic programme framework (e.g. "CBCS", "FYUG", "Annual"). */
+  /** Academic programme framework (e.g. "FYUGP", "CBCS"). */
   programme: string;
   /** University or institution that offers this paper. */
   university: string;
+  /** Paper category: "DSC" | "DSM" | "SEC" | "IDC" | "GE" etc. */
+  category?: string;
+  /** Total contact hours for the paper (lectures + tutorials). */
+  contact_hours?: number;
+  /** Maximum marks (full marks) for the paper. */
+  full_marks?: number;
+  /** Course objective / description. */
+  course_objective?: string;
+  /** Expected learning outcomes. */
+  learning_outcomes?: string;
+  /** Structured units with per-unit topics. */
+  units?: SyllabusUnit[];
+  /** Reference / recommended books. */
+  reference_books?: string[];
 }
 
 // ── Registry entries ────────────────────────────────────────────────────────
 
 export const SYLLABUS_REGISTRY: SyllabusRegistryEntry[] = [
-  // ── University of Delhi – CBCS (B.Sc.) ─────────────────────────────────
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // ASSAM UNIVERSITY — Physics FYUGP
+  // Source: Physics_Final_Syllabus (Assam University, NEP 2020 FYUGP)
+  // ══════════════════════════════════════════════════════════════════════════
+
+  // ── DSC (Discipline Specific Core) ─────────────────────────────────────
+
+  // Semester I
   {
-    paper_code: "CC-1.1CH",
-    paper_name: "Inorganic Chemistry I",
-    semester: 1,
-    subject: "Chemistry",
-    credits: 4,
-    programme: "CBCS",
-    university: "University of Delhi",
-  },
-  {
-    paper_code: "CC-1.2CH",
-    paper_name: "Organic Chemistry I",
-    semester: 1,
-    subject: "Chemistry",
-    credits: 4,
-    programme: "CBCS",
-    university: "University of Delhi",
-  },
-  {
-    paper_code: "CC-2.1CH",
-    paper_name: "Physical Chemistry I",
-    semester: 2,
-    subject: "Chemistry",
-    credits: 4,
-    programme: "CBCS",
-    university: "University of Delhi",
-  },
-  {
-    paper_code: "CC-3.1CH",
-    paper_name: "Inorganic Chemistry II",
-    semester: 3,
-    subject: "Chemistry",
-    credits: 4,
-    programme: "CBCS",
-    university: "University of Delhi",
-  },
-  {
-    paper_code: "CC-3.2CH",
-    paper_name: "Organic Chemistry II",
-    semester: 3,
-    subject: "Chemistry",
-    credits: 4,
-    programme: "CBCS",
-    university: "University of Delhi",
-  },
-  {
-    paper_code: "CC-4.1CH",
-    paper_name: "Physical Chemistry II",
-    semester: 4,
-    subject: "Chemistry",
-    credits: 4,
-    programme: "CBCS",
-    university: "University of Delhi",
-  },
-  {
-    paper_code: "CC-1.1MA",
-    paper_name: "Calculus and Geometry",
-    semester: 1,
-    subject: "Mathematics",
-    credits: 6,
-    programme: "CBCS",
-    university: "University of Delhi",
-  },
-  {
-    paper_code: "CC-2.1MA",
-    paper_name: "Algebra",
-    semester: 2,
-    subject: "Mathematics",
-    credits: 6,
-    programme: "CBCS",
-    university: "University of Delhi",
-  },
-  {
-    paper_code: "CC-3.1MA",
-    paper_name: "Real Analysis",
-    semester: 3,
-    subject: "Mathematics",
-    credits: 6,
-    programme: "CBCS",
-    university: "University of Delhi",
-  },
-  {
-    paper_code: "CC-4.1MA",
-    paper_name: "Differential Equations",
-    semester: 4,
-    subject: "Mathematics",
-    credits: 6,
-    programme: "CBCS",
-    university: "University of Delhi",
-  },
-  {
-    paper_code: "CC-5.1MA",
-    paper_name: "Multivariate Calculus",
-    semester: 5,
-    subject: "Mathematics",
-    credits: 6,
-    programme: "CBCS",
-    university: "University of Delhi",
-  },
-  {
-    paper_code: "CC-6.1MA",
-    paper_name: "Ring Theory and Linear Algebra I",
-    semester: 6,
-    subject: "Mathematics",
-    credits: 6,
-    programme: "CBCS",
-    university: "University of Delhi",
-  },
-  {
-    paper_code: "CC-1.1PH",
-    paper_name: "Mathematical Physics I",
+    paper_code: "PHYDSC101T",
+    paper_name: "Mathematical Physics - I",
     semester: 1,
     subject: "Physics",
-    credits: 4,
-    programme: "CBCS",
-    university: "University of Delhi",
+    credits: 3,
+    programme: "FYUGP",
+    university: "Assam University",
+    category: "DSC",
+    contact_hours: 45,
+    full_marks: 100,
+    course_objective:
+      "The emphasis of the course is on various tools required for solving problems of interest to physicists. The course will teach the students to model a physics problem mathematically and then solve those numerically using computational methods. The course aims to expose the students to some fundamental mathematical tools enabling them to solve a wide range of physics problems.",
+    learning_outcomes:
+      "After completing this course, the students will be able to understand the concepts of vector algebras, vector calculus in addition to performing line, surface and volume integration and apply various theorems to compute these integrals. The students will also be able to understand concepts of curvilinear coordinates along with ideas of special functions and some numerical techniques.",
+    units: [
+      {
+        unit: 1,
+        name: "Vector Algebra and Matrices",
+        lectures: 9,
+        topics: [
+          "Scalar and vector products, Physical interpretation of vector product.",
+          "Scalar and vector triple products & their properties with physical interpretation.",
+          "Derivation of important identities. Preliminary ideas of Scalar and Vector fields.",
+          "Different types of matrices: Symmetric and antisymmetric matrices, Hermitian matrix and its properties.",
+          "Inverse and transpose of matrices. Solution of simultaneous linear equations.",
+          "Eigenvalue, Eigenvectors and diagonalization of a matrix.",
+        ],
+      },
+      {
+        unit: 2,
+        name: "Ordinary Differential Equations",
+        lectures: 9,
+        topics: [
+          "Order and Degrees of a differential equation.",
+          "First Order ODE: General form of first order ODE Mdx + Ndy = 0, Separation of variables, Exact equation, in-exact equations and integrating factors, Linear equations.",
+          "Second Order ODE: Homogeneous Equations with constant coefficients. Wronskian and general solution. Complementary function. Methods for finding particular integrals.",
+        ],
+      },
+      {
+        unit: 3,
+        name: "Vector Calculus",
+        lectures: 10,
+        topics: [
+          "Vector Differentiation: Directional derivatives and normal derivatives.",
+          "Gradient of a scalar field and its geometrical interpretation.",
+          "Divergence and curl of a vector field. Laplacian operator. Vector identities.",
+          "Vector Integration: Ordinary Integrals of Vectors.",
+          "Line, surface and volume integrals of Vector fields.",
+          "Gauss's divergence theorem and Stokes Theorem.",
+        ],
+      },
+      {
+        unit: 4,
+        name: "Orthogonal Curvilinear Coordinates",
+        lectures: 8,
+        topics: [
+          "Definition and examples of Orthogonal Curvilinear Coordinates.",
+          "Transformation from orthogonal curvilinear coordinate systems to Cartesian coordinate system and vice versa.",
+          "Expressions for infinitesimal line, surface and volume elements.",
+          "Derivation of Gradient, Divergence, Curl and Laplacian in curvilinear Coordinate Systems (Spherical & Cylindrical).",
+        ],
+      },
+      {
+        unit: 5,
+        name: "Beta and Gamma Functions and Numerical Techniques",
+        lectures: 9,
+        topics: [
+          "Beta and Gamma Functions: Beta and Gamma Functions and Relation between them.",
+          "Expression of Integrals in terms of Gamma Functions.",
+          "Solution of Algebraic and Transcendental equations by Bisection, Newton Raphson, Simpson Rule.",
+          "Interpolation by Newton Gregory Forward & Backward difference formula.",
+        ],
+      },
+    ],
+    reference_books: [
+      "Mathematical Physics by H.K. Dass, published by S. Chand.",
+      "Mathematical Physics with Classical Mechanics by S. Prakash, published by Sultan Chand & Sons, Sixth edition.",
+      "Mathematical Methods for Physicists, G.B. Arfken, H.J. Weber, F.E. Harris, 2013, 7th Edn Elsevier.",
+      "Differential Equations, George F. Simmons, 2007, McGraw Hill.",
+      "Differential Calculus by B.C. Das and B.N. Mukherjee, published by U.N. Dhur.",
+      "Mathematical Tools for Physics, James Nearing, 2010, Dover Publications.",
+      "Vector Analysis, by Murray R. Spiegel, published by McGraw Hill Education, part of the Schaum's Outlines Series.",
+      "Engineering Mathematics, S. Pal and S.C. Bhunia, 2015, Oxford University Press.",
+      "Advanced Engineering Mathematics, Erwin Kreyszig, 2008, Wiley India.",
+      "Essential Mathematical Methods, K.F. Riley & M.P. Hobson, 2011, Cambridge Univ. Press.",
+      "Mathematical methods for Scientists and Engineers, D.A. McQuarrie, 2003, Viva Book.",
+      "Mathematical Physics, Goswami, 1st edition, Cengage Learning.",
+    ],
   },
+
   {
-    paper_code: "CC-2.1PH",
-    paper_name: "Mechanics",
-    semester: 2,
+    paper_code: "PHYDSC102T",
+    paper_name: "Mechanics and Relativity",
+    semester: 1,
     subject: "Physics",
-    credits: 4,
-    programme: "CBCS",
-    university: "University of Delhi",
+    credits: 3,
+    programme: "FYUGP",
+    university: "Assam University",
+    category: "DSC",
   },
+
+  // Semester II
   {
-    paper_code: "CC-3.1PH",
+    paper_code: "PHYDSC151T",
     paper_name: "Electricity and Magnetism",
-    semester: 3,
+    semester: 2,
     subject: "Physics",
-    credits: 4,
-    programme: "CBCS",
-    university: "University of Delhi",
+    credits: 3,
+    programme: "FYUGP",
+    university: "Assam University",
+    category: "DSC",
   },
   {
-    paper_code: "CC-4.1PH",
+    paper_code: "PHYDSC152P",
+    paper_name: "Lab.: (Part A: Mechanics + Part B: Electricity)",
+    semester: 2,
+    subject: "Physics",
+    credits: 3,
+    programme: "FYUGP",
+    university: "Assam University",
+    category: "DSC",
+  },
+
+  // Semester III
+  {
+    paper_code: "PHYDSC201T",
     paper_name: "Waves and Optics",
-    semester: 4,
+    semester: 3,
     subject: "Physics",
     credits: 4,
-    programme: "CBCS",
-    university: "University of Delhi",
+    programme: "FYUGP",
+    university: "Assam University",
+    category: "DSC",
   },
   {
-    paper_code: "CC-5.1PH",
-    paper_name: "Quantum Mechanics and Applications",
-    semester: 5,
-    subject: "Physics",
-    credits: 4,
-    programme: "CBCS",
-    university: "University of Delhi",
-  },
-  {
-    paper_code: "CC-6.1PH",
+    paper_code: "PHYDSC202T",
     paper_name: "Thermal Physics",
+    semester: 3,
+    subject: "Physics",
+    credits: 4,
+    programme: "FYUGP",
+    university: "Assam University",
+    category: "DSC",
+  },
+
+  // Semester IV
+  {
+    paper_code: "PHYDSC251T",
+    paper_name: "Mathematical Physics - II",
+    semester: 4,
+    subject: "Physics",
+    credits: 4,
+    programme: "FYUGP",
+    university: "Assam University",
+    category: "DSC",
+  },
+  {
+    paper_code: "PHYDSC252T",
+    paper_name: "Electronics (Analog + Digital)",
+    semester: 4,
+    subject: "Physics",
+    credits: 4,
+    programme: "FYUGP",
+    university: "Assam University",
+    category: "DSC",
+  },
+  {
+    paper_code: "PHYDSC253P",
+    paper_name: "Lab.: (Part A: Thermal Physics + Part B: Analog Electronics)",
+    semester: 4,
+    subject: "Physics",
+    credits: 4,
+    programme: "FYUGP",
+    university: "Assam University",
+    category: "DSC",
+  },
+
+  // Semester V
+  {
+    paper_code: "PHYDSC301T",
+    paper_name: "Modern Physics",
+    semester: 5,
+    subject: "Physics",
+    credits: 4,
+    programme: "FYUGP",
+    university: "Assam University",
+    category: "DSC",
+  },
+  {
+    paper_code: "PHYDSC302T",
+    paper_name: "Introduction to Classical Mechanics and Electromagnetic Theory",
+    semester: 5,
+    subject: "Physics",
+    credits: 4,
+    programme: "FYUGP",
+    university: "Assam University",
+    category: "DSC",
+  },
+  {
+    paper_code: "PHYDSC303P",
+    paper_name: "Lab.: (Part A: Ray Optics + Part B: Physical Optics)",
+    semester: 5,
+    subject: "Physics",
+    credits: 4,
+    programme: "FYUGP",
+    university: "Assam University",
+    category: "DSC",
+  },
+
+  // Semester VI
+  {
+    paper_code: "PHYDSC351T",
+    paper_name: "Nuclear and Particle Physics",
     semester: 6,
     subject: "Physics",
     credits: 4,
-    programme: "CBCS",
-    university: "University of Delhi",
-  },
-  // ── University of Delhi – FYUG ──────────────────────────────────────────
-  {
-    paper_code: "FYUG-101",
-    paper_name: "English Language and Communication",
-    semester: 1,
-    subject: "English",
-    credits: 4,
-    programme: "FYUG",
-    university: "University of Delhi",
+    programme: "FYUGP",
+    university: "Assam University",
+    category: "DSC",
   },
   {
-    paper_code: "FYUG-102",
-    paper_name: "Environmental Science",
-    semester: 1,
-    subject: "Environmental Science",
-    credits: 2,
-    programme: "FYUG",
-    university: "University of Delhi",
-  },
-  {
-    paper_code: "FYUG-CS101",
-    paper_name: "Fundamentals of Computing",
-    semester: 1,
-    subject: "Computer Science",
-    credits: 4,
-    programme: "FYUG",
-    university: "University of Delhi",
-  },
-  {
-    paper_code: "FYUG-CS201",
-    paper_name: "Data Structures",
-    semester: 2,
-    subject: "Computer Science",
-    credits: 4,
-    programme: "FYUG",
-    university: "University of Delhi",
-  },
-  {
-    paper_code: "FYUG-CS301",
-    paper_name: "Database Management Systems",
-    semester: 3,
-    subject: "Computer Science",
-    credits: 4,
-    programme: "FYUG",
-    university: "University of Delhi",
-  },
-  {
-    paper_code: "FYUG-CS401",
-    paper_name: "Operating Systems",
-    semester: 4,
-    subject: "Computer Science",
-    credits: 4,
-    programme: "FYUG",
-    university: "University of Delhi",
-  },
-  {
-    paper_code: "FYUG-CS501",
-    paper_name: "Computer Networks",
-    semester: 5,
-    subject: "Computer Science",
-    credits: 4,
-    programme: "FYUG",
-    university: "University of Delhi",
-  },
-  {
-    paper_code: "FYUG-CS601",
-    paper_name: "Compiler Design",
+    paper_code: "PHYDSC352T",
+    paper_name: "Statistical Mechanics and Plasma Physics",
     semester: 6,
-    subject: "Computer Science",
+    subject: "Physics",
     credits: 4,
-    programme: "FYUG",
-    university: "University of Delhi",
+    programme: "FYUGP",
+    university: "Assam University",
+    category: "DSC",
   },
   {
-    paper_code: "FYUG-EC101",
-    paper_name: "Principles of Microeconomics",
+    paper_code: "PHYDSC353T",
+    paper_name: "Solid State Physics",
+    semester: 6,
+    subject: "Physics",
+    credits: 4,
+    programme: "FYUGP",
+    university: "Assam University",
+    category: "DSC",
+  },
+  {
+    paper_code: "PHYDSC354P",
+    paper_name: "Lab.: (Part A: Solid State Physics + Part B: Digital Electronics)",
+    semester: 6,
+    subject: "Physics",
+    credits: 4,
+    programme: "FYUGP",
+    university: "Assam University",
+    category: "DSC",
+  },
+
+  // Semester VII
+  {
+    paper_code: "PHYDSC401T",
+    paper_name: "Mathematical Physics - III",
+    semester: 7,
+    subject: "Physics",
+    credits: 4,
+    programme: "FYUGP",
+    university: "Assam University",
+    category: "DSC",
+  },
+  {
+    paper_code: "PHYDSC402T",
+    paper_name: "Classical Mechanics",
+    semester: 7,
+    subject: "Physics",
+    credits: 4,
+    programme: "FYUGP",
+    university: "Assam University",
+    category: "DSC",
+  },
+  {
+    paper_code: "PHYDSC403T",
+    paper_name: "Quantum Mechanics - I",
+    semester: 7,
+    subject: "Physics",
+    credits: 4,
+    programme: "FYUGP",
+    university: "Assam University",
+    category: "DSC",
+  },
+  {
+    paper_code: "PHYDSC404P",
+    paper_name: "Lab.: (Part A: Numerical Techniques & Programming including Quantum Mechanics + Part B: Simulation & Software based learning of electronics i.e. virtual Labs)",
+    semester: 7,
+    subject: "Physics",
+    credits: 4,
+    programme: "FYUGP",
+    university: "Assam University",
+    category: "DSC",
+  },
+
+  // Semester VIII
+  {
+    paper_code: "PHYDSC451T",
+    paper_name: "Quantum Mechanics - II",
+    semester: 8,
+    subject: "Physics",
+    credits: 4,
+    programme: "FYUGP",
+    university: "Assam University",
+    category: "DSC",
+  },
+  {
+    paper_code: "PHYDSC452T",
+    paper_name: "Electromagnetic Theory",
+    semester: 8,
+    subject: "Physics",
+    credits: 4,
+    programme: "FYUGP",
+    university: "Assam University",
+    category: "DSC",
+  },
+  {
+    paper_code: "PHYDSC453AT",
+    paper_name: "Astronomy, Astrophysics and Cosmology",
+    semester: 8,
+    subject: "Physics",
+    credits: 4,
+    programme: "FYUGP",
+    university: "Assam University",
+    category: "DSC",
+  },
+  {
+    paper_code: "PHYDSC453BT",
+    paper_name: "Nano Science and Material Science",
+    semester: 8,
+    subject: "Physics",
+    credits: 4,
+    programme: "FYUGP",
+    university: "Assam University",
+    category: "DSC",
+  },
+  {
+    paper_code: "PHYDSC454T",
+    paper_name: "Atomic and Molecular Physics",
+    semester: 8,
+    subject: "Physics",
+    credits: 4,
+    programme: "FYUGP",
+    university: "Assam University",
+    category: "DSC",
+  },
+
+  // ── DSM (Discipline Specific Minor) ────────────────────────────────────
+
+  {
+    paper_code: "PHYDSM101T",
+    paper_name: "Mechanics, Relativity and Math Physics",
     semester: 1,
-    subject: "Economics",
-    credits: 6,
-    programme: "FYUG",
-    university: "University of Delhi",
+    subject: "Physics",
+    credits: 3,
+    programme: "FYUGP",
+    university: "Assam University",
+    category: "DSM",
   },
   {
-    paper_code: "FYUG-EC201",
-    paper_name: "Macroeconomics I",
+    paper_code: "PHYDSM151T",
+    paper_name: "Mechanics, Relativity and Math Physics",
     semester: 2,
-    subject: "Economics",
-    credits: 6,
-    programme: "FYUG",
-    university: "University of Delhi",
+    subject: "Physics",
+    credits: 3,
+    programme: "FYUGP",
+    university: "Assam University",
+    category: "DSM",
   },
   {
-    paper_code: "FYUG-EC301",
-    paper_name: "Intermediate Microeconomics",
+    paper_code: "PHYDSM201T",
+    paper_name: "Electricity, Magnetism and Electronics",
     semester: 3,
-    subject: "Economics",
-    credits: 6,
-    programme: "FYUG",
-    university: "University of Delhi",
+    subject: "Physics",
+    credits: 4,
+    programme: "FYUGP",
+    university: "Assam University",
+    category: "DSM",
   },
   {
-    paper_code: "FYUG-EC401",
-    paper_name: "Intermediate Macroeconomics",
+    paper_code: "PHYDSM251P",
+    paper_name: "Lab. (Mechanics + Optics) and (Electricity + Electronics)",
     semester: 4,
-    subject: "Economics",
-    credits: 6,
-    programme: "FYUG",
-    university: "University of Delhi",
+    subject: "Physics",
+    credits: 3,
+    programme: "FYUGP",
+    university: "Assam University",
+    category: "DSM",
   },
-  // ── Generic / Multi-university entries ─────────────────────────────────
   {
-    paper_code: "GEN-ENG101",
-    paper_name: "English Communication Skills",
+    paper_code: "PHYDSM252T",
+    paper_name: "Electricity, Magnetism and Electronics",
+    semester: 4,
+    subject: "Physics",
+    credits: 3,
+    programme: "FYUGP",
+    university: "Assam University",
+    category: "DSM",
+  },
+  {
+    paper_code: "PHYDSM301T",
+    paper_name: "Waves and Oscillations, Optics and Thermal Physics",
+    semester: 5,
+    subject: "Physics",
+    credits: 3,
+    programme: "FYUGP",
+    university: "Assam University",
+    category: "DSM",
+  },
+  {
+    paper_code: "PHYDSM302T",
+    paper_name: "Waves and Oscillations, Optics and Thermal Physics",
+    semester: 5,
+    subject: "Physics",
+    credits: 3,
+    programme: "FYUGP",
+    university: "Assam University",
+    category: "DSM",
+  },
+  {
+    paper_code: "PHYDSM351P",
+    paper_name: "Lab. (Mechanics + Optics) and (Electricity + Electronics)",
+    semester: 6,
+    subject: "Physics",
+    credits: 4,
+    programme: "FYUGP",
+    university: "Assam University",
+    category: "DSM",
+  },
+  {
+    paper_code: "PHYDSM401T",
+    paper_name: "Modern Physics and Solid State Physics",
+    semester: 7,
+    subject: "Physics",
+    credits: 4,
+    programme: "FYUGP",
+    university: "Assam University",
+    category: "DSM",
+  },
+  {
+    paper_code: "PHYDSM451T",
+    paper_name: "Modern Physics and Solid State Physics",
+    semester: 8,
+    subject: "Physics",
+    credits: 4,
+    programme: "FYUGP",
+    university: "Assam University",
+    category: "DSM",
+  },
+
+  // ── SEC (Skill Enhancement Course) ─────────────────────────────────────
+
+  {
+    paper_code: "PHYSEC-101",
+    paper_name: "Workshop Skill",
     semester: 1,
-    subject: "English",
-    credits: 2,
-    programme: "CBCS",
-    university: "General",
+    subject: "Physics",
+    credits: 3,
+    programme: "FYUGP",
+    university: "Assam University",
+    category: "SEC",
   },
   {
-    paper_code: "GEN-EVS101",
-    paper_name: "Environmental Studies",
+    paper_code: "PHYSEC-151",
+    paper_name: "Electrical Circuits and Safety",
     semester: 2,
-    subject: "Environmental Science",
-    credits: 2,
-    programme: "CBCS",
-    university: "General",
+    subject: "Physics",
+    credits: 3,
+    programme: "FYUGP",
+    university: "Assam University",
+    category: "SEC",
+  },
+  {
+    paper_code: "PHYSEC-201",
+    paper_name: "Renewable Energy and Energy Harvesting",
+    semester: 3,
+    subject: "Physics",
+    credits: 3,
+    programme: "FYUGP",
+    university: "Assam University",
+    category: "SEC",
+  },
+
+  // ── IDC (Interdisciplinary Course) ─────────────────────────────────────
+
+  {
+    paper_code: "PHYIDC101T",
+    paper_name: "Physics in Daily Life",
+    semester: 1,
+    subject: "Physics",
+    credits: 3,
+    programme: "FYUGP",
+    university: "Assam University",
+    category: "IDC",
+  },
+  {
+    paper_code: "PHYIDC151T",
+    paper_name: "Understanding the Climate",
+    semester: 2,
+    subject: "Physics",
+    credits: 3,
+    programme: "FYUGP",
+    university: "Assam University",
+    category: "IDC",
+  },
+  {
+    paper_code: "PHYIDC201T",
+    paper_name: "Renewable Energy and Energy Harvesting",
+    semester: 3,
+    subject: "Physics",
+    credits: 3,
+    programme: "FYUGP",
+    university: "Assam University",
+    category: "IDC",
   },
 ];
+
+// ── Helper functions ──────────────────────────────────────────────────────────
 
 /**
  * Look up a registry entry by paper code and optional university.
@@ -345,22 +604,24 @@ export function findByPaperCode(
 }
 
 /**
- * Return all entries for a given university, optionally filtered by programme.
+ * Return all entries for a given university, optionally filtered by programme
+ * and/or category.
  */
 export function getByUniversity(
   university: string,
   programme?: string,
+  category?: string,
 ): SyllabusRegistryEntry[] {
   return SYLLABUS_REGISTRY.filter((e) => {
-    const uniMatch = e.university.toLowerCase() === university.toLowerCase();
-    if (!uniMatch) return false;
-    if (programme) return e.programme.toLowerCase() === programme.toLowerCase();
+    if (e.university.toLowerCase() !== university.toLowerCase()) return false;
+    if (programme && e.programme.toLowerCase() !== programme.toLowerCase()) return false;
+    if (category && e.category !== category) return false;
     return true;
   });
 }
 
 /**
- * Return all entries grouped by semester.
+ * Return all entries grouped by semester, sorted ascending.
  */
 export function groupBySemester(
   entries: SyllabusRegistryEntry[],

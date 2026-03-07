@@ -30,38 +30,114 @@ The ExamArchive v3 syllabus system has two complementary layers:
 src/data/syllabus-registry.ts
 ```
 
-### Data Structure
+### Data Structures
 
-Each entry in the registry implements the `SyllabusRegistryEntry` interface:
+#### `SyllabusUnit`
+
+Represents a single unit (chapter) within a paper's syllabus.
 
 ```typescript
-interface SyllabusRegistryEntry {
-  paper_code: string;   // Unique identifier, e.g. "CC-1.1CH" or "FYUG-CS101"
-  paper_name: string;   // Full descriptive name of the paper
-  semester: number;     // Semester number (1–8)
-  subject: string;      // Disciplinary area, e.g. "Chemistry", "Mathematics"
-  credits: number;      // Credit weighting
-  programme: string;    // Academic programme, e.g. "CBCS", "FYUG", "Annual"
-  university: string;   // University or institution name
+interface SyllabusUnit {
+  unit: number;      // 1-based unit number
+  name: string;      // Unit title, e.g. "Vector Algebra and Matrices"
+  lectures?: number; // Number of allocated lectures, if known
+  topics: string[];  // List of topics / subtopics covered
 }
 ```
 
-### Adding Prebuilt Syllabus Metadata
+#### `SyllabusRegistryEntry`
 
-To add new entries, append objects to the `SYLLABUS_REGISTRY` array in
-`src/data/syllabus-registry.ts`. Group entries by university for readability.
-
-Example:
+Each entry in the registry implements this interface:
 
 ```typescript
+interface SyllabusRegistryEntry {
+  paper_code: string;         // Unique identifier, e.g. "PHYDSC101T"
+  paper_name: string;         // Full descriptive name of the paper
+  semester: number;           // Semester number (1–8)
+  subject: string;            // Disciplinary area, e.g. "Physics"
+  credits: number;            // Credit weighting
+  programme: string;          // Programme framework, e.g. "FYUGP", "CBCS"
+  university: string;         // University or institution name
+  category?: string;          // Paper type: "DSC" | "DSM" | "SEC" | "IDC" | "GE"
+  contact_hours?: number;     // Total contact hours (lectures + tutorials)
+  full_marks?: number;        // Maximum marks for the paper
+  course_objective?: string;  // Free-text course objective
+  learning_outcomes?: string; // Expected learning outcomes
+  units?: SyllabusUnit[];     // Structured units with per-unit topics
+  reference_books?: string[]; // Recommended / reference books
+}
+```
+
+### Category Types
+
+| Code | Full Name                     | Badge Colour |
+|------|-------------------------------|--------------|
+| DSC  | Discipline Specific Core      | Blue         |
+| DSM  | Discipline Specific Minor     | Green        |
+| SEC  | Skill Enhancement Course      | Yellow       |
+| IDC  | Interdisciplinary Course      | Purple       |
+| GE   | Generic Elective              | Red          |
+
+### Current Registry Contents
+
+The registry is pre-populated with **Assam University** Physics papers under the
+FYUGP (Four Year Undergraduate Programme, NEP 2020) framework.
+
+| Category | Papers | Semesters |
+|----------|--------|-----------|
+| DSC      | 25     | I – VIII  |
+| DSM      | 10     | I – VIII  |
+| SEC      | 3      | I – III   |
+| IDC      | 3      | I – III   |
+
+Paper `PHYDSC101T` (Mathematical Physics - I) is fully populated with all
+5 units, per-unit lecture counts, and detailed topic lists matching the
+official Assam University syllabus document.
+
+### Adding Prebuilt Syllabus Metadata
+
+To add new entries, append objects to `SYLLABUS_REGISTRY`:
+
+```typescript
+// Minimal entry (no unit details yet)
 {
-  paper_code: "CC-7.1MA",
-  paper_name: "Complex Analysis",
-  semester: 5,
-  subject: "Mathematics",
-  credits: 6,
-  programme: "CBCS",
-  university: "University of Delhi",
+  paper_code: "PHYDSC201T",
+  paper_name: "Waves and Optics",
+  semester: 3,
+  subject: "Physics",
+  credits: 4,
+  programme: "FYUGP",
+  university: "Assam University",
+  category: "DSC",
+},
+
+// Full entry with units and topics
+{
+  paper_code: "PHYDSC201T",
+  paper_name: "Waves and Optics",
+  semester: 3,
+  subject: "Physics",
+  credits: 4,
+  programme: "FYUGP",
+  university: "Assam University",
+  category: "DSC",
+  contact_hours: 60,
+  full_marks: 100,
+  units: [
+    {
+      unit: 1,
+      name: "Simple Harmonic Motion",
+      lectures: 10,
+      topics: [
+        "Simple harmonic oscillator: equation of motion.",
+        "Energy of SHM. Superposition of SHOs.",
+      ],
+    },
+    // … more units
+  ],
+  reference_books: [
+    "Waves, Berkeley Physics Course Vol. 3, Frank S. Crawford.",
+  ],
 },
 ```
 
@@ -69,8 +145,8 @@ Example:
 - `paper_code` must be unique within a (university, programme) combination.
 - `semester` must be an integer 1–8.
 - `credits` must be a positive integer.
-- `university` values must be consistent across entries for the same institution
-  (exact string match is used for lookups).
+- `unit` numbers within a `units` array must be consecutive starting from 1.
+- `university` values must be consistent across entries (exact string match used for lookups).
 
 ### Registry Helper Functions
 
@@ -82,14 +158,13 @@ import {
 } from "@/data/syllabus-registry";
 
 // Lookup a single paper:
-const entry = findByPaperCode("CC-1.1CH", "University of Delhi");
+const entry = findByPaperCode("PHYDSC101T", "Assam University");
 
-// All papers for a university / programme:
-const allDU = getByUniversity("University of Delhi");
-const cbcsOnly = getByUniversity("University of Delhi", "CBCS");
+// All papers for a university, optionally filtered by programme + category:
+const allDSC = getByUniversity("Assam University", "FYUGP", "DSC");
 
 // Group for table display:
-const byGroup = groupBySemester(cbcsOnly);
+const bySem = groupBySemester(allDSC);
 ```
 
 ---

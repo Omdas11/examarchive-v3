@@ -107,23 +107,25 @@ function SyllabusPdfCard({ s }: { s: Syllabus }) {
 /** Tab 2: Paper Syllabus Library from the registry. */
 function PaperLibrary() {
   const [filterProg, setFilterProg] = useState<string>("ALL");
-  const [filterSubject, setFilterSubject] = useState<string>("ALL");
+  const [filterCategory, setFilterCategory] = useState<string>("ALL");
 
   const programmes = ["ALL", ...Array.from(new Set(SYLLABUS_REGISTRY.map((e) => e.programme))).sort()];
-  const subjects = [
+  const categories = [
     "ALL",
     ...Array.from(
       new Set(
         SYLLABUS_REGISTRY.filter(
           (e) => filterProg === "ALL" || e.programme === filterProg,
-        ).map((e) => e.subject),
+        )
+          .map((e) => e.category)
+          .filter(Boolean),
       ),
-    ).sort(),
+    ).sort() as string[],
   ];
 
   const filtered = SYLLABUS_REGISTRY.filter((e) => {
     if (filterProg !== "ALL" && e.programme !== filterProg) return false;
-    if (filterSubject !== "ALL" && e.subject !== filterSubject) return false;
+    if (filterCategory !== "ALL" && e.category !== filterCategory) return false;
     return true;
   });
 
@@ -131,12 +133,21 @@ function PaperLibrary() {
 
   function handleProgClick(p: string) {
     setFilterProg(p);
-    setFilterSubject("ALL");
+    setFilterCategory("ALL");
   }
+
+  // Category badge colours
+  const CAT_COLORS: Record<string, { bg: string; text: string }> = {
+    DSC: { bg: "#dbeafe", text: "#1d4ed8" },
+    DSM: { bg: "#dcfce7", text: "#166534" },
+    SEC: { bg: "#fef9c3", text: "#854d0e" },
+    IDC: { bg: "#f3e8ff", text: "#7e22ce" },
+    GE:  { bg: "#ffe4e6", text: "#9f1239" },
+  };
 
   return (
     <div className="mt-6 space-y-6">
-      {/* Filters */}
+      {/* Programme filter */}
       <div className="flex flex-wrap gap-2">
         <div className="flex flex-wrap gap-1">
           {programmes.map((p) => (
@@ -152,18 +163,27 @@ function PaperLibrary() {
         </div>
       </div>
 
-      {subjects.length > 2 && (
+      {/* Category filter */}
+      {categories.length > 2 && (
         <div className="flex flex-wrap gap-1">
-          {subjects.map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => setFilterSubject(s)}
-              className={`toggle-btn${filterSubject === s ? " active" : ""}`}
-            >
-              {s}
-            </button>
-          ))}
+          {categories.map((c) => {
+            const colors = c !== "ALL" && CAT_COLORS[c] ? CAT_COLORS[c] : null;
+            return (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setFilterCategory(c)}
+                className={`toggle-btn${filterCategory === c ? " active" : ""}`}
+                style={
+                  filterCategory === c && colors
+                    ? { borderColor: colors.text, color: colors.text, background: colors.bg }
+                    : undefined
+                }
+              >
+                {c}
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -191,48 +211,67 @@ function PaperLibrary() {
                     className="text-xs uppercase text-left"
                     style={{ color: "var(--color-text-muted)" }}
                   >
-                    <th className="pb-2 pr-4 font-medium">Paper Code</th>
-                    <th className="pb-2 pr-4 font-medium">Paper Name</th>
-                    <th className="pb-2 pr-4 font-medium">Subject</th>
-                    <th className="pb-2 pr-4 font-medium">Credits</th>
-                    <th className="pb-2 font-medium">Programme</th>
+                    <th className="pb-2 pr-3 font-medium">Paper Code</th>
+                    <th className="pb-2 pr-3 font-medium">Paper Name</th>
+                    <th className="pb-2 pr-3 font-medium">Cat.</th>
+                    <th className="pb-2 pr-3 font-medium">Credits</th>
+                    <th className="pb-2 font-medium">Units</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {entries.map((e: SyllabusRegistryEntry) => (
-                    <tr
-                      key={e.paper_code}
-                      className="border-t transition-colors hover:opacity-80"
-                      style={{ borderColor: "var(--color-border)" }}
-                    >
-                      <td className="py-2 pr-4">
-                        <Link
-                          href={`/syllabus/paper/${encodeURIComponent(e.paper_code)}`}
-                          className="font-mono text-xs font-semibold hover:underline"
-                          style={{ color: "var(--color-primary)" }}
-                        >
-                          {e.paper_code}
-                        </Link>
-                      </td>
-                      <td className="py-2 pr-4">
-                        <Link
-                          href={`/syllabus/paper/${encodeURIComponent(e.paper_code)}`}
-                          className="hover:underline"
-                        >
-                          {e.paper_name}
-                        </Link>
-                      </td>
-                      <td className="py-2 pr-4 text-xs" style={{ color: "var(--color-text-muted)" }}>
-                        {e.subject}
-                      </td>
-                      <td className="py-2 pr-4 text-xs" style={{ color: "var(--color-text-muted)" }}>
-                        {e.credits}
-                      </td>
-                      <td className="py-2 text-xs" style={{ color: "var(--color-text-muted)" }}>
-                        {e.programme}
-                      </td>
-                    </tr>
-                  ))}
+                  {entries.map((e: SyllabusRegistryEntry) => {
+                    const colors = e.category && CAT_COLORS[e.category] ? CAT_COLORS[e.category] : null;
+                    const hasUnits = (e.units?.length ?? 0) > 0;
+                    return (
+                      <tr
+                        key={e.paper_code}
+                        className="border-t transition-colors hover:opacity-80"
+                        style={{ borderColor: "var(--color-border)" }}
+                      >
+                        <td className="py-2 pr-3">
+                          <Link
+                            href={`/syllabus/paper/${encodeURIComponent(e.paper_code)}`}
+                            className="font-mono text-xs font-semibold hover:underline"
+                            style={{ color: "var(--color-primary)" }}
+                          >
+                            {e.paper_code}
+                          </Link>
+                        </td>
+                        <td className="py-2 pr-3">
+                          <Link
+                            href={`/syllabus/paper/${encodeURIComponent(e.paper_code)}`}
+                            className="hover:underline text-xs"
+                          >
+                            {e.paper_name}
+                          </Link>
+                        </td>
+                        <td className="py-2 pr-3">
+                          {e.category && colors ? (
+                            <span
+                              className="inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                              style={{ background: colors.bg, color: colors.text }}
+                            >
+                              {e.category}
+                            </span>
+                          ) : (
+                            <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+                              {e.category ?? "—"}
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2 pr-3 text-xs" style={{ color: "var(--color-text-muted)" }}>
+                          {e.credits}
+                        </td>
+                        <td className="py-2 text-xs">
+                          {hasUnits ? (
+                            <span style={{ color: "#16a34a" }}>✓ {e.units!.length}</span>
+                          ) : (
+                            <span style={{ color: "var(--color-text-muted)" }}>—</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
