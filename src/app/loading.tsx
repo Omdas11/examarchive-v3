@@ -1,3 +1,5 @@
+"use client";
+
 export default function Loading() {
   return (
     <div className="flex min-h-[calc(100vh-14rem)] flex-col items-center justify-center gap-4">
