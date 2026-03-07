@@ -9,6 +9,15 @@ import {
   Query,
 } from "@/lib/appwrite";
 
+/** XP awarded when a paper is approved. */
+const XP_PER_APPROVED_UPLOAD = 50;
+/** Bonus XP for the very first approved upload. */
+const XP_FIRST_UPLOAD_BONUS = 20;
+/** Bonus XP at 7-day streak. */
+const XP_STREAK_7_DAY_BONUS = 100;
+/** Bonus XP at 30-day streak. */
+const XP_STREAK_30_DAY_BONUS = 500;
+
 /** Upload-count thresholds for auto-promotion. */
 const CONTRIBUTOR_THRESHOLD = 3;
 const MODERATOR_ELIGIBLE_THRESHOLD = 20;
@@ -41,8 +50,9 @@ async function logActivity(
 }
 
 /**
- * After a paper is approved, increment the uploader's `upload_count` and
- * auto-promote based on thresholds.
+ * After a paper is approved, increment the uploader's `upload_count`,
+ * grant XP (+50 per upload, +20 first-upload bonus), update streak,
+ * and auto-promote based on thresholds.
  */
 async function incrementUploadCount(
   db: ReturnType<typeof adminDatabases>,
@@ -61,6 +71,40 @@ async function incrementUploadCount(
     const profile = documents[0];
     const currentCount = ((profile.upload_count as number) ?? 0) + 1;
     const update: Record<string, unknown> = { upload_count: currentCount };
+
+    // ── XP grant ──────────────────────────────────────────────────────────
+    let xpGain = XP_PER_APPROVED_UPLOAD;
+    if (currentCount === 1) xpGain += XP_FIRST_UPLOAD_BONUS; // first upload bonus
+    update.xp = ((profile.xp as number) ?? 0) + xpGain;
+
+    // ── Streak update ─────────────────────────────────────────────────────
+    const now = new Date();
+    const todayStr = now.toISOString().slice(0, 10);
+    const lastActivity = (profile.last_activity as string) ?? "";
+    const lastDate = lastActivity ? lastActivity.slice(0, 10) : "";
+
+    const prevStreak = (profile.streak as number) ?? 0;
+    let streak = prevStreak;
+    if (lastDate === todayStr) {
+      // already active today — no streak change
+    } else if (lastDate) {
+      const yesterday = new Date(now);
+      yesterday.setDate(now.getDate() - 1);
+      const yesterdayStr = yesterday.toISOString().slice(0, 10);
+      streak = lastDate === yesterdayStr ? prevStreak + 1 : 1;
+    } else {
+      streak = 1;
+    }
+
+    // Streak milestone XP bonuses — award when crossing the threshold
+    if (prevStreak < 7 && streak >= 7) {
+      update.xp = (update.xp as number) + XP_STREAK_7_DAY_BONUS;
+    } else if (prevStreak < 30 && streak >= 30) {
+      update.xp = (update.xp as number) + XP_STREAK_30_DAY_BONUS;
+    }
+
+    update.streak = streak;
+    update.last_activity = now.toISOString();
 
     // Auto-promote: assign "contributor" as secondary_role after threshold
     if (

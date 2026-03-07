@@ -23,6 +23,50 @@ import type {
 export const SESSION_COOKIE = "ea_session";
 
 /**
+ * Update the user's daily streak and last_activity timestamp.
+ * Called silently on each authenticated page load. Only writes to the DB
+ * when the date has actually changed since the last recorded activity.
+ *
+ * Streak rules:
+ *  - same day as last_activity → no-op (avoid duplicate writes)
+ *  - last_activity was yesterday → streak++
+ *  - last_activity was 2+ days ago → streak resets to 1
+ *  - no previous last_activity → streak = 1
+ */
+async function updateDailyStreak(
+  db: ReturnType<typeof adminDatabases>,
+  profileId: string,
+  currentStreak: number,
+  lastActivity: string,
+): Promise<void> {
+  try {
+    const now = new Date();
+    const todayStr = now.toISOString().slice(0, 10);
+    const lastDate = lastActivity ? lastActivity.slice(0, 10) : "";
+
+    // No-op when already recorded an activity today
+    if (lastDate === todayStr) return;
+
+    let newStreak = 1;
+    if (lastDate) {
+      const yesterday = new Date(now);
+      yesterday.setDate(now.getDate() - 1);
+      const yesterdayStr = yesterday.toISOString().slice(0, 10);
+      newStreak = lastDate === yesterdayStr ? currentStreak + 1 : 1;
+    }
+
+    await db.updateDocument(DATABASE_ID, COLLECTION.users, profileId, {
+      streak: newStreak,
+      last_activity: now.toISOString(),
+    });
+  } catch {
+    // Silently ignore – streak update is non-critical
+  }
+}
+
+
+
+/**
  * Read the Appwrite session secret from the request cookies.
  * Returns `null` when no session cookie is present.
  */
@@ -72,6 +116,10 @@ export async function getServerUser(): Promise<UserProfile | null> {
       const profile = await db.getDocument(DATABASE_ID, COLLECTION.users, user.$id);
       const rawSecondary = profile.secondary_role ?? null;
       const rawTier = profile.tier ?? "bronze";
+      const currentStreak = (profile.streak as number) ?? 0;
+      const lastActivity = (profile.last_activity as string) ?? "";
+      // Update daily streak (no-op when already recorded today)
+      void updateDailyStreak(db, profile.$id, currentStreak, lastActivity);
       return {
         id: profile.$id,
         email: (profile.email as string) ?? user.email,
@@ -85,8 +133,8 @@ export async function getServerUser(): Promise<UserProfile | null> {
         tier: isValidTier(rawTier) ? rawTier : "bronze",
         xp: (profile.xp as number) ?? 0,
         // DB field is `streak`; TypeScript property is `streak_days`
-        streak_days: (profile.streak as number) ?? 0,
-        last_activity: (profile.last_activity as string) ?? "",
+        streak_days: currentStreak,
+        last_activity: lastActivity,
         created_at: profile.$createdAt,
       };
     } catch {
@@ -104,6 +152,10 @@ export async function getServerUser(): Promise<UserProfile | null> {
       const profile = documents[0];
       const rawSecondary = profile.secondary_role ?? null;
       const rawTier = profile.tier ?? "bronze";
+      const currentStreak = (profile.streak as number) ?? 0;
+      const lastActivity = (profile.last_activity as string) ?? "";
+      // Update daily streak (no-op when already recorded today)
+      void updateDailyStreak(db, profile.$id, currentStreak, lastActivity);
       // Return the actual document ID (which may differ from Auth user ID)
       return {
         id: profile.$id,
@@ -116,8 +168,8 @@ export async function getServerUser(): Promise<UserProfile | null> {
         secondary_role: isValidCustomRole(rawSecondary) ? rawSecondary : null,
         tier: isValidTier(rawTier) ? rawTier : "bronze",
         xp: (profile.xp as number) ?? 0,
-        streak_days: (profile.streak as number) ?? 0,
-        last_activity: (profile.last_activity as string) ?? "",
+        streak_days: currentStreak,
+        last_activity: lastActivity,
         created_at: profile.$createdAt,
       };
     }
