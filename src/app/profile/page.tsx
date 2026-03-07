@@ -80,8 +80,9 @@ function getWeekActiveDays(streakDays: number, lastActivity: string): boolean[] 
 }
 
 function nextStreakGoal(streak: number): number {
-  const goals = [3, 7, 14, 30, 60, 100];
-  return goals.find((g) => g > streak) ?? 100;
+  // Milestones match v2: [7, 14, 30, 60, 100]
+  const milestones = [7, 14, 30, 60, 100];
+  return milestones.find((m) => m > streak) ?? 100;
 }
 
 // ── Role badge helper ──────────────────────────────────────────────────────
@@ -97,18 +98,19 @@ export default async function ProfilePage() {
 
   const db = adminDatabases();
 
-  // Fetch extra profile fields (upload_count, username_last_changed)
+  // `upload_count` in the users collection tracks approved papers (incremented on approval).
+  // Total submissions (pending + approved + rejected) are queried from the papers collection.
   let usernameLastChanged: string | null = null;
-  let uploadCount = 0;
+  let approvedCount = 0;
   try {
     const profileDoc = await db.getDocument(DATABASE_ID, COLLECTION.users, user.id);
     usernameLastChanged = (profileDoc.username_last_changed as string) ?? null;
-    uploadCount = (profileDoc.upload_count as number) ?? 0;
+    approvedCount = (profileDoc.upload_count as number) ?? 0;
   } catch {
     // ignore – not found or env missing
   }
 
-  // Total papers submitted by this user (approved + pending)
+  // Total papers submitted by this user (all statuses)
   let totalUploads = 0;
   try {
     const { total } = await db.listDocuments(DATABASE_ID, COLLECTION.papers, [
@@ -120,7 +122,6 @@ export default async function ProfilePage() {
     // ignore
   }
 
-  const approvedCount = uploadCount; // upload_count tracks approved papers
   const approvalPct = totalUploads > 0 ? Math.round((approvedCount / totalUploads) * 100) : 0;
 
   // Date formatting
@@ -138,15 +139,19 @@ export default async function ProfilePage() {
   const weekActive = getWeekActiveDays(streakDays, user.last_activity ?? "");
   const streakGoal = nextStreakGoal(streakDays);
 
-  // Earned achievements (activity-based only, no role badges)
+  // Earned achievements matching v2 badge types (activity-based only, no role badges)
+  // Thresholds mirror v2 ACHIEVEMENTS.md: first_upload, 10_uploads, 7_day_streak,
+  // 30_day_streak, approval_90 (90%+ with ≥10 uploads), top_contributor (xp ≥ 800 proxy)
   type EarnedAchievement = { icon: string; label: string };
   const earnedAchievements: EarnedAchievement[] = [
-    totalUploads >= 1 ? { icon: "📄", label: "First Upload" } : null,
-    streakDays >= 7 ? { icon: "🔥", label: "7-Day Streak" } : null,
-    streakDays >= 30 ? { icon: "⭐", label: "30-Day Streak" } : null,
-    user.xp >= 100 ? { icon: "⚡", label: "Explorer" } : null,
-    user.xp >= 300 ? { icon: "🏅", label: "Contributor" } : null,
-    user.xp >= 800 ? { icon: "🎖️", label: "Veteran" } : null,
+    totalUploads >= 1   ? { icon: "📤", label: "First Upload" }    : null,
+    totalUploads >= 10  ? { icon: "🏆", label: "10 Uploads" }      : null,
+    totalUploads >= 100 ? { icon: "💎", label: "100 Uploads" }     : null,
+    streakDays >= 7     ? { icon: "🔥", label: "7-Day Streak" }    : null,
+    streakDays >= 30    ? { icon: "⚡", label: "30-Day Streak" }   : null,
+    (approvalPct >= 90 && totalUploads >= 10) ? { icon: "✅", label: "90% Approval" } : null,
+    // Top Contributor: use xp ≥ 800 (Veteran level) as proxy — v2 uses monthly top-uploader
+    user.xp >= 800      ? { icon: "🥇", label: "Top Contributor" } : null,
   ].filter(Boolean) as EarnedAchievement[];
 
   const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);

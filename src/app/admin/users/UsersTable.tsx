@@ -50,10 +50,10 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
           </thead>
           <tbody>
             {list.map((u, idx) => {
-              // upload_count = approved papers; use as both Uploads lower-bound and Approved
+              // upload_count = approved papers (incremented on approval in v3 gamification).
+              // Without a separate total_uploads counter we can't compute an accurate
+              // approval %, so we show the approved count and "—" for the percentage.
               const approved = u.upload_count;
-              const uploads = u.upload_count;
-              const approvalPct = uploads > 0 ? 100 : 0;
 
               return (
                 <tr
@@ -89,9 +89,9 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
                     <RoleBadge role={u.primary_role} />
                   </td>
 
-                  {/* Uploads */}
+                  {/* Uploads (= approved papers; v3 tracks upload_count on approval) */}
                   <td className="whitespace-nowrap px-4 py-3 text-right font-medium text-sm">
-                    {uploads}
+                    {approved}
                   </td>
 
                   {/* Approved */}
@@ -99,9 +99,9 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
                     {approved}
                   </td>
 
-                  {/* Approval % */}
-                  <td className="whitespace-nowrap px-4 py-3 text-right text-sm">
-                    {uploads > 0 ? `${approvalPct}%` : <span style={{ color: "var(--color-text-muted)" }}>—</span>}
+                  {/* Approval % – requires total_uploads which is not stored per-user */}
+                  <td className="whitespace-nowrap px-4 py-3 text-right text-sm" style={{ color: "var(--color-text-muted)" }}>
+                    —
                   </td>
 
                   {/* XP */}
