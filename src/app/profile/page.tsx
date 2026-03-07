@@ -5,6 +5,7 @@ import { adminDatabases, DATABASE_ID, COLLECTION, Query } from "@/lib/appwrite";
 import { signOut } from "@/app/auth/actions";
 import ProfileEditor from "./ProfileEditor";
 import { TierBadge } from "@/components/RoleBadge";
+import { Icon, type IconName } from "@/components/Icons";
 
 export const metadata: Metadata = {
   title: "Profile",
@@ -12,15 +13,15 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-// ── XP rank helpers ────────────────────────────────────────────────────────
+// ── XP tier system (mirrors v2 ROLES.md §7 and profile-panel.js XP_LEVELS) ─
 const XP_TIERS = [
-  { xp: 0,    label: "Visitor" },
-  { xp: 100,  label: "Explorer" },
-  { xp: 300,  label: "Contributor" },
-  { xp: 800,  label: "Veteran" },
-  { xp: 1500, label: "Senior" },
-  { xp: 3000, label: "Elite" },
-  { xp: 5000, label: "Legend" },
+  { xp: 0,    level: 0,   label: "Visitor" },
+  { xp: 100,  level: 5,   label: "Explorer" },
+  { xp: 300,  level: 10,  label: "Contributor" },
+  { xp: 800,  level: 25,  label: "Veteran" },
+  { xp: 1500, level: 50,  label: "Senior" },
+  { xp: 3000, level: 90,  label: "Elite" },
+  { xp: 5000, level: 100, label: "Legend" },
 ];
 
 function xpRank(xp: number): string {
@@ -39,15 +40,15 @@ function xpProgress(xp: number): { progress: number; nextXp: number | null; next
   return { progress, nextXp: next?.xp ?? null, nextLabel: next?.label ?? null };
 }
 
-// ── Streak week helpers ────────────────────────────────────────────────────
+// ── Streak week visualisation ────────────────────────────────────────────────
 const WEEK_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 /**
- * Returns a boolean[7] (Mon–Sun) indicating which days of the current
- * calendar week are part of the user's active streak.
+ * Returns boolean[7] (Mon–Sun) indicating which days of the current calendar
+ * week belong to the user's active streak.
  *
- * Approximation: if last_activity is today or yesterday (streak is live),
- * mark the last `streakDays` days (up to 7) ending at `lastActivity`.
+ * If last_activity is today or yesterday the streak is live; we mark the last
+ * `streakDays` days (up to 7) ending at `lastActivity`.
  */
 function getWeekActiveDays(streakDays: number, lastActivity: string): boolean[] {
   const active = new Array(7).fill(false) as boolean[];
@@ -65,7 +66,7 @@ function getWeekActiveDays(streakDays: number, lastActivity: string): boolean[] 
   // Start of current week (Monday = index 0)
   const weekStart = new Date(now);
   const dow = now.getDay(); // 0 = Sun
-  const daysFromMon = (dow === 0) ? 6 : dow - 1;
+  const daysFromMon = dow === 0 ? 6 : dow - 1;
   weekStart.setDate(weekStart.getDate() - daysFromMon);
   weekStart.setHours(12, 0, 0, 0);
 
@@ -79,18 +80,22 @@ function getWeekActiveDays(streakDays: number, lastActivity: string): boolean[] 
   return active;
 }
 
+/** Next streak milestone — mirrors v2 renderStreak milestones [7,14,30,60,100] */
 function nextStreakGoal(streak: number): number {
-  // Milestones match v2: [7, 14, 30, 60, 100]
   const milestones = [7, 14, 30, 60, 100];
   return milestones.find((m) => m > streak) ?? 100;
 }
 
-// ── Role badge helper ──────────────────────────────────────────────────────
-function roleBadgeIcon(role: string): string {
-  if (role === "founder") return "👑";
-  if (role === "admin" || role === "moderator") return "🛡️";
-  return "⭐";
+// ── Role badge SVG icon name (matches v2 roles.js getBadgeIcon) ─────────────
+function roleBadgeIconName(role: string): IconName {
+  if (role === "founder")   return "crown";
+  if (role === "admin")     return "shield";
+  if (role === "moderator") return "badge";
+  return "user";
 }
+
+// ── Achievement types matching v2 ACHIEVEMENTS.md ───────────────────────────
+type EarnedAchievement = { icon: IconName; label: string };
 
 export default async function ProfilePage() {
   const user = await getServerUser();
@@ -98,8 +103,9 @@ export default async function ProfilePage() {
 
   const db = adminDatabases();
 
-  // `upload_count` in the users collection tracks approved papers (incremented on approval).
-  // Total submissions (pending + approved + rejected) are queried from the papers collection.
+  // `upload_count` in the users collection tracks approved papers (incremented on
+  // approval in the gamification logic). Total submissions (all statuses) are
+  // queried separately from the papers collection.
   let usernameLastChanged: string | null = null;
   let approvedCount = 0;
   try {
@@ -124,7 +130,9 @@ export default async function ProfilePage() {
 
   const approvalPct = totalUploads > 0 ? Math.round((approvedCount / totalUploads) * 100) : 0;
 
-  // Date formatting
+  // Date format: "Jan 2026" matches v2 screenshot "Member since Feb 2026".
+  // Using en-US with { month: 'short', year: 'numeric' } gives the same output
+  // regardless of browser locale (e.g. "Feb 2026"), which is what v2 renders.
   const joinedDate = new Date(user.created_at).toLocaleDateString("en-US", {
     year: "numeric",
     month: "short",
@@ -134,27 +142,29 @@ export default async function ProfilePage() {
   const { progress: xpPercent, nextXp, nextLabel } = xpProgress(user.xp);
   const currentRank = xpRank(user.xp);
 
-  // Streak visualisation
   const streakDays = user.streak_days;
   const weekActive = getWeekActiveDays(streakDays, user.last_activity ?? "");
   const streakGoal = nextStreakGoal(streakDays);
 
-  // Earned achievements matching v2 badge types (activity-based only, no role badges)
-  // Thresholds mirror v2 ACHIEVEMENTS.md: first_upload, 10_uploads, 7_day_streak,
-  // 30_day_streak, approval_90 (90%+ with ≥10 uploads), top_contributor (xp ≥ 800 proxy)
-  type EarnedAchievement = { icon: string; label: string };
+  // ── Earned achievements (v2 badge types from ACHIEVEMENTS.md) ────────────
+  // Badges that can't be auto-computed (first_review, first_publish, early_user)
+  // use best available proxies; see docs/XP_ACHIEVEMENTS.md for full details.
   const earnedAchievements: EarnedAchievement[] = [
-    totalUploads >= 1   ? { icon: "📤", label: "First Upload" }    : null,
-    totalUploads >= 10  ? { icon: "🏆", label: "10 Uploads" }      : null,
-    totalUploads >= 100 ? { icon: "💎", label: "100 Uploads" }     : null,
-    streakDays >= 7     ? { icon: "🔥", label: "7-Day Streak" }    : null,
-    streakDays >= 30    ? { icon: "⚡", label: "30-Day Streak" }   : null,
-    (approvalPct >= 90 && totalUploads >= 10) ? { icon: "✅", label: "90% Approval" } : null,
-    // Top Contributor: use xp ≥ 800 (Veteran level) as proxy — v2 uses monthly top-uploader
-    user.xp >= 800      ? { icon: "🥇", label: "Top Contributor" } : null,
+    totalUploads >= 1   ? { icon: "upload",    label: "First Upload" }    : null,
+    totalUploads >= 10  ? { icon: "trophy",    label: "10 Uploads" }      : null,
+    totalUploads >= 100 ? { icon: "sparkles",  label: "100 Uploads" }     : null,
+    streakDays >= 7     ? { icon: "fire",      label: "7-Day Streak" }    : null,
+    streakDays >= 30    ? { icon: "lightning", label: "30-Day Streak" }   : null,
+    (approvalPct >= 90 && totalUploads >= 10) ? { icon: "badge", label: "90% Approval" } : null,
+    // Top Contributor proxy: Veteran XP level (800+) — mirrors v2 xp ≥ 800 threshold
+    user.xp >= 800      ? { icon: "medal",     label: "Top Contributor" } : null,
   ].filter(Boolean) as EarnedAchievement[];
 
   const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+  // XP bar left label: show primary role name for system roles, XP rank for students
+  // mirrors v2 profile-panel.js xpCurrentTierEl logic
+  const xpLabel = (user.role === "student") ? currentRank : capitalise(user.role);
 
   return (
     <section className="mx-auto px-4 py-8 space-y-4" style={{ maxWidth: "var(--max-w)" }}>
@@ -163,7 +173,7 @@ export default async function ProfilePage() {
       <div className="card p-6">
         <div className="flex flex-col items-center">
 
-          {/* Avatar + name + username (client component for editing) */}
+          {/* Avatar + name + username (client component for interactive editing) */}
           <ProfileEditor
             initialName={user.name}
             initialUsername={user.username}
@@ -177,17 +187,18 @@ export default async function ProfilePage() {
             Member since {joinedDate}
           </p>
 
-          {/* Role badge – outlined pill with icon */}
+          {/* Role badge – outlined pill with SVG icon (v2 style) */}
           <div className="mt-3">
             <span
               className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium"
               style={{ border: "1px solid var(--color-border)" }}
             >
-              {roleBadgeIcon(user.role)} {capitalise(user.role)}
+              <Icon name={roleBadgeIconName(user.role)} size={14} aria-hidden="true" />
+              {capitalise(user.role)}
             </span>
           </div>
 
-          {/* Achievements */}
+          {/* ── Achievements (v2 ACHIEVEMENTS.md badge types) ── */}
           {earnedAchievements.length === 0 ? (
             <p className="mt-4 text-sm" style={{ color: "var(--color-text-muted)" }}>
               No achievements yet
@@ -204,13 +215,16 @@ export default async function ProfilePage() {
                     border: "1px solid rgba(211,47,47,0.2)",
                   }}
                 >
-                  {a.icon} {a.label}
+                  <Icon name={a.icon} size={11} aria-hidden="true" />
+                  {a.label}
                 </span>
               ))}
             </div>
           )}
 
           {/* ── XP progress bar ── */}
+          {/* Left: "{xp} XP · {role_or_rank}" — Right: "Next: {rank} ({xp} XP)"  */}
+          {/* Matches v2 profile-panel.js xpCurrentTierEl / xpNextInfoEl logic      */}
           <div className="w-full mt-5">
             <div
               className="h-2 w-full overflow-hidden rounded-full"
@@ -222,7 +236,7 @@ export default async function ProfilePage() {
               />
             </div>
             <div className="flex justify-between mt-1.5 text-xs" style={{ color: "var(--color-text-muted)" }}>
-              <span>{user.xp} XP · {capitalise(user.role)}</span>
+              <span>{user.xp} XP · {xpLabel}</span>
               {nextXp && nextLabel && (
                 <span>Next: {nextLabel} ({nextXp} XP)</span>
               )}
@@ -230,16 +244,20 @@ export default async function ProfilePage() {
           </div>
 
           {/* ── Daily Streak ── */}
+          {/* Header uses fire icon matching v2 renderStreak (SvgIcons.inline('fire')) */}
           <div className="w-full mt-6">
             <div className="flex items-center gap-2 mb-3">
-              {/* Heart-outline icon matching v2 */}
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--color-primary)" }} aria-hidden="true">
-                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-              </svg>
+              <Icon
+                name="fire"
+                size={18}
+                style={{ color: "var(--color-primary)" }}
+                aria-hidden="true"
+              />
               <span className="font-bold text-base">Daily Streak</span>
             </div>
 
-            {/* 7 day circles */}
+            {/* 7 circular day indicators (Mon–Sun) */}
+            {/* Active days: red bg + check SVG. Inactive: gray bg + day number (1–7) */}
             <div className="flex justify-between">
               {WEEK_DAYS.map((day, i) => (
                 <div key={day} className="flex flex-col items-center gap-1">
@@ -252,9 +270,7 @@ export default async function ProfilePage() {
                     }
                   >
                     {weekActive[i] ? (
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
+                      <Icon name="check" size={16} strokeWidth={3} aria-hidden="true" />
                     ) : (
                       i + 1
                     )}
@@ -264,8 +280,13 @@ export default async function ProfilePage() {
               ))}
             </div>
 
-            {/* Streak stats */}
-            <div className="flex justify-around mt-4 pt-3" style={{ borderTop: "1px solid var(--color-border)" }}>
+            {/* Streak stats row: Current / Best / Next goal */}
+            {/* "Best" shows streak_days; a separate best_streak field is not yet  */}
+            {/* stored in the users collection — tracked as a future enhancement.  */}
+            <div
+              className="flex justify-around mt-4 pt-3"
+              style={{ borderTop: "1px solid var(--color-border)" }}
+            >
               <div className="text-center">
                 <p className="text-2xl font-bold">{streakDays}</p>
                 <p className="text-xs mt-0.5" style={{ color: "var(--color-text-muted)" }}>Current</p>
@@ -281,9 +302,13 @@ export default async function ProfilePage() {
             </div>
           </div>
 
-          {/* ── 4-stat grid ── */}
+          {/* ── 4-stat grid (Uploads / Approved / Approval % / XP) ── */}
+          {/* Matches v2 profile stats layout (get_user_upload_stats RPC equivalent) */}
           <div className="w-full mt-5 grid grid-cols-2 gap-y-0">
-            <div className="text-center py-4" style={{ borderRight: "1px solid var(--color-border)" }}>
+            <div
+              className="text-center py-4"
+              style={{ borderRight: "1px solid var(--color-border)" }}
+            >
               <p className="text-3xl font-bold" style={{ color: "var(--color-primary)" }}>{totalUploads}</p>
               <p className="text-[11px] tracking-wider mt-1 uppercase" style={{ color: "var(--color-text-muted)" }}>Uploads</p>
             </div>
@@ -301,7 +326,10 @@ export default async function ProfilePage() {
               <p className="text-3xl font-bold" style={{ color: "var(--color-primary)" }}>{approvalPct}%</p>
               <p className="text-[11px] tracking-wider mt-1 uppercase" style={{ color: "var(--color-text-muted)" }}>Approval</p>
             </div>
-            <div className="text-center py-4" style={{ borderTop: "1px solid var(--color-border)" }}>
+            <div
+              className="text-center py-4"
+              style={{ borderTop: "1px solid var(--color-border)" }}
+            >
               <p className="text-3xl font-bold" style={{ color: "var(--color-primary)" }}>{user.xp}</p>
               <p className="text-[11px] tracking-wider mt-1 uppercase" style={{ color: "var(--color-text-muted)" }}>XP</p>
             </div>

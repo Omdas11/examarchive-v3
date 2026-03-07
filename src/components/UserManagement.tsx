@@ -5,6 +5,7 @@ import type { AdminUser, ActivityLogEntry } from "@/types";
 import { RoleBadge, TierBadge } from "./RoleBadge";
 import RoleEditModal from "./RoleEditModal";
 import ActivityLog from "./ActivityLog";
+import { IconUpload, IconLightning, IconFire } from "@/components/Icons";
 
 const PAGE_SIZE = 10;
 
@@ -178,9 +179,19 @@ export default function UserManagement({
 
             {/* Stats row */}
             <div className="flex gap-4 text-xs" style={{ color: "var(--color-text-muted)" }}>
-              <span>📤 {u.upload_count} uploads</span>
-              {u.xp > 0 && <span>⚡ {u.xp} XP</span>}
-              {u.streak_days > 0 && <span>🔥 {u.streak_days}d streak</span>}
+              <span className="inline-flex items-center gap-1">
+                <IconUpload size={11} aria-hidden="true" /> {u.upload_count} uploads
+              </span>
+              {u.xp > 0 && (
+                <span className="inline-flex items-center gap-1">
+                  <IconLightning size={11} aria-hidden="true" /> {u.xp} XP
+                </span>
+              )}
+              {u.streak_days > 0 && (
+                <span className="inline-flex items-center gap-1">
+                  <IconFire size={11} aria-hidden="true" /> {u.streak_days}d streak
+                </span>
+              )}
             </div>
 
             {/* Actions */}

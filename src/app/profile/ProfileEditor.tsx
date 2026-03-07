@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ToastContext";
 import AvatarRing from "@/components/AvatarRing";
+import { IconCamera, IconEdit, IconRefresh } from "@/components/Icons";
 import type { UserRole } from "@/types";
 
 interface ProfileEditorProps {
@@ -163,17 +164,10 @@ export default function ProfileEditor({
           style={{ background: "var(--color-primary)", color: "#fff" }}
           aria-label="Change profile photo"
         >
-          {uploadingAvatar ? (
-            <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-            </svg>
+        {uploadingAvatar ? (
+            <IconRefresh size={15} className="animate-spin" aria-hidden="true" />
           ) : (
-            /* Camera icon */
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-              <circle cx="12" cy="13" r="4" />
-            </svg>
+            <IconCamera size={15} aria-hidden="true" />
           )}
         </button>
 
@@ -229,10 +223,7 @@ export default function ProfileEditor({
               title="Edit username"
               aria-label="Edit username"
             >
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-              </svg>
+              <IconEdit size={11} strokeWidth={2.5} aria-hidden="true" />
             </button>
           ) : (
             <span className="text-[10px] shrink-0" style={{ color: "var(--color-text-muted)" }}>
