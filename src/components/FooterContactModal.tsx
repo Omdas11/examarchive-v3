@@ -14,8 +14,8 @@ export default function FooterContactModal({ label }: { label: string }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="text-left hover:underline hover:opacity-80 transition-opacity text-xs"
-        style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "inherit" }}
+        className="text-left hover:underline hover:opacity-80 transition-opacity text-xs cursor-pointer bg-transparent border-0 p-0"
+        style={{ color: "inherit" }}
       >
         {label}
       </button>
@@ -47,7 +47,7 @@ export default function FooterContactModal({ label }: { label: string }) {
 
             <h2 className="text-base font-semibold mb-1">{label}</h2>
             <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
-              Under development &mdash; coming soon.
+              Under development — coming soon.
             </p>
 
             <button

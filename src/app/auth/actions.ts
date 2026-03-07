@@ -26,7 +26,7 @@ export async function signInWithGoogle() {
   const successUrl = siteUrl ? `${siteUrl}/auth/callback` : "/auth/callback";
   const failureUrl = siteUrl ? `${siteUrl}/login?error=oauth_failed` : "/login?error=oauth_failed";
 
-  let oauthUrl: string;
+  let oauthUrl = "";
   try {
     const client = createAdminClient();
     const account = new Account(client);
@@ -42,7 +42,8 @@ export async function signInWithGoogle() {
 
   // redirect() is intentionally outside the try/catch so the NEXT_REDIRECT
   // internal error is not swallowed and re-emitted as a login error.
-  redirect(oauthUrl);
+  if (oauthUrl) redirect(oauthUrl);
+  redirect("/login?error=oauth_failed");
 }
 
 /**
