@@ -4,11 +4,11 @@ import { useState } from "react";
 import type { Syllabus } from "@/types";
 import { toRoman } from "@/lib/utils";
 
-interface SyallusModerationProps {
+interface SyllabusModerationProps {
   syllabi: Syllabus[];
 }
 
-export default function SyllabusModeration({ syllabi }: SyallusModerationProps) {
+export default function SyllabusModeration({ syllabi }: SyllabusModerationProps) {
   const [items, setItems] = useState<Syllabus[]>(syllabi);
   const [loading, setLoading] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
