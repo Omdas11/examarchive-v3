@@ -174,6 +174,21 @@ Stores syllabus PDFs linked to courses.
 | `course_name` | String (255) | yes | – |
 | `department` | String (100) | yes | – |
 | `file_url` | String (512) | yes | – |
+| `university` | String (255) | no | `""` |
+| `subject` | String (255) | no | `""` |
+| `semester` | String (50) | no | `""` |
+| `programme` | String (100) | no | `""` |
+| `year` | Integer | no | – |
+| `uploader_id` | String (36) | no | `""` |
+| `uploaded_by_username` | String (100) | no | `""` |
+| `approval_status` | String (50) | no | `"pending"` |
+| `is_hidden` | Boolean | no | `false` |
+
+> **`is_hidden` is required for the admin Hide feature.**  
+> Without this attribute, the `hide-syllabus` admin action will return an Appwrite
+> "Unknown attribute: is_hidden" error. Add it via **Appwrite Console → Database →
+> `examarchive` → `syllabus` → Attributes → Create Attribute → Boolean**, name it
+> `is_hidden`, set the default value to `false`, and mark it as optional.
 
 **Permissions:**
 - Role `any` → **Read**
@@ -376,3 +391,25 @@ Confirm that `APPWRITE_API_KEY` and other server-only secrets do **not** appear 
 ```bash
 grep -r "APPWRITE_API_KEY" .next/static/ 2>/dev/null && echo "LEAK DETECTED" || echo "No secrets leaked"
 ```
+
+---
+
+## Custom Branding (PNG Logo)
+
+You can replace the default inline SVG "EA" monogram with your own PNG logo without touching
+any source code.
+
+### Steps
+
+1. Create the directory `/public/branding/` (already present in the repo).
+2. Place your PNG files there:
+
+| File | Used for | Recommended size |
+|------|----------|-----------------|
+| `logo.png` | Site logo (navbar, header) | 56 × 56 px |
+| `loading.png` | Loading / splash screen icon | 56 × 56 px |
+
+3. Both files are **optional**. The app automatically falls back to the built-in SVG monogram
+   if either file is missing.
+
+> See `/public/branding/README.md` for full details and tips.

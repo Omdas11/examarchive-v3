@@ -1,4 +1,10 @@
 import type { Metadata } from "next";
+import {
+  adminDatabases,
+  DATABASE_ID,
+  COLLECTION,
+  Query,
+} from "@/lib/appwrite";
 
 export const metadata: Metadata = {
   title: "About",
@@ -12,13 +18,6 @@ const steps = [
   { num: 4, title: "Discover", desc: "Anyone can browse and download freely." },
 ];
 
-const stats = [
-  { label: "Published Papers", value: "0+" },
-  { label: "Contributors", value: "0+" },
-  { label: "Paper Requests", value: "0+" },
-  { label: "Total Uploads", value: "0+" },
-];
-
 const contributions = [
   "Upload question papers you have access to.",
   "Report incorrect or duplicate papers.",
@@ -27,7 +26,45 @@ const contributions = [
   "Apply to become a moderator or admin.",
 ];
 
-export default function AboutPage() {
+/** Fetch live platform statistics from Appwrite. Falls back to 0 on error. */
+async function fetchStats() {
+  try {
+    const db = adminDatabases();
+    const [papersRes, syllabusRes, usersRes] = await Promise.allSettled([
+      db.listDocuments(DATABASE_ID, COLLECTION.papers, [
+        Query.equal("approved", true),
+        Query.limit(1),
+      ]),
+      db.listDocuments(DATABASE_ID, COLLECTION.syllabus, [
+        Query.equal("approval_status", "approved"),
+        Query.limit(1),
+      ]),
+      db.listDocuments(DATABASE_ID, COLLECTION.users, [Query.limit(1)]),
+    ]);
+
+    const papers =
+      papersRes.status === "fulfilled" ? papersRes.value.total : 0;
+    const syllabi =
+      syllabusRes.status === "fulfilled" ? syllabusRes.value.total : 0;
+    const users =
+      usersRes.status === "fulfilled" ? usersRes.value.total : 0;
+
+    return { papers, syllabi, users };
+  } catch {
+    return { papers: 0, syllabi: 0, users: 0 };
+  }
+}
+
+export default async function AboutPage() {
+  const { papers, syllabi, users } = await fetchStats();
+
+  const stats = [
+    { label: "Published Papers", value: papers > 0 ? `${papers}+` : "0+" },
+    { label: "Contributors", value: users > 0 ? `${users}+` : "0+" },
+    { label: "Syllabi Available", value: syllabi > 0 ? `${syllabi}+` : "0+" },
+    { label: "Free & Open", value: "100%" },
+  ];
+
   return (
     <section className="mx-auto px-4 py-10" style={{ maxWidth: "var(--max-w)" }}>
       {/* Intro */}
