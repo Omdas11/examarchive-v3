@@ -15,25 +15,35 @@ import { SESSION_COOKIE } from "@/lib/auth";
  * Server Action – initiate Google OAuth sign-in via Appwrite.
  * Redirects the user to the Google consent screen; on success Appwrite
  * calls /auth/callback with the session credentials.
+ *
+ * NOTE: redirect() must be called **outside** any try/catch block because
+ * Next.js implements redirect() by throwing a special NEXT_REDIRECT error
+ * internally. Catching that error and re-throwing it as a login error
+ * caused the "/login?error=NEXT_REDIRECT" regression.
  */
 export async function signInWithGoogle() {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
   const successUrl = siteUrl ? `${siteUrl}/auth/callback` : "/auth/callback";
   const failureUrl = siteUrl ? `${siteUrl}/login?error=oauth_failed` : "/login?error=oauth_failed";
 
+  let oauthUrl = "";
   try {
     const client = createAdminClient();
     const account = new Account(client);
-    const oauthUrl = await account.createOAuth2Token(
+    oauthUrl = await account.createOAuth2Token(
       OAuthProvider.Google,
       successUrl,
       failureUrl,
     );
-    redirect(oauthUrl);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     redirect(`/login?error=${encodeURIComponent(message)}`);
   }
+
+  // redirect() is intentionally outside the try/catch so the NEXT_REDIRECT
+  // internal error is not swallowed and re-emitted as a login error.
+  if (oauthUrl) redirect(oauthUrl);
+  redirect("/login?error=oauth_failed");
 }
 
 /**
