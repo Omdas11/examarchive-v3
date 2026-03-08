@@ -34,6 +34,7 @@ export default function SyllabusUploadForm() {
   const [registryEntry, setRegistryEntry] = useState<SyllabusRegistryEntry | null>(null);
   const [noRegistryMatch, setNoRegistryMatch] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const startTimeRef = useRef<number>(0);
 
   /** When paper code changes, auto-fill metadata from the registry. */
@@ -243,6 +244,12 @@ export default function SyllabusUploadForm() {
               } else {
                 setMessage(null);
                 setFileName(file.name);
+                // Populate the file input so FormData picks it up on submit
+                const dt = new DataTransfer();
+                dt.items.add(file);
+                if (fileInputRef.current) {
+                  fileInputRef.current.files = dt.files;
+                }
               }
             }
           }}
@@ -257,6 +264,7 @@ export default function SyllabusUploadForm() {
             Maximum file size: {MAX_MB} MB
           </p>
           <input
+            ref={fileInputRef}
             name="file"
             type="file"
             accept=".pdf"
