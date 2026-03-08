@@ -302,15 +302,18 @@ export async function POST(request: NextRequest) {
     case "approve-syllabus": {
       try {
         const syllabus = await db.getDocument(DATABASE_ID, COLLECTION.syllabus, id);
-
-        await db.updateDocument(DATABASE_ID, COLLECTION.syllabus, id, {
-          approval_status: "approved",
-        });
-
-        // Grant XP and auto-promote the uploader, same as paper approvals
         const uploaderId = syllabus.uploader_id as string | undefined;
-        if (uploaderId) {
-          await incrementUploadCount(db, uploaderId);
+        const wasApproved = syllabus.approval_status === "approved";
+
+        if (!wasApproved) {
+          await db.updateDocument(DATABASE_ID, COLLECTION.syllabus, id, {
+            approval_status: "approved",
+          });
+
+          // Grant XP and auto-promote the uploader, same as paper approvals
+          if (uploaderId) {
+            await incrementUploadCount(db, uploaderId);
+          }
         }
 
         await logActivity(db, {

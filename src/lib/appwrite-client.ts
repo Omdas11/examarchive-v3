@@ -93,7 +93,7 @@ export async function uploadFileDirectly(
       }
     : undefined;
 
-  await storage.createFile(BUCKET_ID, fileId, file, [], sdkProgress);
+  await storage.createFile(BUCKET_ID, fileId, file, undefined, sdkProgress);
   return fileId;
 }
 
@@ -125,6 +125,6 @@ export async function uploadSyllabusFileDirectly(
       }
     : undefined;
 
-  await storage.createFile(SYLLABUS_BUCKET_ID, fileId, file, [], sdkProgress);
+  await storage.createFile(SYLLABUS_BUCKET_ID, fileId, file, undefined, sdkProgress);
   return fileId;
 }
