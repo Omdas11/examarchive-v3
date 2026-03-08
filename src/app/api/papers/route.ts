@@ -28,10 +28,18 @@ export async function GET(request: NextRequest) {
 
     if (department) queries.push(Query.equal("department", department));
     if (courseCode) queries.push(Query.equal("course_code", courseCode));
-    if (year) queries.push(Query.equal("year", Number(year)));
+    if (year) {
+      const yearNum = Number(year);
+      if (!isNaN(yearNum) && yearNum >= 1900 && yearNum <= 2100) {
+        queries.push(Query.equal("year", yearNum));
+      }
+    }
     if (semester) queries.push(Query.equal("semester", semester));
     if (examType) queries.push(Query.equal("exam_type", examType));
     if (search) queries.push(Query.search("title", search));
+
+    // Cap results to prevent unbounded queries
+    queries.push(Query.limit(200));
 
     const db = adminDatabases();
     const { documents } = await db.listDocuments(

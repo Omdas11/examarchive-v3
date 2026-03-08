@@ -6,7 +6,6 @@ import {
   DATABASE_ID,
   COLLECTION,
   ID,
-  Query,
 } from "@/lib/appwrite";
 
 /** XP awarded when a paper is approved. */
@@ -59,16 +58,14 @@ async function incrementUploadCount(
   uploaderId: string,
 ) {
   try {
-    // Fetch the uploader's profile
-    const { documents } = await db.listDocuments(
-      DATABASE_ID,
-      COLLECTION.users,
-      [Query.equal("$id", uploaderId), Query.limit(1)],
-    );
+    // Fetch the uploader's profile directly by document ID (more efficient than querying)
+    let profile: Record<string, unknown>;
+    try {
+      profile = await db.getDocument(DATABASE_ID, COLLECTION.users, uploaderId) as Record<string, unknown>;
+    } catch {
+      return; // user profile may not exist
+    }
 
-    if (documents.length === 0) return;
-
-    const profile = documents[0];
     const currentCount = ((profile.upload_count as number) ?? 0) + 1;
     const update: Record<string, unknown> = { upload_count: currentCount };
 
@@ -106,12 +103,16 @@ async function incrementUploadCount(
     update.streak = streak;
     update.last_activity = now.toISOString();
 
-    // Auto-promote: assign "contributor" as secondary_role after threshold
+    // Auto-promote: upgrade `role` to "contributor" after reaching the threshold.
+    // "contributor" is a valid UserRole so we update the main role field, not secondary_role.
+    // "student" is included because it is a legacy alias for "visitor" (level 0) and
+    // some older profiles may still carry that value.
+    const currentRole = (profile.role as string) ?? "visitor";
     if (
       currentCount >= CONTRIBUTOR_THRESHOLD &&
-      !profile.secondary_role
+      (currentRole === "student" || currentRole === "visitor" || currentRole === "explorer")
     ) {
-      update.secondary_role = "contributor";
+      update.role = "contributor";
     }
 
     // Auto-promote: set tier to silver once moderator-eligible threshold is reached

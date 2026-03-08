@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import { useState, useMemo } from "react";
+import type { CSSProperties } from "react";
 import Link from "next/link";
 import type { Syllabus } from "@/types";
 import { toRoman } from "@/lib/utils";
@@ -149,8 +150,7 @@ type SortKey = "code" | "name" | "semester" | "credits";
 
 /** Colour-code the accent bar by programme type. */
 const PROGRAMME_COLORS: Record<string, string> = {
-  FYUGP: "#3b82f6",  // blue
-  FYUG: "#3b82f6",
+  FYUGP: "#3b82f6",  // blue — covers both "FYUG" and "FYUGP" via substring match below
   CBCS: "#10b981",   // emerald
   NEP: "#f59e0b",    // amber
   HONOURS: "#8b5cf6", // violet
@@ -159,6 +159,9 @@ const PROGRAMME_COLORS: Record<string, string> = {
 function programmeAccentColor(programme?: string): string {
   if (!programme) return "var(--color-primary)";
   const upper = programme.toUpperCase();
+  // Check "FYUG" first so that both "FYUG" and "FYUGP" resolve to the same blue colour
+  // (substring match: "FYUGP".includes("FYUG") === true)
+  if (upper.includes("FYUG")) return PROGRAMME_COLORS.FYUGP;
   for (const [key, color] of Object.entries(PROGRAMME_COLORS)) {
     if (upper.includes(key)) return color;
   }
@@ -166,7 +169,7 @@ function programmeAccentColor(programme?: string): string {
 }
 
 /** Badge colours for programme pill. */
-function programmeBadgeStyle(programme?: string): React.CSSProperties {
+function programmeBadgeStyle(programme?: string): CSSProperties {
   if (!programme) return { background: "var(--color-border)", color: "var(--color-text-muted)" };
   const upper = programme.toUpperCase();
   if (upper.includes("FYUG")) return { background: "#dbeafe", color: "#1d4ed8" };

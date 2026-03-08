@@ -67,6 +67,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "All fields are required." }, { status: 400 });
     }
 
+    const yearNum = Number(year);
+    if (isNaN(yearNum) || yearNum < 1900 || yearNum > 2100) {
+      return NextResponse.json({ error: "Invalid year value." }, { status: 400 });
+    }
+
     const fileUrl = getAppwriteFileUrl(fileId);
 
     // Verify the file actually exists in Appwrite Storage.
@@ -89,7 +94,7 @@ export async function POST(request: NextRequest) {
         course_code,
         course_name,
         department,
-        year: Number(year),
+        year: yearNum,
         semester,
         exam_type,
         file_url: fileUrl,

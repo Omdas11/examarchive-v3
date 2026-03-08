@@ -3,10 +3,11 @@ import FooterContactModal from "@/components/FooterContactModal";
 
 /** Partner/platform logos uploaded to /public/branding/footer/. */
 const PLATFORM_LOGOS = [
-  { href: "https://github.com/Omdas11/examarchive-v2", title: "GitHub", src: "/branding/footer/partner-github.png" },
-  { href: "https://www.google.com",  title: "Google",  src: "/branding/footer/partner-google.png" },
-  { href: "https://appwrite.io",     title: "Appwrite", src: "/branding/footer/partner-appwrite.png" },
-  { href: "https://nextjs.org",      title: "Next.js", src: "/branding/footer/partner-netxjs.png" },
+  { href: "https://github.com/Omdas11/examarchive-v2", title: "GitHub",  src: "/branding/footer/partner-github.png" },
+  { href: "https://www.google.com",                    title: "Google",  src: "/branding/footer/partner-google.png" },
+  { href: "https://appwrite.io",                       title: "Appwrite", src: "/branding/footer/partner-appwrite.png" },
+  // Note: filename was uploaded as "partner-netxjs.png" (typo for "nextjs") — kept as-is to match the actual file.
+  { href: "https://nextjs.org",                        title: "Next.js", src: "/branding/footer/partner-netxjs.png" },
 ];
 
 /** University partner logos uploaded to /public/branding/footer/. */

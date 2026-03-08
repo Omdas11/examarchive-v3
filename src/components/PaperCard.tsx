@@ -40,7 +40,8 @@ function subjectColor(department: string): string {
 
 export default function PaperCard({ paper }: PaperCardProps) {
   const accent = subjectColor(paper.department);
-  const semRoman = paper.semester ? toRoman(parseInt(paper.semester, 10)) : paper.semester;
+  const semNum = paper.semester ? parseInt(paper.semester, 10) : NaN;
+  const semRoman = !isNaN(semNum) && semNum >= 1 ? toRoman(semNum) : paper.semester;
 
   const metaLine = [
     paper.institution,

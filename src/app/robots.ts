@@ -1,8 +1,11 @@
 import type { MetadataRoute } from "next";
 
+const SITE_URL = "https://examarchive.dev";
+
 /**
- * Generates /robots.txt via Next.js Metadata API.
- * Disallows admin and API routes from being indexed.
+ * Generates /robots.txt via the Next.js Metadata API.
+ * Allows all crawlers to index public pages while blocking
+ * admin, API, devtool, and personal settings pages.
  */
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -10,10 +13,10 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        disallow: ["/admin", "/api/"],
+        disallow: ["/admin", "/api/", "/devtool", "/settings"],
       },
     ],
-    sitemap: "https://examarchive.dev/sitemap.xml",
-    host: "https://examarchive.dev",
+    sitemap: `${SITE_URL}/sitemap.xml`,
+    host: SITE_URL,
   };
 }
