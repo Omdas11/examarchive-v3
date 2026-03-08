@@ -179,7 +179,7 @@ export default function SettingsForm({ user }: SettingsFormProps) {
           <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
             To delete your account or change your email, please contact{" "}
             <a
-              href="mailto:contact@examarchive.org"
+              href="mailto:support@examarchive.dev"
               style={{ color: "var(--color-primary)" }}
               className="underline"
             >

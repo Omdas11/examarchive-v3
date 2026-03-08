@@ -86,12 +86,26 @@ export interface UserProfile {
   created_at: string;
 }
 
-/** Supported user roles. */
-export type UserRole = "student" | "moderator" | "admin" | "founder";
-
-/** Extended roles migrated from ExamArchive-v2 (custom/community roles). */
-export type CustomRole =
+/**
+ * Supported user roles – ordered from least to most privileged.
+ * "student" is kept as a legacy alias for "visitor" (level 0).
+ *
+ * Hierarchy: visitor → explorer → contributor → verified_contributor
+ *            → moderator → maintainer → admin → founder
+ */
+export type UserRole =
+  | "visitor"
+  | "student"           // legacy alias for visitor (level 0)
+  | "explorer"
   | "contributor"
+  | "verified_contributor"
+  | "moderator"
+  | "maintainer"
+  | "admin"
+  | "founder";
+
+/** Community/cosmetic custom roles (display-only, never grant permissions). */
+export type CustomRole =
   | "reviewer"
   | "curator"
   | "mentor"
@@ -121,11 +135,11 @@ export interface ExtendedUserProfile {
   name: string;
   username: string;
   avatar_url: string;
-  /** Primary role: the main access-control role. */
-  primary_role: UserRole;
-  /** Secondary role: a community/custom role, optional. */
+  /** Single authoritative role for this user. */
+  role: UserRole;
+  /** Community/custom cosmetic role, optional. */
   secondary_role: CustomRole;
-  /** Tertiary role: an additional optional designation. */
+  /** An additional optional community designation. */
   tertiary_role: CustomRole;
   /** Activity-based tier. */
   tier: UserTier;
@@ -155,7 +169,9 @@ export interface AdminUser {
   name: string;
   username: string;
   avatar_url: string;
+  /** Single authoritative role – the only field used for access control. */
   role: UserRole;
+  /** @deprecated Use `role` instead. Kept for backward compatibility only. */
   primary_role: UserRole;
   secondary_role: CustomRole;
   tertiary_role: CustomRole;

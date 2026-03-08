@@ -1,11 +1,56 @@
 import type { CustomRole, UserRole, UserTier } from "@/types";
 
-/** Hierarchy used for comparison – higher number = more privilege. */
+/**
+ * Role hierarchy – higher number = more privilege.
+ *
+ * Progression: visitor → explorer → contributor → verified_contributor
+ *              → moderator → maintainer → admin → founder
+ *
+ * "student" is a legacy alias kept at level 0 for backward compatibility.
+ */
 const ROLE_LEVELS: Record<UserRole, number> = {
+  visitor: 0,
+  student: 0,            // legacy alias for visitor
+  explorer: 1,
+  contributor: 2,
+  verified_contributor: 3,
+  moderator: 4,
+  maintainer: 5,
+  admin: 6,
+  founder: 7,
+};
+
+/**
+ * Minimum XP required to be eligible for each role (informational only –
+ * promotions are always confirmed manually by an admin or founder).
+ * "student" / "visitor" require 0 XP (default starting role).
+ */
+export const ROLE_XP_THRESHOLDS: Record<UserRole, number> = {
+  visitor: 0,
   student: 0,
-  moderator: 1,
-  admin: 2,
-  founder: 3,
+  explorer: 50,
+  contributor: 150,
+  verified_contributor: 300,
+  moderator: 0,           // moderation roles are assigned, not earned by XP
+  maintainer: 0,
+  admin: 0,
+  founder: 0,
+};
+
+/**
+ * Static ring colour for each role (shown in AvatarRing component).
+ * Returns null for visitor / student (no ring).
+ */
+export const ROLE_RING_COLORS: Record<UserRole, string | null> = {
+  visitor: null,
+  student: null,
+  explorer: "#0ea5e9",           // sky-500
+  contributor: "#3b82f6",        // blue-500
+  verified_contributor: "#6366f1", // indigo-500
+  moderator: "#f97316",          // orange-500
+  maintainer: "#a855f7",         // purple-500
+  admin: "#ef4444",              // red-500
+  founder: "#7c3aed",            // violet-700 (static purple)
 };
 
 /** Tier hierarchy – higher number = higher standing. */
@@ -19,7 +64,6 @@ const TIER_LEVELS: Record<UserTier, number> = {
 
 /** Valid custom (secondary / tertiary) role values. */
 const VALID_CUSTOM_ROLES = new Set<string>([
-  "contributor",
   "reviewer",
   "curator",
   "mentor",
