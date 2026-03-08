@@ -5,7 +5,7 @@ import type { CSSProperties } from "react";
 import Link from "next/link";
 import type { Syllabus } from "@/types";
 import { toRoman } from "@/lib/utils";
-import { SYLLABUS_REGISTRY, groupBySemester } from "@/data/syllabus-registry";
+import { SYLLABUS_REGISTRY, groupBySemester, getAllUniversities } from "@/data/syllabus-registry";
 import type { SyllabusRegistryEntry } from "@/data/syllabus-registry";
 import { PAPER_TYPE_COLORS } from "@/components/PaperCard";
 
@@ -183,41 +183,51 @@ function programmeBadgeStyle(programme?: string): CSSProperties {
 
 /** Tab 2: Paper Syllabus Library from the registry. */
 function PaperLibrary() {
+  const [filterUniversity, setFilterUniversity] = useState<string>("ALL");
   const [filterProg, setFilterProg] = useState<string>("ALL");
   const [filterCategory, setFilterCategory] = useState<string>("ALL");
   const [filterSubject, setFilterSubject] = useState<string>("ALL");
   const [sortKey, setSortKey] = useState<SortKey>("semester");
 
-  const programmes = ["ALL", ...Array.from(new Set(SYLLABUS_REGISTRY.map((e) => e.programme))).sort()];
+  const universities = ["ALL", ...getAllUniversities()];
+  const programmes = useMemo(() => ["ALL", ...Array.from(new Set(
+    SYLLABUS_REGISTRY
+      .filter((e) => filterUniversity === "ALL" || e.university === filterUniversity)
+      .map((e) => e.programme),
+  )).sort()], [filterUniversity]);
 
   const categories = useMemo(() => [
     "ALL",
     ...Array.from(
       new Set(
-        SYLLABUS_REGISTRY.filter(
-          (e) => filterProg === "ALL" || e.programme === filterProg,
-        )
+        SYLLABUS_REGISTRY.filter((e) => {
+          if (filterUniversity !== "ALL" && e.university !== filterUniversity) return false;
+          if (filterProg !== "ALL" && e.programme !== filterProg) return false;
+          return true;
+        })
           .map((e) => e.category)
           .filter(Boolean),
       ),
     ).sort() as string[],
-  ], [filterProg]);
+  ], [filterUniversity, filterProg]);
 
   const subjects = useMemo(() => [
     "ALL",
     ...Array.from(
       new Set(
         SYLLABUS_REGISTRY.filter((e) => {
+          if (filterUniversity !== "ALL" && e.university !== filterUniversity) return false;
           if (filterProg !== "ALL" && e.programme !== filterProg) return false;
           if (filterCategory !== "ALL" && e.category !== filterCategory) return false;
           return true;
         }).map((e) => e.subject),
       ),
     ).sort(),
-  ], [filterProg, filterCategory]);
+  ], [filterUniversity, filterProg, filterCategory]);
 
   const filtered = useMemo(() => {
     const entries = SYLLABUS_REGISTRY.filter((e) => {
+      if (filterUniversity !== "ALL" && e.university !== filterUniversity) return false;
       if (filterProg !== "ALL" && e.programme !== filterProg) return false;
       if (filterCategory !== "ALL" && e.category !== filterCategory) return false;
       if (filterSubject !== "ALL" && e.subject !== filterSubject) return false;
@@ -232,7 +242,7 @@ function PaperLibrary() {
         default: return a.semester - b.semester;
       }
     });
-  }, [filterProg, filterCategory, filterSubject, sortKey]);
+  }, [filterUniversity, filterProg, filterCategory, filterSubject, sortKey]);
 
   // When grouping by subject, sort=semester still applies within each group.
   // Group: subject → semester → entries
@@ -245,6 +255,13 @@ function PaperLibrary() {
     }
     return map;
   }, [filtered]);
+
+  function handleUniversityClick(u: string) {
+    setFilterUniversity(u);
+    setFilterProg("ALL");
+    setFilterCategory("ALL");
+    setFilterSubject("ALL");
+  }
 
   function handleProgClick(p: string) {
     setFilterProg(p);
@@ -261,6 +278,22 @@ function PaperLibrary() {
 
   return (
     <div className="mt-6 space-y-4">
+      {/* University filter */}
+      {universities.length > 2 && (
+        <div className="flex flex-wrap gap-1">
+          {universities.map((u) => (
+            <button
+              key={u}
+              type="button"
+              onClick={() => handleUniversityClick(u)}
+              className={`toggle-btn${filterUniversity === u ? " active" : ""}`}
+            >
+              {u}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Programme filter */}
       <div className="flex flex-wrap gap-1">
         {programmes.map((p) => (

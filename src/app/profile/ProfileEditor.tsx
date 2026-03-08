@@ -155,12 +155,12 @@ export default function ProfileEditor({
           role={role}
           size={96}
         />
-        {/* Camera overlay button */}
+        {/* Camera overlay button — z-10 ensures it floats above the AvatarRing stacking context */}
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={uploadingAvatar}
-          className="absolute bottom-0 right-0 flex items-center justify-center rounded-full w-8 h-8 shadow-md transition-opacity hover:opacity-90"
+          className="absolute bottom-0 right-0 z-10 flex items-center justify-center rounded-full w-8 h-8 shadow-md transition-opacity hover:opacity-90"
           style={{ background: "var(--color-primary)", color: "#fff" }}
           aria-label="Change profile photo"
         >
