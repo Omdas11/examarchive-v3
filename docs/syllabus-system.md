@@ -296,7 +296,61 @@ Both actions call `POST /api/admin` with `action: "approve-syllabus"` or
 
 ---
 
-## 7. Future Enhancements
+## 7. Departmental Syllabus
+
+### What Is a Departmental Syllabus?
+
+A **Departmental Syllabus** is a full programme syllabus document covering **all semesters** for
+a specific subject and programme (e.g. *Physics FYUG Full Syllabus* for Assam University).
+This is distinct from a **Semester Syllabus**, which covers only one semester.
+
+Examples:
+- *Physics FYUG Full Syllabus* — all 8 semesters of Physics under the FYUGP framework
+- *Chemistry CBCS Complete Syllabus* — all 6 semesters of Chemistry under CBCS
+
+### Upload Flow
+
+```
+/upload?type=dept_syllabus
+  ↓
+DeptSyllabusUploadForm
+  Fields: university, programme, department/subject, syllabus year
+  (No semester field — covers all semesters)
+  ↓
+POST /api/upload/syllabus
+  semester: "" (empty string)
+  ↓
+syllabus collection document created
+  approval_status: "pending"
+  ↓
+Admin approves → appears in "Departmental Syllabus" section on /syllabus
+```
+
+### Database Convention
+
+Departmental syllabi are stored in the same `syllabus` collection as semester syllabi.
+They are distinguished by an **empty `semester` field** (`semester = ""`):
+
+| `semester` value | Type of Syllabus |
+|------------------|------------------|
+| `"1st"`, `"2nd"`, ... | Semester-specific syllabus |
+| `""` (empty)     | Departmental (all semesters) |
+
+No additional database column is required. This convention is enforced at the
+upload level by `DeptSyllabusUploadForm.tsx`.
+
+### Display on `/syllabus` Page
+
+The `SyllabusClient.tsx` separates syllabi into two sections within the **Available Syllabus PDFs** tab:
+
+1. **Departmental Syllabus** — documents where `!semester || semester === ""`
+2. **Semester Syllabi** — documents where `semester` is a non-empty value
+
+If no departmental syllabi exist, the section is hidden and only the semester list is shown.
+
+---
+
+## 8. Future Enhancements
 
 - [ ] Auto-fill metadata on upload: when a user enters a paper code, the form
   could call a lookup API (`GET /api/syllabus/registry?code=XX`) and pre-fill

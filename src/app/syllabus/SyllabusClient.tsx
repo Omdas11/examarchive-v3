@@ -443,6 +443,10 @@ export default function SyllabusClient({ syllabi, isAdmin }: SyllabusClientProps
 
   const visibleSyllabi = syllabi.filter((s) => !hiddenIds.has(s.id));
 
+  // Departmental syllabi have no semester (covers all semesters)
+  const deptSyllabi = visibleSyllabi.filter((s) => !s.semester || s.semester === "");
+  const singleSyllabi = visibleSyllabi.filter((s) => s.semester && s.semester !== "");
+
   function handleHide(id: string) {
     setHiddenIds((prev) => new Set([...prev, id]));
   }
@@ -509,42 +513,90 @@ export default function SyllabusClient({ syllabi, isAdmin }: SyllabusClientProps
 
       {/* Tab content */}
       {activeTab === "pdfs" && (
-        <div role="tabpanel" aria-label="Available Syllabus PDFs" className="mt-6">
-          {visibleSyllabi.length > 0 ? (
-            <div
-              className="grid gap-4"
-              style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}
-            >
-              {visibleSyllabi.map((s) => (
-                <SyllabusPdfCard
-                  key={s.id}
-                  s={s}
-                  isAdmin={isAdmin}
-                  onHide={handleHide}
-                />
-              ))}
+        <div role="tabpanel" aria-label="Available Syllabus PDFs" className="mt-6 space-y-10">
+          {/* Departmental Syllabus section */}
+          {deptSyllabi.length > 0 && (
+            <div>
+              <h2
+                className="text-base font-bold mb-1 pb-1 flex items-center gap-2"
+                style={{ borderBottom: "2px solid var(--color-primary)" }}
+              >
+                <span style={{ color: "var(--color-primary)" }}>Departmental Syllabus</span>
+                <span
+                  className="text-[11px] font-normal rounded-full px-2 py-0.5"
+                  style={{ background: "var(--color-accent-soft)", color: "var(--color-text-muted)" }}
+                >
+                  {deptSyllabi.length}
+                </span>
+              </h2>
+              <p className="text-xs mb-4" style={{ color: "var(--color-text-muted)" }}>
+                Full programme syllabi covering all semesters (e.g. Physics FYUG Full Syllabus).
+              </p>
+              <div
+                className="grid gap-4"
+                style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}
+              >
+                {deptSyllabi.map((s) => (
+                  <SyllabusPdfCard key={s.id} s={s} isAdmin={isAdmin} onHide={handleHide} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Individual semester syllabi */}
+          {singleSyllabi.length > 0 ? (
+            <div>
+              {deptSyllabi.length > 0 && (
+                <h2
+                  className="text-base font-bold mb-1 pb-1 flex items-center gap-2"
+                  style={{ borderBottom: "2px solid var(--color-primary)" }}
+                >
+                  <span style={{ color: "var(--color-primary)" }}>Semester Syllabi</span>
+                  <span
+                    className="text-[11px] font-normal rounded-full px-2 py-0.5"
+                    style={{ background: "var(--color-accent-soft)", color: "var(--color-text-muted)" }}
+                  >
+                    {singleSyllabi.length}
+                  </span>
+                </h2>
+              )}
+              <div
+                className="grid gap-4 mt-4"
+                style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}
+              >
+                {singleSyllabi.map((s) => (
+                  <SyllabusPdfCard
+                    key={s.id}
+                    s={s}
+                    isAdmin={isAdmin}
+                    onHide={handleHide}
+                  />
+                ))}
+              </div>
             </div>
           ) : (
-            <div className="mt-8 text-center py-12">
-              <svg
-                className="mx-auto h-12 w-12 opacity-30"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                viewBox="0 0 24 24"
-              >
-                <path d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
-              </svg>
-              <p className="mt-3 text-sm" style={{ color: "var(--color-text-muted)" }}>
-                No approved syllabi yet.
-              </p>
-              <p className="mt-1 text-xs" style={{ color: "var(--color-text-muted)" }}>
-                <a href="/upload?type=syllabus" style={{ color: "var(--color-primary)" }}>
-                  Upload a syllabus
-                </a>{" "}
-                to get started.
-              </p>
-            </div>
+            deptSyllabi.length === 0 && (
+              <div className="mt-8 text-center py-12">
+                <svg
+                  className="mx-auto h-12 w-12 opacity-30"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
+                </svg>
+                <p className="mt-3 text-sm" style={{ color: "var(--color-text-muted)" }}>
+                  No approved syllabi yet.
+                </p>
+                <p className="mt-1 text-xs" style={{ color: "var(--color-text-muted)" }}>
+                  <a href="/upload?type=syllabus" style={{ color: "var(--color-primary)" }}>
+                    Upload a syllabus
+                  </a>{" "}
+                  to get started.
+                </p>
+              </div>
+            )
           )}
         </div>
       )}

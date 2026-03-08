@@ -61,9 +61,9 @@ export async function POST(request: NextRequest) {
       year?: number | string;
     };
 
-    if (!fileId || !university || !subject || !department || !semester || !year) {
+    if (!fileId || !university || !subject || !department || !year) {
       return NextResponse.json(
-        { error: "Required fields missing: fileId, university, subject, department, semester, year." },
+        { error: "Required fields missing: fileId, university, subject, department, year." },
         { status: 400 },
       );
     }
@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
         university,
         subject,
         department,
-        semester,
+        semester: semester || "",
         programme: programme || "",
         year: Number(year),
         uploader_id: user.id,
