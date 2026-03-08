@@ -1,6 +1,36 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { getServerUser } from "@/lib/auth";
 import HomeSearch from "@/components/HomeSearch";
+
+export const metadata: Metadata = {
+  title: "ExamArchive – Free Past Exam Papers, Notes & Syllabi for Students",
+  description:
+    "Download free past exam question papers, notes, and syllabi for Assam University, Gauhati University, Tezpur University, Dibrugarh University, and more. The go-to community archive for students.",
+  keywords: [
+    "ExamArchive",
+    "exam papers",
+    "past papers",
+    "question papers",
+    "notes",
+    "syllabus",
+    "exam",
+    "Assam University",
+    "Gauhati University",
+    "free exam papers",
+    "FYUGP",
+    "CBCS",
+    "NEP",
+  ],
+  alternates: { canonical: "/" },
+  openGraph: {
+    title: "ExamArchive – Free Past Exam Papers, Notes & Syllabi",
+    description:
+      "Community-driven archive of past exam papers, notes, and syllabi for students of Assam University, Gauhati University, Tezpur University and more.",
+    url: "https://examarchive.dev",
+    type: "website",
+  },
+};
 
 export default async function HomePage() {
   const user = await getServerUser();
@@ -25,6 +55,7 @@ export default async function HomePage() {
 
       {/* Search */}
       <section className="py-6">
+        <h2 className="mb-3 text-lg font-semibold">Search Exam Papers &amp; Notes</h2>
         <HomeSearch />
       </section>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import Link from "next/link";
 import type { Syllabus } from "@/types";
 import { toRoman } from "@/lib/utils";
@@ -62,10 +62,10 @@ function SyllabusPdfCard({
 
   return (
     <div className="relative group card overflow-hidden flex hover:shadow-md transition-all duration-200 hover:-translate-y-0.5">
-      {/* Coloured accent bar */}
+      {/* Coloured accent bar — colour-coded by programme */}
       <div
         className="w-1 shrink-0 rounded-l-lg"
-        style={{ background: "var(--color-primary)" }}
+        style={{ background: programmeAccentColor(s.programme) }}
         aria-hidden="true"
       />
 
@@ -77,8 +77,19 @@ function SyllabusPdfCard({
         className="flex-1 min-w-0 p-4 flex flex-col gap-2"
         style={{ textDecoration: "none", color: "inherit" }}
       >
-        {/* Paper code + programme tags */}
+        {/* Subject / paper name — prominent, always first */}
+        <p className="text-sm font-semibold leading-snug line-clamp-2">{displayTitle}</p>
+
+        {/* Programme & paper-code badges */}
         <div className="flex flex-wrap items-center gap-1.5">
+          {s.programme && (
+            <span
+              className="inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold"
+              style={programmeBadgeStyle(s.programme)}
+            >
+              {s.programme}
+            </span>
+          )}
           {displayCode && (
             <span
               className="inline-block rounded-full px-2.5 py-0.5 text-[11px] font-semibold font-mono"
@@ -87,18 +98,7 @@ function SyllabusPdfCard({
               {displayCode}
             </span>
           )}
-          {s.programme && (
-            <span
-              className="inline-block rounded-full px-2 py-0.5 text-[11px]"
-              style={{ background: "var(--color-border)", color: "var(--color-text-muted)" }}
-            >
-              {s.programme}
-            </span>
-          )}
         </div>
-
-        {/* Paper name / subject (prominent) */}
-        <p className="text-sm font-semibold leading-snug line-clamp-2">{displayTitle}</p>
 
         {/* Meta: university, semester, dept */}
         <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
@@ -146,6 +146,37 @@ function SyllabusPdfCard({
 }
 
 type SortKey = "code" | "name" | "semester" | "credits";
+
+/** Colour-code the accent bar by programme type. */
+const PROGRAMME_COLORS: Record<string, string> = {
+  FYUGP: "#3b82f6",  // blue
+  FYUG: "#3b82f6",
+  CBCS: "#10b981",   // emerald
+  NEP: "#f59e0b",    // amber
+  HONOURS: "#8b5cf6", // violet
+};
+
+function programmeAccentColor(programme?: string): string {
+  if (!programme) return "var(--color-primary)";
+  const upper = programme.toUpperCase();
+  for (const [key, color] of Object.entries(PROGRAMME_COLORS)) {
+    if (upper.includes(key)) return color;
+  }
+  return "var(--color-primary)";
+}
+
+/** Badge colours for programme pill. */
+function programmeBadgeStyle(programme?: string): React.CSSProperties {
+  if (!programme) return { background: "var(--color-border)", color: "var(--color-text-muted)" };
+  const upper = programme.toUpperCase();
+  if (upper.includes("FYUG")) return { background: "#dbeafe", color: "#1d4ed8" };
+  if (upper.includes("CBCS")) return { background: "#d1fae5", color: "#065f46" };
+  if (upper.includes("NEP"))  return { background: "#fef3c7", color: "#92400e" };
+  if (upper.includes("HONOURS")) return { background: "#ede9fe", color: "#5b21b6" };
+  return { background: "var(--color-border)", color: "var(--color-text-muted)" };
+}
+
+
 
 /** Tab 2: Paper Syllabus Library from the registry. */
 function PaperLibrary() {
