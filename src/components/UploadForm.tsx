@@ -7,22 +7,12 @@ import {
   MAX_UPLOAD_BYTES,
   type UploadProgress,
 } from "@/lib/appwrite-client";
-import { SYLLABUS_REGISTRY } from "@/data/syllabus-registry";
+import { SYLLABUS_REGISTRY, getAllUniversities } from "@/data/syllabus-registry";
+import type { SyllabusRegistryEntry } from "@/data/syllabus-registry";
 
 type MessageState = { type: "success" | "error"; text: string } | null;
 
 const MAX_MB = MAX_UPLOAD_BYTES / (1024 * 1024); // 20
-
-const semesterOptions = [
-  { value: "1st", label: "1st Semester" },
-  { value: "2nd", label: "2nd Semester" },
-  { value: "3rd", label: "3rd Semester" },
-  { value: "4th", label: "4th Semester" },
-  { value: "5th", label: "5th Semester" },
-  { value: "6th", label: "6th Semester" },
-  { value: "7th", label: "7th Semester" },
-  { value: "8th", label: "8th Semester" },
-];
 
 const examTypeOptions = [
   { value: "Theory", label: "Theory" },
@@ -34,24 +24,6 @@ const programmeOptions = [
   { value: "CBCS", label: "CBCS" },
   { value: "Other", label: "Other" },
 ];
-
-/** Paper type options keyed by programme. */
-const PAPER_TYPE_OPTIONS: Record<string, { value: string; label: string }[]> = {
-  FYUGP: [
-    { value: "DSC", label: "DSC — Discipline Specific Core" },
-    { value: "DSM", label: "DSM — Discipline Specific Minor" },
-    { value: "SEC", label: "SEC — Skill Enhancement Course" },
-    { value: "IDC", label: "IDC — Interdisciplinary Course" },
-    { value: "GE",  label: "GE — Generic Elective" },
-  ],
-  CBCS: [
-    { value: "CC",  label: "CC — Core Course (Honours)" },
-    { value: "DSC", label: "DSC — Discipline Specific Core" },
-    { value: "DSE", label: "DSE — Discipline Specific Elective" },
-    { value: "GEC", label: "GEC — Generic Elective Course" },
-    { value: "SEC", label: "SEC — Skill Enhancement Course" },
-  ],
-};
 
 /** Interpolate between two hex colors by fraction 0..1. */
 function lerpColor(from: string, to: string, t: number): string {
@@ -79,6 +51,9 @@ function formatTime(seconds: number): string {
   return `${Math.floor(seconds / 60)}m ${Math.ceil(seconds % 60)}s`;
 }
 
+const KNOWN_UNIVERSITIES = getAllUniversities();
+const universityOptions = KNOWN_UNIVERSITIES.map((u) => ({ value: u, label: u }));
+
 export default function UploadForm() {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -87,38 +62,42 @@ export default function UploadForm() {
   const [message, setMessage] = useState<MessageState>(null);
   const [dragOver, setDragOver] = useState(false);
   const [fileName, setFileName] = useState("");
-  const [semester, setSemester] = useState("");
-  const [examType, setExamType] = useState("");
+  const [university, setUniversity] = useState("");
   const [programme, setProgramme] = useState("");
-  const [paperType, setPaperType] = useState("");
+  const [examType, setExamType] = useState("");
+  const [registryEntry, setRegistryEntry] = useState<SyllabusRegistryEntry | null>(null);
+  const [noRegistryMatch, setNoRegistryMatch] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
   const startTimeRef = useRef<number>(0);
 
-  /** When the paper code changes, try to auto-fill from the registry. */
+  /** When paper code changes, auto-fill metadata from the registry. */
   const handlePaperCodeChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const code = e.target.value.trim().toUpperCase();
-      if (!code) return;
-      const entry = SYLLABUS_REGISTRY.find(
-        (r) => r.paper_code.toUpperCase() === code,
-      );
-      if (!entry) return;
-      // Auto-fill programme if blank
-      if (!programme && entry.programme) setProgramme(entry.programme);
-      // Auto-fill paper type if blank
-      if (!paperType && entry.category) setPaperType(entry.category);
-      // Auto-fill semester
-      if (!semester) {
-        const n = entry.semester;
-        const suffix = n === 1 ? "st" : n === 2 ? "nd" : n === 3 ? "rd" : "th";
-        setSemester(`${n}${suffix}`);
+      if (!code) {
+        setRegistryEntry(null);
+        setNoRegistryMatch(false);
+        return;
+      }
+      const entry = SYLLABUS_REGISTRY.find((r) => {
+        const codeMatch = r.paper_code.toUpperCase() === code;
+        if (!codeMatch) return false;
+        if (university) return r.university.toLowerCase() === university.toLowerCase();
+        if (programme) return r.programme.toLowerCase() === programme.toLowerCase();
+        return true;
+      });
+      if (entry) {
+        setRegistryEntry(entry);
+        setNoRegistryMatch(false);
+        // Auto-fill programme from registry if not already set
+        if (!programme && entry.programme) setProgramme(entry.programme);
+      } else {
+        setRegistryEntry(null);
+        setNoRegistryMatch(true);
       }
     },
-    [programme, paperType, semester],
+    [university, programme],
   );
-
-  const paperTypeOptions =
-    PAPER_TYPE_OPTIONS[programme] ?? [];
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -127,12 +106,9 @@ export default function UploadForm() {
     const formEl = e.currentTarget;
     const data = new FormData(formEl);
 
-    const title = data.get("title") as string;
-    const course_code = data.get("course_code") as string;
-    const course_name = data.get("course_name") as string;
-    const department = data.get("department") as string;
+    const course_code = (data.get("course_code") as string).trim().toUpperCase();
+    const subject = (data.get("subject") as string).trim();
     const year = data.get("year") as string;
-    const institution = data.get("institution") as string | null;
     const file = data.get("file") as File | null;
 
     if (file && file.size > MAX_UPLOAD_BYTES) {
@@ -147,6 +123,17 @@ export default function UploadForm() {
       setMessage({ type: "error", text: "Please select a file to upload." });
       return;
     }
+
+    // Build metadata — registry takes priority; fall back to user-entered subject
+    const paperName = registryEntry?.paper_name ?? subject;
+    const semester = registryEntry
+      ? (() => {
+          const n = registryEntry.semester;
+          const suffix = n === 1 ? "st" : n === 2 ? "nd" : n === 3 ? "rd" : "th";
+          return `${n}${suffix}`;
+        })()
+      : "";
+    const paperType = registryEntry?.category ?? "";
 
     setLoading(true);
     setProgress(0);
@@ -180,14 +167,14 @@ export default function UploadForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           fileId,
-          title,
+          title: paperName,
           course_code,
-          course_name,
-          department,
+          course_name: paperName,
+          department: registryEntry?.subject ?? subject,
           year,
-          semester,
-          exam_type: examType,
-          institution: institution || undefined,
+          semester: semester || undefined,
+          exam_type: examType || undefined,
+          institution: university || undefined,
           programme: programme || undefined,
           paper_type: paperType || undefined,
         }),
@@ -200,10 +187,11 @@ export default function UploadForm() {
 
       setMessage({ type: "success", text: "Upload successful — awaiting admin approval." });
       setFileName("");
-      setSemester("");
-      setExamType("");
+      setUniversity("");
       setProgramme("");
-      setPaperType("");
+      setExamType("");
+      setRegistryEntry(null);
+      setNoRegistryMatch(false);
       formRef.current?.reset();
     } catch (err: unknown) {
       const text = err instanceof Error ? err.message : "Upload failed. Please try again.";
@@ -225,65 +213,91 @@ export default function UploadForm() {
         <h3 className="text-sm font-semibold mb-3" style={{ color: "var(--color-text-muted)" }}>
           Step 1: Paper Details
         </h3>
+        <p className="text-xs mb-4" style={{ color: "var(--color-text-muted)" }}>
+          Enter the paper code and other details below. Metadata such as paper name, course type, and semester will be auto-filled from the syllabus registry.
+        </p>
         <div className="grid gap-4 sm:grid-cols-2">
-          <input
-            name="institution"
-            placeholder="University / Institution"
-            className="input-field sm:col-span-2"
+          {/* University */}
+          <CustomSelect
+            name="university"
+            options={universityOptions}
+            placeholder="University"
+            value={university}
+            onChange={(v) => { setUniversity(v); setRegistryEntry(null); setNoRegistryMatch(false); }}
+            className="sm:col-span-2"
           />
+          {/* Programme */}
           <CustomSelect
             name="programme"
             options={programmeOptions}
             placeholder="Programme"
             value={programme}
-            onChange={(v) => { setProgramme(v); setPaperType(""); }}
+            onChange={(v) => { setProgramme(v); setRegistryEntry(null); setNoRegistryMatch(false); }}
           />
-          {/* Paper Type — shown when programme is FYUGP or CBCS */}
-          {paperTypeOptions.length > 0 ? (
-            <CustomSelect
-              name="paper_type"
-              options={paperTypeOptions}
-              placeholder="Paper Type (e.g. DSC)"
-              value={paperType}
-              onChange={setPaperType}
-            />
-          ) : (
-            <input
-              name="paper_type"
-              placeholder="Paper Type (e.g. DSC, CC)"
-              className="input-field"
-              value={paperType}
-              onChange={(e) => setPaperType(e.target.value)}
-            />
-          )}
-          <input name="department" placeholder="Department / Stream" required className="input-field" />
+          {/* Subject / department */}
+          <input
+            name="subject"
+            placeholder="Subject (e.g. Physics, Commerce)"
+            required
+            className="input-field"
+          />
+          {/* Paper Code — triggers registry auto-fill */}
           <input
             name="course_code"
-            placeholder="Paper Code (e.g. PHYDSC101T)"
+            placeholder="Paper Code (e.g. DSC 101, PHYDSC101T)"
             required
             className="input-field"
             onChange={handlePaperCodeChange}
           />
-          <input name="course_name" placeholder="Course Name" required className="input-field" />
-          <input name="title" placeholder="Subject / Paper Name" required className="input-field sm:col-span-2" />
-          <input name="year" type="number" placeholder="Year (e.g. 2024)" required className="input-field" />
-          <CustomSelect
-            name="semester"
-            options={semesterOptions}
-            placeholder="Semester"
+          {/* Year */}
+          <input
+            name="year"
+            type="number"
+            placeholder="Exam Year (e.g. 2024)"
             required
-            value={semester}
-            onChange={setSemester}
+            className="input-field"
           />
+          {/* Exam type */}
           <CustomSelect
             name="exam_type"
             options={examTypeOptions}
-            placeholder="Exam Type"
-            required
+            placeholder="Exam Type (optional)"
             value={examType}
             onChange={setExamType}
+            className="sm:col-span-2"
           />
         </div>
+
+        {/* Registry match panel */}
+        {registryEntry && (
+          <div
+            className="mt-4 rounded-lg p-4 text-sm space-y-1"
+            style={{ background: "var(--color-accent-soft)", border: "1px solid var(--color-primary)" }}
+          >
+            <p className="font-semibold" style={{ color: "var(--color-primary)" }}>
+              ✓ Registry match found — metadata auto-filled
+            </p>
+            <p style={{ color: "var(--color-text-muted)" }}>
+              <span className="font-medium">Paper:</span> {registryEntry.paper_name}
+            </p>
+            <p style={{ color: "var(--color-text-muted)" }}>
+              <span className="font-medium">Semester:</span> {registryEntry.semester} &nbsp;|&nbsp;
+              <span className="font-medium">Credits:</span> {registryEntry.credits} &nbsp;|&nbsp;
+              <span className="font-medium">Category:</span> {registryEntry.category ?? "—"} &nbsp;|&nbsp;
+              <span className="font-medium">Programme:</span> {registryEntry.programme}
+            </p>
+            {registryEntry.university && (
+              <p style={{ color: "var(--color-text-muted)" }}>
+                <span className="font-medium">University:</span> {registryEntry.university}
+              </p>
+            )}
+          </div>
+        )}
+        {noRegistryMatch && (
+          <p className="mt-3 text-xs" style={{ color: "var(--color-text-muted)" }}>
+            ⚠ Paper code not found in registry. Metadata will not be auto-filled — please verify the code.
+          </p>
+        )}
       </div>
 
       <div>
@@ -389,3 +403,4 @@ export default function UploadForm() {
     </form>
   );
 }
+

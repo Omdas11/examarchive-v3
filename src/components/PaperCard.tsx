@@ -13,6 +13,8 @@ export const PAPER_TYPE_COLORS: Record<string, { bg: string; text: string }> = {
   DSM: { bg: "#dcfce7", text: "#166534" },
   IDC: { bg: "#f3e8ff", text: "#7e22ce" },
   GE:  { bg: "#ffe4e6", text: "#9f1239" },
+  AEC: { bg: "#fff7ed", text: "#c2410c" },
+  VAC: { bg: "#f0fdfa", text: "#0f766e" },
   // CBCS
   HCC: { bg: "#fce7f3", text: "#9d174d" },
   DSE: { bg: "#ffedd5", text: "#9a3412" },

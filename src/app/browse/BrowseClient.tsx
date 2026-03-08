@@ -11,6 +11,7 @@ interface BrowseClientProps {
   availableYears: number[];
   availableStreams: string[];
   availablePaperTypes: string[];
+  availableUniversities: string[];
   isAdmin: boolean;
   initialSearch?: string;
 }
@@ -31,6 +32,7 @@ export default function BrowseClient({
   availableYears,
   availableStreams,
   availablePaperTypes,
+  availableUniversities,
   isAdmin,
   initialSearch = "",
 }: BrowseClientProps) {
@@ -39,6 +41,7 @@ export default function BrowseClient({
   const [activePaperType, setActivePaperType] = useState<string | null>(null);
   const [activeStream, setActiveStream] = useState<string | null>(null);
   const [activeYear, setActiveYear] = useState<number | null>(null);
+  const [activeUniversity, setActiveUniversity] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("newest");
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -82,6 +85,10 @@ export default function BrowseClient({
       list = list.filter((p) => p.year === activeYear);
     }
 
+    if (activeUniversity) {
+      list = list.filter((p) => p.institution === activeUniversity);
+    }
+
     switch (sortKey) {
       case "newest":
         list = [...list].sort(
@@ -102,7 +109,7 @@ export default function BrowseClient({
     }
 
     return list;
-  }, [initialPapers, hiddenIds, search, activeProgramme, activePaperType, activeStream, activeYear, sortKey]);
+  }, [initialPapers, hiddenIds, search, activeProgramme, activePaperType, activeStream, activeYear, activeUniversity, sortKey]);
 
   async function handleSoftDelete(paperId: string) {
     if (!confirm("Hide this paper from Browse? It can be restored from the admin panel.")) return;
@@ -128,9 +135,33 @@ export default function BrowseClient({
 
   const streams = availableStreams.length > 0 ? availableStreams : [];
   const years = availableYears.length > 0 ? availableYears : [];
+  const universities = availableUniversities.length > 0 ? availableUniversities : [];
 
   return (
     <>
+      {/* University toggles — shown when there are multiple universities in the data */}
+      {universities.length > 1 && (
+        <div className="mt-6 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setActiveUniversity(null)}
+            className={`toggle-btn${activeUniversity === null ? " active" : ""}`}
+          >
+            All Universities
+          </button>
+          {universities.map((u) => (
+            <button
+              key={u}
+              type="button"
+              onClick={() => setActiveUniversity(activeUniversity === u ? null : u)}
+              className={`toggle-btn${activeUniversity === u ? " active" : ""}`}
+            >
+              {u}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Programme toggles */}
       <div className="mt-6 flex flex-wrap gap-2">
         {PROGRAMMES.map((p) => (
