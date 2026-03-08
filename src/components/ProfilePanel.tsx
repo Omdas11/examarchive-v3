@@ -146,14 +146,6 @@ function StreakBadge({ days }: { days: number }) {
       <span className="text-sm font-semibold" style={{ color }}>
         {days} day{days !== 1 ? "s" : ""} streak
       </span>
-      <style>{`
-        @keyframes ea-flame-flicker {
-          0%, 100% { transform: scaleY(1) scaleX(1) rotate(-1deg); opacity: 1; }
-          25% { transform: scaleY(1.08) scaleX(0.96) rotate(1deg); opacity: 0.9; }
-          50% { transform: scaleY(0.96) scaleX(1.04) rotate(-0.5deg); opacity: 1; }
-          75% { transform: scaleY(1.05) scaleX(0.97) rotate(1.5deg); opacity: 0.85; }
-        }
-      `}</style>
     </div>
   );
 }

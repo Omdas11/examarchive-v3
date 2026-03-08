@@ -50,13 +50,6 @@ export default function Loading() {
           </svg>
         </div>
       )}
-
-      <style>{`
-        @keyframes ea-logo-pulse {
-          0%, 100% { opacity: 1; transform: scale(1); }
-          50% { opacity: 0.75; transform: scale(0.92); }
-        }
-      `}</style>
     </div>
   );
 }

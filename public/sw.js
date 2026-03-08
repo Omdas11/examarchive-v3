@@ -24,9 +24,7 @@ const PRECACHE_ASSETS = [
 // Install: pre-cache critical assets
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_ASSETS)).catch(() => {
-      // Silently ignore pre-cache failures — network may be unavailable
-    })
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_ASSETS)).catch(() => {})
   );
   self.skipWaiting();
 });
