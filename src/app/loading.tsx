@@ -16,7 +16,7 @@ export default function Loading() {
         : null;
 
   return (
-    <div className="flex min-h-[calc(100vh-14rem)] flex-col items-center justify-center gap-4">
+    <div className="flex min-h-[calc(100vh-14rem)] flex-col items-center justify-center gap-3">
       {/*
         Loading icon priority:
           1. /public/branding/loading.png  (custom PNG – recommended)
@@ -28,8 +28,8 @@ export default function Loading() {
         <img
           key={src}
           src={imgSrc}
-          width={56}
-          height={56}
+          width={40}
+          height={40}
           alt=""
           aria-hidden="true"
           style={{ animation: "ea-logo-pulse 1.4s ease-in-out infinite" }}
@@ -38,11 +38,11 @@ export default function Loading() {
       ) : (
         /* Inline fallback – shown only when all image paths fail */
         <div
-          className="h-14 w-14 flex items-center justify-center rounded-xl"
+          className="h-10 w-10 flex items-center justify-center rounded-xl"
           style={{ background: "var(--color-primary)", animation: "ea-logo-pulse 1.4s ease-in-out infinite" }}
           aria-hidden="true"
         >
-          <svg width="32" height="32" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <svg width="24" height="24" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
             {/* E */}
             <path d="M2 3h5v1.8H3.8v2h3v1.8h-3v2.2H7V12.6H2V3Z" fill="white" />
             {/* A */}
@@ -50,10 +50,6 @@ export default function Loading() {
           </svg>
         </div>
       )}
-
-      <p className="text-xs font-medium" style={{ color: "var(--color-text-muted)" }}>
-        Loading…
-      </p>
 
       <style>{`
         @keyframes ea-logo-pulse {
