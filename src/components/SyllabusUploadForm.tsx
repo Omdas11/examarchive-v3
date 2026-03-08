@@ -71,7 +71,6 @@ export default function SyllabusUploadForm() {
     const formEl = e.currentTarget;
     const data = new FormData(formEl);
 
-    const paper_code = (data.get("paper_code") as string).trim().toUpperCase();
     const subject = (data.get("subject") as string).trim();
     const year = data.get("year") as string;
     const file = data.get("file") as File | null;
@@ -126,8 +125,6 @@ export default function SyllabusUploadForm() {
           semester,
           programme: programme || undefined,
           year,
-          course_code: paper_code || undefined,
-          course_name: registryEntry?.paper_name ?? subject,
         }),
       });
 

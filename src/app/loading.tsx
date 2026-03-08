@@ -28,8 +28,8 @@ export default function Loading() {
         <img
           key={src}
           src={imgSrc}
-          width={80}
-          height={80}
+          width={200}
+          height={200}
           alt=""
           aria-hidden="true"
           style={{ animation: "ea-logo-pulse 1.4s ease-in-out infinite" }}
@@ -38,11 +38,11 @@ export default function Loading() {
       ) : (
         /* Inline fallback – shown only when all image paths fail */
         <div
-          className="h-20 w-20 flex items-center justify-center rounded-xl"
+          className="h-[200px] w-[200px] flex items-center justify-center rounded-xl"
           style={{ background: "var(--color-primary)", animation: "ea-logo-pulse 1.4s ease-in-out infinite" }}
           aria-hidden="true"
         >
-          <svg width="48" height="48" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <svg width="120" height="120" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
             {/* E */}
             <path d="M2 3h5v1.8H3.8v2h3v1.8h-3v2.2H7V12.6H2V3Z" fill="white" />
             {/* A */}

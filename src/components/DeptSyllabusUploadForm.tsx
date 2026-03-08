@@ -34,9 +34,9 @@ export default function DeptSyllabusUploadForm() {
     const formEl = e.currentTarget;
     const data = new FormData(formEl);
 
-    const university = data.get("university") as string;
-    const department = data.get("department") as string;
-    const year = data.get("year") as string;
+    const university = (data.get("university") as string).trim();
+    const department = (data.get("department") as string).trim();
+    const year = (data.get("year") as string).trim();
     const file = data.get("file") as File | null;
 
     if (file && file.size > MAX_UPLOAD_BYTES) {
