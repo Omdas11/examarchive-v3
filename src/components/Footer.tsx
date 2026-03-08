@@ -62,6 +62,7 @@ export default function Footer() {
             <FooterContactModal label="Contact Us" />
             <FooterContactModal label="Send Feedback" />
             <Link href="/terms" className="hover:underline hover:opacity-80 transition-opacity text-xs">Terms &amp; Conditions</Link>
+            <Link href="/privacy" className="hover:underline hover:opacity-80 transition-opacity text-xs">Privacy Policy</Link>
           </div>
         </div>
 

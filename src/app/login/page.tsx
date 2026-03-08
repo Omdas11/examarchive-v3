@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import LoginForm from "./LoginForm";
 
 export const metadata: Metadata = {
@@ -57,6 +58,19 @@ export default async function LoginPage({ searchParams }: Props) {
             initialMode={initialMode}
           />
         </div>
+
+        {/* Legal links */}
+        <p className="mt-4 text-center text-xs" style={{ color: "var(--color-text-muted)" }}>
+          By signing in, you agree to our{" "}
+          <Link href="/terms" className="underline hover:opacity-80 transition-opacity" style={{ color: "var(--color-primary)" }}>
+            Terms &amp; Conditions
+          </Link>{" "}
+          and{" "}
+          <Link href="/privacy" className="underline hover:opacity-80 transition-opacity" style={{ color: "var(--color-primary)" }}>
+            Privacy Policy
+          </Link>
+          .
+        </p>
       </div>
     </div>
   );

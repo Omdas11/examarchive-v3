@@ -88,7 +88,7 @@ export default function AvatarRing({
   const hasRing = useRoleRing || useStreakAnimated || useStreakSolid;
 
   const ringWidth = size >= 48 ? 3 : 2;
-  const ringGap = 2;
+  const ringGap = 1;
   const totalSize = size + (hasRing ? (ringWidth + ringGap) * 2 : 0);
 
   const showImage = !!avatarUrl && !imgError;

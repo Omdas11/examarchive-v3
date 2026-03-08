@@ -113,27 +113,36 @@ function WeeklyActivityTracker({ streakDays }: { streakDays: number }) {
   );
 }
 
-/** Streak flame badge */
+/** Streak flame badge with subtle animation when streak is active */
 function StreakBadge({ days }: { days: number }) {
   const color =
     days >= 30 ? "#f59e0b" : days >= 7 ? "#22c55e" : days >= 1 ? "#3b82f6" : "var(--color-text-muted)";
+  const isActive = days > 0;
 
   return (
     <div className="flex items-center gap-1.5">
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 24 24"
-        fill={days > 0 ? color : "none"}
-        stroke={days > 0 ? "none" : color}
-        strokeWidth="1.5"
+      <span
+        style={{
+          display: "inline-flex",
+          animation: isActive ? "ea-flame-flicker 1.8s ease-in-out infinite" : "none",
+          transformOrigin: "50% 100%",
+        }}
         aria-hidden="true"
       >
-        <path
-          fill={days > 0 ? color : "none"}
-          d="M12 2c0 0-5 4-5 10a5 5 0 0 0 10 0c0-3-2-5-2-5s-1 2-2 2c-1.5 0-2-2-2-4 0 0-2 3-2 5a3 3 0 0 0 6 0c0-1.5-1-3-1-3s1 1.5 1 3a2 2 0 0 1-4 0c0-1.5 1-3 1-3z"
-        />
-      </svg>
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill={isActive ? color : "none"}
+          stroke={isActive ? "none" : color}
+          strokeWidth="1.5"
+        >
+          <path
+            fill={isActive ? color : "none"}
+            d="M12 2c0 0-5 4-5 10a5 5 0 0 0 10 0c0-3-2-5-2-5s-1 2-2 2c-1.5 0-2-2-2-4 0 0-2 3-2 5a3 3 0 0 0 6 0c0-1.5-1-3-1-3s1 1.5 1 3a2 2 0 0 1-4 0c0-1.5 1-3 1-3z"
+          />
+        </svg>
+      </span>
       <span className="text-sm font-semibold" style={{ color }}>
         {days} day{days !== 1 ? "s" : ""} streak
       </span>
