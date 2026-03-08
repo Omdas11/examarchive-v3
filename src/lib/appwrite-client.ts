@@ -67,6 +67,7 @@ function uploadWithProgress(
 
     const xhr = new XMLHttpRequest();
     xhr.open("POST", url);
+    xhr.timeout = 10 * 60 * 1000; // 10-minute timeout for large files
 
     // JWT authentication – no cookies required
     xhr.setRequestHeader("x-appwrite-project", projectId);
@@ -113,6 +114,10 @@ function uploadWithProgress(
 
     xhr.addEventListener("abort", () => {
       reject(new Error("Upload was aborted."));
+    });
+
+    xhr.addEventListener("timeout", () => {
+      reject(new Error("Upload timed out. Please check your connection and try again."));
     });
 
     xhr.send(formData);

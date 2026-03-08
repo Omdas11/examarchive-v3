@@ -72,6 +72,11 @@ export async function POST(request: NextRequest) {
 
     const fileUrl = getSyllabusFileUrl(fileId);
 
+    const yearNum = Number(year);
+    if (isNaN(yearNum) || yearNum < 1900 || yearNum > 2100) {
+      return NextResponse.json({ error: "Invalid year value." }, { status: 400 });
+    }
+
     // Verify the file exists in the syllabus-files bucket.
     try {
       const storage = adminStorage();
@@ -91,7 +96,7 @@ export async function POST(request: NextRequest) {
         department,
         semester: semester || "",
         programme: programme || "",
-        year: Number(year),
+        year: yearNum,
         uploader_id: user.id,
         approval_status: "pending",
         file_url: fileUrl,
