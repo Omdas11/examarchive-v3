@@ -444,8 +444,12 @@ export default function SyllabusClient({ syllabi, isAdmin }: SyllabusClientProps
   const visibleSyllabi = syllabi.filter((s) => !hiddenIds.has(s.id));
 
   // Departmental syllabi have no semester (covers all semesters)
-  const deptSyllabi = visibleSyllabi.filter((s) => !s.semester || s.semester === "");
-  const singleSyllabi = visibleSyllabi.filter((s) => s.semester && s.semester !== "");
+  function isDeptSyllabus(s: Syllabus): boolean {
+    return !s.semester || s.semester === "";
+  }
+
+  const deptSyllabi = visibleSyllabi.filter(isDeptSyllabus);
+  const singleSyllabi = visibleSyllabi.filter((s) => !isDeptSyllabus(s));
 
   function handleHide(id: string) {
     setHiddenIds((prev) => new Set([...prev, id]));

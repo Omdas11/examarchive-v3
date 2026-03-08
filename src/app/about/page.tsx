@@ -291,7 +291,7 @@ export default async function AboutPage() {
       </div>
 
       {/* XP & Progression */}
-      <h2 className="mt-10 text-xl font-semibold">XP &amp; Progression</h2>
+      <h2 className="mt-10 text-xl font-semibold">XP & Progression</h2>
       <p className="mt-2 text-sm" style={{ color: "var(--color-text-muted)" }}>
         Earn XP by contributing to the archive. XP unlocks cosmetic rank titles and avatar ring
         colours on your profile — it does not affect permissions.

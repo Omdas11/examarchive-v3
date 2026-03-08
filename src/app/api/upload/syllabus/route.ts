@@ -68,6 +68,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // semester is optional — departmental syllabi (covering all semesters) use an empty string
+
     const fileUrl = getSyllabusFileUrl(fileId);
 
     // Verify the file exists in the syllabus-files bucket.
