@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /api/
+Disallow: /devtool
+Disallow: /settings
+
+Sitemap: https://examarchive.dev/sitemap.xml
+Host: https://examarchive.dev

@@ -64,6 +64,45 @@ async function updateDailyStreak(
   }
 }
 
+/**
+ * Evaluate XP and auto-promotion on each login/page load.
+ * Runs silently — any failure is ignored so it never blocks page rendering.
+ *
+ * Promotion thresholds (mirrors admin/route.ts):
+ *  - upload_count >= 3  → promote visitor/student/explorer → contributor
+ *  - upload_count >= 20 → promote bronze tier → silver
+ */
+async function evaluateXpAndPromotion(
+  db: ReturnType<typeof adminDatabases>,
+  profile: Record<string, unknown>,
+): Promise<void> {
+  try {
+    const uploadCount = (profile.upload_count as number) ?? 0;
+    const currentRole = (profile.role as string) ?? "visitor";
+    const currentTier = (profile.tier as string) ?? "bronze";
+    const update: Record<string, unknown> = {};
+
+    // Auto-promote role: visitor/student/explorer → contributor
+    if (
+      uploadCount >= 3 &&
+      (currentRole === "visitor" || currentRole === "student" || currentRole === "explorer")
+    ) {
+      update.role = "contributor";
+    }
+
+    // Auto-promote tier: bronze → silver
+    if (uploadCount >= 20 && currentTier === "bronze") {
+      update.tier = "silver";
+    }
+
+    if (Object.keys(update).length > 0) {
+      await db.updateDocument(DATABASE_ID, COLLECTION.users, profile.$id as string, update);
+    }
+  } catch {
+    // Silently ignore – promotion evaluation is non-critical
+  }
+}
+
 
 
 /**
@@ -120,6 +159,8 @@ export async function getServerUser(): Promise<UserProfile | null> {
       const lastActivity = (profile.last_activity as string) ?? "";
       // Update daily streak (no-op when already recorded today)
       void updateDailyStreak(db, profile.$id, currentStreak, lastActivity);
+      // Evaluate XP and auto-promotion on each login/page load
+      void evaluateXpAndPromotion(db, profile as Record<string, unknown>);
       return {
         id: profile.$id,
         email: (profile.email as string) ?? user.email,
@@ -156,6 +197,8 @@ export async function getServerUser(): Promise<UserProfile | null> {
       const lastActivity = (profile.last_activity as string) ?? "";
       // Update daily streak (no-op when already recorded today)
       void updateDailyStreak(db, profile.$id, currentStreak, lastActivity);
+      // Evaluate XP and auto-promotion on each login/page load
+      void evaluateXpAndPromotion(db, profile as Record<string, unknown>);
       // Return the actual document ID (which may differ from Auth user ID)
       return {
         id: profile.$id,

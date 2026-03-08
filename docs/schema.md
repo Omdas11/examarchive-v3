@@ -168,3 +168,23 @@ Admin action audit log. Records all moderation and role-change actions.
 | `activity_logs` | `meta`                 | JSON blob; rarely used; could be merged into `details` |
 
 See `docs/backend-cleanup.md` for safe removal guidance.
+
+---
+
+## 7. `notifications` Collection (Planned — Phase 1)
+
+Stores in-app notification records for users. **Not yet created in Appwrite Console.**
+See `docs/messaging-setup.md` for full setup instructions.
+
+| Column name    | Type                 | Indexed | Default | Status       | Notes                                                    |
+|----------------|----------------------|---------|---------|--------------|----------------------------------------------------------|
+| `$id`          | string               | ✅       | —       | 🔜 Planned   | Appwrite auto-generated ID                               |
+| `user_id`      | string (Size: 36)    | ✅       | —       | 🔜 Planned   | Recipient user ID (links to `users.$id`)                 |
+| `type`         | enum                 | —       | —       | 🔜 Planned   | `paper_approved` \| `paper_rejected` \| `role_changed` \| `badge_earned` \| `announcement` |
+| `title`        | string (Size: 100)   | —       | —       | 🔜 Planned   | Short notification heading                               |
+| `body`         | string (Size: 512)   | —       | —       | 🔜 Planned   | Notification body text                                   |
+| `link`         | string (Size: 512)   | —       | NULL    | 🔜 Planned   | Optional deep-link URL (e.g. `/paper/:id`)               |
+| `is_read`      | boolean              | ✅       | false   | 🔜 Planned   | `false` on creation; user marks as read                  |
+| `meta`         | string (Size: 1024)  | —       | NULL    | 🔜 Planned   | Optional JSON payload (paper ID, role, etc.)             |
+| `$createdAt`   | datetime             | —       | —       | 🔜 Planned   | Appwrite auto-timestamp                                  |
+| `$updatedAt`   | datetime             | —       | —       | 🔜 Planned   | Appwrite auto-timestamp                                  |
