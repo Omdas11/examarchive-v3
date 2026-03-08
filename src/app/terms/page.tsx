@@ -50,8 +50,8 @@ export default function TermsPage() {
           <h2 className="text-base font-semibold" style={{ color: "var(--color-text)" }}>5. Contact</h2>
           <p className="mt-2">
             If you have questions about these terms, please contact us at{" "}
-            <a href="mailto:contact@examarchive.org" style={{ color: "var(--color-primary)" }} className="underline">
-              contact@examarchive.org
+            <a href="mailto:contact@examarchive.dev" style={{ color: "var(--color-primary)" }} className="underline">
+              contact@examarchive.dev
             </a>.
           </p>
         </div>

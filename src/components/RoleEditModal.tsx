@@ -3,10 +3,36 @@
 import { useState } from "react";
 import type { AdminUser, UserRole, CustomRole, UserTier } from "@/types";
 
-const ROLES: UserRole[] = ["student", "moderator", "admin", "founder"];
+/**
+ * Roles available for assignment, in descending privilege order.
+ * Founders can assign any role; admins can assign up to "admin".
+ */
+const ROLES: UserRole[] = [
+  "founder",
+  "admin",
+  "maintainer",
+  "moderator",
+  "verified_contributor",
+  "contributor",
+  "explorer",
+  "visitor",
+];
+
+/** Human-readable labels for the role dropdown. */
+const ROLE_LABELS: Record<UserRole, string> = {
+  founder: "Founder",
+  admin: "Admin",
+  maintainer: "Maintainer",
+  moderator: "Moderator",
+  verified_contributor: "Verified Contributor",
+  contributor: "Contributor",
+  explorer: "Explorer",
+  visitor: "Visitor",
+  student: "Visitor (legacy)",
+};
+
 const CUSTOM_ROLES: string[] = [
   "none",
-  "contributor",
   "reviewer",
   "curator",
   "mentor",
@@ -31,7 +57,6 @@ export default function RoleEditModal({
   onSaved,
 }: RoleEditModalProps) {
   const [role, setRole] = useState<UserRole>(user.role);
-  const [primaryRole, setPrimaryRole] = useState<UserRole>(user.primary_role);
   const [secondaryRole, setSecondaryRole] = useState<CustomRole | "none">(
     user.secondary_role ?? "none",
   );
@@ -45,7 +70,7 @@ export default function RoleEditModal({
   const isSelf = user.id === currentAdminId;
 
   async function handleSave() {
-    if (isSelf && (role !== user.role || primaryRole !== user.primary_role)) {
+    if (isSelf && role !== user.role) {
       setError("You cannot change your own role.");
       return;
     }
@@ -60,7 +85,8 @@ export default function RoleEditModal({
         body: JSON.stringify({
           userId: user.id,
           role,
-          primary_role: primaryRole,
+          // Keep primary_role in sync for backward compatibility
+          primary_role: role,
           secondary_role: secondaryRole === "none" ? null : secondaryRole,
           tertiary_role: tertiaryRole === "none" ? null : tertiaryRole,
           tier,
@@ -75,7 +101,7 @@ export default function RoleEditModal({
       onSaved({
         ...user,
         role,
-        primary_role: primaryRole,
+        primary_role: role,
         secondary_role: secondaryRole === "none" ? null : secondaryRole,
         tertiary_role: tertiaryRole === "none" ? null : tertiaryRole,
         tier,
@@ -153,7 +179,7 @@ export default function RoleEditModal({
             >
               {ROLES.map((r) => (
                 <option key={r} value={r}>
-                  {r}
+                  {ROLE_LABELS[r] ?? r}
                 </option>
               ))}
             </select>
@@ -166,25 +192,7 @@ export default function RoleEditModal({
 
           <div>
             <label className="block text-xs font-medium mb-1">
-              Primary Role
-            </label>
-            <select
-              className="input-field"
-              value={primaryRole}
-              onChange={(e) => setPrimaryRole(e.target.value as UserRole)}
-              disabled={isSelf}
-            >
-              {ROLES.map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium mb-1">
-              Secondary Role
+              Community Badge (Secondary)
             </label>
             <select
               className="input-field"
@@ -195,7 +203,7 @@ export default function RoleEditModal({
             >
               {CUSTOM_ROLES.map((r) => (
                 <option key={r} value={r}>
-                  {r === "none" ? "None" : r}
+                  {r === "none" ? "None" : r.charAt(0).toUpperCase() + r.slice(1)}
                 </option>
               ))}
             </select>
@@ -203,7 +211,7 @@ export default function RoleEditModal({
 
           <div>
             <label className="block text-xs font-medium mb-1">
-              Tertiary Role
+              Community Badge (Tertiary)
             </label>
             <select
               className="input-field"
@@ -214,7 +222,7 @@ export default function RoleEditModal({
             >
               {CUSTOM_ROLES.map((r) => (
                 <option key={r} value={r}>
-                  {r === "none" ? "None" : r}
+                  {r === "none" ? "None" : r.charAt(0).toUpperCase() + r.slice(1)}
                 </option>
               ))}
             </select>
@@ -229,7 +237,7 @@ export default function RoleEditModal({
             >
               {TIERS.map((t) => (
                 <option key={t} value={t}>
-                  {t}
+                  {t.charAt(0).toUpperCase() + t.slice(1)}
                 </option>
               ))}
             </select>

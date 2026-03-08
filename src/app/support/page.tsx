@@ -13,8 +13,8 @@ const contacts = [
       </svg>
     ),
     label: "Email Us",
-    desc: "contact@examarchive.org",
-    href: "mailto:contact@examarchive.org",
+    desc: "contact@examarchive.dev",
+    href: "mailto:contact@examarchive.dev",
   },
   {
     icon: (
@@ -24,7 +24,7 @@ const contacts = [
     ),
     label: "Send Feedback",
     desc: "Share your thoughts",
-    href: "mailto:feedback@examarchive.org",
+    href: "mailto:feedback@examarchive.dev",
   },
   {
     icon: (
@@ -34,7 +34,7 @@ const contacts = [
     ),
     label: "Report a Bug",
     desc: "Let us know about issues",
-    href: "mailto:bugs@examarchive.org",
+    href: "mailto:bugs@examarchive.dev",
   },
 ];
 

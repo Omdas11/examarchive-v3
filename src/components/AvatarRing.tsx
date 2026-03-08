@@ -3,10 +3,14 @@
  * role or daily streak level.
  *
  * Ring priority (role ring takes precedence over streak):
- *   founder   → purple/gold gradient ring
- *   admin     → solid red ring
- *   moderator → solid orange ring
- *   contributor/reviewer/curator/mentor → solid blue ring
+ *   founder          → static violet ring (#7c3aed)
+ *   admin            → static red ring
+ *   maintainer       → static purple ring
+ *   moderator        → static orange ring
+ *   verified_contributor → static indigo ring
+ *   contributor      → static blue ring
+ *   explorer         → static sky-blue ring
+ *   student/visitor  → no role ring (falls back to streak ring)
  *
  * Streak rings (when no role ring):
  *   0 days   → no ring
@@ -19,6 +23,7 @@
 
 import { useState } from "react";
 import type { UserRole, CustomRole } from "@/types";
+import { ROLE_RING_COLORS } from "@/lib/roles";
 
 interface AvatarRingProps {
   /** Email or display name used to generate the fallback initial. */
@@ -42,23 +47,17 @@ function solidRingColor(streak: number): string {
   return "transparent";
 }
 
-/** Return a ring colour based on user role. Returns null for student/no role. */
+/** Return a static ring colour for a user role. Returns null for visitor/student/no role. */
 function roleRingColor(role: string | null | undefined): string | null {
   if (!role) return null;
-  switch (role) {
-    case "founder":    return null; // Uses gradient (handled separately)
-    case "admin":      return "#d32f2f";
-    case "moderator":  return "#e65100";
-    case "contributor":
-    case "reviewer":
-    case "curator":
-    case "mentor":
-    case "archivist":
-    case "ambassador":
-    case "pioneer":
-    case "researcher": return "#1565c0";
-    default:           return null;
+  // Look up in ROLE_RING_COLORS for UserRole values
+  if (role in ROLE_RING_COLORS) {
+    return ROLE_RING_COLORS[role as UserRole];
   }
+  // Community custom roles use a uniform blue tint
+  const communityRoles = new Set(["reviewer", "curator", "mentor", "archivist", "ambassador", "pioneer", "researcher"]);
+  if (communityRoles.has(role)) return "#3b82f6"; // blue-500
+  return null;
 }
 
 /** Return the initials to display when no avatar image is provided. */
@@ -80,15 +79,13 @@ export default function AvatarRing({
 }: AvatarRingProps) {
   const [imgError, setImgError] = useState(false);
 
-  const isFounderRole = role === "founder";
   const solidRole = roleRingColor(role as string | null);
 
   // Decide which ring to show
-  const useFounderRing = isFounderRole;
-  const useRoleRing = !isFounderRole && solidRole !== null;
-  const useStreakAnimated = !useFounderRing && !useRoleRing && streakDays >= 30;
-  const useStreakSolid = !useFounderRing && !useRoleRing && !useStreakAnimated && streakDays > 0;
-  const hasRing = useFounderRing || useRoleRing || useStreakAnimated || useStreakSolid;
+  const useRoleRing = solidRole !== null;
+  const useStreakAnimated = !useRoleRing && streakDays >= 30;
+  const useStreakSolid = !useRoleRing && !useStreakAnimated && streakDays > 0;
+  const hasRing = useRoleRing || useStreakAnimated || useStreakSolid;
 
   const ringWidth = size >= 48 ? 3 : 2;
   const ringGap = 2;
@@ -96,9 +93,7 @@ export default function AvatarRing({
 
   const showImage = !!avatarUrl && !imgError;
 
-  const ringTitle = isFounderRole
-    ? "Founder"
-    : solidRole
+  const ringTitle = solidRole
     ? `${role} role`
     : streakDays > 0
     ? `${streakDays}-day streak`
@@ -110,25 +105,7 @@ export default function AvatarRing({
       style={{ width: totalSize, height: totalSize }}
       title={ringTitle}
     >
-      {/* Founder gradient ring */}
-      {useFounderRing && (
-        <span
-          aria-hidden="true"
-          className="absolute inset-0 rounded-full avatar-ring-google"
-          style={{
-            padding: ringWidth + ringGap,
-            background:
-              "conic-gradient(#7c3aed 0deg, #ffd700 90deg, #7c3aed 180deg, #ffd700 270deg, #7c3aed 360deg)",
-          }}
-        >
-          <span
-            className="block rounded-full w-full h-full"
-            style={{ background: "var(--color-surface)" }}
-          />
-        </span>
-      )}
-
-      {/* Role-based solid ring */}
+      {/* Role-based static ring */}
       {useRoleRing && (
         <span
           aria-hidden="true"

@@ -12,6 +12,17 @@ interface UsersTableProps {
   currentAdminRole: string;
 }
 
+/** Return the XP milestone label(s) earned for a given XP total. */
+function xpMilestones(xp: number): string[] {
+  const milestones: string[] = [];
+  if (xp >= 1000) milestones.push("1,000 XP");
+  else if (xp >= 500) milestones.push("500 XP");
+  else if (xp >= 300) milestones.push("300 XP");
+  else if (xp >= 150) milestones.push("150 XP");
+  else if (xp >= 50) milestones.push("50 XP");
+  return milestones;
+}
+
 export default function UsersTable({ users, currentAdminId, currentAdminRole }: UsersTableProps) {
   const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
   const [list, setList] = useState<AdminUser[]>(users);
@@ -39,23 +50,18 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
           <thead>
             <tr style={{ borderBottom: "1px solid var(--color-border)", background: "var(--color-surface)" }}>
               <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold" style={{ color: "var(--color-text-muted)" }}>User</th>
-              <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold" style={{ color: "var(--color-text-muted)" }}>Primary Role</th>
-              <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold" style={{ color: "var(--color-text-muted)" }}>Secondary Role</th>
-              <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold" style={{ color: "var(--color-text-muted)" }}>Tertiary Role</th>
+              <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold" style={{ color: "var(--color-text-muted)" }}>Role</th>
+              <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold" style={{ color: "var(--color-text-muted)" }}>Community Badges</th>
               <th className="whitespace-nowrap px-4 py-3 text-right text-xs font-semibold" style={{ color: "var(--color-text-muted)" }}>Uploads</th>
-              <th className="whitespace-nowrap px-4 py-3 text-right text-xs font-semibold" style={{ color: "var(--color-text-muted)" }}>Approved</th>
-              <th className="whitespace-nowrap px-4 py-3 text-right text-xs font-semibold" style={{ color: "var(--color-text-muted)" }}>Approval %</th>
               <th className="whitespace-nowrap px-4 py-3 text-right text-xs font-semibold" style={{ color: "var(--color-text-muted)" }}>XP</th>
+              <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold" style={{ color: "var(--color-text-muted)" }}>Achievements</th>
               <th className="whitespace-nowrap px-4 py-3 text-right text-xs font-semibold" style={{ color: "var(--color-text-muted)" }}>Streak</th>
               <th className="whitespace-nowrap px-4 py-3 text-center text-xs font-semibold" style={{ color: "var(--color-text-muted)" }}>Actions</th>
             </tr>
           </thead>
           <tbody>
             {list.map((u, idx) => {
-              // upload_count = approved papers (incremented on approval in v3 gamification).
-              // Without a separate total_uploads counter we can't compute an accurate
-              // approval %, so we show the approved count and "—" for the percentage.
-              const approved = u.upload_count;
+              const milestones = xpMilestones(u.xp);
 
               return (
                 <tr
@@ -72,7 +78,7 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
                         displayName={u.name || u.username || u.email}
                         avatarUrl={u.avatar_url || undefined}
                         streakDays={u.streak_days}
-                        role={u.primary_role}
+                        role={u.role}
                         size={36}
                       />
                       <div className="min-w-0">
@@ -86,39 +92,57 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
                     </div>
                   </td>
 
-                  {/* Primary Role */}
+                  {/* Single authoritative role */}
                   <td className="whitespace-nowrap px-4 py-3">
-                    <RoleBadge role={u.primary_role} />
+                    <RoleBadge role={u.role} />
                   </td>
 
-                  {/* Secondary Role */}
+                  {/* Community badges (secondary + tertiary) */}
                   <td className="whitespace-nowrap px-4 py-3">
-                    {u.secondary_role ? <RoleBadge role={u.secondary_role} /> : <span style={{ color: "var(--color-text-muted)" }}>—</span>}
+                    <div className="flex flex-wrap gap-1">
+                      {u.secondary_role ? <RoleBadge role={u.secondary_role} /> : null}
+                      {u.tertiary_role ? <RoleBadge role={u.tertiary_role} /> : null}
+                      {!u.secondary_role && !u.tertiary_role && (
+                        <span style={{ color: "var(--color-text-muted)" }}>—</span>
+                      )}
+                    </div>
                   </td>
 
-                  {/* Tertiary Role */}
-                  <td className="whitespace-nowrap px-4 py-3">
-                    {u.tertiary_role ? <RoleBadge role={u.tertiary_role} /> : <span style={{ color: "var(--color-text-muted)" }}>—</span>}
-                  </td>
-
-                  {/* Uploads (= approved papers; v3 tracks upload_count on approval) */}
+                  {/* Uploads (= approved papers) */}
                   <td className="whitespace-nowrap px-4 py-3 text-right font-medium text-sm">
-                    {approved}
-                  </td>
-
-                  {/* Approved */}
-                  <td className="whitespace-nowrap px-4 py-3 text-right font-medium text-sm">
-                    {approved}
-                  </td>
-
-                  {/* Approval % – requires total_uploads which is not stored per-user */}
-                  <td className="whitespace-nowrap px-4 py-3 text-right text-sm" style={{ color: "var(--color-text-muted)" }}>
-                    —
+                    {u.upload_count}
                   </td>
 
                   {/* XP */}
                   <td className="whitespace-nowrap px-4 py-3 text-right font-medium text-sm">
                     {u.xp.toLocaleString()}
+                  </td>
+
+                  {/* Achievements / XP milestones */}
+                  <td className="px-4 py-3">
+                    {milestones.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {milestones.map((m) => (
+                          <span
+                            key={m}
+                            className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                            style={{ background: "#fef9c3", color: "#854d0e" }}
+                          >
+                            ★ {m}
+                          </span>
+                        ))}
+                        {u.streak_days >= 30 && (
+                          <span
+                            className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                            style={{ background: "#dcfce7", color: "#14532d" }}
+                          >
+                            🔥 30d streak
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <span style={{ color: "var(--color-text-muted)" }}>—</span>
+                    )}
                   </td>
 
                   {/* Streak */}

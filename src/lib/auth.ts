@@ -282,7 +282,7 @@ export async function getExtendedServerUser(): Promise<ExtendedUserProfile | nul
       name: (profile.display_name as string) ?? "",
       username: (profile.username as string) ?? "",
       avatar_url: (profile.avatar_url as string) ?? "",
-      primary_role: primaryRole,
+      role: primaryRole,
       secondary_role: secondaryRole,
       tertiary_role: tertiaryRole,
       tier,
