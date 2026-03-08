@@ -63,8 +63,8 @@ export async function POST(request: NextRequest) {
       paper_type?: string;
     };
 
-    if (!fileId || !title || !course_code || !course_name || !department || !year || !semester || !exam_type) {
-      return NextResponse.json({ error: "All fields are required." }, { status: 400 });
+    if (!fileId || !title || !course_code || !course_name || !department || !year) {
+      return NextResponse.json({ error: "Required fields missing: fileId, title, course_code, course_name, department, year." }, { status: 400 });
     }
 
     const yearNum = Number(year);
@@ -95,11 +95,11 @@ export async function POST(request: NextRequest) {
         course_name,
         department,
         year: yearNum,
-        semester,
-        exam_type,
         file_url: fileUrl,
         uploaded_by: user.id,
         approved: false,
+        ...(semester ? { semester } : {}),
+        ...(exam_type ? { exam_type } : {}),
         ...(institution ? { institution } : {}),
         ...(programme ? { programme } : {}),
         ...(paper_type ? { paper_type } : {}),
