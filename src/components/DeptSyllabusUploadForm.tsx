@@ -26,6 +26,7 @@ export default function DeptSyllabusUploadForm() {
   const [fileName, setFileName] = useState("");
   const [programme, setProgramme] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -170,6 +171,12 @@ export default function DeptSyllabusUploadForm() {
               } else {
                 setMessage(null);
                 setFileName(file.name);
+                // Populate the file input so FormData picks it up on submit
+                const dt = new DataTransfer();
+                dt.items.add(file);
+                if (fileInputRef.current) {
+                  fileInputRef.current.files = dt.files;
+                }
               }
             }
           }}
@@ -184,6 +191,7 @@ export default function DeptSyllabusUploadForm() {
             Maximum file size: {MAX_MB} MB
           </p>
           <input
+            ref={fileInputRef}
             name="file"
             type="file"
             accept=".pdf"

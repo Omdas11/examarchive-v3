@@ -7,15 +7,12 @@
  * large PDFs.
  *
  * Authentication: The server issues a short-lived JWT via /api/upload/token;
- * the client sends it in the `x-appwrite-jwt` header.  We intentionally use
- * `credentials: 'omit'` so that no browser cookies are included – JWT auth
- * does not need cookies, and omitting credentials lets the request succeed
- * from any origin without needing to register the domain in the Appwrite
- * Console as a web platform (which fixes the common "Failed to fetch" / CORS
- * error users encounter).
+ * the client sets it on the Appwrite Web SDK client via `client.setJWT()`.
+ * The SDK handles CORS, chunked uploads (for files > 5 MB), and progress
+ * tracking automatically.
  */
 
-import { ID } from "appwrite";
+import { Client, Storage, ID, type UploadProgress as SdkUploadProgress } from "appwrite";
 
 export const APPWRITE_ENDPOINT =
   process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT ?? "";
@@ -39,92 +36,6 @@ export interface UploadProgress {
 }
 
 /**
- * Internal helper: uploads a file to an Appwrite Storage bucket using the
- * REST API directly (not the SDK) with `credentials: 'omit'`.  JWT is sent
- * as an `x-appwrite-jwt` header so no browser cookie is needed, which
- * avoids the CORS pre-flight credential requirement and the "Failed to fetch"
- * error that appears when the domain is not yet registered in the Appwrite
- * project's web-platform list.
- *
- * Progress is tracked via XHR (XMLHttpRequest) because the Fetch API does not
- * expose upload progress natively.
- */
-function uploadWithProgress(
-  endpoint: string,
-  projectId: string,
-  bucketId: string,
-  fileId: string,
-  jwt: string,
-  file: File,
-  onProgress?: (evt: UploadProgress) => void,
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const url = `${endpoint}/storage/buckets/${encodeURIComponent(bucketId)}/files`;
-
-    const formData = new FormData();
-    formData.append("fileId", fileId);
-    formData.append("file", file, file.name);
-
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", url);
-    xhr.timeout = 10 * 60 * 1000; // 10-minute timeout for large files
-
-    // JWT authentication – no cookies required
-    xhr.setRequestHeader("x-appwrite-project", projectId);
-    xhr.setRequestHeader("x-appwrite-jwt", jwt);
-    // Omit credentials so Appwrite's CORS policy can use a wildcard origin
-    // and the request succeeds even if the domain is not registered as a
-    // web platform in the Appwrite project settings.
-    xhr.withCredentials = false;
-
-    if (onProgress) {
-      xhr.upload.addEventListener("progress", (e) => {
-        if (e.lengthComputable) {
-          onProgress({
-            progress: Math.round((e.loaded / e.total) * 100),
-            loaded: e.loaded,
-            total: e.total,
-          });
-        }
-      });
-    }
-
-    xhr.addEventListener("load", () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        resolve();
-      } else {
-        let message = `Upload failed (HTTP ${xhr.status})`;
-        try {
-          const body = JSON.parse(xhr.responseText) as { message?: string };
-          if (body.message) message = body.message;
-        } catch {
-          // ignore JSON parse errors
-        }
-        reject(new Error(message));
-      }
-    });
-
-    xhr.addEventListener("error", () => {
-      reject(
-        new Error(
-          "Failed to reach the storage server. Check your internet connection and ensure the Appwrite endpoint is correct.",
-        ),
-      );
-    });
-
-    xhr.addEventListener("abort", () => {
-      reject(new Error("Upload was aborted."));
-    });
-
-    xhr.addEventListener("timeout", () => {
-      reject(new Error("Upload timed out. Please check your connection and try again."));
-    });
-
-    xhr.send(formData);
-  });
-}
-
-/**
  * Validate that required Appwrite client-side environment variables are set.
  * Throws a descriptive error early so the user sees a useful message instead
  * of the opaque "Failed to fetch" that the SDK would produce.
@@ -143,7 +54,20 @@ function assertEnv(): void {
 }
 
 /**
+ * Create a JWT-authenticated Appwrite client for direct browser-to-storage uploads.
+ */
+function createJwtClient(jwt: string): Client {
+  assertEnv();
+  const client = new Client()
+    .setEndpoint(APPWRITE_ENDPOINT)
+    .setProject(APPWRITE_PROJECT_ID);
+  client.setJWT(jwt);
+  return client;
+}
+
+/**
  * Upload a single file directly from the browser to Appwrite Storage.
+ * Uses the Appwrite Web SDK which handles CORS and chunked uploads automatically.
  *
  * @param jwt       Short-lived JWT obtained from `/api/upload/token`.
  * @param file      Browser `File` object selected by the user.
@@ -155,22 +79,27 @@ export async function uploadFileDirectly(
   file: File,
   onProgress?: (evt: UploadProgress) => void,
 ): Promise<string> {
-  assertEnv();
+  const client = createJwtClient(jwt);
+  const storage = new Storage(client);
   const fileId = ID.unique();
-  await uploadWithProgress(
-    APPWRITE_ENDPOINT,
-    APPWRITE_PROJECT_ID,
-    BUCKET_ID,
-    fileId,
-    jwt,
-    file,
-    onProgress,
-  );
+
+  const sdkProgress = onProgress
+    ? (p: SdkUploadProgress) => {
+        onProgress({
+          progress: Math.round(p.progress),
+          loaded: p.sizeUploaded,
+          total: file.size,
+        });
+      }
+    : undefined;
+
+  await storage.createFile(BUCKET_ID, fileId, file, undefined, sdkProgress);
   return fileId;
 }
 
 /**
  * Upload a file directly from the browser to the syllabus-files Appwrite bucket.
+ * Uses the Appwrite Web SDK which handles CORS and chunked uploads automatically.
  *
  * @param jwt       Short-lived JWT obtained from `/api/upload/token`.
  * @param file      Browser `File` object selected by the user.
@@ -182,16 +111,20 @@ export async function uploadSyllabusFileDirectly(
   file: File,
   onProgress?: (evt: UploadProgress) => void,
 ): Promise<string> {
-  assertEnv();
+  const client = createJwtClient(jwt);
+  const storage = new Storage(client);
   const fileId = ID.unique();
-  await uploadWithProgress(
-    APPWRITE_ENDPOINT,
-    APPWRITE_PROJECT_ID,
-    SYLLABUS_BUCKET_ID,
-    fileId,
-    jwt,
-    file,
-    onProgress,
-  );
+
+  const sdkProgress = onProgress
+    ? (p: SdkUploadProgress) => {
+        onProgress({
+          progress: Math.round(p.progress),
+          loaded: p.sizeUploaded,
+          total: file.size,
+        });
+      }
+    : undefined;
+
+  await storage.createFile(SYLLABUS_BUCKET_ID, fileId, file, undefined, sdkProgress);
   return fileId;
 }

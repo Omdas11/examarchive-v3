@@ -301,12 +301,24 @@ export async function POST(request: NextRequest) {
     }
     case "approve-syllabus": {
       try {
-        await db.updateDocument(DATABASE_ID, COLLECTION.syllabus, id, {
-          approval_status: "approved",
-        });
+        const syllabus = await db.getDocument(DATABASE_ID, COLLECTION.syllabus, id);
+        const uploaderId = syllabus.uploader_id as string | undefined;
+        const wasApproved = syllabus.approval_status === "approved";
+
+        if (!wasApproved) {
+          await db.updateDocument(DATABASE_ID, COLLECTION.syllabus, id, {
+            approval_status: "approved",
+          });
+
+          // Grant XP and auto-promote the uploader, same as paper approvals
+          if (uploaderId) {
+            await incrementUploadCount(db, uploaderId);
+          }
+        }
+
         await logActivity(db, {
           action: "approve",
-          target_user_id: null,
+          target_user_id: uploaderId ?? null,
           target_paper_id: id,
           admin_id: user.id,
           admin_email: user.email,
@@ -320,12 +332,15 @@ export async function POST(request: NextRequest) {
     }
     case "reject-syllabus": {
       try {
+        const syllabus = await db.getDocument(DATABASE_ID, COLLECTION.syllabus, id);
+        const uploaderId = syllabus.uploader_id as string | undefined;
+
         await db.updateDocument(DATABASE_ID, COLLECTION.syllabus, id, {
           approval_status: "rejected",
         });
         await logActivity(db, {
           action: "reject",
-          target_user_id: null,
+          target_user_id: uploaderId ?? null,
           target_paper_id: id,
           admin_id: user.id,
           admin_email: user.email,
