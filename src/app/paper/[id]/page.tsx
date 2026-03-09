@@ -68,10 +68,12 @@ export default async function PaperPage({ params }: PaperPageProps) {
     ? `@${paper.uploaded_by_username}`
     : null;
 
-  // Look up structured syllabus data from the registry by course_code
-  const syllabusEntry: SyllabusRegistryEntry | undefined = paper.course_code
+  // Look up structured syllabus data from the registry by course_code.
+  // Captured in a const so TypeScript can narrow the type inside the callback.
+  const courseCode = paper.course_code;
+  const syllabusEntry: SyllabusRegistryEntry | undefined = courseCode
     ? SYLLABUS_REGISTRY.find(
-        (e) => e.paper_code.toUpperCase() === paper.course_code.toUpperCase(),
+        (e) => e.paper_code.toUpperCase() === courseCode.toUpperCase(),
       )
     : undefined;
 
