@@ -398,17 +398,11 @@ function PaperLibrary() {
               </h3>
 
               {sortKey === "semester" ? (
-                // Group by semester when sorting by semester
+                // Group by semester with collapsible accordion
                 Array.from(bySem.entries()).map(([sem, entries]) => (
-                  <div key={sem} className="mb-4">
-                    <h4
-                      className="text-sm font-semibold mb-2 pb-1"
-                      style={{ borderBottom: "1px solid var(--color-border)", color: "var(--color-text-muted)" }}
-                    >
-                      {semLabel(sem)}
-                    </h4>
+                  <SemesterAccordion key={sem} label={semLabel(sem)} count={entries.length}>
                     <PaperTable entries={entries} catColors={CAT_COLORS} />
-                  </div>
+                  </SemesterAccordion>
                 ))
               ) : (
                 <PaperTable entries={subjectEntries} catColors={CAT_COLORS} />
@@ -421,7 +415,62 @@ function PaperLibrary() {
   );
 }
 
-/** Reusable paper rows table. */
+/** Collapsible semester accordion for progressive disclosure. */
+function SemesterAccordion({
+  label,
+  count,
+  children,
+}: {
+  label: string;
+  count: number;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="mb-3">
+      <button
+        type="button"
+        className="accordion-header"
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+      >
+        <span className="flex items-center gap-2">
+          {label}
+          <span
+            className="text-[11px] font-normal rounded-full px-2 py-0.5"
+            style={{ background: "var(--color-accent-soft)", color: "var(--color-text-muted)" }}
+          >
+            {count}
+          </span>
+        </span>
+        <svg
+          width="16"
+          height="16"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          viewBox="0 0 24 24"
+          className={`accordion-chevron${open ? " open" : ""}`}
+          aria-hidden="true"
+        >
+          <path d="M19 9l-7 7-7-7" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      <div
+        className="accordion-body"
+        style={{
+          maxHeight: open ? "2000px" : "0",
+          opacity: open ? 1 : 0,
+        }}
+      >
+        <div className="pt-2">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+/** Reusable paper rows table with zebra striping and sticky headers. */
 function PaperTable({
   entries,
   catColors,
@@ -431,17 +480,14 @@ function PaperTable({
 }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-sm">
+      <table className="zebra-table">
         <thead>
-          <tr
-            className="text-xs uppercase text-left"
-            style={{ color: "var(--color-text-muted)" }}
-          >
-            <th className="pb-2 pr-3 font-medium">Paper Code</th>
-            <th className="pb-2 pr-3 font-medium">Paper Name</th>
-            <th className="pb-2 pr-3 font-medium">Cat.</th>
-            <th className="pb-2 pr-3 font-medium">Credits</th>
-            <th className="pb-2 font-medium">Units</th>
+          <tr>
+            <th>Paper Code</th>
+            <th>Paper Name</th>
+            <th>Cat.</th>
+            <th>Credits</th>
+            <th>Units</th>
           </tr>
         </thead>
         <tbody>

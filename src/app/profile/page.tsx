@@ -8,6 +8,7 @@ import { TierBadge } from "@/components/RoleBadge";
 import { Icon, type IconName } from "@/components/Icons";
 import ContributionHeatmap from "@/components/ContributionHeatmap";
 import Breadcrumb from "@/components/Breadcrumb";
+import ConfettiTrigger from "@/components/ConfettiTrigger";
 
 export const metadata: Metadata = {
   title: "Profile",
@@ -170,6 +171,9 @@ export default async function ProfilePage() {
 
   return (
     <section className="mx-auto px-4 py-8 space-y-4" style={{ maxWidth: "var(--max-w)" }}>
+
+      {/* Confetti on first approval */}
+      <ConfettiTrigger approvedCount={approvedCount} />
 
       {/* Breadcrumb */}
       <Breadcrumb items={[
