@@ -110,30 +110,39 @@ No additional database column is needed.
 
 Core collection for exam question papers.
 
+> **Note:** For the canonical schema reference see `docs/backend-schema.md`.
+> The table below reflects only the fields that actually exist in Appwrite.
+> Fields previously documented here (`title`, `course_code`, `institution`,
+> `programme`) are **not** in the backend schema and have been removed from the
+> upload API payload to prevent "Unknown attribute" errors.
+
 | Column name      | Type                          | Indexed | Default | Status   | Notes                                             |
 |------------------|-------------------------------|---------|---------|----------|---------------------------------------------------|
 | `$id`            | string                        | ✅       | —       | ✅ Active | Appwrite auto-generated ID                        |
-| `title`          | text                          | —       | —       | ✅ Active | Human-readable paper title                        |
-| `course_code`    | text                          | —       | —       | ✅ Active | e.g. `"PHYDSC101T"`; links to syllabus registry  |
-| `course_name`    | text                          | —       | —       | ✅ Active | Full course name                                  |
+| `course_name`    | text                          | —       | —       | ✅ Active | Full course / paper name                          |
 | `year`           | integer                       | —       | —       | ✅ Active | Exam year                                         |
-| `semester`       | text                          | —       | —       | ✅ Active | e.g. `"1st"`, `"2nd"`                            |
-| `exam_type`      | text                          | —       | —       | ✅ Active | `"Theory"` \| `"Practical"`                       |
+| `semester`       | text                          | —       | —       | ✅ Active | e.g. `"1st"`, `"2nd"` — optional                 |
+| `exam_type`      | text                          | —       | —       | ✅ Active | `"Theory"` \| `"Practical"` — optional            |
 | `department`     | text                          | —       | —       | ✅ Active | Department or academic stream                     |
 | `file_url`       | text                          | —       | —       | ✅ Active | Public URL of the question paper PDF              |
 | `uploaded_by`    | text                          | —       | —       | ✅ Active | Appwrite Auth user ID of the uploader             |
 | `approved`       | boolean                       | —       | —       | ✅ Active | Admin approval flag                               |
-| `paper_type`     | string (Size: 10)             | —       | NULL    | ✅ Active | `"DSC"` \| `"DSM"` \| `"SEC"` \| `"IDC"` \| `"GE"` \| `"CC"` \| `"DSE"` \| `"GEC"` |
-| `institution`    | text                          | —       | —       | ✅ Active | University or institution name                    |
-| `programme`      | text                          | —       | —       | ✅ Active | `"FYUGP"` \| `"CBCS"` \| `"Other"`              |
-| `stream`         | text                          | —       | —       | ✅ Active | Academic stream (e.g. `"Science"`)                |
-| `marks`          | integer                       | —       | —       | ⚠️ Legacy | Total marks; optional, rarely populated          |
-| `duration`       | integer                       | —       | —       | ⚠️ Legacy | Exam duration in minutes; optional               |
-| `view_count`     | integer                       | —       | —       | ✅ Active | Page view counter                                 |
-| `download_count` | integer                       | —       | —       | ✅ Active | PDF download counter                              |
-| `uploaded_by_username` | text                    | —       | —       | ⚠️ Legacy | Denormalised username; may be stale              |
+| `paper_type`     | string (Size: 10)             | —       | NULL    | ✅ Active | `"DSC"` \| `"DSM"` \| `"SEC"` \| `"IDC"` \| `"GE"` \| `"CC"` \| `"DSE"` \| `"GEC"` — optional |
+| `institute`      | text                          | —       | NULL    | ✅ Active | University or institution name — optional; replaces legacy `institution` field |
 | `$createdAt`     | datetime                      | —       | —       | ✅ Active | Appwrite auto-timestamp                           |
 | `$updatedAt`     | datetime                      | —       | —       | ✅ Active | Appwrite auto-timestamp                           |
+
+### Removed / Unsupported Fields
+
+The following fields **do not exist** in the Appwrite `papers` collection and
+must **not** be included in `createDocument` or `updateDocument` calls:
+
+| Field         | Previously Used As  | Current Resolution                                               |
+|---------------|---------------------|------------------------------------------------------------------|
+| `title`       | paper display name  | Use `course_name` instead; `toPaper()` falls back to `course_name` for `Paper.title` |
+| `course_code` | paper code filter   | Not stored in new uploads; may be present in legacy documents    |
+| `institution` | university name     | **Renamed to `institute`** in the schema                         |
+| `programme`   | FYUGP / CBCS        | Not stored in papers; available in the syllabus registry         |
 
 ---
 

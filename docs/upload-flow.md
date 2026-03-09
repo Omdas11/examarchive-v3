@@ -86,17 +86,15 @@ POST /api/upload
 Content-Type: application/json
 
 {
-  "fileId": "<Appwrite file ID>",
-  "title": "...",
-  "course_code": "PHYDSC101T",
+  "fileId":      "<Appwrite file ID>",
+  "file_name":   "physics_sem1_2024.pdf",
   "course_name": "Mathematical Physics - I",
-  "department": "Physics",
-  "year": 2024,
-  "semester": "1st",
-  "exam_type": "Theory",
-  "institution": "Assam University",
-  "programme": "FYUGP",
-  "paper_type": "DSC"
+  "department":  "Physics",
+  "year":        2024,
+  "semester":    "1st",
+  "exam_type":   "Theory",
+  "institute":   "Assam University",
+  "paper_type":  "DSC"
 }
 ```
 

@@ -237,8 +237,8 @@ export interface BrowseFilters {
 export function toPaper(doc: any): Paper {
   return {
     id: doc.$id ?? doc.id,
-    title: doc.title,
-    course_code: doc.course_code,
+    title: doc.title ?? doc.course_name,
+    course_code: doc.course_code ?? undefined,
     course_name: doc.course_name,
     year: doc.year,
     semester: doc.semester,
@@ -249,7 +249,9 @@ export function toPaper(doc: any): Paper {
     approved: doc.approved,
     created_at: doc.$createdAt ?? doc.created_at,
     stream: doc.stream ?? undefined,
-    institution: doc.institution ?? undefined,
+    // `institute` is the canonical field name in the backend schema.
+    // Fall back to the legacy `institution` field for documents created before the rename.
+    institution: doc.institute ?? doc.institution ?? undefined,
     programme: doc.programme ?? undefined,
     marks: doc.marks ?? undefined,
     duration: doc.duration ?? undefined,
