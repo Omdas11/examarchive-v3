@@ -2,7 +2,13 @@
 export interface Paper {
   id: string;
   title: string;
-  course_code: string;
+  /**
+   * Paper code (e.g. "PHYDSC101T").
+   * Optional — new uploads do not persist a course code to the `papers`
+   * collection (the code belongs to the syllabus registry, not the DB row).
+   * Legacy documents uploaded before this change may still carry a value.
+   */
+  course_code?: string;
   course_name: string;
   year: number;
   semester: string;

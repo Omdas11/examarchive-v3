@@ -54,7 +54,7 @@ export default function BrowseClient({
       list = list.filter(
         (p) =>
           p.title.toLowerCase().includes(q) ||
-          p.course_code.toLowerCase().includes(q) ||
+          (p.course_code ?? "").toLowerCase().includes(q) ||
           p.course_name.toLowerCase().includes(q),
       );
     }

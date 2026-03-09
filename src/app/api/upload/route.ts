@@ -1,14 +1,16 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getServerUser } from "@/lib/auth";
+import { getServerUser, getSessionSecret } from "@/lib/auth";
 import {
   adminDatabases,
-  adminStorage,
+  createSessionClient,
   getAppwriteFileUrl,
   DATABASE_ID,
   COLLECTION,
   BUCKET_ID,
   ID,
+  Storage,
 } from "@/lib/appwrite";
+import { AppwriteException } from "node-appwrite";
 
 export const dynamic = "force-dynamic";
 
@@ -88,13 +90,28 @@ export async function POST(request: NextRequest) {
 
     const fileUrl = getAppwriteFileUrl(fileId);
 
-    // Verify the file actually exists in Appwrite Storage.
-    // This prevents a malicious request from associating an arbitrary fileId
-    // (e.g. belonging to another user) with a new database entry.
+    // Verify the file exists in storage **using the user's own session**, not
+    // admin credentials.  An admin client would see all files regardless of
+    // ownership; a session client respects Appwrite's per-file permissions, so
+    // this call will throw (401/403) if the file was uploaded by a different user.
     try {
-      const storage = adminStorage();
-      await storage.getFile(BUCKET_ID, fileId);
-    } catch {
+      const session = await getSessionSecret();
+      if (!session) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+      const sessionStorage = new Storage(createSessionClient(session));
+      await sessionStorage.getFile(BUCKET_ID, fileId);
+    } catch (storageErr: unknown) {
+      if (storageErr instanceof AppwriteException) {
+        // 401/403 → the file exists but belongs to someone else
+        if (storageErr.code === 401 || storageErr.code === 403) {
+          return NextResponse.json(
+            { error: "Access denied: you do not own this file." },
+            { status: 403 },
+          );
+        }
+      }
+      // 404 or any other error → file not found / re-upload required
       return NextResponse.json(
         { error: "File not found in storage. Please re-upload the file." },
         { status: 404 },

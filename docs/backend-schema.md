@@ -267,8 +267,18 @@ NEXT_PUBLIC_APPWRITE_ENDPOINT=https://cloud.appwrite.io/v1
 NEXT_PUBLIC_APPWRITE_PROJECT_ID=<project-id>
 APPWRITE_API_KEY=<server-api-key>
 
-# Collection / bucket IDs (defaults used if env vars absent)
+# Storage bucket IDs — server-side (no NEXT_PUBLIC_ prefix, used by API routes)
 APPWRITE_BUCKET_ID=papers
 APPWRITE_SYLLABUS_BUCKET_ID=syllabus-files
 APPWRITE_AVATARS_BUCKET_ID=avatars
+
+# Storage bucket IDs — client-side (NEXT_PUBLIC_ prefix, used by browser SDK for direct uploads)
+NEXT_PUBLIC_APPWRITE_BUCKET_ID=papers
+NEXT_PUBLIC_APPWRITE_SYLLABUS_BUCKET_ID=syllabus-files
 ```
+
+> **Important:** Both the server-side (`APPWRITE_BUCKET_ID`) and the client-side
+> (`NEXT_PUBLIC_APPWRITE_BUCKET_ID`) variables must be set and must point to the
+> same bucket. The server uses `APPWRITE_BUCKET_ID` in `src/lib/appwrite.ts`;
+> the browser SDK uses `NEXT_PUBLIC_APPWRITE_BUCKET_ID` in
+> `src/lib/appwrite-client.ts`.

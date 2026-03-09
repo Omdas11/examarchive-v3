@@ -173,7 +173,7 @@ export default function UploadForm() {
           year,
           semester: semester || undefined,
           exam_type: examType || undefined,
-          institute: university || undefined,
+          institute: university || registryEntry?.university || undefined,
           paper_type: paperType || undefined,
         }),
       });
