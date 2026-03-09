@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import CustomSelect from "./CustomSelect";
+import { useToast } from "./ToastContext";
 import {
   uploadSyllabusFileDirectly,
   MAX_UPLOAD_BYTES,
@@ -29,6 +31,8 @@ export default function SyllabusUploadForm() {
   const formRef = useRef<HTMLFormElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const startTimeRef = useRef<number>(0);
+  const router = useRouter();
+  const { showToast } = useToast();
 
   /** When paper code changes, auto-resolve metadata from the registry. */
   const handlePaperCodeChange = useCallback(
@@ -120,6 +124,10 @@ export default function SyllabusUploadForm() {
       setRegistryEntry(null);
       setNoRegistryMatch(false);
       formRef.current?.reset();
+
+      // Show success toast and redirect to profile
+      showToast("Syllabus uploaded! Redirecting to your profile…", "success");
+      setTimeout(() => router.push("/profile"), 1500);
     } catch (err: unknown) {
       const text = err instanceof Error ? err.message : "Upload failed. Please try again.";
       setMessage({ type: "error", text });

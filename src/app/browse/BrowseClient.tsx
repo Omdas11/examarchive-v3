@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import PaperCard from "@/components/PaperCard";
 import { PAPER_TYPE_COLORS } from "@/components/PaperCard";
 import CustomSelect from "@/components/CustomSelect";
+import Breadcrumb from "@/components/Breadcrumb";
+import { SkeletonGrid } from "@/components/SkeletonCard";
 import type { Paper } from "@/types";
 
 interface BrowseClientProps {
@@ -27,6 +29,16 @@ const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: "title_desc", label: "Title Z → A" },
 ];
 
+/** Debounce hook */
+function useDebounce(value: string, delay: number) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+  return debounced;
+}
+
 export default function BrowseClient({
   initialPapers,
   availableYears,
@@ -37,6 +49,7 @@ export default function BrowseClient({
   initialSearch = "",
 }: BrowseClientProps) {
   const [search, setSearch] = useState(initialSearch);
+  const debouncedSearch = useDebounce(search, 250);
   const [activeProgramme, setActiveProgramme] = useState("ALL");
   const [activePaperType, setActivePaperType] = useState<string | null>(null);
   const [activeStream, setActiveStream] = useState<string | null>(null);
@@ -45,12 +58,23 @@ export default function BrowseClient({
   const [sortKey, setSortKey] = useState<SortKey>("newest");
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [showSkeleton, setShowSkeleton] = useState(true);
+  const mountedRef = useRef(false);
+
+  // Simulate initial skeleton loading
+  useEffect(() => {
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      const timer = setTimeout(() => setShowSkeleton(false), 400);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   const filtered = useMemo(() => {
     let list = initialPapers.filter((p) => !hiddenIds.has(p.id));
 
-    if (search.trim()) {
-      const q = search.toLowerCase();
+    if (debouncedSearch.trim()) {
+      const q = debouncedSearch.toLowerCase();
       list = list.filter(
         (p) =>
           p.title.toLowerCase().includes(q) ||
@@ -109,9 +133,9 @@ export default function BrowseClient({
     }
 
     return list;
-  }, [initialPapers, hiddenIds, search, activeProgramme, activePaperType, activeStream, activeYear, activeUniversity, sortKey]);
+  }, [initialPapers, hiddenIds, debouncedSearch, activeProgramme, activePaperType, activeStream, activeYear, activeUniversity, sortKey]);
 
-  async function handleSoftDelete(paperId: string) {
+  const handleSoftDelete = useCallback(async (paperId: string) => {
     if (!confirm("Hide this paper from Browse? It can be restored from the admin panel.")) return;
     setDeleting(paperId);
     try {
@@ -131,119 +155,52 @@ export default function BrowseClient({
     } finally {
       setDeleting(null);
     }
-  }
+  }, []);
 
   const streams = availableStreams.length > 0 ? availableStreams : [];
   const years = availableYears.length > 0 ? availableYears : [];
   const universities = availableUniversities.length > 0 ? availableUniversities : [];
 
+  // Build breadcrumb items based on active filters
+  const breadcrumbItems = [
+    { label: "Home", href: "/" },
+    { label: "Browse", href: "/browse" },
+    ...(activeUniversity ? [{ label: activeUniversity }] : []),
+    ...(activeProgramme !== "ALL" ? [{ label: activeProgramme }] : []),
+    ...(activePaperType ? [{ label: activePaperType }] : []),
+    ...(activeStream ? [{ label: activeStream }] : []),
+    ...(activeYear ? [{ label: String(activeYear) }] : []),
+  ];
+
   return (
     <>
-      {/* University toggles — shown when there are multiple universities in the data */}
-      {universities.length > 1 && (
-        <div className="mt-6 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setActiveUniversity(null)}
-            className={`toggle-btn${activeUniversity === null ? " active" : ""}`}
+      {/* Breadcrumb navigation */}
+      <Breadcrumb items={breadcrumbItems} />
+
+      {/* Search input — debounced live search */}
+      <div className="mt-2 flex flex-col gap-3 sm:flex-row">
+        <div className="relative flex-1">
+          <svg
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            viewBox="0 0 24 24"
+            className="absolute left-3 top-1/2 -translate-y-1/2"
+            style={{ color: "var(--color-text-muted)" }}
+            aria-hidden="true"
           >
-            All Universities
-          </button>
-          {universities.map((u) => (
-            <button
-              key={u}
-              type="button"
-              onClick={() => setActiveUniversity(activeUniversity === u ? null : u)}
-              className={`toggle-btn${activeUniversity === u ? " active" : ""}`}
-            >
-              {u}
-            </button>
-          ))}
+            <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <input
+            type="text"
+            placeholder="Search papers by title, code, or name…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="input-field flex-1 pl-10"
+          />
         </div>
-      )}
-
-      {/* Programme toggles */}
-      <div className="mt-6 flex flex-wrap gap-2">
-        {PROGRAMMES.map((p) => (
-          <button
-            key={p}
-            type="button"
-            onClick={() => { setActiveProgramme(p); setActivePaperType(null); }}
-            className={`toggle-btn${activeProgramme === p ? " active" : ""}`}
-          >
-            {p}
-          </button>
-        ))}
-      </div>
-
-      {/* Paper type toggles — shown when there are types from the data OR programme is FYUGP/CBCS */}
-      {availablePaperTypes.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {availablePaperTypes.map((pt) => {
-            const colors = PAPER_TYPE_COLORS[pt];
-            const isActive = activePaperType === pt;
-            return (
-              <button
-                key={pt}
-                type="button"
-                onClick={() => setActivePaperType(isActive ? null : pt)}
-                className={`toggle-btn${isActive ? " active" : ""}`}
-                style={
-                  isActive && colors
-                    ? { borderColor: colors.text, color: colors.text, background: colors.bg }
-                    : undefined
-                }
-              >
-                {pt}
-              </button>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Stream toggles */}
-      {streams.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {streams.map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => setActiveStream(activeStream === s ? null : s)}
-              className={`toggle-btn${activeStream === s ? " active" : ""}`}
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Year toggles */}
-      {years.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {years.map((y) => (
-            <button
-              key={y}
-              type="button"
-              onClick={() => setActiveYear(activeYear === y ? null : y)}
-              className={`toggle-btn${activeYear === y ? " active" : ""}`}
-            >
-              {y}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Search + sort row */}
-      <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-        <input
-          type="text"
-          placeholder="Search papers…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="input-field flex-1"
-        />
-
-        {/* Sort dropdown */}
         <CustomSelect
           name="sort"
           options={SORT_OPTIONS}
@@ -254,12 +211,116 @@ export default function BrowseClient({
         />
       </div>
 
+      {/* Filter chips — semi-transparent, interactive */}
+      <div className="mt-4 space-y-2">
+        {/* University filter */}
+        {universities.length > 1 && (
+          <div className="flex flex-wrap gap-1.5">
+            <span className="text-[10px] uppercase tracking-wider font-semibold self-center mr-1" style={{ color: "var(--color-text-muted)" }}>University</span>
+            <button
+              type="button"
+              onClick={() => setActiveUniversity(null)}
+              className={`filter-chip${activeUniversity === null ? " active" : ""}`}
+            >
+              All
+            </button>
+            {universities.map((u) => (
+              <button
+                key={u}
+                type="button"
+                onClick={() => setActiveUniversity(activeUniversity === u ? null : u)}
+                className={`filter-chip${activeUniversity === u ? " active" : ""}`}
+              >
+                {u}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Programme filter */}
+        <div className="flex flex-wrap gap-1.5">
+          <span className="text-[10px] uppercase tracking-wider font-semibold self-center mr-1" style={{ color: "var(--color-text-muted)" }}>Stream</span>
+          {PROGRAMMES.map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => { setActiveProgramme(p); setActivePaperType(null); }}
+              className={`filter-chip${activeProgramme === p ? " active" : ""}`}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+
+        {/* Paper type filter chips */}
+        {availablePaperTypes.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            <span className="text-[10px] uppercase tracking-wider font-semibold self-center mr-1" style={{ color: "var(--color-text-muted)" }}>Category</span>
+            {availablePaperTypes.map((pt) => {
+              const colors = PAPER_TYPE_COLORS[pt];
+              const isActive = activePaperType === pt;
+              return (
+                <button
+                  key={pt}
+                  type="button"
+                  onClick={() => setActivePaperType(isActive ? null : pt)}
+                  className={`filter-chip${isActive ? " active" : ""}`}
+                  style={
+                    isActive && colors
+                      ? { borderColor: colors.text, color: colors.text, background: colors.bg }
+                      : undefined
+                  }
+                >
+                  {pt}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Stream filter */}
+        {streams.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            <span className="text-[10px] uppercase tracking-wider font-semibold self-center mr-1" style={{ color: "var(--color-text-muted)" }}>Dept</span>
+            {streams.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setActiveStream(activeStream === s ? null : s)}
+                className={`filter-chip${activeStream === s ? " active" : ""}`}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Year filter */}
+        {years.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            <span className="text-[10px] uppercase tracking-wider font-semibold self-center mr-1" style={{ color: "var(--color-text-muted)" }}>Year</span>
+            {years.map((y) => (
+              <button
+                key={y}
+                type="button"
+                onClick={() => setActiveYear(activeYear === y ? null : y)}
+                className={`filter-chip${activeYear === y ? " active" : ""}`}
+              >
+                {y}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
       <p className="mt-3 text-xs" style={{ color: "var(--color-text-muted)" }}>
         {filtered.length} paper{filtered.length !== 1 ? "s" : ""} found
       </p>
 
-      {/* Papers grid */}
-      {filtered.length > 0 ? (
+      {/* Papers grid with skeleton loading */}
+      {showSkeleton ? (
+        <SkeletonGrid count={6} />
+      ) : filtered.length > 0 ? (
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((p) => (
             <div key={p.id} className="relative group">

@@ -6,6 +6,8 @@ import { signOut } from "@/app/auth/actions";
 import ProfileEditor from "./ProfileEditor";
 import { TierBadge } from "@/components/RoleBadge";
 import { Icon, type IconName } from "@/components/Icons";
+import ContributionHeatmap from "@/components/ContributionHeatmap";
+import Breadcrumb from "@/components/Breadcrumb";
 
 export const metadata: Metadata = {
   title: "Profile",
@@ -169,6 +171,12 @@ export default async function ProfilePage() {
   return (
     <section className="mx-auto px-4 py-8 space-y-4" style={{ maxWidth: "var(--max-w)" }}>
 
+      {/* Breadcrumb */}
+      <Breadcrumb items={[
+        { label: "Home", href: "/" },
+        { label: "Profile" },
+      ]} />
+
       {/* ── Main profile card ── */}
       <div className="card p-6">
         <div className="flex flex-col items-center">
@@ -190,7 +198,7 @@ export default async function ProfilePage() {
           {/* Role badge – outlined pill with SVG icon (v2 style) */}
           <div className="mt-3">
             <span
-              className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium"
+              className={`inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium${tier === "diamond" ? " rank-glow-diamond" : ""}${currentRank === "Legend" ? " rank-glow-legend" : ""}`}
               style={{ border: "1px solid var(--color-border)" }}
             >
               <Icon name={roleBadgeIconName(user.role)} size={14} aria-hidden="true" />
@@ -212,7 +220,7 @@ export default async function ProfilePage() {
                   style={{
                     background: "var(--color-accent-soft)",
                     color: "var(--color-primary)",
-                    border: "1px solid rgba(211,47,47,0.2)",
+                    border: "1px solid rgba(211,39,62,0.2)",
                   }}
                 >
                   <Icon name={a.icon} size={11} aria-hidden="true" />
@@ -222,25 +230,41 @@ export default async function ProfilePage() {
             </div>
           )}
 
-          {/* ── XP progress bar ── */}
-          {/* Left: "{xp} XP · {role_or_rank}" — Right: "Next: {rank} ({xp} XP)"  */}
-          {/* Matches v2 profile-panel.js xpCurrentTierEl / xpNextInfoEl logic      */}
+          {/* ── XP progress bar with milestone pips ── */}
           <div className="w-full mt-5">
-            <div
-              className="h-2 w-full overflow-hidden rounded-full"
-              style={{ background: "var(--color-border)" }}
-            >
-              <div
-                className="h-full rounded-full transition-all duration-500"
-                style={{ width: `${xpPercent}%`, background: "var(--color-primary)" }}
-              />
+            <div className="xp-track">
+              <div className="xp-fill" style={{ width: `${xpPercent}%` }} />
+              {/* Milestone pips */}
+              {XP_TIERS.slice(1).map((t) => {
+                const maxXp = XP_TIERS[XP_TIERS.length - 1].xp;
+                const pos = (t.xp / maxXp) * 100;
+                const reached = user.xp >= t.xp;
+                return (
+                  <div
+                    key={t.label}
+                    className={`xp-pip ${reached ? "reached" : "upcoming"}`}
+                    style={{ left: `${pos}%` }}
+                    title={`${t.label} — ${t.xp} XP`}
+                  />
+                );
+              })}
             </div>
-            <div className="flex justify-between mt-1.5 text-xs" style={{ color: "var(--color-text-muted)" }}>
+            <div className="flex justify-between mt-2 text-xs" style={{ color: "var(--color-text-muted)" }}>
               <span>{user.xp} XP · {xpLabel}</span>
               {nextXp && nextLabel && (
                 <span>Next: {nextLabel} ({nextXp} XP)</span>
               )}
             </div>
+          </div>
+
+          {/* ── Contribution Heatmap ── */}
+          <div className="w-full mt-6">
+            <ContributionHeatmap
+              totalUploads={totalUploads}
+              approvedCount={approvedCount}
+              streakDays={streakDays}
+              lastActivity={user.last_activity ?? ""}
+            />
           </div>
 
           {/* ── Daily Streak ── */}

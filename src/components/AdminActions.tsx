@@ -11,6 +11,7 @@ export default function AdminActions({ papers }: AdminActionsProps) {
   const [items, setItems] = useState<Paper[]>(papers);
   const [loading, setLoading] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   async function handleAction(id: string, action: "approve" | "delete") {
     setLoading((prev) => ({ ...prev, [id]: action }));
@@ -93,15 +94,14 @@ export default function AdminActions({ papers }: AdminActionsProps) {
                 <span>{p.exam_type}</span>
               </div>
               {p.file_url && (
-                <a
-                  href={p.file_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-block mt-2 text-xs font-medium"
-                  style={{ color: "var(--color-primary)" }}
+                <button
+                  type="button"
+                  onClick={() => setPreviewUrl(previewUrl === p.file_url ? null : p.file_url)}
+                  className="inline-block mt-2 text-xs font-medium cursor-pointer"
+                  style={{ color: "var(--color-primary)", background: "none", border: "none", padding: 0 }}
                 >
-                  Preview PDF →
-                </a>
+                  {previewUrl === p.file_url ? "Close Preview ←" : "Preview PDF →"}
+                </button>
               )}
             </div>
             <div className="flex gap-2 shrink-0">
@@ -109,8 +109,10 @@ export default function AdminActions({ papers }: AdminActionsProps) {
                 type="button"
                 onClick={() => handleAction(p.id, "approve")}
                 disabled={!!loading[p.id]}
-                className="rounded-full bg-green-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-50"
+                className="rounded-full px-4 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                style={{ background: "var(--success-green)" }}
               >
+                {loading[p.id] === "approve" && <span className="btn-spinner" />}
                 {loading[p.id] === "approve" ? "Approving…" : "Approve"}
               </button>
               <button
@@ -120,6 +122,7 @@ export default function AdminActions({ papers }: AdminActionsProps) {
                 className="rounded-full px-4 py-1.5 text-xs font-semibold disabled:opacity-50"
                 style={{ border: "1px solid var(--color-border)", color: "var(--color-text-muted)" }}
               >
+                {loading[p.id] === "delete" && <span className="btn-spinner" />}
                 {loading[p.id] === "delete" ? "Rejecting…" : "Reject"}
               </button>
             </div>
@@ -127,6 +130,29 @@ export default function AdminActions({ papers }: AdminActionsProps) {
         </li>
       ))}
     </ul>
+
+      {/* Side-panel PDF previewer */}
+      <div className={`pdf-side-panel${previewUrl ? " open" : ""}`}>
+        <div className="pdf-side-panel-header">
+          <span className="text-sm font-semibold">PDF Preview</span>
+          <button
+            type="button"
+            onClick={() => setPreviewUrl(null)}
+            className="p-1 rounded hover:opacity-70"
+            aria-label="Close preview"
+          >
+            <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        </div>
+        {previewUrl && (
+          <iframe
+            src={previewUrl}
+            title="PDF Preview"
+          />
+        )}
+      </div>
     </>
   );
 }
