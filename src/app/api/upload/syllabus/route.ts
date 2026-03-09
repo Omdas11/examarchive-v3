@@ -8,6 +8,7 @@ import {
   SYLLABUS_BUCKET_ID,
   ID,
 } from "@/lib/appwrite";
+import { findByPaperCode } from "@/data/syllabus-registry";
 
 export const dynamic = "force-dynamic";
 
@@ -18,23 +19,27 @@ function getSyllabusFileUrl(fileId: string): string {
   return `${APPWRITE_ENDPOINT}/storage/buckets/${SYLLABUS_BUCKET_ID}/files/${fileId}/view?project=${APPWRITE_PROJECT_ID}`;
 }
 
+/** Format a semester number as an ordinal string (e.g. 1 → "1st"). */
+function formatSemester(n: number): string {
+  const suffix = n === 1 ? "st" : n === 2 ? "nd" : n === 3 ? "rd" : "th";
+  return `${n}${suffix}`;
+}
+
 /**
  * POST /api/upload/syllabus
  *
  * Accepts JSON metadata only — the file has already been uploaded directly
  * from the browser to Appwrite Storage (syllabus-files bucket).
- * This route stores the syllabus metadata in the Appwrite Database
- * with `approval_status: "pending"` for admin review.
  *
- * Expected JSON body:
+ * All syllabus metadata is auto-resolved server-side from the syllabus registry
+ * using the paper_code. The document is stored with `approval_status: "pending"`.
+ *
+ * Required JSON body fields:
  * {
- *   fileId:       string  — Appwrite file ID in the syllabus-files bucket
- *   university:   string
- *   subject:      string
- *   department:   string
- *   semester:     string
- *   programme:    string
- *   year:         number | string
+ *   fileId:     string  — Appwrite file ID in the syllabus-files bucket
+ *   paper_code: string  — Paper code used to resolve metadata from the registry
+ *   university: string  — University name
+ *   year:       number | string
  * }
  */
 export async function POST(request: NextRequest) {
@@ -51,31 +56,33 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
     }
 
-    const { fileId, university, subject, department, semester, programme, year } = body as {
+    const { fileId, paper_code, university, year } = body as {
       fileId?: string;
+      paper_code?: string;
       university?: string;
-      subject?: string;
-      department?: string;
-      semester?: string;
-      programme?: string;
       year?: number | string;
     };
 
-    if (!fileId || !university || !subject || !department || !year) {
+    if (!fileId || !paper_code || !university || !year) {
       return NextResponse.json(
-        { error: "Required fields missing: fileId, university, subject, department, year." },
+        { error: "Required fields missing: fileId, paper_code, university, year." },
         { status: 400 },
       );
     }
-
-    // semester is optional — departmental syllabi (covering all semesters) use an empty string
-
-    const fileUrl = getSyllabusFileUrl(fileId);
 
     const yearNum = Number(year);
     if (isNaN(yearNum) || yearNum < 1900 || yearNum > 2100) {
       return NextResponse.json({ error: "Invalid year value." }, { status: 400 });
     }
+
+    // Resolve all metadata from the syllabus registry using the paper code.
+    const registryEntry = findByPaperCode(paper_code, university);
+    const subject = registryEntry?.paper_name ?? paper_code;
+    const department = registryEntry?.subject ?? paper_code;
+    const semester = registryEntry ? formatSemester(registryEntry.semester) : "";
+    const programme = registryEntry?.programme ?? "";
+
+    const fileUrl = getSyllabusFileUrl(fileId);
 
     // Verify the file exists in the syllabus-files bucket.
     try {
@@ -94,8 +101,8 @@ export async function POST(request: NextRequest) {
         university,
         subject,
         department,
-        semester: semester || "",
-        programme: programme || "",
+        semester,
+        programme,
         year: yearNum,
         uploader_id: user.id,
         approval_status: "pending",

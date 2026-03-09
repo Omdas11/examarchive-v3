@@ -319,7 +319,7 @@ export async function getExtendedServerUser(): Promise<ExtendedUserProfile | nul
     try {
       const { documents: achDocs } = await db.listDocuments(
         DATABASE_ID,
-        "achievements",
+        COLLECTION.achievements,
         [Query.equal("user_id", user.$id)],
       );
       achievements = achDocs as unknown as Achievement[];

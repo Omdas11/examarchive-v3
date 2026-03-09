@@ -14,12 +14,6 @@ type MessageState = { type: "success" | "error"; text: string } | null;
 
 const MAX_MB = MAX_UPLOAD_BYTES / (1024 * 1024); // 20
 
-const programmeOptions = [
-  { value: "FYUGP", label: "FYUGP (NEP 2020)" },
-  { value: "CBCS", label: "CBCS" },
-  { value: "Other", label: "Other" },
-];
-
 const KNOWN_UNIVERSITIES = getAllUniversities();
 const universityOptions = KNOWN_UNIVERSITIES.map((u) => ({ value: u, label: u }));
 
@@ -30,14 +24,13 @@ export default function SyllabusUploadForm() {
   const [dragOver, setDragOver] = useState(false);
   const [fileName, setFileName] = useState("");
   const [university, setUniversity] = useState("");
-  const [programme, setProgramme] = useState("");
   const [registryEntry, setRegistryEntry] = useState<SyllabusRegistryEntry | null>(null);
   const [noRegistryMatch, setNoRegistryMatch] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const startTimeRef = useRef<number>(0);
 
-  /** When paper code changes, auto-fill metadata from the registry. */
+  /** When paper code changes, auto-resolve metadata from the registry. */
   const handlePaperCodeChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const code = e.target.value.trim().toUpperCase();
@@ -50,19 +43,17 @@ export default function SyllabusUploadForm() {
         const codeMatch = r.paper_code.toUpperCase() === code;
         if (!codeMatch) return false;
         if (university) return r.university.toLowerCase() === university.toLowerCase();
-        if (programme) return r.programme.toLowerCase() === programme.toLowerCase();
         return true;
       });
       if (entry) {
         setRegistryEntry(entry);
         setNoRegistryMatch(false);
-        if (!programme && entry.programme) setProgramme(entry.programme);
       } else {
         setRegistryEntry(null);
         setNoRegistryMatch(true);
       }
     },
-    [university, programme],
+    [university],
   );
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -72,7 +63,7 @@ export default function SyllabusUploadForm() {
     const formEl = e.currentTarget;
     const data = new FormData(formEl);
 
-    const subject = (data.get("subject") as string).trim();
+    const paperCode = (data.get("paper_code") as string).trim();
     const year = data.get("year") as string;
     const file = data.get("file") as File | null;
 
@@ -88,14 +79,6 @@ export default function SyllabusUploadForm() {
       setMessage({ type: "error", text: "Please select a file to upload." });
       return;
     }
-
-    const semesterNum = registryEntry?.semester ?? null;
-    const semester = semesterNum
-      ? (() => {
-          const suffix = semesterNum === 1 ? "st" : semesterNum === 2 ? "nd" : semesterNum === 3 ? "rd" : "th";
-          return `${semesterNum}${suffix}`;
-        })()
-      : "";
 
     setLoading(true);
     setProgress(0);
@@ -120,11 +103,8 @@ export default function SyllabusUploadForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           fileId,
+          paper_code: paperCode,
           university: university || undefined,
-          subject: registryEntry?.paper_name ?? subject,
-          department: registryEntry?.subject ?? subject,
-          semester,
-          programme: programme || undefined,
           year,
         }),
       });
@@ -137,7 +117,6 @@ export default function SyllabusUploadForm() {
       setMessage({ type: "success", text: "Syllabus uploaded — awaiting admin approval." });
       setFileName("");
       setUniversity("");
-      setProgramme("");
       setRegistryEntry(null);
       setNoRegistryMatch(false);
       formRef.current?.reset();
@@ -156,7 +135,7 @@ export default function SyllabusUploadForm() {
           Step 1: Syllabus Details
         </h3>
         <p className="text-xs mb-4" style={{ color: "var(--color-text-muted)" }}>
-          Enter the paper code and other details. Metadata such as paper name and semester will be auto-filled from the syllabus registry.
+          Enter the university, paper code, and year. All other metadata (paper name, semester, department, programme) is auto-resolved from the syllabus registry.
         </p>
         <div className="grid gap-4 sm:grid-cols-2">
           <CustomSelect
@@ -167,22 +146,9 @@ export default function SyllabusUploadForm() {
             onChange={(v) => { setUniversity(v); setRegistryEntry(null); setNoRegistryMatch(false); }}
             className="sm:col-span-2"
           />
-          <CustomSelect
-            name="programme"
-            options={programmeOptions}
-            placeholder="Programme"
-            value={programme}
-            onChange={(v) => { setProgramme(v); setRegistryEntry(null); setNoRegistryMatch(false); }}
-          />
-          <input
-            name="subject"
-            placeholder="Subject (e.g. Physics, Commerce)"
-            required
-            className="input-field"
-          />
           <input
             name="paper_code"
-            placeholder="Paper Code (e.g. DSC 101, PHYDSC101T)"
+            placeholder="Paper Code (e.g. PHYDSC101T)"
             required
             className="input-field"
             onChange={handlePaperCodeChange}
@@ -202,15 +168,16 @@ export default function SyllabusUploadForm() {
             style={{ background: "var(--color-accent-soft)", border: "1px solid var(--color-primary)" }}
           >
             <p className="font-semibold" style={{ color: "var(--color-primary)" }}>
-              ✓ Registry match found — metadata auto-filled
+              ✓ Registry match found — metadata auto-resolved
             </p>
             <p style={{ color: "var(--color-text-muted)" }}>
               <span className="font-medium">Paper:</span> {registryEntry.paper_name}
             </p>
             <p style={{ color: "var(--color-text-muted)" }}>
+              <span className="font-medium">Department:</span> {registryEntry.subject} &nbsp;|&nbsp;
               <span className="font-medium">Semester:</span> {registryEntry.semester} &nbsp;|&nbsp;
-              <span className="font-medium">Credits:</span> {registryEntry.credits} &nbsp;|&nbsp;
-              <span className="font-medium">Category:</span> {registryEntry.category ?? "—"}
+              <span className="font-medium">Category:</span> {registryEntry.category ?? "—"} &nbsp;|&nbsp;
+              <span className="font-medium">Programme:</span> {registryEntry.programme}
             </p>
           </div>
         )}
@@ -244,7 +211,6 @@ export default function SyllabusUploadForm() {
               } else {
                 setMessage(null);
                 setFileName(file.name);
-                // Populate the file input so FormData picks it up on submit
                 const dt = new DataTransfer();
                 dt.items.add(file);
                 if (fileInputRef.current) {
