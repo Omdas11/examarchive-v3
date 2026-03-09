@@ -107,7 +107,6 @@ export default function UploadForm() {
     const formEl = e.currentTarget;
     const data = new FormData(formEl);
 
-    const course_code = (data.get("course_code") as string).trim().toUpperCase();
     const subject = (data.get("subject") as string).trim();
     const year = data.get("year") as string;
     const file = data.get("file") as File | null;
@@ -168,15 +167,13 @@ export default function UploadForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           fileId,
-          title: paperName,
-          course_code,
+          file_name: file.name,
           course_name: paperName,
           department: registryEntry?.subject ?? subject,
           year,
           semester: semester || undefined,
           exam_type: examType || undefined,
-          institution: university || undefined,
-          programme: programme || undefined,
+          institute: university || registryEntry?.university || undefined,
           paper_type: paperType || undefined,
         }),
       });

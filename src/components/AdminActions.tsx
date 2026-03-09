@@ -81,7 +81,7 @@ export default function AdminActions({ papers }: AdminActionsProps) {
             <div className="flex-1 min-w-0">
               <p className="font-medium">{p.title}</p>
               <p className="text-xs mt-0.5" style={{ color: "var(--color-text-muted)" }}>
-                {p.course_code} · {p.course_name}
+                {p.course_code ? <>{p.course_code} · </> : null}{p.course_name}
               </p>
               <div className="mt-1 flex flex-wrap gap-2 text-xs" style={{ color: "var(--color-text-muted)" }}>
                 <span>{p.department}</span>

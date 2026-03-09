@@ -86,17 +86,15 @@ POST /api/upload
 Content-Type: application/json
 
 {
-  "fileId": "<Appwrite file ID>",
-  "title": "...",
-  "course_code": "PHYDSC101T",
+  "fileId":      "<Appwrite file ID>",
+  "file_name":   "physics_sem1_2024.pdf",
   "course_name": "Mathematical Physics - I",
-  "department": "Physics",
-  "year": 2024,
-  "semester": "1st",
-  "exam_type": "Theory",
-  "institution": "Assam University",
-  "programme": "FYUGP",
-  "paper_type": "DSC"
+  "department":  "Physics",
+  "year":        2024,
+  "semester":    "1st",
+  "exam_type":   "Theory",
+  "institute":   "Assam University",
+  "paper_type":  "DSC"
 }
 ```
 
@@ -208,11 +206,19 @@ For paper uploads (`UploadForm.tsx`) the bar also shows upload speed and ETA.
 NEXT_PUBLIC_APPWRITE_ENDPOINT=https://cloud.appwrite.io/v1
 NEXT_PUBLIC_APPWRITE_PROJECT_ID=<project-id>
 APPWRITE_API_KEY=<server-api-key>
-APPWRITE_DATABASE_ID=<database-id>
-APPWRITE_PAPERS_COLLECTION_ID=<papers-collection-id>
-APPWRITE_SYLLABUS_COLLECTION_ID=<syllabus-collection-id>
-APPWRITE_USERS_COLLECTION_ID=<users-collection-id>
-APPWRITE_PAPERS_BUCKET_ID=<papers-bucket-id>
-APPWRITE_SYLLABUS_BUCKET_ID=<syllabus-bucket-id>
-APPWRITE_AVATARS_BUCKET_ID=<avatars-bucket-id>
+
+# Storage bucket IDs — server-side (no NEXT_PUBLIC_ prefix)
+APPWRITE_BUCKET_ID=papers
+APPWRITE_SYLLABUS_BUCKET_ID=syllabus-files
+APPWRITE_AVATARS_BUCKET_ID=avatars
+
+# Storage bucket IDs — client-side (NEXT_PUBLIC_ prefix, used by browser SDK)
+NEXT_PUBLIC_APPWRITE_BUCKET_ID=papers
+NEXT_PUBLIC_APPWRITE_SYLLABUS_BUCKET_ID=syllabus-files
 ```
+
+> **Note:** Database and collection IDs (`examarchive`, `papers`, `syllabus`,
+> `users`, `uploads`, `activity_logs`) are **hardcoded** in
+> `src/lib/appwrite.ts` — they do not need to be set as environment variables.
+> See `DATABASE_ID` and `COLLECTION` constants in that file if you need to
+> change them.
