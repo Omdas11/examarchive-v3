@@ -28,6 +28,7 @@ export const COLLECTION = {
   syllabus: "syllabus",
   uploads: "uploads",
   activity_logs: "activity_logs",
+  achievements: "achievements",
 } as const;
 
 /** Storage bucket for uploaded PDFs and files. */

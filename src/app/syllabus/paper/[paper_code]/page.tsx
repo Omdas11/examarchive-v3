@@ -33,6 +33,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 /** Fetch any uploaded PDFs for this paper code from the database. */
 async function fetchSyllabusPdfs(paperCode: string): Promise<Syllabus[]> {
+  // Look up the canonical paper name from the registry to match the `subject`
+  // field written by the syllabus upload route. The `syllabus` collection does
+  // not have a `course_code` field — it stores the paper name in `subject`.
+  const entry = SYLLABUS_REGISTRY.find(
+    (e) => e.paper_code.toUpperCase() === paperCode.toUpperCase(),
+  );
+  if (!entry) return [];
+
   try {
     const db = adminDatabases();
     const { documents } = await db.listDocuments(
@@ -40,7 +48,7 @@ async function fetchSyllabusPdfs(paperCode: string): Promise<Syllabus[]> {
       COLLECTION.syllabus,
       [
         Query.equal("approval_status", "approved"),
-        Query.equal("course_code", paperCode),
+        Query.equal("subject", entry.paper_name),
         Query.orderDesc("$createdAt"),
       ],
     );
