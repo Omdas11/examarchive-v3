@@ -682,18 +682,7 @@ body {
   border: none;
 }
 
-/* ── Page transition smoothing ── */
-.page-transition-enter {
-  opacity: 0;
-  transform: translateY(8px);
-}
-.page-transition-active {
-  opacity: 1;
-  transform: translateY(0);
-  transition: opacity 0.25s ease-out, transform 0.25s ease-out;
-}
-
-/* Mobile bottom-nav spacer */
+/* ── Mobile bottom-nav spacer ── */
 @media (max-width: 1023px) {
   .has-bottom-nav {
     padding-bottom: 4rem;

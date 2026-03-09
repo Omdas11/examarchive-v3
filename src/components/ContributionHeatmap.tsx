@@ -83,9 +83,10 @@ function generateCells(
 
   if (streakDays === 0 && totalUploads === 0) return cells;
 
+  // Normalize to noon to avoid timezone and DST edge cases when computing day differences.
   const now = new Date();
   now.setHours(12, 0, 0, 0);
-  const lastDate = lastActivity ? new Date(lastActivity) : now;
+  const lastDate = lastActivity ? new Date(lastActivity) : new Date(now.getTime());
   lastDate.setHours(12, 0, 0, 0);
   const daysSinceLast = Math.max(0, Math.round((now.getTime() - lastDate.getTime()) / 86_400_000));
 

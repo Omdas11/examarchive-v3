@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 
 /**
- * Hook that fires a confetti burst when `triggerCount` transitions from 0 to 1.
+ * Hook that fires a confetti burst when `approvedCount` transitions from 0 to 1.
  * This celebrates a user's first successful paper approval.
  */
 export function useFirstApprovalConfetti(approvedCount: number) {
