@@ -24,6 +24,10 @@ const MODERATOR_ELIGIBLE_THRESHOLD = 20;
 /**
  * Log an admin/moderation action to the activity_logs collection.
  * Failures are silently ignored (collection may not exist yet).
+ *
+ * Note: `user_id` and `meta` are required fields in the Appwrite schema.
+ * `user_id` mirrors `admin_id` (legacy field kept for schema compatibility).
+ * `meta` is always written as an empty string since it is not used by the app.
  */
 async function logActivity(
   db: ReturnType<typeof adminDatabases>,
@@ -41,7 +45,13 @@ async function logActivity(
       DATABASE_ID,
       COLLECTION.activity_logs,
       ID.unique(),
-      entry,
+      {
+        ...entry,
+        // `user_id` and `meta` are required by the Appwrite schema.
+        // user_id mirrors admin_id for legacy compatibility.
+        user_id: entry.admin_id,
+        meta: "",
+      },
     );
   } catch {
     // activity_logs collection may not exist yet

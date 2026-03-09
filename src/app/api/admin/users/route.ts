@@ -139,6 +139,10 @@ export async function PATCH(request: NextRequest) {
           admin_id: user.id,
           admin_email: user.email,
           details: `Updated user ${userId}: ${details.join(", ")}`,
+          // `user_id` and `meta` are required by the Appwrite schema.
+          // user_id mirrors admin_id for legacy compatibility.
+          user_id: user.id,
+          meta: "",
         },
       );
     } catch {
