@@ -6,7 +6,7 @@ ExamArchive uses a **two-phase upload** pattern: the browser uploads the file di
 
 ## Phase 1 — File Upload (Browser → Appwrite Storage)
 
-```
+```text
 Browser
   │
   ├─ GET /api/upload/token
@@ -30,7 +30,7 @@ Browser
 
 ## Phase 2 — Metadata Save (Browser → Next.js → Appwrite Database)
 
-```
+```text
 Browser
   └─ POST /api/upload  (JSON body)
        ├─ { fileId, paper_code, university, year, file_name? }

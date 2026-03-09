@@ -5,8 +5,8 @@ import {
   adminDatabases,
   DATABASE_ID,
   COLLECTION,
-  ID,
 } from "@/lib/appwrite";
+import { logActivity } from "@/lib/activity-log";
 
 /** XP awarded when a paper is approved. */
 const XP_PER_APPROVED_UPLOAD = 50;
@@ -20,43 +20,6 @@ const XP_STREAK_30_DAY_BONUS = 500;
 /** Upload-count thresholds for auto-promotion. */
 const CONTRIBUTOR_THRESHOLD = 3;
 const MODERATOR_ELIGIBLE_THRESHOLD = 20;
-
-/**
- * Log an admin/moderation action to the activity_logs collection.
- * Failures are silently ignored (collection may not exist yet).
- *
- * Note: `user_id` and `meta` are required fields in the Appwrite schema.
- * `user_id` mirrors `admin_id` (legacy field kept for schema compatibility).
- * `meta` is always written as an empty string since it is not used by the app.
- */
-async function logActivity(
-  db: ReturnType<typeof adminDatabases>,
-  entry: {
-    action: string;
-    target_user_id: string | null;
-    target_paper_id: string | null;
-    admin_id: string;
-    admin_email: string;
-    details: string;
-  },
-) {
-  try {
-    await db.createDocument(
-      DATABASE_ID,
-      COLLECTION.activity_logs,
-      ID.unique(),
-      {
-        ...entry,
-        // `user_id` and `meta` are required by the Appwrite schema.
-        // user_id mirrors admin_id for legacy compatibility.
-        user_id: entry.admin_id,
-        meta: "",
-      },
-    );
-  } catch {
-    // activity_logs collection may not exist yet
-  }
-}
 
 /**
  * After a paper is approved, increment the uploader's `upload_count`,
@@ -196,7 +159,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Log the approval
-        await logActivity(db, {
+        void logActivity({
           action: "approve",
           target_user_id: uploaderId ?? null,
           target_paper_id: id,
@@ -225,7 +188,7 @@ export async function POST(request: NextRequest) {
         await db.deleteDocument(DATABASE_ID, COLLECTION.papers, id);
 
         // Log the rejection
-        await logActivity(db, {
+        void logActivity({
           action: "reject",
           target_user_id: null,
           target_paper_id: id,
@@ -256,7 +219,7 @@ export async function POST(request: NextRequest) {
           approved: false,
         });
 
-        await logActivity(db, {
+        void logActivity({
           action: "reject",
           target_user_id: null,
           target_paper_id: id,
@@ -278,7 +241,7 @@ export async function POST(request: NextRequest) {
         await db.updateDocument(DATABASE_ID, COLLECTION.syllabus, id, {
           is_hidden: true,
         });
-        await logActivity(db, {
+        void logActivity({
           action: "reject",
           target_user_id: null,
           target_paper_id: id,
@@ -295,7 +258,7 @@ export async function POST(request: NextRequest) {
     case "delete-syllabus": {
       try {
         await db.deleteDocument(DATABASE_ID, COLLECTION.syllabus, id);
-        await logActivity(db, {
+        void logActivity({
           action: "reject",
           target_user_id: null,
           target_paper_id: id,
@@ -326,7 +289,7 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        await logActivity(db, {
+        void logActivity({
           action: "approve",
           target_user_id: uploaderId ?? null,
           target_paper_id: id,
@@ -348,7 +311,7 @@ export async function POST(request: NextRequest) {
         await db.updateDocument(DATABASE_ID, COLLECTION.syllabus, id, {
           approval_status: "rejected",
         });
-        await logActivity(db, {
+        void logActivity({
           action: "reject",
           target_user_id: uploaderId ?? null,
           target_paper_id: id,

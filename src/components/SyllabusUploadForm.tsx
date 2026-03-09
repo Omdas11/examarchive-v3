@@ -7,7 +7,7 @@ import {
   MAX_UPLOAD_BYTES,
   type UploadProgress,
 } from "@/lib/appwrite-client";
-import { SYLLABUS_REGISTRY, getAllUniversities } from "@/data/syllabus-registry";
+import { getAllUniversities, findByPaperCode } from "@/data/syllabus-registry";
 import type { SyllabusRegistryEntry } from "@/data/syllabus-registry";
 
 type MessageState = { type: "success" | "error"; text: string } | null;
@@ -39,12 +39,7 @@ export default function SyllabusUploadForm() {
         setNoRegistryMatch(false);
         return;
       }
-      const entry = SYLLABUS_REGISTRY.find((r) => {
-        const codeMatch = r.paper_code.toUpperCase() === code;
-        if (!codeMatch) return false;
-        if (university) return r.university.toLowerCase() === university.toLowerCase();
-        return true;
-      });
+      const entry = findByPaperCode(code, university || undefined);
       if (entry) {
         setRegistryEntry(entry);
         setNoRegistryMatch(false);
@@ -63,9 +58,14 @@ export default function SyllabusUploadForm() {
     const formEl = e.currentTarget;
     const data = new FormData(formEl);
 
-    const paperCode = (data.get("paper_code") as string).trim();
+    const paperCode = (data.get("paper_code") as string).trim().toUpperCase();
     const year = data.get("year") as string;
     const file = data.get("file") as File | null;
+
+    if (!university) {
+      setMessage({ type: "error", text: "Please select a university." });
+      return;
+    }
 
     if (file && file.size > MAX_UPLOAD_BYTES) {
       setMessage({
@@ -104,7 +104,7 @@ export default function SyllabusUploadForm() {
         body: JSON.stringify({
           fileId,
           paper_code: paperCode,
-          university: university || undefined,
+          university,
           year,
         }),
       });
@@ -141,10 +141,11 @@ export default function SyllabusUploadForm() {
           <CustomSelect
             name="university"
             options={universityOptions}
-            placeholder="University"
+            placeholder="University *"
             value={university}
             onChange={(v) => { setUniversity(v); setRegistryEntry(null); setNoRegistryMatch(false); }}
             className="sm:col-span-2"
+            required
           />
           <input
             name="paper_code"

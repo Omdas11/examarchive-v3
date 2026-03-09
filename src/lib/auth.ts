@@ -296,7 +296,7 @@ export async function getExtendedServerUser(): Promise<ExtendedUserProfile | nul
     if (documents.length === 0) return null;
     const profile = documents[0];
 
-    const rawPrimary = profile.primary_role ?? profile.role;
+    const rawPrimary = profile.role;
     const primaryRole: UserRole = isValidUserRole(rawPrimary)
       ? rawPrimary
       : "student";

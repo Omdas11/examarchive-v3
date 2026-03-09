@@ -57,7 +57,7 @@ Stores user profile data alongside Appwrite Auth accounts.
 |--------------------------|----------|---------------|---------------------|----------------------------------------------------|
 | `email`                  | String   | **Yes**       | ✅ Used              | User email address                                 |
 | `role`                   | String   | **Yes**       | ✅ Used              | Primary role: visitor / explorer / contributor / verified_contributor / moderator / maintainer / admin / founder |
-| `primary_role`           | String   | No            | ⚠️ Remove           | Legacy alias for `role`; admin route still writes it but it is never read for access control |
+| `primary_role`           | String   | No            | ⚠️ Deprecated        | Legacy alias for `role`; the admin user-management route still allows updating it independently. Pending cleanup — `role` is the authoritative field for all access-control decisions. |
 | `secondary_role`         | String   | No            | ✅ Used              | Cosmetic community role (display-only)             |
 | `tertiary_role`          | String   | No            | ✅ Used              | Additional cosmetic community role                 |
 | `tier`                   | String   | No            | ✅ Used              | Activity tier: bronze / silver / gold / platinum / diamond |
@@ -137,7 +137,7 @@ All fields match the codebase. No changes required.
 
 | Priority | Collection      | Field                  | Action                                                     |
 |----------|-----------------|------------------------|------------------------------------------------------------|
-| 🔴 High  | `users`         | `username_last_changed`| **Add** as String (optional). Used by username cooldown.   |
-| 🟡 Med   | `activity_logs` | `user_id`              | Change from `required: true` → optional (or remove field)  |
-| 🟡 Med   | `activity_logs` | `meta`                 | Change from `required: true` → optional (or remove field)  |
-| 🟢 Low   | `users`         | `primary_role`         | Remove — legacy alias for `role`, no longer needed         |
+| 🔴 High  | `users`         | `username_last_changed`| **Add** as String (optional). Used by username cooldown.               |
+| 🟡 Med   | `activity_logs` | `user_id`              | Change from `required: true` → optional (code always writes it for now) |
+| 🟡 Med   | `activity_logs` | `meta`                 | Change from `required: true` → optional (code always writes `""`)       |
+| 🟢 Low   | `users`         | `primary_role`         | Deprecated alias for `role`; remove once admin UI stops writing it      |

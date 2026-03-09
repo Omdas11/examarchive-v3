@@ -82,9 +82,9 @@ export async function POST(request: NextRequest) {
       year?: number | string;
     };
 
-    if (!fileId || !paper_code || !year) {
+    if (!fileId || !paper_code || !university || !year) {
       return NextResponse.json(
-        { error: "Required fields missing: fileId, paper_code, year." },
+        { error: "Required fields missing: fileId, paper_code, university, year." },
         { status: 400 },
       );
     }

@@ -103,7 +103,7 @@ export default function UploadForm() {
     const formEl = e.currentTarget;
     const data = new FormData(formEl);
 
-    const paperCode = (data.get("paper_code") as string).trim();
+    const paperCode = (data.get("paper_code") as string).trim().toUpperCase();
     const year = data.get("year") as string;
     const file = data.get("file") as File | null;
 
@@ -112,6 +112,11 @@ export default function UploadForm() {
         type: "error",
         text: `File is too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum allowed size is ${MAX_MB} MB.`,
       });
+      return;
+    }
+
+    if (!university) {
+      setMessage({ type: "error", text: "Please select a university." });
       return;
     }
 

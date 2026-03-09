@@ -5,10 +5,10 @@ import {
   adminDatabases,
   DATABASE_ID,
   COLLECTION,
-  ID,
   Query,
 } from "@/lib/appwrite";
 import { isValidUserRole, isValidCustomRole, isValidTier } from "@/lib/roles";
+import { logActivity } from "@/lib/activity-log";
 
 /**
  * GET /api/admin/users
@@ -127,27 +127,14 @@ export async function PATCH(request: NextRequest) {
 
     // Log the action
     const actionType = update.tier && !update.role ? "tier_change" : "role_change";
-    try {
-      await db.createDocument(
-        DATABASE_ID,
-        COLLECTION.activity_logs,
-        ID.unique(),
-        {
-          action: actionType,
-          target_user_id: userId,
-          target_paper_id: null,
-          admin_id: user.id,
-          admin_email: user.email,
-          details: `Updated user ${userId}: ${details.join(", ")}`,
-          // `user_id` and `meta` are required by the Appwrite schema.
-          // user_id mirrors admin_id for legacy compatibility.
-          user_id: user.id,
-          meta: "",
-        },
-      );
-    } catch {
-      // Activity log collection may not exist yet — don't fail the main operation
-    }
+    void logActivity({
+      action: actionType,
+      target_user_id: userId,
+      target_paper_id: null,
+      admin_id: user.id,
+      admin_email: user.email,
+      details: `Updated user ${userId}: ${details.join(", ")}`,
+    });
 
     return NextResponse.json({ success: true });
   } catch (err: unknown) {

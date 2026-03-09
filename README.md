@@ -50,7 +50,7 @@ ExamArchive is a community-driven platform for sharing and discovering universit
 
 ## Project Structure
 
-```
+```text
 src/
   app/           # Next.js App Router pages and API routes
     api/

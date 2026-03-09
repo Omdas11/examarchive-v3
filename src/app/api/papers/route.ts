@@ -20,14 +20,12 @@ export async function GET(request: NextRequest) {
     ];
 
     const department = searchParams.get("department");
-    const courseCode = searchParams.get("course_code");
     const year = searchParams.get("year");
     const semester = searchParams.get("semester");
     const examType = searchParams.get("exam_type");
     const search = searchParams.get("search");
 
     if (department) queries.push(Query.equal("department", department));
-    if (courseCode) queries.push(Query.equal("course_code", courseCode));
     if (year) {
       const yearNum = Number(year);
       if (!isNaN(yearNum) && yearNum >= 1900 && yearNum <= 2100) {
@@ -36,7 +34,7 @@ export async function GET(request: NextRequest) {
     }
     if (semester) queries.push(Query.equal("semester", semester));
     if (examType) queries.push(Query.equal("exam_type", examType));
-    if (search) queries.push(Query.search("title", search));
+    if (search) queries.push(Query.search("course_name", search));
 
     // Cap results to prevent unbounded queries
     queries.push(Query.limit(200));
