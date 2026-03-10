@@ -192,7 +192,7 @@ export async function POST(request: NextRequest) {
     }
 
     const yearNum = Number(year); // handles both trimmed string input and numeric callers
-    if (isNaN(yearNum) || yearNum < 1900 || yearNum > 2100) {
+    if (!Number.isInteger(yearNum) || yearNum < 1900 || yearNum > 2100) {
       return NextResponse.json({ error: "Invalid year value." }, { status: 400 });
     }
 
@@ -205,7 +205,7 @@ export async function POST(request: NextRequest) {
     const programme = registryEntry?.programme ?? undefined;
     const paper_type = registryEntry?.category ?? undefined;
     const exam_type = examTypeFromCode(paper_code);
-    const institution = university || registryEntry?.university || undefined;
+    const institution = university || registryEntry?.university;
 
     const fileUrl = getAppwriteFileUrl(fileId);
 
@@ -241,41 +241,41 @@ export async function POST(request: NextRequest) {
     }
 
     const db = adminDatabases();
-    const { availableKeys, requiredKeys } = await getCollectionSchema(COLLECTION.papers);
-    const paperDocument = buildPaperDocumentPayload(availableKeys, {
-      courseCode,
-      paperName,
-      year: yearNum,
-      semester,
-      department,
-      programme,
-      examType: exam_type,
-      fileUrl,
-      uploadedBy: user.id,
-      approved: false,
-      institution,
-      paperType: paper_type,
-    });
-
-    const missingRequiredKeys = getMissingRequiredKeys(requiredKeys, paperDocument);
-    if (missingRequiredKeys.length > 0) {
-      await rollbackUploadedPaper(
-        fileId,
-        `Database payload missing required fields: ${missingRequiredKeys.join(", ")}`,
-      );
-      return NextResponse.json(
-        {
-          error:
-            `Upload metadata is incomplete for the papers collection. ` +
-            `Missing required fields: ${missingRequiredKeys.join(", ")}. ` +
-            `The uploaded file was removed from storage. Please verify the paper code and try again.`,
-        },
-        { status: 500 },
-      );
-    }
-
-    // Step 1 — Create the paper document using the live schema attributes.
     try {
+      const { availableKeys, requiredKeys } = await getCollectionSchema(COLLECTION.papers);
+      const paperDocument = buildPaperDocumentPayload(availableKeys, {
+        courseCode,
+        paperName,
+        year: yearNum,
+        semester,
+        department,
+        programme,
+        examType: exam_type,
+        fileUrl,
+        uploadedBy: user.id,
+        approved: false,
+        institution,
+        paperType: paper_type,
+      });
+
+      const missingRequiredKeys = getMissingRequiredKeys(requiredKeys, paperDocument);
+      if (missingRequiredKeys.length > 0) {
+        await rollbackUploadedPaper(
+          fileId,
+          `database payload missing required fields: ${missingRequiredKeys.join(", ")}`,
+        );
+        return NextResponse.json(
+          {
+            error:
+              `Upload metadata is incomplete for the papers collection. ` +
+              `Missing required fields: ${missingRequiredKeys.join(", ")}. ` +
+              `The uploaded file was removed from storage. Please verify the paper code and try again.`,
+          },
+          { status: 500 },
+        );
+      }
+
+      // Step 1 — Create the paper document using the live schema attributes.
       await db.createDocument(DATABASE_ID, COLLECTION.papers, ID.unique(), paperDocument);
     } catch (err: unknown) {
       const rawMessage = err instanceof Error ? err.message.trim() : String(err).trim();
@@ -284,7 +284,7 @@ export async function POST(request: NextRequest) {
           ? rawMessage
           : `${rawMessage}.`
         : "Paper metadata could not be saved.";
-      await rollbackUploadedPaper(fileId, "Paper document creation failed");
+      await rollbackUploadedPaper(fileId, "paper metadata persistence failed");
       return NextResponse.json(
         {
           error: `${message} The uploaded file was removed from storage because the paper record could not be created.`,

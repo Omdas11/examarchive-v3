@@ -241,8 +241,15 @@ export interface BrowseFilters {
 
 /** Map an Appwrite document to our `Paper` type. */
 export function toPaper(doc: any): Paper {
-  const normalizedTitle = doc.title ?? doc.paper_name ?? doc.course_name ?? "";
-  const normalizedCourseName = doc.course_name ?? doc.paper_name ?? normalizedTitle;
+  const firstNonEmpty = (...values: unknown[]): string | undefined =>
+    values.find(
+      (value): value is string => typeof value === "string" && value.trim().length > 0,
+    );
+
+  const normalizedTitle =
+    firstNonEmpty(doc.title, doc.paper_name, doc.course_name) ?? "";
+  const normalizedCourseName =
+    firstNonEmpty(doc.course_name, doc.paper_name, normalizedTitle) ?? normalizedTitle;
 
   return {
     id: doc.$id ?? doc.id,
