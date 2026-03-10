@@ -3,8 +3,12 @@ import { getServerUser } from "@/lib/auth";
 import { isModerator } from "@/lib/roles";
 import {
   adminDatabases,
+  adminStorage,
   DATABASE_ID,
   COLLECTION,
+  BUCKET_ID,
+  Permission,
+  Role,
 } from "@/lib/appwrite";
 import { logActivity } from "@/lib/activity-log";
 
@@ -145,12 +149,42 @@ export async function POST(request: NextRequest) {
   switch (action) {
     case "approve": {
       try {
-        // Fetch paper to get the uploader
+        // Fetch paper to get the uploader and file_id
         const paper = await db.getDocument(DATABASE_ID, COLLECTION.papers, id);
 
         await db.updateDocument(DATABASE_ID, COLLECTION.papers, id, {
           approved: true,
         });
+
+        // Open the storage file to public read access now that it is approved.
+        // The file_id field is written by /api/upload when the paper is created.
+        // Fall back to parsing the file_url proxy path for older documents.
+        const fileUrlParts = (paper.file_url as string | undefined)?.split("/api/files/papers/");
+        const storedFileId = (paper.file_id as string | undefined) ??
+          (fileUrlParts && fileUrlParts.length === 2 ? fileUrlParts[1] : undefined);
+
+        if (storedFileId) {
+          try {
+            const storage = adminStorage();
+            const fileData = await storage.getFile(BUCKET_ID, storedFileId);
+            const existingPerms = fileData.$permissions as string[];
+            const publicReadPerm = Permission.read(Role.any());
+            if (!existingPerms.includes(publicReadPerm)) {
+              await storage.updateFile(
+                BUCKET_ID,
+                storedFileId,
+                undefined,
+                [...existingPerms, publicReadPerm],
+              );
+            }
+          } catch (storageErr) {
+            // Non-fatal: log the error but don't fail the approval
+            console.warn(
+              `[api/admin] Could not update storage permissions for file ${storedFileId}:`,
+              storageErr,
+            );
+          }
+        }
 
         // Increment the uploader's upload_count and auto-promote
         const uploaderId = paper.uploaded_by as string | undefined;

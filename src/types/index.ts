@@ -14,6 +14,8 @@ export interface Paper {
   semester: string;
   exam_type: string;
   department: string;
+  /** Appwrite Storage file ID. Stored alongside file_url to allow permission updates on approval. */
+  file_id?: string;
   file_url: string;
   uploaded_by: string;
   approved: boolean;
@@ -261,6 +263,7 @@ export function toPaper(doc: any): Paper {
     exam_type: doc.exam_type ?? "",
     department: doc.department ?? doc.subject ?? "",
     file_url: doc.file_url,
+    file_id: doc.file_id ?? undefined,
     uploaded_by: doc.uploaded_by ?? doc.uploader_id ?? "",
     approved: doc.approved,
     created_at: doc.$createdAt ?? doc.created_at,

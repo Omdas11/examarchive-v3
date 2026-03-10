@@ -100,15 +100,19 @@ export async function uploadFileDirectly(
     : undefined;
 
   // Grant read access to all authenticated users (so the proxy route and
-  // moderators can view the PDF) AND a write permission scoped to the
-  // specific uploader. The write permission is used server-side to verify
-  // ownership: /api/upload fetches the file via admin and checks
-  // `$permissions` for `write("user:<uploaderId>")`.
+  // moderators can view the PDF before approval). Write and delete permissions
+  // are scoped to the specific uploader so they can manage their own files.
+  // Public read("any") access is granted later by the admin approval step
+  // in /api/admin when the paper is approved.
   await storage.createFile(
     BUCKET_ID,
     fileId,
     file,
-    [Permission.read(Role.users()), Permission.write(Role.user(uploaderId))],
+    [
+      Permission.read(Role.users()),
+      Permission.write(Role.user(uploaderId)),
+      Permission.delete(Role.user(uploaderId)),
+    ],
     sdkProgress,
   );
   return fileId;
@@ -149,15 +153,19 @@ export async function uploadSyllabusFileDirectly(
     : undefined;
 
   // Grant read access to all authenticated users (so the proxy route and
-  // moderators can view the PDF) AND a write permission scoped to the
-  // specific uploader. The write permission is used server-side to verify
-  // ownership: /api/upload/syllabus fetches the file via admin and checks
-  // `$permissions` for `write("user:<uploaderId>")`.
+  // moderators can view the syllabus PDF before approval). Write and delete
+  // permissions are scoped to the specific uploader so they can manage
+  // their own files. Public read("any") access is granted later by the
+  // admin approval step in /api/admin when the syllabus is approved.
   await storage.createFile(
     SYLLABUS_BUCKET_ID,
     fileId,
     file,
-    [Permission.read(Role.users()), Permission.write(Role.user(uploaderId))],
+    [
+      Permission.read(Role.users()),
+      Permission.write(Role.user(uploaderId)),
+      Permission.delete(Role.user(uploaderId)),
+    ],
     sdkProgress,
   );
   return fileId;

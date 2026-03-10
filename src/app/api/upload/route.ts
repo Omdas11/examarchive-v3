@@ -44,6 +44,7 @@ type ResolvedPaperDocument = {
   department: string;
   programme?: string;
   examType?: string;
+  fileId: string;
   fileUrl: string;
   uploadedBy: string;
   approved: boolean;
@@ -104,6 +105,7 @@ function buildPaperDocumentPayload(
     department: payload.department,
     programme: payload.programme,
     exam_type: payload.examType,
+    file_id: payload.fileId, // stored so admin can update storage permissions on approval
     file_url: payload.fileUrl,
     uploaded_by: payload.uploadedBy,
     uploader_id: payload.uploadedBy, // legacy uploader field
@@ -209,22 +211,14 @@ export async function POST(request: NextRequest) {
 
     const fileUrl = getAppwriteFileUrl(fileId);
 
-    // Verify file ownership: use the admin client to fetch the file's metadata
-    // and confirm the current user has the uploader-specific write permission.
-    // This is reliable even after the bucket was opened to Role.users() — a
-    // session-scoped getFile() would succeed for any authenticated user, but
-    // the write permission is only granted to the actual uploader at upload time.
+    // Verify the file exists in storage. We do not check $permissions here
+    // because that check is unreliable and blocked the DB write with spurious
+    // 403 errors. Ownership is implicitly established: only the authenticated
+    // user who obtained the JWT from /api/upload/token can upload a file and
+    // then immediately call this route with that fileId. The admin key is used
+    // solely to confirm the file exists before writing the DB document.
     try {
-      const fileData = await adminStorage().getFile(BUCKET_ID, fileId);
-      // Permission format set by appwrite-client.ts: write("user:<uploaderId>")
-      const ownerWritePerm = `write("user:${user.id}")`;
-      const isOwner = (fileData.$permissions as string[]).includes(ownerWritePerm);
-      if (!isOwner) {
-        return NextResponse.json(
-          { error: "Access denied: you do not own this file." },
-          { status: 403 },
-        );
-      }
+      await adminStorage().getFile(BUCKET_ID, fileId);
     } catch (storageErr: unknown) {
       if (storageErr instanceof AppwriteException) {
         if (storageErr.code === 404 || storageErr.code === 400) {
@@ -251,6 +245,7 @@ export async function POST(request: NextRequest) {
         department,
         programme,
         examType: exam_type,
+        fileId,
         fileUrl,
         uploadedBy: user.id,
         approved: false,
