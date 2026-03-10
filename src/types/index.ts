@@ -4,9 +4,9 @@ export interface Paper {
   title: string;
   /**
    * Paper code (e.g. "PHYDSC101T").
-   * Persisted in the `papers` collection as the `paper_code` field for new
-   * uploads. Legacy documents may use `course_code`. `toPaper` normalises both
-   * into this field.
+   * Persisted in the `papers` collection as `course_code`. Some documents also
+   * carry the legacy alias `paper_code`. `toPaper` normalises both into this
+   * field.
    */
   course_code?: string;
   course_name: string;
@@ -241,23 +241,33 @@ export interface BrowseFilters {
 
 /** Map an Appwrite document to our `Paper` type. */
 export function toPaper(doc: any): Paper {
+  const firstNonEmpty = (...values: unknown[]): string | undefined =>
+    values.find(
+      (value): value is string => typeof value === "string" && value.trim().length > 0,
+    );
+
+  const normalizedTitle =
+    firstNonEmpty(doc.title, doc.paper_name, doc.course_name) ?? "";
+  const normalizedCourseName =
+    firstNonEmpty(doc.course_name, doc.paper_name, normalizedTitle) ?? normalizedTitle;
+
   return {
     id: doc.$id ?? doc.id,
-    title: doc.title ?? doc.course_name,
+    title: normalizedTitle,
     course_code: doc.course_code ?? doc.paper_code ?? undefined,
-    course_name: doc.course_name,
+    course_name: normalizedCourseName,
     year: doc.year,
-    semester: doc.semester,
-    exam_type: doc.exam_type,
-    department: doc.department,
+    semester: doc.semester ?? "",
+    exam_type: doc.exam_type ?? "",
+    department: doc.department ?? doc.subject ?? "",
     file_url: doc.file_url,
-    uploaded_by: doc.uploaded_by,
+    uploaded_by: doc.uploaded_by ?? doc.uploader_id ?? "",
     approved: doc.approved,
     created_at: doc.$createdAt ?? doc.created_at,
     stream: doc.stream ?? undefined,
     // `institute` is the canonical field name in the backend schema.
     // Fall back to the legacy `institution` field for documents created before the rename.
-    institution: doc.institute ?? doc.institution ?? undefined,
+    institution: doc.institute ?? doc.institution ?? doc.university ?? undefined,
     programme: doc.programme ?? undefined,
     marks: doc.marks ?? undefined,
     duration: doc.duration ?? undefined,
