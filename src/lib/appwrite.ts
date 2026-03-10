@@ -114,7 +114,7 @@ export async function uploadFileToAppwrite(
 
 /**
  * Upload an avatar image to the avatars bucket and return its file ID.
- * Sets public read permissions so avatar images can be viewed by anyone.
+ * Sets authenticated-user read permissions to match the bucket's access policy.
  */
 export async function uploadAvatarToAppwrite(
   file: File,
@@ -124,9 +124,9 @@ export async function uploadAvatarToAppwrite(
   const arrayBuffer = await file.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
   const inputFile = InputFile.fromBuffer(buffer, file.name);
-  // Set public read permission so avatars can be viewed by anyone
+  // Allow any authenticated user to read avatars (matches the bucket's "users" permission)
   await storage.createFile(AVATARS_BUCKET_ID, fileId, inputFile, [
-    Permission.read(Role.any()),
+    Permission.read(Role.users()),
   ]);
   return { fileId, bucketId: AVATARS_BUCKET_ID };
 }
@@ -141,17 +141,26 @@ export async function deleteAvatarFromAppwrite(fileId: string): Promise<void> {
 
 /**
  * Build the preview URL for an avatar stored in the avatars bucket.
- * Uses output=webp for better compression and quality.
+ *
+ * Returns a Next.js proxy URL (/api/files/avatars/{fileId}) instead of a
+ * direct Appwrite URL so that requests are authenticated server-side with
+ * the admin API key. This is required because the avatars bucket is
+ * restricted to authenticated users and direct browser requests would fail.
  */
 export function getAvatarPreviewUrl(fileId: string, width = 200): string {
-  return `${APPWRITE_ENDPOINT}/storage/buckets/${AVATARS_BUCKET_ID}/files/${fileId}/preview?project=${APPWRITE_PROJECT_ID}&width=${width}&height=${width}&gravity=center&quality=90&output=webp`;
+  return `/api/files/avatars/${fileId}?w=${width}`;
 }
 
 /**
- * Build the public view URL for a file stored in Appwrite.
+ * Build the view URL for a paper PDF stored in Appwrite.
+ *
+ * Returns a Next.js proxy URL (/api/files/papers/{fileId}) instead of a
+ * direct Appwrite URL so that requests are authenticated server-side with
+ * the admin API key. This is required because the papers bucket is
+ * restricted to authenticated users and direct browser requests would fail.
  */
 export function getAppwriteFileUrl(fileId: string): string {
-  return `${APPWRITE_ENDPOINT}/storage/buckets/${BUCKET_ID}/files/${fileId}/view?project=${APPWRITE_PROJECT_ID}`;
+  return `/api/files/papers/${fileId}`;
 }
 
 /**

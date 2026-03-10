@@ -14,6 +14,7 @@ import { AppwriteException } from "node-appwrite";
 import { findByPaperCode } from "@/data/syllabus-registry";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 /** Derive exam type from the last character of the paper code. */
 function examTypeFromCode(code: string): string | undefined {
@@ -151,7 +152,7 @@ export async function POST(request: NextRequest) {
         file_url: fileUrl,
         uploaded_by: user.id,
         approved: false,
-        paper_code: paper_code.trim().toUpperCase(),
+        course_code: paper_code.trim().toUpperCase(),
         ...(semester ? { semester } : {}),
         ...(exam_type ? { exam_type } : {}),
         ...(institute ? { institute } : {}),

@@ -14,11 +14,8 @@ import { findByPaperCode } from "@/data/syllabus-registry";
 
 export const dynamic = "force-dynamic";
 
-const APPWRITE_ENDPOINT = process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT ?? "https://cloud.appwrite.io/v1";
-const APPWRITE_PROJECT_ID = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID ?? "";
-
 function getSyllabusFileUrl(fileId: string): string {
-  return `${APPWRITE_ENDPOINT}/storage/buckets/${SYLLABUS_BUCKET_ID}/files/${fileId}/view?project=${APPWRITE_PROJECT_ID}`;
+  return `/api/files/syllabus/${fileId}`;
 }
 
 /** Format a semester number as an ordinal string (e.g. 1 → "1st"). */

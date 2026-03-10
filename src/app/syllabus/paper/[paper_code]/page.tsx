@@ -67,7 +67,7 @@ async function fetchExamPapers(paperCode: string): Promise<Paper[]> {
       COLLECTION.papers,
       [
         Query.equal("approved", true),
-        Query.equal("paper_code", paperCode),
+        Query.equal("course_code", paperCode),
         Query.orderDesc("$createdAt"),
         Query.limit(20),
       ],
