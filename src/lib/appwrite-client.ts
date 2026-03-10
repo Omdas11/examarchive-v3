@@ -69,14 +69,20 @@ function createJwtClient(jwt: string): Client {
  * Upload a single file directly from the browser to Appwrite Storage.
  * Uses the Appwrite Web SDK which handles CORS and chunked uploads automatically.
  *
- * @param jwt       Short-lived JWT obtained from `/api/upload/token`.
- * @param file      Browser `File` object selected by the user.
+ * @param jwt        Short-lived JWT obtained from `/api/upload/token`.
+ * @param file       Browser `File` object selected by the user.
+ * @param uploaderId Appwrite user ID of the uploader. Used to set a
+ *                   user-scoped write permission so the server can verify
+ *                   ownership later without relying on a session-based read
+ *                   check (which would pass for any authenticated user now
+ *                   that the bucket allows Role.users()).
  * @param onProgress Optional callback receiving upload progress (0–100).
  * @returns The Appwrite file ID of the uploaded file.
  */
 export async function uploadFileDirectly(
   jwt: string,
   file: File,
+  uploaderId: string,
   onProgress?: (evt: UploadProgress) => void,
 ): Promise<string> {
   const client = createJwtClient(jwt);
@@ -93,9 +99,18 @@ export async function uploadFileDirectly(
       }
     : undefined;
 
-  // Grant read access to all authenticated users so the proxy route (which
-  // uses the admin SDK) can serve the file and moderators can preview it.
-  await storage.createFile(BUCKET_ID, fileId, file, [Permission.read(Role.users())], sdkProgress);
+  // Grant read access to all authenticated users (so the proxy route and
+  // moderators can view the PDF) AND a write permission scoped to the
+  // specific uploader. The write permission is used server-side to verify
+  // ownership: /api/upload fetches the file via admin and checks
+  // `$permissions` for `write("user:<uploaderId>")`.
+  await storage.createFile(
+    BUCKET_ID,
+    fileId,
+    file,
+    [Permission.read(Role.users()), Permission.write(Role.user(uploaderId))],
+    sdkProgress,
+  );
   return fileId;
 }
 
@@ -103,14 +118,20 @@ export async function uploadFileDirectly(
  * Upload a file directly from the browser to the syllabus-files Appwrite bucket.
  * Uses the Appwrite Web SDK which handles CORS and chunked uploads automatically.
  *
- * @param jwt       Short-lived JWT obtained from `/api/upload/token`.
- * @param file      Browser `File` object selected by the user.
+ * @param jwt        Short-lived JWT obtained from `/api/upload/token`.
+ * @param file       Browser `File` object selected by the user.
+ * @param uploaderId Appwrite user ID of the uploader. Used to set a
+ *                   user-scoped write permission so the server can verify
+ *                   ownership later without relying on a session-based read
+ *                   check (which would pass for any authenticated user now
+ *                   that the bucket allows Role.users()).
  * @param onProgress Optional callback receiving upload progress (0–100).
  * @returns The Appwrite file ID of the uploaded file.
  */
 export async function uploadSyllabusFileDirectly(
   jwt: string,
   file: File,
+  uploaderId: string,
   onProgress?: (evt: UploadProgress) => void,
 ): Promise<string> {
   const client = createJwtClient(jwt);
@@ -127,8 +148,17 @@ export async function uploadSyllabusFileDirectly(
       }
     : undefined;
 
-  // Grant read access to all authenticated users so the proxy route can serve
-  // the file and moderators can preview it.
-  await storage.createFile(SYLLABUS_BUCKET_ID, fileId, file, [Permission.read(Role.users())], sdkProgress);
+  // Grant read access to all authenticated users (so the proxy route and
+  // moderators can view the PDF) AND a write permission scoped to the
+  // specific uploader. The write permission is used server-side to verify
+  // ownership: /api/upload/syllabus fetches the file via admin and checks
+  // `$permissions` for `write("user:<uploaderId>")`.
+  await storage.createFile(
+    SYLLABUS_BUCKET_ID,
+    fileId,
+    file,
+    [Permission.read(Role.users()), Permission.write(Role.user(uploaderId))],
+    sdkProgress,
+  );
   return fileId;
 }

@@ -25,8 +25,12 @@ export async function GET() {
     const client = createSessionClient(session);
     const account = new Account(client);
     const { jwt } = await account.createJWT();
+    // Also return the user ID so the browser upload can embed it as an
+    // uploader-specific write permission on the file, enabling server-side
+    // ownership verification in /api/upload and /api/upload/syllabus.
+    const accountDetails = await account.get();
 
-    return NextResponse.json({ jwt });
+    return NextResponse.json({ jwt, userId: accountDetails.$id });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Failed to create upload token";
     console.error("[api/upload/token] Error:", err);

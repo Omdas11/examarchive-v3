@@ -137,13 +137,13 @@ export default function UploadForm() {
 
     try {
       const tokenRes = await fetch("/api/upload/token");
-      const tokenJson = await tokenRes.json().catch(() => null) as { jwt?: string; error?: string } | null;
-      if (!tokenRes.ok || !tokenJson?.jwt) {
+      const tokenJson = await tokenRes.json().catch(() => null) as { jwt?: string; userId?: string; error?: string } | null;
+      if (!tokenRes.ok || !tokenJson?.jwt || !tokenJson?.userId) {
         throw new Error(tokenJson?.error ?? "Failed to get upload token");
       }
-      const { jwt } = tokenJson;
+      const { jwt, userId } = tokenJson;
 
-      const fileId = await uploadFileDirectly(jwt, file, (evt: UploadProgress) => {
+      const fileId = await uploadFileDirectly(jwt, file, userId, (evt: UploadProgress) => {
         setProgress(evt.progress);
         const elapsed = (Date.now() - startTimeRef.current) / 1000;
         if (elapsed > 0 && evt.loaded > 0) {

@@ -1,14 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getServerUser, getSessionSecret } from "@/lib/auth";
+import { getServerUser } from "@/lib/auth";
 import {
   adminDatabases,
-  createSessionClient,
+  adminStorage,
   getAppwriteFileUrl,
   DATABASE_ID,
   COLLECTION,
   BUCKET_ID,
   ID,
-  Storage,
 } from "@/lib/appwrite";
 import { AppwriteException } from "node-appwrite";
 import { findByPaperCode } from "@/data/syllabus-registry";
@@ -106,20 +105,28 @@ export async function POST(request: NextRequest) {
 
     const fileUrl = getAppwriteFileUrl(fileId);
 
-    // Verify the file exists in storage using the user's own session.
+    // Verify file ownership: use the admin client to fetch the file's metadata
+    // and confirm the current user has the uploader-specific write permission.
+    // This is reliable even after the bucket was opened to Role.users() — a
+    // session-scoped getFile() would succeed for any authenticated user, but
+    // the write permission is only granted to the actual uploader at upload time.
     try {
-      const session = await getSessionSecret();
-      if (!session) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      const fileData = await adminStorage().getFile(BUCKET_ID, fileId);
+      // Permission format set by appwrite-client.ts: write("user:<uploaderId>")
+      const ownerWritePerm = `write("user:${user.id}")`;
+      const isOwner = (fileData.$permissions as string[]).includes(ownerWritePerm);
+      if (!isOwner) {
+        return NextResponse.json(
+          { error: "Access denied: you do not own this file." },
+          { status: 403 },
+        );
       }
-      const sessionStorage = new Storage(createSessionClient(session));
-      await sessionStorage.getFile(BUCKET_ID, fileId);
     } catch (storageErr: unknown) {
       if (storageErr instanceof AppwriteException) {
-        if (storageErr.code === 401 || storageErr.code === 403) {
+        if (storageErr.code === 404 || storageErr.code === 400) {
           return NextResponse.json(
-            { error: "Access denied: you do not own this file." },
-            { status: 403 },
+            { error: "File not found in storage. Please re-upload the file." },
+            { status: 404 },
           );
         }
       }
