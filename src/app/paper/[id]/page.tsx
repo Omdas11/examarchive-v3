@@ -84,7 +84,7 @@ export default async function PaperPage({ params }: PaperPageProps) {
       const db = adminDatabases();
       const { documents } = await db.listDocuments(DATABASE_ID, COLLECTION.papers, [
         Query.equal("approved", true),
-        Query.equal("paper_code", courseCode),
+        Query.equal("course_code", courseCode),
         Query.orderDesc("$createdAt"),
         Query.limit(20),
       ]);
