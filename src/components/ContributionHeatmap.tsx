@@ -90,8 +90,16 @@ function generateCells(
   lastDate.setHours(12, 0, 0, 0);
   const daysSinceLast = Math.max(0, Math.round((now.getTime() - lastDate.getTime()) / 86_400_000));
 
-  // Mark streak days as active (most recent first)
-  const activeDays = Math.min(streakDays, 30);
+  // Mark streak days as active (most recent first).
+  // When streakDays is 0 but lastActivity falls within the window, mark at
+  // least that single day so a user with recent activity never sees a blank
+  // heatmap just because their current streak reset.
+  const activeDays =
+    streakDays > 0
+      ? Math.min(streakDays, 30)
+      : lastActivity && daysSinceLast < 30
+        ? 1
+        : 0;
   for (let i = 0; i < activeDays; i++) {
     const cellIdx = daysSinceLast + i;
     if (cellIdx < 30) {

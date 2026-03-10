@@ -324,13 +324,10 @@ body {
   }
 }
 
-/* Central column offset when sidebar is visible */
-@media (min-width: 1024px) {
-  .main-content {
-    margin-left: var(--sidebar-w);
-    margin-right: var(--right-col-w);
-  }
-}
+/*
+ * No extra margins needed — the 3-column CSS Grid already places .main-content
+ * in the middle track, providing the correct offset on desktop.
+ */
 
 /* ── Mobile bottom navigation ── */
 .bottom-nav {
@@ -424,23 +421,53 @@ body {
 }
 
 /* ── Sticky columns (first two cols) for user management ── */
+
+/* Define explicit first-column width via a custom property so the sticky
+   offset of column 2 always matches the actual rendered width of column 1. */
+.sticky-col-table {
+  --sticky-col1-w: 200px;
+}
+
 .sticky-col-table th:nth-child(1),
 .sticky-col-table td:nth-child(1) {
   position: sticky;
   left: 0;
   z-index: 4;
-  background: inherit;
+  width: var(--sticky-col1-w);
+  max-width: var(--sticky-col1-w);
+  /* Explicit backgrounds so the cell always paints over scrolled content. */
+  background: var(--color-surface);
 }
+.sticky-col-table tbody tr:nth-child(even) td:nth-child(1) {
+  background: var(--color-surface);
+  background: color-mix(in srgb, var(--color-surface) 95%, var(--color-border));
+}
+.sticky-col-table tbody tr:hover td:nth-child(1) {
+  background: var(--color-surface);
+  background: color-mix(in srgb, var(--brand-crimson) 6%, var(--color-surface));
+}
+
 .sticky-col-table th:nth-child(2),
 .sticky-col-table td:nth-child(2) {
   position: sticky;
-  left: 180px;
+  left: var(--sticky-col1-w);
   z-index: 4;
-  background: inherit;
+  background: var(--color-surface);
 }
+.sticky-col-table tbody tr:nth-child(even) td:nth-child(2) {
+  background: var(--color-surface);
+  background: color-mix(in srgb, var(--color-surface) 95%, var(--color-border));
+}
+.sticky-col-table tbody tr:hover td:nth-child(2) {
+  background: var(--color-surface);
+  background: color-mix(in srgb, var(--brand-crimson) 6%, var(--color-surface));
+}
+
+/* Sticky header cells for columns 1 & 2 keep the teal background */
 .sticky-col-table thead th:nth-child(1),
 .sticky-col-table thead th:nth-child(2) {
   z-index: 6;
+  background: var(--nav-teal);
 }
 
 /* ── Danger Zone section ── */

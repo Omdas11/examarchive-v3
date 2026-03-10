@@ -430,10 +430,12 @@ function SemesterAccordion({
   return (
     <div className="mb-3">
       <button
+        id={`accordion-header-${label}`}
         type="button"
         className="accordion-header"
         onClick={() => setOpen(!open)}
         aria-expanded={open}
+        aria-controls={`accordion-body-${label}`}
       >
         <span className="flex items-center gap-2">
           {label}
@@ -458,11 +460,9 @@ function SemesterAccordion({
         </svg>
       </button>
       <div
-        className="accordion-body"
-        style={{
-          maxHeight: open ? "2000px" : "0",
-          opacity: open ? 1 : 0,
-        }}
+        role="region"
+        aria-labelledby={`accordion-header-${label}`}
+        hidden={!open}
       >
         <div className="pt-2">{children}</div>
       </div>

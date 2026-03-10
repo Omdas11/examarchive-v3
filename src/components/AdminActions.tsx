@@ -11,7 +11,10 @@ export default function AdminActions({ papers }: AdminActionsProps) {
   const [items, setItems] = useState<Paper[]>(papers);
   const [loading, setLoading] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  // Track the previewed paper by ID, not URL, so the panel closes
+  // automatically when the paper is approved or rejected.
+  const [previewPaperId, setPreviewPaperId] = useState<string | null>(null);
+  const previewPaper = items.find((p) => p.id === previewPaperId) ?? null;
 
   async function handleAction(id: string, action: "approve" | "delete") {
     setLoading((prev) => ({ ...prev, [id]: action }));
@@ -29,7 +32,9 @@ export default function AdminActions({ papers }: AdminActionsProps) {
         throw new Error(data.error ?? "Action failed");
       }
 
-      // Remove from list on success
+      // Close preview if it's the paper being actioned.
+      if (previewPaperId === id) setPreviewPaperId(null);
+      // Remove from list on success.
       setItems((prev) => prev.filter((p) => p.id !== id));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Action failed");
@@ -96,11 +101,11 @@ export default function AdminActions({ papers }: AdminActionsProps) {
               {p.file_url && (
                 <button
                   type="button"
-                  onClick={() => setPreviewUrl(previewUrl === p.file_url ? null : p.file_url)}
+                  onClick={() => setPreviewPaperId(previewPaperId === p.id ? null : p.id)}
                   className="inline-block mt-2 text-xs font-medium cursor-pointer"
                   style={{ color: "var(--color-primary)", background: "none", border: "none", padding: 0 }}
                 >
-                  {previewUrl === p.file_url ? "Close Preview ←" : "Preview PDF →"}
+                  {previewPaperId === p.id ? "Close Preview ←" : "Preview PDF →"}
                 </button>
               )}
             </div>
@@ -132,12 +137,12 @@ export default function AdminActions({ papers }: AdminActionsProps) {
     </ul>
 
       {/* Side-panel PDF previewer */}
-      <div className={`pdf-side-panel${previewUrl ? " open" : ""}`}>
+      <div className={`pdf-side-panel${previewPaper ? " open" : ""}`}>
         <div className="pdf-side-panel-header">
           <span className="text-sm font-semibold">PDF Preview</span>
           <button
             type="button"
-            onClick={() => setPreviewUrl(null)}
+            onClick={() => setPreviewPaperId(null)}
             className="p-1 rounded hover:opacity-70"
             aria-label="Close preview"
           >
@@ -146,10 +151,11 @@ export default function AdminActions({ papers }: AdminActionsProps) {
             </svg>
           </button>
         </div>
-        {previewUrl && (
+        {previewPaper?.file_url && (
           <iframe
-            src={previewUrl}
+            src={previewPaper.file_url}
             title="PDF Preview"
+            sandbox="allow-same-origin"
           />
         )}
       </div>

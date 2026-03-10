@@ -228,7 +228,7 @@ export default function UserManagement({
         <table className="zebra-table sticky-col-table">
           <thead>
             <tr>
-              <th style={{ minWidth: 180 }}>User</th>
+              <th style={{ width: 200, minWidth: 200 }}>User</th>
               <th style={{ minWidth: 90 }}>Role</th>
               <th className="hidden md:table-cell">Badges</th>
               <th className="hidden lg:table-cell">Tier</th>

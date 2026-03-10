@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import PaperCard from "@/components/PaperCard";
 import { PAPER_TYPE_COLORS } from "@/components/PaperCard";
 import CustomSelect from "@/components/CustomSelect";
@@ -59,15 +59,12 @@ export default function BrowseClient({
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState<string | null>(null);
   const [showSkeleton, setShowSkeleton] = useState(true);
-  const mountedRef = useRef(false);
 
-  // Simulate initial skeleton loading
+  // Simulate initial skeleton loading — no mountedRef guard so this works
+  // correctly under React Strict Mode's double-invoke of effects.
   useEffect(() => {
-    if (!mountedRef.current) {
-      mountedRef.current = true;
-      const timer = setTimeout(() => setShowSkeleton(false), 400);
-      return () => clearTimeout(timer);
-    }
+    const timer = setTimeout(() => setShowSkeleton(false), 400);
+    return () => clearTimeout(timer);
   }, []);
 
   const filtered = useMemo(() => {
@@ -180,6 +177,9 @@ export default function BrowseClient({
       {/* Search input — debounced live search */}
       <div className="mt-2 flex flex-col gap-3 sm:flex-row">
         <div className="relative flex-1">
+          <label htmlFor="browse-search" className="sr-only">
+            Search papers
+          </label>
           <svg
             width="16"
             height="16"
@@ -194,7 +194,8 @@ export default function BrowseClient({
             <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           <input
-            type="text"
+            id="browse-search"
+            type="search"
             placeholder="Search papers by title, code, or name…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}

@@ -46,6 +46,7 @@ export default function DevToolClient({ adminEmail }: DevToolClientProps) {
 
   // Danger zone modal state
   const [pendingDangerAction, setPendingDangerAction] = useState<PendingDangerAction | null>(null);
+  const [dangerActionLoading, setDangerActionLoading] = useState(false);
 
   async function runAction(
     action: string,
@@ -138,6 +139,10 @@ export default function DevToolClient({ adminEmail }: DevToolClientProps) {
     }
   }
 
+  function handleDangerCancel() {
+    if (!dangerActionLoading) setPendingDangerAction(null);
+  }
+
   function openDangerModal(action: PendingDangerAction) {
     setPendingDangerAction(action);
   }
@@ -145,8 +150,13 @@ export default function DevToolClient({ adminEmail }: DevToolClientProps) {
   async function executeDangerAction() {
     if (!pendingDangerAction) return;
     const { action, setState, payload } = pendingDangerAction;
-    setPendingDangerAction(null);
-    await runAction(action, setState, payload);
+    setDangerActionLoading(true);
+    try {
+      await runAction(action, setState, payload);
+    } finally {
+      setDangerActionLoading(false);
+      setPendingDangerAction(null);
+    }
   }
 
   return (
@@ -410,8 +420,8 @@ export default function DevToolClient({ adminEmail }: DevToolClientProps) {
         description={pendingDangerAction?.description ?? ""}
         confirmWord={pendingDangerAction?.confirmWord ?? ""}
         onConfirm={executeDangerAction}
-        onCancel={() => setPendingDangerAction(null)}
-        loading={false}
+        onCancel={handleDangerCancel}
+        loading={dangerActionLoading}
       />
     </div>
   );
