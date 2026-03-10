@@ -55,7 +55,10 @@ async function rollbackUploadedPaper(fileId: string, reason: string) {
   try {
     await deleteFileFromAppwrite(fileId);
   } catch (rollbackErr) {
-    console.error(`[api/upload] ${reason}. Failed to roll back uploaded file ${fileId}:`, rollbackErr);
+    console.error(
+      `[api/upload] Failed to roll back uploaded file ${fileId} after ${reason.toLowerCase()}:`,
+      rollbackErr,
+    );
   }
 }
 
@@ -86,13 +89,16 @@ function buildPaperDocumentPayload(
   availableKeys: Set<string>,
   payload: ResolvedPaperDocument,
 ): Record<string, unknown> {
+  // Support both canonical paper fields and known schema aliases because
+  // different Appwrite environments have evolved with slightly different
+  // attribute names (`course_name` vs `paper_name`, `institute` vs `institution`).
   const valuesByKey: Record<string, unknown> = {
     approved: payload.approved,
     course_code: payload.courseCode,
-    paper_code: payload.courseCode,
+    paper_code: payload.courseCode, // backward-compat alias for older documents/queries
     course_name: payload.paperName,
-    paper_name: payload.paperName,
-    title: payload.paperName,
+    paper_name: payload.paperName, // legacy/schema alias used in some Appwrite setups
+    title: payload.paperName, // UI-facing alias used by older documents
     year: payload.year,
     semester: payload.semester,
     department: payload.department,
@@ -100,12 +106,12 @@ function buildPaperDocumentPayload(
     exam_type: payload.examType,
     file_url: payload.fileUrl,
     uploaded_by: payload.uploadedBy,
-    uploader_id: payload.uploadedBy,
+    uploader_id: payload.uploadedBy, // legacy uploader field
     institute: payload.institution,
-    institution: payload.institution,
-    university: payload.institution,
+    institution: payload.institution, // legacy institution alias
+    university: payload.institution, // schema alias used alongside institution in some environments
     paper_type: payload.paperType,
-    category: payload.paperType,
+    category: payload.paperType, // legacy paper type alias
   };
 
   const document: Record<string, unknown> = {};
@@ -171,28 +177,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const {
-      fileId,
-      file_name,
-      paper_code,
-      university,
-      year,
-    } = body as {
-      fileId?: string;
-      file_name?: string;
-      paper_code?: string;
-      university?: string;
-      year?: number | string;
-    };
+    const fileId = typeof body.fileId === "string" ? body.fileId.trim() : "";
+    const file_name = typeof body.file_name === "string" ? body.file_name : undefined;
+    const paper_code = typeof body.paper_code === "string" ? body.paper_code.trim() : "";
+    const university = typeof body.university === "string" ? body.university.trim() : "";
+    const year = typeof body.year === "string" ? body.year.trim() : body.year;
+    // `year` can arrive as either a string from form JSON or a number from tests/manual calls.
 
-    if (!fileId || !paper_code || !university || !year) {
+    if (!fileId || !paper_code || !university || year === undefined || year === null || year === "") {
       return NextResponse.json(
         { error: "Required fields missing: fileId, paper_code, university, year." },
         { status: 400 },
       );
     }
 
-    const yearNum = Number(year);
+    const yearNum = Number(year); // handles both trimmed string input and numeric callers
     if (isNaN(yearNum) || yearNum < 1900 || yearNum > 2100) {
       return NextResponse.json({ error: "Invalid year value." }, { status: 400 });
     }
@@ -206,7 +205,7 @@ export async function POST(request: NextRequest) {
     const programme = registryEntry?.programme ?? undefined;
     const paper_type = registryEntry?.category ?? undefined;
     const exam_type = examTypeFromCode(paper_code);
-    const institution = university.trim() || registryEntry?.university || undefined;
+    const institution = university || registryEntry?.university || undefined;
 
     const fileUrl = getAppwriteFileUrl(fileId);
 
@@ -279,11 +278,16 @@ export async function POST(request: NextRequest) {
     try {
       await db.createDocument(DATABASE_ID, COLLECTION.papers, ID.unique(), paperDocument);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
+      const rawMessage = err instanceof Error ? err.message.trim() : String(err).trim();
+      const message = rawMessage
+        ? /[.!?]$/.test(rawMessage)
+          ? rawMessage
+          : `${rawMessage}.`
+        : "Paper metadata could not be saved.";
       await rollbackUploadedPaper(fileId, "Paper document creation failed");
       return NextResponse.json(
         {
-          error: `${message}. The uploaded file was removed from storage because the paper record could not be created.`,
+          error: `${message} The uploaded file was removed from storage because the paper record could not be created.`,
         },
         { status: 500 },
       );

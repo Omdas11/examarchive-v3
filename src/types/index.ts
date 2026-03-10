@@ -241,15 +241,18 @@ export interface BrowseFilters {
 
 /** Map an Appwrite document to our `Paper` type. */
 export function toPaper(doc: any): Paper {
+  const normalizedTitle = doc.title ?? doc.paper_name ?? doc.course_name ?? "";
+  const normalizedCourseName = doc.course_name ?? doc.paper_name ?? normalizedTitle;
+
   return {
     id: doc.$id ?? doc.id,
-    title: doc.title ?? doc.paper_name ?? doc.course_name,
+    title: normalizedTitle,
     course_code: doc.course_code ?? doc.paper_code ?? undefined,
-    course_name: doc.course_name ?? doc.paper_name ?? "",
+    course_name: normalizedCourseName,
     year: doc.year,
     semester: doc.semester ?? "",
     exam_type: doc.exam_type ?? "",
-    department: doc.department ?? "",
+    department: doc.department ?? doc.subject ?? "",
     file_url: doc.file_url,
     uploaded_by: doc.uploaded_by ?? doc.uploader_id ?? "",
     approved: doc.approved,
