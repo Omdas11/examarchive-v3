@@ -2,12 +2,20 @@
 
 import { useState } from "react";
 
+/** Map each footer label to an official @examarchive.dev contact address. */
+const CONTACT_EMAILS: Record<string, string> = {
+  "Help & Support":  "help@examarchive.dev",
+  "Contact Us":      "contact@examarchive.dev",
+  "Send Feedback":   "feedback@examarchive.dev",
+};
+
 /**
  * A client component that renders a text link and, on click, shows a small
- * modal informing users that the feature is under development.
+ * modal with the official @examarchive.dev contact address for that topic.
  */
 export default function FooterContactModal({ label }: { label: string }) {
   const [open, setOpen] = useState(false);
+  const email = CONTACT_EMAILS[label] ?? "contact@examarchive.dev";
 
   return (
     <>
@@ -39,15 +47,21 @@ export default function FooterContactModal({ label }: { label: string }) {
               style={{ background: "var(--color-accent-soft)", color: "var(--color-primary)" }}
             >
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <circle cx="12" cy="12" r="10"/>
-                <line x1="12" y1="8" x2="12" y2="12"/>
-                <line x1="12" y1="16" x2="12.01" y2="16"/>
+                <rect x="2" y="4" width="20" height="16" rx="2" />
+                <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
               </svg>
             </span>
 
             <h2 className="text-base font-semibold mb-1">{label}</h2>
             <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
-              Under development — coming soon.
+              Reach us at{" "}
+              <a
+                href={`mailto:${email}`}
+                className="font-medium hover:underline"
+                style={{ color: "var(--color-primary)" }}
+              >
+                {email}
+              </a>
             </p>
 
             <button
@@ -55,7 +69,7 @@ export default function FooterContactModal({ label }: { label: string }) {
               onClick={() => setOpen(false)}
               className="btn-primary mt-5 w-full text-sm"
             >
-              Got it
+              Close
             </button>
           </div>
         </div>

@@ -12,7 +12,7 @@
  * tracking automatically.
  */
 
-import { Client, Storage, ID, type UploadProgress as SdkUploadProgress } from "appwrite";
+import { Client, Storage, ID, Permission, Role, type UploadProgress as SdkUploadProgress } from "appwrite";
 
 export const APPWRITE_ENDPOINT =
   process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT ?? "";
@@ -93,7 +93,9 @@ export async function uploadFileDirectly(
       }
     : undefined;
 
-  await storage.createFile(BUCKET_ID, fileId, file, undefined, sdkProgress);
+  // Grant read access to all authenticated users so the proxy route (which
+  // uses the admin SDK) can serve the file and moderators can preview it.
+  await storage.createFile(BUCKET_ID, fileId, file, [Permission.read(Role.users())], sdkProgress);
   return fileId;
 }
 
@@ -125,6 +127,8 @@ export async function uploadSyllabusFileDirectly(
       }
     : undefined;
 
-  await storage.createFile(SYLLABUS_BUCKET_ID, fileId, file, undefined, sdkProgress);
+  // Grant read access to all authenticated users so the proxy route can serve
+  // the file and moderators can preview it.
+  await storage.createFile(SYLLABUS_BUCKET_ID, fileId, file, [Permission.read(Role.users())], sdkProgress);
   return fileId;
 }

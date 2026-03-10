@@ -98,7 +98,7 @@ export default function Footer() {
 
         {/* ── University logos ── */}
         <div className="py-5 text-center" style={{ borderTop: "1px solid var(--color-border)" }}>
-          <p className="mb-4 text-xs font-semibold" style={{ color: "var(--color-text)" }}>Partner Institutions</p>
+          <p className="mb-4 text-xs font-semibold" style={{ color: "var(--color-text)" }}>External Links</p>
           <div className="flex flex-wrap justify-center items-center gap-5">
             {UNIVERSITY_LOGOS.map((u) => (
               <a
