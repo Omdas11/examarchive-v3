@@ -539,12 +539,12 @@ body {
 /* ── Contribution heatmap ── */
 .heatmap-grid {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 3px;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 2px;
 }
 .heatmap-cell {
   aspect-ratio: 1;
-  border-radius: 3px;
+  border-radius: 2px;
   transition: transform 0.15s;
 }
 .heatmap-cell:hover {

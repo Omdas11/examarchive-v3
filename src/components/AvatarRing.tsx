@@ -38,6 +38,21 @@ interface AvatarRingProps {
   size?: number;
   /** Extra class names for the wrapper element. */
   className?: string;
+  /** Optional explicit background colour for the initials fallback. */
+  avatarBgColor?: string;
+}
+
+/** Pick #000 or #fff based on WCAG relative luminance so initials always meet AA contrast. */
+function readableTextColor(hex: string): string {
+  if (!/^#[0-9a-f]{6}$/i.test(hex)) return "#ffffff";
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  const toLinear = (c: number) =>
+    c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  const L =
+    0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
+  return L > 0.179 ? "#000000" : "#ffffff";
 }
 
 /** Return a ring colour based on streak level (for non-animated rings). */
@@ -76,6 +91,7 @@ export default function AvatarRing({
   role,
   size = 32,
   className = "",
+  avatarBgColor,
 }: AvatarRingProps) {
   const [imgError, setImgError] = useState(false);
 
@@ -161,12 +177,13 @@ export default function AvatarRing({
         />
       ) : (
         <span
-          className="relative z-10 flex items-center justify-center rounded-full font-bold text-white select-none"
+          className="relative z-10 flex items-center justify-center rounded-full font-bold select-none"
           style={{
             width: size,
             height: size,
-            background: "var(--color-primary)",
+            background: avatarBgColor ?? "var(--color-primary)",
             fontSize: size * 0.4,
+            color: avatarBgColor ? readableTextColor(avatarBgColor) : "#ffffff",
           }}
           aria-label={displayName}
         >

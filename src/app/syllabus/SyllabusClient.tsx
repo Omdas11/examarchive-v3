@@ -432,7 +432,7 @@ function SemesterAccordion({
       <button
         id={`accordion-header-${label}`}
         type="button"
-        className="accordion-header"
+        className="accordion-header w-full"
         onClick={() => setOpen(!open)}
         aria-expanded={open}
         aria-controls={`accordion-body-${label}`}

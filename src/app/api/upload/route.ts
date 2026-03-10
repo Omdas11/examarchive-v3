@@ -151,6 +151,7 @@ export async function POST(request: NextRequest) {
         file_url: fileUrl,
         uploaded_by: user.id,
         approved: false,
+        paper_code: paper_code.trim().toUpperCase(),
         ...(semester ? { semester } : {}),
         ...(exam_type ? { exam_type } : {}),
         ...(institute ? { institute } : {}),
