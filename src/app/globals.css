@@ -709,6 +709,15 @@ body {
   border: none;
 }
 
+/* On small screens, the side panel takes the full viewport so the PDF is
+   legible and the panel never causes horizontal overflow. */
+@media (max-width: 640px) {
+  .pdf-side-panel {
+    width: 100%;
+    top: 0;
+  }
+}
+
 /* ── Mobile bottom-nav spacer ── */
 @media (max-width: 1023px) {
   .has-bottom-nav {

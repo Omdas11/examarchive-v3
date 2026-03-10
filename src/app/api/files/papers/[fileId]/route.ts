@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
  * Requires the user to be authenticated (session cookie).
  */
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ fileId: string }> },
 ) {
   const { fileId } = await params;
@@ -30,7 +30,10 @@ export async function GET(
 
   const user = await getServerUser();
   if (!user) {
-    return new NextResponse("Unauthorized", { status: 401 });
+    // Redirect unauthenticated visitors to the login page instead of
+    // returning a raw 401 so the browser navigates to sign-in when the
+    // PDF is opened in a new tab.
+    return NextResponse.redirect(new URL("/login", request.url));
   }
 
   try {

@@ -12,18 +12,19 @@ Stores exam question paper metadata. Files are held in the `papers` Appwrite Sto
 
 | Field         | Type    | Required (DB) | Status  | Notes                                                        |
 |---------------|---------|---------------|---------|--------------------------------------------------------------|
+| `course_code` | String  | **Yes**       | ✅ Used  | Paper code (e.g. "PHYDSC101T"); primary lookup key; used in all `Query.equal` filters |
 | `course_name` | String  | No            | ✅ Used  | Full paper name, resolved from syllabus registry             |
 | `year`        | Integer | **Yes**       | ✅ Used  | Exam year (e.g. 2024)                                        |
 | `semester`    | String  | No            | ✅ Used  | Ordinal string (e.g. "1st"); auto-resolved from registry     |
 | `exam_type`   | String  | No            | ✅ Used  | "Theory" or "Practical"; derived from paper code suffix T/P  |
 | `department`  | String  | No            | ✅ Used  | Disciplinary subject (e.g. "Physics"); auto-resolved         |
-| `file_url`    | String  | **Yes**       | ✅ Used  | Public Appwrite Storage view URL                             |
+| `file_url`    | String  | **Yes**       | ✅ Used  | Next.js proxy URL (`/api/files/papers/{fileId}`)             |
 | `uploaded_by` | String  | No            | ✅ Used  | Appwrite user ID of uploader                                 |
 | `approved`    | Boolean | **Yes**       | ✅ Used  | `false` until admin approves                                 |
 | `paper_type`  | String  | No            | ✅ Used  | Category: DSC / DSM / SEC / IDC / GE (FYUGP) or CC / DSC / DSE / GEC / SEC (CBCS) |
 | `institute`   | String  | No            | ✅ Used  | University name (e.g. "Assam University")                    |
 
-All fields match the codebase. No additions or removals required.
+All fields match the codebase. `course_code` added — ensure it is present in the Appwrite Console as a **required** String attribute with an index for efficient `Query.equal` lookups.
 
 ---
 
@@ -137,6 +138,7 @@ All fields match the codebase. No changes required.
 
 | Priority | Collection      | Field                  | Action                                                     |
 |----------|-----------------|------------------------|------------------------------------------------------------|
+| 🔴 High  | `papers`        | `course_code`          | **Add** as String (required) with an index. Primary lookup key for all paper queries. |
 | 🔴 High  | `users`         | `username_last_changed`| **Add** as String (optional). Used by username cooldown.               |
 | 🟡 Med   | `activity_logs` | `user_id`              | Change from `required: true` → optional (code always writes it for now) |
 | 🟡 Med   | `activity_logs` | `meta`                 | Change from `required: true` → optional (code always writes `""`)       |

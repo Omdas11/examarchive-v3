@@ -62,13 +62,13 @@ export default function DeptSyllabusUploadForm() {
 
     try {
       const tokenRes = await fetch("/api/upload/token");
-      const tokenJson = await tokenRes.json().catch(() => null) as { jwt?: string; error?: string } | null;
-      if (!tokenRes.ok || !tokenJson?.jwt) {
+      const tokenJson = await tokenRes.json().catch(() => null) as { jwt?: string; userId?: string; error?: string } | null;
+      if (!tokenRes.ok || !tokenJson?.jwt || !tokenJson?.userId) {
         throw new Error(tokenJson?.error ?? "Failed to get upload token");
       }
-      const { jwt } = tokenJson;
+      const { jwt, userId } = tokenJson;
 
-      const fileId = await uploadSyllabusFileDirectly(jwt, file, (evt: UploadProgress) => {
+      const fileId = await uploadSyllabusFileDirectly(jwt, file, userId, (evt: UploadProgress) => {
         setProgress(evt.progress);
       });
 
