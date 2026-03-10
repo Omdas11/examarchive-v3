@@ -260,12 +260,38 @@ export async function getServerUser(): Promise<UserProfile | null> {
         created_at: newProfile.$createdAt,
       };
     } catch (insertError) {
-      console.error(
-        "[auth] Failed to create profile for user",
-        user.$id,
-        insertError,
-      );
-      return null;
+      // A concurrent request may have already created the document (primary-key
+      // conflict). Attempt to read it back before giving up, so the user is
+      // never erroneously treated as unauthenticated due to a race.
+      try {
+        const existing = await db.getDocument(DATABASE_ID, COLLECTION.users, user.$id);
+        const rawSecondary = existing.secondary_role ?? null;
+        const rawTier = existing.tier ?? "bronze";
+        return {
+          id: existing.$id,
+          email: (existing.email as string) ?? user.email,
+          name: (existing.display_name as string) ?? "",
+          username: (existing.username as string) ?? "",
+          avatar_url: (existing.avatar_url as string) ?? "",
+          avatar_file_id: (existing.avatar_file_id as string) ?? undefined,
+          role: (existing.role as UserRole) ?? "visitor",
+          secondary_role: isValidCustomRole(rawSecondary) ? rawSecondary : null,
+          tier: isValidTier(rawTier) ? rawTier : "bronze",
+          xp: (existing.xp as number) ?? 0,
+          streak_days: (existing.streak as number) ?? 0,
+          last_activity: (existing.last_activity as string) ?? "",
+          created_at: existing.$createdAt,
+        };
+      } catch (fetchError) {
+        // Document genuinely does not exist — log both errors for diagnostics.
+        console.error(
+          "[auth] Failed to create profile for user",
+          user.$id,
+          insertError,
+        );
+        console.error("[auth] Retry fetch after conflict also failed:", fetchError);
+        return null;
+      }
     }
   } catch {
     return null;
