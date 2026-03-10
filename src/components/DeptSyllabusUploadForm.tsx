@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import CustomSelect from "./CustomSelect";
+import { useToast } from "./ToastContext";
 import {
   uploadSyllabusFileDirectly,
   MAX_UPLOAD_BYTES,
@@ -27,6 +29,8 @@ export default function DeptSyllabusUploadForm() {
   const [programme, setProgramme] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
+  const { showToast } = useToast();
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -98,6 +102,10 @@ export default function DeptSyllabusUploadForm() {
       setFileName("");
       setProgramme("");
       formRef.current?.reset();
+
+      // Show success toast and redirect to profile
+      showToast("Departmental syllabus uploaded! Redirecting to your profile…", "success");
+      setTimeout(() => router.push("/profile"), 1500);
     } catch (err: unknown) {
       const text = err instanceof Error ? err.message : "Upload failed. Please try again.";
       setMessage({ type: "error", text });

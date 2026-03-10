@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import Sidebar from "@/components/Sidebar";
+import BottomNav from "@/components/BottomNav";
+import RightColumn from "@/components/RightColumn";
 import { getServerUser } from "@/lib/auth";
 import DebugPanel from "@/components/DebugPanel";
 import { ToastProvider } from "@/components/ToastContext";
@@ -105,8 +108,15 @@ export default async function RootLayout({
         <div className="flex min-h-screen flex-col">
           <ToastProvider>
             <Navbar user={user} />
-            <main className="flex-1">{children}</main>
-            <Footer />
+            <div className="dashboard-grid flex-1">
+              <Sidebar user={user} />
+              <main className="main-content flex-1 has-bottom-nav animate-page-in">
+                {children}
+                <Footer />
+              </main>
+              <RightColumn user={user} />
+            </div>
+            <BottomNav />
             <PWAInstallPrompt />
             {process.env.NODE_ENV !== "production" &&
               process.env.NEXT_PUBLIC_ENABLE_DEBUG_PANEL === "true" && (

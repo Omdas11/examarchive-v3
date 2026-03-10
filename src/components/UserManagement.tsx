@@ -223,25 +223,19 @@ export default function UserManagement({
         )}
       </div>
 
-      {/* Desktop: table (hidden below sm) */}
+      {/* Desktop: table with sticky columns + zebra stripes (hidden below sm) */}
       <div className="mt-3 overflow-x-auto hidden sm:block">
-        <table className="w-full text-sm">
+        <table className="zebra-table sticky-col-table">
           <thead>
-            <tr
-              className="text-left text-[11px] uppercase tracking-wider"
-              style={{
-                color: "var(--color-text-muted)",
-                borderBottom: "1px solid var(--color-border)",
-              }}
-            >
-              <th className="pb-2 pr-3">User</th>
-              <th className="pb-2 pr-3">Role</th>
-              <th className="pb-2 pr-3 hidden md:table-cell">Badges</th>
-              <th className="pb-2 pr-3 hidden lg:table-cell">Tier</th>
-              <th className="pb-2 pr-3 hidden lg:table-cell">Uploads</th>
-              <th className="pb-2 pr-3 hidden xl:table-cell">XP</th>
-              <th className="pb-2 pr-3 hidden md:table-cell">Joined</th>
-              <th className="pb-2 text-right">Actions</th>
+            <tr>
+              <th style={{ width: 200, minWidth: 200 }}>User</th>
+              <th style={{ minWidth: 90 }}>Role</th>
+              <th className="hidden md:table-cell">Badges</th>
+              <th className="hidden lg:table-cell">Tier</th>
+              <th className="hidden lg:table-cell">Uploads</th>
+              <th className="hidden xl:table-cell">XP</th>
+              <th className="hidden md:table-cell">Joined</th>
+              <th style={{ textAlign: "right" }}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -249,9 +243,8 @@ export default function UserManagement({
               <tr
                 key={u.id}
                 className="group"
-                style={{ borderBottom: "1px solid var(--color-border)" }}
               >
-                <td className="py-3 pr-3">
+                <td>
                   <div className="flex items-center gap-2">
                     <span
                       className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
@@ -269,10 +262,10 @@ export default function UserManagement({
                     </div>
                   </div>
                 </td>
-                <td className="py-3 pr-3">
+                <td>
                   <RoleBadge role={u.role} />
                 </td>
-                <td className="py-3 pr-3 hidden md:table-cell">
+                <td className="hidden md:table-cell">
                   <div className="flex flex-wrap gap-1">
                     <RoleBadge role={u.primary_role} />
                     {u.secondary_role && (
@@ -283,17 +276,17 @@ export default function UserManagement({
                     )}
                   </div>
                 </td>
-                <td className="py-3 pr-3 hidden lg:table-cell">
+                <td className="hidden lg:table-cell">
                   <TierBadge tier={u.tier} />
                 </td>
-                <td className="py-3 pr-3 hidden lg:table-cell">
+                <td className="hidden lg:table-cell">
                   {u.upload_count}
                 </td>
-                <td className="py-3 pr-3 hidden xl:table-cell text-xs" style={{ color: "var(--color-text-muted)" }}>
+                <td className="hidden xl:table-cell text-xs" style={{ color: "var(--color-text-muted)" }}>
                   {u.xp}
                 </td>
                 <td
-                  className="py-3 pr-3 hidden md:table-cell text-xs"
+                  className="hidden md:table-cell text-xs"
                   style={{ color: "var(--color-text-muted)" }}
                 >
                   {u.created_at
@@ -304,7 +297,7 @@ export default function UserManagement({
                       })
                     : "—"}
                 </td>
-                <td className="py-3 text-right">
+                <td style={{ textAlign: "right" }}>
                   <div className="flex justify-end gap-1.5">
                     <button
                       type="button"
@@ -342,8 +335,8 @@ export default function UserManagement({
               <tr>
                 <td
                   colSpan={8}
-                  className="py-8 text-center text-sm"
-                  style={{ color: "var(--color-text-muted)" }}
+                  className="text-center text-sm"
+                  style={{ color: "var(--color-text-muted)", padding: "2rem 0" }}
                 >
                   No users found.
                 </td>

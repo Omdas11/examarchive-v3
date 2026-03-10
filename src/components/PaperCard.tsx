@@ -61,7 +61,15 @@ export default function PaperCard({ paper }: PaperCardProps) {
     <Link
       href={`/paper/${paper.id}`}
       className="card group flex overflow-hidden transition-all duration-200 hover:shadow-md hover:-translate-y-0.5"
-      style={{ textDecoration: "none" }}
+      style={{
+        textDecoration: "none",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = "color-mix(in srgb, var(--brand-crimson) 4%, var(--color-surface))";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = "";
+      }}
     >
       {/* Vertical accent bar on the left */}
       <div
