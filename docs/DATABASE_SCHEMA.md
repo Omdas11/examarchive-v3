@@ -13,18 +13,20 @@ Stores exam question paper metadata. Files are held in the `papers` Appwrite Sto
 | Field         | Type    | Required (DB) | Status  | Notes                                                        |
 |---------------|---------|---------------|---------|--------------------------------------------------------------|
 | `course_code` | String  | **Yes**       | ✅ Used  | Paper code (e.g. "PHYDSC101T"); primary lookup key; used in all `Query.equal` filters |
-| `course_name` | String  | No            | ✅ Used  | Full paper name, resolved from syllabus registry             |
+| `course_name` | String  | No            | ✅ Used  | Canonical app field for the paper title; server also backfills `paper_name` when that attribute exists in Appwrite |
+| `paper_name`  | String  | No            | ✅ Used  | Optional schema alias used by some Appwrite environments; populated from the syllabus registry when present |
 | `year`        | Integer | **Yes**       | ✅ Used  | Exam year (e.g. 2024)                                        |
 | `semester`    | String  | No            | ✅ Used  | Ordinal string (e.g. "1st"); auto-resolved from registry     |
 | `exam_type`   | String  | No            | ✅ Used  | "Theory" or "Practical"; derived from paper code suffix T/P  |
 | `department`  | String  | No            | ✅ Used  | Disciplinary subject (e.g. "Physics"); auto-resolved         |
+| `programme`   | String  | No            | ✅ Used  | Academic framework (e.g. "FYUGP", "CBCS"); auto-resolved from registry |
 | `file_url`    | String  | **Yes**       | ✅ Used  | Next.js proxy URL (`/api/files/papers/{fileId}`)             |
 | `uploaded_by` | String  | No            | ✅ Used  | Appwrite user ID of uploader                                 |
 | `approved`    | Boolean | **Yes**       | ✅ Used  | `false` until admin approves                                 |
 | `paper_type`  | String  | No            | ✅ Used  | Category: DSC / DSM / SEC / IDC / GE (FYUGP) or CC / DSC / DSE / GEC / SEC (CBCS) |
 | `institute`   | String  | No            | ✅ Used  | University name (e.g. "Assam University")                    |
 
-All fields match the codebase. `course_code` added — ensure it is present in the Appwrite Console as a **required** String attribute with an index for efficient `Query.equal` lookups.
+The upload API now inspects the live `papers` schema before inserting and fills both canonical fields (`course_code`, `course_name`) and schema aliases (for example `paper_name`) when they exist, while rolling back the storage file if any required paper attribute is missing.
 
 ---
 

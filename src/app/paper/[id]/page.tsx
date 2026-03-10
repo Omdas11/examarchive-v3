@@ -22,9 +22,10 @@ export async function generateMetadata({ params }: PaperPageProps): Promise<Meta
   try {
     const db = adminDatabases();
     const doc = await db.getDocument(DATABASE_ID, COLLECTION.papers, id);
+    const paper = toPaper(doc);
     return {
-      title: `${doc.title} – ${doc.course_code}`,
-      description: `Download ${doc.title} for ${doc.course_name} (${doc.course_code}).`,
+      title: `${paper.title} – ${paper.course_code ?? "Paper"}`,
+      description: `Download ${paper.title} for ${paper.course_name} (${paper.course_code ?? "paper"}).`,
     };
   } catch {
     return { title: "Paper Not Found" };
