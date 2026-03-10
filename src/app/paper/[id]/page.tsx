@@ -4,6 +4,7 @@ import {
   adminDatabases,
   DATABASE_ID,
   COLLECTION,
+  Query,
 } from "@/lib/appwrite";
 import type { Paper } from "@/types";
 import { toPaper } from "@/types";
@@ -69,13 +70,29 @@ export default async function PaperPage({ params }: PaperPageProps) {
     : null;
 
   // Look up structured syllabus data from the registry by course_code.
-  // Captured in a const so TypeScript can narrow the type inside the callback.
   const courseCode = paper.course_code;
   const syllabusEntry: SyllabusRegistryEntry | undefined = courseCode
     ? SYLLABUS_REGISTRY.find(
         (e) => e.paper_code.toUpperCase() === courseCode.toUpperCase(),
       )
     : undefined;
+
+  // Fetch all approved papers with the same course_code for multi-year view.
+  let relatedPapers: Paper[] = [];
+  if (courseCode) {
+    try {
+      const db = adminDatabases();
+      const { documents } = await db.listDocuments(DATABASE_ID, COLLECTION.papers, [
+        Query.equal("approved", true),
+        Query.equal("course_code", courseCode),
+        Query.orderDesc("$createdAt"),
+        Query.limit(20),
+      ]);
+      relatedPapers = documents.map(toPaper).filter((p) => p.id !== paper!.id);
+    } catch {
+      // ignore
+    }
+  }
 
   return (
     <section className="mx-auto px-4 py-8 space-y-4" style={{ maxWidth: "var(--max-w)" }}>
@@ -152,6 +169,7 @@ export default async function PaperPage({ params }: PaperPageProps) {
       <div className="card p-5 sm:p-6">
         <h2 className="text-base font-semibold mb-3">Available Question Papers</h2>
         <ul className="space-y-2">
+          {/* Current paper */}
           <li
             className="flex items-center justify-between rounded-lg px-3 py-2.5 text-sm"
             style={{ border: "1px solid var(--color-border)", background: "var(--color-surface)" }}
@@ -170,6 +188,26 @@ export default async function PaperPage({ params }: PaperPageProps) {
               View PDF
             </a>
           </li>
+          {/* Other papers for same course code */}
+          {relatedPapers.map((rp) => (
+            <li
+              key={rp.id}
+              className="flex items-center justify-between rounded-lg px-3 py-2.5 text-sm"
+              style={{ border: "1px solid var(--color-border)", background: "var(--color-surface)" }}
+            >
+              <span>
+                {rp.year} — Sem {rp.semester ? toRoman(parseInt(rp.semester, 10)) : rp.semester}
+                {rp.exam_type && ` · ${rp.exam_type}`}
+              </span>
+              <Link
+                href={`/paper/${rp.id}`}
+                className="font-medium ml-4 shrink-0"
+                style={{ color: "var(--color-primary)" }}
+              >
+                View PDF
+              </Link>
+            </li>
+          ))}
         </ul>
       </div>
 
@@ -256,24 +294,86 @@ export default async function PaperPage({ params }: PaperPageProps) {
 
       {/* ── Repeated Questions ── */}
       <div className="card p-5 sm:p-6">
-        <h2 className="text-base font-semibold mb-3">Repeated Questions</h2>
-        <div className="rounded-lg px-4 py-5 text-center" style={{ background: "var(--color-accent-soft)" }}>
-          <p className="text-sm font-medium" style={{ color: "var(--color-text-muted)" }}>Under Development</p>
-          <p className="text-xs mt-1" style={{ color: "var(--color-text-muted)" }}>
-            Repeated question analysis is being built and will appear here soon.
+        <h2 className="text-base font-semibold mb-3">All Available Papers for This Course</h2>
+        {relatedPapers.length > 0 ? (
+          <>
+            <p className="text-xs mb-3" style={{ color: "var(--color-text-muted)" }}>
+              Other question papers with the same course code ({courseCode}) from different years or exams.
+            </p>
+            <ul className="space-y-2">
+              {relatedPapers.map((rp) => (
+                <li key={rp.id}>
+                  <Link
+                    href={`/paper/${rp.id}`}
+                    className="flex items-center justify-between rounded-lg px-3 py-2.5 text-sm transition-all hover:shadow-sm"
+                    style={{ border: "1px solid var(--color-border)", background: "var(--color-surface)", textDecoration: "none", color: "inherit" }}
+                  >
+                    <span>
+                      {rp.year} — Sem {rp.semester ? toRoman(parseInt(rp.semester, 10)) : rp.semester}
+                      {rp.exam_type && ` · ${rp.exam_type}`}
+                    </span>
+                    <span className="font-medium ml-4 shrink-0 text-xs" style={{ color: "var(--color-primary)" }}>
+                      View →
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
+            No other papers available for this course code yet.{" "}
+            <a href="/upload" style={{ color: "var(--color-primary)" }}>Upload one</a>.
           </p>
-        </div>
+        )}
       </div>
 
       {/* ── Notes & Resources ── */}
       <div className="card p-5 sm:p-6">
         <h2 className="text-base font-semibold mb-3">Notes &amp; Resources</h2>
-        <div className="rounded-lg px-4 py-5 text-center" style={{ background: "var(--color-accent-soft)" }}>
-          <p className="text-sm font-medium" style={{ color: "var(--color-text-muted)" }}>Coming Soon</p>
-          <p className="text-xs mt-1" style={{ color: "var(--color-text-muted)" }}>
-            Notes, formulas, and additional resources will be linked here.
+        {syllabusEntry?.reference_books && syllabusEntry.reference_books.length > 0 ? (
+          <div className="space-y-2">
+            <p className="text-xs mb-3" style={{ color: "var(--color-text-muted)" }}>
+              Recommended reference books from the syllabus:
+            </p>
+            <ol className="space-y-1.5 list-none">
+              {syllabusEntry.reference_books.map((book, i) => (
+                <li key={i} className="flex gap-2 text-sm" style={{ color: "var(--color-text-muted)" }}>
+                  <span className="shrink-0 font-medium" style={{ color: "var(--color-primary)" }}>
+                    {String(i + 1).padStart(2, "0")}.
+                  </span>
+                  <span>{book}</span>
+                </li>
+              ))}
+            </ol>
+            {syllabusEntry && (
+              <Link
+                href={`/syllabus/paper/${encodeURIComponent(syllabusEntry.paper_code)}`}
+                className="inline-flex items-center gap-1 text-xs font-medium mt-3"
+                style={{ color: "var(--color-primary)" }}
+              >
+                View full syllabus →
+              </Link>
+            )}
+          </div>
+        ) : (
+          <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
+            {syllabusEntry
+              ? "No reference books listed for this paper."
+              : "Notes and resources will appear here once the syllabus is available."}
+            {syllabusEntry && (
+              <>
+                {" "}
+                <Link
+                  href={`/syllabus/paper/${encodeURIComponent(syllabusEntry.paper_code)}`}
+                  style={{ color: "var(--color-primary)" }}
+                >
+                  View syllabus →
+                </Link>
+              </>
+            )}
           </p>
-        </div>
+        )}
       </div>
     </section>
   );

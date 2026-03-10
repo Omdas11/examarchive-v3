@@ -23,6 +23,33 @@ function xpMilestones(xp: number): string[] {
   return milestones;
 }
 
+/**
+ * Generate a deterministic neutral background colour for avatar initials
+ * based on the user's display name so each user gets a consistent but varied
+ * colour instead of the same red placeholder for everyone.
+ */
+const AVATAR_PALETTE = [
+  "#6366f1", // indigo
+  "#8b5cf6", // violet
+  "#0891b2", // cyan
+  "#059669", // emerald
+  "#d97706", // amber
+  "#7c3aed", // purple
+  "#0284c7", // sky
+  "#047857", // green
+  "#b45309", // yellow-brown
+  "#9333ea", // fuchsia
+];
+
+function avatarColor(name: string): string {
+  // djb2-style hash for better distribution than a simple multiply
+  let hash = 5381;
+  for (let i = 0; i < name.length; i++) {
+    hash = ((hash << 5) + hash + name.charCodeAt(i)) >>> 0; // keep 32-bit unsigned
+  }
+  return AVATAR_PALETTE[hash % AVATAR_PALETTE.length];
+}
+
 export default function UsersTable({ users, currentAdminId, currentAdminRole }: UsersTableProps) {
   const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
   const [list, setList] = useState<AdminUser[]>(users);
@@ -46,40 +73,36 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
     <>
       {/* Horizontal-scroll wrapper for mobile */}
       <div className="overflow-x-auto rounded-lg" style={{ border: "1px solid var(--color-border)" }}>
-        <table className="min-w-full text-sm">
+        <table className="zebra-table sticky-col-table min-w-full text-sm">
           <thead>
-            <tr style={{ borderBottom: "1px solid var(--color-border)", background: "var(--color-surface)" }}>
-              <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold" style={{ color: "var(--color-text-muted)" }}>User</th>
-              <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold" style={{ color: "var(--color-text-muted)" }}>Role</th>
-              <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold" style={{ color: "var(--color-text-muted)" }}>Community Badges</th>
-              <th className="whitespace-nowrap px-4 py-3 text-right text-xs font-semibold" style={{ color: "var(--color-text-muted)" }}>Uploads</th>
-              <th className="whitespace-nowrap px-4 py-3 text-right text-xs font-semibold" style={{ color: "var(--color-text-muted)" }}>XP</th>
-              <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold" style={{ color: "var(--color-text-muted)" }}>Achievements</th>
-              <th className="whitespace-nowrap px-4 py-3 text-right text-xs font-semibold" style={{ color: "var(--color-text-muted)" }}>Streak</th>
-              <th className="whitespace-nowrap px-4 py-3 text-center text-xs font-semibold" style={{ color: "var(--color-text-muted)" }}>Actions</th>
+            <tr>
+              <th className="whitespace-nowrap text-left text-xs font-semibold">User</th>
+              <th className="whitespace-nowrap text-left text-xs font-semibold">Role</th>
+              <th className="whitespace-nowrap text-left text-xs font-semibold">Community Badges</th>
+              <th className="whitespace-nowrap text-right text-xs font-semibold">Uploads</th>
+              <th className="whitespace-nowrap text-right text-xs font-semibold">XP</th>
+              <th className="whitespace-nowrap text-left text-xs font-semibold">Achievements</th>
+              <th className="whitespace-nowrap text-right text-xs font-semibold">Streak</th>
+              <th className="whitespace-nowrap text-center text-xs font-semibold">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {list.map((u, idx) => {
+            {list.map((u) => {
               const milestones = xpMilestones(u.xp);
+              const displayName = u.name || u.username || u.email;
 
               return (
-                <tr
-                  key={u.id}
-                  style={{
-                    borderBottom: idx < list.length - 1 ? "1px solid var(--color-border)" : undefined,
-                    background: "var(--color-bg)",
-                  }}
-                >
+                <tr key={u.id}>
                   {/* User: avatar + name + @username stacked */}
-                  <td className="px-4 py-3">
+                  <td>
                     <div className="flex items-center gap-3">
                       <AvatarRing
-                        displayName={u.name || u.username || u.email}
+                        displayName={displayName}
                         avatarUrl={u.avatar_url || undefined}
                         streakDays={u.streak_days}
                         role={u.role}
                         size={36}
+                        avatarBgColor={avatarColor(displayName)}
                       />
                       <div className="min-w-0">
                         <p className="font-medium text-sm truncate max-w-[140px]">
@@ -93,12 +116,12 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
                   </td>
 
                   {/* Single authoritative role */}
-                  <td className="whitespace-nowrap px-4 py-3">
+                  <td className="whitespace-nowrap">
                     <RoleBadge role={u.role} />
                   </td>
 
                   {/* Community badges (secondary + tertiary) */}
-                  <td className="whitespace-nowrap px-4 py-3">
+                  <td className="whitespace-nowrap">
                     <div className="flex flex-wrap gap-1">
                       {u.secondary_role ? <RoleBadge role={u.secondary_role} /> : null}
                       {u.tertiary_role ? <RoleBadge role={u.tertiary_role} /> : null}
@@ -109,17 +132,17 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
                   </td>
 
                   {/* Uploads (= approved papers) */}
-                  <td className="whitespace-nowrap px-4 py-3 text-right font-medium text-sm">
+                  <td className="whitespace-nowrap text-right font-medium text-sm">
                     {u.upload_count}
                   </td>
 
                   {/* XP */}
-                  <td className="whitespace-nowrap px-4 py-3 text-right font-medium text-sm">
+                  <td className="whitespace-nowrap text-right font-medium text-sm">
                     {u.xp.toLocaleString()}
                   </td>
 
                   {/* Achievements / XP milestones */}
-                  <td className="px-4 py-3">
+                  <td>
                     {milestones.length > 0 ? (
                       <div className="flex flex-wrap gap-1">
                         {milestones.map((m) => (
@@ -146,12 +169,12 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
                   </td>
 
                   {/* Streak */}
-                  <td className="whitespace-nowrap px-4 py-3 text-right text-sm">
+                  <td className="whitespace-nowrap text-right text-sm">
                     {u.streak_days > 0 ? `${u.streak_days}d` : <span style={{ color: "var(--color-text-muted)" }}>—</span>}
                   </td>
 
                   {/* Actions */}
-                  <td className="whitespace-nowrap px-4 py-3 text-center">
+                  <td className="whitespace-nowrap text-center">
                     {(currentAdminRole === "admin" || currentAdminRole === "founder") && u.id !== currentAdminId && (
                       <button
                         onClick={() => setEditingUser(u)}

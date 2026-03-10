@@ -38,6 +38,8 @@ interface AvatarRingProps {
   size?: number;
   /** Extra class names for the wrapper element. */
   className?: string;
+  /** Optional explicit background colour for the initials fallback. */
+  avatarBgColor?: string;
 }
 
 /** Return a ring colour based on streak level (for non-animated rings). */
@@ -76,6 +78,7 @@ export default function AvatarRing({
   role,
   size = 32,
   className = "",
+  avatarBgColor,
 }: AvatarRingProps) {
   const [imgError, setImgError] = useState(false);
 
@@ -165,7 +168,7 @@ export default function AvatarRing({
           style={{
             width: size,
             height: size,
-            background: "var(--color-primary)",
+            background: avatarBgColor ?? "var(--color-primary)",
             fontSize: size * 0.4,
           }}
           aria-label={displayName}

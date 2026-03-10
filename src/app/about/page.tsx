@@ -277,15 +277,26 @@ export default async function AboutPage() {
         These optional secondary roles recognise specific contributions. They are cosmetic and
         do not change permissions.
       </p>
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-3 space-y-2">
         {COMMUNITY_ROLES.map((r) => (
           <div
             key={r.name}
-            className="card px-3 py-2"
-            title={r.desc}
+            className="flex items-center gap-3 rounded-xl px-4 py-3 w-full"
+            style={{
+              background: "var(--color-surface)",
+              border: "1px solid var(--color-border)",
+            }}
           >
-            <p className="text-xs font-semibold" style={{ color: "var(--color-primary)" }}>{r.name}</p>
-            <p className="text-[11px] mt-0.5" style={{ color: "var(--color-text-muted)" }}>{r.desc}</p>
+            <span
+              className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold"
+              style={{ background: "var(--color-accent-soft)", color: "var(--color-primary)" }}
+            >
+              {r.name[0]}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold" style={{ color: "var(--color-primary)" }}>{r.name}</p>
+              <p className="text-xs mt-0.5" style={{ color: "var(--color-text-muted)" }}>{r.desc}</p>
+            </div>
           </div>
         ))}
       </div>

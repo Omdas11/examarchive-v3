@@ -9,6 +9,7 @@ import { Icon, type IconName } from "@/components/Icons";
 import ContributionHeatmap from "@/components/ContributionHeatmap";
 import Breadcrumb from "@/components/Breadcrumb";
 import ConfettiTrigger from "@/components/ConfettiTrigger";
+import XPBar from "@/components/XPBar";
 
 export const metadata: Metadata = {
   title: "Profile",
@@ -234,32 +235,12 @@ export default async function ProfilePage() {
             </div>
           )}
 
-          {/* ── XP progress bar with milestone pips ── */}
-          <div className="w-full mt-5">
-            <div className="xp-track">
-              <div className="xp-fill" style={{ width: `${xpPercent}%` }} />
-              {/* Milestone pips */}
-              {XP_TIERS.slice(1).map((t) => {
-                const maxXp = XP_TIERS[XP_TIERS.length - 1].xp;
-                const pos = (t.xp / maxXp) * 100;
-                const reached = user.xp >= t.xp;
-                return (
-                  <div
-                    key={t.label}
-                    className={`xp-pip ${reached ? "reached" : "upcoming"}`}
-                    style={{ left: `${pos}%` }}
-                    title={`${t.label} — ${t.xp} XP`}
-                  />
-                );
-              })}
-            </div>
-            <div className="flex justify-between mt-2 text-xs" style={{ color: "var(--color-text-muted)" }}>
-              <span>{user.xp} XP · {xpLabel}</span>
-              {nextXp && nextLabel && (
-                <span>Next: {nextLabel} ({nextXp} XP)</span>
-              )}
-            </div>
-          </div>
+          {/* ── XP progress bar (animated, no overflow pips) ── */}
+          <XPBar
+            percent={xpPercent}
+            leftLabel={`${user.xp} XP · ${xpLabel}`}
+            rightLabel={nextXp && nextLabel ? `Next: ${nextLabel} (${nextXp} XP)` : undefined}
+          />
 
           {/* ── Contribution Heatmap ── */}
           <div className="w-full mt-6">

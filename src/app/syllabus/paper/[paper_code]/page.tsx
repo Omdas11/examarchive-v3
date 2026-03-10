@@ -7,8 +7,8 @@ import {
   COLLECTION,
   Query,
 } from "@/lib/appwrite";
-import { toSyllabus } from "@/types";
-import type { Syllabus } from "@/types";
+import { toSyllabus, toPaper } from "@/types";
+import type { Syllabus, Paper } from "@/types";
 import { SYLLABUS_REGISTRY, groupBySemester } from "@/data/syllabus-registry";
 import type { SyllabusRegistryEntry, SyllabusUnit } from "@/data/syllabus-registry";
 import { toRoman } from "@/lib/utils";
@@ -53,6 +53,26 @@ async function fetchSyllabusPdfs(paperCode: string): Promise<Syllabus[]> {
       ],
     );
     return documents.map(toSyllabus);
+  } catch {
+    return [];
+  }
+}
+
+/** Fetch approved exam papers for this paper code from the database. */
+async function fetchExamPapers(paperCode: string): Promise<Paper[]> {
+  try {
+    const db = adminDatabases();
+    const { documents } = await db.listDocuments(
+      DATABASE_ID,
+      COLLECTION.papers,
+      [
+        Query.equal("approved", true),
+        Query.equal("course_code", paperCode),
+        Query.orderDesc("$createdAt"),
+        Query.limit(20),
+      ],
+    );
+    return documents.map(toPaper);
   } catch {
     return [];
   }
@@ -138,6 +158,7 @@ export default async function SyllabusDetailPage({ params }: PageProps) {
   }
 
   const pdfs = await fetchSyllabusPdfs(entry.paper_code);
+  const examPapers = await fetchExamPapers(entry.paper_code);
 
   // Related papers: same subject + programme + university, different code
   const relatedEntries = SYLLABUS_REGISTRY.filter(
@@ -322,6 +343,51 @@ export default async function SyllabusDetailPage({ params }: PageProps) {
               .
             </div>
           )}
+
+          {/* Past Exam Papers */}
+          <div className="card p-5">
+            <h2 className="text-sm font-semibold mb-3">Past Question Papers</h2>
+            {examPapers.length > 0 ? (
+              <div className="space-y-2">
+                {examPapers.map((p) => (
+                  <Link
+                    key={p.id}
+                    href={`/paper/${p.id}`}
+                    className="flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 transition-all hover:shadow-sm"
+                    style={{
+                      border: "1px solid var(--color-border)",
+                      background: "var(--color-surface)",
+                      textDecoration: "none",
+                      color: "inherit",
+                    }}
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium leading-snug">
+                        {p.year ? `${p.year}` : "Unknown Year"}
+                        {p.exam_type ? ` · ${p.exam_type}` : ""}
+                      </p>
+                      <p className="text-xs mt-0.5" style={{ color: "var(--color-text-muted)" }}>
+                        {[p.institution, p.programme].filter(Boolean).join(" · ")}
+                      </p>
+                    </div>
+                    <span className="text-xs font-medium shrink-0" style={{ color: "var(--color-primary)" }}>
+                      View PDF →
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <div
+                className="rounded-lg px-4 py-4 text-sm text-center"
+                style={{ background: "var(--color-accent-soft)" }}
+              >
+                <p style={{ color: "var(--color-text-muted)" }}>
+                  No question papers yet.{" "}
+                  <a href="/upload" style={{ color: "var(--color-primary)" }}>Upload one</a>.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* ── Right column ─────────────────────────────────────────────── */}
