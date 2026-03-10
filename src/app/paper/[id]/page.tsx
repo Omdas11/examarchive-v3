@@ -77,14 +77,14 @@ export default async function PaperPage({ params }: PaperPageProps) {
       )
     : undefined;
 
-  // Fetch all approved papers with the same course_code for multi-year view.
+  // Fetch all approved papers with the same paper_code for multi-year view.
   let relatedPapers: Paper[] = [];
   if (courseCode) {
     try {
       const db = adminDatabases();
       const { documents } = await db.listDocuments(DATABASE_ID, COLLECTION.papers, [
         Query.equal("approved", true),
-        Query.equal("course_code", courseCode),
+        Query.equal("paper_code", courseCode),
         Query.orderDesc("$createdAt"),
         Query.limit(20),
       ]);

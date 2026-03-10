@@ -67,7 +67,7 @@ async function fetchExamPapers(paperCode: string): Promise<Paper[]> {
       COLLECTION.papers,
       [
         Query.equal("approved", true),
-        Query.equal("course_code", paperCode),
+        Query.equal("paper_code", paperCode),
         Query.orderDesc("$createdAt"),
         Query.limit(20),
       ],
@@ -157,8 +157,10 @@ export default async function SyllabusDetailPage({ params }: PageProps) {
     notFound();
   }
 
-  const pdfs = await fetchSyllabusPdfs(entry.paper_code);
-  const examPapers = await fetchExamPapers(entry.paper_code);
+  const [pdfs, examPapers] = await Promise.all([
+    fetchSyllabusPdfs(entry.paper_code),
+    fetchExamPapers(entry.paper_code),
+  ]);
 
   // Related papers: same subject + programme + university, different code
   const relatedEntries = SYLLABUS_REGISTRY.filter(

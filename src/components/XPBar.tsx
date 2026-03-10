@@ -22,12 +22,23 @@ export default function XPBar({ percent, leftLabel, rightLabel }: XPBarProps) {
   useEffect(() => {
     const el = fillRef.current;
     if (!el) return;
-    // Start from 0, then animate to target width after a brief delay so the
-    // browser has time to paint the initial 0-width state.
+    const targetWidth = `${Math.max(0, Math.min(100, percent))}%`;
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    // Reset instantly before starting a new animation.
+    el.style.transition = "none";
     el.style.width = "0%";
+
+    if (reduceMotion) {
+      el.style.width = targetWidth;
+      return;
+    }
+
+    // Force a reflow so the 0% reset is painted before the transition starts.
+    void el.offsetWidth;
     const raf = requestAnimationFrame(() => {
       el.style.transition = "width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)";
-      el.style.width = `${Math.max(0, Math.min(100, percent))}%`;
+      el.style.width = targetWidth;
     });
     return () => cancelAnimationFrame(raf);
   }, [percent]);

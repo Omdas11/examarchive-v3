@@ -143,7 +143,7 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
 
                   {/* Achievements / XP milestones */}
                   <td>
-                    {milestones.length > 0 ? (
+                    {milestones.length > 0 || u.streak_days >= 30 ? (
                       <div className="flex flex-wrap gap-1">
                         {milestones.map((m) => (
                           <span

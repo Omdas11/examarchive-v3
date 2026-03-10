@@ -44,7 +44,7 @@ function getSuggestions(query: string): SearchSuggestion[] {
   ).slice(0, 3);
 
   for (const subj of matchedSubjects) {
-    if (!results.find((r) => r.sublabel?.includes(subj))) {
+    if (!results.find((r) => r.type === "subject" && r.label === subj)) {
       results.push({
         type: "subject",
         label: subj,
@@ -131,56 +131,55 @@ export default function HomeSearch() {
 
         {/* Popup suggestions */}
         {open && suggestions.length > 0 && (
-          <div
-            role="listbox"
+          <ul
             aria-label="Search suggestions"
-            className="absolute left-0 right-0 z-50 mt-1 rounded-lg shadow-lg overflow-hidden"
+            className="absolute left-0 right-0 z-50 mt-1 rounded-lg shadow-lg overflow-hidden list-none m-0 p-0"
             style={{
               background: "var(--color-surface)",
               border: "1px solid var(--color-border)",
             }}
           >
             {suggestions.map((s, i) => (
-              <Link
-                key={i}
-                href={s.href}
-                role="option"
-                onClick={() => { setOpen(false); setQuery(""); }}
-                className="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:opacity-80"
-                style={{ borderBottom: i < suggestions.length - 1 ? "1px solid var(--color-border)" : undefined }}
-              >
-                {/* Icon by type */}
-                <span className="shrink-0" style={{ color: "var(--color-primary)" }}>
-                  {s.type === "paper_code" && (
-                    <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  )}
-                  {s.type === "subject" && (
-                    <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  )}
-                  {s.type === "browse" && (
-                    <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
-                      <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35" strokeLinecap="round"/>
-                    </svg>
-                  )}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="font-medium truncate block">{s.label}</span>
-                  {s.sublabel && (
-                    <span className="text-xs truncate block" style={{ color: "var(--color-text-muted)" }}>
-                      {s.sublabel}
-                    </span>
-                  )}
-                </span>
-                <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true" style={{ color: "var(--color-text-muted)" }} className="shrink-0">
-                  <path d="M9 18l6-6-6-6" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </Link>
+              <li key={i}>
+                <Link
+                  href={s.href}
+                  onClick={() => { setOpen(false); setQuery(""); }}
+                  className="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:opacity-80"
+                  style={{ borderBottom: i < suggestions.length - 1 ? "1px solid var(--color-border)" : undefined }}
+                >
+                  {/* Icon by type */}
+                  <span className="shrink-0" style={{ color: "var(--color-primary)" }}>
+                    {s.type === "paper_code" && (
+                      <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    )}
+                    {s.type === "subject" && (
+                      <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    )}
+                    {s.type === "browse" && (
+                      <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35" strokeLinecap="round"/>
+                      </svg>
+                    )}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="font-medium truncate block">{s.label}</span>
+                    {s.sublabel && (
+                      <span className="text-xs truncate block" style={{ color: "var(--color-text-muted)" }}>
+                        {s.sublabel}
+                      </span>
+                    )}
+                  </span>
+                  <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true" style={{ color: "var(--color-text-muted)" }} className="shrink-0">
+                    <path d="M9 18l6-6-6-6" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </Link>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
       </div>
 

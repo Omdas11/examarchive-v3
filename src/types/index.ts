@@ -4,9 +4,9 @@ export interface Paper {
   title: string;
   /**
    * Paper code (e.g. "PHYDSC101T").
-   * Optional — new uploads do not persist a course code to the `papers`
-   * collection (the code belongs to the syllabus registry, not the DB row).
-   * Legacy documents uploaded before this change may still carry a value.
+   * Persisted in the `papers` collection as the `paper_code` field for new
+   * uploads. Legacy documents may use `course_code`. `toPaper` normalises both
+   * into this field.
    */
   course_code?: string;
   course_name: string;
@@ -244,7 +244,7 @@ export function toPaper(doc: any): Paper {
   return {
     id: doc.$id ?? doc.id,
     title: doc.title ?? doc.course_name,
-    course_code: doc.course_code ?? undefined,
+    course_code: doc.course_code ?? doc.paper_code ?? undefined,
     course_name: doc.course_name,
     year: doc.year,
     semester: doc.semester,
