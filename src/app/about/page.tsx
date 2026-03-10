@@ -112,14 +112,86 @@ const SYSTEM_ROLES = [
 
 /** Community (custom) roles that can be assigned alongside the primary role. */
 const COMMUNITY_ROLES = [
-  { name: "Contributor", desc: "Consistently uploads high-quality papers" },
-  { name: "Reviewer",    desc: "Helps review and verify uploaded content" },
-  { name: "Curator",     desc: "Organises and categorises the archive" },
-  { name: "Mentor",      desc: "Guides new users on the platform" },
-  { name: "Archivist",   desc: "Focuses on rare or historical papers" },
-  { name: "Ambassador",  desc: "Promotes ExamArchive in their institution" },
-  { name: "Pioneer",     desc: "Among the earliest active contributors" },
-  { name: "Researcher",  desc: "Contributes to platform research & development" },
+  {
+    name: "Contributor",
+    desc: "Consistently uploads high-quality papers",
+    color: "#2563eb",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+      </svg>
+    ),
+  },
+  {
+    name: "Reviewer",
+    desc: "Helps review and verify uploaded content",
+    color: "#0891b2",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+      </svg>
+    ),
+  },
+  {
+    name: "Curator",
+    desc: "Organises and categorises the archive",
+    color: "#7c3aed",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+      </svg>
+    ),
+  },
+  {
+    name: "Mentor",
+    desc: "Guides new users on the platform",
+    color: "#059669",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
+      </svg>
+    ),
+  },
+  {
+    name: "Archivist",
+    desc: "Focuses on rare or historical papers",
+    color: "#b45309",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/>
+      </svg>
+    ),
+  },
+  {
+    name: "Ambassador",
+    desc: "Promotes ExamArchive in their institution",
+    color: "#0284c7",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/>
+      </svg>
+    ),
+  },
+  {
+    name: "Pioneer",
+    desc: "Among the earliest active contributors",
+    color: "#9333ea",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+      </svg>
+    ),
+  },
+  {
+    name: "Researcher",
+    desc: "Contributes to platform research & development",
+    color: "#16a34a",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+    ),
+  },
 ];
 
 /** XP award amounts per event. */
@@ -288,13 +360,13 @@ export default async function AboutPage() {
             }}
           >
             <span
-              className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold"
-              style={{ background: "var(--color-accent-soft)", color: "var(--color-primary)" }}
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
+              style={{ background: `${r.color}18`, color: r.color }}
             >
-              {r.name[0]}
+              {r.icon}
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold" style={{ color: "var(--color-primary)" }}>{r.name}</p>
+              <p className="text-sm font-semibold" style={{ color: r.color }}>{r.name}</p>
               <p className="text-xs mt-0.5" style={{ color: "var(--color-text-muted)" }}>{r.desc}</p>
             </div>
           </div>

@@ -5,10 +5,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { SYLLABUS_REGISTRY } from "@/data/syllabus-registry";
 
-const QUICK_SUBJECTS = Array.from(
-  new Set(SYLLABUS_REGISTRY.map((e) => e.subject)),
-).slice(0, 8);
-
 interface SearchSuggestion {
   type: "paper_code" | "subject" | "browse";
   label: string;
@@ -188,24 +184,6 @@ export default function HomeSearch() {
         )}
       </div>
 
-      {/* Popular subject shortcuts */}
-      <div className="flex flex-wrap items-center gap-2 px-1">
-        <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>Popular:</span>
-        {QUICK_SUBJECTS.map((subj) => (
-          <Link
-            key={subj}
-            href={`/syllabus?subject=${encodeURIComponent(subj)}`}
-            className="rounded-full px-3 py-0.5 text-xs font-medium transition-colors hover:opacity-80"
-            style={{
-              background: "var(--color-surface)",
-              color: "var(--color-text-muted)",
-              border: "1px solid var(--color-border)",
-            }}
-          >
-            {subj}
-          </Link>
-        ))}
-      </div>
     </div>
   );
 }

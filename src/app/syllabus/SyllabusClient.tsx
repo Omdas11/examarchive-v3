@@ -432,7 +432,7 @@ function SemesterAccordion({
       <button
         id={`accordion-header-${label}`}
         type="button"
-        className="accordion-header"
+        className="accordion-header w-full"
         onClick={() => setOpen(!open)}
         aria-expanded={open}
         aria-controls={`accordion-body-${label}`}
@@ -470,7 +470,7 @@ function SemesterAccordion({
   );
 }
 
-/** Reusable paper list with full-width rounded-rect rows for readability on mobile. */
+/** Reusable paper rows table with zebra striping and sticky headers. */
 function PaperTable({
   entries,
   catColors,
@@ -479,74 +479,73 @@ function PaperTable({
   catColors: typeof PAPER_TYPE_COLORS;
 }) {
   return (
-    <div className="space-y-2">
-      {entries.map((e: SyllabusRegistryEntry) => {
-        const colors = e.category && catColors[e.category] ? catColors[e.category] : null;
-        return (
-          <Link
-            key={e.paper_code}
-            href={`/syllabus/paper/${encodeURIComponent(e.paper_code)}`}
-            className="flex items-center gap-3 rounded-lg px-4 py-3 transition-all hover:shadow-sm hover:-translate-y-0.5 w-full"
-            style={{
-              background: "var(--color-surface)",
-              border: "1px solid var(--color-border)",
-              textDecoration: "none",
-              color: "inherit",
-            }}
-          >
-            {/* Category colour indicator */}
-            <span
-              className="shrink-0 rounded-sm"
-              style={{
-                width: 4,
-                alignSelf: "stretch",
-                background: colors ? colors.text : "var(--color-border)",
-              }}
-              aria-hidden="true"
-            />
-
-            {/* Paper info */}
-            <div className="flex-1 min-w-0">
-              <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
-                <span
-                  className="font-mono text-xs font-semibold"
-                  style={{ color: "var(--color-primary)" }}
-                >
-                  {e.paper_code}
-                </span>
-                {colors && e.category && (
-                  <span
-                    className="inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold"
-                    style={{ background: colors.bg, color: colors.text }}
+    <div className="overflow-x-auto">
+      <table className="zebra-table">
+        <thead>
+          <tr>
+            <th>Paper Code</th>
+            <th>Paper Name</th>
+            <th>Cat.</th>
+            <th>Credits</th>
+            <th>Units</th>
+          </tr>
+        </thead>
+        <tbody>
+          {entries.map((e: SyllabusRegistryEntry) => {
+            const colors = e.category && catColors[e.category] ? catColors[e.category] : null;
+            const hasUnits = (e.units?.length ?? 0) > 0;
+            return (
+              <tr
+                key={e.paper_code}
+                className="border-t transition-colors hover:opacity-80"
+                style={{ borderColor: "var(--color-border)" }}
+              >
+                <td className="py-2 pr-3">
+                  <Link
+                    href={`/syllabus/paper/${encodeURIComponent(e.paper_code)}`}
+                    className="font-mono text-xs font-semibold hover:underline"
+                    style={{ color: "var(--color-primary)" }}
                   >
-                    {e.category}
-                  </span>
-                )}
-              </div>
-              <p className="text-sm font-medium leading-snug">{e.paper_name}</p>
-              <p className="text-xs mt-0.5" style={{ color: "var(--color-text-muted)" }}>
-                {e.credits} cr
-                {e.units && e.units.length > 0 && ` · ${e.units.length} units`}
-              </p>
-            </div>
-
-            {/* Chevron */}
-            <svg
-              width="14"
-              height="14"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-              className="shrink-0"
-              style={{ color: "var(--color-text-muted)" }}
-            >
-              <path d="M9 18l6-6-6-6" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </Link>
-        );
-      })}
+                    {e.paper_code}
+                  </Link>
+                </td>
+                <td className="py-2 pr-3">
+                  <Link
+                    href={`/syllabus/paper/${encodeURIComponent(e.paper_code)}`}
+                    className="hover:underline text-xs"
+                  >
+                    {e.paper_name}
+                  </Link>
+                </td>
+                <td className="py-2 pr-3">
+                  {e.category && colors ? (
+                    <span
+                      className="inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                      style={{ background: colors.bg, color: colors.text }}
+                    >
+                      {e.category}
+                    </span>
+                  ) : (
+                    <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+                      {e.category ?? "—"}
+                    </span>
+                  )}
+                </td>
+                <td className="py-2 pr-3 text-xs" style={{ color: "var(--color-text-muted)" }}>
+                  {e.credits}
+                </td>
+                <td className="py-2 text-xs">
+                  {hasUnits ? (
+                    <span style={{ color: "#16a34a" }}>✓ {e.units!.length}</span>
+                  ) : (
+                    <span style={{ color: "var(--color-text-muted)" }}>—</span>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }
