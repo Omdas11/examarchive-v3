@@ -99,20 +99,16 @@ export async function uploadFileDirectly(
       }
     : undefined;
 
-  // Grant read access to all authenticated users (so the proxy route and
-  // moderators can view the PDF before approval). Write and delete permissions
-  // are scoped to the specific uploader so they can manage their own files.
-  // Public read("any") access is granted later by the admin approval step
-  // in /api/admin when the paper is approved.
+  // Grant public read access immediately — this is a free distribution archive
+  // where all uploaded PDFs are meant to be publicly accessible.
+  // A user-scoped write permission is also set so that /api/upload can verify
+  // ownership via $permissions using the SDK's Permission class (reliable format).
+  // The write permission is removed on approval so files become truly read-only.
   await storage.createFile(
     BUCKET_ID,
     fileId,
     file,
-    [
-      Permission.read(Role.users()),
-      Permission.write(Role.user(uploaderId)),
-      Permission.delete(Role.user(uploaderId)),
-    ],
+    [Permission.read(Role.any()), Permission.write(Role.user(uploaderId))],
     sdkProgress,
   );
   return fileId;
@@ -152,20 +148,16 @@ export async function uploadSyllabusFileDirectly(
       }
     : undefined;
 
-  // Grant read access to all authenticated users (so the proxy route and
-  // moderators can view the syllabus PDF before approval). Write and delete
-  // permissions are scoped to the specific uploader so they can manage
-  // their own files. Public read("any") access is granted later by the
-  // admin approval step in /api/admin when the syllabus is approved.
+  // Grant public read access immediately — this is a free distribution archive
+  // where all uploaded syllabi are meant to be publicly accessible.
+  // A user-scoped write permission is also set so that /api/upload/syllabus can
+  // verify ownership via $permissions using the SDK's Permission class (reliable format).
+  // The write permission is removed on approval so files become truly read-only.
   await storage.createFile(
     SYLLABUS_BUCKET_ID,
     fileId,
     file,
-    [
-      Permission.read(Role.users()),
-      Permission.write(Role.user(uploaderId)),
-      Permission.delete(Role.user(uploaderId)),
-    ],
+    [Permission.read(Role.any()), Permission.write(Role.user(uploaderId))],
     sdkProgress,
   );
   return fileId;

@@ -9,6 +9,8 @@ import {
   COLLECTION,
   BUCKET_ID,
   ID,
+  Permission,
+  Role,
 } from "@/lib/appwrite";
 import { AppwriteException } from "node-appwrite";
 import { findByPaperCode } from "@/data/syllabus-registry";
@@ -211,14 +213,21 @@ export async function POST(request: NextRequest) {
 
     const fileUrl = getAppwriteFileUrl(fileId);
 
-    // Verify the file exists in storage. We do not check $permissions here
-    // because that check is unreliable and blocked the DB write with spurious
-    // 403 errors. Ownership is implicitly established: only the authenticated
-    // user who obtained the JWT from /api/upload/token can upload a file and
-    // then immediately call this route with that fileId. The admin key is used
-    // solely to confirm the file exists before writing the DB document.
+    // Verify file ownership by checking $permissions for a write entry scoped
+    // to this user. The write permission is set at upload time using the
+    // Appwrite browser SDK. We use the server-side SDK's Permission class to
+    // generate the check string — guaranteeing the same format as Appwrite stores,
+    // unlike an error-prone manual template literal.
     try {
-      await adminStorage().getFile(BUCKET_ID, fileId);
+      const fileData = await adminStorage().getFile(BUCKET_ID, fileId);
+      const ownerWritePerm = Permission.write(Role.user(user.id));
+      const isOwner = (fileData.$permissions as string[]).includes(ownerWritePerm);
+      if (!isOwner) {
+        return NextResponse.json(
+          { error: "Access denied: you do not own this file." },
+          { status: 403 },
+        );
+      }
     } catch (storageErr: unknown) {
       if (storageErr instanceof AppwriteException) {
         if (storageErr.code === 404 || storageErr.code === 400) {
