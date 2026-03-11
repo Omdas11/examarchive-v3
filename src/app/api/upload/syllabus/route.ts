@@ -7,10 +7,7 @@ import {
   COLLECTION,
   SYLLABUS_BUCKET_ID,
   ID,
-  Permission,
-  Role,
 } from "@/lib/appwrite";
-import { AppwriteException } from "node-appwrite";
 import { findByPaperCode } from "@/data/syllabus-registry";
 
 export const dynamic = "force-dynamic";
@@ -124,35 +121,6 @@ export async function POST(request: NextRequest) {
     }
 
     const fileUrl = getSyllabusFileUrl(fileId);
-
-    // Verify file ownership by checking $permissions for a write entry scoped
-    // to this user. The write permission is set at upload time using the
-    // Appwrite browser SDK. We use the server-side SDK's Permission class to
-    // generate the check string — guaranteeing the same format as Appwrite stores.
-    try {
-      const fileData = await adminStorage().getFile(SYLLABUS_BUCKET_ID, fileId);
-      const ownerWritePerm = Permission.write(Role.user(user.id));
-      const isOwner = (fileData.$permissions as string[]).includes(ownerWritePerm);
-      if (!isOwner) {
-        return NextResponse.json(
-          { error: "Access denied: you do not own this file." },
-          { status: 403 },
-        );
-      }
-    } catch (storageErr: unknown) {
-      if (storageErr instanceof AppwriteException) {
-        if (storageErr.code === 404 || storageErr.code === 400) {
-          return NextResponse.json(
-            { error: "File not found in syllabus storage. Please re-upload the file." },
-            { status: 404 },
-          );
-        }
-      }
-      return NextResponse.json(
-        { error: "File not found in syllabus storage. Please re-upload the file." },
-        { status: 404 },
-      );
-    }
 
     try {
       const db = adminDatabases();

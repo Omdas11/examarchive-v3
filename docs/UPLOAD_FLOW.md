@@ -1,6 +1,6 @@
 # Upload Flow — ExamArchive v3
 
-ExamArchive uses a **two-phase upload** pattern: the browser uploads the file directly to Appwrite Storage (bypassing Next.js), then the Next.js server saves JSON metadata to the database.
+ExamArchive uses a **deterministic two-step upload** pattern: the browser uploads the file directly to Appwrite Storage (bypassing Next.js), then the Next.js server saves metadata to the database. If the database insertion fails, the uploaded file is automatically deleted to prevent orphaned storage entries.
 
 ---
 
@@ -13,7 +13,11 @@ Browser
   │    └─ Server issues short-lived JWT for the authenticated user
   │
   └─ Appwrite Web SDK (appwrite-client.ts)
-       └─ storage.createFile(bucketId, fileId, file)
+       └─ storage.createFile(bucketId, fileId, file, permissions)
+            Permissions set on upload:
+              read("users")          — all authenticated users can read
+              write("user:{userId}") — only the uploader can update
+              delete("user:{userId}") — only the uploader can delete
             └─ File lands in Appwrite Storage bucket
 ```
 
@@ -24,7 +28,7 @@ Browser
 
 **Token endpoint:** `GET /api/upload/token`
 - Requires an authenticated session cookie.
-- Returns `{ jwt: string }` — a short-lived Appwrite session JWT valid for one upload.
+- Returns `{ jwt: string, userId: string }`.
 
 ---
 
@@ -36,13 +40,17 @@ Browser
        ├─ { fileId, paper_code, university, year, file_name? }
        │
        └─ Next.js API Route (route.ts)
-            ├─ Authenticate user (session cookie)
-            ├─ Verify file ownership via session Storage client
+            ├─ Authenticate user (session cookie — 401 if not logged in)
             ├─ Resolve metadata from syllabus-registry.ts:
-            │    paper_code → { course_name, department, semester,
-            │                   paper_type, exam_type (T/P suffix) }
-            ├─ Write to `uploads` collection  { status: "pending" }
-            └─ Write to `papers` collection   { approved: false }
+            │    paper_code → { paper_name, department, semester,
+            │                   programme, exam_type (T/P suffix) }
+            ├─ Step 1: Create document in `papers` collection
+            │    { course_code, paper_name, year, semester, department,
+            │      programme, exam_type, file_id, file_url,
+            │      uploaded_by, approved: false, status: "pending" }
+            │    ⚠ On failure → delete storage file (rollback) + return 500
+            └─ Step 2: Best-effort write to `uploads` collection
+                 { user_id, file_id, file_name, status: "pending" }
 ```
 
 ### Metadata Auto-Resolution
@@ -51,8 +59,8 @@ Users only enter three fields. All other metadata is resolved server-side:
 
 | User Input   | Auto-Resolved Fields                                           |
 |--------------|----------------------------------------------------------------|
-| `paper_code` | `course_name` (paper_name), `department` (subject), `semester`, `paper_type` (category), `exam_type` (code suffix T/P) |
-| `university` | `institute`                                                    |
+| `paper_code` | `paper_name`, `department`, `semester`, `programme`, `exam_type` (code suffix T/P) |
+| `university` | stored as-is                                                   |
 | `year`       | `year`                                                         |
 
 **Exam type derivation rule:**
@@ -61,19 +69,19 @@ Users only enter three fields. All other metadata is resolved server-side:
 - Any other suffix → `exam_type` is omitted
 
 **Fallback (paper code not in registry):**
-- `course_name` = paper_code
+- `paper_name` = paper_code
 - `department` = paper_code
-- `semester`, `paper_type` are omitted
+- `semester`, `programme` are omitted
 
 ---
 
 ## Syllabus Upload Flow
 
-Identical two-phase pattern, but uses the `syllabus-files` bucket and `POST /api/upload/syllabus`.
+Same two-step pattern, but uses the `syllabus-files` bucket and `POST /api/upload/syllabus`.
 
 | User Input   | Auto-Resolved Fields                           |
 |--------------|------------------------------------------------|
-| `paper_code` | `subject` (paper_name), `department` (subject), `semester`, `programme` |
+| `paper_code` | `subject`, `department`, `semester`, `programme` |
 | `university` | `university`                                   |
 | `year`       | `year`                                         |
 
@@ -87,20 +95,35 @@ Uses `DeptSyllabusUploadForm.tsx` and `POST /api/upload/syllabus`. The user manu
 
 ---
 
-## Database Writes Summary
+## File Access
 
-| Upload Type       | `uploads` collection | `papers` collection | `syllabus` collection |
-|-------------------|----------------------|---------------------|-----------------------|
-| Question Paper    | ✓ (status: pending)  | ✓ (approved: false) | —                     |
-| Syllabus          | —                    | —                   | ✓ (status: pending)   |
-| Dept. Syllabus    | —                    | —                   | ✓ (semester: "")      |
+All PDFs are stored with `read("users")` permission and are only accessible to authenticated users. They are served through Next.js proxy routes that verify the session:
+
+| Route                            | Bucket         | Auth required |
+|----------------------------------|----------------|---------------|
+| `/api/files/papers/[fileId]`     | `papers`       | ✅ Yes        |
+| `/api/files/syllabus/[fileId]`   | `syllabus-files` | ✅ Yes      |
+| `/api/files/avatars/[fileId]`    | `avatars`      | No            |
+
+Guests visiting `/paper/*` pages are automatically redirected to `/login` by the middleware.
 
 ---
 
 ## Admin Moderation
 
 After submission:
-1. Admin sees the upload in the moderation queue (`/admin`).
-2. On approval: `papers.approved` → `true` (or `syllabus.approval_status` → `"approved"`), user's `upload_count` increments, XP is awarded.
-3. On rejection: document is deleted or `approval_status` → `"rejected"`.
+1. Admin sees the paper in the moderation queue (`/admin`, queried by `approved: false`).
+2. On **approval**: `papers.approved` → `true`, `papers.status` → `"approved"`, user's `upload_count` increments, XP is awarded.
+3. On **rejection**: paper document is deleted; storage file is also deleted to prevent orphaned files.
 4. All admin actions are logged to the `activity_logs` collection.
+
+---
+
+## Database Writes Summary
+
+| Upload Type       | `uploads` collection | `papers` collection     | `syllabus` collection |
+|-------------------|----------------------|-------------------------|-----------------------|
+| Question Paper    | ✓ (status: pending)  | ✓ (approved: false, status: pending) | —          |
+| Syllabus          | —                    | —                       | ✓ (approval_status: pending) |
+| Dept. Syllabus    | —                    | —                       | ✓ (semester: "")      |
+

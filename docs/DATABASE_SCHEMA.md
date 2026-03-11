@@ -2,53 +2,52 @@
 
 **Database ID:** `examarchive`
 
-All collections live inside this single Appwrite database. The schema below reflects the live, active fields cross-referenced with the codebase. Fields marked **ADD TO APPWRITE** are used in code but absent from the live Appwrite schema. Fields marked **REMOVE** are candidates for deletion.
+All collections live inside this single Appwrite database.
 
 ---
 
 ## Collection: `papers`
 
-Stores exam question paper metadata. Files are held in the `papers` Appwrite Storage bucket.
+Stores exam question paper metadata. Files are held in the `papers` Appwrite Storage bucket (restricted to authenticated users via `read("users")` permission).
 
-| Field         | Type    | Required (DB) | Status  | Notes                                                        |
-|---------------|---------|---------------|---------|--------------------------------------------------------------|
-| `course_code` | String  | **Yes**       | ✅ Used  | Paper code (e.g. "PHYDSC101T"); primary lookup key; used in all `Query.equal` filters |
-| `course_name` | String  | No            | ✅ Used  | Canonical app field for the paper title; server also backfills `paper_name` when that attribute exists in Appwrite |
-| `paper_name`  | String  | No            | ✅ Used  | Optional schema alias used by some Appwrite environments; populated from the syllabus registry when present |
-| `year`        | Integer | **Yes**       | ✅ Used  | Exam year (e.g. 2024)                                        |
-| `semester`    | String  | No            | ✅ Used  | Ordinal string (e.g. "1st"); auto-resolved from registry     |
-| `exam_type`   | String  | No            | ✅ Used  | "Theory" or "Practical"; derived from paper code suffix T/P  |
-| `department`  | String  | No            | ✅ Used  | Disciplinary subject (e.g. "Physics"); auto-resolved         |
-| `programme`   | String  | No            | ✅ Used  | Academic framework (e.g. "FYUGP", "CBCS"); auto-resolved from registry |
-| `file_url`    | String  | **Yes**       | ✅ Used  | Next.js proxy URL (`/api/files/papers/{fileId}`)             |
-| `uploaded_by` | String  | No            | ✅ Used  | Appwrite user ID of uploader                                 |
-| `approved`    | Boolean | **Yes**       | ✅ Used  | `false` until admin approves                                 |
-| `paper_type`  | String  | No            | ✅ Used  | Category: DSC / DSM / SEC / IDC / GE (FYUGP) or CC / DSC / DSE / GEC / SEC (CBCS) |
-| `institute`   | String  | No            | ✅ Used  | University name (e.g. "Assam University")                    |
+| Field         | Type    | Required | Notes                                                        |
+|---------------|---------|----------|--------------------------------------------------------------|
+| `course_code` | String  | **Yes**  | Paper code (e.g. `PHYDSC101T`); primary lookup key           |
+| `paper_name`  | String  | No       | Human-readable paper title; auto-resolved from syllabus registry |
+| `year`        | Integer | **Yes**  | Exam year (e.g. 2024)                                        |
+| `semester`    | String  | No       | Ordinal string (e.g. `"1st"`); auto-resolved from registry   |
+| `department`  | String  | No       | Disciplinary subject (e.g. `"Physics"`)                      |
+| `programme`   | String  | No       | Academic framework (e.g. `"FYUGP"`, `"CBCS"`)               |
+| `exam_type`   | String  | No       | `"Theory"` or `"Practical"`; derived from paper code suffix T/P |
+| `file_id`     | String  | No       | Appwrite Storage file ID; used to locate the PDF             |
+| `file_url`    | String  | **Yes**  | Next.js proxy URL (`/api/files/papers/{fileId}`)             |
+| `uploaded_by` | String  | No       | Appwrite user ID of the uploader                             |
+| `approved`    | Boolean | **Yes**  | `false` until admin approves; drives all browse queries      |
+| `status`      | String  | No       | `"pending"` on upload, `"approved"` after admin approval     |
+| `paper_type`  | String  | No       | Category: `DSC` / `DSM` / `SEC` / `IDC` / `GE` (FYUGP) or `CC` / `DSC` / `DSE` / `GEC` / `SEC` (CBCS) |
 
-The upload API now inspects the live `papers` schema before inserting and fills both canonical fields (`course_code`, `course_name`) and schema aliases (for example `paper_name`) when they exist, while rolling back the storage file if any required paper attribute is missing.
+**Upload sets:** `approved = false`, `status = "pending"`.  
+**Approval sets:** `approved = true`, `status = "approved"`.
 
 ---
 
 ## Collection: `syllabus`
 
-Stores syllabus document metadata. Files are held in the `syllabus-files` Appwrite Storage bucket.
+Stores syllabus document metadata. Files are held in the `syllabus-files` bucket (restricted to authenticated users).
 
-| Field                  | Type    | Required (DB) | Status  | Notes                                               |
-|------------------------|---------|---------------|---------|-----------------------------------------------------|
-| `university`           | String  | No            | ✅ Used  | University name                                     |
-| `subject`              | String  | No            | ✅ Used  | Full paper name, resolved from syllabus registry    |
-| `department`           | String  | No            | ✅ Used  | Disciplinary subject (e.g. "Physics")               |
-| `semester`             | String  | No            | ✅ Used  | Ordinal string; empty string for departmental docs  |
-| `programme`            | String  | No            | ✅ Used  | "FYUGP" or "CBCS"; auto-resolved from registry      |
-| `year`                 | Integer | No            | ✅ Used  | Year the syllabus is applicable                     |
-| `uploader_id`          | String  | No            | ✅ Used  | Appwrite user ID of uploader                        |
-| `approval_status`      | String  | No            | ✅ Used  | "pending" \| "approved" \| "rejected"               |
-| `file_url`             | String  | No            | ✅ Used  | Public Appwrite Storage view URL                    |
-| `uploaded_by_username` | String  | No            | ✅ Used  | Denormalised username for display                   |
-| `is_hidden`            | Boolean | No            | ✅ Used  | Admin soft-hide flag (default: false)               |
-
-All fields match the codebase. No additions or removals required.
+| Field                  | Type    | Required | Notes                                               |
+|------------------------|---------|----------|-----------------------------------------------------|
+| `university`           | String  | No       | University name                                     |
+| `subject`              | String  | No       | Full paper name, resolved from syllabus registry    |
+| `department`           | String  | No       | Disciplinary subject (e.g. `"Physics"`)             |
+| `semester`             | String  | No       | Ordinal string; empty string `""` for departmental syllabi |
+| `programme`            | String  | No       | `"FYUGP"` or `"CBCS"`; auto-resolved from registry |
+| `year`                 | Integer | No       | Year the syllabus is applicable                     |
+| `uploader_id`          | String  | No       | Appwrite user ID of the uploader                    |
+| `approval_status`      | String  | No       | `"pending"` \| `"approved"` \| `"rejected"`         |
+| `file_url`             | String  | No       | Next.js proxy URL (`/api/files/syllabus/{fileId}`)  |
+| `uploaded_by_username` | String  | No       | Denormalised username for display                   |
+| `is_hidden`            | Boolean | No       | Admin soft-hide flag (default: `false`)             |
 
 ---
 
@@ -56,23 +55,22 @@ All fields match the codebase. No additions or removals required.
 
 Stores user profile data alongside Appwrite Auth accounts.
 
-| Field                    | Type     | Required (DB) | Status              | Notes                                              |
-|--------------------------|----------|---------------|---------------------|----------------------------------------------------|
-| `email`                  | String   | **Yes**       | ✅ Used              | User email address                                 |
-| `role`                   | String   | **Yes**       | ✅ Used              | Primary role: visitor / explorer / contributor / verified_contributor / moderator / maintainer / admin / founder |
-| `primary_role`           | String   | No            | ⚠️ Deprecated        | Legacy alias for `role`; the admin user-management route still allows updating it independently. Pending cleanup — `role` is the authoritative field for all access-control decisions. |
-| `secondary_role`         | String   | No            | ✅ Used              | Cosmetic community role (display-only)             |
-| `tertiary_role`          | String   | No            | ✅ Used              | Additional cosmetic community role                 |
-| `tier`                   | String   | No            | ✅ Used              | Activity tier: bronze / silver / gold / platinum / diamond |
-| `display_name`           | String   | No            | ✅ Used              | User's display name                                |
-| `username`               | String   | No            | ✅ Used              | Unique @username                                   |
-| `xp`                     | Integer  | No            | ✅ Used              | Experience points                                  |
-| `streak`                 | Integer  | No            | ✅ Used              | Current daily streak count                         |
-| `avatar_url`             | String   | No            | ✅ Used              | URL of user's avatar image                         |
-| `avatar_file_id`         | String   | No            | ✅ Used              | Appwrite file ID in the avatars bucket             |
-| `last_activity`          | Datetime | No            | ✅ Used              | ISO 8601 timestamp of last activity                |
-| `upload_count`           | Integer  | No            | ✅ Used              | Total approved uploads; drives auto-promotion      |
-| `username_last_changed`  | String   | —             | ❌ **ADD TO APPWRITE** | ISO 8601 timestamp of last username change; enforces 7-day cooldown in `/api/profile`. **Add as String, optional, to the `users` collection in Appwrite Console.** |
+| Field                    | Type     | Required | Notes                                              |
+|--------------------------|----------|----------|----------------------------------------------------|
+| `email`                  | String   | **Yes**  | User email address                                 |
+| `role`                   | String   | **Yes**  | Primary role: `visitor` / `explorer` / `contributor` / `verified_contributor` / `moderator` / `maintainer` / `admin` / `founder` |
+| `secondary_role`         | String   | No       | Cosmetic community role (display-only)             |
+| `tertiary_role`          | String   | No       | Additional cosmetic community role                 |
+| `tier`                   | String   | No       | Activity tier: `bronze` / `silver` / `gold` / `platinum` / `diamond` |
+| `display_name`           | String   | No       | User's display name                                |
+| `username`               | String   | No       | Unique @username                                   |
+| `xp`                     | Integer  | No       | Experience points                                  |
+| `streak`                 | Integer  | No       | Current daily streak count                         |
+| `avatar_url`             | String   | No       | URL of user's avatar image                         |
+| `avatar_file_id`         | String   | No       | Appwrite file ID in the avatars bucket             |
+| `last_activity`          | Datetime | No       | ISO 8601 timestamp of last activity                |
+| `upload_count`           | Integer  | No       | Total approved uploads; drives auto-promotion      |
+| `username_last_changed`  | String   | No       | ISO 8601 timestamp of last username change; enforces 7-day cooldown |
 
 ---
 
@@ -80,14 +78,12 @@ Stores user profile data alongside Appwrite Auth accounts.
 
 Audit trail of all file uploads, independent of approval status.
 
-| Field       | Type   | Required (DB) | Status  | Notes                                       |
-|-------------|--------|---------------|---------|---------------------------------------------|
-| `user_id`   | String | **Yes**       | ✅ Used  | Appwrite user ID of uploader                |
-| `file_id`   | String | **Yes**       | ✅ Used  | Appwrite file ID in the papers bucket       |
-| `file_name` | String | **Yes**       | ✅ Used  | Original filename                           |
-| `status`    | String | **Yes**       | ✅ Used  | "pending" \| "approved" \| "rejected"       |
-
-All fields match the codebase. No changes required.
+| Field       | Type   | Required | Notes                                       |
+|-------------|--------|----------|---------------------------------------------|
+| `user_id`   | String | **Yes**  | Appwrite user ID of the uploader            |
+| `file_id`   | String | **Yes**  | Appwrite file ID in the papers bucket       |
+| `file_name` | String | **Yes**  | Original filename                           |
+| `status`    | String | **Yes**  | `"pending"` \| `"approved"` \| `"rejected"` |
 
 ---
 
@@ -95,18 +91,16 @@ All fields match the codebase. No changes required.
 
 Admin action audit log for moderation events.
 
-| Field             | Type   | Required (DB) | Status         | Notes                                                                   |
-|-------------------|--------|---------------|----------------|-------------------------------------------------------------------------|
-| `action`          | String | **Yes**       | ✅ Used         | "approve" \| "reject" \| "role_change" \| "tier_change"                 |
-| `target_user_id`  | String | No            | ✅ Used         | Affected user ID (for user actions); nullable                           |
-| `target_paper_id` | String | No            | ✅ Used         | Affected paper ID (for paper actions); nullable                         |
-| `admin_id`        | String | No            | ✅ Used         | Appwrite user ID of the admin who acted                                 |
-| `admin_email`     | String | No            | ✅ Used         | Admin email for audit trail                                             |
-| `details`         | String | No            | ✅ Used         | Human-readable description of the action                                |
-| `user_id`         | String | **Yes**       | ⚠️ Fix applied  | Required by DB schema. Code now writes `admin_id` value here for compat. Recommend changing `required` to false in Appwrite Console, or removing this field. |
-| `meta`            | String | **Yes**       | ⚠️ Fix applied  | Required by DB schema but unused. Code now writes `""` (empty string). Recommend changing `required` to false in Appwrite Console, or removing this field. |
-
-> **Action required in Appwrite Console:** Change `user_id` and `meta` in `activity_logs` from `required: true` to optional, then they can safely be deprecated. Until then, the code provides placeholder values to satisfy the constraint.
+| Field             | Type   | Required | Notes                                                          |
+|-------------------|--------|----------|----------------------------------------------------------------|
+| `action`          | String | **Yes**  | `"approve"` \| `"reject"` \| `"role_change"` \| `"tier_change"` |
+| `target_user_id`  | String | No       | Affected user ID (for user actions)                            |
+| `target_paper_id` | String | No       | Affected paper ID (for paper actions)                          |
+| `admin_id`        | String | No       | Appwrite user ID of the admin who acted                        |
+| `admin_email`     | String | No       | Admin email for audit trail                                    |
+| `details`         | String | No       | Human-readable description of the action                       |
+| `user_id`         | String | **Yes**  | Required by DB schema; set to `admin_id` value                 |
+| `meta`            | String | **Yes**  | Required by DB schema; set to `""` (empty string)              |
 
 ---
 
@@ -114,34 +108,26 @@ Admin action audit log for moderation events.
 
 Per-user earned achievements / badges.
 
-| Field         | Type     | Required (DB) | Status  | Notes                                        |
-|---------------|----------|---------------|---------|----------------------------------------------|
-| `user_id`     | String   | **Yes**       | ✅ Used  | Appwrite user ID                             |
-| `slug`        | String   | **Yes**       | ✅ Used  | Machine identifier (e.g. "first_upload")     |
-| `label`       | String   | **Yes**       | ✅ Used  | Display label (e.g. "First Upload")          |
-| `description` | String   | No            | ✅ Used  | Human-readable description                   |
-| `earned_at`   | Datetime | **Yes**       | ✅ Used  | ISO 8601 timestamp when the badge was earned |
-
-All fields match the codebase. No changes required.
+| Field         | Type     | Required | Notes                                        |
+|---------------|----------|----------|----------------------------------------------|
+| `user_id`     | String   | **Yes**  | Appwrite user ID                             |
+| `slug`        | String   | **Yes**  | Machine identifier (e.g. `"first_upload"`)   |
+| `label`       | String   | **Yes**  | Display label (e.g. `"First Upload"`)        |
+| `description` | String   | No       | Human-readable description                   |
+| `earned_at`   | Datetime | **Yes**  | ISO 8601 timestamp when the badge was earned |
 
 ---
 
 ## Storage Buckets
 
-| Bucket ID        | Purpose                         | Max File Size |
-|------------------|---------------------------------|---------------|
-| `papers`         | Exam question paper PDFs        | 20 MB         |
-| `syllabus-files` | Syllabus PDFs                   | 20 MB         |
-| `avatars`        | User avatar images              | 5 MB          |
+| Bucket ID        | Purpose                         | Max File Size | Access           |
+|------------------|---------------------------------|---------------|------------------|
+| `papers`         | Exam question paper PDFs        | 20 MB         | `read("users")` — authenticated only |
+| `syllabus-files` | Syllabus PDFs                   | 20 MB         | `read("users")` — authenticated only |
+| `avatars`        | User avatar images              | 5 MB          | `read("users")`  |
 
----
+All files are served via Next.js proxy routes that verify the user's session:
+- Papers: `/api/files/papers/[fileId]`
+- Syllabi: `/api/files/syllabus/[fileId]`
+- Avatars: `/api/files/avatars/[fileId]`
 
-## Summary: Actions Required in Appwrite Console
-
-| Priority | Collection      | Field                  | Action                                                     |
-|----------|-----------------|------------------------|------------------------------------------------------------|
-| 🔴 High  | `papers`        | `course_code`          | **Add** as String (required) with an index. Primary lookup key for all paper queries. |
-| 🔴 High  | `users`         | `username_last_changed`| **Add** as String (optional). Used by username cooldown.               |
-| 🟡 Med   | `activity_logs` | `user_id`              | Change from `required: true` → optional (code always writes it for now) |
-| 🟡 Med   | `activity_logs` | `meta`                 | Change from `required: true` → optional (code always writes `""`)       |
-| 🟢 Low   | `users`         | `primary_role`         | Deprecated alias for `role`; remove once admin UI stops writing it      |

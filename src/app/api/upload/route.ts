@@ -2,17 +2,12 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getServerUser } from "@/lib/auth";
 import {
   adminDatabases,
-  adminStorage,
   deleteFileFromAppwrite,
   getAppwriteFileUrl,
   DATABASE_ID,
   COLLECTION,
-  BUCKET_ID,
   ID,
-  Permission,
-  Role,
 } from "@/lib/appwrite";
-import { AppwriteException } from "node-appwrite";
 import { findByPaperCode } from "@/data/syllabus-registry";
 
 export const dynamic = "force-dynamic";
@@ -32,28 +27,6 @@ function formatSemester(n: number): string {
   return `${n}${suffix}`;
 }
 
-type CollectionAttribute = {
-  key?: string;
-  required?: boolean;
-  status?: string;
-};
-
-type ResolvedPaperDocument = {
-  courseCode: string;
-  paperName: string;
-  year: number;
-  semester?: string;
-  department: string;
-  programme?: string;
-  examType?: string;
-  fileId: string;
-  fileUrl: string;
-  uploadedBy: string;
-  approved: boolean;
-  institution?: string;
-  paperType?: string;
-};
-
 async function rollbackUploadedPaper(fileId: string, reason: string) {
   try {
     await deleteFileFromAppwrite(fileId);
@@ -65,101 +38,22 @@ async function rollbackUploadedPaper(fileId: string, reason: string) {
   }
 }
 
-async function getCollectionSchema(
-  collectionId: string,
-): Promise<{ availableKeys: Set<string>; requiredKeys: Set<string> }> {
-  const { attributes } = await adminDatabases().listAttributes(DATABASE_ID, collectionId);
-  const availableAttributes = (attributes as CollectionAttribute[]).filter(
-    (attribute) => !attribute.status || attribute.status === "available",
-  );
-
-  return {
-    availableKeys: new Set(
-      availableAttributes
-        .map((attribute) => attribute.key?.trim())
-        .filter((key): key is string => Boolean(key)),
-    ),
-    requiredKeys: new Set(
-      availableAttributes
-        .filter((attribute) => attribute.required)
-        .map((attribute) => attribute.key?.trim())
-        .filter((key): key is string => Boolean(key)),
-    ),
-  };
-}
-
-function buildPaperDocumentPayload(
-  availableKeys: Set<string>,
-  payload: ResolvedPaperDocument,
-): Record<string, unknown> {
-  // Support both canonical paper fields and known schema aliases because
-  // different Appwrite environments have evolved with slightly different
-  // attribute names (`course_name` vs `paper_name`, `institute` vs `institution`).
-  const valuesByKey: Record<string, unknown> = {
-    approved: payload.approved,
-    course_code: payload.courseCode,
-    paper_code: payload.courseCode, // backward-compat alias for older documents/queries
-    course_name: payload.paperName,
-    paper_name: payload.paperName, // legacy/schema alias used in some Appwrite setups
-    title: payload.paperName, // UI-facing alias used by older documents
-    year: payload.year,
-    semester: payload.semester,
-    department: payload.department,
-    programme: payload.programme,
-    exam_type: payload.examType,
-    file_id: payload.fileId, // stored so admin can update storage permissions on approval
-    file_url: payload.fileUrl,
-    uploaded_by: payload.uploadedBy,
-    uploader_id: payload.uploadedBy, // legacy uploader field
-    institute: payload.institution,
-    institution: payload.institution, // legacy institution alias
-    university: payload.institution, // schema alias used alongside institution in some environments
-    paper_type: payload.paperType,
-    category: payload.paperType, // legacy paper type alias
-  };
-
-  const document: Record<string, unknown> = {};
-  for (const key of availableKeys) {
-    const value = valuesByKey[key];
-    if (value !== undefined) {
-      document[key] = value;
-    }
-  }
-
-  return document;
-}
-
-function getMissingRequiredKeys(
-  requiredKeys: Set<string>,
-  document: Record<string, unknown>,
-): string[] {
-  return [...requiredKeys].filter((key) => {
-    if (!(key in document)) return true;
-    const value = document[key];
-    if (value === undefined || value === null) return true;
-    return typeof value === "string" && value.trim() === "";
-  });
-}
-
 /**
  * POST /api/upload
  *
  * Accepts **JSON metadata only** — the file itself has already been uploaded
  * directly from the browser to Appwrite Storage (see UploadForm.tsx).
  * This route:
- * 1. Validates the uploaded storage file and resolves paper metadata.
- * 2. Creates a paper document in the `papers` collection (approved: false).
- * 3. Best-effort writes an audit entry to the `uploads` collection.
- *
- * All paper metadata is auto-resolved server-side from the syllabus registry
- * using the paper_code. The paper code suffix determines exam type:
- *   T → Theory, P → Practical
+ * 1. Validates and resolves paper metadata from the syllabus registry.
+ * 2. Creates a paper document in the `papers` collection (status: "pending").
+ * 3. If the document cannot be created, automatically deletes the uploaded file
+ *    to prevent orphaned storage entries.
  *
  * Required JSON body fields:
  * {
  *   fileId:     string  — Appwrite file ID returned by the client-side upload
- *   paper_code: string  — Paper code (e.g. "PHYDSC101T"); used to resolve metadata
- *   university: string  — University name (used to narrow registry lookup)
+ *   paper_code: string  — Paper code (e.g. "PHYDSC101T")
+ *   university: string  — University name
  *   year:       number | string
  *   file_name?: string  — Original filename (stored in uploads collection)
  * }
@@ -207,80 +101,28 @@ export async function POST(request: NextRequest) {
     const department = registryEntry?.subject ?? courseCode;
     const semester = registryEntry ? formatSemester(registryEntry.semester) : undefined;
     const programme = registryEntry?.programme ?? undefined;
-    const paper_type = registryEntry?.category ?? undefined;
-    const exam_type = examTypeFromCode(paper_code);
-    const institution = university || registryEntry?.university;
+    const examType = examTypeFromCode(paper_code);
 
     const fileUrl = getAppwriteFileUrl(fileId);
 
-    // Verify file ownership by checking $permissions for a write entry scoped
-    // to this user. The write permission is set at upload time using the
-    // Appwrite browser SDK. We use the server-side SDK's Permission class to
-    // generate the check string — guaranteeing the same format as Appwrite stores,
-    // unlike an error-prone manual template literal.
-    try {
-      const fileData = await adminStorage().getFile(BUCKET_ID, fileId);
-      const ownerWritePerm = Permission.write(Role.user(user.id));
-      const isOwner = (fileData.$permissions as string[]).includes(ownerWritePerm);
-      if (!isOwner) {
-        return NextResponse.json(
-          { error: "Access denied: you do not own this file." },
-          { status: 403 },
-        );
-      }
-    } catch (storageErr: unknown) {
-      if (storageErr instanceof AppwriteException) {
-        if (storageErr.code === 404 || storageErr.code === 400) {
-          return NextResponse.json(
-            { error: "File not found in storage. Please re-upload the file." },
-            { status: 404 },
-          );
-        }
-      }
-      return NextResponse.json(
-        { error: "File not found in storage. Please re-upload the file." },
-        { status: 404 },
-      );
-    }
-
+    // Step 1 — Create the paper document. If this fails, roll back the uploaded
+    // storage file to prevent orphaned entries.
     const db = adminDatabases();
     try {
-      const { availableKeys, requiredKeys } = await getCollectionSchema(COLLECTION.papers);
-      const paperDocument = buildPaperDocumentPayload(availableKeys, {
-        courseCode,
-        paperName,
+      await db.createDocument(DATABASE_ID, COLLECTION.papers, ID.unique(), {
+        course_code: courseCode,
+        paper_name: paperName,
         year: yearNum,
         semester,
         department,
         programme,
-        examType: exam_type,
-        fileId,
-        fileUrl,
-        uploadedBy: user.id,
+        exam_type: examType,
+        file_id: fileId,
+        file_url: fileUrl,
+        uploaded_by: user.id,
         approved: false,
-        institution,
-        paperType: paper_type,
+        status: "pending",
       });
-
-      const missingRequiredKeys = getMissingRequiredKeys(requiredKeys, paperDocument);
-      if (missingRequiredKeys.length > 0) {
-        await rollbackUploadedPaper(
-          fileId,
-          `database payload missing required fields: ${missingRequiredKeys.join(", ")}`,
-        );
-        return NextResponse.json(
-          {
-            error:
-              `Upload metadata is incomplete for the papers collection. ` +
-              `Missing required fields: ${missingRequiredKeys.join(", ")}. ` +
-              `The uploaded file was removed from storage. Please verify the paper code and try again.`,
-          },
-          { status: 500 },
-        );
-      }
-
-      // Step 1 — Create the paper document using the live schema attributes.
-      await db.createDocument(DATABASE_ID, COLLECTION.papers, ID.unique(), paperDocument);
     } catch (err: unknown) {
       const rawMessage = err instanceof Error ? err.message.trim() : String(err).trim();
       const message = rawMessage
@@ -297,7 +139,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Step 2 — Record the raw upload in the `uploads` collection (status: "pending").
+    // Step 2 — Record the raw upload in the `uploads` collection (best-effort).
     try {
       await db.createDocument(DATABASE_ID, COLLECTION.uploads, ID.unique(), {
         user_id: user.id,

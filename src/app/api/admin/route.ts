@@ -7,9 +7,6 @@ import {
   DATABASE_ID,
   COLLECTION,
   BUCKET_ID,
-  SYLLABUS_BUCKET_ID,
-  Permission,
-  Role,
 } from "@/lib/appwrite";
 import { logActivity } from "@/lib/activity-log";
 
@@ -150,38 +147,15 @@ export async function POST(request: NextRequest) {
   switch (action) {
     case "approve": {
       try {
-        // Fetch paper to get the uploader and file_id
+        // Fetch paper to get the uploader
         const paper = await db.getDocument(DATABASE_ID, COLLECTION.papers, id);
 
-        // Resolve storage file ID (prefer explicit file_id, fall back to parsing file_url).
-        const fileUrlParts = (paper.file_url as string | undefined)?.split("/api/files/papers/");
-        const storedFileId = (paper.file_id as string | undefined) ??
-          (fileUrlParts && fileUrlParts.length === 2 ? fileUrlParts[1] : undefined);
-
-        // Update storage permissions BEFORE marking the paper as approved in the DB.
-        // This ensures the file is publicly readable as soon as `approved: true` is committed.
-        // For files already uploaded with read("any") (new uploads), this is effectively
-        // a no-op — the call replaces the permissions with the same value.
-        // For legacy files uploaded with read("users"), this opens them to public access.
-        if (storedFileId) {
-          try {
-            await adminStorage().updateFile(
-              BUCKET_ID,
-              storedFileId,
-              undefined,
-              [Permission.read(Role.any())],
-            );
-          } catch (storageErr) {
-            // Non-fatal: log but do not block approval so the paper doesn't stay stuck pending.
-            console.warn(
-              `[api/admin] Could not update storage permissions for file ${storedFileId}:`,
-              storageErr,
-            );
-          }
-        }
-
+        // Approve the paper — mark as approved and update status.
+        // Storage permissions remain read("users") so files stay restricted
+        // to authenticated users and are served through the /api/files/papers proxy.
         await db.updateDocument(DATABASE_ID, COLLECTION.papers, id, {
           approved: true,
+          status: "approved",
         });
 
         // Increment the uploader's upload_count and auto-promote
@@ -327,26 +301,9 @@ export async function POST(request: NextRequest) {
         const wasApproved = syllabus.approval_status === "approved";
 
         if (!wasApproved) {
-          // Update storage permissions BEFORE marking the syllabus as approved.
-          // Parses the file ID from the proxy URL stored in file_url.
-          const fileUrlParts = (syllabus.file_url as string | undefined)?.split("/api/files/syllabus/");
-          const storedFileId = fileUrlParts && fileUrlParts.length === 2 ? fileUrlParts[1] : undefined;
-          if (storedFileId) {
-            try {
-              await adminStorage().updateFile(
-                SYLLABUS_BUCKET_ID,
-                storedFileId,
-                undefined,
-                [Permission.read(Role.any())],
-              );
-            } catch (storageErr) {
-              console.warn(
-                `[api/admin] Could not update storage permissions for syllabus file ${storedFileId}:`,
-                storageErr,
-              );
-            }
-          }
-
+          // Approve the syllabus — no storage permission change needed because syllabus
+          // files remain restricted to authenticated users (read("users") permission)
+          // and are served via the /api/files/syllabus proxy route.
           await db.updateDocument(DATABASE_ID, COLLECTION.syllabus, id, {
             approval_status: "approved",
           });

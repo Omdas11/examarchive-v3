@@ -265,7 +265,7 @@ export function toPaper(doc: any): Paper {
     file_url: doc.file_url,
     file_id: doc.file_id ?? undefined,
     uploaded_by: doc.uploaded_by ?? doc.uploader_id ?? "",
-    approved: doc.approved,
+    approved: doc.approved !== undefined && doc.approved !== null ? doc.approved : (doc.status === "approved"),
     created_at: doc.$createdAt ?? doc.created_at,
     stream: doc.stream ?? undefined,
     // `institute` is the canonical field name in the backend schema.
