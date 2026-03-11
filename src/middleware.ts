@@ -4,7 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 const SESSION_COOKIE = "ea_session";
 
 /** Routes that require an authenticated session. */
-const PROTECTED_PATHS = ["/upload", "/dashboard", "/admin", "/profile", "/settings", "/devtool", "/stats", "/api/upload", "/api/admin", "/api/devtool"];
+const PROTECTED_PATHS = ["/upload", "/dashboard", "/admin", "/profile", "/settings", "/devtool", "/stats", "/paper", "/api/upload", "/api/admin", "/api/devtool"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -15,6 +15,13 @@ export async function middleware(request: NextRequest) {
   // Redirect unauthenticated users away from protected routes.
   const isProtected = PROTECTED_PATHS.some((p) => pathname.startsWith(p));
   if (isProtected && !session) {
+    // API routes must return JSON — never redirect them to an HTML login page,
+    // because clients calling these endpoints expect JSON responses and cannot
+    // parse an HTML redirect body.
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", pathname);

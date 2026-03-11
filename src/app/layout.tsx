@@ -12,7 +12,7 @@ import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/next";
 
-const SITE_URL = "https://examarchive.dev";
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://examarchive.dev";
 const SITE_NAME = "ExamArchive";
 const SITE_DESCRIPTION =
   "Browse, search and download past exam papers. A community-driven archive for students.";

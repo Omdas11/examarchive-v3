@@ -99,16 +99,18 @@ export async function uploadFileDirectly(
       }
     : undefined;
 
-  // Grant public read access immediately — this is a free distribution archive
-  // where all uploaded PDFs are meant to be publicly accessible.
-  // A user-scoped write permission is also set so that /api/upload can verify
-  // ownership via $permissions using the SDK's Permission class (reliable format).
-  // The write permission is removed on approval so files become truly read-only.
+  // Restrict read access to authenticated users only — PDFs should not be
+  // accessible without a valid session.  Write and delete permissions are
+  // scoped to the uploader so only they can modify or remove the file.
   await storage.createFile(
     BUCKET_ID,
     fileId,
     file,
-    [Permission.read(Role.any()), Permission.write(Role.user(uploaderId))],
+    [
+      Permission.read(Role.users()),
+      Permission.write(Role.user(uploaderId)),
+      Permission.delete(Role.user(uploaderId)),
+    ],
     sdkProgress,
   );
   return fileId;
@@ -148,16 +150,18 @@ export async function uploadSyllabusFileDirectly(
       }
     : undefined;
 
-  // Grant public read access immediately — this is a free distribution archive
-  // where all uploaded syllabi are meant to be publicly accessible.
-  // A user-scoped write permission is also set so that /api/upload/syllabus can
-  // verify ownership via $permissions using the SDK's Permission class (reliable format).
-  // The write permission is removed on approval so files become truly read-only.
+  // Restrict read access to authenticated users only — syllabi should not be
+  // accessible without a valid session.  Write and delete permissions are
+  // scoped to the uploader so only they can modify or remove the file.
   await storage.createFile(
     SYLLABUS_BUCKET_ID,
     fileId,
     file,
-    [Permission.read(Role.any()), Permission.write(Role.user(uploaderId))],
+    [
+      Permission.read(Role.users()),
+      Permission.write(Role.user(uploaderId)),
+      Permission.delete(Role.user(uploaderId)),
+    ],
     sdkProgress,
   );
   return fileId;

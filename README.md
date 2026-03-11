@@ -34,19 +34,25 @@ ExamArchive is a community-driven platform for sharing and discovering universit
 
 ## Key Features
 
-- **Upload Question Papers** — Users enter university, paper code, and year; all other metadata (course name, semester, department, paper type, exam type) is auto-resolved from the syllabus registry. Paper code suffix determines exam type: `T` = Theory, `P` = Practical.
+- **Upload Question Papers** — Users enter university, paper code, and year; all other metadata is auto-resolved from the syllabus registry. Paper code suffix determines exam type: `T` = Theory, `P` = Practical.
 - **Upload Syllabi** — Same simplified three-field form; metadata auto-resolved from registry.
 - **Admin Moderation Queue** — All uploads require admin approval before publishing.
 - **Browse & Search** — Filter papers by department, year, semester, and exam type.
+- **Authenticated File Access** — PDFs are served through a Next.js proxy and require a valid login session.
 - **User Roles & XP** — Role hierarchy with XP and achievement tracking.
+
+## Security
+
+- All paper and syllabus PDFs are stored with `read("users")` permission — they are accessible only to authenticated users.
+- Files are served via `/api/files/papers/[fileId]` and `/api/files/syllabus/[fileId]` proxy routes which verify the user's session before streaming the file.
+- Guests visiting `/paper/*` routes are automatically redirected to `/login`.
 
 ## Documentation
 
 | Document | Description |
 |----------|-------------|
-| [docs/DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md) | Appwrite collection schemas (active fields) |
+| [docs/DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md) | Appwrite collection schemas |
 | [docs/UPLOAD_FLOW.md](docs/UPLOAD_FLOW.md) | End-to-end upload architecture |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture overview |
 
 ## Project Structure
 
@@ -56,15 +62,13 @@ src/
     api/
       upload/    # POST /api/upload (papers) + /syllabus
       admin/     # Admin moderation actions
+      files/     # Authenticated file proxy routes
       profile/   # User profile update
-    upload/      # Upload UI page
+    paper/       # Individual paper page (requires auth)
     browse/      # Browse/search papers
     syllabus/    # Syllabus listing and detail
     admin/       # Admin dashboard
   components/    # Shared React components
-    UploadForm.tsx           # Question paper upload form
-    SyllabusUploadForm.tsx   # Single-semester syllabus upload form
-    DeptSyllabusUploadForm.tsx # Departmental (all-semester) syllabus form
   data/
     syllabus-registry.ts  # Canonical paper metadata registry
   lib/
@@ -72,6 +76,7 @@ src/
     appwrite-client.ts # Browser-side Appwrite SDK upload helpers
     auth.ts            # Session helpers and user profile resolution
     roles.ts           # Role hierarchy helpers
+  middleware.ts  # Route protection — redirects guests from protected paths
   types/
     index.ts   # TypeScript interfaces and Appwrite document mappers
 ```
