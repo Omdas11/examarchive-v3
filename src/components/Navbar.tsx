@@ -172,6 +172,13 @@ export default function Navbar({ user }: NavbarProps) {
           <Link href="/" className="flex items-center gap-1.5 text-lg font-bold tracking-tight">
             <EALogo size={28} />
             <span>ExamArchive</span>
+            <span
+              className="hidden sm:inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-bold tracking-wide leading-none"
+              style={{ background: "var(--color-primary)", color: "#fff", letterSpacing: "0.07em" }}
+              aria-label="Early Access"
+            >
+              Early Access
+            </span>
           </Link>
 
           {/* Desktop nav */}
@@ -355,6 +362,12 @@ export default function Navbar({ user }: NavbarProps) {
           <Link href="/" onClick={() => setDrawerOpen(false)} className="flex items-center gap-1.5 font-bold text-base">
             <EALogo size={24} />
             <span>ExamArchive</span>
+            <span
+              className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-bold tracking-wide leading-none"
+              style={{ background: "var(--color-primary)", color: "#fff" }}
+            >
+              EA
+            </span>
           </Link>
           <button onClick={() => setDrawerOpen(false)} aria-label="Close menu">
             <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>

@@ -156,10 +156,13 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
                         ))}
                         {u.streak_days >= 30 && (
                           <span
-                            className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                            className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
                             style={{ background: "#dcfce7", color: "#14532d" }}
                           >
-                            🔥 30d streak
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                              <path d="M12 2C9.5 6.5 9 9 11 12c-2-.5-3-2-3-2s0 5 4 7c-4-1-6-4-6-4s1 7 6 9c5.5 2 10-3 10-9a8 8 0 0 0-10-11z"/>
+                            </svg>
+                            30d streak
                           </span>
                         )}
                       </div>

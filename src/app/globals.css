@@ -57,7 +57,16 @@
 
 body {
   color: var(--color-text);
-  background: var(--color-bg);
+  /* Subtle brand gradient covering the entire site, fixed so it doesn't scroll */
+  background:
+    linear-gradient(
+      160deg,
+      color-mix(in srgb, var(--color-primary) 4%, var(--color-bg)) 0%,
+      var(--color-bg) 45%,
+      color-mix(in srgb, var(--nav-teal) 4%, var(--color-bg)) 100%
+    );
+  background-attachment: fixed;
+  min-height: 100vh;
   transition: background 0.2s, color 0.2s;
 }
 
@@ -201,21 +210,68 @@ body {
   animation: page-in 0.25s ease-out forwards;
 }
 
+/* ── Hero heading shimmer / shine sweep ── */
+@keyframes ea-hero-shine {
+  0%   { left: -80%; }
+  40%  { left: 110%; }
+  100% { left: 110%; }
+}
+
+.ea-hero-heading {
+  position: relative;
+  overflow: hidden;
+  display: inline-block;
+}
+
+/* Only play the sweep for users who haven't requested reduced motion */
+@media (prefers-reduced-motion: no-preference) {
+  .ea-hero-heading::after {
+    content: '';
+    position: absolute;
+    top: -10%;
+    left: -80%;
+    width: 45%;
+    height: 120%;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.22) 50%,
+      transparent 100%
+    );
+    transform: skewX(-18deg);
+    animation: ea-hero-shine 3.5s ease-in-out infinite;
+    pointer-events: none;
+  }
+}
+
+/* ── Fire particle rise animation ── */
+@keyframes fire-rise {
+  0% {
+    transform: translateY(0) translateX(0) scale(1);
+    opacity: 0.75;
+  }
+  60% {
+    transform: translateY(-32vh) translateX(var(--drift, 0px)) scale(1.2);
+    opacity: 0.4;
+  }
+  100% {
+    transform: translateY(-52vh) translateX(calc(var(--drift, 0px) * 1.4)) scale(0.4);
+    opacity: 0;
+  }
+}
+
 /* ── Scroll-in reveal animation ── */
 @keyframes ea-scroll-in {
   from { opacity: 0; transform: translateY(20px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
+/* Use animation-fill-mode: both so the initial frame is visible during the
+   delay (opacity: 0) and the final frame persists after completion. */
 .ea-scroll-in {
-  opacity: 0;
-  animation: ea-scroll-in 0.5s ease-out forwards;
-  animation-play-state: paused;
+  animation: ea-scroll-in 0.5s ease-out both;
 }
 
-/* When the element is in the viewport (toggled via JS IntersectionObserver
-   or simply use the CSS-native :is() approach). As a lightweight fallback,
-   just make them visible after a short delay via staggered nth-child rules. */
 .ea-scroll-in:nth-child(1)  { animation-delay: 0.05s; }
 .ea-scroll-in:nth-child(2)  { animation-delay: 0.10s; }
 .ea-scroll-in:nth-child(3)  { animation-delay: 0.15s; }
@@ -224,13 +280,6 @@ body {
 .ea-scroll-in:nth-child(6)  { animation-delay: 0.30s; }
 .ea-scroll-in:nth-child(7)  { animation-delay: 0.35s; }
 .ea-scroll-in:nth-child(8)  { animation-delay: 0.40s; }
-
-/* Play animation once page content is loaded */
-@media (prefers-reduced-motion: no-preference) {
-  .ea-scroll-in {
-    animation-play-state: running;
-  }
-}
 
 /* ── Respect OS / user "reduce motion" preference ── */
 @media (prefers-reduced-motion: reduce) {
