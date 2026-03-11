@@ -55,19 +55,26 @@
   --color-footer-bg: #181818;
 }
 
-body {
-  color: var(--color-text);
-  /* Subtle brand gradient covering the entire site, fixed so it doesn't scroll */
+/* ── Full-page brand gradient — on html so it spans the entire document height ── */
+html {
+  min-height: 100%;
   background:
     linear-gradient(
       160deg,
-      color-mix(in srgb, var(--color-primary) 4%, var(--color-bg)) 0%,
-      var(--color-bg) 45%,
-      color-mix(in srgb, var(--nav-teal) 4%, var(--color-bg)) 100%
+      color-mix(in srgb, var(--color-primary) 5%, var(--color-bg)) 0%,
+      var(--color-bg) 40%,
+      color-mix(in srgb, var(--nav-teal) 5%, var(--color-bg)) 100%
     );
-  background-attachment: fixed;
+  background-repeat: no-repeat;
+  background-size: cover;
+  transition: background 0.2s;
+}
+
+body {
+  color: var(--color-text);
+  background: transparent;
   min-height: 100vh;
-  transition: background 0.2s, color 0.2s;
+  transition: color 0.2s;
 }
 
 @layer components {
