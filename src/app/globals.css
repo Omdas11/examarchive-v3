@@ -201,6 +201,37 @@ body {
   animation: page-in 0.25s ease-out forwards;
 }
 
+/* ── Scroll-in reveal animation ── */
+@keyframes ea-scroll-in {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.ea-scroll-in {
+  opacity: 0;
+  animation: ea-scroll-in 0.5s ease-out forwards;
+  animation-play-state: paused;
+}
+
+/* When the element is in the viewport (toggled via JS IntersectionObserver
+   or simply use the CSS-native :is() approach). As a lightweight fallback,
+   just make them visible after a short delay via staggered nth-child rules. */
+.ea-scroll-in:nth-child(1)  { animation-delay: 0.05s; }
+.ea-scroll-in:nth-child(2)  { animation-delay: 0.10s; }
+.ea-scroll-in:nth-child(3)  { animation-delay: 0.15s; }
+.ea-scroll-in:nth-child(4)  { animation-delay: 0.20s; }
+.ea-scroll-in:nth-child(5)  { animation-delay: 0.25s; }
+.ea-scroll-in:nth-child(6)  { animation-delay: 0.30s; }
+.ea-scroll-in:nth-child(7)  { animation-delay: 0.35s; }
+.ea-scroll-in:nth-child(8)  { animation-delay: 0.40s; }
+
+/* Play animation once page content is loaded */
+@media (prefers-reduced-motion: no-preference) {
+  .ea-scroll-in {
+    animation-play-state: running;
+  }
+}
+
 /* ── Respect OS / user "reduce motion" preference ── */
 @media (prefers-reduced-motion: reduce) {
   *,

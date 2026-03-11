@@ -10,15 +10,6 @@ const PLATFORM_LOGOS = [
   { href: "https://nextjs.org",                        title: "Next.js", src: "/branding/footer/partner-netxjs.png" },
 ];
 
-/** University partner logos uploaded to /public/branding/footer/. */
-const UNIVERSITY_LOGOS = [
-  { href: "https://www.aus.ac.in",       label: "Assam University",    short: "AUS",  src: "/branding/footer/partner-au.png" },
-  { href: "https://www.gauhati.ac.in",   label: "Gauhati University",  short: "GU",   src: "/branding/footer/partner-gu.jpeg" },
-  { href: "https://www.tezu.ernet.in",   label: "Tezpur University",   short: "TU",   src: "/branding/footer/partner-tu.png" },
-  { href: "https://www.dibru.ac.in",     label: "Dibrugarh University",short: "DU",   src: "/branding/footer/partner-du.png" },
-  { href: "https://www.iitg.ac.in",      label: "IIT Guwahati",        short: "IITG", src: "/branding/footer/partner-iitg.png" },
-];
-
 export default function Footer() {
   return (
     <footer
@@ -45,14 +36,18 @@ export default function Footer() {
             <Link href="/about" className="hover:underline hover:opacity-80 transition-opacity text-xs">About ExamArchive</Link>
           </div>
 
-          {/* Institutions */}
+          {/* Platform info */}
           <div className="flex flex-col gap-2">
-            <h4 className="mb-1 text-sm font-semibold" style={{ color: "var(--color-text)" }}>Institutions</h4>
-            <a href="https://www.aus.ac.in" target="_blank" rel="noopener noreferrer" className="hover:underline hover:opacity-80 transition-opacity text-xs">Assam University</a>
-            <a href="https://www.gauhati.ac.in" target="_blank" rel="noopener noreferrer" className="hover:underline hover:opacity-80 transition-opacity text-xs">Gauhati University</a>
-            <a href="https://www.tezu.ernet.in" target="_blank" rel="noopener noreferrer" className="hover:underline hover:opacity-80 transition-opacity text-xs">Tezpur University</a>
-            <a href="https://www.dibru.ac.in" target="_blank" rel="noopener noreferrer" className="hover:underline hover:opacity-80 transition-opacity text-xs">Dibrugarh University</a>
-            <a href="https://www.iitg.ac.in" target="_blank" rel="noopener noreferrer" className="hover:underline hover:opacity-80 transition-opacity text-xs">IIT Guwahati</a>
+            <h4 className="mb-1 text-sm font-semibold" style={{ color: "var(--color-text)" }}>Platform</h4>
+            <span className="text-xs">
+              Currently in <strong>Early Access</strong> · Starting with Assam University
+            </span>
+            <span className="text-xs">
+              Community-driven · Admin-verified
+            </span>
+            <Link href="/about" className="hover:underline hover:opacity-80 transition-opacity text-xs">
+              Learn more →
+            </Link>
           </div>
 
           {/* Help & Support */}
@@ -96,41 +91,13 @@ export default function Footer() {
           </div>
         </div>
 
-        {/* ── University logos ── */}
-        <div className="py-5 text-center" style={{ borderTop: "1px solid var(--color-border)" }}>
-          <p className="mb-4 text-xs font-semibold" style={{ color: "var(--color-text)" }}>External Links</p>
-          <div className="flex flex-wrap justify-center items-center gap-5">
-            {UNIVERSITY_LOGOS.map((u) => (
-              <a
-                key={u.href}
-                href={u.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                title={u.label}
-                className="opacity-70 hover:opacity-100 transition-opacity hover:scale-105"
-                style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 4 }}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={u.src}
-                  alt={u.label}
-                  width={40}
-                  height={40}
-                  style={{ objectFit: "contain", maxHeight: 40 }}
-                />
-                <span style={{ fontSize: 9, color: "var(--color-text-muted)" }}>{u.short}</span>
-              </a>
-            ))}
-          </div>
-        </div>
-
         {/* ── Copyright ── */}
         <div
           className="pt-5 text-center"
           style={{ borderTop: "1px solid var(--color-border)" }}
         >
           <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
-            © {new Date().getFullYear()} ExamArchive · Built by students for students
+            © {new Date().getFullYear()} ExamArchive · Built by students for students · Early Access
           </p>
         </div>
       </div>
