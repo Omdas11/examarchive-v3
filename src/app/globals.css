@@ -247,6 +247,14 @@ body {
   .dashboard-grid {
     grid-template-columns: var(--sidebar-w) 1fr var(--right-col-w);
   }
+  /*
+   * The sidebar and right-col use position:fixed which removes them from the
+   * grid auto-placement flow. Without explicit column placement, main would
+   * auto-place into column 1 (240px). Force it into the correct middle track.
+   */
+  .main-content {
+    grid-column: 2;
+  }
 }
 
 /* ── Fixed left sidebar ── */
