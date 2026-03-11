@@ -1,5 +1,8 @@
 "use client";
 
+/** Default launch progress percentage shown when no value is stored in site_metrics. */
+const DEFAULT_LAUNCH_PROGRESS = 40;
+
 interface DevProgressBarProps {
   /** Completion percentage (0–100). */
   progress?: number;
@@ -9,7 +12,7 @@ interface DevProgressBarProps {
  * A thin banner shown on the homepage indicating early-access / development status.
  * The bar fills from left to right based on `progress`.
  */
-export default function DevProgressBar({ progress = 40 }: DevProgressBarProps) {
+export default function DevProgressBar({ progress = DEFAULT_LAUNCH_PROGRESS }: DevProgressBarProps) {
   const clamped = Math.max(0, Math.min(100, progress));
 
   return (

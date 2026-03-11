@@ -6,6 +6,8 @@ const METRICS_DOC_ID = "singleton";
 const VISITOR_COOKIE = "ea_vid";
 // Cookie lifespan: 30 days
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 30;
+/** Fallback launch_progress value when the site_metrics collection has not been created yet. */
+const DEFAULT_LAUNCH_PROGRESS = 40;
 
 /** Read current visitor count (and other metrics) from site_metrics collection. */
 export async function GET() {
@@ -14,14 +16,14 @@ export async function GET() {
     const doc = await db.getDocument(DATABASE_ID, COLLECTION.site_metrics, METRICS_DOC_ID);
     return NextResponse.json({
       visitor_count: (doc.visitor_count as number) ?? 0,
-      launch_progress: (doc.launch_progress as number) ?? 40,
+      launch_progress: (doc.launch_progress as number) ?? DEFAULT_LAUNCH_PROGRESS,
     });
   } catch (err) {
     // Collection may not exist yet — return safe defaults
     if (err instanceof AppwriteException && err.code === 404) {
-      return NextResponse.json({ visitor_count: 0, launch_progress: 40 });
+      return NextResponse.json({ visitor_count: 0, launch_progress: DEFAULT_LAUNCH_PROGRESS });
     }
-    return NextResponse.json({ visitor_count: 0, launch_progress: 40 });
+    return NextResponse.json({ visitor_count: 0, launch_progress: DEFAULT_LAUNCH_PROGRESS });
   }
 }
 
@@ -66,7 +68,7 @@ export async function POST(req: NextRequest) {
         // Document doesn't exist — create it
         await db.createDocument(DATABASE_ID, COLLECTION.site_metrics, METRICS_DOC_ID, {
           visitor_count: newCount,
-          launch_progress: 40,
+          launch_progress: DEFAULT_LAUNCH_PROGRESS,
         });
       } else {
         throw updateErr;
@@ -77,7 +79,7 @@ export async function POST(req: NextRequest) {
     newCount = 0;
   }
 
-  const response = NextResponse.json({ visitor_count: newCount, launch_progress: 40 });
+  const response = NextResponse.json({ visitor_count: newCount, launch_progress: DEFAULT_LAUNCH_PROGRESS });
   // Set the deduplication cookie
   response.cookies.set(VISITOR_COOKIE, "1", {
     maxAge: COOKIE_MAX_AGE,
@@ -89,8 +91,13 @@ export async function POST(req: NextRequest) {
 }
 
 /**
- * DELETE — Reset visitor_count to 0. Admin-only; must include the
- * internal admin API key in the Authorization header.
+ * DELETE — Reset visitor_count to 0. Admin-only server-to-server endpoint.
+ *
+ * Authentication uses the `x-admin-key` request header which must match
+ * `APPWRITE_API_KEY`. This key is already a server-side secret used for all
+ * Appwrite admin operations; reusing it here avoids introducing a separate
+ * secret. The endpoint is not exposed to the public browser UI — it is called
+ * only from the DevTool or admin scripts running on the server.
  */
 export async function DELETE(req: NextRequest) {
   const apiKey = req.headers.get("x-admin-key");

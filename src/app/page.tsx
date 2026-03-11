@@ -53,6 +53,11 @@ interface FeedbackEntry {
   text: string;
 }
 
+/** Returns `count unit` with a simple plural suffix (papers/syllabi/students). */
+function pluralCount(count: number, singular: string, plural: string): string {
+  return `${count > 0 ? count.toLocaleString() : "0"} ${count === 1 ? singular : plural}`;
+}
+
 const HOW_IT_WORKS = [
   {
     step: "1",
@@ -223,7 +228,7 @@ export default async function HomePage() {
             <span style={{ color: "var(--success-green)" }}>Free.</span>
           </h1>
           <p className="mx-auto mt-4 max-w-xl text-base sm:text-lg" style={{ color: "var(--color-text-muted)" }}>
-            <strong>Sign up to view PDFs and other free resources.</strong>
+            <strong>Sign up to view past exam papers, syllabi, and other free resources.</strong>
             {" "}Contributed by students, verified by our team.
             Starting with{" "}
             <span style={{ color: "var(--color-primary)", fontWeight: 600 }}>Assam University</span>.
@@ -268,11 +273,11 @@ export default async function HomePage() {
             📊{" "}
             <span style={{ color: "var(--color-primary)" }}>Transparency: </span>
             Currently the archive contains{" "}
-            <strong>{papersTotal > 0 ? papersTotal.toLocaleString() : "0"} paper{papersTotal !== 1 ? "s" : ""}</strong>,
+            <strong>{pluralCount(papersTotal, "paper", "papers")}</strong>,
             the registry lists{" "}
-            <strong>{syllabusTotal > 0 ? syllabusTotal.toLocaleString() : "0"} {syllabusTotal === 1 ? "syllabus" : "syllabi"}</strong>,
+            <strong>{pluralCount(syllabusTotal, "syllabus", "syllabi")}</strong>,
             and{" "}
-            <strong>{usersTotal > 0 ? usersTotal.toLocaleString() : "0"} student{usersTotal !== 1 ? "s" : ""}</strong>
+            <strong>{pluralCount(usersTotal, "student", "students")}</strong>
             {" "}are active.
           </p>
         </div>
