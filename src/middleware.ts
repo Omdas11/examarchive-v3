@@ -15,6 +15,13 @@ export async function middleware(request: NextRequest) {
   // Redirect unauthenticated users away from protected routes.
   const isProtected = PROTECTED_PATHS.some((p) => pathname.startsWith(p));
   if (isProtected && !session) {
+    // API routes must return JSON — never redirect them to an HTML login page,
+    // because clients calling these endpoints expect JSON responses and cannot
+    // parse an HTML redirect body.
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", pathname);
