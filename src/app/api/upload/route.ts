@@ -9,6 +9,8 @@ import {
   COLLECTION,
   BUCKET_ID,
   ID,
+  Permission,
+  Role,
 } from "@/lib/appwrite";
 import { AppwriteException } from "node-appwrite";
 import { findByPaperCode } from "@/data/syllabus-registry";
@@ -44,6 +46,7 @@ type ResolvedPaperDocument = {
   department: string;
   programme?: string;
   examType?: string;
+  fileId: string;
   fileUrl: string;
   uploadedBy: string;
   approved: boolean;
@@ -104,6 +107,7 @@ function buildPaperDocumentPayload(
     department: payload.department,
     programme: payload.programme,
     exam_type: payload.examType,
+    file_id: payload.fileId, // stored so admin can update storage permissions on approval
     file_url: payload.fileUrl,
     uploaded_by: payload.uploadedBy,
     uploader_id: payload.uploadedBy, // legacy uploader field
@@ -209,15 +213,14 @@ export async function POST(request: NextRequest) {
 
     const fileUrl = getAppwriteFileUrl(fileId);
 
-    // Verify file ownership: use the admin client to fetch the file's metadata
-    // and confirm the current user has the uploader-specific write permission.
-    // This is reliable even after the bucket was opened to Role.users() — a
-    // session-scoped getFile() would succeed for any authenticated user, but
-    // the write permission is only granted to the actual uploader at upload time.
+    // Verify file ownership by checking $permissions for a write entry scoped
+    // to this user. The write permission is set at upload time using the
+    // Appwrite browser SDK. We use the server-side SDK's Permission class to
+    // generate the check string — guaranteeing the same format as Appwrite stores,
+    // unlike an error-prone manual template literal.
     try {
       const fileData = await adminStorage().getFile(BUCKET_ID, fileId);
-      // Permission format set by appwrite-client.ts: write("user:<uploaderId>")
-      const ownerWritePerm = `write("user:${user.id}")`;
+      const ownerWritePerm = Permission.write(Role.user(user.id));
       const isOwner = (fileData.$permissions as string[]).includes(ownerWritePerm);
       if (!isOwner) {
         return NextResponse.json(
@@ -251,6 +254,7 @@ export async function POST(request: NextRequest) {
         department,
         programme,
         examType: exam_type,
+        fileId,
         fileUrl,
         uploadedBy: user.id,
         approved: false,

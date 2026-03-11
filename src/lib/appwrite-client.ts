@@ -99,16 +99,16 @@ export async function uploadFileDirectly(
       }
     : undefined;
 
-  // Grant read access to all authenticated users (so the proxy route and
-  // moderators can view the PDF) AND a write permission scoped to the
-  // specific uploader. The write permission is used server-side to verify
-  // ownership: /api/upload fetches the file via admin and checks
-  // `$permissions` for `write("user:<uploaderId>")`.
+  // Grant public read access immediately — this is a free distribution archive
+  // where all uploaded PDFs are meant to be publicly accessible.
+  // A user-scoped write permission is also set so that /api/upload can verify
+  // ownership via $permissions using the SDK's Permission class (reliable format).
+  // The write permission is removed on approval so files become truly read-only.
   await storage.createFile(
     BUCKET_ID,
     fileId,
     file,
-    [Permission.read(Role.users()), Permission.write(Role.user(uploaderId))],
+    [Permission.read(Role.any()), Permission.write(Role.user(uploaderId))],
     sdkProgress,
   );
   return fileId;
@@ -148,16 +148,16 @@ export async function uploadSyllabusFileDirectly(
       }
     : undefined;
 
-  // Grant read access to all authenticated users (so the proxy route and
-  // moderators can view the PDF) AND a write permission scoped to the
-  // specific uploader. The write permission is used server-side to verify
-  // ownership: /api/upload/syllabus fetches the file via admin and checks
-  // `$permissions` for `write("user:<uploaderId>")`.
+  // Grant public read access immediately — this is a free distribution archive
+  // where all uploaded syllabi are meant to be publicly accessible.
+  // A user-scoped write permission is also set so that /api/upload/syllabus can
+  // verify ownership via $permissions using the SDK's Permission class (reliable format).
+  // The write permission is removed on approval so files become truly read-only.
   await storage.createFile(
     SYLLABUS_BUCKET_ID,
     fileId,
     file,
-    [Permission.read(Role.users()), Permission.write(Role.user(uploaderId))],
+    [Permission.read(Role.any()), Permission.write(Role.user(uploaderId))],
     sdkProgress,
   );
   return fileId;
