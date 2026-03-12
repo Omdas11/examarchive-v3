@@ -191,6 +191,14 @@ export interface CoursePreferences {
   idcBasket?: string;
 }
 
+export type CoursePreferenceCategory =
+  | "DSC"
+  | "DSM"
+  | "SEC"
+  | "IDC"
+  | "AEC"
+  | "VAC";
+
 /** localStorage key used to persist course preferences. */
 export const COURSE_PREFS_KEY = "ea_course_prefs";
 export const COURSE_PREFS_UPDATED_EVENT = "ea-course-prefs-updated";
@@ -259,4 +267,105 @@ export function getEnrolledSubjects(prefs: CoursePreferences): string[] {
   if (prefs.sec) subjects.add(prefs.sec);
   if (prefs.idc) subjects.add(prefs.idc);
   return Array.from(subjects);
+}
+
+function normalizeCourseValue(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/ and /g, " & ")
+    .replace(/[^a-z0-9&]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function matchesNormalizedField(field: string, normalizedValue: string): boolean {
+  if (field === normalizedValue) return true;
+  return new RegExp(`(^| )${escapeRegExp(normalizedValue)}( |$)`).test(field);
+}
+
+export function getCoursePreferenceMap(
+  prefs: CoursePreferences,
+): Record<CoursePreferenceCategory, string[]> {
+  return {
+    DSC: prefs.dsc ? [prefs.dsc] : [],
+    DSM: [prefs.dsm1, prefs.dsm2].filter((value) => value.length > 0),
+    SEC: prefs.sec ? [prefs.sec] : [],
+    IDC: prefs.idc ? [prefs.idc] : [],
+    AEC: prefs.aec ? [prefs.aec] : [],
+    VAC: prefs.vac ? [prefs.vac] : [],
+  };
+}
+
+export function normalizeCoursePreferenceCategory(
+  rawCategory?: string | null,
+  fallbackCode?: string | null,
+): CoursePreferenceCategory | null {
+  const upperCategory = rawCategory?.trim().toUpperCase();
+  if (
+    upperCategory === "DSC" ||
+    upperCategory === "DSM" ||
+    upperCategory === "SEC" ||
+    upperCategory === "IDC" ||
+    upperCategory === "AEC" ||
+    upperCategory === "VAC"
+  ) {
+    return upperCategory;
+  }
+
+  const upperCode = fallbackCode?.trim().toUpperCase() ?? "";
+  for (const token of ["DSC", "DSM", "SEC", "IDC", "AEC", "VAC"] as const) {
+    if (upperCode.includes(token)) return token;
+  }
+
+  return null;
+}
+
+export function matchesCoursePreferenceSelection({
+  prefs,
+  category,
+  fallbackCode,
+  subjectFields,
+  valueFields = [],
+}: {
+  prefs: CoursePreferences;
+  category?: string | null;
+  fallbackCode?: string | null;
+  subjectFields: Array<string | null | undefined>;
+  valueFields?: Array<string | null | undefined>;
+}): boolean {
+  const normalizedCategory = normalizeCoursePreferenceCategory(category, fallbackCode);
+  if (!normalizedCategory) return false;
+
+  const selectedValues = getCoursePreferenceMap(prefs)[normalizedCategory];
+  if (selectedValues.length === 0) return false;
+
+  if (
+    normalizedCategory === "AEC" &&
+    selectedValues.some((value) => normalizeCourseValue(value) === "other")
+  ) {
+    return true;
+  }
+
+  const normalizedSubjectFields = subjectFields
+    .filter((field): field is string => typeof field === "string")
+    .map(normalizeCourseValue)
+    .filter((field) => field.length > 0);
+  const normalizedValueFields = valueFields
+    .filter((field): field is string => typeof field === "string")
+    .map(normalizeCourseValue)
+    .filter((field) => field.length > 0);
+
+  const normalizedFields =
+    normalizedCategory === "VAC" ? normalizedValueFields : normalizedSubjectFields;
+
+  if (normalizedFields.length === 0) return false;
+
+  return selectedValues.some((value) => {
+    const normalizedValue = normalizeCourseValue(value);
+    return normalizedFields.some((field) => matchesNormalizedField(field, normalizedValue));
+  });
 }

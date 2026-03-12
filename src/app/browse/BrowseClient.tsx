@@ -10,7 +10,7 @@ import type { Paper } from "@/types";
 import {
   COURSE_PREFS_UPDATED_EVENT,
   loadCoursePrefs,
-  getEnrolledSubjects,
+  matchesCoursePreferenceSelection,
   type CoursePreferences,
 } from "@/data/course-selection-data";
 
@@ -95,26 +95,20 @@ export default function BrowseClient({
     };
   }, []);
 
-  const enrolledSubjects = useMemo(
-    () => (coursePrefs ? getEnrolledSubjects(coursePrefs) : []),
-    [coursePrefs],
-  );
-
   const filtered = useMemo(() => {
     let list = initialPapers.filter((p) => !hiddenIds.has(p.id));
 
-    // "My Courses" filter — show only papers matching enrolled subjects
-    if (myCoursesActive && enrolledSubjects.length > 0) {
-      const lower = enrolledSubjects.map((s) => s.toLowerCase());
+    // "My Courses" filter — show only papers matching the saved subject for the paper type
+    if (myCoursesActive && coursePrefs) {
       list = list.filter(
         (p) =>
-          lower.some(
-            (s) =>
-              p.department.toLowerCase().includes(s) ||
-              p.course_name.toLowerCase().includes(s) ||
-              (p.title ?? "").toLowerCase().includes(s) ||
-              (p.course_code ?? "").toLowerCase().includes(s),
-          ),
+          matchesCoursePreferenceSelection({
+            prefs: coursePrefs,
+            category: p.paper_type,
+            fallbackCode: p.course_code,
+            subjectFields: [p.department, p.course_name],
+            valueFields: [p.title, p.course_name, p.course_code],
+          }),
       );
     }
 
@@ -178,7 +172,7 @@ export default function BrowseClient({
     }
 
     return list;
-  }, [initialPapers, hiddenIds, debouncedSearch, activeProgramme, activePaperType, activeStream, activeYear, activeUniversity, sortKey, myCoursesActive, enrolledSubjects]);
+  }, [initialPapers, hiddenIds, debouncedSearch, activeProgramme, activePaperType, activeStream, activeYear, activeUniversity, sortKey, myCoursesActive, coursePrefs]);
 
   const handleSoftDelete = useCallback(async (paperId: string) => {
     if (!confirm("Hide this paper from Browse? It can be restored from the admin panel.")) return;

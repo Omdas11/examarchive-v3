@@ -11,7 +11,7 @@ import { PAPER_TYPE_COLORS } from "@/components/PaperCard";
 import {
   COURSE_PREFS_UPDATED_EVENT,
   loadCoursePrefs,
-  getEnrolledSubjects,
+  matchesCoursePreferenceSelection,
 } from "@/data/course-selection-data";
 
 type Tab = "pdfs" | "library";
@@ -214,11 +214,6 @@ function PaperLibrary() {
     };
   }, []);
 
-  const enrolledSubjects = useMemo(
-    () => (coursePrefs ? getEnrolledSubjects(coursePrefs) : []),
-    [coursePrefs],
-  );
-
   const universities = ["ALL", ...getAllUniversities()];
   const programmes = useMemo(() => ["ALL", ...Array.from(new Set(
     SYLLABUS_REGISTRY
@@ -261,10 +256,19 @@ function PaperLibrary() {
       if (!myCoursesActive && filterProg !== "ALL" && e.programme !== filterProg) return false;
       if (!myCoursesActive && filterCategory !== "ALL" && e.category !== filterCategory) return false;
       if (!myCoursesActive && filterSubject !== "ALL" && e.subject !== filterSubject) return false;
-      // My Courses filter
-      if (myCoursesActive && enrolledSubjects.length > 0) {
-        const lower = enrolledSubjects.map((s) => s.toLowerCase());
-        if (!lower.some((s) => e.subject.toLowerCase().includes(s))) return false;
+      // My Courses filter — match selected subject against the correct category
+      if (myCoursesActive && coursePrefs) {
+        if (
+          !matchesCoursePreferenceSelection({
+            prefs: coursePrefs,
+            category: e.category,
+            fallbackCode: e.paper_code,
+            subjectFields: [e.subject],
+            valueFields: [e.paper_name, e.paper_code],
+          })
+        ) {
+          return false;
+        }
       }
       return true;
     });
@@ -277,7 +281,7 @@ function PaperLibrary() {
         default: return a.semester - b.semester;
       }
     });
-  }, [filterUniversity, filterProg, filterCategory, filterSubject, sortKey, myCoursesActive, enrolledSubjects]);
+  }, [filterUniversity, filterProg, filterCategory, filterSubject, sortKey, myCoursesActive, coursePrefs]);
 
   // When grouping by subject, sort=semester still applies within each group.
   // Group: subject → semester → entries
