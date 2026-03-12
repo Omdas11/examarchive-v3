@@ -8,7 +8,11 @@ import { toRoman } from "@/lib/utils";
 import { SYLLABUS_REGISTRY, groupBySemester, getAllUniversities } from "@/data/syllabus-registry";
 import type { SyllabusRegistryEntry } from "@/data/syllabus-registry";
 import { PAPER_TYPE_COLORS } from "@/components/PaperCard";
-import { loadCoursePrefs, getEnrolledSubjects } from "@/data/course-selection-data";
+import {
+  COURSE_PREFS_UPDATED_EVENT,
+  loadCoursePrefs,
+  getEnrolledSubjects,
+} from "@/data/course-selection-data";
 
 type Tab = "pdfs" | "library";
 
@@ -199,8 +203,15 @@ function PaperLibrary() {
         setCoursePrefs(loadCoursePrefs());
       }
     }
+    function handleCoursePrefsUpdated() {
+      setCoursePrefs(loadCoursePrefs());
+    }
     window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
+    window.addEventListener(COURSE_PREFS_UPDATED_EVENT, handleCoursePrefsUpdated);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener(COURSE_PREFS_UPDATED_EVENT, handleCoursePrefsUpdated);
+    };
   }, []);
 
   const enrolledSubjects = useMemo(
@@ -246,10 +257,10 @@ function PaperLibrary() {
 
   const filtered = useMemo(() => {
     const entries = SYLLABUS_REGISTRY.filter((e) => {
-      if (filterUniversity !== "ALL" && e.university !== filterUniversity) return false;
-      if (filterProg !== "ALL" && e.programme !== filterProg) return false;
-      if (filterCategory !== "ALL" && e.category !== filterCategory) return false;
-      if (filterSubject !== "ALL" && e.subject !== filterSubject) return false;
+      if (!myCoursesActive && filterUniversity !== "ALL" && e.university !== filterUniversity) return false;
+      if (!myCoursesActive && filterProg !== "ALL" && e.programme !== filterProg) return false;
+      if (!myCoursesActive && filterCategory !== "ALL" && e.category !== filterCategory) return false;
+      if (!myCoursesActive && filterSubject !== "ALL" && e.subject !== filterSubject) return false;
       // My Courses filter
       if (myCoursesActive && enrolledSubjects.length > 0) {
         const lower = enrolledSubjects.map((s) => s.toLowerCase());

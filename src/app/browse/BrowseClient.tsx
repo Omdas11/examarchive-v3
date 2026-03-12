@@ -8,6 +8,7 @@ import Breadcrumb from "@/components/Breadcrumb";
 import { SkeletonGrid } from "@/components/SkeletonCard";
 import type { Paper } from "@/types";
 import {
+  COURSE_PREFS_UPDATED_EVENT,
   loadCoursePrefs,
   getEnrolledSubjects,
   type CoursePreferences,
@@ -83,8 +84,15 @@ export default function BrowseClient({
         setCoursePrefs(loadCoursePrefs());
       }
     }
+    function handleCoursePrefsUpdated() {
+      setCoursePrefs(loadCoursePrefs());
+    }
     window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
+    window.addEventListener(COURSE_PREFS_UPDATED_EVENT, handleCoursePrefsUpdated);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener(COURSE_PREFS_UPDATED_EVENT, handleCoursePrefsUpdated);
+    };
   }, []);
 
   const enrolledSubjects = useMemo(
@@ -104,6 +112,7 @@ export default function BrowseClient({
             (s) =>
               p.department.toLowerCase().includes(s) ||
               p.course_name.toLowerCase().includes(s) ||
+              p.title.toLowerCase().includes(s) ||
               (p.course_code ?? "").toLowerCase().includes(s),
           ),
       );
@@ -119,7 +128,7 @@ export default function BrowseClient({
       );
     }
 
-    if (activeProgramme !== "ALL") {
+    if (!myCoursesActive && activeProgramme !== "ALL") {
       if (activeProgramme === "Other") {
         list = list.filter(
           (p) => !p.programme || (p.programme !== "FYUGP" && p.programme !== "CBCS"),
@@ -129,11 +138,11 @@ export default function BrowseClient({
       }
     }
 
-    if (activePaperType) {
+    if (!myCoursesActive && activePaperType) {
       list = list.filter((p) => p.paper_type === activePaperType);
     }
 
-    if (activeStream) {
+    if (!myCoursesActive && activeStream) {
       list = list.filter(
         (p) =>
           p.department.toUpperCase().includes(activeStream) ||
@@ -141,11 +150,11 @@ export default function BrowseClient({
       );
     }
 
-    if (activeYear) {
+    if (!myCoursesActive && activeYear) {
       list = list.filter((p) => p.year === activeYear);
     }
 
-    if (activeUniversity) {
+    if (!myCoursesActive && activeUniversity) {
       list = list.filter((p) => p.institution === activeUniversity);
     }
 

@@ -10,6 +10,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
+  COURSE_PREFS_UPDATED_EVENT,
   loadCoursePrefs,
   type CoursePreferences,
 } from "@/data/course-selection-data";
@@ -32,8 +33,15 @@ export default function ProfileCoursePrefs({ compact = false }: ProfileCoursePre
         setPrefs(loadCoursePrefs());
       }
     }
+    function handleCoursePrefsUpdated() {
+      setPrefs(loadCoursePrefs());
+    }
     window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
+    window.addEventListener(COURSE_PREFS_UPDATED_EVENT, handleCoursePrefsUpdated);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener(COURSE_PREFS_UPDATED_EVENT, handleCoursePrefsUpdated);
+    };
   }, []);
 
   // Avoid hydration mismatch

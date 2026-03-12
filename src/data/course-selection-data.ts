@@ -193,6 +193,12 @@ export interface CoursePreferences {
 
 /** localStorage key used to persist course preferences. */
 export const COURSE_PREFS_KEY = "ea_course_prefs";
+export const COURSE_PREFS_UPDATED_EVENT = "ea-course-prefs-updated";
+
+function dispatchCoursePrefsUpdated(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(COURSE_PREFS_UPDATED_EVENT));
+}
 
 /** Read course preferences from localStorage (browser-only). */
 export function loadCoursePrefs(): CoursePreferences | null {
@@ -200,7 +206,20 @@ export function loadCoursePrefs(): CoursePreferences | null {
   try {
     const raw = localStorage.getItem(COURSE_PREFS_KEY);
     if (!raw) return null;
-    return JSON.parse(raw) as CoursePreferences;
+    const parsed = JSON.parse(raw) as Partial<CoursePreferences> | null;
+    if (!parsed) return null;
+    return {
+      dsc: parsed.dsc ?? "",
+      dsm1: parsed.dsm1 ?? "",
+      dsm2: parsed.dsm2 ?? "",
+      sec: parsed.sec ?? "",
+      idc: parsed.idc ?? "",
+      aec: parsed.aec ?? "",
+      vac: parsed.vac ?? "",
+      savedAt: parsed.savedAt ?? "",
+      cluster: parsed.cluster,
+      idcBasket: parsed.idcBasket,
+    };
   } catch {
     return null;
   }
@@ -211,6 +230,7 @@ export function saveCoursePrefs(prefs: CoursePreferences): void {
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem(COURSE_PREFS_KEY, JSON.stringify(prefs));
+    dispatchCoursePrefsUpdated();
   } catch {
     // Ignore storage errors
   }
@@ -221,6 +241,7 @@ export function clearCoursePrefs(): void {
   if (typeof window === "undefined") return;
   try {
     localStorage.removeItem(COURSE_PREFS_KEY);
+    dispatchCoursePrefsUpdated();
   } catch {
     // Ignore storage errors
   }
