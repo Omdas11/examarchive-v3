@@ -84,11 +84,14 @@ export default function CourseSelector({
       if (stored) {
         const parsed = JSON.parse(stored) as CoursePref;
         setPref(parsed);
-        onChange?.(parsed);
       }
     } catch {
       // ignore parse errors
     }
+    // onChange is intentionally omitted — this effect only runs once on mount
+    // to initialise state from localStorage. Calling onChange here would cause
+    // unexpected parent re-renders on every navigation to pages that use this
+    // component. onChange is called explicitly by save() on every user action.
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function save(updated: CoursePref | null) {
