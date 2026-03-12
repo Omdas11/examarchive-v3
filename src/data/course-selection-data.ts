@@ -199,6 +199,15 @@ export type CoursePreferenceCategory =
   | "AEC"
   | "VAC";
 
+const COURSE_PREFERENCE_CATEGORIES = [
+  "DSC",
+  "DSM",
+  "SEC",
+  "IDC",
+  "AEC",
+  "VAC",
+] as const;
+
 /** localStorage key used to persist course preferences. */
 export const COURSE_PREFS_KEY = "ea_course_prefs";
 export const COURSE_PREFS_UPDATED_EVENT = "ea-course-prefs-updated";
@@ -292,7 +301,9 @@ export function getCoursePreferenceMap(
 ): Record<CoursePreferenceCategory, string[]> {
   return {
     DSC: prefs.dsc ? [prefs.dsc] : [],
-    DSM: [prefs.dsm1, prefs.dsm2].filter((value) => value.length > 0),
+    DSM: [prefs.dsm1, prefs.dsm2].filter(
+      (value): value is string => typeof value === "string" && value.length > 0,
+    ),
     SEC: prefs.sec ? [prefs.sec] : [],
     IDC: prefs.idc ? [prefs.idc] : [],
     AEC: prefs.aec ? [prefs.aec] : [],
@@ -305,19 +316,12 @@ export function normalizeCoursePreferenceCategory(
   fallbackCode?: string | null,
 ): CoursePreferenceCategory | null {
   const upperCategory = rawCategory?.trim().toUpperCase();
-  if (
-    upperCategory === "DSC" ||
-    upperCategory === "DSM" ||
-    upperCategory === "SEC" ||
-    upperCategory === "IDC" ||
-    upperCategory === "AEC" ||
-    upperCategory === "VAC"
-  ) {
-    return upperCategory;
+  if (upperCategory && COURSE_PREFERENCE_CATEGORIES.includes(upperCategory as CoursePreferenceCategory)) {
+    return upperCategory as CoursePreferenceCategory;
   }
 
   const upperCode = fallbackCode?.trim().toUpperCase() ?? "";
-  for (const token of ["DSC", "DSM", "SEC", "IDC", "AEC", "VAC"] as const) {
+  for (const token of COURSE_PREFERENCE_CATEGORIES) {
     if (upperCode.includes(token)) return token;
   }
 
