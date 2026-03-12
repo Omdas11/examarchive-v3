@@ -3,6 +3,17 @@
 import { useState, useEffect } from "react";
 import { signOut } from "@/app/auth/actions";
 import type { UserProfile } from "@/types";
+import dynamic from "next/dynamic";
+import {
+  loadCoursePrefs,
+  clearCoursePrefs,
+  type CoursePreferences,
+} from "@/data/course-selection-data";
+
+const CourseSelectionModal = dynamic(
+  () => import("@/components/CourseSelectionModal"),
+  { ssr: false },
+);
 
 interface SettingsFormProps {
   user: UserProfile;
@@ -29,6 +40,8 @@ const THEME_ICONS: Record<"light" | "dark" | "system", React.ReactNode> = {
 export default function SettingsForm({ user }: SettingsFormProps) {
   const [theme, setTheme] = useState<"light" | "dark" | "system">("system");
   const [reduceMotion, setReduceMotion] = useState(false);
+  const [coursePrefs, setCoursePrefs] = useState<CoursePreferences | null>(null);
+  const [courseModalOpen, setCourseModalOpen] = useState(false);
 
   useEffect(() => {
     const stored = localStorage.getItem("theme");
@@ -36,6 +49,7 @@ export default function SettingsForm({ user }: SettingsFormProps) {
     else if (stored === "light") setTheme("light");
     else setTheme("system");
     setReduceMotion(localStorage.getItem("reduceMotion") === "true");
+    setCoursePrefs(loadCoursePrefs());
   }, []);
 
   function handleThemeChange(newTheme: "light" | "dark" | "system") {
@@ -164,6 +178,58 @@ export default function SettingsForm({ user }: SettingsFormProps) {
         </div>
       </div>
 
+      {/* Course Preferences */}
+      <div className="card p-6">
+        <h2 className="text-lg font-semibold">Course Preferences</h2>
+        <p className="text-xs mt-1" style={{ color: "var(--color-text-muted)" }}>
+          Your selected subjects used to personalise the Browse and Syllabus sections.
+        </p>
+        {coursePrefs ? (
+          <div className="mt-4 space-y-2 text-sm">
+            {[
+              { label: "Cluster", value: coursePrefs.cluster },
+              { label: "DSC", value: coursePrefs.dsc },
+              { label: "DSM 1", value: coursePrefs.dsm1 },
+              { label: "DSM 2", value: coursePrefs.dsm2 },
+              { label: "IDC Basket", value: coursePrefs.idcBasket },
+              { label: "IDC", value: coursePrefs.idc },
+              { label: "AEC", value: coursePrefs.aec },
+              { label: "VAC", value: coursePrefs.vac },
+            ].map(({ label, value }) => (
+              <div key={label} className="flex flex-col sm:flex-row sm:justify-between gap-1">
+                <span style={{ color: "var(--color-text-muted)" }}>{label}</span>
+                <span className="font-medium">{value || "—"}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-4 text-sm" style={{ color: "var(--color-text-muted)" }}>
+            No course preferences set yet.
+          </p>
+        )}
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setCourseModalOpen(true)}
+            className="btn-primary text-sm px-4 py-2"
+          >
+            {coursePrefs ? "Edit Course Selection" : "Set Up Courses"}
+          </button>
+          {coursePrefs && (
+            <button
+              type="button"
+              onClick={() => {
+                clearCoursePrefs();
+                setCoursePrefs(null);
+              }}
+              className="btn text-sm px-4 py-2"
+            >
+              Clear Preferences
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* Account Actions */}
       <div className="card p-6">
         <h2 className="text-lg font-semibold">Account Actions</h2>
@@ -189,6 +255,15 @@ export default function SettingsForm({ user }: SettingsFormProps) {
           </p>
         </div>
       </div>
+
+      <CourseSelectionModal
+        open={courseModalOpen}
+        onClose={(saved) => {
+          setCourseModalOpen(false);
+          if (saved) setCoursePrefs(loadCoursePrefs());
+        }}
+        initialPrefs={coursePrefs}
+      />
     </div>
   );
 }

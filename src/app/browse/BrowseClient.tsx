@@ -7,6 +7,11 @@ import CustomSelect from "@/components/CustomSelect";
 import Breadcrumb from "@/components/Breadcrumb";
 import { SkeletonGrid } from "@/components/SkeletonCard";
 import type { Paper } from "@/types";
+import {
+  loadCoursePrefs,
+  getEnrolledSubjects,
+  type CoursePreferences,
+} from "@/data/course-selection-data";
 
 interface BrowseClientProps {
   initialPapers: Paper[];
@@ -59,6 +64,8 @@ export default function BrowseClient({
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState<string | null>(null);
   const [showSkeleton, setShowSkeleton] = useState(true);
+  const [coursePrefs, setCoursePrefs] = useState<CoursePreferences | null>(null);
+  const [myCoursesActive, setMyCoursesActive] = useState(false);
 
   // Simulate initial skeleton loading — no mountedRef guard so this works
   // correctly under React Strict Mode's double-invoke of effects.
@@ -67,8 +74,32 @@ export default function BrowseClient({
     return () => clearTimeout(timer);
   }, []);
 
+  // Load course preferences from localStorage
+  useEffect(() => {
+    setCoursePrefs(loadCoursePrefs());
+  }, []);
+
+  const enrolledSubjects = useMemo(
+    () => (coursePrefs ? getEnrolledSubjects(coursePrefs) : []),
+    [coursePrefs],
+  );
+
   const filtered = useMemo(() => {
     let list = initialPapers.filter((p) => !hiddenIds.has(p.id));
+
+    // "My Courses" filter — show only papers matching enrolled subjects
+    if (myCoursesActive && enrolledSubjects.length > 0) {
+      const lower = enrolledSubjects.map((s) => s.toLowerCase());
+      list = list.filter(
+        (p) =>
+          lower.some(
+            (s) =>
+              p.department.toLowerCase().includes(s) ||
+              p.course_name.toLowerCase().includes(s) ||
+              (p.course_code ?? "").toLowerCase().includes(s),
+          ),
+      );
+    }
 
     if (debouncedSearch.trim()) {
       const q = debouncedSearch.toLowerCase();
@@ -130,7 +161,7 @@ export default function BrowseClient({
     }
 
     return list;
-  }, [initialPapers, hiddenIds, debouncedSearch, activeProgramme, activePaperType, activeStream, activeYear, activeUniversity, sortKey]);
+  }, [initialPapers, hiddenIds, debouncedSearch, activeProgramme, activePaperType, activeStream, activeYear, activeUniversity, sortKey, myCoursesActive, enrolledSubjects]);
 
   const handleSoftDelete = useCallback(async (paperId: string) => {
     if (!confirm("Hide this paper from Browse? It can be restored from the admin panel.")) return;
@@ -211,6 +242,42 @@ export default function BrowseClient({
           className="sm:w-44"
         />
       </div>
+
+      {/* My Courses banner — shown when course prefs are set */}
+      {coursePrefs && (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg px-3 py-2"
+          style={{
+            background: myCoursesActive
+              ? "color-mix(in srgb, var(--nav-teal) 10%, var(--color-surface))"
+              : "color-mix(in srgb, var(--color-border) 30%, var(--color-surface))",
+            border: `1px solid ${myCoursesActive ? "var(--nav-teal)" : "var(--color-border)"}`,
+          }}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <span
+              className="text-xs font-semibold"
+              style={{ color: myCoursesActive ? "var(--nav-teal)" : "var(--color-text-muted)" }}
+            >
+              🎓 My Courses:
+            </span>
+            <span className="text-xs truncate" style={{ color: "var(--color-text-muted)" }}>
+              DSC: {coursePrefs.dsc} · DSM: {coursePrefs.dsm1}, {coursePrefs.dsm2} · IDC: {coursePrefs.idc}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setMyCoursesActive((v) => !v)}
+            className="shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-colors"
+            style={{
+              background: myCoursesActive ? "var(--nav-teal)" : "transparent",
+              color: myCoursesActive ? "#fff" : "var(--nav-teal)",
+              border: "1.5px solid var(--nav-teal)",
+            }}
+          >
+            {myCoursesActive ? "✓ Filtered" : "Filter by my courses"}
+          </button>
+        </div>
+      )}
 
       {/* Filter chips — semi-transparent, interactive */}
       <div className="mt-4 space-y-2">
