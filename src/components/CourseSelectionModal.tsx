@@ -150,13 +150,16 @@ export default function CourseSelectionModal({
 
   function handleDscSelect(subject: string) {
     setDsc(subject);
-    if (dsm1 === subject) setDsm1("");
+    const nextDsm1 =
+      dsm1 === subject || (LITERATURE_SUBJECTS.includes(subject) && LITERATURE_SUBJECTS.includes(dsm1))
+        ? ""
+        : dsm1;
+    if (nextDsm1 !== dsm1) setDsm1(nextDsm1);
     if (dsm2 === subject) setDsm2("");
     if (LITERATURE_SUBJECTS.includes(subject)) {
-      if (LITERATURE_SUBJECTS.includes(dsm1)) setDsm1("");
       if (LITERATURE_SUBJECTS.includes(dsm2)) setDsm2("");
     }
-    if (![subject, dsm1].includes(sec)) {
+    if (sec && ![subject, nextDsm1].includes(sec)) {
       setSec("");
     }
   }
@@ -164,7 +167,7 @@ export default function CourseSelectionModal({
   function handleDsm1Select(subject: string) {
     setDsm1(subject);
     if (dsm2 === subject) setDsm2("");
-    if (![dsc, subject].includes(sec)) {
+    if (sec && ![dsc, subject].includes(sec)) {
       setSec("");
     }
   }

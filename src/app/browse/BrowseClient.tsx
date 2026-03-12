@@ -112,7 +112,7 @@ export default function BrowseClient({
             (s) =>
               p.department.toLowerCase().includes(s) ||
               p.course_name.toLowerCase().includes(s) ||
-              p.title.toLowerCase().includes(s) ||
+              (p.title ?? "").toLowerCase().includes(s) ||
               (p.course_code ?? "").toLowerCase().includes(s),
           ),
       );
@@ -122,7 +122,7 @@ export default function BrowseClient({
       const q = debouncedSearch.toLowerCase();
       list = list.filter(
         (p) =>
-          p.title.toLowerCase().includes(q) ||
+          (p.title ?? "").toLowerCase().includes(q) ||
           (p.course_code ?? "").toLowerCase().includes(q) ||
           p.course_name.toLowerCase().includes(q),
       );
