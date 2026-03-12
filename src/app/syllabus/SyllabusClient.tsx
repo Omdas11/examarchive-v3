@@ -321,7 +321,9 @@ function PaperLibrary() {
               🎓 My Courses:
             </span>
             <span className="text-xs truncate" style={{ color: "var(--color-text-muted)" }}>
-              DSC: {coursePrefs.dsc} · DSM: {coursePrefs.dsm1}, {coursePrefs.dsm2} · IDC: {coursePrefs.idc}
+              DSC: {coursePrefs.dsc} · DSM: {coursePrefs.dsm1}, {coursePrefs.dsm2}
+              {coursePrefs.sec ? ` · SEC: ${coursePrefs.sec}` : ""}
+              {coursePrefs.idc ? ` · IDC: ${coursePrefs.idc}` : ""}
             </span>
           </div>
           <button
@@ -339,6 +341,8 @@ function PaperLibrary() {
         </div>
       )}
 
+      {/* University, programme, category, subject filters — hidden when My Courses is active */}
+      {!myCoursesActive && (<>
       {/* University filter */}
       {universities.length > 2 && (
         <div className="flex flex-wrap gap-1">
@@ -408,6 +412,7 @@ function PaperLibrary() {
           ))}
         </div>
       )}
+      </>)}
 
       {/* Sort controls + count */}
       <div className="flex flex-wrap items-center justify-between gap-2">

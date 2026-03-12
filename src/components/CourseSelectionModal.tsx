@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
-  CLUSTERS,
-  IDC_BASKETS,
+  ALL_DSC_DSM_SUBJECTS,
+  ALL_IDC_SUBJECTS,
   AEC_OPTIONS,
   VAC_OPTIONS,
   DSM_ONLY_SUBJECTS,
@@ -11,6 +11,576 @@ import {
   saveCoursePrefs,
   type CoursePreferences,
 } from "@/data/course-selection-data";
+
+interface CourseSelectionModalProps {
+  open: boolean;
+  onClose: (saved: boolean) => void;
+  /** Pre-populate the form with existing preferences for editing. */
+  initialPrefs?: CoursePreferences | null;
+}
+
+const STEPS = [
+  "DSC",
+  "DSM",
+  "SEC",
+  "IDC",
+  "AEC & VAC",
+] as const;
+
+type Step = 0 | 1 | 2 | 3 | 4;
+
+const TITLE_ID = "course-selection-title";
+
+/** Small pill button used for subject selection */
+function SubjectPill({
+  label,
+  selected,
+  color,
+  onClick,
+}: {
+  label: string;
+  selected: boolean;
+  color?: "primary" | "teal" | "green";
+  onClick: () => void;
+}) {
+  const colorMap = {
+    primary: { active: "var(--color-primary)", text: "#fff" },
+    teal: { active: "var(--nav-teal)", text: "#fff" },
+    green: { active: "var(--success-green)", text: "#fff" },
+  };
+  const c = colorMap[color ?? "primary"];
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-full px-3 py-1.5 text-sm font-medium transition-all"
+      style={{
+        border: `1.5px solid ${selected ? c.active : "var(--color-border)"}`,
+        background: selected ? c.active : "var(--color-surface)",
+        color: selected ? c.text : "var(--color-text)",
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+export default function CourseSelectionModal({
+  open,
+  onClose,
+  initialPrefs,
+}: CourseSelectionModalProps) {
+  const [step, setStep] = useState<Step>(0);
+  const [dsc, setDsc] = useState(initialPrefs?.dsc ?? "");
+  const [dsm1, setDsm1] = useState(initialPrefs?.dsm1 ?? "");
+  const [dsm2, setDsm2] = useState(initialPrefs?.dsm2 ?? "");
+  const [sec, setSec] = useState(initialPrefs?.sec ?? "");
+  const [idc, setIdc] = useState(initialPrefs?.idc ?? "");
+  const [aec, setAec] = useState(initialPrefs?.aec ?? "");
+  const [vac, setVac] = useState(initialPrefs?.vac ?? "");
+
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  // Reset to initial prefs whenever the modal opens
+  useEffect(() => {
+    if (open) {
+      setStep(0);
+      setDsc(initialPrefs?.dsc ?? "");
+      setDsm1(initialPrefs?.dsm1 ?? "");
+      setDsm2(initialPrefs?.dsm2 ?? "");
+      setSec(initialPrefs?.sec ?? "");
+      setIdc(initialPrefs?.idc ?? "");
+      setAec(initialPrefs?.aec ?? "");
+      setVac(initialPrefs?.vac ?? "");
+    }
+  }, [open, initialPrefs]);
+
+  // Close on Escape
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose(false);
+    },
+    [onClose],
+  );
+
+  useEffect(() => {
+    if (open) {
+      document.addEventListener("keydown", handleKeyDown);
+      return () => document.removeEventListener("keydown", handleKeyDown);
+    }
+  }, [open, handleKeyDown]);
+
+  // ── Derived options ──────────────────────────────────────────────────────
+
+  const dscIsLiterature = LITERATURE_SUBJECTS.includes(dsc);
+
+  /**
+   * All subjects eligible as DSC.
+   * Excludes subjects that are DSM-only (e.g. Industrial Fish and Fisheries).
+   */
+  const dscOptions = ALL_DSC_DSM_SUBJECTS.filter(
+    (s) => !DSM_ONLY_SUBJECTS.includes(s),
+  );
+
+  /**
+   * DSM subjects — excludes DSC; also applies the literature constraint
+   * (if DSC is a literature subject, other literature subjects are excluded).
+   */
+  function dsmOptions(exclude: string[]): string[] {
+    return ALL_DSC_DSM_SUBJECTS.filter((s) => {
+      if (exclude.includes(s)) return false;
+      if (dscIsLiterature && LITERATURE_SUBJECTS.includes(s)) return false;
+      return true;
+    });
+  }
+
+  const dsm1Options = dsmOptions(dsc ? [dsc] : []);
+  const dsm2Options = dsmOptions([dsc, dsm1].filter(Boolean));
+
+  /**
+   * SEC (Skill Enhancement Course) — from the same DSC/DSM pool,
+   * excluding already-chosen DSC and DSM-1 subjects.
+   */
+  const secOptions = ALL_DSC_DSM_SUBJECTS.filter((s) => {
+    const chosen = [dsc, dsm1].filter(Boolean);
+    return !chosen.includes(s);
+  });
+
+  /**
+   * IDC subjects — flat list of all IDC subjects, excluding already-enrolled
+   * ones; also respects the literature constraint.
+   */
+  const idcOptions = ALL_IDC_SUBJECTS.filter((s) => {
+    const enrolled = [dsc, dsm1, dsm2, sec].filter(Boolean);
+    // Normalise for comparison: some IDC subjects have slightly different
+    // names to their DSC/DSM counterparts (e.g. "Ecology & Environmental
+    // Science" vs "Ecology and Environmental Science").
+    const sLower = s.toLowerCase().replace(/ and /g, " & ");
+    if (enrolled.some((e) => e.toLowerCase().replace(/ and /g, " & ") === sLower)) return false;
+    if (dscIsLiterature && LITERATURE_SUBJECTS.includes(s)) return false;
+    return true;
+  });
+
+  // ── Validation helpers ───────────────────────────────────────────────────
+
+  function canAdvance(): boolean {
+    switch (step) {
+      case 0: return dsc !== "";
+      case 1: return dsm1 !== "" && dsm2 !== "";
+      case 2: return sec !== "";
+      case 3: return idc !== "";
+      case 4: return aec !== "" && vac !== "";
+      default: return false;
+    }
+  }
+
+  // ── Handlers ─────────────────────────────────────────────────────────────
+
+  function handleDscSelect(s: string) {
+    setDsc(s);
+    if (dsm1 === s) setDsm1("");
+    if (dsm2 === s) setDsm2("");
+    if (sec === s) setSec("");
+    if (LITERATURE_SUBJECTS.includes(s)) {
+      if (LITERATURE_SUBJECTS.includes(dsm1)) setDsm1("");
+      if (LITERATURE_SUBJECTS.includes(dsm2)) setDsm2("");
+    }
+  }
+
+  function handleDsm1Select(s: string) {
+    setDsm1(s);
+    if (dsm2 === s) setDsm2("");
+    if (sec === s) setSec("");
+  }
+
+  function handleSave() {
+    const prefs: CoursePreferences = {
+      dsc,
+      dsm1,
+      dsm2,
+      sec,
+      idc,
+      aec,
+      vac,
+      savedAt: new Date().toISOString(),
+    };
+    saveCoursePrefs(prefs);
+    onClose(true);
+  }
+
+  if (!open) return null;
+
+  // ── Step content ─────────────────────────────────────────────────────────
+
+  function renderStep() {
+    switch (step) {
+      case 0:
+        return (
+          <div className="space-y-3">
+            <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
+              Choose your <strong>DSC</strong> (Discipline Specific Core) —
+              your primary subject.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {dscOptions.map((s) => (
+                <SubjectPill
+                  key={s}
+                  label={s}
+                  selected={dsc === s}
+                  color="primary"
+                  onClick={() => handleDscSelect(s)}
+                />
+              ))}
+            </div>
+          </div>
+        );
+
+      case 1:
+        return (
+          <div className="space-y-4">
+            <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
+              Choose <strong>two DSM</strong> (Discipline Specific Minor)
+              subjects. They must differ from your DSC ({dsc}) and from each
+              other.
+            </p>
+            {dscIsLiterature && (
+              <div
+                className="rounded-lg px-3 py-2 text-xs"
+                style={{
+                  background: "var(--color-accent-soft)",
+                  color: "var(--color-primary)",
+                  border: "1px solid var(--color-primary)",
+                }}
+              >
+                ℹ️ Since your DSC is a literature subject, other literature
+                subjects are excluded from DSM selection.
+              </div>
+            )}
+
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--color-text-muted)" }}>
+                First Minor (DSM 1)
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {dsm1Options.map((s) => (
+                  <SubjectPill
+                    key={s}
+                    label={s}
+                    selected={dsm1 === s}
+                    color="primary"
+                    onClick={() => handleDsm1Select(s)}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--color-text-muted)" }}>
+                Second Minor (DSM 2)
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {dsm2Options.map((s) => (
+                  <SubjectPill
+                    key={s}
+                    label={s}
+                    selected={dsm2 === s}
+                    color="teal"
+                    onClick={() => setDsm2(s)}
+                  />
+                ))}
+                {dsm2Options.length === 0 && dsm1 !== "" && (
+                  <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+                    No more subjects available. Choose a different DSM 1.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+
+      case 2:
+        return (
+          <div className="space-y-3">
+            <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
+              Choose your <strong>SEC</strong> (Skill Enhancement Course) —
+              pick a subject different from your DSC ({dsc}) and DSM 1 ({dsm1}).
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {secOptions.map((s) => (
+                <SubjectPill
+                  key={s}
+                  label={s}
+                  selected={sec === s}
+                  color="green"
+                  onClick={() => setSec(s)}
+                />
+              ))}
+            </div>
+          </div>
+        );
+
+      case 3:
+        return (
+          <div className="space-y-3">
+            <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
+              Choose your <strong>IDC</strong> (Interdisciplinary Course) —
+              a subject outside your main discipline. Cannot be the same as your
+              DSC, DSM, or SEC.
+            </p>
+            {dscIsLiterature && (
+              <div
+                className="rounded-lg px-3 py-2 text-xs"
+                style={{
+                  background: "var(--color-accent-soft)",
+                  color: "var(--color-primary)",
+                  border: "1px solid var(--color-primary)",
+                }}
+              >
+                ℹ️ Literature subjects are excluded from IDC since your DSC is a
+                literature.
+              </div>
+            )}
+            <div className="flex flex-wrap gap-2">
+              {idcOptions.length === 0 ? (
+                <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
+                  No eligible IDC subjects available. Adjust your DSC/DSM/SEC
+                  selections.
+                </p>
+              ) : (
+                idcOptions.map((s) => (
+                  <SubjectPill
+                    key={s}
+                    label={s}
+                    selected={idc === s}
+                    color="green"
+                    onClick={() => setIdc(s)}
+                  />
+                ))
+              )}
+            </div>
+          </div>
+        );
+
+      case 4:
+        return (
+          <div className="space-y-5">
+            <div>
+              <p className="mb-2 text-sm font-semibold">
+                AEC{" "}
+                <span
+                  className="font-normal text-xs"
+                  style={{ color: "var(--color-text-muted)" }}
+                >
+                  (Ability Enhancement Course)
+                </span>
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {AEC_OPTIONS.map((o) => (
+                  <SubjectPill
+                    key={o}
+                    label={o}
+                    selected={aec === o}
+                    color="primary"
+                    onClick={() => setAec(o)}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <p className="mb-2 text-sm font-semibold">
+                VAC{" "}
+                <span
+                  className="font-normal text-xs"
+                  style={{ color: "var(--color-text-muted)" }}
+                >
+                  (Value Added Course)
+                </span>
+              </p>
+              <p
+                className="mb-2 text-xs"
+                style={{ color: "var(--color-text-muted)" }}
+              >
+                Note: Semester 2 overrides to <strong>EVS</strong> (mandatory).
+                Semester 3 onwards: no VAC.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {VAC_OPTIONS.map((o) => (
+                  <SubjectPill
+                    key={o}
+                    label={o}
+                    selected={vac === o}
+                    color="teal"
+                    onClick={() => setVac(o)}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Summary before saving */}
+            <div
+              className="rounded-lg p-3 text-xs space-y-1"
+              style={{
+                background:
+                  "color-mix(in srgb, var(--nav-teal) 6%, var(--color-surface))",
+                border: "1px solid var(--color-border)",
+              }}
+            >
+              <p className="font-semibold text-sm mb-2">Your Course Selection</p>
+              {[
+                { label: "DSC", value: dsc },
+                { label: "DSM 1", value: dsm1 },
+                { label: "DSM 2", value: dsm2 },
+                { label: "SEC", value: sec },
+                { label: "IDC", value: idc },
+                { label: "AEC", value: aec },
+                { label: "VAC", value: vac },
+              ].map(({ label, value }) => (
+                <div key={label} className="flex justify-between gap-2">
+                  <span style={{ color: "var(--color-text-muted)" }}>
+                    {label}
+                  </span>
+                  <span className="font-medium">{value || "—"}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+    }
+  }
+
+  return (
+    <div
+      className="confirm-modal-backdrop"
+      aria-hidden="true"
+      onClick={() => onClose(false)}
+    >
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={TITLE_ID}
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: "var(--color-surface)",
+          border: "2px solid var(--color-primary)",
+          borderRadius: "var(--radius-lg)",
+          padding: "1.5rem",
+          maxWidth: 560,
+          width: "100%",
+          maxHeight: "90vh",
+          overflowY: "auto",
+          boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
+        }}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between gap-3 mb-4">
+          <div>
+            <h2
+              id={TITLE_ID}
+              className="text-lg font-bold"
+              style={{ color: "var(--color-primary)" }}
+            >
+              Course Selection Setup
+            </h2>
+            <p
+              className="text-xs mt-0.5"
+              style={{ color: "var(--color-text-muted)" }}
+            >
+              Step {step + 1} of {STEPS.length} — {STEPS[step]}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => onClose(false)}
+            className="shrink-0 rounded-full p-1 transition-opacity hover:opacity-70"
+            aria-label="Close"
+            style={{ color: "var(--color-text-muted)" }}
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Step indicator */}
+        <div className="flex gap-1.5 mb-5">
+          {STEPS.map((label, i) => (
+            <div
+              key={label}
+              className="flex-1 h-1.5 rounded-full transition-colors"
+              style={{
+                background:
+                  i < step
+                    ? "var(--color-primary)"
+                    : i === step
+                      ? "var(--nav-teal)"
+                      : "var(--color-border)",
+              }}
+              aria-hidden="true"
+            />
+          ))}
+        </div>
+
+        {/* Step content */}
+        {renderStep()}
+
+        {/* Navigation */}
+        <div className="mt-5 flex items-center justify-between gap-3">
+          {step > 0 ? (
+            <button
+              type="button"
+              onClick={() => setStep((s) => (s - 1) as Step)}
+              className="btn text-sm px-4 py-2"
+            >
+              ← Back
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => onClose(false)}
+              className="btn text-sm px-4 py-2"
+            >
+              Skip for now
+            </button>
+          )}
+
+          {step < STEPS.length - 1 ? (
+            <button
+              type="button"
+              onClick={() => setStep((s) => (s + 1) as Step)}
+              disabled={!canAdvance()}
+              className="btn-primary text-sm px-5 py-2 disabled:opacity-40"
+            >
+              Next →
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={!canAdvance()}
+              className="btn-primary text-sm px-5 py-2 disabled:opacity-40"
+            >
+              Save My Courses
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 interface CourseSelectionModalProps {
   open: boolean;

@@ -269,7 +269,9 @@ export default function BrowseClient({
               🎓 My Courses:
             </span>
             <span className="text-xs truncate" style={{ color: "var(--color-text-muted)" }}>
-              DSC: {coursePrefs.dsc} · DSM: {coursePrefs.dsm1}, {coursePrefs.dsm2} · IDC: {coursePrefs.idc}
+              DSC: {coursePrefs.dsc} · DSM: {coursePrefs.dsm1}, {coursePrefs.dsm2}
+              {coursePrefs.sec ? ` · SEC: ${coursePrefs.sec}` : ""}
+              {coursePrefs.idc ? ` · IDC: ${coursePrefs.idc}` : ""}
             </span>
           </div>
           <button
@@ -287,107 +289,109 @@ export default function BrowseClient({
         </div>
       )}
 
-      {/* Filter chips — semi-transparent, interactive */}
-      <div className="mt-4 space-y-2">
-        {/* University filter */}
-        {universities.length > 1 && (
-          <div className="flex flex-wrap gap-1.5">
-            <span className="text-[10px] uppercase tracking-wider font-semibold self-center mr-1" style={{ color: "var(--color-text-muted)" }}>University</span>
-            <button
-              type="button"
-              onClick={() => setActiveUniversity(null)}
-              className={`filter-chip${activeUniversity === null ? " active" : ""}`}
-            >
-              All
-            </button>
-            {universities.map((u) => (
+      {/* Filter chips — hidden when "My Courses" filter is active */}
+      {!myCoursesActive && (
+        <div className="mt-4 space-y-2">
+          {/* University filter */}
+          {universities.length > 1 && (
+            <div className="flex flex-wrap gap-1.5">
+              <span className="text-[10px] uppercase tracking-wider font-semibold self-center mr-1" style={{ color: "var(--color-text-muted)" }}>University</span>
               <button
-                key={u}
                 type="button"
-                onClick={() => setActiveUniversity(activeUniversity === u ? null : u)}
-                className={`filter-chip${activeUniversity === u ? " active" : ""}`}
+                onClick={() => setActiveUniversity(null)}
+                className={`filter-chip${activeUniversity === null ? " active" : ""}`}
               >
-                {u}
+                All
               </button>
-            ))}
-          </div>
-        )}
-
-        {/* Programme filter */}
-        <div className="flex flex-wrap gap-1.5">
-          <span className="text-[10px] uppercase tracking-wider font-semibold self-center mr-1" style={{ color: "var(--color-text-muted)" }}>Stream</span>
-          {PROGRAMMES.map((p) => (
-            <button
-              key={p}
-              type="button"
-              onClick={() => { setActiveProgramme(p); setActivePaperType(null); }}
-              className={`filter-chip${activeProgramme === p ? " active" : ""}`}
-            >
-              {p}
-            </button>
-          ))}
-        </div>
-
-        {/* Paper type filter chips */}
-        {availablePaperTypes.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            <span className="text-[10px] uppercase tracking-wider font-semibold self-center mr-1" style={{ color: "var(--color-text-muted)" }}>Category</span>
-            {availablePaperTypes.map((pt) => {
-              const colors = PAPER_TYPE_COLORS[pt];
-              const isActive = activePaperType === pt;
-              return (
+              {universities.map((u) => (
                 <button
-                  key={pt}
+                  key={u}
                   type="button"
-                  onClick={() => setActivePaperType(isActive ? null : pt)}
-                  className={`filter-chip${isActive ? " active" : ""}`}
-                  style={
-                    isActive && colors
-                      ? { borderColor: colors.text, color: colors.text, background: colors.bg }
-                      : undefined
-                  }
+                  onClick={() => setActiveUniversity(activeUniversity === u ? null : u)}
+                  className={`filter-chip${activeUniversity === u ? " active" : ""}`}
                 >
-                  {pt}
+                  {u}
                 </button>
-              );
-            })}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
 
-        {/* Stream filter */}
-        {streams.length > 0 && (
+          {/* Programme filter */}
           <div className="flex flex-wrap gap-1.5">
-            <span className="text-[10px] uppercase tracking-wider font-semibold self-center mr-1" style={{ color: "var(--color-text-muted)" }}>Dept</span>
-            {streams.map((s) => (
+            <span className="text-[10px] uppercase tracking-wider font-semibold self-center mr-1" style={{ color: "var(--color-text-muted)" }}>Stream</span>
+            {PROGRAMMES.map((p) => (
               <button
-                key={s}
+                key={p}
                 type="button"
-                onClick={() => setActiveStream(activeStream === s ? null : s)}
-                className={`filter-chip${activeStream === s ? " active" : ""}`}
+                onClick={() => { setActiveProgramme(p); setActivePaperType(null); }}
+                className={`filter-chip${activeProgramme === p ? " active" : ""}`}
               >
-                {s}
+                {p}
               </button>
             ))}
           </div>
-        )}
 
-        {/* Year filter */}
-        {years.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            <span className="text-[10px] uppercase tracking-wider font-semibold self-center mr-1" style={{ color: "var(--color-text-muted)" }}>Year</span>
-            {years.map((y) => (
-              <button
-                key={y}
-                type="button"
-                onClick={() => setActiveYear(activeYear === y ? null : y)}
-                className={`filter-chip${activeYear === y ? " active" : ""}`}
-              >
-                {y}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+          {/* Paper type filter chips */}
+          {availablePaperTypes.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              <span className="text-[10px] uppercase tracking-wider font-semibold self-center mr-1" style={{ color: "var(--color-text-muted)" }}>Category</span>
+              {availablePaperTypes.map((pt) => {
+                const colors = PAPER_TYPE_COLORS[pt];
+                const isActive = activePaperType === pt;
+                return (
+                  <button
+                    key={pt}
+                    type="button"
+                    onClick={() => setActivePaperType(isActive ? null : pt)}
+                    className={`filter-chip${isActive ? " active" : ""}`}
+                    style={
+                      isActive && colors
+                        ? { borderColor: colors.text, color: colors.text, background: colors.bg }
+                        : undefined
+                    }
+                  >
+                    {pt}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Stream filter */}
+          {streams.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              <span className="text-[10px] uppercase tracking-wider font-semibold self-center mr-1" style={{ color: "var(--color-text-muted)" }}>Dept</span>
+              {streams.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setActiveStream(activeStream === s ? null : s)}
+                  className={`filter-chip${activeStream === s ? " active" : ""}`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Year filter */}
+          {years.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              <span className="text-[10px] uppercase tracking-wider font-semibold self-center mr-1" style={{ color: "var(--color-text-muted)" }}>Year</span>
+              {years.map((y) => (
+                <button
+                  key={y}
+                  type="button"
+                  onClick={() => setActiveYear(activeYear === y ? null : y)}
+                  className={`filter-chip${activeYear === y ? " active" : ""}`}
+                >
+                  {y}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <p className="mt-3 text-xs" style={{ color: "var(--color-text-muted)" }}>
         {filtered.length} paper{filtered.length !== 1 ? "s" : ""} found

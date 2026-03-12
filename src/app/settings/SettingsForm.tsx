@@ -187,11 +187,10 @@ export default function SettingsForm({ user }: SettingsFormProps) {
         {coursePrefs ? (
           <div className="mt-4 space-y-2 text-sm">
             {[
-              { label: "Cluster", value: coursePrefs.cluster },
               { label: "DSC", value: coursePrefs.dsc },
               { label: "DSM 1", value: coursePrefs.dsm1 },
               { label: "DSM 2", value: coursePrefs.dsm2 },
-              { label: "IDC Basket", value: coursePrefs.idcBasket },
+              { label: "SEC", value: coursePrefs.sec },
               { label: "IDC", value: coursePrefs.idc },
               { label: "AEC", value: coursePrefs.aec },
               { label: "VAC", value: coursePrefs.vac },

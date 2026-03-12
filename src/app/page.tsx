@@ -278,7 +278,7 @@ export default async function HomePage() {
               <strong>Sign up to view past exam papers, syllabi, and other free resources.</strong>
               {" "}Contributed by students, verified by our team.
               Starting with{" "}
-              <span style={{ color: "var(--color-primary)", fontWeight: 600 }}>Assam University</span>.
+              <span style={{ color: "var(--color-primary)", fontWeight: 600 }}>Haflong Government College</span>.
             </p>
 
             {/* Visitor tracker (records visit silently, shows running count) */}
