@@ -74,9 +74,17 @@ export default function BrowseClient({
     return () => clearTimeout(timer);
   }, []);
 
-  // Load course preferences from localStorage
+  // Load course preferences from localStorage and keep in sync with changes
   useEffect(() => {
     setCoursePrefs(loadCoursePrefs());
+
+    function handleStorage(e: StorageEvent) {
+      if (e.key === "ea_course_prefs") {
+        setCoursePrefs(loadCoursePrefs());
+      }
+    }
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
   }, []);
 
   const enrolledSubjects = useMemo(

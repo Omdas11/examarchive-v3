@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import type { Syllabus } from "@/types";
@@ -190,8 +190,19 @@ function PaperLibrary() {
   const [filterSubject, setFilterSubject] = useState<string>("ALL");
   const [sortKey, setSortKey] = useState<SortKey>("semester");
   const [myCoursesActive, setMyCoursesActive] = useState(false);
+  const [coursePrefs, setCoursePrefs] = useState(() => loadCoursePrefs());
 
-  const coursePrefs = useMemo(() => loadCoursePrefs(), []);
+  // Keep course prefs in sync when localStorage changes (e.g. from Settings page)
+  useEffect(() => {
+    function handleStorage(e: StorageEvent) {
+      if (e.key === "ea_course_prefs") {
+        setCoursePrefs(loadCoursePrefs());
+      }
+    }
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
+
   const enrolledSubjects = useMemo(
     () => (coursePrefs ? getEnrolledSubjects(coursePrefs) : []),
     [coursePrefs],
