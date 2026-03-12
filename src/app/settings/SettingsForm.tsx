@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { signOut } from "@/app/auth/actions";
 import type { UserProfile } from "@/types";
+import CourseSelector from "@/components/CourseSelector";
 
 interface SettingsFormProps {
   user: UserProfile;
@@ -188,6 +189,15 @@ export default function SettingsForm({ user }: SettingsFormProps) {
             .
           </p>
         </div>
+      </div>
+
+      {/* My Course */}
+      <div className="card p-6">
+        <h2 className="text-lg font-semibold">My Course</h2>
+        <p className="text-xs mt-1 mb-4" style={{ color: "var(--color-text-muted)" }}>
+          Set your programme and semester to personalise the Syllabus section with papers relevant to your course.
+        </p>
+        <CourseSelector />
       </div>
     </div>
   );

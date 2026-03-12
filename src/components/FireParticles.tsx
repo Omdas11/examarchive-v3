@@ -39,13 +39,13 @@ export default function FireParticles() {
   const [particles, setParticles] = useState<Particle[]>([]);
 
   useEffect(() => {
-    const generated: Particle[] = Array.from({ length: 28 }, (_, i) => ({
+    const generated: Particle[] = Array.from({ length: 15 }, (_, i) => ({
       id: i,
       // spread across full width, avoiding edges
       left: 3 + seeded(i + 1, 94),
       delay: (seeded(i + 7, 40)) / 10,          // 0 – 4s
       duration: 2.5 + (seeded(i + 13, 25)) / 10, // 2.5 – 5s
-      size: 5 + seeded(i + 3, 14),               // 5 – 18px
+      size: 3 + seeded(i + 3, 7),               // 3 – 9px (subtle)
       color: FIRE_COLORS[seeded(i + 5, FIRE_COLORS.length)],
       drift: (seeded(i + 9, 60)) - 30,           // -30 – +30px horizontal drift
     }));

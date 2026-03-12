@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import type { Syllabus } from "@/types";
@@ -8,6 +8,7 @@ import { toRoman } from "@/lib/utils";
 import { SYLLABUS_REGISTRY, groupBySemester, getAllUniversities } from "@/data/syllabus-registry";
 import type { SyllabusRegistryEntry } from "@/data/syllabus-registry";
 import { PAPER_TYPE_COLORS } from "@/components/PaperCard";
+import { COURSE_PREF_KEY, type CoursePref } from "@/components/CourseSelector";
 
 type Tab = "pdfs" | "library";
 
@@ -182,12 +183,18 @@ function programmeBadgeStyle(programme?: string): CSSProperties {
 
 
 /** Tab 2: Paper Syllabus Library from the registry. */
-function PaperLibrary() {
+function PaperLibrary({ initialPref }: { initialPref?: CoursePref | null }) {
+  const initialProg = initialPref?.programme ?? "ALL";
+  const initialCat = initialPref?.category ?? "ALL";
+
   const [filterUniversity, setFilterUniversity] = useState<string>("ALL");
-  const [filterProg, setFilterProg] = useState<string>("ALL");
-  const [filterCategory, setFilterCategory] = useState<string>("ALL");
+  const [filterProg, setFilterProg] = useState<string>(initialProg);
+  const [filterCategory, setFilterCategory] = useState<string>(initialCat);
   const [filterSubject, setFilterSubject] = useState<string>("ALL");
   const [sortKey, setSortKey] = useState<SortKey>("semester");
+  const [courseFilterActive, setCourseFilterActive] = useState<boolean>(
+    !!(initialPref?.programme && initialPref.programme !== "ALL"),
+  );
 
   const universities = ["ALL", ...getAllUniversities()];
   const programmes = useMemo(() => ["ALL", ...Array.from(new Set(
@@ -278,6 +285,38 @@ function PaperLibrary() {
 
   return (
     <div className="mt-6 space-y-4">
+
+      {/* Course-filter active banner */}
+      {courseFilterActive && (
+        <div
+          className="rounded-lg px-4 py-3 flex flex-wrap items-center justify-between gap-2"
+          style={{
+            background: "color-mix(in srgb, var(--nav-teal) 8%, var(--color-surface))",
+            border: "1px solid color-mix(in srgb, var(--nav-teal) 25%, transparent)",
+          }}
+        >
+          <p className="text-xs font-medium" style={{ color: "var(--nav-teal)" }}>
+            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" className="inline mr-1 align-middle" aria-hidden="true">
+              <path d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Filtered by your course:{" "}
+            <strong>{filterProg !== "ALL" ? filterProg : ""}</strong>
+            {filterCategory !== "ALL" ? ` · ${filterCategory}` : ""}
+          </p>
+          <button
+            type="button"
+            className="text-xs underline"
+            style={{ color: "var(--color-text-muted)" }}
+            onClick={() => {
+              setCourseFilterActive(false);
+              setFilterProg("ALL");
+              setFilterCategory("ALL");
+            }}
+          >
+            Clear course filter
+          </button>
+        </div>
+      )}
       {/* University filter */}
       {universities.length > 2 && (
         <div className="flex flex-wrap gap-1">
@@ -553,6 +592,17 @@ function PaperTable({
 export default function SyllabusClient({ syllabi, isAdmin }: SyllabusClientProps) {
   const [activeTab, setActiveTab] = useState<Tab>("pdfs");
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
+  const [coursePref, setCoursePref] = useState<CoursePref | null>(null);
+
+  // Load course preference from localStorage (client-only)
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(COURSE_PREF_KEY);
+      if (stored) setCoursePref(JSON.parse(stored) as CoursePref);
+    } catch {
+      // ignore parse errors
+    }
+  }, []);
 
   const visibleSyllabi = syllabi.filter((s) => !hiddenIds.has(s.id));
 
@@ -720,7 +770,7 @@ export default function SyllabusClient({ syllabi, isAdmin }: SyllabusClientProps
 
       {activeTab === "library" && (
         <div role="tabpanel" aria-label="Paper Syllabus Library">
-          <PaperLibrary />
+          <PaperLibrary initialPref={coursePref} />
         </div>
       )}
     </div>
