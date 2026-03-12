@@ -29,6 +29,19 @@ export const COLLECTION = {
   uploads: "uploads",
   activity_logs: "activity_logs",
   achievements: "achievements",
+  /**
+   * Site-wide analytics / metrics.
+   * Stores a single document (ID = "singleton") with fields:
+   *   visitor_count (integer), launch_progress (integer 0-100)
+   * Create this collection manually in the Appwrite console with those attributes.
+   */
+  site_metrics: "site_metrics",
+  /**
+   * User-submitted feedback / testimonials.
+   * Each document has: name (string), university (string), text (string), approved (boolean)
+   * Create this collection manually in the Appwrite console.
+   */
+  feedback: "feedback",
 } as const;
 
 /** Storage bucket for uploaded PDFs and files. */

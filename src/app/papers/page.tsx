@@ -50,17 +50,30 @@ export default function PapersPage() {
       <div className="mt-12 grid gap-4 sm:grid-cols-3 max-w-2xl mx-auto text-left">
         {[
           {
-            icon: "🔍",
+            icon: (
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="11" cy="11" r="8"/>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+            ),
             title: "Smart Search",
             desc: "AI-powered search across all papers, syllabi, and topics.",
           },
           {
-            icon: "📁",
+            icon: (
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+              </svg>
+            ),
             title: "Course Catalog",
             desc: "Browse papers organised by course, department, and year.",
           },
           {
-            icon: "⭐",
+            icon: (
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+              </svg>
+            ),
             title: "Bookmarks",
             desc: "Save and organise papers for quick access later.",
           },
@@ -69,7 +82,7 @@ export default function PapersPage() {
             key={f.title}
             className="card p-4"
           >
-            <p className="text-2xl mb-2">{f.icon}</p>
+            <div className="mb-2" style={{ color: "var(--color-primary)" }}>{f.icon}</div>
             <h3 className="text-sm font-semibold">{f.title}</h3>
             <p className="mt-1 text-xs" style={{ color: "var(--color-text-muted)" }}>{f.desc}</p>
           </div>
