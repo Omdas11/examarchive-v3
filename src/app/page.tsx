@@ -21,7 +21,7 @@ import type { Paper } from "@/types";
 export const metadata: Metadata = {
   title: "ExamArchive – Free Past Exam Papers & Syllabi · Early Access",
   description:
-    "Sign up to view free past exam question papers and syllabi for Assam University. Starting with Assam University — community archive for students, verified by our team.",
+    "Sign up to view free past exam question papers and syllabi. Starting with Haflong Government College — community archive for students, verified by our team.",
   keywords: [
     "ExamArchive",
     "exam papers",
@@ -30,6 +30,7 @@ export const metadata: Metadata = {
     "notes",
     "syllabus",
     "exam",
+    "Haflong Government College",
     "Assam University",
     "Gauhati University",
     "free exam papers",
@@ -41,7 +42,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "ExamArchive – Free Past Exam Papers & Syllabi · Early Access",
     description:
-      "Sign up to view free past exam papers and syllabi for Assam University. Community-driven, verified archive.",
+      "Sign up to view free past exam papers and syllabi. Starting with Haflong Government College — community-driven, verified archive.",
     url: "https://examarchive.dev",
     type: "website",
   },
@@ -278,7 +279,7 @@ export default async function HomePage() {
               <strong>Sign up to view past exam papers, syllabi, and other free resources.</strong>
               {" "}Contributed by students, verified by our team.
               Starting with{" "}
-              <span style={{ color: "var(--color-primary)", fontWeight: 600 }}>Assam University</span>.
+              <span style={{ color: "var(--color-primary)", fontWeight: 600 }}>Haflong Government College</span>.
             </p>
 
             {/* Visitor tracker (records visit silently, shows running count) */}

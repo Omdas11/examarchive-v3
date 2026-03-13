@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { UserProfile } from "@/types";
+import ProfileCoursePrefs from "@/components/ProfileCoursePrefs";
 
 /* SVG icons for sidebar nav items */
 const icons = {
@@ -110,6 +111,10 @@ export default function Sidebar({ user }: SidebarProps) {
           <Link href="/profile" className={isActive("/profile") ? "active" : ""}>
             {icons.profile} Profile
           </Link>
+          {/* My Courses compact widget */}
+          <div className="mt-2 px-1">
+            <ProfileCoursePrefs compact />
+          </div>
         </>
       )}
 

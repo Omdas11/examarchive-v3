@@ -59,7 +59,7 @@ export default function DevProgressBar({ progress = DEFAULT_LAUNCH_PROGRESS }: D
 
       <p className="text-xs mt-1.5" style={{ color: "var(--color-text-muted)" }}>
         {clamped}% towards soft launch · Starting with{" "}
-        <span style={{ color: "var(--color-primary)", fontWeight: 600 }}>Assam University</span>
+        <span style={{ color: "var(--color-primary)", fontWeight: 600 }}>Haflong Government College</span>
       </p>
     </div>
   );

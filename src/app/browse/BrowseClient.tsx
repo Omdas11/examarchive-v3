@@ -7,6 +7,12 @@ import CustomSelect from "@/components/CustomSelect";
 import Breadcrumb from "@/components/Breadcrumb";
 import { SkeletonGrid } from "@/components/SkeletonCard";
 import type { Paper } from "@/types";
+import {
+  COURSE_PREFS_UPDATED_EVENT,
+  loadCoursePrefs,
+  matchesCoursePreferenceSelection,
+  type CoursePreferences,
+} from "@/data/course-selection-data";
 
 interface BrowseClientProps {
   initialPapers: Paper[];
@@ -59,6 +65,8 @@ export default function BrowseClient({
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState<string | null>(null);
   const [showSkeleton, setShowSkeleton] = useState(true);
+  const [coursePrefs, setCoursePrefs] = useState<CoursePreferences | null>(null);
+  const [myCoursesActive, setMyCoursesActive] = useState(false);
 
   // Simulate initial skeleton loading — no mountedRef guard so this works
   // correctly under React Strict Mode's double-invoke of effects.
@@ -67,20 +75,54 @@ export default function BrowseClient({
     return () => clearTimeout(timer);
   }, []);
 
+  // Load course preferences from localStorage and keep in sync with changes
+  useEffect(() => {
+    setCoursePrefs(loadCoursePrefs());
+
+    function handleStorage(e: StorageEvent) {
+      if (e.key === "ea_course_prefs") {
+        setCoursePrefs(loadCoursePrefs());
+      }
+    }
+    function handleCoursePrefsUpdated() {
+      setCoursePrefs(loadCoursePrefs());
+    }
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener(COURSE_PREFS_UPDATED_EVENT, handleCoursePrefsUpdated);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener(COURSE_PREFS_UPDATED_EVENT, handleCoursePrefsUpdated);
+    };
+  }, []);
+
   const filtered = useMemo(() => {
     let list = initialPapers.filter((p) => !hiddenIds.has(p.id));
+
+    // "My Courses" filter — show only papers matching the saved subject for the paper type
+    if (myCoursesActive && coursePrefs) {
+      list = list.filter(
+        (p) =>
+          matchesCoursePreferenceSelection({
+            prefs: coursePrefs,
+            category: p.paper_type,
+            fallbackCode: p.course_code,
+            subjectFields: [p.department, p.course_name],
+            valueFields: [p.title, p.course_name, p.course_code],
+          }),
+      );
+    }
 
     if (debouncedSearch.trim()) {
       const q = debouncedSearch.toLowerCase();
       list = list.filter(
         (p) =>
-          p.title.toLowerCase().includes(q) ||
+          (p.title ?? "").toLowerCase().includes(q) ||
           (p.course_code ?? "").toLowerCase().includes(q) ||
           p.course_name.toLowerCase().includes(q),
       );
     }
 
-    if (activeProgramme !== "ALL") {
+    if (!myCoursesActive && activeProgramme !== "ALL") {
       if (activeProgramme === "Other") {
         list = list.filter(
           (p) => !p.programme || (p.programme !== "FYUGP" && p.programme !== "CBCS"),
@@ -90,11 +132,11 @@ export default function BrowseClient({
       }
     }
 
-    if (activePaperType) {
+    if (!myCoursesActive && activePaperType) {
       list = list.filter((p) => p.paper_type === activePaperType);
     }
 
-    if (activeStream) {
+    if (!myCoursesActive && activeStream) {
       list = list.filter(
         (p) =>
           p.department.toUpperCase().includes(activeStream) ||
@@ -102,11 +144,11 @@ export default function BrowseClient({
       );
     }
 
-    if (activeYear) {
+    if (!myCoursesActive && activeYear) {
       list = list.filter((p) => p.year === activeYear);
     }
 
-    if (activeUniversity) {
+    if (!myCoursesActive && activeUniversity) {
       list = list.filter((p) => p.institution === activeUniversity);
     }
 
@@ -130,7 +172,7 @@ export default function BrowseClient({
     }
 
     return list;
-  }, [initialPapers, hiddenIds, debouncedSearch, activeProgramme, activePaperType, activeStream, activeYear, activeUniversity, sortKey]);
+  }, [initialPapers, hiddenIds, debouncedSearch, activeProgramme, activePaperType, activeStream, activeYear, activeUniversity, sortKey, myCoursesActive, coursePrefs]);
 
   const handleSoftDelete = useCallback(async (paperId: string) => {
     if (!confirm("Hide this paper from Browse? It can be restored from the admin panel.")) return;
@@ -212,107 +254,147 @@ export default function BrowseClient({
         />
       </div>
 
-      {/* Filter chips — semi-transparent, interactive */}
-      <div className="mt-4 space-y-2">
-        {/* University filter */}
-        {universities.length > 1 && (
-          <div className="flex flex-wrap gap-1.5">
-            <span className="text-[10px] uppercase tracking-wider font-semibold self-center mr-1" style={{ color: "var(--color-text-muted)" }}>University</span>
-            <button
-              type="button"
-              onClick={() => setActiveUniversity(null)}
-              className={`filter-chip${activeUniversity === null ? " active" : ""}`}
+      {/* My Courses banner — shown when course prefs are set */}
+      {coursePrefs && (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg px-3 py-2"
+          style={{
+            background: myCoursesActive
+              ? "color-mix(in srgb, var(--nav-teal) 10%, var(--color-surface))"
+              : "color-mix(in srgb, var(--color-border) 30%, var(--color-surface))",
+            border: `1px solid ${myCoursesActive ? "var(--nav-teal)" : "var(--color-border)"}`,
+          }}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <span
+              className="text-xs font-semibold"
+              style={{ color: myCoursesActive ? "var(--nav-teal)" : "var(--color-text-muted)" }}
             >
-              All
-            </button>
-            {universities.map((u) => (
-              <button
-                key={u}
-                type="button"
-                onClick={() => setActiveUniversity(activeUniversity === u ? null : u)}
-                className={`filter-chip${activeUniversity === u ? " active" : ""}`}
-              >
-                {u}
-              </button>
-            ))}
+              🎓 My Courses:
+            </span>
+            <span className="text-xs truncate" style={{ color: "var(--color-text-muted)" }}>
+              DSC: {coursePrefs.dsc} · DSM: {coursePrefs.dsm1}, {coursePrefs.dsm2}
+              {coursePrefs.sec ? ` · SEC: ${coursePrefs.sec}` : ""}
+              {coursePrefs.idc ? ` · IDC: ${coursePrefs.idc}` : ""}
+            </span>
           </div>
-        )}
-
-        {/* Programme filter */}
-        <div className="flex flex-wrap gap-1.5">
-          <span className="text-[10px] uppercase tracking-wider font-semibold self-center mr-1" style={{ color: "var(--color-text-muted)" }}>Stream</span>
-          {PROGRAMMES.map((p) => (
-            <button
-              key={p}
-              type="button"
-              onClick={() => { setActiveProgramme(p); setActivePaperType(null); }}
-              className={`filter-chip${activeProgramme === p ? " active" : ""}`}
-            >
-              {p}
-            </button>
-          ))}
+          <button
+            type="button"
+            onClick={() => setMyCoursesActive((v) => !v)}
+            className="shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-colors"
+            style={{
+              background: myCoursesActive ? "var(--nav-teal)" : "transparent",
+              color: myCoursesActive ? "#fff" : "var(--nav-teal)",
+              border: "1.5px solid var(--nav-teal)",
+            }}
+          >
+            {myCoursesActive ? "✓ Filtered" : "Filter by my courses"}
+          </button>
         </div>
+      )}
 
-        {/* Paper type filter chips */}
-        {availablePaperTypes.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            <span className="text-[10px] uppercase tracking-wider font-semibold self-center mr-1" style={{ color: "var(--color-text-muted)" }}>Category</span>
-            {availablePaperTypes.map((pt) => {
-              const colors = PAPER_TYPE_COLORS[pt];
-              const isActive = activePaperType === pt;
-              return (
+      {/* Filter chips — hidden when "My Courses" filter is active */}
+      {!myCoursesActive && (
+        <div className="mt-4 space-y-2">
+          {/* University filter */}
+          {universities.length > 1 && (
+            <div className="flex flex-wrap gap-1.5">
+              <span className="text-[10px] uppercase tracking-wider font-semibold self-center mr-1" style={{ color: "var(--color-text-muted)" }}>University</span>
+              <button
+                type="button"
+                onClick={() => setActiveUniversity(null)}
+                className={`filter-chip${activeUniversity === null ? " active" : ""}`}
+              >
+                All
+              </button>
+              {universities.map((u) => (
                 <button
-                  key={pt}
+                  key={u}
                   type="button"
-                  onClick={() => setActivePaperType(isActive ? null : pt)}
-                  className={`filter-chip${isActive ? " active" : ""}`}
-                  style={
-                    isActive && colors
-                      ? { borderColor: colors.text, color: colors.text, background: colors.bg }
-                      : undefined
-                  }
+                  onClick={() => setActiveUniversity(activeUniversity === u ? null : u)}
+                  className={`filter-chip${activeUniversity === u ? " active" : ""}`}
                 >
-                  {pt}
+                  {u}
                 </button>
-              );
-            })}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
 
-        {/* Stream filter */}
-        {streams.length > 0 && (
+          {/* Programme filter */}
           <div className="flex flex-wrap gap-1.5">
-            <span className="text-[10px] uppercase tracking-wider font-semibold self-center mr-1" style={{ color: "var(--color-text-muted)" }}>Dept</span>
-            {streams.map((s) => (
+            <span className="text-[10px] uppercase tracking-wider font-semibold self-center mr-1" style={{ color: "var(--color-text-muted)" }}>Stream</span>
+            {PROGRAMMES.map((p) => (
               <button
-                key={s}
+                key={p}
                 type="button"
-                onClick={() => setActiveStream(activeStream === s ? null : s)}
-                className={`filter-chip${activeStream === s ? " active" : ""}`}
+                onClick={() => { setActiveProgramme(p); setActivePaperType(null); }}
+                className={`filter-chip${activeProgramme === p ? " active" : ""}`}
               >
-                {s}
+                {p}
               </button>
             ))}
           </div>
-        )}
 
-        {/* Year filter */}
-        {years.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            <span className="text-[10px] uppercase tracking-wider font-semibold self-center mr-1" style={{ color: "var(--color-text-muted)" }}>Year</span>
-            {years.map((y) => (
-              <button
-                key={y}
-                type="button"
-                onClick={() => setActiveYear(activeYear === y ? null : y)}
-                className={`filter-chip${activeYear === y ? " active" : ""}`}
-              >
-                {y}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+          {/* Paper type filter chips */}
+          {availablePaperTypes.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              <span className="text-[10px] uppercase tracking-wider font-semibold self-center mr-1" style={{ color: "var(--color-text-muted)" }}>Category</span>
+              {availablePaperTypes.map((pt) => {
+                const colors = PAPER_TYPE_COLORS[pt];
+                const isActive = activePaperType === pt;
+                return (
+                  <button
+                    key={pt}
+                    type="button"
+                    onClick={() => setActivePaperType(isActive ? null : pt)}
+                    className={`filter-chip${isActive ? " active" : ""}`}
+                    style={
+                      isActive && colors
+                        ? { borderColor: colors.text, color: colors.text, background: colors.bg }
+                        : undefined
+                    }
+                  >
+                    {pt}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Stream filter */}
+          {streams.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              <span className="text-[10px] uppercase tracking-wider font-semibold self-center mr-1" style={{ color: "var(--color-text-muted)" }}>Dept</span>
+              {streams.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setActiveStream(activeStream === s ? null : s)}
+                  className={`filter-chip${activeStream === s ? " active" : ""}`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Year filter */}
+          {years.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              <span className="text-[10px] uppercase tracking-wider font-semibold self-center mr-1" style={{ color: "var(--color-text-muted)" }}>Year</span>
+              {years.map((y) => (
+                <button
+                  key={y}
+                  type="button"
+                  onClick={() => setActiveYear(activeYear === y ? null : y)}
+                  className={`filter-chip${activeYear === y ? " active" : ""}`}
+                >
+                  {y}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <p className="mt-3 text-xs" style={{ color: "var(--color-text-muted)" }}>
         {filtered.length} paper{filtered.length !== 1 ? "s" : ""} found

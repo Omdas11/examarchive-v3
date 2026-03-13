@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import type { Syllabus } from "@/types";
@@ -8,6 +8,11 @@ import { toRoman } from "@/lib/utils";
 import { SYLLABUS_REGISTRY, groupBySemester, getAllUniversities } from "@/data/syllabus-registry";
 import type { SyllabusRegistryEntry } from "@/data/syllabus-registry";
 import { PAPER_TYPE_COLORS } from "@/components/PaperCard";
+import {
+  COURSE_PREFS_UPDATED_EVENT,
+  loadCoursePrefs,
+  matchesCoursePreferenceSelection,
+} from "@/data/course-selection-data";
 
 type Tab = "pdfs" | "library";
 
@@ -188,6 +193,26 @@ function PaperLibrary() {
   const [filterCategory, setFilterCategory] = useState<string>("ALL");
   const [filterSubject, setFilterSubject] = useState<string>("ALL");
   const [sortKey, setSortKey] = useState<SortKey>("semester");
+  const [myCoursesActive, setMyCoursesActive] = useState(false);
+  const [coursePrefs, setCoursePrefs] = useState(() => loadCoursePrefs());
+
+  // Keep course prefs in sync when localStorage changes (e.g. from Settings page)
+  useEffect(() => {
+    function handleStorage(e: StorageEvent) {
+      if (e.key === "ea_course_prefs") {
+        setCoursePrefs(loadCoursePrefs());
+      }
+    }
+    function handleCoursePrefsUpdated() {
+      setCoursePrefs(loadCoursePrefs());
+    }
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener(COURSE_PREFS_UPDATED_EVENT, handleCoursePrefsUpdated);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener(COURSE_PREFS_UPDATED_EVENT, handleCoursePrefsUpdated);
+    };
+  }, []);
 
   const universities = ["ALL", ...getAllUniversities()];
   const programmes = useMemo(() => ["ALL", ...Array.from(new Set(
@@ -227,10 +252,24 @@ function PaperLibrary() {
 
   const filtered = useMemo(() => {
     const entries = SYLLABUS_REGISTRY.filter((e) => {
-      if (filterUniversity !== "ALL" && e.university !== filterUniversity) return false;
-      if (filterProg !== "ALL" && e.programme !== filterProg) return false;
-      if (filterCategory !== "ALL" && e.category !== filterCategory) return false;
-      if (filterSubject !== "ALL" && e.subject !== filterSubject) return false;
+      if (!myCoursesActive && filterUniversity !== "ALL" && e.university !== filterUniversity) return false;
+      if (!myCoursesActive && filterProg !== "ALL" && e.programme !== filterProg) return false;
+      if (!myCoursesActive && filterCategory !== "ALL" && e.category !== filterCategory) return false;
+      if (!myCoursesActive && filterSubject !== "ALL" && e.subject !== filterSubject) return false;
+      // My Courses filter — match selected subject against the correct category
+      if (myCoursesActive && coursePrefs) {
+        if (
+          !matchesCoursePreferenceSelection({
+            prefs: coursePrefs,
+            category: e.category,
+            fallbackCode: e.paper_code,
+            subjectFields: [e.subject],
+            valueFields: [e.paper_name, e.paper_code],
+          })
+        ) {
+          return false;
+        }
+      }
       return true;
     });
     return [...entries].sort((a, b) => {
@@ -242,7 +281,7 @@ function PaperLibrary() {
         default: return a.semester - b.semester;
       }
     });
-  }, [filterUniversity, filterProg, filterCategory, filterSubject, sortKey]);
+  }, [filterUniversity, filterProg, filterCategory, filterSubject, sortKey, myCoursesActive, coursePrefs]);
 
   // When grouping by subject, sort=semester still applies within each group.
   // Group: subject → semester → entries
@@ -278,6 +317,47 @@ function PaperLibrary() {
 
   return (
     <div className="mt-6 space-y-4">
+      {/* My Courses banner — shown when course prefs are set */}
+      {coursePrefs && (
+        <div
+          className="flex flex-wrap items-center justify-between gap-2 rounded-lg px-3 py-2"
+          style={{
+            background: myCoursesActive
+              ? "color-mix(in srgb, var(--nav-teal) 10%, var(--color-surface))"
+              : "color-mix(in srgb, var(--color-border) 30%, var(--color-surface))",
+            border: `1px solid ${myCoursesActive ? "var(--nav-teal)" : "var(--color-border)"}`,
+          }}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <span
+              className="text-xs font-semibold"
+              style={{ color: myCoursesActive ? "var(--nav-teal)" : "var(--color-text-muted)" }}
+            >
+              🎓 My Courses:
+            </span>
+            <span className="text-xs truncate" style={{ color: "var(--color-text-muted)" }}>
+              DSC: {coursePrefs.dsc} · DSM: {coursePrefs.dsm1}, {coursePrefs.dsm2}
+              {coursePrefs.sec ? ` · SEC: ${coursePrefs.sec}` : ""}
+              {coursePrefs.idc ? ` · IDC: ${coursePrefs.idc}` : ""}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setMyCoursesActive((v) => !v)}
+            className="shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-colors"
+            style={{
+              background: myCoursesActive ? "var(--nav-teal)" : "transparent",
+              color: myCoursesActive ? "#fff" : "var(--nav-teal)",
+              border: "1.5px solid var(--nav-teal)",
+            }}
+          >
+            {myCoursesActive ? "✓ Filtered" : "Filter by my courses"}
+          </button>
+        </div>
+      )}
+
+      {/* University, programme, category, subject filters — hidden when My Courses is active */}
+      {!myCoursesActive && (<>
       {/* University filter */}
       {universities.length > 2 && (
         <div className="flex flex-wrap gap-1">
@@ -347,6 +427,7 @@ function PaperLibrary() {
           ))}
         </div>
       )}
+      </>)}
 
       {/* Sort controls + count */}
       <div className="flex flex-wrap items-center justify-between gap-2">

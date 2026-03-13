@@ -40,7 +40,7 @@ export default function Footer() {
           <div className="flex flex-col gap-2">
             <h4 className="mb-1 text-sm font-semibold" style={{ color: "var(--color-text)" }}>Platform</h4>
             <span className="text-xs">
-              Currently in <strong>Early Access</strong> · Starting with Assam University
+              Currently in <strong>Early Access</strong> · Starting with Haflong Government College
             </span>
             <span className="text-xs">
               Community-driven · Admin-verified
@@ -104,4 +104,3 @@ export default function Footer() {
     </footer>
   );
 }
-

@@ -10,6 +10,7 @@ import ContributionHeatmap from "@/components/ContributionHeatmap";
 import Breadcrumb from "@/components/Breadcrumb";
 import ConfettiTrigger from "@/components/ConfettiTrigger";
 import XPBar from "@/components/XPBar";
+import ProfileCoursePrefs from "@/components/ProfileCoursePrefs";
 
 export const metadata: Metadata = {
   title: "Profile",
@@ -376,6 +377,9 @@ export default async function ProfilePage() {
           </div>
         </dl>
       </div>
+
+      {/* ── Course Selection ── */}
+      <ProfileCoursePrefs />
 
       {/* Sign out */}
       <form action={signOut}>
