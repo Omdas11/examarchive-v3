@@ -10,13 +10,14 @@ import DebugPanel from "@/components/DebugPanel";
 import { ToastProvider } from "@/components/ToastContext";
 import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 import CourseSetupWrapper from "@/components/CourseSetupWrapper";
+import AIBubble from "@/components/AIBubble";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/next";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://examarchive.dev";
 const SITE_NAME = "ExamArchive";
 const SITE_DESCRIPTION =
-  "Browse, search and download past exam papers. A community-driven archive for students.";
+  "Browse, download, and contribute past exam question papers and syllabi for Haflong Government College, Assam University, Gauhati University, and more. Free, community-driven academic archive for FYUGP and CBCS students.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -25,6 +26,22 @@ export const metadata: Metadata = {
     template: `%s | ${SITE_NAME}`,
   },
   description: SITE_DESCRIPTION,
+  keywords: [
+    "ExamArchive",
+    "exam papers",
+    "past papers",
+    "question papers",
+    "syllabus",
+    "Haflong Government College",
+    "Assam University",
+    "Gauhati University",
+    "FYUGP",
+    "CBCS",
+    "NEP",
+    "free exam papers",
+    "study materials",
+    "AI study summary",
+  ],
   alternates: {
     canonical: "/",
   },
@@ -32,7 +49,7 @@ export const metadata: Metadata = {
     type: "website",
     url: SITE_URL,
     siteName: SITE_NAME,
-    title: SITE_NAME,
+    title: `${SITE_NAME} – Free Past Exam Papers & Syllabi`,
     description: SITE_DESCRIPTION,
     images: [
       {
@@ -45,13 +62,20 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: SITE_NAME,
+    title: `${SITE_NAME} – Free Past Exam Papers & Syllabi`,
     description: SITE_DESCRIPTION,
     images: [`${SITE_URL}/og-image.png`],
   },
   robots: {
     index: true,
     follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-snippet": -1,
+      "max-image-preview": "large",
+      "max-video-preview": -1,
+    },
   },
 };
 
@@ -120,6 +144,7 @@ export default async function RootLayout({
             <BottomNav />
             <PWAInstallPrompt />
             <CourseSetupWrapper isLoggedIn={!!user} />
+            <AIBubble isLoggedIn={!!user} />
             {process.env.NODE_ENV !== "production" &&
               process.env.NEXT_PUBLIC_ENABLE_DEBUG_PANEL === "true" && (
                 <DebugPanel />

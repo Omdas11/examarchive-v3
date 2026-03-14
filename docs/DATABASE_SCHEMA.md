@@ -118,6 +118,49 @@ Per-user earned achievements / badges.
 
 ---
 
+## Collection: `site_metrics`
+
+Site-wide analytics singleton. Contains a single document with ID `"singleton"`.
+
+| Field              | Type    | Required | Notes                                         |
+|--------------------|---------|----------|-----------------------------------------------|
+| `visitor_count`    | Integer | **Yes**  | Total cumulative unique visitor count         |
+| `launch_progress`  | Integer | No       | Dev launch progress percentage (0–100)        |
+
+Create this collection in the Appwrite console, then create one document with ID `singleton`.
+
+---
+
+## Collection: `feedback`
+
+User-submitted testimonials displayed on the homepage.
+
+| Field        | Type    | Required | Notes                                          |
+|--------------|---------|----------|------------------------------------------------|
+| `name`       | String  | **Yes**  | Display name of the reviewer                   |
+| `university` | String  | No       | University or institution of the reviewer      |
+| `text`       | String  | **Yes**  | Testimonial body text                          |
+| `approved`   | Boolean | **Yes**  | `false` until an admin approves for display    |
+
+---
+
+## Collection: `ai_usage`
+
+Tracks daily AI-generated document events per user for rate-limiting.
+Each document represents one generation event. The daily limit is enforced by
+counting documents matching `(user_id, date)`.
+
+| Field     | Type   | Required | Notes                                                        |
+|-----------|--------|----------|--------------------------------------------------------------|
+| `user_id` | String | **Yes**  | Appwrite user ID of the requester                            |
+| `date`    | String | **Yes**  | Calendar date of the generation event (`YYYY-MM-DD` format)  |
+
+**Permissions:** only the server-side admin client writes to this collection.  
+**Daily limit:** 3 generations per `(user_id, date)`. Founder accounts are exempt.  
+**Index recommendation:** create an index on `(user_id, date)` for efficient quota queries.
+
+---
+
 ## Storage Buckets
 
 | Bucket ID        | Purpose                         | Max File Size | Access           |

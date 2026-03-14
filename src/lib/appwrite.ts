@@ -42,6 +42,14 @@ export const COLLECTION = {
    * Create this collection manually in the Appwrite console.
    */
   feedback: "feedback",
+  /**
+   * Tracks daily AI-generated PDF usage per user.
+   * Each document represents one generation event.
+   * Fields: user_id (string), date (string YYYY-MM-DD), count (integer).
+   * The compound key is (user_id + date) to enable efficient daily-limit queries.
+   * Create this collection in the Appwrite console with the attributes above.
+   */
+  ai_usage: "ai_usage",
 } as const;
 
 /** Storage bucket for uploaded PDFs and files. */
