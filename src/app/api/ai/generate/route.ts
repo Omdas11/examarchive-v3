@@ -66,9 +66,10 @@ export async function POST(request: NextRequest) {
   const todayStr = new Date().toISOString().slice(0, 10);
 
   // Enforce daily limit — founders are exempt
+  let usedBefore = 0;
   if (user.role !== "founder") {
-    const count = await getDailyCount(user.id, todayStr);
-    if (count >= DAILY_LIMIT) {
+    usedBefore = await getDailyCount(user.id, todayStr);
+    if (usedBefore >= DAILY_LIMIT) {
       return NextResponse.json(
         {
           error: `Daily limit of ${DAILY_LIMIT} AI-generated documents reached. Try again tomorrow.`,
@@ -112,19 +113,16 @@ Write in plain text with Markdown headings only (no HTML).`;
       await recordGeneration(user.id, todayStr);
     }
 
-    // Compute remaining quota
-    const usedAfter = user.role === "founder"
-      ? 0
-      : (await getDailyCount(user.id, todayStr));
+    // Compute remaining quota using the pre-fetched count (avoids a second DB query)
     const remaining = user.role === "founder"
-      ? Infinity
-      : Math.max(0, DAILY_LIMIT - usedAfter);
+      ? null
+      : Math.max(0, DAILY_LIMIT - (usedBefore + 1));
 
     return NextResponse.json({
       content,
       topic,
       generatedAt: new Date().toISOString(),
-      remaining: remaining === Infinity ? null : remaining,
+      remaining,
     });
   } catch (err) {
     console.error("[AI generate] Gemini error:", err);

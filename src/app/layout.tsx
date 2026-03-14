@@ -17,7 +17,7 @@ import { Analytics } from "@vercel/analytics/next";
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://examarchive.dev";
 const SITE_NAME = "ExamArchive";
 const SITE_DESCRIPTION =
-  "Browse, download, and contribute past exam question papers and syllabi for Haflong Government College, Assam University, Gauhati University, and more. Free, community-driven academic archive for FYUGP and CBCS students.";
+  "Browse, download, and contribute past exam papers and syllabi. Free community-driven archive for FYUGP and CBCS students — starting with Haflong Government College.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

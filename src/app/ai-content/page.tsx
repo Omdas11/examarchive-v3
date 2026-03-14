@@ -16,5 +16,5 @@ export default async function AIContentPage() {
     redirect("/login?next=/ai-content");
   }
 
-  return <AIContentClient userId={user.id} userRole={user.role} />;
+  return <AIContentClient userRole={user.role} />;
 }
