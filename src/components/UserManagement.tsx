@@ -224,7 +224,7 @@ export default function UserManagement({
       </div>
 
       {/* Desktop: table with sticky columns + zebra stripes (hidden below sm) */}
-      <div className="mt-3 overflow-x-auto hidden sm:block">
+      <div className="mt-3 overflow-x-auto hidden sm:block" style={{ maxWidth: "100%" }}>
         <table className="zebra-table sticky-col-table">
           <thead>
             <tr>

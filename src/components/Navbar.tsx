@@ -22,6 +22,7 @@ const navLinks = [
   { href: "/papers", label: "Papers" },
   { href: "/upload", label: "Upload" },
   { href: "/syllabus", label: "Syllabus" },
+  { href: "/ai-content", label: "✨ AI" },
   { href: "/about", label: "About" },
   { href: "/support", label: "Support" },
 ];
@@ -289,6 +290,15 @@ export default function Navbar({ user }: NavbarProps) {
                       role="menuitem"
                     >
                       Platform Stats
+                    </Link>
+                    <Link
+                      href="/ai-content"
+                      onClick={() => setDropdownOpen(false)}
+                      className="block px-4 py-2 text-sm transition-colors hover:opacity-70"
+                      role="menuitem"
+                      style={{ color: "var(--color-primary)" }}
+                    >
+                      ✨ AI Content
                     </Link>
                     {isAdminOrAbove && (
                       <Link

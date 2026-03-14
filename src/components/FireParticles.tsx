@@ -45,7 +45,7 @@ export default function FireParticles() {
       left: 3 + seeded(i + 1, 94),
       delay: (seeded(i + 7, 40)) / 10,          // 0 – 4s
       duration: 2.5 + (seeded(i + 13, 25)) / 10, // 2.5 – 5s
-      size: 5 + seeded(i + 3, 14),               // 5 – 18px
+      size: 2 + seeded(i + 3, 6),                // 2 – 7px (reduced for subtlety)
       color: FIRE_COLORS[seeded(i + 5, FIRE_COLORS.length)],
       drift: (seeded(i + 9, 60)) - 30,           // -30 – +30px horizontal drift
     }));
