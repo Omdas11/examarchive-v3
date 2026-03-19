@@ -12,11 +12,14 @@ interface AIBubbleProps {
   isLoggedIn: boolean;
 }
 
+const LOADING_DOT_STATES = [".", "..", "..."];
+
 export default function AIBubble({ isLoggedIn }: AIBubbleProps) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadingDots, setLoadingDots] = useState(".");
   const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -47,6 +50,20 @@ export default function AIBubble({ isLoggedIn }: AIBubbleProps) {
     }
   }, [open, messages.length, isLoggedIn]);
 
+  // Animated loading dots
+  useEffect(() => {
+    if (!loading) {
+      setLoadingDots(".");
+      return;
+    }
+    let index = 0;
+    const timer = window.setInterval(() => {
+      index = (index + 1) % LOADING_DOT_STATES.length;
+      setLoadingDots(LOADING_DOT_STATES[index]);
+    }, 300);
+    return () => window.clearInterval(timer);
+  }, [loading]);
+
   async function sendMessage() {
     const trimmed = input.trim();
     if (!trimmed || loading) return;
@@ -70,11 +87,16 @@ export default function AIBubble({ isLoggedIn }: AIBubbleProps) {
         }),
       });
 
-      const data = await res.json();
+      const data = (await res.json()) as { reply?: string; error?: string };
       if (!res.ok) {
         setError(data.error ?? "Something went wrong.");
       } else {
-        setMessages((prev) => [...prev, { role: "model", text: data.reply }]);
+        const reply = data.reply?.trim();
+        if (!reply) {
+          setError("Service temporarily unavailable. Please try again shortly.");
+        } else {
+          setMessages((prev) => [...prev, { role: "model", text: reply }]);
+        }
       }
     } catch {
       setError("Network error. Please try again.");
@@ -244,7 +266,7 @@ export default function AIBubble({ isLoggedIn }: AIBubbleProps) {
                     color: "var(--color-text-muted)",
                   }}
                 >
-                  ExamBot is thinking…
+                  ExamBot is thinking{loadingDots}
                 </div>
               </div>
             )}

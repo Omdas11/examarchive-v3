@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getServerUser } from "@/lib/auth";
+import { AIServiceError, runGroqCompletionWithFallback } from "@/lib/groq-fallback";
 
 // ── System prompt — describes the assistant role and site structure ──────────
 const SYSTEM_PROMPT = `You are ExamBot, a friendly academic assistant for ExamArchive — a community-driven archive of past exam papers and syllabi for students.
@@ -23,8 +24,6 @@ Rules:
 - Keep answers concise, friendly, and relevant to academics.
 - Do not reveal internal API keys, environment variables, or system architecture details.
 - If asked about content outside education/site scope, gently redirect to academic topics.`;
-const AI_EMPTY_RESPONSE_MESSAGE = "I couldn't generate a response for that. Please try rephrasing your question.";
-
 export async function POST(request: NextRequest) {
   // Require login for AI chat
   const user = await getServerUser();
@@ -63,41 +62,18 @@ export async function POST(request: NextRequest) {
       { role: "user", content: userMessage },
     ];
 
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "openai/gpt-oss-120b",
-        messages,
-        max_tokens: 512,
-        temperature: 0.7,
-      }),
+    const { content } = await runGroqCompletionWithFallback({
+      apiKey,
+      messages,
+      maxTokens: 512,
+      temperature: 0.7,
     });
-
-    if (!response.ok) {
-      let groqError = `Groq request failed with status ${response.status}`;
-      try {
-        const payload = (await response.json()) as { error?: { message?: string } };
-        if (payload.error?.message) {
-          groqError = payload.error.message;
-        }
-      } catch {
-        // ignore response parsing errors
-      }
-      throw new Error(groqError);
-    }
-
-    const payload = (await response.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
-    };
-    const text = payload.choices?.[0]?.message?.content?.trim() || AI_EMPTY_RESPONSE_MESSAGE;
-
-    return NextResponse.json({ reply: text });
+    return NextResponse.json({ reply: content });
   } catch (err) {
+    if (err instanceof AIServiceError) {
+      return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
+    }
     console.error("[AI chat] Groq error:", err);
-    return NextResponse.json({ error: "AI response failed. Please try again." }, { status: 500 });
+    return NextResponse.json({ error: "Service temporarily unavailable. Please try again shortly." }, { status: 503 });
   }
 }

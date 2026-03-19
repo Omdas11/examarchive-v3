@@ -159,6 +159,16 @@ counting documents matching `(user_id, date)`.
 **Daily limit:** 3 generations per `(user_id, date)`. Founder accounts are exempt.  
 **Index recommendation:** create an index on `(user_id, date)` for efficient quota queries.
 
+### AI fallback + error behavior (no schema changes)
+
+- AI chat and generation endpoints use a server-side Groq multi-model fallback pool (priority order) to improve reliability under load.
+- If one model fails due to overload, timeout, or provider errors, the next model is tried automatically.
+- User-facing API responses expose only safe messages such as:
+  - `"AI is under high traffic. Please try again in a moment."`
+  - `"Daily limit reached. Please try again tomorrow."`
+  - `"Service temporarily unavailable. Please try again shortly."`
+- Existing `ai_usage` quota enforcement remains unchanged: 3/day per user, unlimited for `founder`.
+
 ---
 
 ## Storage Buckets
@@ -173,4 +183,3 @@ All files are served via Next.js proxy routes that verify the user's session:
 - Papers: `/api/files/papers/[fileId]`
 - Syllabi: `/api/files/syllabus/[fileId]`
 - Avatars: `/api/files/avatars/[fileId]`
-

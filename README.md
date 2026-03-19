@@ -41,6 +41,7 @@ ExamArchive is a community-driven platform for sharing and discovering universit
 - **Browse & Search** — Filter papers by department, year, semester, and exam type.
 - **Authenticated File Access** — PDFs are served through a Next.js proxy and require a valid login session.
 - **User Roles & XP** — Role hierarchy with XP and achievement tracking.
+- **Resilient AI Assistant** — `/api/ai/chat` and `/api/ai/generate` use Groq multi-model fallback (`openai/gpt-oss-120b`, `openai/gpt-oss-20b`, `llama-3.3-70b-versatile`, `llama-3.1-8b-instant`, `llama-3.1-70b-versatile`) with user-friendly high-traffic/service error messages.
 
 ## Security
 
