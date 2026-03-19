@@ -63,7 +63,7 @@ export default function AIBubble({ isLoggedIn }: AIBubbleProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: trimmed,
-          history: newMessages.slice(-10).map((m) => ({
+          history: messages.slice(-10).map((m) => ({
             role: m.role,
             text: m.text,
           })),
