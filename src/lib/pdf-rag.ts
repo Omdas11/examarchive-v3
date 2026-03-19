@@ -36,8 +36,8 @@ function chunkText(text: string, chunkSize = 1200, overlap = 200): string[] {
   while (start < cleaned.length) {
     const end = Math.min(cleaned.length, start + chunkSize);
     chunks.push(cleaned.slice(start, end));
-    if (end >= cleaned.length) break;
     start = Math.max(0, end - overlap);
+    if (end >= cleaned.length) break;
   }
   return chunks;
 }
@@ -85,7 +85,7 @@ function cosineSimilarity(a: number[], b: number[]): number {
 
 function serializeCoursePrefs(prefs?: CoursePrefsPayload): string[] {
   if (!prefs) return [];
-  return [prefs.dsc, prefs.dsm1, prefs.dsm2, prefs.sec, prefs.idc].filter(
+  return [prefs.dsc, prefs.dsm1, prefs.dsm2, prefs.sec, prefs.idc, prefs.aec, prefs.vac].filter(
     (value): value is string => typeof value === "string" && value.trim().length > 0,
   );
 }

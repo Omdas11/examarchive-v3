@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
       const role = h.role === "model" || h.role === "assistant" ? "assistant" : "user";
       return [{ role, content: h.text.trim() }];
     });
-    const shouldSearchWeb = /\b(latest|today|recent|news|update|202[0-9])\b/i.test(userMessage);
+    const shouldSearchWeb = /\b(latest|today|recent|news|update|2[0-9]{3})\b/i.test(userMessage);
     const ragContext = await buildRagContext({
       query: userMessage,
       includeWebSearch: shouldSearchWeb,

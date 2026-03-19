@@ -15,6 +15,7 @@ interface TavilyResponse {
 }
 
 const DEFAULT_SEARCH_URL = "https://api.tavily.com/search";
+const MAX_SEARCH_RESULTS = 5;
 
 function truncate(value: string, max = 320): string {
   if (value.length <= max) return value;
@@ -35,7 +36,7 @@ export async function runWebSearch(query: string, maxResults = 5): Promise<WebSe
       },
       body: JSON.stringify({
         query,
-        max_results: Math.min(Math.max(maxResults, 1), 8),
+        max_results: Math.min(Math.max(maxResults, 1), MAX_SEARCH_RESULTS),
         include_answer: false,
         include_raw_content: false,
       }),
@@ -63,7 +64,7 @@ export async function runWebSearch(query: string, maxResults = 5): Promise<WebSe
 export function formatSearchResults(results: WebSearchResult[]): string {
   if (results.length === 0) return "";
   return results
-    .slice(0, 5)
+    .slice(0, MAX_SEARCH_RESULTS)
     .map((result, index) => {
       const scorePart = typeof result.score === "number" ? ` (score ${result.score.toFixed(2)})` : "";
       return `${index + 1}. ${result.title}${scorePart}\nURL: ${result.url}\nKey points: ${result.snippet}`;

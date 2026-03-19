@@ -129,7 +129,7 @@ export default function AIBubble({ isLoggedIn }: AIBubbleProps) {
   }
 
   function renderRichText(text: string) {
-    const routePattern = /(\/[a-zA-Z0-9\-/_]*)/g;
+    const routePattern = /(\/[a-zA-Z0-9\-/_]+)/g;
     const parts = text.split(routePattern);
     return parts.map((part, idx) => {
       if (/^\/[a-zA-Z0-9\-/_]*$/.test(part) && part.length > 1) {

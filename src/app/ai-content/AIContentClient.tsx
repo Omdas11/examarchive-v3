@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import type { CoursePrefsPayload } from "@/lib/pdf-rag";
 
 interface GeneratedDoc {
   topic: string;
@@ -65,7 +66,13 @@ export default function AIContentClient({ userRole }: AIContentClientProps) {
     if (loadingIntervalRef.current) {
       window.clearInterval(loadingIntervalRef.current);
     }
-    const steps = ["Preparing", "Retrieving archive context", "Checking latest web updates", "Generating notes", "Finalizing PDF-ready output"];
+    const steps = [
+      "Preparing",
+      "Retrieving archive context",
+      ...(useWebSearch ? ["Checking latest web updates"] : []),
+      "Generating notes",
+      "Finalizing PDF-ready output",
+    ];
     let stepIndex = 0;
     setLoadingStep(steps[0]);
     loadingIntervalRef.current = window.setInterval(() => {
@@ -122,13 +129,21 @@ export default function AIContentClient({ userRole }: AIContentClientProps) {
     }
   }
 
-  function loadCoursePrefsFromStorage(): Record<string, string> | null {
+  function loadCoursePrefsFromStorage(): CoursePrefsPayload | null {
     if (typeof window === "undefined") return null;
     try {
       const raw = localStorage.getItem("ea_course_prefs");
       if (!raw) return null;
-      const parsed = JSON.parse(raw) as Record<string, string>;
-      return parsed;
+      const parsed = JSON.parse(raw) as Partial<CoursePrefsPayload>;
+      return {
+        dsc: parsed.dsc ?? "",
+        dsm1: parsed.dsm1 ?? "",
+        dsm2: parsed.dsm2 ?? "",
+        sec: parsed.sec ?? "",
+        idc: parsed.idc ?? "",
+        aec: parsed.aec ?? "",
+        vac: parsed.vac ?? "",
+      };
     } catch {
       return null;
     }

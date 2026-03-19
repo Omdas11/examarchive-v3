@@ -13,6 +13,9 @@ import { buildRagContext, type CoursePrefsPayload } from "@/lib/pdf-rag";
 /** Maximum AI-generated PDFs per user per calendar day. */
 const DAILY_LIMIT = 3;
 const MAX_PAGES = 5;
+const MAX_COMPLETION_TOKENS = 3800;
+const BASE_COMPLETION_TOKENS = 900;
+const TOKENS_PER_PAGE = 600;
 
 function isAdminPlus(role: string): boolean {
   return role === "admin" || role === "founder";
@@ -166,7 +169,7 @@ Write in plain text with Markdown headings only (no HTML).`;
     const { content: generatedContent, model } = await runGroqCompletionWithFallback({
       apiKey,
       messages: [{ role: "user", content: prompt }],
-      maxTokens: Math.min(3800, 900 + pageLength * 600),
+      maxTokens: Math.min(MAX_COMPLETION_TOKENS, BASE_COMPLETION_TOKENS + pageLength * TOKENS_PER_PAGE),
       temperature: 0.6,
       preferredModel: preferredModel || undefined,
     });
