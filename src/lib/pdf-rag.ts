@@ -1,6 +1,11 @@
-import pdfParse from "pdf-parse";
 import { adminDatabases, adminStorage, BUCKET_ID, COLLECTION, DATABASE_ID, ID, Query, SYLLABUS_BUCKET_ID } from "@/lib/appwrite";
 import { runWebSearch, formatSearchResults } from "@/lib/web-search";
+
+type PdfParseFn = (dataBuffer: Buffer) => Promise<{ text?: string }>;
+
+// Import the implementation entry directly to avoid package debug-mode side effects.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const pdfParse = require("pdf-parse/lib/pdf-parse.js") as PdfParseFn;
 
 export interface CoursePrefsPayload {
   dsc?: string;
@@ -92,7 +97,8 @@ async function listCandidateDocs(prefs?: CoursePrefsPayload): Promise<Array<Reco
     db.listDocuments(DATABASE_ID, COLLECTION.papers, [Query.equal("approved", true), Query.limit(40)]).catch(() => ({ documents: [] })),
     db.listDocuments(DATABASE_ID, COLLECTION.syllabus, [Query.equal("approval_status", "approved"), Query.limit(20)]).catch(() => ({ documents: [] })),
   ]);
-  const merged = [...papers.documents, ...syllabus.documents];
+  // Prioritize syllabus docs first, then papers, so generated notes follow archive syllabus guidance.
+  const merged = [...syllabus.documents, ...papers.documents];
   if (subjects.length === 0) return merged;
   return merged.filter((doc) => {
     const subject = String((doc.department ?? doc.subject ?? "")).toLowerCase();
@@ -210,10 +216,12 @@ export async function buildRagContext(args: {
     .map((doc) => {
       const embedding = Array.isArray(doc.embedding) ? (doc.embedding as number[]) : [];
       const textChunk = typeof doc.text_chunk === "string" ? doc.text_chunk : "";
+      const sourceType = String(doc.source_type ?? "");
+      const syllabusBoost = sourceType === "syllabus" ? 0.03 : 0;
       if (!textChunk || !queryEmbedding || embedding.length === 0) {
-        return { score: 0, doc, textChunk };
+        return { score: syllabusBoost, doc, textChunk };
       }
-      return { score: cosineSimilarity(queryEmbedding, embedding), doc, textChunk };
+      return { score: cosineSimilarity(queryEmbedding, embedding) + syllabusBoost, doc, textChunk };
     })
     .sort((a, b) => b.score - a.score)
     .slice(0, 6);

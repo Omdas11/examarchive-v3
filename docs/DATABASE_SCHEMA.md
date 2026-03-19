@@ -171,6 +171,30 @@ counting documents matching `(user_id, date)`.
 
 ---
 
+## Collection: `ai_embeddings`
+
+Stores AI retrieval chunks generated from uploaded paper/syllabus PDFs.
+Embeddings are generated server-side and stored directly in Appwrite (no external DB).
+
+| Field             | Type      | Required | Notes |
+|-------------------|-----------|----------|-------|
+| `file_id`         | String    | **Yes**  | Appwrite storage file ID |
+| `source_type`     | String    | **Yes**  | `"paper"` or `"syllabus"` |
+| `source_label`    | String    | **Yes**  | Human-readable source label |
+| `course_code`     | String    | No       | Paper code when available |
+| `department`      | String    | No       | Subject/department hint |
+| `year`            | Integer   | No       | Document year if known |
+| `uploaded_by`     | String    | No       | Uploader user ID |
+| `embedding_model` | String    | **Yes**  | Embedding model identifier |
+| `chunk_index`     | Integer   | **Yes**  | Position of chunk in source document |
+| `text_chunk`      | String    | **Yes**  | Extracted PDF text chunk |
+| `embedding`       | Float[]   | **Yes**  | Numeric embedding vector |
+
+**Recommended indexes:** `file_id`, `department`, `(source_type, file_id, chunk_index)`.
+Similarity is computed server-side with cosine scoring.
+
+---
+
 ## Storage Buckets
 
 | Bucket ID        | Purpose                         | Max File Size | Access           |
