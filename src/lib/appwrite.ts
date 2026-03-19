@@ -51,6 +51,11 @@ export const COLLECTION = {
    */
   ai_usage: "ai_usage",
   /**
+   * Tracks daily PDF render/download usage per user to protect the Puppeteer route.
+   * Each document: user_id (string), date (string YYYY-MM-DD).
+   */
+  pdf_usage: "pdf_usage",
+  /**
    * Stores RAG chunks extracted from uploaded papers/syllabi.
    * Fields include file_id, source_type, source_label, text_chunk, embedding[], and metadata.
    */

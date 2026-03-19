@@ -465,7 +465,7 @@ export default function AIContentClient({ userRole }: AIContentClientProps) {
             color: "var(--color-text-muted)",
           }}
         >
-          <div style={{ fontSize: 48, marginBottom: "0.75rem" }}>✨</div>
+         <div style={{ fontSize: 48, marginBottom: "0.75rem" }}>✨</div>
           <p style={{ fontWeight: 600 }}>No documents generated yet</p>
           <p style={{ fontSize: "0.85rem" }}>
              Enter a topic above and click <em>Generate Notes</em> to create your first AI study document.
@@ -488,7 +488,7 @@ export default function AIContentClient({ userRole }: AIContentClientProps) {
          <strong style={{ color: "var(--color-text)" }}>ℹ How it works:</strong>{" "}
          ExamBot prioritizes your archive syllabus/paper context (including My Course preference when available),
          optionally adds live web updates, and generates detailed notes with revision-ready structure.
-         Use the <em>Print / Save PDF</em> button to save the document. Generated content is for study
+         Use the <em>Download PDF</em> button to save the document directly. Generated content is for study
          reference only — always verify with official sources.{" "}
          {userRole !== "founder" && userRole !== "admin" && (
            <>

@@ -1,6 +1,50 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { adminDatabases, COLLECTION, DATABASE_ID, Query, ID } from "@/lib/appwrite";
 import { getServerUser } from "@/lib/auth";
 import { generatePDF, markdownToHTML } from "@/lib/pdf-generator";
+
+const MAX_PAGES = 5;
+const PDF_DAILY_LIMIT = 5;
+const TOPIC_MAX_LENGTH = 500;
+const CONTENT_MAX_LENGTH = 100_000;
+
+function isAdminPlus(role: string): boolean {
+  return role === "admin" || role === "founder";
+}
+
+function normalizePageLength(raw: unknown): number {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return 1;
+  const rounded = Math.floor(n);
+  if (rounded < 1) return 1;
+  if (rounded > MAX_PAGES) return MAX_PAGES;
+  return rounded;
+}
+
+async function getDailyPdfCount(userId: string, todayStr: string): Promise<number> {
+  const db = adminDatabases();
+  try {
+    const res = await db.listDocuments(DATABASE_ID, COLLECTION.pdf_usage, [
+      Query.equal("user_id", userId),
+      Query.equal("date", todayStr),
+    ]);
+    return res.total;
+  } catch {
+    return 0;
+  }
+}
+
+async function recordPdfGeneration(userId: string, todayStr: string): Promise<void> {
+  const db = adminDatabases();
+  try {
+    await db.createDocument(DATABASE_ID, COLLECTION.pdf_usage, ID.unique(), {
+      user_id: userId,
+      date: todayStr,
+    });
+  } catch (e) {
+    console.error("[PDF generate] Failed to record usage:", e);
+  }
+}
 
 /**
  * POST /api/ai/pdf
@@ -25,12 +69,43 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
   }
 
-  const content = (body.content ?? "").trim();
-  const topic = (body.topic ?? "Document").trim();
-  const pageLength = Number(body.pageLength) || 5;
+  const rawContent = typeof body.content === "string" ? body.content : "";
+  const rawTopic = typeof body.topic === "string" ? body.topic : "";
+  const content = rawContent.trim();
+  const topic = (rawTopic || "Document").trim();
+  const pageLength = normalizePageLength(body.pageLength);
 
   if (!content) {
     return NextResponse.json({ error: "Content is required." }, { status: 400 });
+  }
+  if (content.length > CONTENT_MAX_LENGTH) {
+    return NextResponse.json(
+      {
+        error: "Content too long. Please limit to 100,000 characters.",
+        code: "CONTENT_TOO_LONG",
+      },
+      { status: 413 },
+    );
+  }
+  if (topic.length > TOPIC_MAX_LENGTH) {
+    return NextResponse.json({ error: "Topic must be 1–500 characters." }, { status: 400 });
+  }
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+  let usedBefore = 0;
+  if (!isAdminPlus(user.role)) {
+    usedBefore = await getDailyPdfCount(user.id, todayStr);
+    if (usedBefore >= PDF_DAILY_LIMIT) {
+      return NextResponse.json(
+        {
+          error: "Daily PDF limit reached. Please try again tomorrow.",
+          code: "PDF_DAILY_LIMIT_REACHED",
+          limit: PDF_DAILY_LIMIT,
+          remaining: 0,
+        },
+        { status: 429 },
+      );
+    }
   }
 
   try {
@@ -40,14 +115,21 @@ export async function POST(request: NextRequest) {
     // Generate PDF with strict page limit
     const { buffer } = await generatePDF({
       html,
-      maxPages: Math.min(pageLength, 5),
+      maxPages: pageLength,
       title: topic,
     });
 
     // Return PDF as a downloadable file
     const filename = `${topic.replace(/[^a-zA-Z0-9]/g, "_")}_${new Date().toISOString().slice(0, 10)}.pdf`;
 
-    return new NextResponse(buffer as unknown as BodyInit, {
+    if (!isAdminPlus(user.role)) {
+      await recordPdfGeneration(user.id, todayStr);
+    }
+    const remaining = isAdminPlus(user.role)
+      ? null
+      : Math.max(0, PDF_DAILY_LIMIT - (usedBefore + 1));
+
+    const response = new NextResponse(buffer as unknown as BodyInit, {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
@@ -55,6 +137,13 @@ export async function POST(request: NextRequest) {
         "Content-Length": buffer.length.toString(),
       },
     });
+
+    if (!isAdminPlus(user.role)) {
+      response.headers.set("X-RateLimit-Limit", PDF_DAILY_LIMIT.toString());
+      response.headers.set("X-RateLimit-Remaining", remaining?.toString() ?? "0");
+    }
+
+    return response;
   } catch (error) {
     console.error("[PDF Generation] Error:", error);
     return NextResponse.json(

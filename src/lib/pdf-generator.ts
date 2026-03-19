@@ -30,6 +30,7 @@ export async function generatePDF(
   options: PDFGenerationOptions
 ): Promise<PDFGenerationResult> {
   const { html, maxPages, title = "Document" } = options;
+  const safeMaxPages = Math.max(1, Math.floor(maxPages));
 
   let browser;
   try {
@@ -176,22 +177,23 @@ export async function generatePDF(
 
     await page.setContent(styledHTML, { waitUntil: "networkidle0" });
 
+    // Estimate pages before generating to avoid closing the page prematurely
+    const estimatedPages = await estimatePageCount(page);
+    const cappedPages = Math.min(safeMaxPages, Math.max(1, estimatedPages));
+
     // Generate PDF
     const pdfBuffer = await page.pdf({
       format: "A4",
       printBackground: true,
       preferCSSPageSize: true,
+      pageRanges: `1-${safeMaxPages}`,
     });
 
     await browser.close();
 
-    // Check page count (approximate based on content length)
-    // Note: Puppeteer doesn't directly return page count, so we estimate
-    const actualPages = await estimatePageCount(page);
-
     return {
       buffer: Buffer.from(pdfBuffer),
-      actualPages: Math.min(actualPages, maxPages),
+      actualPages: cappedPages,
     };
   } catch (error) {
     if (browser) {
