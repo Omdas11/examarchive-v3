@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     // Build chat history (roles: "user" | "model")
     const chat = model.startChat({
       history: history.slice(-10).map((h) => ({
-        role: h.role === "assistant" ? "model" : "user",
+        role: h.role === "model" ? "model" : "user",
         parts: [{ text: h.text }],
       })),
       generationConfig: {
