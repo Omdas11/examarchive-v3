@@ -13,6 +13,11 @@ import { buildRagContext, type CoursePrefsPayload } from "@/lib/pdf-rag";
 /** Maximum AI-generated PDFs per user per calendar day. */
 const DAILY_LIMIT = 3;
 const MAX_PAGES = 5;
+const WORDS_PER_PAGE = 430;
+// Token budget heuristics tuned for detailed markdown notes:
+// - base tokens covers section headers + baseline structure
+// - per-page tokens scale content density roughly to requested length
+// - max tokens caps worst-case output to reduce provider failures/timeouts
 const MAX_COMPLETION_TOKENS = 3800;
 const BASE_COMPLETION_TOKENS = 900;
 const TOKENS_PER_PAGE = 600;
@@ -144,7 +149,7 @@ export async function POST(request: NextRequest) {
     const contextSection = mergedContext
       ? `\n\nReference material from archive/web:\n${mergedContext}`
       : "";
-    const targetWords = pageLength * 430;
+    const targetWords = pageLength * WORDS_PER_PAGE;
 
     const prompt = `You are an academic assistant helping a student prepare for exams.
 

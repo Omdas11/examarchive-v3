@@ -76,7 +76,7 @@ export default function AIContentClient({ userRole }: AIContentClientProps) {
     let stepIndex = 0;
     setLoadingStep(steps[0]);
     loadingIntervalRef.current = window.setInterval(() => {
-      stepIndex = (stepIndex + 1) % steps.length;
+      stepIndex = Math.min(stepIndex + 1, steps.length - 1);
       setLoadingStep(steps[stepIndex]);
     }, 900);
     setError(null);
@@ -129,6 +129,13 @@ export default function AIContentClient({ userRole }: AIContentClientProps) {
     }
   }
 
+  /**
+   * Reads course preference payload from localStorage key `ea_course_prefs`.
+   * Fields map to programme buckets:
+   * dsc=Discipline Specific Core, dsm1/dsm2=Discipline Specific Minor,
+   * sec=Skill Enhancement Course, idc=Interdisciplinary Course,
+   * aec=Ability Enhancement Course, vac=Value Added Course.
+   */
   function loadCoursePrefsFromStorage(): CoursePrefsPayload | null {
     if (typeof window === "undefined") return null;
     try {

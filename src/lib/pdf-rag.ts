@@ -22,7 +22,10 @@ export interface RagContext {
   sources: string[];
 }
 
+type SourceType = "paper" | "syllabus";
+
 const EMBEDDING_MODEL = "text-embedding-3-small";
+const SYLLABUS_FILE_URL_RE = /\/api\/files\/syllabus\/([^/?#]+)/;
 
 function cleanText(raw: string): string {
   return raw.replace(/\u0000/g, "").replace(/\s+/g, " ").trim();
@@ -106,14 +109,14 @@ async function listCandidateDocs(prefs?: CoursePrefsPayload): Promise<Array<Reco
   });
 }
 
-function resolveFileInfo(doc: Record<string, unknown>): { fileId: string; sourceType: string; sourceLabel: string } | null {
+function resolveFileInfo(doc: Record<string, unknown>): { fileId: string; sourceType: SourceType; sourceLabel: string } | null {
   const paperFileId = typeof doc.file_id === "string" ? doc.file_id.trim() : "";
   if (paperFileId) {
     const label = `${String(doc.course_code ?? "paper")} ${String(doc.year ?? "")}`.trim();
     return { fileId: paperFileId, sourceType: "paper", sourceLabel: label };
   }
   const syllabusUrl = typeof doc.file_url === "string" ? doc.file_url : "";
-  const syllabusIdMatch = syllabusUrl.match(/\/api\/files\/syllabus\/([^/?#]+)/);
+  const syllabusIdMatch = syllabusUrl.match(SYLLABUS_FILE_URL_RE);
   if (syllabusIdMatch?.[1]) {
     const label = `${String(doc.subject ?? "syllabus")} ${String(doc.university ?? "")}`.trim();
     return { fileId: syllabusIdMatch[1], sourceType: "syllabus", sourceLabel: label };
@@ -129,7 +132,7 @@ async function extractPdfText(bucketId: string, fileId: string): Promise<string>
 
 export async function ingestPdfToRag(args: {
   fileId: string;
-  sourceType: "paper" | "syllabus";
+  sourceType: SourceType;
   sourceLabel: string;
   courseCode?: string;
   department?: string;
@@ -192,7 +195,7 @@ export async function ensureRagCoverage(prefs?: CoursePrefsPayload): Promise<voi
     if (already) continue;
     await ingestPdfToRag({
       fileId: fileInfo.fileId,
-      sourceType: fileInfo.sourceType as "paper" | "syllabus",
+      sourceType: fileInfo.sourceType,
       sourceLabel: fileInfo.sourceLabel,
       courseCode: typeof doc.course_code === "string" ? doc.course_code : undefined,
       department: typeof doc.department === "string" ? doc.department : typeof doc.subject === "string" ? doc.subject : undefined,

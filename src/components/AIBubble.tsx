@@ -16,6 +16,8 @@ interface AIBubbleProps {
 }
 
 const LOADING_DOT_STATES = [".", "..", "..."];
+const ROUTE_PATH_PATTERN = /(\/[a-zA-Z0-9\-_]+(?:\/[a-zA-Z0-9\-_]+)*)/g;
+const STRICT_ROUTE_PATTERN = /^\/[a-zA-Z0-9\-_]+(?:\/[a-zA-Z0-9\-_]+)*$/;
 
 export default function AIBubble({ isLoggedIn }: AIBubbleProps) {
   const [open, setOpen] = useState(false);
@@ -129,10 +131,9 @@ export default function AIBubble({ isLoggedIn }: AIBubbleProps) {
   }
 
   function renderRichText(text: string) {
-    const routePattern = /(\/[a-zA-Z0-9\-/_]+)/g;
-    const parts = text.split(routePattern);
+    const parts = text.split(ROUTE_PATH_PATTERN);
     return parts.map((part, idx) => {
-      if (/^\/[a-zA-Z0-9\-/_]*$/.test(part) && part.length > 1) {
+      if (STRICT_ROUTE_PATTERN.test(part) && part.length > 1) {
         return (
           <Link key={`${part}-${idx}`} href={part} style={{ color: "inherit", textDecoration: "underline" }}>
             {part}

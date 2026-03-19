@@ -22,7 +22,7 @@ function truncate(value: string, max = 320): string {
   return `${value.slice(0, max - 1)}…`;
 }
 
-export async function runWebSearch(query: string, maxResults = 5): Promise<WebSearchResult[]> {
+export async function runWebSearch(query: string, maxResults = MAX_SEARCH_RESULTS): Promise<WebSearchResult[]> {
   const apiKey = process.env.TAVILY_API_KEY?.trim();
   const endpoint = process.env.TAVILY_SEARCH_URL?.trim() || DEFAULT_SEARCH_URL;
   if (!apiKey || !query.trim()) return [];
