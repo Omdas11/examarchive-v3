@@ -26,6 +26,7 @@ type SourceType = "paper" | "syllabus";
 
 const EMBEDDING_MODEL = "text-embedding-3-small";
 const SYLLABUS_FILE_URL_RE = /\/api\/files\/syllabus\/([^/?#]+)/;
+const SYLLABUS_RANKING_BOOST = 0.03;
 
 function cleanText(raw: string): string {
   return raw.replace(/\u0000/g, "").replace(/\s+/g, " ").trim();
@@ -39,8 +40,8 @@ function chunkText(text: string, chunkSize = 1200, overlap = 200): string[] {
   while (start < cleaned.length) {
     const end = Math.min(cleaned.length, start + chunkSize);
     chunks.push(cleaned.slice(start, end));
-    start = Math.max(0, end - overlap);
     if (end >= cleaned.length) break;
+    start = Math.max(0, end - overlap);
   }
   return chunks;
 }
@@ -220,7 +221,7 @@ export async function buildRagContext(args: {
       const embedding = Array.isArray(doc.embedding) ? (doc.embedding as number[]) : [];
       const textChunk = typeof doc.text_chunk === "string" ? doc.text_chunk : "";
       const sourceType = String(doc.source_type ?? "");
-      const syllabusBoost = sourceType === "syllabus" ? 0.03 : 0;
+      const syllabusBoost = sourceType === "syllabus" ? SYLLABUS_RANKING_BOOST : 0;
       if (!textChunk || !queryEmbedding || embedding.length === 0) {
         return { score: syllabusBoost, doc, textChunk };
       }

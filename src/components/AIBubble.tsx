@@ -16,8 +16,8 @@ interface AIBubbleProps {
 }
 
 const LOADING_DOT_STATES = [".", "..", "..."];
-const ROUTE_PATH_PATTERN = /(\/[a-zA-Z0-9\-_]+(?:\/[a-zA-Z0-9\-_]+)*)/g;
-const STRICT_ROUTE_PATTERN = /^\/[a-zA-Z0-9\-_]+(?:\/[a-zA-Z0-9\-_]+)*$/;
+const ROUTE_PATH_PATTERN = /(\/[a-zA-Z0-9_-]+(?:\/[a-zA-Z0-9_-]+)*)/g;
+const STRICT_ROUTE_PATTERN = /^\/[a-zA-Z0-9_-]+(?:\/[a-zA-Z0-9_-]+)*$/;
 
 export default function AIBubble({ isLoggedIn }: AIBubbleProps) {
   const [open, setOpen] = useState(false);
@@ -140,7 +140,7 @@ export default function AIBubble({ isLoggedIn }: AIBubbleProps) {
           </Link>
         );
       }
-      return <span key={`${idx}-${part.slice(0, 8)}`}>{part}</span>;
+      return <span key={`span-${idx}`}>{part}</span>;
     });
   }
 

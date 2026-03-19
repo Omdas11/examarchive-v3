@@ -47,16 +47,23 @@ export default function AIContentClient({ userRole }: AIContentClientProps) {
         setIsAdminPlus(d.isAdminPlus ?? false);
         const fetchedModels = Array.isArray(d.modelOptions) ? d.modelOptions : [];
         setModelOptions(fetchedModels);
-        if (fetchedModels.length > 0) {
-          const defaultModel = fetchedModels.find((option: { available: boolean }) => option.available) ?? fetchedModels[0];
-          setModel(defaultModel.id);
-        }
+        const availableModels = fetchedModels.filter((option: { available: boolean }) => option.available);
+        setModel(availableModels[0]?.id ?? "");
         const fetchedPages = Array.isArray(d.pageOptions) ? d.pageOptions.filter((v: unknown) => Number.isFinite(v)) : [1];
         const normalizedPages = fetchedPages.length > 0 ? fetchedPages : [1];
         setPageOptions(normalizedPages);
         setPageLength((current) => (normalizedPages.includes(current) ? current : normalizedPages[0]));
       })
       .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (loadingIntervalRef.current) {
+        window.clearInterval(loadingIntervalRef.current);
+        loadingIntervalRef.current = null;
+      }
+    };
   }, []);
 
   async function generate() {
@@ -341,10 +348,10 @@ export default function AIContentClient({ userRole }: AIContentClientProps) {
           />
           <button
             onClick={generate}
-            disabled={generating || !topic.trim() || !canGenerate}
-            className="btn-primary"
-            style={{ whiteSpace: "nowrap" }}
-          >
+             disabled={generating || !topic.trim() || !canGenerate || !model}
+             className="btn-primary"
+             style={{ whiteSpace: "nowrap" }}
+           >
              {generating ? `Generating… (${loadingStep})` : "✨ Generate Notes"}
            </button>
          </div>

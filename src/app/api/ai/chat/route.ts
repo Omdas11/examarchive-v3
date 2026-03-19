@@ -71,6 +71,7 @@ export async function POST(request: NextRequest) {
       const role = h.role === "model" || h.role === "assistant" ? "assistant" : "user";
       return [{ role, content: h.text.trim() }];
     });
+    // Year trigger intentionally supports years 2000-2999 for practical educational queries.
     const shouldSearchWeb = /\b(latest|today|recent|news|update|2[0-9]{3})\b/i.test(userMessage);
     const ragContext = await buildRagContext({
       query: userMessage,
