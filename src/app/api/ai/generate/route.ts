@@ -7,10 +7,32 @@ import {
   Query,
   ID,
 } from "@/lib/appwrite";
-import { AIServiceError, runGroqCompletionWithFallback } from "@/lib/groq-fallback";
+import { AIServiceError, getGroqModelPool, runGroqCompletionWithFallback } from "@/lib/groq-fallback";
+import { buildRagContext, type CoursePrefsPayload } from "@/lib/pdf-rag";
 
 /** Maximum AI-generated PDFs per user per calendar day. */
 const DAILY_LIMIT = 3;
+const MAX_PAGES = 5;
+
+function isAdminPlus(role: string): boolean {
+  return role === "admin" || role === "founder";
+}
+
+function normalizePageLength(raw: unknown): number {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return 1;
+  const rounded = Math.floor(n);
+  if (rounded < 1) return 1;
+  if (rounded > MAX_PAGES) return MAX_PAGES;
+  return rounded;
+}
+
+function canUseModel(role: string, model: string): boolean {
+  if (isAdminPlus(role)) return true;
+  const pool = getGroqModelPool();
+  const allowed = pool.slice(0, 3);
+  return allowed.includes(model);
+}
 
 /** Check how many documents a user has generated today. */
 async function getDailyCount(userId: string, todayStr: string): Promise<number> {
@@ -51,7 +73,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "AI generation is not configured." }, { status: 503 });
   }
 
-  let body: { topic?: string; paperContext?: string };
+  let body: {
+    topic?: string;
+    paperContext?: string;
+    pageLength?: number;
+    model?: string;
+    useWebSearch?: boolean;
+    coursePrefs?: CoursePrefsPayload;
+  };
   try {
     body = await request.json();
   } catch {
@@ -62,12 +91,21 @@ export async function POST(request: NextRequest) {
   if (!topic || topic.length > 500) {
     return NextResponse.json({ error: "Topic must be 1–500 characters." }, { status: 400 });
   }
+  const pageLength = normalizePageLength(body.pageLength);
+  const preferredModel = typeof body.model === "string" ? body.model.trim() : "";
+  if (preferredModel && !canUseModel(user.role, preferredModel)) {
+    return NextResponse.json(
+      { error: "Selected model is not available for your role." },
+      { status: 403 },
+    );
+  }
+  const useWebSearch = Boolean(body.useWebSearch);
 
   const todayStr = new Date().toISOString().slice(0, 10);
 
   // Enforce daily limit — founders are exempt
   let usedBefore = 0;
-  if (user.role !== "founder") {
+  if (!isAdminPlus(user.role)) {
     usedBefore = await getDailyCount(user.id, todayStr);
     if (usedBefore >= DAILY_LIMIT) {
       return NextResponse.json(
@@ -80,50 +118,76 @@ export async function POST(request: NextRequest) {
         { status: 429 },
       );
     }
+    const maxAllowedPages = Math.min(MAX_PAGES, Math.max(1, DAILY_LIMIT - usedBefore));
+    if (pageLength > maxAllowedPages) {
+      return NextResponse.json(
+        {
+          error: `You can currently generate up to ${maxAllowedPages} page(s).`,
+          maxAllowedPages,
+        },
+        { status: 429 },
+      );
+    }
   }
 
   try {
-    const paperContext = (body.paperContext ?? "").slice(0, 2000);
-    const contextSection = paperContext
-      ? `\n\nReference material from uploaded syllabus/papers:\n${paperContext}`
+    const inputPaperContext = (body.paperContext ?? "").slice(0, 2000);
+    const ragContext = await buildRagContext({
+      query: topic,
+      coursePrefs: body.coursePrefs,
+      includeWebSearch: useWebSearch,
+    }).catch(() => ({ contextText: "", sources: [] as string[] }));
+    const mergedContext = [inputPaperContext, ragContext.contextText].filter(Boolean).join("\n\n");
+    const contextSection = mergedContext
+      ? `\n\nReference material from archive/web:\n${mergedContext}`
       : "";
+    const targetWords = pageLength * 430;
 
     const prompt = `You are an academic assistant helping a student prepare for exams.
 
-Generate a concise, well-structured study summary document for the following topic:
+Generate detailed exam notes for the following topic:
 "${topic}"${contextSection}
 
 Format requirements:
-- Start with a brief overview (2-3 sentences).
-- List 5–8 key concepts with short explanations.
-- Include a "Tips for Exam" section with 3–5 practical study tips.
-- End with a "Quick Revision Checklist" of 5 bullet points.
+- Start with "## Topic Overview".
+- Add "## Core Theory" with clear explanations.
+- Add "## Key Derivations / Formula Logic" (show step logic where relevant).
+- Add "## Worked Examples".
+- Add "## PYQ Practice From Archive" with probable or known question patterns.
+- Add "## Revision Table" as markdown table for quick revision.
+- Add "## Final 24-Hour Revision Plan".
+- Add "## References" and cite archive/web sources when available.
 - Use clear headings (## for sections, ### for sub-sections).
-- Keep total length under 600 words.
+- Target length: about ${targetWords} words (~${pageLength} page(s)).
+- If no archive context is available, clearly state that and provide best-effort notes from standard academic knowledge.
 
 Write in plain text with Markdown headings only (no HTML).`;
 
-    const { content: generatedContent } = await runGroqCompletionWithFallback({
+    const { content: generatedContent, model } = await runGroqCompletionWithFallback({
       apiKey,
       messages: [{ role: "user", content: prompt }],
-      maxTokens: 1024,
+      maxTokens: Math.min(3800, 900 + pageLength * 600),
       temperature: 0.6,
+      preferredModel: preferredModel || undefined,
     });
     const content = generatedContent;
 
     // Record this generation for rate-limiting
-    if (user.role !== "founder") {
+    if (!isAdminPlus(user.role)) {
       await recordGeneration(user.id, todayStr);
     }
 
     // Compute remaining quota using the pre-fetched count (avoids a second DB query)
-    const remaining = user.role === "founder"
+    const remaining = isAdminPlus(user.role)
       ? null
       : Math.max(0, DAILY_LIMIT - (usedBefore + 1));
 
     return NextResponse.json({
       content,
       topic,
+      pageLength,
+      model,
+      sources: ragContext.sources,
       generatedAt: new Date().toISOString(),
       remaining,
     });
@@ -143,12 +207,33 @@ export async function GET() {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
 
-  if (user.role === "founder") {
-    return NextResponse.json({ remaining: null, limit: null, isFounder: true });
+  const modelPool = getGroqModelPool();
+  const modelOptions = modelPool.map((model, index) => ({
+    id: model,
+    label: model,
+    available: isAdminPlus(user.role) || index < 3,
+  }));
+
+  if (isAdminPlus(user.role)) {
+    return NextResponse.json({
+      remaining: null,
+      limit: null,
+      isFounder: user.role === "founder",
+      isAdminPlus: true,
+      modelOptions,
+      pageOptions: [1, 2, 3, 4, 5],
+    });
   }
 
   const todayStr = new Date().toISOString().slice(0, 10);
   const used = await getDailyCount(user.id, todayStr);
   const remaining = Math.max(0, DAILY_LIMIT - used);
-  return NextResponse.json({ remaining, limit: DAILY_LIMIT, isFounder: false });
+  return NextResponse.json({
+    remaining,
+    limit: DAILY_LIMIT,
+    isFounder: false,
+    isAdminPlus: false,
+    modelOptions,
+    pageOptions: [1, 2, 3, 4, 5].filter((value) => value <= Math.max(1, remaining)),
+  });
 }

@@ -7,6 +7,9 @@ interface GeneratedDoc {
   topic: string;
   content: string;
   generatedAt: string;
+  model?: string;
+  sources?: string[];
+  pageLength?: number;
 }
 
 interface AIContentClientProps {
@@ -16,12 +19,20 @@ interface AIContentClientProps {
 export default function AIContentClient({ userRole }: AIContentClientProps) {
   const [topic, setTopic] = useState("");
   const [generating, setGenerating] = useState(false);
+  const [loadingStep, setLoadingStep] = useState("Preparing");
   const [documents, setDocuments] = useState<GeneratedDoc[]>([]);
   const [remaining, setRemaining] = useState<number | null>(null);
   const [isFounder, setIsFounder] = useState(false);
+  const [isAdminPlus, setIsAdminPlus] = useState(false);
+  const [pageLength, setPageLength] = useState(1);
+  const [pageOptions, setPageOptions] = useState<number[]>([1]);
+  const [model, setModel] = useState("");
+  const [modelOptions, setModelOptions] = useState<Array<{ id: string; label: string; available: boolean }>>([]);
+  const [useWebSearch, setUseWebSearch] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeDoc, setActiveDoc] = useState<GeneratedDoc | null>(null);
   const printRef = useRef<HTMLDivElement>(null);
+  const loadingIntervalRef = useRef<number | null>(null);
 
   const DAILY_LIMIT = 3;
 
@@ -32,6 +43,17 @@ export default function AIContentClient({ userRole }: AIContentClientProps) {
       .then((d) => {
         setRemaining(d.remaining ?? null);
         setIsFounder(d.isFounder ?? false);
+        setIsAdminPlus(d.isAdminPlus ?? false);
+        const fetchedModels = Array.isArray(d.modelOptions) ? d.modelOptions : [];
+        setModelOptions(fetchedModels);
+        if (fetchedModels.length > 0) {
+          const defaultModel = fetchedModels.find((option: { available: boolean }) => option.available) ?? fetchedModels[0];
+          setModel(defaultModel.id);
+        }
+        const fetchedPages = Array.isArray(d.pageOptions) ? d.pageOptions.filter((v: unknown) => Number.isFinite(v)) : [1];
+        const normalizedPages = fetchedPages.length > 0 ? fetchedPages : [1];
+        setPageOptions(normalizedPages);
+        setPageLength((current) => (normalizedPages.includes(current) ? current : normalizedPages[0]));
       })
       .catch(() => {});
   }, []);
@@ -40,13 +62,29 @@ export default function AIContentClient({ userRole }: AIContentClientProps) {
     const trimmed = topic.trim();
     if (!trimmed || generating) return;
     setGenerating(true);
+    if (loadingIntervalRef.current) {
+      window.clearInterval(loadingIntervalRef.current);
+    }
+    const steps = ["Preparing", "Retrieving archive context", "Checking latest web updates", "Generating notes", "Finalizing PDF-ready output"];
+    let stepIndex = 0;
+    setLoadingStep(steps[0]);
+    loadingIntervalRef.current = window.setInterval(() => {
+      stepIndex = (stepIndex + 1) % steps.length;
+      setLoadingStep(steps[stepIndex]);
+    }, 900);
     setError(null);
 
     try {
       const res = await fetch("/api/ai/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic: trimmed }),
+        body: JSON.stringify({
+          topic: trimmed,
+          pageLength,
+          model,
+          useWebSearch,
+          coursePrefs: loadCoursePrefsFromStorage(),
+        }),
       });
       const data = await res.json();
 
@@ -59,6 +97,9 @@ export default function AIContentClient({ userRole }: AIContentClientProps) {
         topic: data.topic,
         content: data.content,
         generatedAt: data.generatedAt,
+        model: data.model,
+        sources: Array.isArray(data.sources) ? data.sources : [],
+        pageLength: typeof data.pageLength === "number" ? data.pageLength : pageLength,
       };
 
       setDocuments((prev) => [doc, ...prev]);
@@ -67,10 +108,29 @@ export default function AIContentClient({ userRole }: AIContentClientProps) {
       if (data.remaining !== undefined && data.remaining !== null) {
         setRemaining(data.remaining);
       }
+      if (Array.isArray(data.pageOptions)) {
+        setPageOptions(data.pageOptions);
+      }
     } catch {
       setError("Network error. Please try again.");
     } finally {
+      if (loadingIntervalRef.current) {
+        window.clearInterval(loadingIntervalRef.current);
+        loadingIntervalRef.current = null;
+      }
       setGenerating(false);
+    }
+  }
+
+  function loadCoursePrefsFromStorage(): Record<string, string> | null {
+    if (typeof window === "undefined") return null;
+    try {
+      const raw = localStorage.getItem("ea_course_prefs");
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as Record<string, string>;
+      return parsed;
+    } catch {
+      return null;
     }
   }
 
@@ -90,6 +150,7 @@ export default function AIContentClient({ userRole }: AIContentClientProps) {
     if (!printWindow) return;
     const safeTitle = escapeHtml(activeDoc.topic);
     const safeDate = escapeHtml(new Date(activeDoc.generatedAt).toLocaleString());
+    const safeModel = escapeHtml(activeDoc.model ?? "Auto");
     // Content comes entirely from the Gemini API response — the only user-supplied
     // value is the topic, which we escape separately above.
     printWindow.document.write(`<!DOCTYPE html>
@@ -108,7 +169,7 @@ export default function AIContentClient({ userRole }: AIContentClientProps) {
 </head>
 <body>
   <h1>${safeTitle}</h1>
-  <p class="meta">Generated by ExamArchive AI · ${safeDate}</p>
+  <p class="meta">Generated by ExamArchive AI · ${safeDate} · Model: ${safeModel}</p>
   <div>${markdownToHtml(activeDoc.content)}</div>
 </body>
 </html>`);
@@ -130,7 +191,7 @@ export default function AIContentClient({ userRole }: AIContentClientProps) {
       .replace(/^(?!<[hul])(.+)$/gm, "<p>$1</p>");
   }
 
-  const canGenerate = isFounder || (remaining !== null && remaining > 0);
+  const canGenerate = isAdminPlus || (remaining !== null && remaining > 0);
 
   return (
     <div style={{ maxWidth: 800, margin: "0 auto", padding: "1.5rem 1rem" }}>
@@ -150,8 +211,7 @@ export default function AIContentClient({ userRole }: AIContentClientProps) {
           <span>✨</span> AI Generated Content
         </h1>
         <p style={{ color: "var(--color-text-muted)", marginTop: "0.35rem", fontSize: "0.9rem" }}>
-          Generate AI-powered study summaries and exam revision documents. ExamBot uses Gemini
-          to produce structured revision notes tailored to your topic.
+          Generate AI-powered detailed exam notes with archive-first RAG + optional live web updates.
         </p>
       </div>
 
@@ -199,8 +259,51 @@ export default function AIContentClient({ userRole }: AIContentClientProps) {
           htmlFor="ai-topic"
           style={{ fontWeight: 600, fontSize: "0.875rem", display: "block", marginBottom: "0.5rem" }}
         >
-          What topic should ExamBot summarise?
+          What topic should ExamBot generate detailed notes for?
         </label>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: "0.5rem", marginBottom: "0.6rem" }}>
+          <label style={{ fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
+            Length (pages)
+            <select
+              value={String(pageLength)}
+              onChange={(e) => setPageLength(Number(e.target.value))}
+              disabled={generating || !canGenerate}
+              className="input-field"
+              style={{ marginTop: 4 }}
+            >
+              {pageOptions.map((p) => (
+                <option key={p} value={String(p)}>
+                  {p} page{p > 1 ? "s" : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label style={{ fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
+            Model
+            <select
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              disabled={generating || !canGenerate}
+              className="input-field"
+              style={{ marginTop: 4 }}
+            >
+              {modelOptions.map((m) => (
+                <option key={m.id} value={m.id} disabled={!m.available}>
+                  {m.label}{!m.available ? " (locked)" : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", display: "flex", alignItems: "center", gap: 6, marginTop: 18 }}>
+            <input
+              type="checkbox"
+              checked={useWebSearch}
+              onChange={(e) => setUseWebSearch(e.target.checked)}
+              disabled={generating || !canGenerate}
+            />
+            Include live web search
+          </label>
+        </div>
         <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
           <input
             id="ai-topic"
@@ -208,7 +311,7 @@ export default function AIContentClient({ userRole }: AIContentClientProps) {
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && canGenerate && generate()}
-            placeholder="e.g. Thermodynamics, Indian Constitution, Cell Biology…"
+            placeholder="e.g. PHYDSC101T electrostatics derivation set, Indian Constitution federalism PYQ trend…"
             maxLength={500}
             disabled={generating || !canGenerate}
             className="input-field"
@@ -220,11 +323,11 @@ export default function AIContentClient({ userRole }: AIContentClientProps) {
             className="btn-primary"
             style={{ whiteSpace: "nowrap" }}
           >
-            {generating ? "Generating…" : "✨ Generate"}
-          </button>
-        </div>
+             {generating ? `Generating… (${loadingStep})` : "✨ Generate Notes"}
+           </button>
+         </div>
 
-        {!canGenerate && !isFounder && (
+        {!canGenerate && !isAdminPlus && (
           <p style={{ marginTop: "0.6rem", fontSize: "0.8rem", color: "var(--brand-crimson)" }}>
             Daily limit reached. Come back tomorrow for {DAILY_LIMIT} more generations.
           </p>
@@ -364,10 +467,10 @@ export default function AIContentClient({ userRole }: AIContentClientProps) {
           <div style={{ fontSize: 48, marginBottom: "0.75rem" }}>✨</div>
           <p style={{ fontWeight: 600 }}>No documents generated yet</p>
           <p style={{ fontSize: "0.85rem" }}>
-            Enter a topic above and click <em>Generate</em> to create your first AI study summary.
-          </p>
-        </div>
-      )}
+             Enter a topic above and click <em>Generate Notes</em> to create your first AI study document.
+           </p>
+         </div>
+       )}
 
       {/* Info box */}
       <div
@@ -381,17 +484,18 @@ export default function AIContentClient({ userRole }: AIContentClientProps) {
           lineHeight: 1.6,
         }}
       >
-        <strong style={{ color: "var(--color-text)" }}>ℹ How it works:</strong>{" "}
-        ExamBot uses Google Gemini to generate a structured revision document for your topic.
-        Use the <em>Print / Save PDF</em> button to save the document. Generated content is for study
-        reference only — always verify with official sources.{" "}
-        {userRole !== "founder" && (
-          <>
-            You have a daily limit of <strong>{DAILY_LIMIT} documents</strong>. Need more? Browse
-            real papers at <Link href="/browse" style={{ color: "var(--brand-crimson)" }}>/browse</Link>.
-          </>
-        )}
-      </div>
+         <strong style={{ color: "var(--color-text)" }}>ℹ How it works:</strong>{" "}
+         ExamBot prioritizes your archive syllabus/paper context (including My Course preference when available),
+         optionally adds live web updates, and generates detailed notes with revision-ready structure.
+         Use the <em>Print / Save PDF</em> button to save the document. Generated content is for study
+         reference only — always verify with official sources.{" "}
+         {userRole !== "founder" && userRole !== "admin" && (
+           <>
+             You have a daily limit of <strong>{DAILY_LIMIT} documents</strong>. Need more? Browse
+             real papers at <Link href="/browse" style={{ color: "var(--brand-crimson)" }}>/browse</Link>.
+           </>
+         )}
+       </div>
     </div>
   );
 }

@@ -50,6 +50,11 @@ export const COLLECTION = {
    * Create this collection in the Appwrite console with the attributes above.
    */
   ai_usage: "ai_usage",
+  /**
+   * Stores RAG chunks extracted from uploaded papers/syllabi.
+   * Fields include file_id, source_type, source_label, text_chunk, embedding[], and metadata.
+   */
+  ai_embeddings: "ai_embeddings",
 } as const;
 
 /** Storage bucket for uploaded PDFs and files. */

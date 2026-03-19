@@ -1,10 +1,13 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Link from "next/link";
 
 interface Message {
   role: "user" | "model";
   text: string;
+  model?: string;
+  sources?: string[];
 }
 
 interface AIBubbleProps {
@@ -87,7 +90,12 @@ export default function AIBubble({ isLoggedIn }: AIBubbleProps) {
         }),
       });
 
-      const data = (await res.json()) as { reply?: string; error?: string };
+      const data = (await res.json()) as {
+        reply?: string;
+        error?: string;
+        model?: string;
+        sources?: string[];
+      };
       if (!res.ok) {
         setError(data.error ?? "Something went wrong.");
       } else {
@@ -95,7 +103,15 @@ export default function AIBubble({ isLoggedIn }: AIBubbleProps) {
         if (!reply) {
           setError("Service temporarily unavailable. Please try again shortly.");
         } else {
-          setMessages((prev) => [...prev, { role: "model", text: reply }]);
+          setMessages((prev) => [
+            ...prev,
+            {
+              role: "model",
+              text: reply,
+              model: data.model,
+              sources: Array.isArray(data.sources) ? data.sources.slice(0, 4) : [],
+            },
+          ]);
         }
       }
     } catch {
@@ -110,6 +126,21 @@ export default function AIBubble({ isLoggedIn }: AIBubbleProps) {
       e.preventDefault();
       sendMessage();
     }
+  }
+
+  function renderRichText(text: string) {
+    const routePattern = /(\/[a-zA-Z0-9\-/_]*)/g;
+    const parts = text.split(routePattern);
+    return parts.map((part, idx) => {
+      if (/^\/[a-zA-Z0-9\-/_]*$/.test(part) && part.length > 1) {
+        return (
+          <Link key={`${part}-${idx}`} href={part} style={{ color: "inherit", textDecoration: "underline" }}>
+            {part}
+          </Link>
+        );
+      }
+      return <span key={`${idx}-${part.slice(0, 8)}`}>{part}</span>;
+    });
   }
 
   return (
@@ -251,7 +282,28 @@ export default function AIBubble({ isLoggedIn }: AIBubbleProps) {
                     wordBreak: "break-word",
                   }}
                 >
-                  {m.text}
+                  {renderRichText(m.text)}
+                  {m.role === "model" && (m.model || (m.sources && m.sources.length > 0)) && (
+                    <div style={{ marginTop: 8, fontSize: "0.68rem", opacity: 0.85 }}>
+                      {m.model && <div>Model: {m.model}</div>}
+                      {m.sources && m.sources.length > 0 && (
+                        <div>
+                          Sources:{" "}
+                          {m.sources.map((source, index) => (
+                            <a
+                              key={`${source}-${index}`}
+                              href={source}
+                              target="_blank"
+                              rel="noreferrer noopener"
+                              style={{ color: "inherit", textDecoration: "underline", marginRight: 6 }}
+                            >
+                              [{index + 1}]
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
