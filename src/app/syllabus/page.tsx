@@ -11,8 +11,24 @@ import { getServerUser } from "@/lib/auth";
 import SyllabusClient from "./SyllabusClient";
 
 export const metadata: Metadata = {
-  title: "Syllabus",
-  description: "Browse approved course syllabi and the paper syllabus library.",
+  title: "Syllabus Library by Paper Code and Subject",
+  description:
+    "Browse approved syllabus PDFs and structured syllabus pages by paper code, subject, and university on ExamArchive.",
+  keywords: [
+    "syllabus library",
+    "paper code syllabus",
+    "university syllabus pdf",
+    "FYUGP syllabus",
+    "CBCS syllabus",
+  ],
+  alternates: { canonical: "/syllabus" },
+  openGraph: {
+    title: "Syllabus Library | ExamArchive",
+    description:
+      "Explore approved syllabus PDFs and paper-code syllabus pages for faster exam preparation.",
+    url: "https://examarchive.dev/syllabus",
+    type: "website",
+  },
 };
 
 export default async function SyllabusPage() {
@@ -46,4 +62,3 @@ export default async function SyllabusPage() {
     </section>
   );
 }
-

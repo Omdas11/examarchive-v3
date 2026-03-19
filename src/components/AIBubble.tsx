@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, type ReactNode } from "react";
 import Link from "next/link";
 
 interface Message {
@@ -16,7 +16,7 @@ interface AIBubbleProps {
 }
 
 const LOADING_DOT_STATES = [".", "..", "..."];
-const ROUTE_PATH_PATTERN = /(\/[a-zA-Z0-9_-]+(?:\/[a-zA-Z0-9_-]+)*)/g;
+const ROUTE_PATH_PATTERN = /(^|\s)(\/[a-zA-Z0-9_-]+(?:\/[a-zA-Z0-9_-]+)*)/g;
 const STRICT_ROUTE_PATTERN = /^\/[a-zA-Z0-9_-]+(?:\/[a-zA-Z0-9_-]+)*$/;
 
 export default function AIBubble({ isLoggedIn }: AIBubbleProps) {
@@ -131,17 +131,37 @@ export default function AIBubble({ isLoggedIn }: AIBubbleProps) {
   }
 
   function renderRichText(text: string) {
-    const parts = text.split(ROUTE_PATH_PATTERN);
-    return parts.map((part, idx) => {
-      if (STRICT_ROUTE_PATTERN.test(part) && part.length > 1) {
-        return (
-          <Link key={`${part}-${idx}`} href={part} style={{ color: "inherit", textDecoration: "underline" }}>
-            {part}
-          </Link>
-        );
+    const nodes: ReactNode[] = [];
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+    ROUTE_PATH_PATTERN.lastIndex = 0;
+    while ((match = ROUTE_PATH_PATTERN.exec(text)) !== null) {
+      const [, leading = "", route = ""] = match;
+      const matchStart = match.index;
+      const routeStart = matchStart + leading.length;
+      if (routeStart > lastIndex) {
+        nodes.push(<span key={`text-${lastIndex}`}>{text.slice(lastIndex, routeStart)}</span>);
       }
-      return <span key={`span-${idx}`}>{part}</span>;
-    });
+      const routeEnd = routeStart + route.length;
+      const prevWindow = text.slice(Math.max(0, routeStart - 12), routeStart).toLowerCase();
+      const nextChar = text[routeEnd] ?? "";
+      const looksLikeExternalUrl = prevWindow.includes("://") || prevWindow.endsWith("www.");
+      const hasExternalDomainTail = nextChar === ".";
+      if (STRICT_ROUTE_PATTERN.test(route) && route.length > 1 && !looksLikeExternalUrl && !hasExternalDomainTail) {
+        nodes.push(
+          <Link key={`route-${routeStart}`} href={route} style={{ color: "inherit", textDecoration: "underline" }}>
+            {route}
+          </Link>,
+        );
+      } else {
+        nodes.push(<span key={`raw-${routeStart}`}>{route}</span>);
+      }
+      lastIndex = routeEnd;
+    }
+    if (lastIndex < text.length) {
+      nodes.push(<span key={`tail-${lastIndex}`}>{text.slice(lastIndex)}</span>);
+    }
+    return nodes;
   }
 
   return (

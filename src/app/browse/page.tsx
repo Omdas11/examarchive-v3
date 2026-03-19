@@ -11,8 +11,25 @@ import { getServerUser } from "@/lib/auth";
 import BrowseClient from "./BrowseClient";
 
 export const metadata: Metadata = {
-  title: "Browse Papers",
-  description: "Search and filter past exam papers by department, course, year and more.",
+  title: "Browse Question Papers by Course, Year, Semester",
+  description:
+    "Browse and filter past exam question papers by university, course code, semester, paper type, and year on ExamArchive.",
+  keywords: [
+    "browse question papers",
+    "past exam papers",
+    "course code papers",
+    "FYUGP papers",
+    "CBCS papers",
+    "ExamArchive browse",
+  ],
+  alternates: { canonical: "/browse" },
+  openGraph: {
+    title: "Browse Question Papers | ExamArchive",
+    description:
+      "Find verified past exam papers using filters for course code, university, semester, and year.",
+    url: "https://examarchive.dev/browse",
+    type: "website",
+  },
 };
 
 interface BrowsePageProps {
@@ -78,4 +95,3 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
     </section>
   );
 }
-

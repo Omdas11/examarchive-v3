@@ -27,6 +27,13 @@ type SourceType = "paper" | "syllabus";
 const EMBEDDING_MODEL = "text-embedding-3-small";
 const SYLLABUS_FILE_URL_RE = /\/api\/files\/syllabus\/([^/?#]+)/;
 const SYLLABUS_RANKING_BOOST = 0.03;
+const UNTRUSTED_INJECTION_PATTERNS = [
+  /ignore\s+previous/gi,
+  /ignore\s+all\s+instructions/gi,
+  /system\s+prompt/gi,
+  /developer\s+message/gi,
+  /you\s+must\s+follow/gi,
+];
 
 function cleanText(raw: string): string {
   return raw.replace(/\u0000/g, "").replace(/\s+/g, " ").trim();
@@ -35,15 +42,24 @@ function cleanText(raw: string): string {
 function chunkText(text: string, chunkSize = 1200, overlap = 200): string[] {
   const cleaned = cleanText(text);
   if (!cleaned) return [];
+  const safeOverlap = Math.max(0, Math.min(overlap, chunkSize - 1));
   const chunks: string[] = [];
   let start = 0;
   while (start < cleaned.length) {
     const end = Math.min(cleaned.length, start + chunkSize);
     chunks.push(cleaned.slice(start, end));
     if (end >= cleaned.length) break;
-    start = Math.max(0, end - overlap);
+    start = end - safeOverlap;
   }
   return chunks;
+}
+
+function sanitizeUntrustedContext(text: string): string {
+  let sanitized = text;
+  for (const pattern of UNTRUSTED_INJECTION_PATTERNS) {
+    sanitized = sanitized.replace(pattern, "[redacted]");
+  }
+  return sanitized;
 }
 
 async function embedText(input: string): Promise<number[] | null> {
@@ -211,8 +227,6 @@ export async function buildRagContext(args: {
   coursePrefs?: CoursePrefsPayload;
   includeWebSearch?: boolean;
 }): Promise<RagContext> {
-  await ensureRagCoverage(args.coursePrefs);
-
   const queryEmbedding = await embedText(args.query);
   const docs = await getEmbeddingDocsBySubjects(args.coursePrefs);
 
@@ -234,7 +248,7 @@ export async function buildRagContext(args: {
     .filter((entry) => entry.textChunk)
     .map((entry, index) => {
       const source = String(entry.doc.source_label ?? entry.doc.course_code ?? entry.doc.file_id ?? "archive");
-      return `Archive chunk ${index + 1} (${source}):\n${entry.textChunk.slice(0, 700)}`;
+      return `Archive chunk ${index + 1} (${source}):\n${sanitizeUntrustedContext(entry.textChunk.slice(0, 700))}`;
     })
     .join("\n\n");
 

@@ -16,10 +16,25 @@ interface TavilyResponse {
 
 const DEFAULT_SEARCH_URL = "https://api.tavily.com/search";
 const MAX_SEARCH_RESULTS = 5;
+const UNTRUSTED_INJECTION_PATTERNS = [
+  /ignore\s+previous/gi,
+  /ignore\s+all\s+instructions/gi,
+  /system\s+prompt/gi,
+  /developer\s+message/gi,
+  /you\s+must\s+follow/gi,
+];
 
 function truncate(value: string, max = 320): string {
   if (value.length <= max) return value;
   return `${value.slice(0, max - 1)}…`;
+}
+
+function sanitizeUntrustedSnippet(value: string): string {
+  let sanitized = value;
+  for (const pattern of UNTRUSTED_INJECTION_PATTERNS) {
+    sanitized = sanitized.replace(pattern, "[redacted]");
+  }
+  return sanitized;
 }
 
 export async function runWebSearch(query: string, maxResults = MAX_SEARCH_RESULTS): Promise<WebSearchResult[]> {
@@ -52,7 +67,7 @@ export async function runWebSearch(query: string, maxResults = MAX_SEARCH_RESULT
       .map((entry) => ({
         title: (entry.title ?? "").trim(),
         url: (entry.url ?? "").trim(),
-        snippet: truncate((entry.content ?? "").replace(/\s+/g, " ").trim()),
+        snippet: truncate(sanitizeUntrustedSnippet((entry.content ?? "").replace(/\s+/g, " ").trim())),
         score: typeof entry.score === "number" ? entry.score : undefined,
       }))
       .filter((entry) => entry.title && entry.url && entry.snippet);

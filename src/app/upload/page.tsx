@@ -6,8 +6,23 @@ import SyllabusUploadForm from "@/components/SyllabusUploadForm";
 import DeptSyllabusUploadForm from "@/components/DeptSyllabusUploadForm";
 
 export const metadata: Metadata = {
-  title: "Upload",
-  description: "Upload a question paper, syllabus, or notes to ExamArchive.",
+  title: "Upload Question Papers and Syllabus PDFs",
+  description:
+    "Upload question papers and syllabus PDFs to ExamArchive. Submissions are reviewed by admins before publishing.",
+  keywords: [
+    "upload question paper",
+    "upload syllabus pdf",
+    "submit past paper",
+    "examarchive upload",
+  ],
+  alternates: { canonical: "/upload" },
+  openGraph: {
+    title: "Upload Papers & Syllabi | ExamArchive",
+    description:
+      "Contribute question papers and syllabus PDFs to help students prepare with verified resources.",
+    url: "https://examarchive.dev/upload",
+    type: "website",
+  },
 };
 
 const guidelines = [
@@ -174,4 +189,3 @@ export default async function UploadPage({
     </section>
   );
 }
-

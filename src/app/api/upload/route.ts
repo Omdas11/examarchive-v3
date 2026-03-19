@@ -152,20 +152,18 @@ export async function POST(request: NextRequest) {
       console.warn("[api/upload] Could not write to uploads collection:", uploadErr);
     }
 
-    // Step 3 — Best-effort RAG ingestion for AI retrieval features.
-    try {
-      await ingestPdfToRag({
-        fileId,
-        sourceType: "paper",
-        sourceLabel: `${courseCode} ${yearNum}`,
-        courseCode,
-        department,
-        year: yearNum,
-        uploadedBy: user.id,
-      });
-    } catch (ingestErr) {
+    // Step 3 — Best-effort RAG ingestion (fire-and-forget; do not block upload response).
+    void ingestPdfToRag({
+      fileId,
+      sourceType: "paper",
+      sourceLabel: `${courseCode} ${yearNum}`,
+      courseCode,
+      department,
+      year: yearNum,
+      uploadedBy: user.id,
+    }).catch((ingestErr) => {
       console.warn("[api/upload] RAG ingestion skipped:", ingestErr);
-    }
+    });
 
     return NextResponse.json({ success: true });
   } catch (err: unknown) {
