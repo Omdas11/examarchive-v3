@@ -166,8 +166,13 @@ export async function runGroqCompletionWithFallback(args: {
   messages: Array<{ role: GroqRole; content: string }>;
   maxTokens: number;
   temperature: number;
+  preferredModel?: string;
 }): Promise<{ content: string; model: string }> {
-  const modelPool = getGroqModelPool();
+  const basePool = getGroqModelPool();
+  const preferred = args.preferredModel?.trim();
+  const modelPool = preferred && basePool.includes(preferred)
+    ? [preferred, ...basePool.filter((model) => model !== preferred)]
+    : basePool;
   if (modelPool.length === 0) {
     throw new AIServiceError("SERVICE_UNAVAILABLE", 503, "Service temporarily unavailable. Please try again shortly.");
   }

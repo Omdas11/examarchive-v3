@@ -1,8 +1,17 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Support",
-  description: "Get help, send feedback, or report issues.",
+  title: "Support, Feedback, and Bug Reports",
+  description:
+    "Contact ExamArchive support, send feedback, and report issues related to papers, syllabus, and account usage.",
+  keywords: ["examarchive support", "report bug", "student feedback", "help center"],
+  alternates: { canonical: "/support" },
+  openGraph: {
+    title: "Support | ExamArchive",
+    description: "Get help, report issues, or send feedback to the ExamArchive team.",
+    url: "https://examarchive.dev/support",
+    type: "website",
+  },
 };
 
 const contacts = [

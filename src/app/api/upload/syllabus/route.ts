@@ -9,8 +9,10 @@ import {
   ID,
 } from "@/lib/appwrite";
 import { findByPaperCode } from "@/data/syllabus-registry";
+import { ingestPdfToRag } from "@/lib/pdf-rag";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 function getSyllabusFileUrl(fileId: string): string {
   return `/api/files/syllabus/${fileId}`;
@@ -148,6 +150,20 @@ export async function POST(request: NextRequest) {
       const message = err instanceof Error ? err.message : String(err);
       return NextResponse.json({ error: message }, { status: 500 });
     }
+
+    void ingestPdfToRag({
+      fileId,
+      sourceType: "syllabus",
+      sourceLabel: isDeptSyllabus
+        ? `${subject} ${university}`.trim()
+        : `${paper_code} ${yearNum}`.trim(),
+      courseCode: paper_code,
+      department,
+      year: yearNum,
+      uploadedBy: user.id,
+    }).catch((ingestErr) => {
+      console.warn("[api/upload/syllabus] RAG ingestion skipped:", ingestErr);
+    });
 
     return NextResponse.json({ success: true });
   } catch (err: unknown) {

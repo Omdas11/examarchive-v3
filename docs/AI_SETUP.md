@@ -58,8 +58,11 @@ Signed-in users can request AI-generated revision summaries.
 
 - **Daily limit:** 3 generated documents per user per calendar day.
 - **Founder bypass:** The `founder` role has unlimited generations for testing.
+- **Admin+ unlimited:** `admin` and `founder` roles are treated as unlimited.
 - **Output format:** Structured Markdown with headings, key concepts, exam tips, and a quick-revision checklist.
 - **Print / Save PDF:** Users can open a print-friendly version via the browser's native print dialog.
+- **Advanced controls:** Users can choose page length (1–5), model (role-limited), and optional live web search.
+- **RAG priority:** Archive syllabus/paper context is retrieved first (Appwrite-only embeddings) before fallback to raw topic input.
 
 ---
 
@@ -107,7 +110,7 @@ See [`DATABASE_SCHEMA.md`](./DATABASE_SCHEMA.md) for the full `ai_usage` collect
 
 ---
 
-## Model Fallback System
+## Model Fallback + Selection System
 
 ExamArchive now uses a **priority-based multi-model fallback pool** for both:
 - `POST /api/ai/chat`
@@ -121,6 +124,11 @@ Default model priority:
 5. `llama-3.1-70b-versatile`
 
 If the current model fails (timeout, overload/rate limit, or provider error), the API automatically retries the next model until one succeeds or the pool is exhausted.
+
+Users can select a preferred model in `/ai-content`:
+- non-admin users: can select from allowed model subset
+- admin/founder: full pool access
+- preferred model is used first, then fallback pool continues automatically
 
 You can override the priority order using `GROQ_MODEL_POOL` (comma-separated) without code changes.
 
@@ -137,10 +145,23 @@ You can override the priority order using `GROQ_MODEL_POOL` (comma-separated) wi
 - [x] `GROQ_API_KEY` is a server-only environment variable (no `NEXT_PUBLIC_` prefix)
 - [x] AI API routes verify user session before making Groq calls
 - [x] API key is never returned in any API response
+- [x] Web search API key (`TAVILY_API_KEY`) and embeddings key (`OPENAI_API_KEY`) are server-only
 - [x] Model fallback executes server-side only; no model credentials or internal errors are exposed to the browser
 - [x] System prompt instructs ExamBot to refuse sharing internal details
 - [x] Message length is limited (1–1000 characters for chat, 1–500 for topic)
 - [x] Rate limiting (3/day) prevents abuse of AI quota
+
+---
+
+## Appwrite-only RAG + Web Search
+
+- PDF text is extracted from Appwrite storage uploads.
+- Text is chunked and stored in Appwrite collection `ai_embeddings` with embeddings array + metadata.
+- Retrieval computes cosine similarity server-side and injects relevant chunks into prompts.
+- Tavily-style web search is invoked server-side only and summarized before prompt injection.
+- If retrieval/search is unavailable, generation falls back gracefully to topic-driven notes.
+
+See [`../AI_EXTENSIONS_SETUP.md`](../AI_EXTENSIONS_SETUP.md) for full schema and setup details.
 
 ---
 

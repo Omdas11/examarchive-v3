@@ -1,10 +1,13 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, type ReactNode } from "react";
+import Link from "next/link";
 
 interface Message {
   role: "user" | "model";
   text: string;
+  model?: string;
+  sources?: string[];
 }
 
 interface AIBubbleProps {
@@ -13,6 +16,8 @@ interface AIBubbleProps {
 }
 
 const LOADING_DOT_STATES = [".", "..", "..."];
+const ROUTE_PATH_PATTERN = /(^|\s)(\/[a-zA-Z0-9_-]+(?:\/[a-zA-Z0-9_-]+)*)/g;
+const STRICT_ROUTE_PATTERN = /^\/[a-zA-Z0-9_-]+(?:\/[a-zA-Z0-9_-]+)*$/;
 
 export default function AIBubble({ isLoggedIn }: AIBubbleProps) {
   const [open, setOpen] = useState(false);
@@ -87,7 +92,12 @@ export default function AIBubble({ isLoggedIn }: AIBubbleProps) {
         }),
       });
 
-      const data = (await res.json()) as { reply?: string; error?: string };
+      const data = (await res.json()) as {
+        reply?: string;
+        error?: string;
+        model?: string;
+        sources?: string[];
+      };
       if (!res.ok) {
         setError(data.error ?? "Something went wrong.");
       } else {
@@ -95,7 +105,15 @@ export default function AIBubble({ isLoggedIn }: AIBubbleProps) {
         if (!reply) {
           setError("Service temporarily unavailable. Please try again shortly.");
         } else {
-          setMessages((prev) => [...prev, { role: "model", text: reply }]);
+          setMessages((prev) => [
+            ...prev,
+            {
+              role: "model",
+              text: reply,
+              model: data.model,
+              sources: Array.isArray(data.sources) ? data.sources.slice(0, 4) : [],
+            },
+          ]);
         }
       }
     } catch {
@@ -110,6 +128,40 @@ export default function AIBubble({ isLoggedIn }: AIBubbleProps) {
       e.preventDefault();
       sendMessage();
     }
+  }
+
+  function renderRichText(text: string) {
+    const nodes: ReactNode[] = [];
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+    ROUTE_PATH_PATTERN.lastIndex = 0;
+    while ((match = ROUTE_PATH_PATTERN.exec(text)) !== null) {
+      const [, leading = "", route = ""] = match;
+      const matchStart = match.index;
+      const routeStart = matchStart + leading.length;
+      if (routeStart > lastIndex) {
+        nodes.push(<span key={`text-${lastIndex}`}>{text.slice(lastIndex, routeStart)}</span>);
+      }
+      const routeEnd = routeStart + route.length;
+      const prevWindow = text.slice(Math.max(0, routeStart - 12), routeStart).toLowerCase();
+      const nextChar = text[routeEnd] ?? "";
+      const looksLikeExternalUrl = prevWindow.includes("://") || prevWindow.endsWith("www.");
+      const hasExternalDomainTail = nextChar === ".";
+      if (STRICT_ROUTE_PATTERN.test(route) && route.length > 1 && !looksLikeExternalUrl && !hasExternalDomainTail) {
+        nodes.push(
+          <Link key={`route-${routeStart}`} href={route} style={{ color: "inherit", textDecoration: "underline" }}>
+            {route}
+          </Link>,
+        );
+      } else {
+        nodes.push(<span key={`raw-${routeStart}`}>{route}</span>);
+      }
+      lastIndex = routeEnd;
+    }
+    if (lastIndex < text.length) {
+      nodes.push(<span key={`tail-${lastIndex}`}>{text.slice(lastIndex)}</span>);
+    }
+    return nodes;
   }
 
   return (
@@ -251,7 +303,28 @@ export default function AIBubble({ isLoggedIn }: AIBubbleProps) {
                     wordBreak: "break-word",
                   }}
                 >
-                  {m.text}
+                  {renderRichText(m.text)}
+                  {m.role === "model" && (m.model || (m.sources && m.sources.length > 0)) && (
+                    <div style={{ marginTop: 8, fontSize: "0.68rem", opacity: 0.85 }}>
+                      {m.model && <div>Model: {m.model}</div>}
+                      {m.sources && m.sources.length > 0 && (
+                        <div>
+                          Sources:{" "}
+                          {m.sources.map((source, index) => (
+                            <a
+                              key={`${source}-${index}`}
+                              href={source}
+                              target="_blank"
+                              rel="noreferrer noopener"
+                              style={{ color: "inherit", textDecoration: "underline", marginRight: 6 }}
+                            >
+                              [{index + 1}]
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
