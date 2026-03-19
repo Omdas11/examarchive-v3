@@ -7,6 +7,7 @@ import {
   Query,
   ID,
 } from "@/lib/appwrite";
+import { AIServiceError, runGroqCompletionWithFallback } from "@/lib/groq-fallback";
 
 /** Maximum AI-generated PDFs per user per calendar day. */
 const DAILY_LIMIT = 3;
@@ -102,36 +103,13 @@ Format requirements:
 
 Write in plain text with Markdown headings only (no HTML).`;
 
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "openai/gpt-oss-120b",
-        messages: [{ role: "user", content: prompt }],
-        max_tokens: 1024,
-        temperature: 0.6,
-      }),
+    const { content: generatedContent } = await runGroqCompletionWithFallback({
+      apiKey,
+      messages: [{ role: "user", content: prompt }],
+      maxTokens: 1024,
+      temperature: 0.6,
     });
-
-    if (!response.ok) {
-      let groqError = `Groq request failed with status ${response.status}`;
-      try {
-        const payload = (await response.json()) as { error?: { message?: string } };
-        if (payload.error?.message) {
-          groqError = payload.error.message;
-        }
-      } catch {
-        // ignore response parsing errors
-      }
-      throw new Error(groqError);
-    }
-    const payload = (await response.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
-    };
-    const content = payload.choices?.[0]?.message?.content?.trim() || AI_GENERATION_EMPTY_RESPONSE_MESSAGE;
+    const content = generatedContent || AI_GENERATION_EMPTY_RESPONSE_MESSAGE;
 
     // Record this generation for rate-limiting
     if (user.role !== "founder") {
@@ -150,8 +128,11 @@ Write in plain text with Markdown headings only (no HTML).`;
       remaining,
     });
   } catch (err) {
+    if (err instanceof AIServiceError) {
+      return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
+    }
     console.error("[AI generate] Groq error:", err);
-    return NextResponse.json({ error: "AI generation failed. Please try again." }, { status: 500 });
+    return NextResponse.json({ error: "Service temporarily unavailable. Please try again shortly." }, { status: 503 });
   }
 }
 

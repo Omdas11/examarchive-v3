@@ -29,6 +29,9 @@ Add the following variable to your `.env.local` file:
 ```env
 # Groq API key — server-side only, never exposed to the browser
 GROQ_API_KEY=gsk_your_key_here
+
+# Optional: override model fallback priority (comma-separated)
+# GROQ_MODEL_POOL=openai/gpt-oss-120b,openai/gpt-oss-20b,llama-3.3-70b-versatile,llama-3.1-8b-instant,llama-3.1-70b-versatile
 ```
 
 > **Security note:** `GROQ_API_KEY` does **not** have the `NEXT_PUBLIC_` prefix.
@@ -104,16 +107,22 @@ See [`DATABASE_SCHEMA.md`](./DATABASE_SCHEMA.md) for the full `ai_usage` collect
 
 ---
 
-## Model
+## Model Fallback System
 
-ExamBot uses `openai/gpt-oss-120b` on Groq, which is:
-- Fast (low latency)
-- Cost-efficient for chat and study summaries
-- Suitable for educational summarisation tasks
+ExamArchive now uses a **priority-based multi-model fallback pool** for both:
+- `POST /api/ai/chat`
+- `POST /api/ai/generate`
 
-To change the model, update the `model` parameter in:
-- `src/app/api/ai/chat/route.ts`
-- `src/app/api/ai/generate/route.ts`
+Default model priority:
+1. `openai/gpt-oss-120b`
+2. `openai/gpt-oss-20b`
+3. `llama-3.3-70b-versatile`
+4. `llama-3.1-8b-instant`
+5. `llama-3.1-70b-versatile`
+
+If the current model fails (timeout, overload/rate limit, or provider error), the API automatically retries the next model until one succeeds or the pool is exhausted.
+
+You can override the priority order using `GROQ_MODEL_POOL` (comma-separated) without code changes.
 
 ### Notes on model differences vs Gemini
 
@@ -128,6 +137,7 @@ To change the model, update the `model` parameter in:
 - [x] `GROQ_API_KEY` is a server-only environment variable (no `NEXT_PUBLIC_` prefix)
 - [x] AI API routes verify user session before making Groq calls
 - [x] API key is never returned in any API response
+- [x] Model fallback executes server-side only; no model credentials or internal errors are exposed to the browser
 - [x] System prompt instructs ExamBot to refuse sharing internal details
 - [x] Message length is limited (1–1000 characters for chat, 1–500 for topic)
 - [x] Rate limiting (3/day) prevents abuse of AI quota
@@ -139,7 +149,9 @@ To change the model, update the `model` parameter in:
 | Symptom | Cause | Fix |
 |---------|-------|-----|
 | `"AI assistant is not configured."` | `GROQ_API_KEY` is missing | Add the key to `.env.local` and restart the dev server |
-| `"AI response failed."` | Groq returned an error | Check the server console for the Groq error message |
+| `"AI is under high traffic. Please try again in a moment."` | Temporary provider overload/rate limit/timeout across fallback pool | Retry shortly; request will auto-fallback across models |
+| `"Daily limit reached. Please try again tomorrow."` | Daily generation quota reached (or provider quota issue) | Wait until next day for app quota; check provider billing if persistent |
+| `"Service temporarily unavailable. Please try again shortly."` | All models in fallback pool failed | Retry in a few moments |
 | `"Daily limit reached"` | User exceeded 3 generations | Wait until the next calendar day (UTC) |
 | Bubble does not appear | Component not rendering | Ensure `AIBubble` is imported in `src/app/layout.tsx` |
 
