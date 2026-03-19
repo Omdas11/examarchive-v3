@@ -1,6 +1,6 @@
 # AI Setup — ExamArchive v3
 
-ExamArchive v3 ships with a lightweight AI assistant (ExamBot) powered by Google Gemini.
+ExamArchive v3 ships with a lightweight AI assistant (ExamBot) powered by Groq.
 This document explains how to configure the integration, the security model, usage limits,
 and how to extend it.
 
@@ -8,17 +8,17 @@ and how to extend it.
 
 ## Prerequisites
 
-- A Google account with access to [Google AI Studio](https://aistudio.google.com/)
-- A Gemini API key (free tier is sufficient for development)
+- A Groq account with API access
+- A Groq API key
 
 ---
 
-## Getting a Gemini API Key
+## Getting a Groq API Key
 
-1. Go to [https://aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)
-2. Sign in with your Google account
-3. Click **Create API key**
-4. Copy the generated key (starts with `AIza…`)
+1. Go to [https://console.groq.com/keys](https://console.groq.com/keys)
+2. Sign in to your Groq account
+3. Click **Create API Key**
+4. Copy the generated key and keep it secret
 
 ---
 
@@ -27,11 +27,11 @@ and how to extend it.
 Add the following variable to your `.env.local` file:
 
 ```env
-# Google Gemini API key — server-side only, never exposed to the browser
-GEMINI_API_KEY=AIzaSyYOUR_KEY_HERE
+# Groq API key — server-side only, never exposed to the browser
+GROQ_API_KEY=gsk_your_key_here
 ```
 
-> **Security note:** `GEMINI_API_KEY` does **not** have the `NEXT_PUBLIC_` prefix.
+> **Security note:** `GROQ_API_KEY` does **not** have the `NEXT_PUBLIC_` prefix.
 > This means it is only available in server-side code (API routes, Server Components)
 > and is **never** bundled into the client-side JavaScript. It will not appear in
 > browser DevTools, network requests, or the compiled page source.
@@ -45,7 +45,7 @@ GEMINI_API_KEY=AIzaSyYOUR_KEY_HERE
 A floating bubble appears on every page (bottom-right corner).
 
 - **Requires login:** Unauthenticated users are redirected to `/login` when they click the bubble.
-- **Server-side only:** All Gemini API calls happen in `/api/ai/chat` — the key never reaches the browser.
+- **Server-side only:** All Groq API calls happen in `/api/ai/chat` — the key never reaches the browser.
 - **Context-aware:** ExamBot is aware of the site's structure (browse, syllabus, upload, profile pages) and provides navigation guidance.
 - **History:** Up to the last 10 messages are sent as context with each request, keeping conversations coherent.
 
@@ -106,25 +106,31 @@ See [`DATABASE_SCHEMA.md`](./DATABASE_SCHEMA.md) for the full `ai_usage` collect
 
 ## Model
 
-ExamBot uses `gemini-1.5-flash`, which is:
+ExamBot uses `openai/gpt-oss-120b` on Groq, which is:
 - Fast (low latency)
-- Free-tier eligible
+- Cost-efficient for chat and study summaries
 - Suitable for educational summarisation tasks
 
 To change the model, update the `model` parameter in:
 - `src/app/api/ai/chat/route.ts`
 - `src/app/api/ai/generate/route.ts`
 
+### Notes on model differences vs Gemini
+
+- Output style may be slightly less verbose than Gemini on the same prompt.
+- Reasoning depth can vary for highly technical topics; adjust prompt detail for best results.
+- Latency is typically lower, but occasional provider-side throttling can still happen.
+
 ---
 
 ## Security Checklist
 
-- [x] `GEMINI_API_KEY` is a server-only environment variable (no `NEXT_PUBLIC_` prefix)
-- [x] AI API routes verify user session before making Gemini calls
+- [x] `GROQ_API_KEY` is a server-only environment variable (no `NEXT_PUBLIC_` prefix)
+- [x] AI API routes verify user session before making Groq calls
 - [x] API key is never returned in any API response
 - [x] System prompt instructs ExamBot to refuse sharing internal details
 - [x] Message length is limited (1–1000 characters for chat, 1–500 for topic)
-- [x] Rate limiting (3/day) prevents abuse of the Gemini quota
+- [x] Rate limiting (3/day) prevents abuse of AI quota
 
 ---
 
@@ -132,7 +138,16 @@ To change the model, update the `model` parameter in:
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| `"AI assistant is not configured."` | `GEMINI_API_KEY` is missing | Add the key to `.env.local` and restart the dev server |
-| `"AI response failed."` | Gemini returned an error | Check the server console for the Gemini error message |
+| `"AI assistant is not configured."` | `GROQ_API_KEY` is missing | Add the key to `.env.local` and restart the dev server |
+| `"AI response failed."` | Groq returned an error | Check the server console for the Groq error message |
 | `"Daily limit reached"` | User exceeded 3 generations | Wait until the next calendar day (UTC) |
 | Bubble does not appear | Component not rendering | Ensure `AIBubble` is imported in `src/app/layout.tsx` |
+
+## Quick endpoint testing
+
+1. Start app with `npm run dev`.
+2. Log in with a non-founder user and test:
+   - `POST /api/ai/chat` with a sample message/history payload.
+   - `GET /api/ai/generate` to confirm remaining quota.
+   - `POST /api/ai/generate` with a topic (and optional paperContext), verify `remaining` decreases.
+3. Log in as founder and confirm `GET /api/ai/generate` returns `{ isFounder: true, remaining: null }`.

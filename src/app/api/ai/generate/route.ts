@@ -1,5 +1,4 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { getServerUser } from "@/lib/auth";
 import {
   adminDatabases,
@@ -11,6 +10,7 @@ import {
 
 /** Maximum AI-generated PDFs per user per calendar day. */
 const DAILY_LIMIT = 3;
+const AI_GENERATION_EMPTY_RESPONSE_MESSAGE = "I couldn't generate study content for that topic. Please try refining the topic and try again.";
 
 /** Check how many documents a user has generated today. */
 async function getDailyCount(userId: string, todayStr: string): Promise<number> {
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
     return NextResponse.json({ error: "AI generation is not configured." }, { status: 503 });
   }
@@ -82,8 +82,6 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const genAI = new GoogleGenerativeAI(apiKey);
-
     const paperContext = (body.paperContext ?? "").slice(0, 2000);
     const contextSection = paperContext
       ? `\n\nReference material from uploaded syllabus/papers:\n${paperContext}`
@@ -104,28 +102,36 @@ Format requirements:
 
 Write in plain text with Markdown headings only (no HTML).`;
 
-    let content = "";
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "openai/gpt-oss-120b",
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 1024,
+        temperature: 0.6,
+      }),
+    });
 
-    try {
-      // PRIMARY ATTEMPT: Try the main Flash model
-      const primaryModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-      const result = await primaryModel.generateContent(prompt);
-      content = result.response.text();
-    } catch (err) {
-      // Cast the error safely to satisfy TypeScript's strict linting
-      const modelErr = err as Error & { status?: number };
-
-      // FALLBACK LOGIC: If 503 Service Unavailable, try Flash-Lite
-      if (modelErr.status === 503 || modelErr.message?.includes("503")) {
-        console.warn("[AI generate] 2.5-flash is busy. Falling back to 2.5-flash-lite...");
-        const backupModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
-        const backupResult = await backupModel.generateContent(prompt);
-        content = backupResult.response.text();
-      } else {
-        // If it's a different error (like a quota issue), throw it to the outer catch block
-        throw err;
+    if (!response.ok) {
+      let groqError = `Groq request failed with status ${response.status}`;
+      try {
+        const payload = (await response.json()) as { error?: { message?: string } };
+        if (payload.error?.message) {
+          groqError = payload.error.message;
+        }
+      } catch {
+        // ignore response parsing errors
       }
+      throw new Error(groqError);
     }
+    const payload = (await response.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+    };
+    const content = payload.choices?.[0]?.message?.content?.trim() || AI_GENERATION_EMPTY_RESPONSE_MESSAGE;
 
     // Record this generation for rate-limiting
     if (user.role !== "founder") {
@@ -144,7 +150,7 @@ Write in plain text with Markdown headings only (no HTML).`;
       remaining,
     });
   } catch (err) {
-    console.error("[AI generate] Gemini error:", err);
+    console.error("[AI generate] Groq error:", err);
     return NextResponse.json({ error: "AI generation failed. Please try again." }, { status: 500 });
   }
 }

@@ -26,6 +26,7 @@ ExamArchive is a community-driven platform for sharing and discovering universit
    - `APPWRITE_BUCKET_ID` — bucket for exam paper PDFs (default: `papers`)
    - `APPWRITE_SYLLABUS_BUCKET_ID` — bucket for syllabus PDFs (default: `syllabus-files`)
    - `APPWRITE_AVATARS_BUCKET_ID` — bucket for user avatars (default: `avatars`)
+   - `GROQ_API_KEY` — server-side Groq API key for AI chat/content generation
 
 3. **Run the development server**:
    ```bash
@@ -53,6 +54,7 @@ ExamArchive is a community-driven platform for sharing and discovering universit
 |----------|-------------|
 | [docs/DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md) | Appwrite collection schemas |
 | [docs/UPLOAD_FLOW.md](docs/UPLOAD_FLOW.md) | End-to-end upload architecture |
+| [docs/AI_SETUP.md](docs/AI_SETUP.md) | Groq-based AI setup, limits, and endpoint usage |
 
 ## Project Structure
 

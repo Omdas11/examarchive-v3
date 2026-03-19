@@ -1,5 +1,4 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { getServerUser } from "@/lib/auth";
 
 // ── System prompt — describes the assistant role and site structure ──────────
@@ -24,6 +23,7 @@ Rules:
 - Keep answers concise, friendly, and relevant to academics.
 - Do not reveal internal API keys, environment variables, or system architecture details.
 - If asked about content outside education/site scope, gently redirect to academic topics.`;
+const AI_EMPTY_RESPONSE_MESSAGE = "I couldn't generate a response for that. Please try rephrasing your question.";
 
 export async function POST(request: NextRequest) {
   // Require login for AI chat
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Login required to use the AI assistant." }, { status: 401 });
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
     return NextResponse.json({ error: "AI assistant is not configured." }, { status: 503 });
   }
@@ -52,37 +52,52 @@ export async function POST(request: NextRequest) {
   const history = Array.isArray(body.history) ? body.history : [];
 
   try {
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
-      systemInstruction: SYSTEM_PROMPT,
-    });
-
-    // Build chat history (roles: "user" | "model")
-    // Normalize legacy "assistant" role (and "model") to Gemini's "model" role.
-    // Validate h.text is a non-empty string before including the entry.
-    const normalizedHistory = history.slice(-10).flatMap((h) => {
+    const normalizedHistory: Array<{ role: "user" | "assistant"; content: string }> = history.slice(-10).flatMap((h) => {
       if (typeof h.text !== "string" || !h.text.trim()) return [];
-      const role = h.role === "model" || h.role === "assistant" ? "model" : "user";
-      return [{ role, parts: [{ text: h.text }] }];
+      const role = h.role === "model" || h.role === "assistant" ? "assistant" : "user";
+      return [{ role, content: h.text.trim() }];
     });
-    const firstUserIndex = normalizedHistory.findIndex((entry) => entry.role === "user");
-    const chatHistory = firstUserIndex === -1 ? undefined : normalizedHistory.slice(firstUserIndex);
+    const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
+      { role: "system", content: SYSTEM_PROMPT },
+      ...normalizedHistory,
+      { role: "user", content: userMessage },
+    ];
 
-    const chat = model.startChat({
-      ...(chatHistory ? { history: chatHistory } : {}),
-      generationConfig: {
-        maxOutputTokens: 512,
-        temperature: 0.7,
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
       },
+      body: JSON.stringify({
+        model: "openai/gpt-oss-120b",
+        messages,
+        max_tokens: 512,
+        temperature: 0.7,
+      }),
     });
 
-    const result = await chat.sendMessage(userMessage);
-    const text = result.response.text();
+    if (!response.ok) {
+      let groqError = `Groq request failed with status ${response.status}`;
+      try {
+        const payload = (await response.json()) as { error?: { message?: string } };
+        if (payload.error?.message) {
+          groqError = payload.error.message;
+        }
+      } catch {
+        // ignore response parsing errors
+      }
+      throw new Error(groqError);
+    }
+
+    const payload = (await response.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+    };
+    const text = payload.choices?.[0]?.message?.content?.trim() || AI_EMPTY_RESPONSE_MESSAGE;
 
     return NextResponse.json({ reply: text });
   } catch (err) {
-    console.error("[AI chat] Gemini error:", err);
+    console.error("[AI chat] Groq error:", err);
     return NextResponse.json({ error: "AI response failed. Please try again." }, { status: 500 });
   }
 }
