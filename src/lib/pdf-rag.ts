@@ -25,6 +25,13 @@ export interface RagContext {
 type SourceType = "paper" | "syllabus";
 
 const EMBEDDING_MODEL = "text-embedding-3-small";
+
+// NOTE: Currently using OpenAI for embeddings only. Consider migrating to:
+// - Groq embeddings (when available)
+// - Voyage AI: https://www.voyageai.com/
+// - Cohere: https://cohere.com/
+// - Self-hosted: sentence-transformers with Ollama or local inference
+// See docs/ENVIRONMENT.md for migration guidance.
 const SYLLABUS_FILE_URL_RE = /\/api\/files\/syllabus\/([^/?#]+)/;
 const SYLLABUS_RANKING_BOOST = 0.03;
 const UNTRUSTED_INJECTION_PATTERNS = [

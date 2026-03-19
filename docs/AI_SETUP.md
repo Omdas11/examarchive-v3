@@ -56,11 +56,10 @@ A floating bubble appears on every page (bottom-right corner).
 
 Signed-in users can request AI-generated revision summaries.
 
-- **Daily limit:** 3 generated documents per user per calendar day.
-- **Founder bypass:** The `founder` role has unlimited generations for testing.
-- **Admin+ unlimited:** `admin` and `founder` roles are treated as unlimited.
+- **Daily limit:** 5 generated documents per user per calendar day.
+- **Admin+ unlimited:** `admin` and `founder` roles have unlimited generations.
 - **Output format:** Structured Markdown with headings, key concepts, exam tips, and a quick-revision checklist.
-- **Print / Save PDF:** Users can open a print-friendly version via the browser's native print dialog.
+- **PDF Download:** Users can download generated content as a professionally formatted PDF file.
 - **Advanced controls:** Users can choose page length (1–5), model (role-limited), and optional live web search.
 - **RAG priority:** Archive syllabus/paper context is retrieved first (Appwrite-only embeddings) before fallback to raw topic input.
 
@@ -70,10 +69,12 @@ Signed-in users can request AI-generated revision summaries.
 
 | User role  | Daily AI generations |
 |------------|----------------------|
-| All roles (except founder) | 3 per day |
-| `founder`  | Unlimited            |
+| Regular users | 5 per day |
+| `admin` / `founder`  | Unlimited            |
 
 Limits are tracked in the Appwrite `ai_usage` collection. Each generation creates one document with `{ user_id, date }`. The quota check counts documents matching `(user_id, today_date)`.
+
+**Alignment with credits:** The 5 PDF/day limit aligns with ~1000 monthly generation credits (assuming ~200 tokens per generation across the user base).
 
 See [`DATABASE_SCHEMA.md`](./DATABASE_SCHEMA.md) for the full `ai_usage` collection schema.
 

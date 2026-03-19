@@ -155,8 +155,8 @@ counting documents matching `(user_id, date)`.
 | `user_id` | String | **Yes**  | Appwrite user ID of the requester                            |
 | `date`    | String | **Yes**  | Calendar date of the generation event (`YYYY-MM-DD` format)  |
 
-**Permissions:** only the server-side admin client writes to this collection.  
-**Daily limit:** 3 generations per `(user_id, date)`. Founder accounts are exempt.  
+**Permissions:** only the server-side admin client writes to this collection.
+**Daily limit:** 5 generations per `(user_id, date)`. Admin and founder accounts are exempt.
 **Index recommendation:** create an index on `(user_id, date)` for efficient quota queries.
 
 ### AI fallback + error behavior (no schema changes)
@@ -167,7 +167,7 @@ counting documents matching `(user_id, date)`.
   - `"AI is under high traffic. Please try again in a moment."`
   - `"Daily limit reached. Please try again tomorrow."`
   - `"Service temporarily unavailable. Please try again shortly."`
-- Existing `ai_usage` quota enforcement remains unchanged: 3/day per user, unlimited for `founder`.
+- Existing `ai_usage` quota enforcement: 5/day per user, unlimited for `admin` and `founder` roles.
 
 ---
 

@@ -56,6 +56,8 @@ ExamArchive is a community-driven platform for sharing and discovering universit
 | [docs/DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md) | Appwrite collection schemas |
 | [docs/UPLOAD_FLOW.md](docs/UPLOAD_FLOW.md) | End-to-end upload architecture |
 | [docs/AI_SETUP.md](docs/AI_SETUP.md) | Groq-based AI setup, limits, and endpoint usage |
+| [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md) | Complete environment variable reference |
+| [docs/AI_EXTENSIONS_SETUP.md](docs/AI_EXTENSIONS_SETUP.md) | AI extensions and RAG setup |
 
 ## Project Structure
 
