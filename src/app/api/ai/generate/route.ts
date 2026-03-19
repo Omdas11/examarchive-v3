@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
-    
+
     const paperContext = (body.paperContext ?? "").slice(0, 2000);
     const contextSection = paperContext
       ? `\n\nReference material from uploaded syllabus/papers:\n${paperContext}`
@@ -105,22 +105,25 @@ Format requirements:
 Write in plain text with Markdown headings only (no HTML).`;
 
     let content = "";
-    
+
     try {
       // PRIMARY ATTEMPT: Try the main Flash model
       const primaryModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
       const result = await primaryModel.generateContent(prompt);
       content = result.response.text();
-    } catch (modelErr: any) {
+    } catch (err) {
+      // Cast the error safely to satisfy TypeScript's strict linting
+      const modelErr = err as Error & { status?: number };
+
       // FALLBACK LOGIC: If 503 Service Unavailable, try Flash-Lite
-      if (modelErr?.status === 503 || modelErr?.message?.includes("503")) {
+      if (modelErr.status === 503 || modelErr.message?.includes("503")) {
         console.warn("[AI generate] 2.5-flash is busy. Falling back to 2.5-flash-lite...");
         const backupModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
         const backupResult = await backupModel.generateContent(prompt);
         content = backupResult.response.text();
       } else {
         // If it's a different error (like a quota issue), throw it to the outer catch block
-        throw modelErr;
+        throw err;
       }
     }
 
