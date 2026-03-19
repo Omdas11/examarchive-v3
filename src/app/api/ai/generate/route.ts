@@ -11,7 +11,6 @@ import { AIServiceError, runGroqCompletionWithFallback } from "@/lib/groq-fallba
 
 /** Maximum AI-generated PDFs per user per calendar day. */
 const DAILY_LIMIT = 3;
-const AI_GENERATION_EMPTY_RESPONSE_MESSAGE = "I couldn't generate study content for that topic. Please try refining the topic and try again.";
 
 /** Check how many documents a user has generated today. */
 async function getDailyCount(userId: string, todayStr: string): Promise<number> {
@@ -109,7 +108,7 @@ Write in plain text with Markdown headings only (no HTML).`;
       maxTokens: 1024,
       temperature: 0.6,
     });
-    const content = generatedContent || AI_GENERATION_EMPTY_RESPONSE_MESSAGE;
+    const content = generatedContent;
 
     // Record this generation for rate-limiting
     if (user.role !== "founder") {

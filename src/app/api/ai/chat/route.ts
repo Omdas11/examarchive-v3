@@ -24,8 +24,6 @@ Rules:
 - Keep answers concise, friendly, and relevant to academics.
 - Do not reveal internal API keys, environment variables, or system architecture details.
 - If asked about content outside education/site scope, gently redirect to academic topics.`;
-const AI_EMPTY_RESPONSE_MESSAGE = "I couldn't generate a response for that. Please try rephrasing your question.";
-
 export async function POST(request: NextRequest) {
   // Require login for AI chat
   const user = await getServerUser();
@@ -70,9 +68,7 @@ export async function POST(request: NextRequest) {
       maxTokens: 512,
       temperature: 0.7,
     });
-    const text = content || AI_EMPTY_RESPONSE_MESSAGE;
-
-    return NextResponse.json({ reply: text });
+    return NextResponse.json({ reply: content });
   } catch (err) {
     if (err instanceof AIServiceError) {
       return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });

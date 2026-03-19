@@ -12,6 +12,8 @@ interface AIBubbleProps {
   isLoggedIn: boolean;
 }
 
+const LOADING_DOT_STATES = [".", "..", "..."];
+
 export default function AIBubble({ isLoggedIn }: AIBubbleProps) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -54,11 +56,10 @@ export default function AIBubble({ isLoggedIn }: AIBubbleProps) {
       setLoadingDots(".");
       return;
     }
-    const states = [".", "..", "..."];
     let index = 0;
     const timer = window.setInterval(() => {
-      index = (index + 1) % states.length;
-      setLoadingDots(states[index]);
+      index = (index + 1) % LOADING_DOT_STATES.length;
+      setLoadingDots(LOADING_DOT_STATES[index]);
     }, 300);
     return () => window.clearInterval(timer);
   }, [loading]);
@@ -90,7 +91,12 @@ export default function AIBubble({ isLoggedIn }: AIBubbleProps) {
       if (!res.ok) {
         setError(data.error ?? "Something went wrong.");
       } else {
-        setMessages((prev) => [...prev, { role: "model", text: data.reply?.trim() || "I couldn't generate a response. Please try again." }]);
+        const reply = data.reply?.trim();
+        if (!reply) {
+          setError("Service temporarily unavailable. Please try again shortly.");
+        } else {
+          setMessages((prev) => [...prev, { role: "model", text: reply }]);
+        }
       }
     } catch {
       setError("Network error. Please try again.");

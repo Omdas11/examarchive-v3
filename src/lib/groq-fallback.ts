@@ -54,7 +54,7 @@ export function getGroqModelPool(): string[] {
 }
 
 function classifyProviderError(failure: ModelAttemptFailure): AIServiceError {
-  const normalized = failure.message.toLowerCase();
+  const normalized = (failure.message ?? "").toLowerCase();
 
   if (
     failure.timeout ||
@@ -80,10 +80,11 @@ function classifyProviderError(failure: ModelAttemptFailure): AIServiceError {
 }
 
 function summarizeFailures(failures: ModelAttemptFailure[]): AIServiceError {
-  if (failures.some((f) => classifyProviderError(f).code === "HIGH_TRAFFIC")) {
+  const classifiedCodes = failures.map((failure) => classifyProviderError(failure).code);
+  if (classifiedCodes.includes("HIGH_TRAFFIC")) {
     return new AIServiceError("HIGH_TRAFFIC", 503, "AI is under high traffic. Please try again in a moment.");
   }
-  if (failures.some((f) => classifyProviderError(f).code === "DAILY_LIMIT_REACHED")) {
+  if (classifiedCodes.includes("DAILY_LIMIT_REACHED")) {
     return new AIServiceError("DAILY_LIMIT_REACHED", 429, "Daily limit reached. Please try again tomorrow.");
   }
   return new AIServiceError("SERVICE_UNAVAILABLE", 503, "Service temporarily unavailable. Please try again shortly.");
