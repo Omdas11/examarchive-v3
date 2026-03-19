@@ -66,10 +66,8 @@ export async function POST(request: NextRequest) {
       const role = h.role === "model" || h.role === "assistant" ? "model" : "user";
       return [{ role, parts: [{ text: h.text }] }];
     });
-    while (normalizedHistory[0]?.role === "model") {
-      normalizedHistory.shift();
-    }
-    const chatHistory = normalizedHistory.length > 0 ? normalizedHistory : undefined;
+    const firstUserIndex = normalizedHistory.findIndex((entry) => entry.role === "user");
+    const chatHistory = firstUserIndex === -1 ? undefined : normalizedHistory.slice(firstUserIndex);
 
     const chat = model.startChat({
       ...(chatHistory ? { history: chatHistory } : {}),
