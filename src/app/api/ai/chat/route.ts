@@ -59,11 +59,14 @@ export async function POST(request: NextRequest) {
     });
 
     // Build chat history (roles: "user" | "model")
+    // Normalize legacy "assistant" role (and "model") to Gemini's "model" role.
+    // Validate h.text is a non-empty string before including the entry.
     const chat = model.startChat({
-      history: history.slice(-10).map((h) => ({
-        role: h.role === "model" ? "model" : "user",
-        parts: [{ text: h.text }],
-      })),
+      history: history.slice(-10).flatMap((h) => {
+        if (typeof h.text !== "string" || !h.text.trim()) return [];
+        const role = h.role === "model" || h.role === "assistant" ? "model" : "user";
+        return [{ role, parts: [{ text: h.text }] }];
+      }),
       generationConfig: {
         maxOutputTokens: 512,
         temperature: 0.7,
