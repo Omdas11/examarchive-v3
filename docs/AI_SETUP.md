@@ -106,7 +106,7 @@ See [`DATABASE_SCHEMA.md`](./DATABASE_SCHEMA.md) for the full `ai_usage` collect
 
 ## Model
 
-ExamBot uses `llama3-8b-8192` on Groq, which is:
+ExamBot uses `openai/gpt-oss-120b` on Groq, which is:
 - Fast (low latency)
 - Cost-efficient for chat and study summaries
 - Suitable for educational summarisation tasks

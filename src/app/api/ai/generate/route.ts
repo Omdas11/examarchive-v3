@@ -109,7 +109,7 @@ Write in plain text with Markdown headings only (no HTML).`;
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "llama3-8b-8192",
+        model: "openai/gpt-oss-120b",
         messages: [{ role: "user", content: prompt }],
         max_tokens: 1024,
         temperature: 0.6,
