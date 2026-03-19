@@ -72,7 +72,8 @@ export async function POST(request: NextRequest) {
     if (usedBefore >= DAILY_LIMIT) {
       return NextResponse.json(
         {
-          error: `Daily limit of ${DAILY_LIMIT} AI-generated documents reached. Try again tomorrow.`,
+          error: "Daily limit reached. Please try again tomorrow.",
+          code: "DAILY_LIMIT_REACHED",
           limitReached: true,
           remaining: 0,
         },

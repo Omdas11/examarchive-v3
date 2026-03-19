@@ -2,6 +2,7 @@ type GroqRole = "system" | "user" | "assistant";
 
 const GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
 const REQUEST_TIMEOUT_MS = 15_000;
+const OVERALL_TIMEOUT_MS = 25_000;
 
 const DEFAULT_MODEL_POOL = [
   "openai/gpt-oss-120b",
@@ -73,7 +74,7 @@ function classifyProviderError(failure: ModelAttemptFailure): AIServiceError {
     normalized.includes("billing") ||
     normalized.includes("insufficient_quota")
   ) {
-    return new AIServiceError("DAILY_LIMIT_REACHED", 429, "Daily limit reached. Please try again tomorrow.");
+    return new AIServiceError("SERVICE_UNAVAILABLE", 503, "Service temporarily unavailable. Please try again shortly.");
   }
 
   return new AIServiceError("SERVICE_UNAVAILABLE", 503, "Service temporarily unavailable. Please try again shortly.");
@@ -96,6 +97,7 @@ async function callGroqModel(args: {
   messages: Array<{ role: GroqRole; content: string }>;
   maxTokens: number;
   temperature: number;
+  timeoutMs: number;
 }): Promise<{ content: string }> {
   let response: Response;
   try {
@@ -111,7 +113,7 @@ async function callGroqModel(args: {
         max_tokens: args.maxTokens,
         temperature: args.temperature,
       }),
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      signal: AbortSignal.timeout(args.timeoutMs),
     });
   } catch (error) {
     const isTimeout = error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError");
@@ -148,14 +150,37 @@ async function callGroqModel(args: {
   return { content };
 }
 
+function isModelAttemptFailure(error: unknown): error is ModelAttemptFailure {
+  return Boolean(
+    error &&
+      typeof error === "object" &&
+      "status" in error &&
+      typeof (error as { status: unknown }).status === "number" &&
+      "message" in error &&
+      typeof (error as { message: unknown }).message === "string",
+  );
+}
+
 export async function runGroqCompletionWithFallback(args: {
   apiKey: string;
   messages: Array<{ role: GroqRole; content: string }>;
   maxTokens: number;
   temperature: number;
 }): Promise<{ content: string; model: string }> {
+  const modelPool = getGroqModelPool();
+  if (modelPool.length === 0) {
+    throw new AIServiceError("SERVICE_UNAVAILABLE", 503, "Service temporarily unavailable. Please try again shortly.");
+  }
+
   const failures: ModelAttemptFailure[] = [];
-  for (const model of getGroqModelPool()) {
+  const deadline = Date.now() + OVERALL_TIMEOUT_MS;
+  let timedOutBeforeAttempt = false;
+  for (const model of modelPool) {
+    const remainingOverallMs = deadline - Date.now();
+    if (remainingOverallMs < 0) {
+      timedOutBeforeAttempt = true;
+      break;
+    }
     try {
       const result = await callGroqModel({
         apiKey: args.apiKey,
@@ -163,13 +188,22 @@ export async function runGroqCompletionWithFallback(args: {
         messages: args.messages,
         maxTokens: args.maxTokens,
         temperature: args.temperature,
+        timeoutMs: Math.min(REQUEST_TIMEOUT_MS, remainingOverallMs),
       });
       return { ...result, model };
     } catch (error) {
-      const failure = error as ModelAttemptFailure;
-      failures.push(failure);
+      if (!isModelAttemptFailure(error)) {
+        throw error;
+      }
+      failures.push(error);
     }
   }
 
+  if (failures.length === 0) {
+    if (timedOutBeforeAttempt) {
+      throw new AIServiceError("SERVICE_UNAVAILABLE", 503, "Service temporarily unavailable. Please try again shortly.");
+    }
+    throw new AIServiceError("SERVICE_UNAVAILABLE", 503, "Service temporarily unavailable. Please try again shortly.");
+  }
   throw summarizeFailures(failures);
 }
