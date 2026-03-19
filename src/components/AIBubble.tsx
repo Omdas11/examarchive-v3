@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 
 interface Message {
-  role: "user" | "assistant";
+  role: "user" | "model";
   text: string;
 }
 
@@ -40,7 +40,7 @@ export default function AIBubble({ isLoggedIn }: AIBubbleProps) {
     if (open && messages.length === 0 && isLoggedIn) {
       setMessages([
         {
-          role: "assistant",
+          role: "model",
           text: "👋 Hi! I'm ExamBot. I can help you navigate ExamArchive, find past papers, and answer academic questions. What can I help you with today?",
         },
       ]);
@@ -74,7 +74,7 @@ export default function AIBubble({ isLoggedIn }: AIBubbleProps) {
       if (!res.ok) {
         setError(data.error ?? "Something went wrong.");
       } else {
-        setMessages((prev) => [...prev, { role: "assistant", text: data.reply }]);
+        setMessages((prev) => [...prev, { role: "model", text: data.reply }]);
       }
     } catch {
       setError("Network error. Please try again.");
