@@ -10,6 +10,7 @@ import {
 
 /** Maximum AI-generated PDFs per user per calendar day. */
 const DAILY_LIMIT = 3;
+const AI_GENERATION_EMPTY_RESPONSE_MESSAGE = "I couldn't generate study content for that topic. Please try refining the topic and try again.";
 
 /** Check how many documents a user has generated today. */
 async function getDailyCount(userId: string, todayStr: string): Promise<number> {
@@ -130,8 +131,7 @@ Write in plain text with Markdown headings only (no HTML).`;
     const payload = (await response.json()) as {
       choices?: Array<{ message?: { content?: string } }>;
     };
-    const content = payload.choices?.[0]?.message?.content?.trim()
-      || "## Overview\nI couldn’t generate the summary right now. Please try again in a moment.";
+    const content = payload.choices?.[0]?.message?.content?.trim() || AI_GENERATION_EMPTY_RESPONSE_MESSAGE;
 
     // Record this generation for rate-limiting
     if (user.role !== "founder") {

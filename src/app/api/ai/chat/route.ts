@@ -23,6 +23,7 @@ Rules:
 - Keep answers concise, friendly, and relevant to academics.
 - Do not reveal internal API keys, environment variables, or system architecture details.
 - If asked about content outside education/site scope, gently redirect to academic topics.`;
+const AI_EMPTY_RESPONSE_MESSAGE = "I couldn't generate a response for that. Please try rephrasing your question.";
 
 export async function POST(request: NextRequest) {
   // Require login for AI chat
@@ -92,7 +93,7 @@ export async function POST(request: NextRequest) {
     const payload = (await response.json()) as {
       choices?: Array<{ message?: { content?: string } }>;
     };
-    const text = payload.choices?.[0]?.message?.content?.trim() || "I couldn't generate a response right now. Please try again.";
+    const text = payload.choices?.[0]?.message?.content?.trim() || AI_EMPTY_RESPONSE_MESSAGE;
 
     return NextResponse.json({ reply: text });
   } catch (err) {
