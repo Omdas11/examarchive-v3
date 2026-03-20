@@ -5,6 +5,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { cn } from '@/lib/utils';
 
 export interface RecommendationItem {
@@ -80,7 +81,7 @@ export default function RecommendationGrid({
 /**
  * Individual Recommendation Card
  */
-interface RecommendationCardProps extends RecommendationItem {}
+type RecommendationCardProps = RecommendationItem;
 
 export function RecommendationCard({
   title,
@@ -107,9 +108,11 @@ export function RecommendationCard({
         {/* Image Container */}
         {imageUrl && (
           <div className="w-full h-32 rounded-lg bg-gradient-to-br from-primary/20 to-secondary/10 mb-3 flex items-center justify-center overflow-hidden">
-            <img
+            <Image
               src={imageUrl}
               alt={title}
+              fill
+              sizes="(max-width: 768px) 100vw, 50vw"
               className="w-full h-full object-cover"
             />
           </div>
@@ -174,9 +177,11 @@ export function RecommendationCard({
       {/* Image Container */}
       {imageUrl && (
         <div className="w-full h-32 rounded-lg bg-gradient-to-br from-primary/20 to-secondary/10 mb-3 flex items-center justify-center overflow-hidden">
-          <img
+          <Image
             src={imageUrl}
             alt={title}
+            fill
+            sizes="(max-width: 768px) 100vw, 50vw"
             className="w-full h-full object-cover"
           />
         </div>

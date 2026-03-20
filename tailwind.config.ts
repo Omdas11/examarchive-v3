@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import type { PluginAPI } from "tailwindcss/types/config";
 
 const config: Config = {
   content: [
@@ -67,7 +68,6 @@ const config: Config = {
         "outline-variant": "#c7c4d8",
 
         // Background & Inverse
-        background: "#f8f9ff",
         "on-background": "#0b1c30",
         "inverse-surface": "#213145",
         "inverse-on-surface": "#eaf1ff",
@@ -141,8 +141,8 @@ const config: Config = {
     },
   },
   plugins: [
-    function ({ addUtilities }) {
-      addUtilities({
+    function (api: PluginAPI) {
+      api.addUtilities({
         ".glass": {
           "@apply bg-surface/80 backdrop-blur-md": {},
           "backdrop-filter": "blur(12px)",
