@@ -61,15 +61,16 @@ export default function AIContentClient({ userRole }: AIContentClientProps) {
       setPageLength((current) => (normalizedPages.includes(current) ? current : normalizedPages[0]));
 
       // Build available PDFs list
+      // API already provides paper_name/name with hierarchical fallback, use directly
       const pdfs: Array<{ id: string; name: string; type: "paper" | "syllabus" }> = [];
       if (Array.isArray(archiveData.papers)) {
-        archiveData.papers.slice(0, 20).forEach((p: { id: string; paper_name?: string; title?: string }) => {
-          pdfs.push({ id: p.id, name: p.paper_name || p.title || "Untitled Paper", type: "paper" });
+        archiveData.papers.slice(0, 20).forEach((p: { id: string; paper_name: string }) => {
+          pdfs.push({ id: p.id, name: p.paper_name, type: "paper" });
         });
       }
       if (Array.isArray(archiveData.syllabus)) {
-        archiveData.syllabus.slice(0, 10).forEach((s: { id: string; name?: string; title?: string }) => {
-          pdfs.push({ id: s.id, name: s.name || s.title || "Untitled Syllabus", type: "syllabus" });
+        archiveData.syllabus.slice(0, 10).forEach((s: { id: string; name: string }) => {
+          pdfs.push({ id: s.id, name: s.name, type: "syllabus" });
         });
       }
       setAvailablePdfs(pdfs);
