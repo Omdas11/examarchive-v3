@@ -11,6 +11,8 @@ import Breadcrumb from "@/components/Breadcrumb";
 import ConfettiTrigger from "@/components/ConfettiTrigger";
 import XPBar from "@/components/XPBar";
 import ProfileCoursePrefs from "@/components/ProfileCoursePrefs";
+import MainLayout from "@/components/layout/MainLayout";
+import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 
 export const metadata: Metadata = {
   title: "Profile",
@@ -105,6 +107,7 @@ type EarnedAchievement = { icon: IconName; label: string };
 export default async function ProfilePage() {
   const user = await getServerUser();
   if (!user) redirect("/login?next=/profile");
+  const userName = user.name || "User";
 
   const db = adminDatabases();
 
@@ -172,6 +175,15 @@ export default async function ProfilePage() {
   const xpLabel = (user.role === "student") ? currentRank : capitalise(user.role);
 
   return (
+    <MainLayout
+      title="Profile"
+      breadcrumbs={[{ label: "Dashboard", href: "/dashboard" }, { label: "Profile" }]}
+      showSearch={false}
+      sidebarItems={APP_SIDEBAR_ITEMS}
+      userRole={user.role}
+      userName={userName}
+      userInitials={userName.substring(0, 2).toUpperCase()}
+    >
     <section className="mx-auto px-4 py-8 space-y-4" style={{ maxWidth: "var(--max-w)" }}>
 
       {/* Confetti on first approval */}
@@ -386,5 +398,6 @@ export default async function ProfilePage() {
         <button type="submit" className="btn text-sm px-4 py-2">Sign out</button>
       </form>
     </section>
+    </MainLayout>
   );
 }

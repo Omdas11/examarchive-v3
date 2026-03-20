@@ -16,40 +16,7 @@ import DashboardCard from '@/components/dashboard/DashboardCard';
 import ActivityLog, { type ActivityItem } from '@/components/dashboard/ActivityLog';
 import RecommendationGrid from '@/components/dashboard/RecommendationGrid';
 import { cn } from '@/lib/utils';
-
-const SIDEBAR_ITEMS = [
-  {
-    label: 'Dashboard',
-    icon: 'dashboard',
-    href: '/dashboard',
-  },
-  {
-    label: 'Browse Papers',
-    icon: 'library_books',
-    href: '/browse',
-  },
-  {
-    label: 'My Collections',
-    icon: 'bookmark',
-    href: '/collections',
-    badge: 3,
-  },
-  {
-    label: 'Upload Paper',
-    icon: 'upload_file',
-    href: '/upload',
-  },
-  {
-    label: 'My Profile',
-    icon: 'person',
-    href: '/profile',
-  },
-  {
-    label: 'Settings',
-    icon: 'settings',
-    href: '/settings',
-  },
-];
+import { APP_SIDEBAR_ITEMS } from '@/components/layout/appSidebarItems';
 
 const ACTIVITY_ITEMS: ActivityItem[] = [
   {
@@ -142,12 +109,10 @@ const STATS = [
 ];
 
 export default function DigitalCuratorDashboard() {
-  const [, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
-    // Implement search logic here
-    console.log('Searching for:', query);
   };
 
   return (
@@ -159,7 +124,7 @@ export default function DigitalCuratorDashboard() {
       userName="John Doe"
       notifications={2}
       onSearch={handleSearch}
-      sidebarItems={SIDEBAR_ITEMS}
+      sidebarItems={APP_SIDEBAR_ITEMS}
       userRole="curator"
     >
       {/* Main Content */}
@@ -276,7 +241,14 @@ export default function DigitalCuratorDashboard() {
 
             {/* Recommendation */}
             <RecommendationGrid
-              items={RECOMMENDATIONS.slice(0, 2)}
+              items={RECOMMENDATIONS
+                .filter(
+                  (item) =>
+                    !searchQuery ||
+                    item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    item.subtitle.toLowerCase().includes(searchQuery.toLowerCase()),
+                )
+                .slice(0, 2)}
               title="Suggested for You"
               isPro={true}
               columns={1}
