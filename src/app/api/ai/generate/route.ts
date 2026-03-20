@@ -11,7 +11,7 @@ import { AIServiceError, getGroqModelPool, runGroqCompletionWithFallback } from 
 import { buildRagContext, type CoursePrefsPayload } from "@/lib/pdf-rag";
 
 /** Maximum AI-generated PDFs per user per calendar day. */
-const DAILY_LIMIT = 3;
+const DAILY_LIMIT = 5;
 const MAX_PAGES = 5;
 const WORDS_PER_PAGE = 430;
 // Token budget heuristics tuned for detailed markdown notes:
