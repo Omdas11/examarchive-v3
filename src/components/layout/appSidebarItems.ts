@@ -1,4 +1,11 @@
-export const APP_SIDEBAR_ITEMS = [
+export interface AppSidebarItem {
+  label: string;
+  icon: string;
+  href: string;
+  badge?: number;
+}
+
+export const APP_SIDEBAR_ITEMS: AppSidebarItem[] = [
   {
     label: "Dashboard",
     icon: "dashboard",

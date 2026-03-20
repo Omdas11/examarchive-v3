@@ -113,7 +113,6 @@ export default function DigitalCuratorDashboard() {
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
-    // Implement search logic here
   };
 
   return (

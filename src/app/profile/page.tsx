@@ -107,6 +107,7 @@ type EarnedAchievement = { icon: IconName; label: string };
 export default async function ProfilePage() {
   const user = await getServerUser();
   if (!user) redirect("/login?next=/profile");
+  const userName = user.name || "User";
 
   const db = adminDatabases();
 
@@ -180,8 +181,8 @@ export default async function ProfilePage() {
       showSearch={false}
       sidebarItems={APP_SIDEBAR_ITEMS}
       userRole={user.role}
-      userName={user.name}
-      userInitials={user.name.slice(0, 2).toUpperCase()}
+      userName={userName}
+      userInitials={userName.substring(0, 2).toUpperCase()}
     >
     <section className="mx-auto px-4 py-8 space-y-4" style={{ maxWidth: "var(--max-w)" }}>
 

@@ -13,6 +13,7 @@ export const metadata: Metadata = {
 
 export default async function SettingsPage() {
   const user = await getServerUser();
+  const userName = user?.name || "User";
 
   if (!user) {
     redirect("/login?next=/settings");
@@ -25,8 +26,8 @@ export default async function SettingsPage() {
       showSearch={false}
       sidebarItems={APP_SIDEBAR_ITEMS}
       userRole={user.role}
-      userName={user.name}
-      userInitials={user.name.slice(0, 2).toUpperCase()}
+      userName={userName}
+      userInitials={userName.substring(0, 2).toUpperCase()}
     >
       <section
         className="mx-auto px-4 py-10"
