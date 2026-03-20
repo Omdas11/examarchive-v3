@@ -35,6 +35,8 @@ export default function AIContentClient({ userRole }: AIContentClientProps) {
   const [availablePdfs, setAvailablePdfs] = useState<Array<{ id: string; name: string; type: "paper" | "syllabus" }>>([]);
   const [error, setError] = useState<string | null>(null);
   const [activeDoc, setActiveDoc] = useState<GeneratedDoc | null>(null);
+  const [showPdfPreview, setShowPdfPreview] = useState(false);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const printRef = useRef<HTMLDivElement>(null);
   const loadingIntervalRef = useRef<number | null>(null);
 
@@ -200,20 +202,41 @@ export default function AIContentClient({ userRole }: AIContentClientProps) {
         return;
       }
 
-      // Download the PDF
+      // Get the PDF blob
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${activeDoc.topic.replace(/[^a-zA-Z0-9]/g, "_")}_${new Date().toISOString().slice(0, 10)}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+
+      // Show preview first
+      setPdfPreviewUrl(url);
+      setShowPdfPreview(true);
     } catch (error) {
       console.error("PDF generation error:", error);
       alert("Failed to generate PDF. Please try again.");
     }
+  }
+
+  function handleDownloadPdf() {
+    if (!pdfPreviewUrl || !activeDoc) return;
+
+    const a = document.createElement("a");
+    a.href = pdfPreviewUrl;
+    a.download = `${activeDoc.topic.replace(/[^a-zA-Z0-9]/g, "_")}_${new Date().toISOString().slice(0, 10)}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(pdfPreviewUrl);
+    document.body.removeChild(a);
+
+    // Close preview
+    setShowPdfPreview(false);
+    setPdfPreviewUrl(null);
+  }
+
+  function handleClosePreview() {
+    if (pdfPreviewUrl) {
+      window.URL.revokeObjectURL(pdfPreviewUrl);
+    }
+    setShowPdfPreview(false);
+    setPdfPreviewUrl(null);
   }
 
   const canGenerate = isAdminPlus || (remaining !== null && remaining > 0);
@@ -286,6 +309,21 @@ export default function AIContentClient({ userRole }: AIContentClientProps) {
         >
           What topic should ExamBot generate detailed notes for?
         </label>
+
+        {/* Model Selection - Full width on separate line */}
+        <div style={{ marginBottom: "0.75rem" }}>
+          <label style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", display: "block", marginBottom: 4 }}>
+            AI Model
+          </label>
+          <ModelSelect
+            options={modelOptions}
+            value={model}
+            onChange={setModel}
+            disabled={generating || !canGenerate}
+          />
+        </div>
+
+        {/* Other options in grid */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: "0.5rem", marginBottom: "0.6rem" }}>
           <label style={{ fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
             Length (pages)
@@ -303,15 +341,6 @@ export default function AIContentClient({ userRole }: AIContentClientProps) {
               ))}
             </select>
           </label>
-          <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
-            <label style={{ display: "block", marginBottom: 4 }}>Model</label>
-            <ModelSelect
-              options={modelOptions}
-              value={model}
-              onChange={setModel}
-              disabled={generating || !canGenerate}
-            />
-          </div>
           <label style={{ fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
             Source PDF (optional)
             <select
@@ -322,6 +351,7 @@ export default function AIContentClient({ userRole }: AIContentClientProps) {
               style={{ marginTop: 4 }}
             >
               <option value="">All archive (RAG)</option>
+              {availablePdfs.length === 0 && <option value="" disabled>No PDFs in archive yet</option>}
               {availablePdfs.map((pdf) => (
                 <option key={pdf.id} value={pdf.id}>
                   {pdf.type === "syllabus" ? "📚" : "📄"} {pdf.name}
@@ -531,6 +561,99 @@ export default function AIContentClient({ userRole }: AIContentClientProps) {
            </>
          )}
        </div>
+
+      {/* PDF Preview Modal */}
+      {showPdfPreview && pdfPreviewUrl && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.85)",
+            zIndex: 9999,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "1rem",
+          }}
+          onClick={handleClosePreview}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: "900px",
+              height: "90vh",
+              backgroundColor: "var(--color-surface)",
+              borderRadius: "var(--radius-lg)",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+              boxShadow: "0 10px 40px rgba(0, 0, 0, 0.3)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "1rem 1.5rem",
+                borderBottom: "1px solid var(--color-border)",
+                backgroundColor: "var(--color-background)",
+              }}
+            >
+              <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 600 }}>
+                PDF Preview
+              </h3>
+              <div style={{ display: "flex", gap: "0.75rem" }}>
+                <button
+                  onClick={handleDownloadPdf}
+                  className="btn"
+                  style={{
+                    fontSize: "0.85rem",
+                    padding: "0.5rem 1rem",
+                    backgroundColor: "var(--brand-crimson)",
+                    color: "white",
+                    border: "none",
+                  }}
+                >
+                  📥 Download PDF
+                </button>
+                <button
+                  onClick={handleClosePreview}
+                  style={{
+                    padding: "0.5rem 1rem",
+                    fontSize: "0.85rem",
+                    borderRadius: "var(--radius-md)",
+                    border: "1px solid var(--color-border)",
+                    backgroundColor: "transparent",
+                    cursor: "pointer",
+                    color: "var(--color-text)",
+                  }}
+                >
+                  ✕ Close
+                </button>
+              </div>
+            </div>
+
+            {/* PDF Iframe */}
+            <iframe
+              src={pdfPreviewUrl}
+              style={{
+                flex: 1,
+                width: "100%",
+                border: "none",
+                backgroundColor: "#525659",
+              }}
+              title="PDF Preview"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

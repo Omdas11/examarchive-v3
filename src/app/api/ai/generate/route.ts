@@ -241,10 +241,10 @@ export async function GET() {
   }
 
   const modelPool = getGroqModelPool();
-  const modelOptions = modelPool.map((model, index) => ({
+  const modelOptions = modelPool.map((model) => ({
     id: model,
     label: model,
-    available: isAdminPlus(user.role) || index < 3,
+    available: true, // All free/open-source models available to all users
   }));
 
   if (isAdminPlus(user.role)) {
@@ -267,6 +267,6 @@ export async function GET() {
     isFounder: false,
     isAdminPlus: false,
     modelOptions,
-    pageOptions: [1, 2, 3, 4, 5].filter((value) => value <= Math.max(1, remaining)),
+    pageOptions: [1, 2, 3, 4, 5], // Page options should always show all pages, not tied to remaining PDFs
   });
 }

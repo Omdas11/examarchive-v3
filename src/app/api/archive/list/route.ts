@@ -27,19 +27,47 @@ export async function GET() {
       ]),
     ]);
 
-    const papers = papersRes.documents.map((doc) => ({
-      id: doc.$id,
-      paper_name: doc.paper_name as string | undefined,
-      title: doc.title as string | undefined,
-      course_code: doc.course_code as string | undefined,
-    }));
+    const papers = papersRes.documents.map((doc) => {
+      const paperName = doc.paper_name as string | undefined;
+      const title = doc.title as string | undefined;
+      const courseCode = doc.course_code as string | undefined;
 
-    const syllabus = syllabusRes.documents.map((doc) => ({
-      id: doc.$id,
-      name: doc.name as string | undefined,
-      title: doc.title as string | undefined,
-      course_code: doc.course_code as string | undefined,
-    }));
+      // Create a meaningful name with fallback hierarchy
+      let displayName = paperName || title;
+      if (!displayName && courseCode) {
+        displayName = `Paper - ${courseCode}`;
+      } else if (!displayName) {
+        displayName = `Paper #${doc.$id.slice(-6)}`;
+      }
+
+      return {
+        id: doc.$id,
+        paper_name: displayName,
+        title: title,
+        course_code: courseCode,
+      };
+    });
+
+    const syllabus = syllabusRes.documents.map((doc) => {
+      const name = doc.name as string | undefined;
+      const title = doc.title as string | undefined;
+      const courseCode = doc.course_code as string | undefined;
+
+      // Create a meaningful name with fallback hierarchy
+      let displayName = name || title;
+      if (!displayName && courseCode) {
+        displayName = `Syllabus - ${courseCode}`;
+      } else if (!displayName) {
+        displayName = `Syllabus #${doc.$id.slice(-6)}`;
+      }
+
+      return {
+        id: doc.$id,
+        name: displayName,
+        title: title,
+        course_code: courseCode,
+      };
+    });
 
     return NextResponse.json({ papers, syllabus });
   } catch (error) {

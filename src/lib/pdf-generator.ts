@@ -54,42 +54,74 @@ export async function generatePDF(
   <style>
     @page {
       size: A4;
-      margin: 2cm;
+      margin: 2cm 2cm 3cm 2cm;
     }
     body {
-      font-family: 'Georgia', 'Times New Roman', serif;
+      font-family: 'Times New Roman', Times, serif;
       font-size: 11pt;
       line-height: 1.6;
       color: #1a1a1a;
       max-width: 100%;
       margin: 0;
       padding: 0;
+      position: relative;
+    }
+    /* Watermark */
+    body::before {
+      content: 'ExamArchive';
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) rotate(-45deg);
+      font-size: 80pt;
+      color: rgba(211, 39, 62, 0.08);
+      font-weight: bold;
+      z-index: -1;
+      pointer-events: none;
+    }
+    /* Header with timestamp */
+    .doc-header {
+      margin-bottom: 1.5em;
+      padding-bottom: 0.5em;
+      border-bottom: 2px solid #D3273E;
+    }
+    .doc-title {
+      font-size: 18pt;
+      font-weight: bold;
+      color: #D3273E;
+      margin: 0;
+    }
+    .doc-meta {
+      font-size: 9pt;
+      color: #666;
+      margin-top: 0.5em;
     }
     h1 {
       font-size: 20pt;
       font-weight: bold;
       color: #D3273E;
-      margin: 0 0 0.5em 0;
+      margin: 1.2em 0 0.5em 0;
       border-bottom: 2px solid #D3273E;
       padding-bottom: 0.3em;
     }
     h2 {
       font-size: 16pt;
       font-weight: bold;
-      color: #003B49;
+      color: #D3273E;
       margin: 1.2em 0 0.6em 0;
-      border-bottom: 1px solid #003B49;
+      border-bottom: 1px solid #D3273E;
       padding-bottom: 0.2em;
     }
     h3 {
       font-size: 13pt;
       font-weight: bold;
-      color: #003B49;
+      color: #D3273E;
       margin: 1em 0 0.5em 0;
     }
     h4 {
       font-size: 11pt;
       font-weight: bold;
+      color: #003B49;
       margin: 0.8em 0 0.4em 0;
     }
     p {
@@ -117,6 +149,7 @@ export async function generatePDF(
       overflow-x: auto;
       font-size: 9pt;
       line-height: 1.4;
+      border-left: 3px solid #D3273E;
     }
     pre code {
       background: none;
@@ -154,12 +187,14 @@ export async function generatePDF(
     em {
       font-style: italic;
     }
-    .page-break {
-      page-break-after: always;
+    hr {
+      border: none;
+      border-top: 1px solid #ddd;
+      margin: 1em 0;
     }
     .footer {
       position: fixed;
-      bottom: 0;
+      bottom: 1cm;
       left: 0;
       right: 0;
       text-align: center;
@@ -170,7 +205,14 @@ export async function generatePDF(
   </style>
 </head>
 <body>
+  <div class="doc-header">
+    <div class="doc-title">${escapeHtml(title)}</div>
+    <div class="doc-meta">Generated on ${new Date().toLocaleString()} | ExamArchive</div>
+  </div>
   ${html}
+  <div class="footer">
+    ExamArchive - Free Past Papers & Study Materials | examarchive.dev
+  </div>
 </body>
 </html>
     `;
@@ -234,36 +276,62 @@ function escapeHtml(text: string): string {
 }
 
 /**
- * Convert markdown to HTML (basic conversion for PDF generation)
+ * Convert markdown to HTML (improved conversion for PDF generation)
  */
 export function markdownToHTML(markdown: string): string {
   let html = markdown;
 
-  // Escape HTML first
+  // First, protect code blocks and LaTeX from being escaped
+  const codeBlocks: string[] = [];
+  html = html.replace(/```([\s\S]*?)```/g, (match, code) => {
+    codeBlocks.push(code);
+    return `___CODE_BLOCK_${codeBlocks.length - 1}___`;
+  });
+
+  // Protect inline code
+  const inlineCodes: string[] = [];
+  html = html.replace(/`([^`]+)`/g, (match, code) => {
+    inlineCodes.push(code);
+    return `___INLINE_CODE_${inlineCodes.length - 1}___`;
+  });
+
+  // Escape HTML entities
   html = html.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-  // Headers
+  // Convert headers (must be on their own line)
+  html = html.replace(/^#### (.*$)/gim, "<h4>$1</h4>");
   html = html.replace(/^### (.*$)/gim, "<h3>$1</h3>");
   html = html.replace(/^## (.*$)/gim, "<h2>$1</h2>");
   html = html.replace(/^# (.*$)/gim, "<h1>$1</h1>");
 
-  // Bold and italic
+  // Convert tables (simplified markdown table support)
+  html = html.replace(/\|(.+)\|\n\|[-:\s|]+\|\n((?:\|.+\|\n?)+)/gm, (match, header, rows) => {
+    const headerCells = header.split("|").filter((c: string) => c.trim()).map((c: string) => `<th>${c.trim()}</th>`).join("");
+    const bodyRows = rows.trim().split("\n").map((row: string) => {
+      const cells = row.split("|").filter((c: string) => c.trim()).map((c: string) => `<td>${c.trim()}</td>`).join("");
+      return `<tr>${cells}</tr>`;
+    }).join("");
+    return `<table><thead><tr>${headerCells}</tr></thead><tbody>${bodyRows}</tbody></table>`;
+  });
+
+  // Bold and italic (order matters!)
   html = html.replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>");
   html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
   html = html.replace(/\*(.+?)\*/g, "<em>$1</em>");
-  html = html.replace(/___(.+?)___/g, "<strong><em>$1</em></strong>");
+  html = html.replace(/___(.+?)___(?!CODE|INLINE)/g, "<strong><em>$1</em></strong>");
   html = html.replace(/__(.+?)__/g, "<strong>$1</strong>");
   html = html.replace(/_(.+?)_/g, "<em>$1</em>");
 
-  // Code blocks
-  html = html.replace(/```([\s\S]*?)```/g, "<pre><code>$1</code></pre>");
-  html = html.replace(/`(.+?)`/g, "<code>$1</code>");
+  // Unordered lists (must process before paragraphs)
+  html = html.replace(/^[\*\-] (.+)$/gim, "<li>$1</li>");
 
-  // Lists
-  html = html.replace(/^\* (.+$)/gim, "<li>$1</li>");
-  html = html.replace(/^\- (.+$)/gim, "<li>$1</li>");
-  html = html.replace(/^(\d+)\. (.+$)/gim, "<li>$2</li>");
-  html = html.replace(/(<li>.*<\/li>)/gi, "<ul>$1</ul>");
+  // Ordered lists
+  html = html.replace(/^\d+\. (.+)$/gim, "<li>$1</li>");
+
+  // Wrap consecutive list items in ul/ol tags
+  html = html.replace(/(<li>.*?<\/li>(\n|$))+/g, (match) => {
+    return `<ul>${match}</ul>`;
+  });
 
   // Links
   html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
@@ -271,14 +339,35 @@ export function markdownToHTML(markdown: string): string {
   // Blockquotes
   html = html.replace(/^&gt; (.+$)/gim, "<blockquote>$1</blockquote>");
 
-  // Line breaks and paragraphs
-  html = html.replace(/\n\n/g, "</p><p>");
-  html = html.replace(/\n/g, "<br>");
-  html = `<p>${html}</p>`;
+  // Horizontal rules
+  html = html.replace(/^---+$/gim, "<hr>");
 
-  // Clean up empty paragraphs
+  // Paragraphs (split by double newlines)
+  html = html.split(/\n\n+/).map(block => {
+    // Don't wrap if already a block element
+    if (block.match(/^<(h[1-6]|table|ul|ol|blockquote|pre|hr)/)) {
+      return block;
+    }
+    // Replace single newlines with <br> within paragraphs
+    block = block.replace(/\n/g, "<br>");
+    return `<p>${block}</p>`;
+  }).join("\n");
+
+  // Restore code blocks
+  html = html.replace(/___CODE_BLOCK_(\d+)___/g, (match, index) => {
+    return `<pre><code>${codeBlocks[parseInt(index)]}</code></pre>`;
+  });
+
+  // Restore inline code
+  html = html.replace(/___INLINE_CODE_(\d+)___/g, (match, index) => {
+    return `<code>${inlineCodes[parseInt(index)]}</code>`;
+  });
+
+  // Clean up
   html = html.replace(/<p><\/p>/g, "");
   html = html.replace(/<p><br><\/p>/g, "");
+  html = html.replace(/<ul>\s*<\/ul>/g, "");
+  html = html.replace(/<ol>\s*<\/ol>/g, "");
 
   return html;
 }
