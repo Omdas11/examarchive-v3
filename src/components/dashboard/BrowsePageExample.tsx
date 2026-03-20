@@ -10,8 +10,6 @@
 
 import React, { useState } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
-import DashboardCard from '@/components/dashboard/DashboardCard';
-import RecommendationGrid from '@/components/dashboard/RecommendationGrid';
 import { cn } from '@/lib/utils';
 
 const SIDEBAR_ITEMS = [

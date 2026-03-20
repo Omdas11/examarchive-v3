@@ -142,7 +142,7 @@ const STATS = [
 ];
 
 export default function DigitalCuratorDashboard() {
-  const [searchQuery, setSearchQuery] = useState('');
+  const [, setSearchQuery] = useState('');
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
