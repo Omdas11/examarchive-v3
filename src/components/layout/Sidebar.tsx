@@ -1,0 +1,160 @@
+/**
+ * Sidebar Navigation Component
+ * Part of the Digital Curator design system
+ * Provides persistent navigation with role-based menu items
+ */
+
+'use client';
+
+import React, { useState } from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { cn } from '@/lib/utils';
+
+interface SidebarItem {
+  label: string;
+  icon: string; // Material Symbol name
+  href: string;
+  badge?: number;
+  roles?: string[]; // roles that can see this item
+}
+
+interface SidebarProps {
+  items: SidebarItem[];
+  userRole?: string;
+  onNavigate?: (href: string) => void;
+}
+
+export default function Sidebar({ items, userRole = 'user', onNavigate }: SidebarProps) {
+  const pathname = usePathname();
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  // Filter items based on user role
+  const visibleItems = items.filter(
+    (item) => !item.roles || item.roles.includes(userRole)
+  );
+
+  const isActive = (href: string) => {
+    return pathname === href || pathname.startsWith(href);
+  };
+
+  return (
+    <aside
+      className={cn(
+        'fixed left-0 top-0 h-full flex flex-col z-40 bg-surface',
+        'border-r border-outline-variant/20',
+        'transition-all duration-300 ease-in-out',
+        isCollapsed ? 'w-20' : 'w-64'
+      )}
+    >
+      {/* Logo Section */}
+      <div className="p-6">
+        <div className="flex items-center gap-3 mb-8">
+          <div className="w-10 h-10 gradient-primary rounded-lg flex items-center justify-center text-white flex-shrink-0">
+            <span className="material-symbols-outlined text-lg">account_balance</span>
+          </div>
+          {!isCollapsed && (
+            <div>
+              <h1 className="text-lg font-bold text-on-surface">Academic Curator</h1>
+              <p className="text-xs text-on-surface-variant">ExamArchive</p>
+            </div>
+          )}
+        </div>
+
+        {/* Toggle Button */}
+        <button
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className={cn(
+            'w-full p-2 rounded-lg',
+            'hover:bg-surface-container-low',
+            'transition-colors duration-200',
+            'flex items-center justify-center'
+          )}
+          aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          <span className="material-symbols-outlined text-on-surface-variant">
+            {isCollapsed ? 'chevron_right' : 'chevron_left'}
+          </span>
+        </button>
+      </div>
+
+      {/* Navigation Items */}
+      <nav className="flex-1 space-y-1 px-3">
+        {visibleItems.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            onClick={() => onNavigate?.(item.href)}
+            className={cn(
+              'flex items-center gap-3 px-4 py-3 rounded-lg',
+              'transition-all duration-200 ease-in-out',
+              'relative group',
+              isActive(item.href)
+                ? 'bg-primary-fixed text-primary font-semibold'
+                : 'text-on-surface-variant hover:bg-surface-container-low hover:text-primary'
+            )}
+            title={isCollapsed ? item.label : undefined}
+          >
+            <span className="material-symbols-outlined flex-shrink-0 text-lg">
+              {item.icon}
+            </span>
+
+            {!isCollapsed && (
+              <>
+                <span className="flex-1 text-sm truncate">{item.label}</span>
+                {item.badge !== undefined && item.badge > 0 && (
+                  <span className="bg-primary text-on-primary text-xs font-bold px-2 py-0.5 rounded-full">
+                    {item.badge}
+                  </span>
+                )}
+              </>
+            )}
+
+            {/* Tooltip for collapsed state */}
+            {isCollapsed && (
+              <div
+                className={cn(
+                  'absolute left-full ml-2 px-2 py-1 bg-on-surface text-surface text-xs rounded',
+                  'opacity-0 group-hover:opacity-100 transition-opacity duration-200',
+                  'pointer-events-none whitespace-nowrap z-50'
+                )}
+              >
+                {item.label}
+                {item.badge !== undefined && item.badge > 0 && ` (${item.badge})`}
+              </div>
+            )}
+          </Link>
+        ))}
+      </nav>
+
+      {/* Bottom Actions */}
+      <div className="p-3 space-y-2 border-t border-outline-variant/20">
+        <button
+          className={cn(
+            'w-full gradient-primary text-on-primary py-2 px-3 rounded-lg',
+            'font-semibold text-sm transition-opacity duration-200',
+            'hover:opacity-90 active:scale-95',
+            isCollapsed && 'p-2'
+          )}
+          title={isCollapsed ? 'Upload' : undefined}
+        >
+          {isCollapsed ? (
+            <span className="material-symbols-outlined">upload</span>
+          ) : (
+            <>
+              <span className="material-symbols-outlined text-sm mr-2 inline-block">upload</span>
+              Upload Paper
+            </>
+          )}
+        </button>
+
+        {!isCollapsed && (
+          <button className="w-full p-2 text-on-surface-variant hover:text-error text-sm transition-colors">
+            <span className="material-symbols-outlined text-lg">logout</span>
+            <span className="ml-2">Logout</span>
+          </button>
+        )}
+      </div>
+    </aside>
+  );
+}
