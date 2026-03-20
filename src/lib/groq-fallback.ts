@@ -4,12 +4,16 @@ const GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
 const REQUEST_TIMEOUT_MS = 15_000;
 const OVERALL_TIMEOUT_MS = 25_000;
 
+// All free/open-source models available on Groq dashboard
 const DEFAULT_MODEL_POOL = [
   "openai/gpt-oss-120b",
   "openai/gpt-oss-20b",
   "llama-3.3-70b-versatile",
   "llama-3.1-8b-instant",
   "llama-3.1-70b-versatile",
+  "mixtral-8x7b-32768",
+  "gemma-7b-it",
+  "gemma2-9b-it",
 ];
 
 export type AIErrorCode = "HIGH_TRAFFIC" | "DAILY_LIMIT_REACHED" | "SERVICE_UNAVAILABLE";

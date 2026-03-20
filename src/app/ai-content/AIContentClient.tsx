@@ -31,6 +31,8 @@ export default function AIContentClient({ userRole }: AIContentClientProps) {
   const [model, setModel] = useState("");
   const [modelOptions, setModelOptions] = useState<Array<{ id: string; label: string; available: boolean }>>([]);
   const [useWebSearch, setUseWebSearch] = useState(true);
+  const [selectedPdfId, setSelectedPdfId] = useState<string>("");
+  const [availablePdfs, setAvailablePdfs] = useState<Array<{ id: string; name: string; type: "paper" | "syllabus" }>>([]);
   const [error, setError] = useState<string | null>(null);
   const [activeDoc, setActiveDoc] = useState<GeneratedDoc | null>(null);
   const printRef = useRef<HTMLDivElement>(null);
@@ -40,22 +42,36 @@ export default function AIContentClient({ userRole }: AIContentClientProps) {
 
   // Fetch remaining quota on load
   useEffect(() => {
-    fetch("/api/ai/generate")
-      .then((r) => r.json())
-      .then((d) => {
-        setRemaining(d.remaining ?? null);
-        setIsFounder(d.isFounder ?? false);
-        setIsAdminPlus(d.isAdminPlus ?? false);
-        const fetchedModels = Array.isArray(d.modelOptions) ? d.modelOptions : [];
-        setModelOptions(fetchedModels);
-        const availableModels = fetchedModels.filter((option: { available: boolean }) => option.available);
-        setModel(availableModels[0]?.id ?? "");
-        const fetchedPages = Array.isArray(d.pageOptions) ? d.pageOptions.filter((v: unknown) => Number.isFinite(v)) : [1];
-        const normalizedPages = fetchedPages.length > 0 ? fetchedPages : [1];
-        setPageOptions(normalizedPages);
-        setPageLength((current) => (normalizedPages.includes(current) ? current : normalizedPages[0]));
-      })
-      .catch(() => {});
+    Promise.all([
+      fetch("/api/ai/generate").then((r) => r.json()),
+      fetch("/api/archive/list").then((r) => r.json()).catch(() => ({ papers: [], syllabus: [] })),
+    ]).then(([quotaData, archiveData]) => {
+      setRemaining(quotaData.remaining ?? null);
+      setIsFounder(quotaData.isFounder ?? false);
+      setIsAdminPlus(quotaData.isAdminPlus ?? false);
+      const fetchedModels = Array.isArray(quotaData.modelOptions) ? quotaData.modelOptions : [];
+      setModelOptions(fetchedModels);
+      const availableModels = fetchedModels.filter((option: { available: boolean }) => option.available);
+      setModel(availableModels[0]?.id ?? "");
+      const fetchedPages = Array.isArray(quotaData.pageOptions) ? quotaData.pageOptions.filter((v: unknown) => Number.isFinite(v)) : [1];
+      const normalizedPages = fetchedPages.length > 0 ? fetchedPages : [1];
+      setPageOptions(normalizedPages);
+      setPageLength((current) => (normalizedPages.includes(current) ? current : normalizedPages[0]));
+
+      // Build available PDFs list
+      const pdfs: Array<{ id: string; name: string; type: "paper" | "syllabus" }> = [];
+      if (Array.isArray(archiveData.papers)) {
+        archiveData.papers.slice(0, 20).forEach((p: { id: string; paper_name?: string; title?: string }) => {
+          pdfs.push({ id: p.id, name: p.paper_name || p.title || "Untitled Paper", type: "paper" });
+        });
+      }
+      if (Array.isArray(archiveData.syllabus)) {
+        archiveData.syllabus.slice(0, 10).forEach((s: { id: string; name?: string; title?: string }) => {
+          pdfs.push({ id: s.id, name: s.name || s.title || "Untitled Syllabus", type: "syllabus" });
+        });
+      }
+      setAvailablePdfs(pdfs);
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -99,6 +115,7 @@ export default function AIContentClient({ userRole }: AIContentClientProps) {
           model,
           useWebSearch,
           coursePrefs: loadCoursePrefsFromStorage(),
+          sourcePdfId: selectedPdfId || undefined,
         }),
       });
       const data = await res.json();
@@ -295,6 +312,23 @@ export default function AIContentClient({ userRole }: AIContentClientProps) {
               disabled={generating || !canGenerate}
             />
           </div>
+          <label style={{ fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
+            Source PDF (optional)
+            <select
+              value={selectedPdfId}
+              onChange={(e) => setSelectedPdfId(e.target.value)}
+              disabled={generating || !canGenerate}
+              className="input-field"
+              style={{ marginTop: 4 }}
+            >
+              <option value="">All archive (RAG)</option>
+              {availablePdfs.map((pdf) => (
+                <option key={pdf.id} value={pdf.id}>
+                  {pdf.type === "syllabus" ? "📚" : "📄"} {pdf.name}
+                </option>
+              ))}
+            </select>
+          </label>
           <label style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", display: "flex", alignItems: "center", gap: 6, marginTop: 18 }}>
             <input
               type="checkbox"

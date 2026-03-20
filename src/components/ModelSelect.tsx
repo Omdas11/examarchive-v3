@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useId } from "react";
-import { getModelCapability, getSpeedIcon, getQualityIcon, getCostIcon } from "@/lib/model-capabilities";
+import { getModelCapability, SpeedIcon, QualityIcon, CostIcon } from "@/lib/model-capabilities";
 
 interface ModelSelectOption {
   id: string;
@@ -101,9 +101,18 @@ export default function ModelSelect({
                 )}
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.7rem", color: "var(--color-text-muted)" }}>
-                <span title="Speed">{getSpeedIcon(selectedCapability.speed)}</span>
-                <span title="Quality">{getQualityIcon(selectedCapability.quality)}</span>
-                <span title="Cost">{getCostIcon(selectedCapability.cost)}</span>
+                <span title="Speed" style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                  <SpeedIcon speed={selectedCapability.speed} size={11} />
+                  <span>{selectedCapability.speedMultiplier}x</span>
+                </span>
+                <span title="Quality" style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                  <QualityIcon quality={selectedCapability.quality} size={11} />
+                  <span>{selectedCapability.qualityMultiplier}x</span>
+                </span>
+                <span title="Cost" style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                  <CostIcon cost={selectedCapability.cost} size={10} />
+                  <span>{selectedCapability.costMultiplier}x</span>
+                </span>
               </div>
             </div>
           ) : (
@@ -206,14 +215,17 @@ export default function ModelSelect({
                     {capability.description}
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: "12px", fontSize: "0.7rem", color: "var(--color-text-muted)", marginTop: "2px" }}>
-                    <span title="Speed">
-                      {getSpeedIcon(capability.speed)} {capability.speed === "fast" ? "Fast" : capability.speed === "medium" ? "Medium" : "Slower"}
+                    <span title="Speed" style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                      <SpeedIcon speed={capability.speed} size={11} />
+                      <span>{capability.speed === "fast" ? "Fast" : capability.speed === "medium" ? "Medium" : "Slower"} ({capability.speedMultiplier}x)</span>
                     </span>
-                    <span title="Quality">
-                      {getQualityIcon(capability.quality)} {capability.quality === "high" ? "High Quality" : capability.quality === "medium" ? "Good" : "Basic"}
+                    <span title="Quality" style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                      <QualityIcon quality={capability.quality} size={11} />
+                      <span>{capability.quality === "high" ? "High" : capability.quality === "medium" ? "Good" : "Basic"} ({capability.qualityMultiplier}x)</span>
                     </span>
-                    <span title="Cost">
-                      {getCostIcon(capability.cost)} {capability.cost === "low" ? "Low Cost" : capability.cost === "medium" ? "Medium" : "Higher Cost"}
+                    <span title="Cost" style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                      <CostIcon cost={capability.cost} size={10} />
+                      <span>{capability.cost === "low" ? "Low" : capability.cost === "medium" ? "Med" : "High"} ({capability.costMultiplier}x)</span>
                     </span>
                   </div>
                 </div>
