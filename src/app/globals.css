@@ -146,13 +146,10 @@ body {
   }
 
   .btn {
-    @apply inline-flex items-center justify-center px-5 py-2 text-sm font-semibold transition-colors rounded-lg;
-    border: 1px solid var(--color-border);
-    color: var(--color-text);
-    background: transparent;
+    @apply inline-flex items-center justify-center px-5 py-2 text-sm font-semibold transition-colors rounded-lg bg-surface-container text-on-surface;
   }
   .btn:hover {
-    background: var(--color-accent-soft);
+    @apply bg-surface-container-high;
   }
 
   .btn-primary {

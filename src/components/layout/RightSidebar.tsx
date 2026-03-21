@@ -21,7 +21,10 @@ export default function RightSidebar({ userName = "Guest", userInitials = "GU" }
             <p className="text-xs text-on-surface-variant">Scholar</p>
           </div>
         </div>
-        <Link href="/profile" className="btn mt-4 w-full justify-center text-sm">
+        <Link
+          href="/profile"
+          className="mt-4 inline-flex w-full items-center justify-center rounded-lg bg-surface-container px-3 py-2 text-sm text-on-surface transition-colors hover:bg-surface-container-high"
+        >
           Open Profile
         </Link>
       </div>
