@@ -11,6 +11,8 @@ import {
 import type { AdminUser } from "@/types";
 import { toAdminUser } from "@/types";
 import UsersTable from "./UsersTable";
+import MainLayout from "@/components/layout/MainLayout";
+import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 
 export const metadata: Metadata = {
   title: "User Management",
@@ -37,8 +39,24 @@ export default async function AdminUsersPage() {
   } catch {
     // collection may not exist yet
   }
+  const userName = user.name || user.username || "Scholar";
+  const userInitials = userName.slice(0, 2).toUpperCase();
 
   return (
+    <MainLayout
+      title="User Management"
+      breadcrumbs={[
+        { label: "Home", href: "/" },
+        { label: "Admin", href: "/admin" },
+        { label: "Users" },
+      ]}
+      showSearch={false}
+      sidebarItems={APP_SIDEBAR_ITEMS}
+      userRole={user.role}
+      isLoggedIn={true}
+      userName={userName}
+      userInitials={userInitials}
+    >
     <section className="mx-auto px-4 py-10" style={{ maxWidth: "var(--max-w)" }}>
       <div className="mb-6">
         <h1 className="text-2xl font-bold">User Management</h1>
@@ -53,5 +71,6 @@ export default async function AdminUsersPage() {
         currentAdminRole={user.role}
       />
     </section>
+    </MainLayout>
   );
 }

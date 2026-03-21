@@ -21,6 +21,15 @@ const NEW_LAYOUT_PREFIXES = [
   "/settings",
   "/profile",
   "/upload",
+  "/papers",
+  "/syllabus",
+  "/ai-content",
+  "/about",
+  "/support",
+  "/stats",
+  "/paper",
+  "/admin",
+  "/devtool",
   "/",
 ];
 

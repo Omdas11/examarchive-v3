@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { getServerUser } from "@/lib/auth";
 import type { Metadata } from "next";
+import MainLayout from "@/components/layout/MainLayout";
+import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import AIContentClient from "./AIContentClient";
 
 export const metadata: Metadata = {
@@ -30,5 +32,21 @@ export default async function AIContentPage() {
     redirect("/login?next=/ai-content");
   }
 
-  return <AIContentClient userRole={user.role} />;
+  const userName = user.name || user.username || "Scholar";
+  const userInitials = userName.slice(0, 2).toUpperCase();
+
+  return (
+    <MainLayout
+      title="AI Content"
+      breadcrumbs={[{ label: "Home", href: "/" }, { label: "AI Content" }]}
+      showSearch={false}
+      sidebarItems={APP_SIDEBAR_ITEMS}
+      userRole={user.role}
+      isLoggedIn={true}
+      userName={userName}
+      userInitials={userInitials}
+    >
+      <AIContentClient userRole={user.role} />
+    </MainLayout>
+  );
 }
