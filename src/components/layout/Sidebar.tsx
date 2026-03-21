@@ -74,6 +74,8 @@ export default function Sidebar({
   };
 
   React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+
     const saved = localStorage.getItem('theme');
     if (saved === 'dark' || saved === 'light') {
       setIsDarkTheme(saved === 'dark');

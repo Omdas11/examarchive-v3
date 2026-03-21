@@ -58,6 +58,8 @@ export default function Header({
   }, []);
 
   useEffect(() => {
+    if (!showProfileMenu) return;
+
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setShowProfileMenu(false);
@@ -65,7 +67,7 @@ export default function Header({
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, []);
+  }, [showProfileMenu]);
 
   return (
     <header
