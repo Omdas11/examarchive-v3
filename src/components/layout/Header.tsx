@@ -128,7 +128,11 @@ export default function Header({
         {showSearch && (
           <div className="hidden md:flex items-center">
             <div className="relative">
+              <label htmlFor="header-search" className="sr-only">
+                Search papers and courses
+              </label>
               <input
+                id="header-search"
                 type="text"
                 placeholder="Search papers, courses..."
                 value={searchQuery}

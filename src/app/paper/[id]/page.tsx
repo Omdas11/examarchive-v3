@@ -16,6 +16,8 @@ import { PAPER_TYPE_COLORS } from "@/components/PaperCard";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://examarchive.dev";
+
 interface PaperPageProps {
   params: Promise<{ id: string }>;
 }
@@ -29,6 +31,26 @@ export async function generateMetadata({ params }: PaperPageProps): Promise<Meta
     return {
       title: `${paper.title} – ${paper.course_code ?? "Paper"}`,
       description: `Download ${paper.title} for ${paper.course_name} (${paper.course_code ?? "paper"}).`,
+      openGraph: {
+        type: "article",
+        url: `${SITE_URL}/paper/${id}`,
+        title: `${paper.title} | ExamArchive`,
+        description: `Past exam paper for ${paper.course_name ?? paper.course_code ?? "students"}.`,
+        images: [
+          {
+            url: `${SITE_URL}/og-image.png`,
+            width: 1200,
+            height: 630,
+            alt: `${paper.title} - ExamArchive`,
+          },
+        ],
+      },
+      twitter: {
+        card: "summary_large_image",
+        title: `${paper.title} | ExamArchive`,
+        description: `Past exam paper for ${paper.course_name ?? paper.course_code ?? "students"}.`,
+        images: [`${SITE_URL}/og-image.png`],
+      },
     };
   } catch {
     return { title: "Paper Not Found" };
@@ -73,6 +95,29 @@ export default async function PaperPage({ params }: PaperPageProps) {
   }
 
   const semRoman = paper.semester ? toRoman(parseInt(paper.semester, 10)) : paper.semester;
+  const paperJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "ScholarlyArticle",
+    headline: paper.title,
+    description: `Past exam paper for ${paper.course_name ?? paper.course_code ?? "Haflong Government College students"}.`,
+    author: {
+      "@type": "Organization",
+      name: "ExamArchive Community",
+    },
+    educationalLevel: "Undergraduate",
+    inLanguage: "en",
+    isPartOf: {
+      "@type": "CollectionPage",
+      name: "ExamArchive Past Papers",
+      url: `${SITE_URL}/browse`,
+    },
+    about: {
+      "@type": "Course",
+      name: paper.course_name ?? paper.title,
+      courseCode: paper.course_code ?? undefined,
+    },
+    url: `${SITE_URL}/paper/${paper.id}`,
+  };
 
   const metaBadges = [
     paper.institution,
@@ -127,6 +172,10 @@ export default async function PaperPage({ params }: PaperPageProps) {
       userName={userName}
       userInitials={userInitials}
     >
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(paperJsonLd) }}
+    />
     <section className="mx-auto px-4 py-8 space-y-4" style={{ maxWidth: "var(--max-w)" }}>
 
       {/* ── Back link ── */}
