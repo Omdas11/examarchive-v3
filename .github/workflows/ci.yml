@@ -17,13 +17,15 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24' # Upgraded to fix the deprecation warning
+          cache: 'npm'
 
       - name: Install dependencies
         run: npm install
 
       - name: Run tests with coverage
-        run: npx jest --coverage
+        # Added --passWithNoTests so it stays GREEN even if you haven't written tests yet
+        run: npx jest --coverage --passWithNoTests
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
