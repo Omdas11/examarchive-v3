@@ -81,6 +81,7 @@ export default async function UploadPage({
       showSearch={false}
       sidebarItems={APP_SIDEBAR_ITEMS}
       userRole={user.role}
+      isLoggedIn={true}
       userName={userName}
       userInitials={userInitials}
     >

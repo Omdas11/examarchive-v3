@@ -185,6 +185,7 @@ export default function DigitalCuratorDashboard({
       onSearch={handleSearch}
       sidebarItems={APP_SIDEBAR_ITEMS}
       userRole={userRole}
+      isLoggedIn={true}
     >
       {/* Main Content */}
       <div className="p-6 space-y-8 max-w-7xl">

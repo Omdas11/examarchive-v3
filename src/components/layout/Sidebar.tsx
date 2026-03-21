@@ -12,6 +12,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { signOut } from '@/app/auth/actions';
 
 interface SidebarItem {
   label: string;
@@ -33,6 +34,8 @@ interface SidebarProps {
   isMobileOpen?: boolean;
   /** Called when the mobile overlay is tapped */
   onMobileClose?: () => void;
+  /** Show logout button only when user is authenticated */
+  isLoggedIn?: boolean;
 }
 
 export default function Sidebar({
@@ -43,6 +46,7 @@ export default function Sidebar({
   onCollapseToggle,
   isMobileOpen = false,
   onMobileClose,
+  isLoggedIn = false,
 }: SidebarProps) {
   const pathname = usePathname();
   const [localCollapsed, setLocalCollapsed] = useState(false);
@@ -171,11 +175,14 @@ export default function Sidebar({
 
       {/* Bottom Actions */}
       <div className="p-3 space-y-2 border-t border-outline-variant/20">
-        <button
+        <Link
+          href="/upload"
+          onClick={() => onNavigate?.('/upload')}
           className={cn(
             'w-full gradient-primary text-on-primary py-2 px-3 rounded-lg',
             'font-semibold text-sm transition-opacity duration-200',
             'hover:opacity-90 active:scale-95',
+            'flex items-center justify-center',
             isCollapsed && 'p-2'
           )}
           title={isCollapsed ? 'Upload' : undefined}
@@ -188,13 +195,18 @@ export default function Sidebar({
               Upload Paper
             </>
           )}
-        </button>
+        </Link>
 
-        {!isCollapsed && (
-          <button className="w-full p-2 text-on-surface-variant hover:text-primary text-sm transition-colors flex items-center justify-center">
-            <span className="material-symbols-outlined text-lg">logout</span>
-            <span className="ml-2">Logout</span>
-          </button>
+        {!isCollapsed && isLoggedIn && (
+          <form action={signOut}>
+            <button
+              type="submit"
+              className="w-full p-2 text-on-surface-variant hover:text-primary text-sm transition-colors flex items-center justify-center"
+            >
+              <span className="material-symbols-outlined text-lg">logout</span>
+              <span className="ml-2">Logout</span>
+            </button>
+          </form>
         )}
       </div>
     </aside>

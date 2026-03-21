@@ -1,14 +1,9 @@
-/**
- * Main Layout Wrapper
- * Combines Sidebar, Header, and main content area with proper spacing/structure
- * Responsive: mobile sidebar drawer + desktop collapsible sidebar
- */
-
 'use client';
 
 import React, { useState } from 'react';
 import Sidebar from './Sidebar';
 import Header, { type HeaderProps } from './Header';
+import Footer from '@/components/Footer';
 import { cn } from '@/lib/utils';
 
 interface LayoutProps extends HeaderProps {
@@ -23,6 +18,8 @@ interface LayoutProps extends HeaderProps {
   userRole?: string;
   hideSidebar?: boolean;
   hideHeader?: boolean;
+  /** Whether the current user is authenticated (shows logout in sidebar when true) */
+  isLoggedIn?: boolean;
 }
 
 export default function MainLayout({
@@ -31,6 +28,7 @@ export default function MainLayout({
   userRole = 'user',
   hideSidebar = false,
   hideHeader = false,
+  isLoggedIn = false,
   ...headerProps
 }: LayoutProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -44,13 +42,13 @@ export default function MainLayout({
           items={sidebarItems}
           userRole={userRole}
           onNavigate={() => {
-            // Close mobile sidebar when a nav item is tapped
             setIsMobileOpen(false);
           }}
           isCollapsed={isCollapsed}
           onCollapseToggle={setIsCollapsed}
           isMobileOpen={isMobileOpen}
           onMobileClose={() => setIsMobileOpen(false)}
+          isLoggedIn={isLoggedIn}
         />
       )}
 
@@ -58,8 +56,6 @@ export default function MainLayout({
       <main
         className={cn(
           'flex-1 flex flex-col overflow-hidden',
-          // On mobile: no left margin (sidebar is an overlay drawer)
-          // On desktop: margin matches sidebar width
           !hideSidebar && (
             isCollapsed
               ? 'md:ml-20'
@@ -76,8 +72,10 @@ export default function MainLayout({
         )}
 
         {/* Page Content */}
-        <div className="flex-1 overflow-auto">
-          <div className="h-full">{children}</div>
+        <div className="flex-1 overflow-auto flex flex-col">
+          <div className="flex-1">{children}</div>
+          {/* Footer on every new-layout page */}
+          <Footer />
         </div>
       </main>
     </div>

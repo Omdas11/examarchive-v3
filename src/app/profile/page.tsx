@@ -181,6 +181,7 @@ export default async function ProfilePage() {
       showSearch={false}
       sidebarItems={APP_SIDEBAR_ITEMS}
       userRole={user.role}
+      isLoggedIn={true}
       userName={userName}
       userInitials={userName.substring(0, 2).toUpperCase()}
     >
