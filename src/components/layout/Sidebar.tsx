@@ -74,8 +74,16 @@ export default function Sidebar({
   };
 
   React.useEffect(() => {
+    const saved = localStorage.getItem('theme');
+    if (saved === 'dark' || saved === 'light') {
+      setIsDarkTheme(saved === 'dark');
+      document.documentElement.setAttribute('data-theme', saved);
+      return;
+    }
+
     const current = document.documentElement.getAttribute('data-theme');
-    setIsDarkTheme(current === 'dark');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    setIsDarkTheme(current === 'dark' || (!current && prefersDark));
   }, []);
 
   const handleThemeToggle = () => {
