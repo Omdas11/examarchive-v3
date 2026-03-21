@@ -29,6 +29,21 @@
   --color-border: #c7c4d8;
   --color-input-bg: #ffffff;
   --color-footer-bg: #eff4ff;
+  --rgb-primary: 53 37 205;
+  --rgb-primary-container: 79 70 229;
+  --rgb-primary-fixed: 226 223 255;
+  --rgb-primary-fixed-dim: 195 192 255;
+  --rgb-secondary: 0 106 97;
+  --rgb-secondary-container: 134 242 228;
+  --rgb-surface: 248 249 255;
+  --rgb-surface-container-lowest: 255 255 255;
+  --rgb-surface-container-low: 239 244 255;
+  --rgb-surface-container: 229 238 255;
+  --rgb-surface-container-high: 220 233 255;
+  --rgb-surface-container-highest: 211 228 254;
+  --rgb-on-surface: 11 28 48;
+  --rgb-on-surface-variant: 70 69 85;
+  --rgb-outline-variant: 199 196 216;
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
@@ -65,6 +80,21 @@
   --color-border: #2a2a3a;
   --color-input-bg: #111827;
   --color-footer-bg: #0d1a28;
+  --rgb-primary: 195 192 255;
+  --rgb-primary-container: 59 53 120;
+  --rgb-primary-fixed: 34 31 76;
+  --rgb-primary-fixed-dim: 55 50 115;
+  --rgb-secondary: 107 216 203;
+  --rgb-secondary-container: 0 79 73;
+  --rgb-surface: 11 28 48;
+  --rgb-surface-container-lowest: 8 20 34;
+  --rgb-surface-container-low: 21 30 46;
+  --rgb-surface-container: 28 39 58;
+  --rgb-surface-container-high: 36 49 71;
+  --rgb-surface-container-highest: 45 59 84;
+  --rgb-on-surface: 234 241 255;
+  --rgb-on-surface-variant: 156 163 175;
+  --rgb-outline-variant: 42 42 58;
 
   /* Shadows are less visible in dark mode — reduce opacity */
   --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.24);
