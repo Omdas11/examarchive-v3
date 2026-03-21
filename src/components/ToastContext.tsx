@@ -143,13 +143,8 @@ function ToastItem({
   return (
     <div
       role="status"
-      className="flex items-stretch overflow-hidden rounded-lg shadow-lg animate-toast-in"
-      style={{
-        background: "#ffffff",
-        border: "1px solid #e5e7eb",
-        minWidth: "240px",
-        maxWidth: "100%",
-      }}
+      className="flex items-stretch overflow-hidden rounded-lg border border-outline-variant/20 bg-surface shadow-ambient animate-toast-in"
+      style={{ minWidth: "240px", maxWidth: "100%" }}
     >
       {/* Colored status bar on left */}
       <div
@@ -163,7 +158,7 @@ function ToastItem({
         <span style={{ color: barColor, flexShrink: 0, marginTop: "1px" }}>
           {ICONS[toast.type]}
         </span>
-        <span className="flex-1 text-sm font-medium leading-snug" style={{ color: "#111111" }}>
+        <span className="flex-1 text-sm font-medium leading-snug text-on-surface">
           {toast.message}
         </span>
       </div>
@@ -171,9 +166,8 @@ function ToastItem({
       {/* Dismiss button */}
       <button
         onClick={() => onDismiss(toast.id)}
-        className="px-2 opacity-40 hover:opacity-80 transition-opacity shrink-0 flex items-center"
+        className="px-2 opacity-40 hover:opacity-80 transition-opacity shrink-0 flex items-center text-on-surface-variant"
         aria-label="Dismiss notification"
-        style={{ color: "#6b7280" }}
       >
         <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
           <path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" />

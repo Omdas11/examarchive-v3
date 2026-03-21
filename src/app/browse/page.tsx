@@ -8,6 +8,8 @@ import {
 import type { Paper } from "@/types";
 import { toPaper } from "@/types";
 import { getServerUser } from "@/lib/auth";
+import MainLayout from "@/components/layout/MainLayout";
+import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import BrowseClient from "./BrowseClient";
 
 export const metadata: Metadata = {
@@ -39,6 +41,8 @@ interface BrowsePageProps {
 export default async function BrowsePage({ searchParams }: BrowsePageProps) {
   const { q } = await searchParams;
   const user = await getServerUser();
+  const userName = user?.name || "Guest";
+  const userInitials = user ? userName.substring(0, 2).toUpperCase() : "";
   const isAdmin = user?.role === "admin" || user?.role === "moderator" || user?.role === "founder";
 
   let papers: Paper[] = [];
@@ -77,21 +81,32 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
   const availableUniversities = [...universitySet].sort();
 
   return (
-    <section className="mx-auto px-4 py-10" style={{ maxWidth: "var(--max-w)" }}>
-      <h1 className="text-2xl font-bold">Browse Question Papers</h1>
-      <p className="mt-1 text-sm" style={{ color: "var(--color-text-muted)" }}>
-        Search and filter past exam papers by programme, stream, and year.
-      </p>
+    <MainLayout
+      title="Browse Papers"
+      breadcrumbs={[{ label: "Dashboard", href: "/dashboard" }, { label: "Browse" }]}
+      showSearch={false}
+      sidebarItems={APP_SIDEBAR_ITEMS}
+      userRole={user?.role ?? "student"}
+      isLoggedIn={!!user}
+      userName={userName}
+      userInitials={userInitials}
+    >
+      <section className="mx-auto px-4 py-10" style={{ maxWidth: "var(--max-w)" }}>
+        <h1 className="text-2xl font-bold">Browse Question Papers</h1>
+        <p className="mt-1 text-sm" style={{ color: "var(--color-text-muted)" }}>
+          Search and filter past exam papers by programme, stream, and year.
+        </p>
 
-      <BrowseClient
-        initialPapers={papers}
-        availableYears={availableYears}
-        availableStreams={availableStreams}
-        availablePaperTypes={availablePaperTypes}
-        availableUniversities={availableUniversities}
-        isAdmin={isAdmin}
-        initialSearch={q ?? ""}
-      />
-    </section>
+        <BrowseClient
+          initialPapers={papers}
+          availableYears={availableYears}
+          availableStreams={availableStreams}
+          availablePaperTypes={availablePaperTypes}
+          availableUniversities={availableUniversities}
+          isAdmin={isAdmin}
+          initialSearch={q ?? ""}
+        />
+      </section>
+    </MainLayout>
   );
 }

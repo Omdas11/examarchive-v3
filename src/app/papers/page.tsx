@@ -1,13 +1,30 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { getServerUser } from "@/lib/auth";
+import MainLayout from "@/components/layout/MainLayout";
+import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 
 export const metadata: Metadata = {
   title: "Papers",
   description: "Explore all exam papers in the ExamArchive.",
 };
 
-export default function PapersPage() {
+export default async function PapersPage() {
+  const user = await getServerUser();
+  const userName = user ? (user.name || user.username || "Scholar") : "";
+  const userInitials = userName ? userName.slice(0, 2).toUpperCase() : "";
+
   return (
+    <MainLayout
+      title="Papers"
+      breadcrumbs={[{ label: "Home", href: "/" }, { label: "Papers" }]}
+      showSearch={false}
+      sidebarItems={APP_SIDEBAR_ITEMS}
+      userRole={user?.role ?? "visitor"}
+      isLoggedIn={!!user}
+      userName={userName}
+      userInitials={userInitials}
+    >
     <section className="mx-auto px-4 py-20 text-center" style={{ maxWidth: "var(--max-w)" }}>
       {/* Icon */}
       <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full"
@@ -89,5 +106,6 @@ export default function PapersPage() {
         ))}
       </div>
     </section>
+    </MainLayout>
   );
 }

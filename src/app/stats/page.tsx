@@ -10,6 +10,8 @@ import {
 import { getServerUser } from "@/lib/auth";
 import { isModerator } from "@/lib/roles";
 import { SYLLABUS_REGISTRY } from "@/data/syllabus-registry";
+import MainLayout from "@/components/layout/MainLayout";
+import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 
 export const metadata: Metadata = {
   title: "Platform Stats",
@@ -75,6 +77,8 @@ export default async function StatsPage() {
   if (!user) {
     redirect("/login?next=/stats");
   }
+  const userName = user.name || user.username || "Scholar";
+  const userInitials = userName.slice(0, 2).toUpperCase();
 
   const stats = await fetchPlatformStats();
 
@@ -107,6 +111,16 @@ export default async function StatsPage() {
   const hasModAccess = isModerator(user.role);
 
   return (
+    <MainLayout
+      title="Stats"
+      breadcrumbs={[{ label: "Home", href: "/" }, { label: "Stats" }]}
+      showSearch={false}
+      sidebarItems={APP_SIDEBAR_ITEMS}
+      userRole={user.role}
+      isLoggedIn={true}
+      userName={userName}
+      userInitials={userInitials}
+    >
     <section
       className="mx-auto px-4 py-10"
       style={{ maxWidth: "var(--max-w)" }}
@@ -162,6 +176,7 @@ export default async function StatsPage() {
         Stats refresh on each page load. Only visible to logged-in users.
       </p>
     </section>
+    </MainLayout>
   );
 }
 

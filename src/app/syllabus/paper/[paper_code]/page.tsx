@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getServerUser } from "@/lib/auth";
 import {
   adminDatabases,
   DATABASE_ID,
@@ -12,6 +13,8 @@ import type { Syllabus, Paper } from "@/types";
 import { SYLLABUS_REGISTRY, groupBySemester } from "@/data/syllabus-registry";
 import type { SyllabusRegistryEntry, SyllabusUnit } from "@/data/syllabus-registry";
 import { toRoman } from "@/lib/utils";
+import MainLayout from "@/components/layout/MainLayout";
+import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 
 interface PageProps {
   params: Promise<{ paper_code: string }>;
@@ -146,6 +149,9 @@ import { PAPER_TYPE_COLORS } from "@/components/PaperCard";
 const CATEGORY_COLORS = PAPER_TYPE_COLORS;
 
 export default async function SyllabusDetailPage({ params }: PageProps) {
+  const user = await getServerUser();
+  const userName = user ? (user.name || user.username || "Scholar") : "";
+  const userInitials = userName ? userName.slice(0, 2).toUpperCase() : "";
   const { paper_code } = await params;
   const code = decodeURIComponent(paper_code).toUpperCase();
 
@@ -177,6 +183,20 @@ export default async function SyllabusDetailPage({ params }: PageProps) {
     : null;
 
   return (
+    <MainLayout
+      title="Syllabus Detail"
+      breadcrumbs={[
+        { label: "Home", href: "/" },
+        { label: "Syllabus", href: "/syllabus" },
+        { label: entry.paper_code },
+      ]}
+      showSearch={false}
+      sidebarItems={APP_SIDEBAR_ITEMS}
+      userRole={user?.role ?? "visitor"}
+      isLoggedIn={!!user}
+      userName={userName}
+      userInitials={userInitials}
+    >
     <section className="mx-auto px-4 py-10" style={{ maxWidth: "var(--max-w)" }}>
       {/* Back link */}
       <Link
@@ -466,6 +486,6 @@ export default async function SyllabusDetailPage({ params }: PageProps) {
         </div>
       </div>
     </section>
+    </MainLayout>
   );
 }
-

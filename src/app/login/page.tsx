@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import MainLayout from "@/components/layout/MainLayout";
+import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import LoginForm from "./LoginForm";
 
 export const metadata: Metadata = {
@@ -36,6 +38,16 @@ export default async function LoginPage({ searchParams }: Props) {
   const initialMode: Mode = VALID_MODES.includes(mode as Mode) ? (mode as Mode) : "magic";
 
   return (
+    <MainLayout
+      title="Sign In"
+      breadcrumbs={[{ label: "Home", href: "/" }, { label: "Sign In" }]}
+      showSearch={false}
+      sidebarItems={APP_SIDEBAR_ITEMS}
+      userRole="visitor"
+      isLoggedIn={false}
+      userName=""
+      userInitials=""
+    >
     <div className="mx-auto flex min-h-[calc(100vh-14rem)] items-center justify-center px-4 py-16">
       <div className="w-full max-w-sm">
         {/* Card */}
@@ -73,5 +85,6 @@ export default async function LoginPage({ searchParams }: Props) {
         </p>
       </div>
     </div>
+    </MainLayout>
   );
 }

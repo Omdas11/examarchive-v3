@@ -8,6 +8,8 @@ import AnimatedCounter from "@/components/AnimatedCounter";
 import DevProgressBar from "@/components/DevProgressBar";
 import VisitorTracker from "@/components/VisitorTracker";
 import FireParticles from "@/components/FireParticles";
+import MainLayout from "@/components/layout/MainLayout";
+import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import {
   adminDatabases,
   adminUsers,
@@ -66,19 +68,19 @@ const HOW_IT_WORKS = [
     step: "1",
     title: "Upload",
     desc: "Students upload past exam papers or syllabi directly from the site. No account required for browsing.",
-    color: "var(--color-primary)",
+    colorClass: "bg-primary",
   },
   {
     step: "2",
     title: "Admin Verification",
     desc: "Our team reviews each submission for quality and authenticity before publishing.",
-    color: "var(--pending-amber)",
+    colorClass: "bg-amber-400",
   },
   {
     step: "3",
     title: "Student Access",
     desc: "Verified papers go live instantly. Students can browse metadata freely and view PDFs after signing in.",
-    color: "var(--success-green)",
+    colorClass: "bg-emerald-600",
   },
 ];
 
@@ -215,15 +217,26 @@ export default async function HomePage() {
     },
   ];
 
+  const userName = user ? (user.name || user.username || "Scholar") : "";
+  const userInitials = userName ? userName.slice(0, 2).toUpperCase() : "";
+
   return (
-    <>
+    <MainLayout
+      title="Home"
+      sidebarItems={APP_SIDEBAR_ITEMS}
+      userRole={user?.role ?? "visitor"}
+      isLoggedIn={!!user}
+      userName={userName}
+      userInitials={userInitials}
+      showSearch={false}
+    >
       {/* Fire particle effect — fixed bottom-to-midpoint, behind content */}
       <FireParticles />
 
       <div className="mx-auto px-4 relative" style={{ maxWidth: "var(--max-w)", zIndex: 1 }}>
 
         {/* ── Development progress banner ── */}
-        <div className="pt-6">
+        <div className="pt-16 md:pt-6">
           <DevProgressBar progress={launchProgress} />
         </div>
 
@@ -422,13 +435,12 @@ export default async function HomePage() {
             {HOW_IT_WORKS.map((step) => (
               <div key={step.step} className="card p-5 text-center">
                 <div
-                  className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full text-lg font-extrabold text-white"
-                  style={{ background: step.color }}
+                  className={`mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full text-lg font-extrabold text-white ${step.colorClass}`}
                 >
                   {step.step}
                 </div>
                 <h3 className="font-semibold text-sm mb-1">{step.title}</h3>
-                <p className="text-xs leading-relaxed" style={{ color: "var(--color-text-muted)" }}>
+                <p className="text-xs leading-relaxed text-on-surface-variant">
                   {step.desc}
                 </p>
               </div>
@@ -507,6 +519,6 @@ export default async function HomePage() {
         </section>
 
       </div>
-    </>
+    </MainLayout>
   );
 }
