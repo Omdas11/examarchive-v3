@@ -26,7 +26,7 @@ export const designTokens = {
     md: "1.5rem",
     lg: "2rem",
     xl: "2.5rem",
-    x2l: "3rem",
+    "2xl": "3rem",
   },
   radius: {
     sm: "0.5rem",

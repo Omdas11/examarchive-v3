@@ -29,7 +29,7 @@ interface RecommendationGridProps {
   subtitle?: string;
   isPro?: boolean;
   className?: string;
-  columns?: number;
+  columns?: 1 | 2 | 3;
 }
 
 export default function RecommendationGrid({

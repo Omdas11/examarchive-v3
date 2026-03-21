@@ -97,14 +97,10 @@ export default function DevProgressBar({ progress = DEFAULT_LAUNCH_PROGRESS }: D
           )}
         >
           <div
-            className="rounded-lg p-4 text-center"
-            style={{
-              background: "color-mix(in srgb, var(--pending-amber) 12%, var(--color-surface))",
-              border: "1px solid color-mix(in srgb, var(--pending-amber) 30%, transparent)",
-            }}
+            className="rounded-lg border border-amber-300/40 bg-surface-container-low p-4 text-center"
           >
             <div className="mb-2 flex items-center justify-between gap-2">
-              <p className="text-xs font-semibold flex items-center justify-center gap-1.5" style={{ color: "var(--color-text-muted)" }}>
+              <p className="text-xs font-semibold flex items-center justify-center gap-1.5 text-on-surface-variant">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--pending-amber)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
                   <line x1="12" y1="9" x2="12" y2="13"/>
@@ -136,18 +132,16 @@ export default function DevProgressBar({ progress = DEFAULT_LAUNCH_PROGRESS }: D
               aria-label={`Platform launch progress: ${clamped}%`}
             >
               <div
-                className="h-full rounded-full transition-all duration-1000 ease-out"
+                className="h-full rounded-full bg-gradient-to-r from-amber-400 to-primary transition-all duration-1000 ease-out"
                 style={{
                   width: `${clamped}%`,
-                  background:
-                    "linear-gradient(90deg, var(--pending-amber) 0%, var(--brand-crimson) 100%)",
                 }}
               />
             </div>
 
-            <p className="text-xs mt-1.5" style={{ color: "var(--color-text-muted)" }}>
+            <p className="text-xs mt-1.5 text-on-surface-variant">
               {clamped}% towards soft launch · Starting with{" "}
-              <span style={{ color: "var(--color-primary)", fontWeight: 600 }}>Haflong Government College</span>
+              <span className="text-primary font-semibold">Haflong Government College</span>
             </p>
           </div>
         </div>

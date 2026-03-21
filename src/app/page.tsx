@@ -68,19 +68,19 @@ const HOW_IT_WORKS = [
     step: "1",
     title: "Upload",
     desc: "Students upload past exam papers or syllabi directly from the site. No account required for browsing.",
-    color: "var(--color-primary)",
+    colorClass: "bg-primary",
   },
   {
     step: "2",
     title: "Admin Verification",
     desc: "Our team reviews each submission for quality and authenticity before publishing.",
-    color: "var(--pending-amber)",
+    colorClass: "bg-amber-400",
   },
   {
     step: "3",
     title: "Student Access",
     desc: "Verified papers go live instantly. Students can browse metadata freely and view PDFs after signing in.",
-    color: "var(--success-green)",
+    colorClass: "bg-emerald-600",
   },
 ];
 
@@ -435,13 +435,12 @@ export default async function HomePage() {
             {HOW_IT_WORKS.map((step) => (
               <div key={step.step} className="card p-5 text-center">
                 <div
-                  className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full text-lg font-extrabold text-white"
-                  style={{ background: step.color }}
+                  className={`mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full text-lg font-extrabold text-white ${step.colorClass}`}
                 >
                   {step.step}
                 </div>
                 <h3 className="font-semibold text-sm mb-1">{step.title}</h3>
-                <p className="text-xs leading-relaxed" style={{ color: "var(--color-text-muted)" }}>
+                <p className="text-xs leading-relaxed text-on-surface-variant">
                   {step.desc}
                 </p>
               </div>
