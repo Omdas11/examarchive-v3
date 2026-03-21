@@ -33,7 +33,9 @@ async function rollbackUploadedPaper(fileId: string, reason: string) {
     await deleteFileFromAppwrite(fileId);
   } catch (rollbackErr) {
     console.error(
-      `[api/upload] Failed to roll back uploaded file ${fileId} after ${reason.toLowerCase()}:`,
+      "[api/upload] Failed to roll back uploaded file %s after %s:",
+      fileId,
+      reason.toLowerCase(),
       rollbackErr,
     );
   }

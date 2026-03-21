@@ -15,6 +15,10 @@ const OG_IMAGE_URL = `${SITE_URL}/branding/logo.png`;
 const SITE_NAME = "ExamArchive";
 const SITE_DESCRIPTION =
   "Browse, download, and contribute past exam papers and syllabi. Free community-driven archive for FYUGP and CBCS students — starting with Haflong Government College.";
+const THEME_INIT_SCRIPT =
+  '(function(){try{var t=localStorage.getItem("theme");if(t==="dark"||(!t&&window.matchMedia("(prefers-color-scheme:dark)").matches)){document.documentElement.setAttribute("data-theme","dark")}var rm=localStorage.getItem("reduceMotion");if(rm==="true"){document.documentElement.setAttribute("data-reduce-motion","true")}}catch(e){}})();';
+const SERVICE_WORKER_SCRIPT =
+  'if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("/sw.js")});}';
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -126,22 +130,11 @@ export default async function RootLayout({
           rel="stylesheet"
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap"
         />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem("theme");if(t==="dark"||(!t&&window.matchMedia("(prefers-color-scheme:dark)").matches)){document.documentElement.setAttribute("data-theme","dark")}var rm=localStorage.getItem("reduceMotion");if(rm==="true"){document.documentElement.setAttribute("data-reduce-motion","true")}}catch(e){}})();`,
-          }}
-        />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("/sw.js")});}`,
-          }}
-        />
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c"),
-          }}
-        />
+        <script>{THEME_INIT_SCRIPT}</script>
+        <script>{SERVICE_WORKER_SCRIPT}</script>
+        <script type="application/ld+json">
+          {JSON.stringify(jsonLd).replace(/</g, "\\u003c")}
+        </script>
       </head>
       <body className="font-sans antialiased">
         <div className="flex min-h-screen flex-col">

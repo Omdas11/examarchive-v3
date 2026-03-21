@@ -143,7 +143,8 @@ export async function POST(request: NextRequest) {
         await adminStorage().deleteFile(SYLLABUS_BUCKET_ID, fileId);
       } catch (rollbackErr) {
         console.error(
-          `[api/upload/syllabus] Failed to roll back uploaded syllabus file ${fileId}:`,
+          "[api/upload/syllabus] Failed to roll back uploaded syllabus file %s:",
+          fileId,
           rollbackErr,
         );
       }

@@ -242,12 +242,9 @@ export default async function SyllabusDetailPage({ params }: PageProps) {
       userName={userName}
       userInitials={userInitials}
     >
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{
-        __html: JSON.stringify(syllabusJsonLd).replace(/</g, "\\u003c"),
-      }}
-    />
+    <script type="application/ld+json">
+      {JSON.stringify(syllabusJsonLd).replace(/</g, "\\u003c")}
+    </script>
     <section className="mx-auto px-4 py-10" style={{ maxWidth: "var(--max-w)" }}>
       {/* Back link */}
       <Link

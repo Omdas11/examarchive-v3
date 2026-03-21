@@ -173,12 +173,9 @@ export default async function PaperPage({ params }: PaperPageProps) {
       userName={userName}
       userInitials={userInitials}
     >
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{
-        __html: JSON.stringify(paperJsonLd).replace(/</g, "\\u003c"),
-      }}
-    />
+    <script type="application/ld+json">
+      {JSON.stringify(paperJsonLd).replace(/</g, "\\u003c")}
+    </script>
     <section className="mx-auto px-4 py-8 space-y-4" style={{ maxWidth: "var(--max-w)" }}>
 
       {/* ── Back link ── */}

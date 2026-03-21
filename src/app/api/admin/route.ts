@@ -203,7 +203,8 @@ export async function POST(request: NextRequest) {
             await adminStorage().deleteFile(BUCKET_ID, storedFileId);
           } catch (storageErr) {
             console.warn(
-              `[api/admin] Could not delete storage file ${storedFileId}:`,
+              "[api/admin] Could not delete storage file %s:",
+              storedFileId,
               storageErr,
             );
           }
