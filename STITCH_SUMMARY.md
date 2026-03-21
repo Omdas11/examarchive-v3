@@ -370,9 +370,9 @@ Your Project Root/
 A: Run `npm run build` to regenerate Tailwind CSS.
 
 **Q: Material Symbols not showing?**  
-A: Add to your `_app.tsx`:
-```tsx
-import '@/styles/material-symbols.css';
+A: Ensure the Material Symbols stylesheet link is present in `src/app/layout.tsx`:
+```html
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" />
 ```
 
 **Q: How do I customize a card?**  

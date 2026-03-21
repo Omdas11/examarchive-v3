@@ -174,6 +174,7 @@ export default function Sidebar({
                 : 'text-on-surface-variant hover:bg-surface-container-low hover:text-primary'
             )}
             title={isCollapsed ? item.label : undefined}
+            aria-label={isCollapsed ? item.label : undefined}
           >
             <span className="material-symbols-outlined flex-shrink-0 text-lg">
               {item.icon}
@@ -195,7 +196,7 @@ export default function Sidebar({
               <div
                 className={cn(
                   'absolute left-full ml-2 px-2 py-1 bg-on-surface text-surface text-xs rounded',
-                  'opacity-0 group-hover:opacity-100 transition-opacity duration-200',
+                  'opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity duration-200',
                   'pointer-events-none whitespace-nowrap z-50'
                 )}
               >

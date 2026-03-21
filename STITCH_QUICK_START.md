@@ -391,7 +391,7 @@ src/
 A: Ensure Tailwind is rebuilding. Run `npm run build` to regenerate CSS.
 
 **Q: Material Symbols not showing?**  
-A: Add to your layout: 
+A: Add to your `src/app/layout.tsx` `<head>`:
 ```html
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" />
 ```
