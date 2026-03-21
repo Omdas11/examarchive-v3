@@ -40,17 +40,31 @@ export default function DashboardCard({
   className,
   ...props
 }: DashboardCardProps) {
+  const isClickable = typeof onClick === 'function';
+  const hoverable = isHoverable && isClickable;
+
   return (
     <div
       className={cn(
         'p-4 rounded-xl bg-surface-container-low',
         'border border-outline-variant/10',
         'transition-all duration-200',
-        isHoverable && 'hover:bg-surface-container hover:shadow-lift cursor-pointer hover:scale-[1.01]',
-        onClick && 'cursor-pointer',
+        hoverable && 'hover:bg-surface-container hover:shadow-lift hover:scale-[1.01] cursor-pointer',
         className
       )}
       onClick={onClick}
+      onKeyDown={
+        isClickable
+          ? (event) => {
+              if (event.key === ' ' || event.key === 'Enter') {
+                if (event.key === ' ') event.preventDefault();
+                onClick();
+              }
+            }
+          : undefined
+      }
+      role={isClickable ? 'button' : undefined}
+      tabIndex={isClickable ? 0 : undefined}
       {...props}
     >
       {/* Header with Icon and Badge */}
@@ -69,7 +83,7 @@ export default function DashboardCard({
 
       {/* Title and Value */}
       <h3 className="font-bold text-on-surface mb-1 line-clamp-2">{title}</h3>
-      {value && <p className="text-lg font-bold text-primary mb-2">{value}</p>}
+      {value !== null && value !== undefined && <p className="text-lg font-bold text-primary mb-2">{value}</p>}
 
       {/* Description */}
       {description && (
@@ -86,6 +100,7 @@ export default function DashboardCard({
                 'text-[10px] font-bold px-2 py-0.5 rounded-full',
                 tag.variant === 'secondary' && 'bg-secondary/10 text-secondary',
                 tag.variant === 'primary' && 'bg-primary/10 text-primary',
+                tag.variant === 'success' && 'bg-secondary-fixed/20 text-secondary',
                 !tag.variant && 'bg-surface-container text-on-surface-variant'
               )}
             >
