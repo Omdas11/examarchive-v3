@@ -1,9 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    serverActions: {
-      bodySizeLimit: "50mb",
-    },
+  output: 'export', // This is the critical line for GitHub Pages
+  images: {
+    unoptimized: true, // Required for static export
   },
 };
 
