@@ -18,19 +18,19 @@ const config: Config = {
         background: "var(--background)",
         foreground: "var(--foreground)",
 
-        // Material Design 3 - Primary (Deep Indigo)
-        primary: "#3525cd",
-        "primary-container": "#4f46e5",
+        // Material Design 3 - Primary (theme-adaptive via CSS vars)
+        primary: "rgb(var(--rgb-primary) / <alpha-value>)",
+        "primary-container": "rgb(var(--rgb-primary-container) / <alpha-value>)",
         "on-primary": "#ffffff",
         "on-primary-container": "#dad7ff",
-        "primary-fixed": "#e2dfff",
-        "primary-fixed-dim": "#c3c0ff",
+        "primary-fixed": "rgb(var(--rgb-primary-fixed) / <alpha-value>)",
+        "primary-fixed-dim": "rgb(var(--rgb-primary-fixed-dim) / <alpha-value>)",
         "on-primary-fixed": "#0f0069",
         "on-primary-fixed-variant": "#3323cc",
 
         // Material Design 3 - Secondary (Muted Teal)
-        secondary: "#006a61",
-        "secondary-container": "#86f2e4",
+        secondary: "rgb(var(--rgb-secondary) / <alpha-value>)",
+        "secondary-container": "rgb(var(--rgb-secondary-container) / <alpha-value>)",
         "on-secondary": "#ffffff",
         "on-secondary-container": "#006f66",
         "secondary-fixed": "#89f5e7",
@@ -49,17 +49,17 @@ const config: Config = {
         "on-tertiary-fixed-variant": "#653e00",
 
         // Surface & Background
-        surface: "#f8f9ff",
+        surface: "rgb(var(--rgb-surface) / <alpha-value>)",
         "surface-dim": "#cbdbf5",
-        "surface-bright": "#f8f9ff",
-        "surface-container-lowest": "#ffffff",
-        "surface-container-low": "#eff4ff",
-        "surface-container": "#e5eeff",
-        "surface-container-high": "#dce9ff",
-        "surface-container-highest": "#d3e4fe",
+        "surface-bright": "rgb(var(--rgb-surface) / <alpha-value>)",
+        "surface-container-lowest": "rgb(var(--rgb-surface-container-lowest) / <alpha-value>)",
+        "surface-container-low": "rgb(var(--rgb-surface-container-low) / <alpha-value>)",
+        "surface-container": "rgb(var(--rgb-surface-container) / <alpha-value>)",
+        "surface-container-high": "rgb(var(--rgb-surface-container-high) / <alpha-value>)",
+        "surface-container-highest": "rgb(var(--rgb-surface-container-highest) / <alpha-value>)",
         "surface-variant": "#d3e4fe",
-        "on-surface": "#0b1c30",
-        "on-surface-variant": "#464555",
+        "on-surface": "rgb(var(--rgb-on-surface) / <alpha-value>)",
+        "on-surface-variant": "rgb(var(--rgb-on-surface-variant) / <alpha-value>)",
 
         // Error & Status
         error: "#ba1a1a",
@@ -69,7 +69,7 @@ const config: Config = {
 
         // Outline & Borders
         outline: "#777587",
-        "outline-variant": "#c7c4d8",
+        "outline-variant": "rgb(var(--rgb-outline-variant) / <alpha-value>)",
 
         // Background & Inverse
         "on-background": "#0b1c30",

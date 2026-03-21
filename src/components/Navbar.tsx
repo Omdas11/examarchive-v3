@@ -326,7 +326,7 @@ export default function Navbar({ user }: NavbarProps) {
                         onClick={() => setDropdownOpen(false)}
                         className="block px-4 py-2 text-sm transition-colors hover:opacity-70"
                         role="menuitem"
-                        style={{ color: "#7c3aed" }}
+                        style={{ color: "var(--color-primary)" }}
                       >
                         DevTool
                       </Link>
@@ -474,7 +474,7 @@ export default function Navbar({ user }: NavbarProps) {
                 href="/devtool"
                 onClick={() => setDrawerOpen(false)}
                 className="block rounded-md px-3 py-2.5 text-sm font-medium transition-colors hover:opacity-70"
-                style={{ color: "#7c3aed", fontWeight: isActive("/devtool") ? 700 : undefined }}
+                style={{ color: "var(--color-primary)", fontWeight: isActive("/devtool") ? 700 : undefined }}
               >
                 DevTool
               </Link>

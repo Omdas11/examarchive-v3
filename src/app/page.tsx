@@ -236,7 +236,7 @@ export default async function HomePage() {
       <div className="mx-auto px-4 relative" style={{ maxWidth: "var(--max-w)", zIndex: 1 }}>
 
         {/* ── Development progress banner ── */}
-        <div className="pt-6">
+        <div className="pt-16 md:pt-6">
           <DevProgressBar progress={launchProgress} />
         </div>
 
