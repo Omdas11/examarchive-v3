@@ -62,7 +62,7 @@ export default function Sidebar({
   );
 
   const isActive = (href: string) => {
-    return pathname === href || pathname.startsWith(href + '/') || pathname === href;
+    return pathname === href || pathname.startsWith(href + '/');
   };
 
   return (

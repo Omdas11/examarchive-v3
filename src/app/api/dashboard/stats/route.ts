@@ -9,13 +9,13 @@ import { getServerUser } from "@/lib/auth";
 
 /**
  * GET /api/dashboard/stats
- * Returns stats for the currently authenticated user:
- * - upload_count (approved papers uploaded)
- * - pending_count (papers awaiting approval)
- * - xp
- * - streak_days
- * - tier
- * - recent_papers: last 5 approved papers this user uploaded
+ * Returns stats for the currently authenticated user sourced from AppWrite:
+ * - upload_count  : from users.upload_count (backend-maintained counter)
+ * - pending_count : live count of papers with approved=false
+ * - xp            : from UserProfile (already fetched by getServerUser)
+ * - streak_days   : from UserProfile
+ * - tier          : from UserProfile
+ * - recent_papers : last 5 approved papers this user uploaded
  */
 export async function GET() {
   try {
@@ -26,8 +26,8 @@ export async function GET() {
 
     const db = adminDatabases();
 
-    // Fetch approved papers uploaded by this user
-    const [approvedResult, pendingResult] = await Promise.all([
+    // Fetch approved papers + pending count in parallel
+    const [approvedResult, pendingResult, userDoc] = await Promise.all([
       db.listDocuments(DATABASE_ID, COLLECTION.papers, [
         Query.equal("uploaded_by", user.id),
         Query.equal("approved", true),
@@ -39,11 +39,22 @@ export async function GET() {
         Query.equal("approved", false),
         Query.limit(1),
       ]),
+      // Fetch upload_count from users collection (backend-maintained counter)
+      db.getDocument(DATABASE_ID, COLLECTION.users, user.id).catch(() => null),
     ]);
+
+    // Prefer the backend-maintained upload_count; fall back to live papers total
+    const uploadCount: number =
+      userDoc && typeof userDoc.upload_count === "number" && userDoc.upload_count >= 0
+        ? (userDoc.upload_count as number)
+        : approvedResult.total;
 
     const recentPapers = approvedResult.documents.map((doc) => ({
       id: doc.$id,
-      title: (doc.paper_name as string) || (doc.course_code as string) || "Untitled Paper",
+      title:
+        (doc.paper_name as string) ||
+        (doc.course_code as string) ||
+        "Untitled Paper",
       course_code: (doc.course_code as string) || "",
       year: (doc.year as number) || 0,
       semester: (doc.semester as string) || "",
@@ -52,7 +63,7 @@ export async function GET() {
     }));
 
     return NextResponse.json({
-      upload_count: approvedResult.total,
+      upload_count: uploadCount,
       pending_count: pendingResult.total,
       xp: user.xp,
       streak_days: user.streak_days,
@@ -60,7 +71,9 @@ export async function GET() {
       recent_papers: recentPapers,
     });
   } catch (err) {
-    console.error("[dashboard/stats]", err);
+    // Log only the error type/message, not the full stack, to avoid leaking sensitive paths
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[dashboard/stats] Error:", message);
     return NextResponse.json({ error: "Failed to load stats" }, { status: 500 });
   }
 }

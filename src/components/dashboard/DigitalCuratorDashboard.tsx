@@ -111,7 +111,7 @@ export default function DigitalCuratorDashboard({
     fetch('/api/dashboard/stats')
       .then((r) => r.json())
       .then((data: DashboardStats) => setStats(data))
-      .catch(() => { /* silently fail – use null */ })
+      .catch((err) => { console.error('[Dashboard] Failed to load stats:', err); })
       .finally(() => setLoading(false));
   }, []);
 

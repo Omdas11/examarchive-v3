@@ -590,14 +590,14 @@ body {
 .danger-zone {
   margin-top: 2rem;
   padding: 1.5rem;
-  border: 3px solid var(--brand-crimson);
+  border: 3px solid var(--danger-red);
   border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--brand-crimson) 4%, var(--color-surface));
+  background: color-mix(in srgb, var(--danger-red) 4%, var(--color-surface));
 }
 .danger-zone-title {
   font-size: 1rem;
   font-weight: 700;
-  color: var(--brand-crimson);
+  color: var(--danger-red);
   margin-bottom: 0.5rem;
   display: flex;
   align-items: center;

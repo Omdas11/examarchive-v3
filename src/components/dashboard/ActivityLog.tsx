@@ -37,9 +37,9 @@ const statusColors = {
     icon: 'primary-fixed',
   },
   error: {
-    bg: 'bg-primary-fixed/20',
-    text: 'text-primary',
-    icon: 'primary-fixed',
+    bg: 'bg-error/10',
+    text: 'text-error',
+    icon: 'error',
   },
   info: {
     bg: 'bg-surface-container-highest',

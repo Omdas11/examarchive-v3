@@ -20,6 +20,7 @@ const NEW_LAYOUT_PREFIXES = [
   "/browse",
   "/settings",
   "/profile",
+  "/upload",
 ];
 
 interface AppShellProps {
