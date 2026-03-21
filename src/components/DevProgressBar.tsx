@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
 /** Default launch progress percentage shown when no value is stored in site_metrics. */
 const DEFAULT_LAUNCH_PROGRESS = 40;
-const STORAGE_KEY = "ea:dev-progress-hidden:v1";
+const STORAGE_KEY = "ea_dev_progress_hidden_v1";
+const LEGACY_STORAGE_KEY = "ea:dev-progress-hidden:v1";
 const PULL_SWIPE_THRESHOLD = 25;
+const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
 
 interface DevProgressBarProps {
   /** Completion percentage (0–100). */
@@ -22,16 +24,42 @@ export default function DevProgressBar({ progress = DEFAULT_LAUNCH_PROGRESS }: D
   const [isOpen, setIsOpen] = useState(false);
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const hidden = window.localStorage.getItem(STORAGE_KEY) === "1";
-    setIsOpen(!hidden);
+  const getHiddenPref = useCallback(() => {
+    if (typeof document === "undefined") return false;
+    const rawValue = document.cookie
+      .split("; ")
+      .find((c) => c.startsWith(`${STORAGE_KEY}=`))
+      ?.slice(STORAGE_KEY.length + 1);
+    const value = rawValue ? decodeURIComponent(rawValue) : undefined;
+    return value === "1";
   }, []);
+
+  const persistHiddenPref = useCallback((hidden: boolean) => {
+    if (typeof document === "undefined") return;
+    const isProduction = process.env.NODE_ENV === "production";
+    const secureAttr =
+      isProduction || (typeof window !== "undefined" && window.location.protocol === "https:")
+        ? "; Secure"
+        : "";
+    const value = encodeURIComponent(hidden ? "1" : "0");
+    document.cookie = `${STORAGE_KEY}=${value}; Path=/; Max-Age=${ONE_YEAR_SECONDS}; SameSite=Lax${secureAttr}`;
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const legacyHidden = window.localStorage.getItem(LEGACY_STORAGE_KEY);
+      if (legacyHidden === "1" || legacyHidden === "0") {
+        persistHiddenPref(legacyHidden === "1");
+        window.localStorage.removeItem(LEGACY_STORAGE_KEY);
+      }
+    }
+    const hidden = getHiddenPref();
+    setIsOpen(!hidden);
+  }, [getHiddenPref, persistHiddenPref]);
 
   const setOpenState = (open: boolean) => {
     setIsOpen(open);
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(STORAGE_KEY, open ? "0" : "1");
+    persistHiddenPref(!open);
   };
 
   return (
