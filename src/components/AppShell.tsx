@@ -30,6 +30,7 @@ const NEW_LAYOUT_PREFIXES = [
   "/paper",
   "/admin",
   "/devtool",
+  "/login",
   "/",
 ];
 

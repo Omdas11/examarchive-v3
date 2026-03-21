@@ -4,7 +4,10 @@ import React, { useState } from 'react';
 import Sidebar from './Sidebar';
 import Header, { type HeaderProps } from './Header';
 import Footer from '@/components/Footer';
+import RightSidebar from './RightSidebar';
 import { cn } from '@/lib/utils';
+
+const RIGHT_SIDEBAR_WIDTH = '300px';
 
 interface LayoutProps extends HeaderProps {
   children: React.ReactNode;
@@ -20,6 +23,8 @@ interface LayoutProps extends HeaderProps {
   hideHeader?: boolean;
   /** Whether the current user is authenticated (shows logout in sidebar when true) */
   isLoggedIn?: boolean;
+  /** Show right sidebar widgets on desktop */
+  showRightColumn?: boolean;
 }
 
 export default function MainLayout({
@@ -29,13 +34,17 @@ export default function MainLayout({
   hideSidebar = false,
   hideHeader = false,
   isLoggedIn = false,
+  showRightColumn = true,
   ...headerProps
 }: LayoutProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   return (
-    <div className="flex h-screen bg-background">
+    <div
+      className="flex h-screen bg-background"
+      style={{ ['--right-sidebar-width' as string]: RIGHT_SIDEBAR_WIDTH }}
+    >
       {/* Sidebar */}
       {!hideSidebar && (
         <Sidebar
@@ -56,6 +65,7 @@ export default function MainLayout({
       <main
         className={cn(
           'flex-1 flex flex-col overflow-hidden',
+          showRightColumn && 'lg:pr-[var(--right-sidebar-width)]',
           !hideSidebar && (
             isCollapsed
               ? 'md:ml-20'
@@ -78,6 +88,16 @@ export default function MainLayout({
           <Footer />
         </div>
       </main>
+      {showRightColumn && (
+        <aside className="hidden lg:block fixed right-0 top-16 bottom-0 w-[var(--right-sidebar-width)] z-20 border-l border-outline-variant/20 bg-surface overflow-y-auto">
+          <div className="p-4">
+            <RightSidebar
+              userName={headerProps.userName || "Guest"}
+              userInitials={headerProps.userInitials || "GU"}
+            />
+          </div>
+        </aside>
+      )}
     </div>
   );
 }

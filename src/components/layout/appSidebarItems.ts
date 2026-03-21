@@ -10,6 +10,11 @@ export interface AppSidebarItem {
 export const APP_SIDEBAR_ITEMS: AppSidebarItem[] = [
   // ── Main ──────────────────────────────────────────────
   {
+    label: "Home",
+    icon: "home",
+    href: "/",
+  },
+  {
     label: "Dashboard",
     icon: "dashboard",
     href: "/dashboard",

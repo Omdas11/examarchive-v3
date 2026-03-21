@@ -74,7 +74,7 @@ export default function Sidebar({
       {/* Mobile backdrop overlay */}
       {isMobileOpen && (
         <div
-          className="fixed inset-0 bg-black/40 z-30 md:hidden"
+          className="fixed inset-0 bg-black/40 z-40 md:hidden"
           onClick={onMobileClose}
           aria-hidden="true"
         />
@@ -82,7 +82,8 @@ export default function Sidebar({
 
     <aside
       className={cn(
-        'fixed left-0 top-0 h-full flex flex-col z-40 bg-surface',
+        'fixed left-0 top-0 h-full flex flex-col bg-surface',
+        'z-50',
         'border-r border-outline-variant/20',
         'transition-all duration-300 ease-in-out',
         // Desktop width
