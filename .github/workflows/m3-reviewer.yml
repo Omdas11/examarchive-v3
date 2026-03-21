@@ -6,7 +6,7 @@ on:
 
 jobs:
   review-ui:
-    # This ensures the bot only wakes up if the comment is on a PR AND exactly matches "/review-ui"
+    # This ensures the bot only wakes up if the comment is on a PR AND contains "/review-ui"
     if: github.event.issue.pull_request && contains(github.event.comment.body, '/review-ui')
     runs-on: ubuntu-latest
     steps:
@@ -31,10 +31,10 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.12'
 
       - name: Install Gemini SDK
-        run: pip install google-generativeai
+        run: pip install google-genai
 
       - name: Analyze UI and Comment
         env:
@@ -44,13 +44,10 @@ jobs:
         run: |
           python -c '
           import os, sys, subprocess
-          import google.generativeai as genai
+          from google import genai
 
-          # Authenticate with your secret API key
-          genai.configure(api_key=os.environ["GEMINI_API_KEY"])
-          
-          # Using the standard model
-          model = genai.GenerativeModel("gemini-1.5-flash")
+          # Authenticate using the new SDK syntax
+          client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 
           with open("pr_diff.txt", "r") as f:
               diff = f.read()
@@ -71,8 +68,11 @@ jobs:
           """ + diff
 
           try:
-              # Call the AI
-              response = model.generate_content(prompt)
+              # Call the AI using your 2.5 Flash model
+              response = client.models.generate_content(
+                  model="gemini-2.5-flash",
+                  contents=prompt
+              )
               
               with open("comment.txt", "w") as f:
                   f.write(response.text)
