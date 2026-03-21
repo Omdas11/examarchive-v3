@@ -94,6 +94,15 @@ export function RecommendationCard({
   ctaText = 'Read Now',
   onCta,
 }: RecommendationCardProps) {
+  const footerCta = (
+    <span className="text-primary text-xs font-bold flex items-center gap-1 hover:text-primary-container transition-colors">
+      {ctaText}
+      <span className="material-symbols-outlined text-xs">
+        arrow_forward
+      </span>
+    </span>
+  );
+
   const cardClassName = cn(
     'p-4 rounded-xl bg-surface-container-low',
     'border border-outline-variant/10',
@@ -107,7 +116,7 @@ export function RecommendationCard({
       <Link href={href} className={cardClassName} onClick={onCta}>
         {/* Image Container */}
         {imageUrl && (
-          <div className="w-full h-32 rounded-lg bg-gradient-to-br from-primary/20 to-secondary/10 mb-3 flex items-center justify-center overflow-hidden">
+          <div className="relative w-full h-32 rounded-lg bg-gradient-to-br from-primary/20 to-secondary/10 mb-3 flex items-center justify-center overflow-hidden">
             <Image
               src={imageUrl}
               alt={title}
@@ -162,21 +171,18 @@ export function RecommendationCard({
               {views > 1000 ? `${(views / 1000).toFixed(1)}k` : views} views
             </span>
           )}
-          <button
-            className="text-primary text-xs font-bold flex items-center gap-1 hover:text-primary-container transition-colors"
-          >
-            {ctaText}
-            <span className="material-symbols-outlined text-xs">
-              arrow_forward
-            </span>
-          </button>
+          {footerCta}
         </div>
       </Link>
     ) : (
-      <div className={cardClassName} onClick={onCta}>
+      <button
+        type="button"
+        className={cn(cardClassName, 'w-full text-left')}
+        onClick={onCta}
+      >
       {/* Image Container */}
       {imageUrl && (
-        <div className="w-full h-32 rounded-lg bg-gradient-to-br from-primary/20 to-secondary/10 mb-3 flex items-center justify-center overflow-hidden">
+        <div className="relative w-full h-32 rounded-lg bg-gradient-to-br from-primary/20 to-secondary/10 mb-3 flex items-center justify-center overflow-hidden">
           <Image
             src={imageUrl}
             alt={title}
@@ -231,16 +237,9 @@ export function RecommendationCard({
             {views > 1000 ? `${(views / 1000).toFixed(1)}k` : views} views
           </span>
         )}
-        <button
-          className="text-primary text-xs font-bold flex items-center gap-1 hover:text-primary-container transition-colors"
-        >
-          {ctaText}
-          <span className="material-symbols-outlined text-xs">
-            arrow_forward
-          </span>
-        </button>
+        {footerCta}
       </div>
-      </div>
+      </button>
     )
   );
 }

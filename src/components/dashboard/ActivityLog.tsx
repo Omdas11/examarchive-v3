@@ -23,6 +23,7 @@ interface ActivityLogProps {
   title?: string;
   maxItems?: number;
   className?: string;
+  onViewAll?: () => void;
 }
 
 const statusColors = {
@@ -53,6 +54,7 @@ export default function ActivityLog({
   title = 'Recent Activity',
   maxItems = 5,
   className,
+  onViewAll,
 }: ActivityLogProps) {
   const displayItems = items.slice(0, maxItems);
 
@@ -62,7 +64,8 @@ export default function ActivityLog({
 
       <div className="space-y-0">
         {displayItems.map((item) => {
-          const statusColor = statusColors[item.status || 'info'];
+          const status = item.status || 'info';
+          const statusColor = statusColors[status];
 
           return (
             <div
@@ -128,10 +131,10 @@ export default function ActivityLog({
                         statusColor.text
                       )}
                     >
-                      {item.status === 'success' && 'Verified'}
-                      {item.status === 'pending' && 'Pending'}
-                      {item.status === 'error' && 'Failed'}
-                      {item.status === 'info' && 'Info'}
+                      {status === 'success' && 'Verified'}
+                      {status === 'pending' && 'Pending'}
+                      {status === 'error' && 'Failed'}
+                      {status === 'info' && 'Info'}
                     </span>
                   )}
                 </div>
@@ -144,8 +147,12 @@ export default function ActivityLog({
         })}
       </div>
 
-      {items.length > maxItems && (
-        <button className="w-full p-3 text-primary font-semibold text-sm rounded-lg hover:bg-surface-container-low transition-colors">
+      {items.length > maxItems && onViewAll && (
+        <button
+          type="button"
+          onClick={onViewAll}
+          className="w-full p-3 text-primary font-semibold text-sm rounded-lg hover:bg-surface-container-low transition-colors"
+        >
           View All Activity →
         </button>
       )}
