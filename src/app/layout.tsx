@@ -1,10 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
-import Sidebar from "@/components/Sidebar";
-import BottomNav from "@/components/BottomNav";
-import RightColumn from "@/components/RightColumn";
+import AppShell from "@/components/AppShell";
 import { getServerUser } from "@/lib/auth";
 import DebugPanel from "@/components/DebugPanel";
 import { ToastProvider } from "@/components/ToastContext";
@@ -114,6 +110,21 @@ export default async function RootLayout({
         <meta name="theme-color" content="#4f46e5" />
         <link rel="manifest" href="/manifest.json" />
         <link rel="apple-touch-icon" href="/branding/logo.png" />
+        {/* Preconnect for Google Fonts performance */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        {/* Inter – Stitch design spec: Inter font throughout the UI */}
+        {/* eslint-disable-next-line @next/next/no-page-custom-font */}
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        />
+        {/* Material Symbols Outlined – used by Stitch/Indigo dashboard components */}
+        {/* eslint-disable-next-line @next/next/no-page-custom-font */}
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap"
+        />
         <script
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var t=localStorage.getItem("theme");if(t==="dark"||(!t&&window.matchMedia("(prefers-color-scheme:dark)").matches)){document.documentElement.setAttribute("data-theme","dark")}var rm=localStorage.getItem("reduceMotion");if(rm==="true"){document.documentElement.setAttribute("data-reduce-motion","true")}}catch(e){}})();`,
@@ -132,16 +143,9 @@ export default async function RootLayout({
       <body className="font-sans antialiased">
         <div className="flex min-h-screen flex-col">
           <ToastProvider>
-            <Navbar user={user} />
-            <div className="dashboard-grid flex-1">
-              <Sidebar user={user} />
-              <main className="main-content flex-1 has-bottom-nav animate-page-in">
-                {children}
-                <Footer />
-              </main>
-              <RightColumn user={user} />
-            </div>
-            <BottomNav />
+            <AppShell user={user}>
+              {children}
+            </AppShell>
             <PWAInstallPrompt />
             <CourseSetupWrapper isLoggedIn={!!user} />
             <AIBubble isLoggedIn={!!user} />
