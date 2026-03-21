@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse, type NextRequest } from "next/server";
 import { getServerUser } from "@/lib/auth";
 import { isAdmin } from "@/lib/roles";
