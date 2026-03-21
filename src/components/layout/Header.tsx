@@ -146,7 +146,10 @@ export default function Header({
                   'outline-none'
                 )}
               />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none">
+              <span
+                aria-hidden="true"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none"
+              >
                 <span className="material-symbols-outlined text-lg">search</span>
               </span>
             </div>

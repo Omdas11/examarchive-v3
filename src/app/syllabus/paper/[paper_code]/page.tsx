@@ -16,7 +16,8 @@ import { toRoman } from "@/lib/utils";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://examarchive.dev";
+const SITE_URL = "https://www.examarchive.dev";
+const OG_IMAGE_URL = `${SITE_URL}/branding/logo.png`;
 
 interface PageProps {
   params: Promise<{ paper_code: string }>;
@@ -44,7 +45,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
         : `Syllabus details for paper code ${code}.`,
       images: [
         {
-          url: `${SITE_URL}/og-image.png`,
+          url: OG_IMAGE_URL,
           width: 1200,
           height: 630,
           alt: "ExamArchive syllabus page",
@@ -59,7 +60,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       description: entry
         ? `Syllabus details for ${entry.paper_name} (${entry.paper_code}), Semester ${entry.semester}, ${entry.university}.`
         : `Syllabus details for paper code ${code}.`,
-      images: [`${SITE_URL}/og-image.png`],
+      images: [OG_IMAGE_URL],
     },
   };
 }
@@ -243,7 +244,9 @@ export default async function SyllabusDetailPage({ params }: PageProps) {
     >
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(syllabusJsonLd) }}
+      dangerouslySetInnerHTML={{
+        __html: JSON.stringify(syllabusJsonLd).replace(/</g, "\\u003c"),
+      }}
     />
     <section className="mx-auto px-4 py-10" style={{ maxWidth: "var(--max-w)" }}>
       {/* Back link */}

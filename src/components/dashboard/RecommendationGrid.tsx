@@ -122,7 +122,6 @@ export function RecommendationCard({
               alt={title}
               fill
               sizes="(max-width: 768px) 100vw, 50vw"
-              loading="lazy"
               className="w-full h-full object-cover"
             />
           </div>
@@ -189,7 +188,6 @@ export function RecommendationCard({
             alt={title}
             fill
             sizes="(max-width: 768px) 100vw, 50vw"
-            loading="lazy"
             className="w-full h-full object-cover"
           />
         </div>
