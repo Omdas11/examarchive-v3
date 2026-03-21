@@ -1,0 +1,85 @@
+name: M3 Expressive Designer Review
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  review-ui:
+    # This ensures the bot only wakes up if the comment is on a PR AND exactly matches "/review-ui"
+    if: github.event.issue.pull_request && contains(github.event.comment.body, '/review-ui')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Generate Bot Token
+        id: generate-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.M3_APP_ID }}
+          private-key: ${{ secrets.M3_APP_PRIVATE_KEY }}
+
+      - name: Get PR Diff
+        id: get_diff
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+        run: |
+          # Grabs the code changes from the specific PR where you typed the comment
+          gh pr diff ${{ github.event.issue.number }} > pr_diff.txt
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Gemini SDK
+        run: pip install google-generativeai
+
+      - name: Analyze UI and Comment
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          python -c '
+          import os, sys, subprocess
+          import google.generativeai as genai
+
+          # Authenticate with your secret API key
+          genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+          
+          # Using the standard model
+          model = genai.GenerativeModel("gemini-1.5-flash")
+
+          with open("pr_diff.txt", "r") as f:
+              diff = f.read()
+
+          if not diff.strip():
+              print("No code diff found.")
+              sys.exit(0)
+
+          # The strict M3 Designer Prompt
+          prompt = """
+          You are ExamArchive Designer, a strict Material Design 3 (M3) UI/UX expert.
+          Review ONLY the HTML/CSS/JS frontend changes below. Ignore any backend logic or Python integrations.
+          Focus entirely on M3 principles: expressive layouts, typography, M3 color roles, elevation, and state layers.
+          Point out any deviations from Material Design 3 and suggest the specific CSS/HTML fixes.
+          Keep your review concise, professional, and directly actionable.
+
+          PR Diff:
+          """ + diff
+
+          try:
+              # Call the AI
+              response = model.generate_content(prompt)
+              
+              with open("comment.txt", "w") as f:
+                  f.write(response.text)
+                  
+              # Post the AI response back to the PR using your custom GitHub App identity
+              subprocess.run(["gh", "pr", "comment", os.environ["PR_NUMBER"], "-F", "comment.txt"])
+              
+          except Exception as e:
+              print(f"Error generating review: {e}")
+          '
