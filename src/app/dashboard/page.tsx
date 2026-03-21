@@ -13,5 +13,14 @@ export default async function DashboardPage() {
   const user = await getServerUser();
   if (!user) redirect("/login?next=/dashboard");
 
-  return <DigitalCuratorDashboard />;
+  const userName = user.name || user.username || "Scholar";
+  const userInitials = userName.slice(0, 2).toUpperCase();
+
+  return (
+    <DigitalCuratorDashboard
+      userName={userName}
+      userInitials={userInitials}
+      userRole={user.role}
+    />
+  );
 }

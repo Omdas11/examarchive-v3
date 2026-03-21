@@ -1,11 +1,12 @@
 /**
  * Main Layout Wrapper
  * Combines Sidebar, Header, and main content area with proper spacing/structure
+ * Responsive: mobile sidebar drawer + desktop collapsible sidebar
  */
 
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Sidebar from './Sidebar';
 import Header, { type HeaderProps } from './Header';
 import { cn } from '@/lib/utils';
@@ -32,6 +33,9 @@ export default function MainLayout({
   hideHeader = false,
   ...headerProps
 }: LayoutProps) {
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
+
   return (
     <div className="flex h-screen bg-background">
       {/* Sidebar */}
@@ -40,8 +44,13 @@ export default function MainLayout({
           items={sidebarItems}
           userRole={userRole}
           onNavigate={() => {
-            // Optional: close mobile sidebar, analytics, etc.
+            // Close mobile sidebar when a nav item is tapped
+            setIsMobileOpen(false);
           }}
+          isCollapsed={isCollapsed}
+          onCollapseToggle={setIsCollapsed}
+          isMobileOpen={isMobileOpen}
+          onMobileClose={() => setIsMobileOpen(false)}
         />
       )}
 
@@ -49,11 +58,22 @@ export default function MainLayout({
       <main
         className={cn(
           'flex-1 flex flex-col overflow-hidden',
-          !hideSidebar && 'ml-64'
+          // On mobile: no left margin (sidebar is an overlay drawer)
+          // On desktop: margin matches sidebar width
+          !hideSidebar && (
+            isCollapsed
+              ? 'md:ml-20'
+              : 'md:ml-64'
+          )
         )}
       >
         {/* Header */}
-        {!hideHeader && <Header {...headerProps} />}
+        {!hideHeader && (
+          <Header
+            {...headerProps}
+            onMobileMenuToggle={!hideSidebar ? () => setIsMobileOpen((v) => !v) : undefined}
+          />
+        )}
 
         {/* Page Content */}
         <div className="flex-1 overflow-auto">

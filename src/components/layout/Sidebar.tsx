@@ -2,6 +2,8 @@
  * Sidebar Navigation Component
  * Part of the Digital Curator design system
  * Provides persistent navigation with role-based menu items
+ * Mobile: hidden by default, slide-in via isMobileOpen prop
+ * Desktop: always visible, collapsible
  */
 
 'use client';
@@ -23,11 +25,36 @@ interface SidebarProps {
   items: SidebarItem[];
   userRole?: string;
   onNavigate?: (href: string) => void;
+  /** Controlled collapsed state (for syncing with MainLayout margin) */
+  isCollapsed?: boolean;
+  /** Callback when the collapse toggle is clicked */
+  onCollapseToggle?: (collapsed: boolean) => void;
+  /** Whether the mobile drawer is open */
+  isMobileOpen?: boolean;
+  /** Called when the mobile overlay is tapped */
+  onMobileClose?: () => void;
 }
 
-export default function Sidebar({ items, userRole = 'user', onNavigate }: SidebarProps) {
+export default function Sidebar({
+  items,
+  userRole = 'user',
+  onNavigate,
+  isCollapsed: controlledCollapsed,
+  onCollapseToggle,
+  isMobileOpen = false,
+  onMobileClose,
+}: SidebarProps) {
   const pathname = usePathname();
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [localCollapsed, setLocalCollapsed] = useState(false);
+
+  // Use controlled collapsed state if provided, otherwise use local state
+  const isCollapsed = controlledCollapsed !== undefined ? controlledCollapsed : localCollapsed;
+
+  const handleCollapseToggle = () => {
+    const next = !isCollapsed;
+    setLocalCollapsed(next);
+    onCollapseToggle?.(next);
+  };
 
   // Filter items based on user role
   const visibleItems = items.filter(
@@ -35,16 +62,31 @@ export default function Sidebar({ items, userRole = 'user', onNavigate }: Sideba
   );
 
   const isActive = (href: string) => {
-    return pathname === href || pathname.startsWith(href);
+    return pathname === href || pathname.startsWith(href + '/') || pathname === href;
   };
 
   return (
+    <>
+      {/* Mobile backdrop overlay */}
+      {isMobileOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 z-30 md:hidden"
+          onClick={onMobileClose}
+          aria-hidden="true"
+        />
+      )}
+
     <aside
       className={cn(
         'fixed left-0 top-0 h-full flex flex-col z-40 bg-surface',
         'border-r border-outline-variant/20',
         'transition-all duration-300 ease-in-out',
-        isCollapsed ? 'w-20' : 'w-64'
+        // Desktop width
+        isCollapsed ? 'md:w-20' : 'md:w-64',
+        // Mobile: always full-width drawer (w-72), slide in/out
+        'w-72',
+        // Mobile transform: off-screen when closed, on-screen when open
+        isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
       )}
     >
       {/* Logo Section */}
@@ -61,14 +103,14 @@ export default function Sidebar({ items, userRole = 'user', onNavigate }: Sideba
           )}
         </div>
 
-        {/* Toggle Button */}
+        {/* Toggle Button – only visible on desktop */}
         <button
-          onClick={() => setIsCollapsed(!isCollapsed)}
+          onClick={handleCollapseToggle}
           className={cn(
-            'w-full p-2 rounded-lg',
+            'hidden md:flex w-full p-2 rounded-lg',
             'hover:bg-surface-container-low',
             'transition-colors duration-200',
-            'flex items-center justify-center'
+            'items-center justify-center'
           )}
           aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
@@ -149,12 +191,13 @@ export default function Sidebar({ items, userRole = 'user', onNavigate }: Sideba
         </button>
 
         {!isCollapsed && (
-          <button className="w-full p-2 text-on-surface-variant hover:text-error text-sm transition-colors">
+          <button className="w-full p-2 text-on-surface-variant hover:text-primary text-sm transition-colors flex items-center justify-center">
             <span className="material-symbols-outlined text-lg">logout</span>
             <span className="ml-2">Logout</span>
           </button>
         )}
       </div>
     </aside>
+    </>
   );
 }

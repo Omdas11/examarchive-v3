@@ -18,6 +18,8 @@ export interface HeaderProps {
   breadcrumbs?: { label: string; href?: string }[];
   onSearch?: (query: string) => void;
   onProfileClick?: () => void;
+  /** Called when the mobile hamburger button is tapped */
+  onMobileMenuToggle?: () => void;
 }
 
 export default function Header({
@@ -29,6 +31,7 @@ export default function Header({
   breadcrumbs,
   onSearch,
   onProfileClick,
+  onMobileMenuToggle,
   className,
   ...rest
 }: HeaderProps & React.HTMLAttributes<HTMLElement>) {
@@ -51,8 +54,18 @@ export default function Header({
         className
       )}
     >
-      {/* Left: Title / Breadcrumbs */}
-      <div className="flex items-center gap-4 flex-1 min-w-0">
+      {/* Left: Hamburger (mobile only) + Title / Breadcrumbs */}
+      <div className="flex items-center gap-3 flex-1 min-w-0">
+        {/* Hamburger toggle — only visible on mobile */}
+        {onMobileMenuToggle && (
+          <button
+            onClick={onMobileMenuToggle}
+            className="md:hidden p-2 rounded-lg hover:bg-surface-container-low transition-colors flex-shrink-0"
+            aria-label="Open navigation menu"
+          >
+            <span className="material-symbols-outlined text-on-surface-variant">menu</span>
+          </button>
+        )}
         {breadcrumbs && breadcrumbs.length > 0 ? (
           <nav className="flex items-center gap-2 text-sm truncate">
             {breadcrumbs.map((crumb, idx) => (
@@ -126,7 +139,7 @@ export default function Header({
               notifications
             </span>
             {notifications > 0 && (
-              <span className="absolute top-1 right-1 w-2 h-2 bg-error rounded-full" />
+              <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full" />
             )}
           </button>
 
