@@ -39,11 +39,35 @@ export default function MainLayout({
 }: LayoutProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+
+  const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+    setTouchStartX(event.touches[0]?.clientX ?? null);
+  };
+
+  const handleTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
+    if (touchStartX === null) return;
+    const endX = event.changedTouches[0]?.clientX ?? touchStartX;
+    const deltaX = endX - touchStartX;
+    const viewportWidth = window.innerWidth;
+    const startedAtRightEdge = touchStartX > viewportWidth - 40;
+    const startedInPanel = touchStartX > viewportWidth - 320;
+
+    if (startedAtRightEdge && deltaX < -50) {
+      setIsRightSidebarOpen(true);
+    } else if (isRightSidebarOpen && startedInPanel && deltaX > 50) {
+      setIsRightSidebarOpen(false);
+    }
+    setTouchStartX(null);
+  };
 
   return (
     <div
-      className="flex h-screen bg-background"
+      className="flex h-screen bg-surface"
       style={{ ['--right-sidebar-width' as string]: RIGHT_SIDEBAR_WIDTH }}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
     >
       {/* Sidebar */}
       {!hideSidebar && (
@@ -58,6 +82,7 @@ export default function MainLayout({
           isMobileOpen={isMobileOpen}
           onMobileClose={() => setIsMobileOpen(false)}
           isLoggedIn={isLoggedIn}
+          userName={headerProps.userName}
         />
       )}
 
@@ -78,6 +103,7 @@ export default function MainLayout({
           <Header
             {...headerProps}
             onMobileMenuToggle={!hideSidebar ? () => setIsMobileOpen((v) => !v) : undefined}
+            onProfileClick={() => setIsRightSidebarOpen(true)}
           />
         )}
 
@@ -97,6 +123,33 @@ export default function MainLayout({
             />
           </div>
         </aside>
+      )}
+      {showRightColumn && isRightSidebarOpen && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/40 z-40 lg:hidden"
+            onClick={() => setIsRightSidebarOpen(false)}
+            aria-hidden="true"
+          />
+          <aside className="fixed right-0 top-16 bottom-0 w-[85vw] max-w-[320px] z-50 border-l border-outline-variant/20 bg-surface overflow-y-auto lg:hidden">
+            <div className="p-4">
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setIsRightSidebarOpen(false)}
+                  className="p-2 rounded-lg hover:bg-surface-container-low"
+                  aria-label="Close profile sidebar"
+                >
+                  <span className="material-symbols-outlined">close</span>
+                </button>
+              </div>
+              <RightSidebar
+                userName={headerProps.userName || "Guest"}
+                userInitials={headerProps.userInitials || "GU"}
+              />
+            </div>
+          </aside>
+        </>
       )}
     </div>
   );

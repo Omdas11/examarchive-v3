@@ -10,6 +10,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { signOut } from '@/app/auth/actions';
@@ -25,6 +26,7 @@ interface SidebarItem {
 interface SidebarProps {
   items: SidebarItem[];
   userRole?: string;
+  userName?: string;
   onNavigate?: (href: string) => void;
   /** Controlled collapsed state (for syncing with MainLayout margin) */
   isCollapsed?: boolean;
@@ -41,6 +43,7 @@ interface SidebarProps {
 export default function Sidebar({
   items,
   userRole = 'user',
+  userName = 'Scholar',
   onNavigate,
   isCollapsed: controlledCollapsed,
   onCollapseToggle,
@@ -50,6 +53,7 @@ export default function Sidebar({
 }: SidebarProps) {
   const pathname = usePathname();
   const [localCollapsed, setLocalCollapsed] = useState(false);
+  const [isDarkTheme, setIsDarkTheme] = useState(false);
 
   // Use controlled collapsed state if provided, otherwise use local state
   const isCollapsed = controlledCollapsed !== undefined ? controlledCollapsed : localCollapsed;
@@ -67,6 +71,19 @@ export default function Sidebar({
 
   const isActive = (href: string) => {
     return pathname === href || pathname.startsWith(href + '/');
+  };
+
+  React.useEffect(() => {
+    const current = document.documentElement.getAttribute('data-theme');
+    setIsDarkTheme(current === 'dark');
+  }, []);
+
+  const handleThemeToggle = () => {
+    const nextDark = !isDarkTheme;
+    setIsDarkTheme(nextDark);
+    const nextTheme = nextDark ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', nextTheme);
+    localStorage.setItem('theme', nextTheme);
   };
 
   return (
@@ -98,11 +115,17 @@ export default function Sidebar({
       <div className="p-6">
         <div className="flex items-center gap-3 mb-8">
           <div className="w-10 h-10 gradient-primary rounded-lg flex items-center justify-center text-white flex-shrink-0">
-            <span className="material-symbols-outlined text-lg">account_balance</span>
+            <Image
+              src="/branding/logo.png"
+              alt="ExamArchive logo"
+              width={24}
+              height={24}
+              className="rounded"
+            />
           </div>
           {!isCollapsed && (
             <div>
-              <h1 className="text-lg font-bold text-on-surface">Academic Curator</h1>
+              <h1 className="text-lg font-bold text-on-surface truncate max-w-[150px]">{userName}</h1>
               <p className="text-xs text-on-surface-variant">ExamArchive</p>
             </div>
           )}
@@ -197,6 +220,30 @@ export default function Sidebar({
             </>
           )}
         </Link>
+
+        <button
+          type="button"
+          onClick={handleThemeToggle}
+          className={cn(
+            'w-full py-2 px-3 rounded-lg text-sm transition-colors duration-200',
+            'hover:bg-surface-container-low text-on-surface-variant hover:text-primary',
+            'flex items-center justify-center',
+            isCollapsed && 'p-2'
+          )}
+          aria-label={isDarkTheme ? 'Switch to light theme' : 'Switch to dark theme'}
+          title={isCollapsed ? 'Toggle theme' : undefined}
+        >
+          {isCollapsed ? (
+            <span className="material-symbols-outlined">{isDarkTheme ? 'light_mode' : 'dark_mode'}</span>
+          ) : (
+            <>
+              <span className="material-symbols-outlined text-lg mr-2 inline-block">
+                {isDarkTheme ? 'light_mode' : 'dark_mode'}
+              </span>
+              {isDarkTheme ? 'Light Theme' : 'Dark Theme'}
+            </>
+          )}
+        </button>
 
         {!isCollapsed && isLoggedIn && (
           <form action={signOut}>

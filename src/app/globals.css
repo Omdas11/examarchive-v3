@@ -586,6 +586,28 @@ body {
   background: var(--nav-teal);
 }
 
+@media (max-width: 768px) {
+  .sticky-col-table {
+    --sticky-col1-w: 170px;
+  }
+
+  .sticky-col-table th:nth-child(2),
+  .sticky-col-table td:nth-child(2) {
+    position: static;
+    left: auto;
+    z-index: auto;
+    background: transparent;
+  }
+
+  .sticky-col-table tbody tr:nth-child(even) td:nth-child(2) {
+    background: color-mix(in srgb, var(--color-surface) 95%, var(--color-border));
+  }
+
+  .sticky-col-table tbody tr:hover td:nth-child(2) {
+    background: color-mix(in srgb, var(--brand-crimson) 6%, var(--color-surface));
+  }
+}
+
 /* ── Danger Zone section ── */
 .danger-zone {
   margin-top: 2rem;
@@ -840,4 +862,3 @@ body {
     padding-bottom: 4rem;
   }
 }
-
