@@ -86,6 +86,7 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
       showSearch={false}
       sidebarItems={APP_SIDEBAR_ITEMS}
       userRole={user?.role ?? "student"}
+      isLoggedIn={!!user}
       userName={userName}
       userInitials={userName.substring(0, 2).toUpperCase()}
     >

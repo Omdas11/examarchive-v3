@@ -20,6 +20,18 @@ const NEW_LAYOUT_PREFIXES = [
   "/browse",
   "/settings",
   "/profile",
+  "/upload",
+  "/papers",
+  "/syllabus",
+  "/ai-content",
+  "/about",
+  "/support",
+  "/stats",
+  "/paper",
+  "/admin",
+  "/devtool",
+  "/login",
+  "/",
 ];
 
 interface AppShellProps {

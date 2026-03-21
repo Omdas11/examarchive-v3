@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { getServerUser } from "@/lib/auth";
 import {
   adminDatabases,
   DATABASE_ID,
@@ -12,6 +13,8 @@ import { toRoman } from "@/lib/utils";
 import { SYLLABUS_REGISTRY } from "@/data/syllabus-registry";
 import type { SyllabusRegistryEntry, SyllabusUnit } from "@/data/syllabus-registry";
 import { PAPER_TYPE_COLORS } from "@/components/PaperCard";
+import MainLayout from "@/components/layout/MainLayout";
+import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 
 interface PaperPageProps {
   params: Promise<{ id: string }>;
@@ -33,6 +36,9 @@ export async function generateMetadata({ params }: PaperPageProps): Promise<Meta
 }
 
 export default async function PaperPage({ params }: PaperPageProps) {
+  const user = await getServerUser();
+  const userName = user ? (user.name || user.username || "Scholar") : "";
+  const userInitials = userName ? userName.slice(0, 2).toUpperCase() : "";
   const { id } = await params;
   let paper: Paper | null = null;
   try {
@@ -45,6 +51,16 @@ export default async function PaperPage({ params }: PaperPageProps) {
 
   if (!paper) {
     return (
+      <MainLayout
+        title="Paper Not Found"
+        breadcrumbs={[{ label: "Home", href: "/" }, { label: "Paper" }]}
+        showSearch={false}
+        sidebarItems={APP_SIDEBAR_ITEMS}
+        userRole={user?.role ?? "visitor"}
+        isLoggedIn={!!user}
+        userName={userName}
+        userInitials={userInitials}
+      >
       <section className="mx-auto px-4 py-20 text-center" style={{ maxWidth: "var(--max-w)" }}>
         <h1 className="text-2xl font-bold">Paper Not Found</h1>
         <p className="mt-2" style={{ color: "var(--color-text-muted)" }}>
@@ -52,6 +68,7 @@ export default async function PaperPage({ params }: PaperPageProps) {
         </p>
         <Link href="/browse" className="btn-primary mt-5 inline-block">← Browse Papers</Link>
       </section>
+      </MainLayout>
     );
   }
 
@@ -96,6 +113,20 @@ export default async function PaperPage({ params }: PaperPageProps) {
   }
 
   return (
+    <MainLayout
+      title="Paper"
+      breadcrumbs={[
+        { label: "Home", href: "/" },
+        { label: "Browse", href: "/browse" },
+        { label: paper.course_code ?? "Paper" },
+      ]}
+      showSearch={false}
+      sidebarItems={APP_SIDEBAR_ITEMS}
+      userRole={user?.role ?? "visitor"}
+      isLoggedIn={!!user}
+      userName={userName}
+      userInitials={userInitials}
+    >
     <section className="mx-auto px-4 py-8 space-y-4" style={{ maxWidth: "var(--max-w)" }}>
 
       {/* ── Back link ── */}
@@ -377,5 +408,6 @@ export default async function PaperPage({ params }: PaperPageProps) {
         )}
       </div>
     </section>
+    </MainLayout>
   );
 }

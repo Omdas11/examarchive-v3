@@ -11,6 +11,8 @@ import {
 import type { Paper, AdminUser, ActivityLogEntry, Syllabus } from "@/types";
 import { toPaper, toAdminUser, toActivityLog, toSyllabus } from "@/types";
 import AdminDashboard from "@/components/AdminDashboard";
+import MainLayout from "@/components/layout/MainLayout";
+import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 
 export const metadata: Metadata = {
   title: "Admin Dashboard",
@@ -98,8 +100,20 @@ export default async function AdminPage() {
     { label: "Pending Syllabi", value: pendingSyllabi.length },
     { label: "Users", value: users.length },
   ];
+  const userName = user.name || user.username || "Scholar";
+  const userInitials = userName.slice(0, 2).toUpperCase();
 
   return (
+    <MainLayout
+      title="Admin Dashboard"
+      breadcrumbs={[{ label: "Home", href: "/" }, { label: "Admin" }]}
+      showSearch={false}
+      sidebarItems={APP_SIDEBAR_ITEMS}
+      userRole={user.role}
+      isLoggedIn={true}
+      userName={userName}
+      userInitials={userInitials}
+    >
     <section className="mx-auto px-4 py-10" style={{ maxWidth: "var(--max-w)" }}>
       {/* Header */}
       <h1 className="text-2xl font-bold">Admin Dashboard</h1>
@@ -117,5 +131,6 @@ export default async function AdminPage() {
         stats={stats}
       />
     </section>
+    </MainLayout>
   );
 }

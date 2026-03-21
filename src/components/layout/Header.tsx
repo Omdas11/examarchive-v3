@@ -18,6 +18,8 @@ export interface HeaderProps {
   breadcrumbs?: { label: string; href?: string }[];
   onSearch?: (query: string) => void;
   onProfileClick?: () => void;
+  /** Called when the mobile hamburger button is tapped */
+  onMobileMenuToggle?: () => void;
 }
 
 export default function Header({
@@ -29,6 +31,7 @@ export default function Header({
   breadcrumbs,
   onSearch,
   onProfileClick,
+  onMobileMenuToggle,
   className,
   ...rest
 }: HeaderProps & React.HTMLAttributes<HTMLElement>) {
@@ -51,8 +54,18 @@ export default function Header({
         className
       )}
     >
-      {/* Left: Title / Breadcrumbs */}
-      <div className="flex items-center gap-4 flex-1 min-w-0">
+      {/* Left: Hamburger (mobile only) + Title / Breadcrumbs */}
+      <div className="flex items-center gap-3 flex-1 min-w-0">
+        {/* Hamburger toggle — only visible on mobile */}
+        {onMobileMenuToggle && (
+          <button
+            onClick={onMobileMenuToggle}
+            className="md:hidden p-2 rounded-lg hover:bg-surface-container-low transition-colors flex-shrink-0"
+            aria-label="Open navigation menu"
+          >
+            <span className="material-symbols-outlined text-on-surface-variant">menu</span>
+          </button>
+        )}
         {breadcrumbs && breadcrumbs.length > 0 ? (
           <nav className="flex items-center gap-2 text-sm truncate">
             {breadcrumbs.map((crumb, idx) => (
@@ -126,7 +139,7 @@ export default function Header({
               notifications
             </span>
             {notifications > 0 && (
-              <span className="absolute top-1 right-1 w-2 h-2 bg-error rounded-full" />
+              <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full" />
             )}
           </button>
 
@@ -165,27 +178,42 @@ export default function Header({
           )}
         </div>
 
-        {/* User Profile */}
-        <button
-          onClick={onProfileClick}
-          className={cn(
-            'flex items-center gap-3 px-3 py-2 rounded-lg',
-            'hover:bg-surface-container-low transition-all duration-200',
-            'group'
-          )}
-          aria-label={`Profile: ${userName}`}
-        >
-          <div className="w-8 h-8 gradient-primary rounded-full flex items-center justify-center text-on-primary text-sm font-bold">
-            {userInitials}
-          </div>
-          <div className="hidden sm:flex flex-col items-start">
-            <span className="text-sm font-semibold text-on-surface">{userName}</span>
-            <span className="text-xs text-on-surface-variant">Curator</span>
-          </div>
-          <span className="material-symbols-outlined text-on-surface-variant text-sm">
-            expand_more
-          </span>
-        </button>
+        {/* User Profile – navigates to /profile; shows Sign In for guests */}
+        {userInitials ? (
+          <Link
+            href="/profile"
+            className={cn(
+              'flex items-center gap-3 px-3 py-2 rounded-lg',
+              'hover:bg-surface-container-low transition-all duration-200',
+              'group'
+            )}
+            aria-label={`Profile: ${userName}`}
+            onClick={onProfileClick}
+          >
+            <div className="w-8 h-8 gradient-primary rounded-full flex items-center justify-center text-on-primary text-sm font-bold flex-shrink-0">
+              {userInitials}
+            </div>
+            <div className="hidden sm:flex flex-col items-start">
+              <span className="text-sm font-semibold text-on-surface truncate max-w-[120px]">{userName}</span>
+              <span className="text-xs text-on-surface-variant">Scholar</span>
+            </div>
+            <span className="material-symbols-outlined text-on-surface-variant text-sm">
+              expand_more
+            </span>
+          </Link>
+        ) : (
+          <Link
+            href="/login"
+            className={cn(
+              'flex items-center gap-2 px-4 py-2 rounded-lg',
+              'gradient-primary text-on-primary',
+              'font-semibold text-sm transition-opacity hover:opacity-90'
+            )}
+          >
+            <span className="material-symbols-outlined text-sm">login</span>
+            <span className="hidden sm:inline">Sign In</span>
+          </Link>
+        )}
       </div>
     </header>
   );

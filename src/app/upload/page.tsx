@@ -4,6 +4,8 @@ import { getServerUser } from "@/lib/auth";
 import UploadForm from "@/components/UploadForm";
 import SyllabusUploadForm from "@/components/SyllabusUploadForm";
 import DeptSyllabusUploadForm from "@/components/DeptSyllabusUploadForm";
+import MainLayout from "@/components/layout/MainLayout";
+import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 
 export const metadata: Metadata = {
   title: "Upload Question Papers and Syllabus PDFs",
@@ -66,126 +68,143 @@ export default async function UploadPage({
         ? "dept_syllabus"
         : "paper";
 
+  const userName = user.name || user.username || "Scholar";
+  const userInitials = userName.slice(0, 2).toUpperCase();
+
   return (
-    <section className="mx-auto px-4 py-10" style={{ maxWidth: "var(--max-w)" }}>
-      {/* Intro */}
-      <h1 className="text-2xl font-bold">Upload to ExamArchive</h1>
-      <p className="mt-1 text-sm" style={{ color: "var(--color-text-muted)" }}>
-        Share question papers and syllabi with the community. All uploads are reviewed before publishing.
-      </p>
+    <MainLayout
+      title="Upload"
+      breadcrumbs={[
+        { label: "Dashboard", href: "/dashboard" },
+        { label: "Upload" },
+      ]}
+      showSearch={false}
+      sidebarItems={APP_SIDEBAR_ITEMS}
+      userRole={user.role}
+      isLoggedIn={true}
+      userName={userName}
+      userInitials={userInitials}
+    >
+      <section className="mx-auto px-4 py-10" style={{ maxWidth: "var(--max-w)" }}>
+        {/* Intro */}
+        <h1 className="text-2xl font-bold text-on-surface">Upload to ExamArchive</h1>
+        <p className="mt-1 text-sm text-on-surface-variant">
+          Share question papers and syllabi with the community. All uploads are reviewed before publishing.
+        </p>
 
-      {/* Upload type selector */}
-      <div className="mt-6 grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-        <a
-          href="/upload?type=paper"
-          className="card p-4"
-          style={uploadType === "paper" ? { borderColor: "var(--color-primary)" } : undefined}
-        >
-          <div className="flex items-center gap-3">
-            {uploadType === "paper" ? (
-              <span
-                className="flex h-5 w-5 items-center justify-center rounded-full text-white text-xs"
-                style={{ background: "var(--color-primary)" }}
-              >
-                ✓
-              </span>
-            ) : (
-              <span className="flex h-5 w-5 items-center justify-center rounded-full text-xs" style={{ border: "1px solid var(--color-border)" }}>&nbsp;</span>
-            )}
-            <div>
-              <p className="font-semibold text-sm">Question Paper</p>
-              <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>Upload an exam question paper</p>
+        {/* Upload type selector */}
+        <div className="mt-6 grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+          <a
+            href="/upload?type=paper"
+            className="card p-4"
+            style={uploadType === "paper" ? { borderColor: "var(--color-primary)" } : undefined}
+          >
+            <div className="flex items-center gap-3">
+              {uploadType === "paper" ? (
+                <span
+                  className="flex h-5 w-5 items-center justify-center rounded-full text-white text-xs"
+                  style={{ background: "var(--color-primary)" }}
+                >
+                  ✓
+                </span>
+              ) : (
+                <span className="flex h-5 w-5 items-center justify-center rounded-full text-xs" style={{ border: "1px solid var(--color-border)" }}>&nbsp;</span>
+              )}
+              <div>
+                <p className="font-semibold text-sm">Question Paper</p>
+                <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>Upload an exam question paper</p>
+              </div>
             </div>
-          </div>
-        </a>
+          </a>
 
-        <a
-          href="/upload?type=syllabus"
-          className="card p-4"
-          style={uploadType === "syllabus" ? { borderColor: "var(--color-primary)" } : undefined}
-        >
-          <div className="flex items-center gap-3">
-            {uploadType === "syllabus" ? (
-              <span
-                className="flex h-5 w-5 items-center justify-center rounded-full text-white text-xs"
-                style={{ background: "var(--color-primary)" }}
-              >
-                ✓
-              </span>
-            ) : (
-              <span className="flex h-5 w-5 items-center justify-center rounded-full text-xs" style={{ border: "1px solid var(--color-border)" }}>&nbsp;</span>
-            )}
-            <div>
-              <p className="font-semibold text-sm">Syllabus</p>
-              <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>Upload a single-semester syllabus</p>
+          <a
+            href="/upload?type=syllabus"
+            className="card p-4"
+            style={uploadType === "syllabus" ? { borderColor: "var(--color-primary)" } : undefined}
+          >
+            <div className="flex items-center gap-3">
+              {uploadType === "syllabus" ? (
+                <span
+                  className="flex h-5 w-5 items-center justify-center rounded-full text-white text-xs"
+                  style={{ background: "var(--color-primary)" }}
+                >
+                  ✓
+                </span>
+              ) : (
+                <span className="flex h-5 w-5 items-center justify-center rounded-full text-xs" style={{ border: "1px solid var(--color-border)" }}>&nbsp;</span>
+              )}
+              <div>
+                <p className="font-semibold text-sm">Syllabus</p>
+                <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>Upload a single-semester syllabus</p>
+              </div>
             </div>
-          </div>
-        </a>
+          </a>
 
-        <a
-          href="/upload?type=dept_syllabus"
-          className="card p-4"
-          style={uploadType === "dept_syllabus" ? { borderColor: "var(--color-primary)" } : undefined}
-        >
-          <div className="flex items-center gap-3">
-            {uploadType === "dept_syllabus" ? (
-              <span
-                className="flex h-5 w-5 items-center justify-center rounded-full text-white text-xs"
-                style={{ background: "var(--color-primary)" }}
-              >
-                ✓
-              </span>
-            ) : (
-              <span className="flex h-5 w-5 items-center justify-center rounded-full text-xs" style={{ border: "1px solid var(--color-border)" }}>&nbsp;</span>
-            )}
-            <div>
-              <p className="font-semibold text-sm">Departmental Syllabus</p>
-              <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>Full syllabus for all semesters</p>
+          <a
+            href="/upload?type=dept_syllabus"
+            className="card p-4"
+            style={uploadType === "dept_syllabus" ? { borderColor: "var(--color-primary)" } : undefined}
+          >
+            <div className="flex items-center gap-3">
+              {uploadType === "dept_syllabus" ? (
+                <span
+                  className="flex h-5 w-5 items-center justify-center rounded-full text-white text-xs"
+                  style={{ background: "var(--color-primary)" }}
+                >
+                  ✓
+                </span>
+              ) : (
+                <span className="flex h-5 w-5 items-center justify-center rounded-full text-xs" style={{ border: "1px solid var(--color-border)" }}>&nbsp;</span>
+              )}
+              <div>
+                <p className="font-semibold text-sm">Departmental Syllabus</p>
+                <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>Full syllabus for all semesters</p>
+              </div>
             </div>
-          </div>
-        </a>
+          </a>
 
-        <div className="card p-4 opacity-50 cursor-not-allowed">
-          <div className="flex items-center gap-3">
-            <span className="flex h-5 w-5 items-center justify-center rounded-full text-xs" style={{ border: "1px solid var(--color-border)" }}>
-              &nbsp;
-            </span>
-            <div>
-              <p className="font-semibold text-sm">Notes</p>
-              <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>Coming soon</p>
+          <div className="card p-4 opacity-50 cursor-not-allowed">
+            <div className="flex items-center gap-3">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full text-xs" style={{ border: "1px solid var(--color-border)" }}>
+                &nbsp;
+              </span>
+              <div>
+                <p className="font-semibold text-sm">Notes</p>
+                <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>Coming soon</p>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Upload form */}
-      <div className="card mt-6 p-6">
-        {uploadType === "syllabus" ? (
-          <SyllabusUploadForm />
-        ) : uploadType === "dept_syllabus" ? (
-          <DeptSyllabusUploadForm />
-        ) : (
-          <UploadForm />
-        )}
-      </div>
+        {/* Upload form */}
+        <div className="card mt-6 p-6">
+          {uploadType === "syllabus" ? (
+            <SyllabusUploadForm />
+          ) : uploadType === "dept_syllabus" ? (
+            <DeptSyllabusUploadForm />
+          ) : (
+            <UploadForm />
+          )}
+        </div>
 
-      {/* Guidelines */}
-      <div className="card mt-6 p-6">
-        <h2 className="text-base font-semibold mb-3">Upload Guidelines</h2>
-        <ul className="space-y-2 text-sm" style={{ color: "var(--color-text-muted)" }}>
-          {(uploadType === "syllabus"
-            ? syllabusGuidelines
-            : uploadType === "dept_syllabus"
-              ? deptSyllabusGuidelines
-              : guidelines
-          ).map((g, i) => (
-            <li key={i} className="flex gap-2">
-              <span style={{ color: "var(--color-primary)" }}>•</span>
-              {g}
-            </li>
-          ))}
-        </ul>
-      </div>
-    </section>
+        {/* Guidelines */}
+        <div className="card mt-6 p-6">
+          <h2 className="text-base font-semibold mb-3">Upload Guidelines</h2>
+          <ul className="space-y-2 text-sm" style={{ color: "var(--color-text-muted)" }}>
+            {(uploadType === "syllabus"
+              ? syllabusGuidelines
+              : uploadType === "dept_syllabus"
+                ? deptSyllabusGuidelines
+                : guidelines
+            ).map((g, i) => (
+              <li key={i} className="flex gap-2">
+                <span style={{ color: "var(--color-primary)" }}>•</span>
+                {g}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+    </MainLayout>
   );
 }

@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { getServerUser } from "@/lib/auth";
 import { isFounder } from "@/lib/roles";
 import DevToolClient from "./DevToolClient";
+import MainLayout from "@/components/layout/MainLayout";
+import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 
 export const metadata: Metadata = {
   title: "DevTool",
@@ -16,8 +18,20 @@ export default async function DevToolPage() {
   if (!user || !isFounder(user.role)) {
     redirect("/");
   }
+  const userName = user.name || user.username || "Scholar";
+  const userInitials = userName.slice(0, 2).toUpperCase();
 
   return (
+    <MainLayout
+      title="DevTool"
+      breadcrumbs={[{ label: "Home", href: "/" }, { label: "DevTool" }]}
+      showSearch={false}
+      sidebarItems={APP_SIDEBAR_ITEMS}
+      userRole={user.role}
+      isLoggedIn={true}
+      userName={userName}
+      userInitials={userInitials}
+    >
     <section className="mx-auto px-4 py-10" style={{ maxWidth: "var(--max-w)" }}>
       <div className="mb-6 flex items-center gap-3">
         <span className="text-3xl">👑</span>
@@ -42,5 +56,6 @@ export default async function DevToolPage() {
 
       <DevToolClient adminEmail={user.email} />
     </section>
+    </MainLayout>
   );
 }

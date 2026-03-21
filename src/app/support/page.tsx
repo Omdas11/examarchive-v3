@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import { getServerUser } from "@/lib/auth";
+import MainLayout from "@/components/layout/MainLayout";
+import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 
 export const metadata: Metadata = {
   title: "Support, Feedback, and Bug Reports",
@@ -47,8 +50,22 @@ const contacts = [
   },
 ];
 
-export default function SupportPage() {
+export default async function SupportPage() {
+  const user = await getServerUser();
+  const userName = user ? (user.name || user.username || "Scholar") : "";
+  const userInitials = userName ? userName.slice(0, 2).toUpperCase() : "";
+
   return (
+    <MainLayout
+      title="Support"
+      breadcrumbs={[{ label: "Home", href: "/" }, { label: "Support" }]}
+      showSearch={false}
+      sidebarItems={APP_SIDEBAR_ITEMS}
+      userRole={user?.role ?? "visitor"}
+      isLoggedIn={!!user}
+      userName={userName}
+      userInitials={userInitials}
+    >
     <section className="mx-auto px-4 py-10" style={{ maxWidth: "var(--max-w)" }}>
       <h1 className="text-2xl font-bold">Help &amp; Support</h1>
       <p className="mt-1 text-sm" style={{ color: "var(--color-text-muted)" }}>
@@ -83,5 +100,6 @@ export default function SupportPage() {
         </div>
       </div>
     </section>
+    </MainLayout>
   );
 }

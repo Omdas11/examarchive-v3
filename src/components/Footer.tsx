@@ -13,11 +13,12 @@ const PLATFORM_LOGOS = [
 export default function Footer() {
   return (
     <footer
-      className="mt-12 pt-10 pb-6 text-sm"
+      className="mt-12 pt-12 pb-8 text-sm"
       style={{
-        background: "var(--color-footer-bg, #f8f9fa)",
-        borderTop: "1px solid var(--color-border)",
+        background: "linear-gradient(180deg, color-mix(in srgb, var(--color-primary) 4%, var(--color-surface)) 0%, var(--color-surface) 100%)",
+        borderTop: "1px solid color-mix(in srgb, var(--color-primary) 22%, var(--color-border))",
         color: "var(--color-text-muted)",
+        letterSpacing: "0.01em",
       }}
     >
       <div
@@ -28,7 +29,7 @@ export default function Footer() {
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3 mb-10">
           {/* Resources */}
           <div className="flex flex-col gap-2">
-            <h4 className="mb-1 text-sm font-semibold" style={{ color: "var(--color-text)" }}>Resources</h4>
+            <h4 className="mb-1 text-sm font-semibold tracking-wide" style={{ color: "var(--color-text)" }}>Resources</h4>
             <Link href="/" className="hover:underline hover:opacity-80 transition-opacity text-xs">Home</Link>
             <Link href="/browse" className="hover:underline hover:opacity-80 transition-opacity text-xs">Browse Papers</Link>
             <Link href="/upload" className="hover:underline hover:opacity-80 transition-opacity text-xs">Upload Paper</Link>
@@ -38,7 +39,7 @@ export default function Footer() {
 
           {/* Platform info */}
           <div className="flex flex-col gap-2">
-            <h4 className="mb-1 text-sm font-semibold" style={{ color: "var(--color-text)" }}>Platform</h4>
+            <h4 className="mb-1 text-sm font-semibold tracking-wide" style={{ color: "var(--color-text)" }}>Platform</h4>
             <span className="text-xs">
               Currently in <strong>Early Access</strong> · Starting with Haflong Government College
             </span>
@@ -52,7 +53,7 @@ export default function Footer() {
 
           {/* Help & Support */}
           <div className="flex flex-col gap-2">
-            <h4 className="mb-1 text-sm font-semibold" style={{ color: "var(--color-text)" }}>Help &amp; Support</h4>
+            <h4 className="mb-1 text-sm font-semibold tracking-wide" style={{ color: "var(--color-text)" }}>Help &amp; Support</h4>
             <FooterContactModal label="Help &amp; Support" />
             <FooterContactModal label="Contact Us" />
             <FooterContactModal label="Send Feedback" />
@@ -66,7 +67,7 @@ export default function Footer() {
           className="py-6 text-center"
           style={{ borderTop: "1px solid var(--color-border)" }}
         >
-          <p className="mb-4 text-xs font-semibold" style={{ color: "var(--color-text)" }}>Built with the help of</p>
+          <p className="mb-4 text-xs font-semibold tracking-[0.08em] uppercase" style={{ color: "var(--color-text)" }}>Built with the help of</p>
           <div className="flex flex-wrap justify-center items-center gap-6">
             {PLATFORM_LOGOS.map((logo) => (
               <a

@@ -10,7 +10,7 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import DashboardCard from '@/components/dashboard/DashboardCard';
 import ActivityLog, { type ActivityItem } from '@/components/dashboard/ActivityLog';
@@ -18,35 +18,31 @@ import RecommendationGrid from '@/components/dashboard/RecommendationGrid';
 import { cn } from '@/lib/utils';
 import { APP_SIDEBAR_ITEMS } from '@/components/layout/appSidebarItems';
 
-const ACTIVITY_ITEMS: ActivityItem[] = [
-  {
-    id: '1',
-    icon: 'upload_file',
-    title: 'Advanced Machine Learning Solutions',
-    description: 'Successfully added to the Public Archive. You earned 50 Scholar Points.',
-    status: 'success',
-    timestamp: '2 hours ago • Third Year Engineering',
-    tags: ['CS 3050', 'Verified'],
-  },
-  {
-    id: '2',
-    icon: 'bookmark',
-    title: 'Web Development Midterm Notes',
-    description: 'Added to your Database Systems library.',
-    status: 'info',
-    timestamp: '1 day ago',
-    tags: ['CS 2010'],
-  },
-  {
-    id: '3',
-    icon: 'download',
-    title: 'System Design Interview Guide',
-    description: 'Saved to your "Placement Prep" library collection.',
-    status: 'pending',
-    timestamp: '3 days ago',
-    tags: ['Interview Prep'],
-  },
-];
+interface DashboardStats {
+  upload_count: number;
+  pending_count: number;
+  xp: number;
+  streak_days: number;
+  tier: string;
+  recent_papers: Array<{
+    id: string;
+    title: string;
+    course_code: string;
+    year: number;
+    semester: string;
+    department: string;
+    created_at: string;
+  }>;
+}
+
+interface DigitalCuratorDashboardProps {
+  /** Real user name passed from the server */
+  userName?: string;
+  /** Real user initials passed from the server */
+  userInitials?: string;
+  /** User role for sidebar filtering */
+  userRole?: string;
+}
 
 const RECOMMENDATIONS = [
   {
@@ -81,35 +77,98 @@ const RECOMMENDATIONS = [
   },
 ];
 
-const STATS = [
-  {
-    label: 'Papers Uploaded',
-    value: '24',
-    icon: 'upload_file',
-    trend: '+3 this month',
-  },
-  {
-    label: 'Scholar Points',
-    value: '1,240',
-    icon: 'star',
-    trend: '+120 this week',
-  },
-  {
-    label: 'Collections',
-    value: '8',
-    icon: 'bookmark',
-    trend: '2 shared',
-  },
-  {
-    label: 'Community Curator',
-    value: 'Level 3',
-    icon: 'verified',
-    trend: '95% verified papers',
-  },
-];
+/** Format a relative timestamp from an ISO date string */
+function relativeTime(isoDate: string): string {
+  try {
+    const diff = Date.now() - new Date(isoDate).getTime();
+    const minutes = Math.floor(diff / 60000);
+    if (minutes < 1) return 'just now';
+    if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+    const days = Math.floor(hours / 24);
+    return `${days} day${days === 1 ? '' : 's'} ago`;
+  } catch {
+    return '';
+  }
+}
 
-export default function DigitalCuratorDashboard() {
+export default function DigitalCuratorDashboard({
+  userName = 'Scholar',
+  userInitials,
+  userRole = 'user',
+}: DigitalCuratorDashboardProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Derive initials from name if not provided
+  const displayInitials = userInitials || userName.slice(0, 2).toUpperCase();
+  // First name for greeting
+  const firstName = userName.split(' ')[0] || userName;
+
+  useEffect(() => {
+    fetch('/api/dashboard/stats')
+      .then((r) => r.json())
+      .then((data: DashboardStats) => setStats(data))
+      .catch((err) => { console.error('[Dashboard] Failed to load stats:', err); })
+      .finally(() => setLoading(false));
+  }, []);
+
+  // Build activity items from real recent papers
+  const activityItems: ActivityItem[] = stats?.recent_papers?.length
+    ? stats.recent_papers.map((paper) => ({
+        id: paper.id,
+        icon: 'upload_file',
+        title: paper.title,
+        description: `Approved and published to the archive.${paper.department ? ` Department: ${paper.department}` : ''}`,
+        status: 'success',
+        timestamp: `${relativeTime(paper.created_at)}${paper.semester ? ` • Semester ${paper.semester}` : ''}`,
+        tags: [paper.course_code, paper.year ? String(paper.year) : ''].filter(Boolean),
+      }))
+    : [
+        {
+          id: 'placeholder',
+          icon: 'upload_file',
+          title: 'No uploads yet',
+          description: 'Start contributing by uploading your first question paper.',
+          status: 'info',
+          timestamp: '',
+          tags: [],
+        },
+      ];
+
+  const uploadCount = stats?.upload_count ?? 0;
+  const xp = stats?.xp ?? 0;
+  const streakDays = stats?.streak_days ?? 0;
+  const tier = stats?.tier ?? 'bronze';
+
+  const STATS = [
+    {
+      label: 'Papers Uploaded',
+      value: loading ? '–' : String(uploadCount),
+      icon: 'upload_file',
+      trend: stats?.pending_count ? `+${stats.pending_count} pending review` : 'Contribute more!',
+    },
+    {
+      label: 'Scholar Points',
+      value: loading ? '–' : xp.toLocaleString(),
+      icon: 'star',
+      trend: streakDays > 0 ? `${streakDays}-day streak` : 'Start your streak!',
+    },
+    {
+      label: 'Activity Tier',
+      value: loading ? '–' : tier.charAt(0).toUpperCase() + tier.slice(1),
+      icon: 'verified',
+      trend: 'Keep uploading to level up',
+    },
+    {
+      label: 'Community Rank',
+      value: xp >= 5000 ? 'Legend' : xp >= 3000 ? 'Elite' : xp >= 1500 ? 'Senior' : xp >= 800 ? 'Veteran' : xp >= 300 ? 'Contributor' : xp >= 100 ? 'Explorer' : 'Visitor',
+      icon: 'emoji_events',
+      trend: `${xp.toLocaleString()} total XP`,
+    },
+  ];
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
@@ -120,22 +179,25 @@ export default function DigitalCuratorDashboard() {
       title="Dashboard"
       breadcrumbs={[{ label: 'Home', href: '/dashboard' }, { label: 'Dashboard' }]}
       showSearch
-      userInitials="JD"
-      userName="John Doe"
-      notifications={2}
+      userInitials={displayInitials}
+      userName={userName}
+      notifications={stats?.pending_count ?? 0}
       onSearch={handleSearch}
       sidebarItems={APP_SIDEBAR_ITEMS}
-      userRole="curator"
+      userRole={userRole}
+      isLoggedIn={true}
     >
       {/* Main Content */}
       <div className="p-6 space-y-8 max-w-7xl">
         {/* Welcome Section */}
         <section>
           <h1 className="text-3xl font-bold text-on-surface mb-2">
-            Welcome back, John! 👋
+            Welcome back, {firstName}! 👋
           </h1>
           <p className="text-on-surface-variant">
-            You are 5 papers away from achieving Scholar Tier status.
+            {uploadCount > 0
+              ? `You have contributed ${uploadCount} paper${uploadCount === 1 ? '' : 's'} to the archive.`
+              : 'Start contributing by uploading your first question paper.'}
           </p>
         </section>
 
@@ -159,42 +221,48 @@ export default function DigitalCuratorDashboard() {
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column: Activity Log */}
           <div className="lg:col-span-2 space-y-8">
-            {/* Recent Upload Stats */}
+            {/* Upload Stats Summary */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="p-4 bg-gradient-to-br from-primary/5 to-primary-container/5 rounded-xl border border-primary/20">
                 <p className="text-xs text-on-surface-variant font-bold uppercase mb-2">
-                  This Month
+                  Approved Papers
                 </p>
-                <p className="text-2xl font-bold text-primary">12 Papers</p>
+                <p className="text-2xl font-bold text-primary">
+                  {loading ? '–' : `${uploadCount} Paper${uploadCount === 1 ? '' : 's'}`}
+                </p>
                 <p className="text-xs text-on-surface-variant mt-1">
-                  ↑ 40% from last month
+                  Verified by moderators
                 </p>
               </div>
 
               <div className="p-4 bg-gradient-to-br from-secondary/5 to-secondary-container/5 rounded-xl border border-secondary/20">
                 <p className="text-xs text-on-surface-variant font-bold uppercase mb-2">
-                  Verification Rate
+                  Daily Streak
                 </p>
-                <p className="text-2xl font-bold text-secondary">98.5%</p>
+                <p className="text-2xl font-bold text-secondary">
+                  {loading ? '–' : `${streakDays} Day${streakDays === 1 ? '' : 's'}`}
+                </p>
                 <p className="text-xs text-on-surface-variant mt-1">
-                  Highest on campus
+                  {streakDays > 0 ? 'Keep it going!' : 'Log in daily to build a streak'}
                 </p>
               </div>
 
               <div className="p-4 bg-gradient-to-br from-tertiary/5 to-tertiary-container/5 rounded-xl border border-tertiary/20">
                 <p className="text-xs text-on-surface-variant font-bold uppercase mb-2">
-                  Impact Score
+                  Scholar XP
                 </p>
-                <p className="text-2xl font-bold text-tertiary">8.2/10</p>
+                <p className="text-2xl font-bold text-tertiary">
+                  {loading ? '–' : xp.toLocaleString()}
+                </p>
                 <p className="text-xs text-on-surface-variant mt-1">
-                  ↑ Community helpful
+                  Upload more to earn XP
                 </p>
               </div>
             </div>
 
             {/* Activity Log */}
             <ActivityLog
-              items={ACTIVITY_ITEMS}
+              items={activityItems}
               title="Recent Activity"
               maxItems={5}
             />
@@ -206,7 +274,8 @@ export default function DigitalCuratorDashboard() {
             <div>
               <h3 className="text-lg font-bold text-on-surface mb-4">Quick Actions</h3>
               <div className="space-y-2">
-                <button
+                <a
+                  href="/upload"
                   className={cn(
                     'w-full flex items-center gap-4 p-4',
                     'bg-surface-container-highest rounded-xl',
@@ -220,9 +289,10 @@ export default function DigitalCuratorDashboard() {
                     </span>
                   </div>
                   <span className="font-bold text-sm">Upload New Paper</span>
-                </button>
+                </a>
 
-                <button
+                <a
+                  href="/browse"
                   className={cn(
                     'w-full flex items-center gap-4 p-4',
                     'bg-surface-container-highest rounded-xl',
@@ -235,11 +305,11 @@ export default function DigitalCuratorDashboard() {
                     </span>
                   </div>
                   <span className="font-bold text-sm">Browse Library</span>
-                </button>
+                </a>
               </div>
             </div>
 
-            {/* Recommendation */}
+            {/* Recommendations */}
             <RecommendationGrid
               items={RECOMMENDATIONS
                 .filter(
@@ -266,9 +336,12 @@ export default function DigitalCuratorDashboard() {
                 <p className="text-sm text-indigo-200 mb-4 leading-relaxed">
                   Join our elite moderation team and verify papers to earn exclusive badges.
                 </p>
-                <button className="px-4 py-2 bg-white text-indigo-900 rounded-lg text-xs font-bold hover:bg-indigo-50 transition-colors">
-                  BECOME A CURATOR
-                </button>
+                <a
+                  href="/profile"
+                  className="inline-block px-4 py-2 bg-white text-indigo-900 rounded-lg text-xs font-bold hover:bg-indigo-50 transition-colors"
+                >
+                  VIEW YOUR PROFILE
+                </a>
               </div>
 
               {/* Decorative Icon */}

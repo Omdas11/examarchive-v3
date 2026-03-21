@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import { getServerUser } from "@/lib/auth";
+import MainLayout from "@/components/layout/MainLayout";
+import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import {
   adminDatabases,
   DATABASE_ID,
@@ -232,6 +235,9 @@ async function fetchStats() {
 }
 
 export default async function AboutPage() {
+  const user = await getServerUser();
+  const userName = user ? (user.name || user.username || "Scholar") : "";
+  const userInitials = userName ? userName.slice(0, 2).toUpperCase() : "";
   const { papers, syllabi, users } = await fetchStats();
 
   const stats = [
@@ -242,6 +248,16 @@ export default async function AboutPage() {
   ];
 
   return (
+    <MainLayout
+      title="About"
+      breadcrumbs={[{ label: "Home", href: "/" }, { label: "About" }]}
+      showSearch={false}
+      sidebarItems={APP_SIDEBAR_ITEMS}
+      userRole={user?.role ?? "visitor"}
+      isLoggedIn={!!user}
+      userName={userName}
+      userInitials={userInitials}
+    >
     <section className="mx-auto px-4 py-10" style={{ maxWidth: "var(--max-w)" }}>
       {/* Intro */}
       <h1 className="text-2xl font-bold">About ExamArchive</h1>
@@ -447,5 +463,6 @@ export default async function AboutPage() {
         ))}
       </ul>
     </section>
+    </MainLayout>
   );
 }

@@ -8,6 +8,8 @@ import AnimatedCounter from "@/components/AnimatedCounter";
 import DevProgressBar from "@/components/DevProgressBar";
 import VisitorTracker from "@/components/VisitorTracker";
 import FireParticles from "@/components/FireParticles";
+import MainLayout from "@/components/layout/MainLayout";
+import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import {
   adminDatabases,
   adminUsers,
@@ -215,8 +217,19 @@ export default async function HomePage() {
     },
   ];
 
+  const userName = user ? (user.name || user.username || "Scholar") : "";
+  const userInitials = userName ? userName.slice(0, 2).toUpperCase() : "";
+
   return (
-    <>
+    <MainLayout
+      title="Home"
+      sidebarItems={APP_SIDEBAR_ITEMS}
+      userRole={user?.role ?? "visitor"}
+      isLoggedIn={!!user}
+      userName={userName}
+      userInitials={userInitials}
+      showSearch={false}
+    >
       {/* Fire particle effect — fixed bottom-to-midpoint, behind content */}
       <FireParticles />
 
@@ -507,6 +520,6 @@ export default async function HomePage() {
         </section>
 
       </div>
-    </>
+    </MainLayout>
   );
 }
