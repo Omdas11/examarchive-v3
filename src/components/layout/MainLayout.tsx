@@ -115,7 +115,7 @@ export default function MainLayout({
         </div>
       </main>
       {showRightColumn && (
-        <aside className="hidden lg:block fixed right-0 top-16 bottom-0 w-[var(--right-sidebar-width)] z-20 border-l border-outline-variant/20 bg-surface overflow-y-auto">
+        <aside className="hidden lg:block fixed right-0 bottom-0 w-[var(--right-sidebar-width)] z-20 border-l border-outline-variant/20 bg-surface overflow-y-auto" style={{ top: "var(--layout-header-height)" }}>
           <div className="p-4">
             <RightSidebar
               userName={headerProps.userName || "Guest"}
@@ -131,7 +131,7 @@ export default function MainLayout({
             onClick={() => setIsRightSidebarOpen(false)}
             aria-hidden="true"
           />
-          <aside className="fixed right-0 top-16 bottom-0 w-[85vw] max-w-[320px] z-50 border-l border-outline-variant/20 bg-surface overflow-y-auto lg:hidden">
+          <aside className="fixed right-0 bottom-0 w-[85vw] max-w-[320px] z-50 border-l border-outline-variant/20 bg-surface overflow-y-auto lg:hidden" style={{ top: "var(--layout-header-height)" }}>
             <div className="p-4">
               <div className="flex justify-end">
                 <button

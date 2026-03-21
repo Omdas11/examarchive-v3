@@ -145,8 +145,8 @@ function ToastItem({
       role="status"
       className="flex items-stretch overflow-hidden rounded-lg shadow-lg animate-toast-in"
       style={{
-        background: "#ffffff",
-        border: "1px solid #e5e7eb",
+        background: "var(--color-surface)",
+        border: "1px solid var(--color-border)",
         minWidth: "240px",
         maxWidth: "100%",
       }}
@@ -163,7 +163,7 @@ function ToastItem({
         <span style={{ color: barColor, flexShrink: 0, marginTop: "1px" }}>
           {ICONS[toast.type]}
         </span>
-        <span className="flex-1 text-sm font-medium leading-snug" style={{ color: "#111111" }}>
+        <span className="flex-1 text-sm font-medium leading-snug" style={{ color: "var(--color-text)" }}>
           {toast.message}
         </span>
       </div>
@@ -173,7 +173,7 @@ function ToastItem({
         onClick={() => onDismiss(toast.id)}
         className="px-2 opacity-40 hover:opacity-80 transition-opacity shrink-0 flex items-center"
         aria-label="Dismiss notification"
-        style={{ color: "#6b7280" }}
+        style={{ color: "var(--color-text-muted)" }}
       >
         <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
           <path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" />

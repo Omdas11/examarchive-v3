@@ -37,6 +37,7 @@
   /* Layout tokens */
   --sidebar-w: 240px;
   --right-col-w: 280px;
+  --layout-header-height: 4rem;
 
   /* Adaptive shadow tokens */
   --shadow-card: 0 2px 8px rgba(11, 28, 48, 0.06);
