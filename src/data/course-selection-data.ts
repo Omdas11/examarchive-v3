@@ -287,13 +287,9 @@ function normalizeCourseValue(value: string): string {
     .trim();
 }
 
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
 function matchesNormalizedField(field: string, normalizedValue: string): boolean {
   if (field === normalizedValue) return true;
-  return new RegExp(`(^| )${escapeRegExp(normalizedValue)}( |$)`).test(field);
+  return (` ${field} `).includes(` ${normalizedValue} `);
 }
 
 export function getCoursePreferenceMap(

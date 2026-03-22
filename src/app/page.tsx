@@ -330,7 +330,7 @@ export default async function HomePage() {
               background: "color-mix(in srgb, var(--color-primary) 5%, var(--color-surface))",
             }}
           >
-            <p className="text-sm font-semibold flex items-center justify-center gap-1.5 flex-wrap" style={{ color: "var(--color-text)" }}>
+            <p className="text-sm font-semibold flex items-center justify-center gap-1.5 flex-wrap min-h-[1.5rem]" style={{ color: "var(--color-text)" }}>
               {/* Chart SVG */}
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <line x1="18" y1="20" x2="18" y2="10"/>

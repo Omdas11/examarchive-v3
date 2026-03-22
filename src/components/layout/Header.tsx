@@ -128,7 +128,11 @@ export default function Header({
         {showSearch && (
           <div className="hidden md:flex items-center">
             <div className="relative">
+              <label htmlFor="header-search" className="sr-only">
+                Search papers and courses
+              </label>
               <input
+                id="header-search"
                 type="text"
                 placeholder="Search papers, courses..."
                 value={searchQuery}
@@ -142,7 +146,10 @@ export default function Header({
                   'outline-none'
                 )}
               />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none">
+              <span
+                aria-hidden="true"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none"
+              >
                 <span className="material-symbols-outlined text-lg">search</span>
               </span>
             </div>

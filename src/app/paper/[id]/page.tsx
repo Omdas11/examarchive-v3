@@ -10,11 +10,15 @@ import {
 import type { Paper } from "@/types";
 import { toPaper } from "@/types";
 import { toRoman } from "@/lib/utils";
+import { buildPaperJsonLd, serializeJsonLd } from "@/lib/json-ld";
 import { SYLLABUS_REGISTRY } from "@/data/syllabus-registry";
 import type { SyllabusRegistryEntry, SyllabusUnit } from "@/data/syllabus-registry";
 import { PAPER_TYPE_COLORS } from "@/components/PaperCard";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
+
+const SITE_URL = "https://www.examarchive.dev";
+const OG_IMAGE_URL = `${SITE_URL}/branding/logo.png`;
 
 interface PaperPageProps {
   params: Promise<{ id: string }>;
@@ -29,6 +33,26 @@ export async function generateMetadata({ params }: PaperPageProps): Promise<Meta
     return {
       title: `${paper.title} – ${paper.course_code ?? "Paper"}`,
       description: `Download ${paper.title} for ${paper.course_name} (${paper.course_code ?? "paper"}).`,
+      openGraph: {
+        type: "article",
+        url: `${SITE_URL}/paper/${id}`,
+        title: `${paper.title} | ExamArchive`,
+        description: `Past exam paper for ${paper.course_name ?? paper.course_code ?? "students"}.`,
+        images: [
+          {
+            url: OG_IMAGE_URL,
+            width: 1200,
+            height: 630,
+            alt: `${paper.title} - ExamArchive`,
+          },
+        ],
+      },
+      twitter: {
+        card: "summary_large_image",
+        title: `${paper.title} | ExamArchive`,
+        description: `Past exam paper for ${paper.course_name ?? paper.course_code ?? "students"}.`,
+        images: [OG_IMAGE_URL],
+      },
     };
   } catch {
     return { title: "Paper Not Found" };
@@ -73,6 +97,7 @@ export default async function PaperPage({ params }: PaperPageProps) {
   }
 
   const semRoman = paper.semester ? toRoman(parseInt(paper.semester, 10)) : paper.semester;
+  const paperJsonLd = buildPaperJsonLd(paper);
 
   const metaBadges = [
     paper.institution,
@@ -127,6 +152,9 @@ export default async function PaperPage({ params }: PaperPageProps) {
       userName={userName}
       userInitials={userInitials}
     >
+    <script type="application/ld+json">
+      {serializeJsonLd(paperJsonLd)}
+    </script>
     <section className="mx-auto px-4 py-8 space-y-4" style={{ maxWidth: "var(--max-w)" }}>
 
       {/* ── Back link ── */}

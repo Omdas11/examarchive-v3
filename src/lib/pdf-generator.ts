@@ -10,6 +10,7 @@
 
 import puppeteer, { type Page } from "puppeteer-core";
 import chromium from "@sparticuz/chromium";
+import sanitizeHtml from "sanitize-html";
 
 export interface PDFGenerationOptions {
   html: string;
@@ -23,6 +24,25 @@ export interface PDFGenerationResult {
 }
 
 /**
+ * Sanitize rich HTML content before rendering in Puppeteer.
+ * Allows common editorial tags/attributes used by markdownToHTML output while
+ * stripping scripts, unsafe protocols, and event-handler attributes.
+ */
+export function sanitizeHtmlLikeContent(input: string): string {
+  return sanitizeHtml(input, {
+    allowedTags: sanitizeHtml.defaults.allowedTags.concat(["h1", "h2", "img"]),
+    allowedAttributes: {
+      ...sanitizeHtml.defaults.allowedAttributes,
+      a: ["href", "name", "target", "rel"],
+      img: ["src", "alt", "width", "height"],
+    },
+    allowedSchemes: ["http", "https", "mailto"],
+    allowedSchemesAppliedToAttributes: ["href", "src"],
+    allowProtocolRelative: false,
+  });
+}
+
+/**
  * Generate a PDF from HTML content with strict page enforcement.
  * If content exceeds maxPages, it will be truncated.
  */
@@ -31,6 +51,7 @@ export async function generatePDF(
 ): Promise<PDFGenerationResult> {
   const { html, maxPages, title = "Document" } = options;
   const safeMaxPages = Math.max(1, Math.floor(maxPages));
+  const safeHtml = sanitizeHtmlLikeContent(html);
 
   let browser;
   try {
@@ -170,7 +191,7 @@ export async function generatePDF(
   </style>
 </head>
 <body>
-  ${html}
+  ${safeHtml}
 </body>
 </html>
     `;

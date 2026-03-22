@@ -13,8 +13,12 @@ import type { Syllabus, Paper } from "@/types";
 import { SYLLABUS_REGISTRY, groupBySemester } from "@/data/syllabus-registry";
 import type { SyllabusRegistryEntry, SyllabusUnit } from "@/data/syllabus-registry";
 import { toRoman } from "@/lib/utils";
+import { serializeJsonLd } from "@/lib/json-ld";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
+
+const SITE_URL = "https://www.examarchive.dev";
+const OG_IMAGE_URL = `${SITE_URL}/branding/logo.png`;
 
 interface PageProps {
   params: Promise<{ paper_code: string }>;
@@ -31,6 +35,34 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     description: entry
       ? `Syllabus details for ${entry.paper_name} (${entry.paper_code}), Semester ${entry.semester}, ${entry.university}.`
       : `Syllabus details for paper code ${code}.`,
+    openGraph: {
+      type: "article",
+      url: `${SITE_URL}/syllabus/paper/${encodeURIComponent(code)}`,
+      title: entry
+        ? `${entry.paper_code} – ${entry.paper_name} | ExamArchive`
+        : `Syllabus ${code} | ExamArchive`,
+      description: entry
+        ? `Syllabus details for ${entry.paper_name} (${entry.paper_code}), Semester ${entry.semester}, ${entry.university}.`
+        : `Syllabus details for paper code ${code}.`,
+      images: [
+        {
+          url: OG_IMAGE_URL,
+          width: 1200,
+          height: 630,
+          alt: "ExamArchive syllabus page",
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: entry
+        ? `${entry.paper_code} – ${entry.paper_name} | ExamArchive`
+        : `Syllabus ${code} | ExamArchive`,
+      description: entry
+        ? `Syllabus details for ${entry.paper_name} (${entry.paper_code}), Semester ${entry.semester}, ${entry.university}.`
+        : `Syllabus details for paper code ${code}.`,
+      images: [OG_IMAGE_URL],
+    },
   };
 }
 
@@ -181,6 +213,20 @@ export default async function SyllabusDetailPage({ params }: PageProps) {
   const catColors = entry.category
     ? CATEGORY_COLORS[entry.category] ?? { bg: "var(--color-border)", text: "var(--color-text-muted)" }
     : null;
+  const syllabusJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Course",
+    name: entry.paper_name,
+    courseCode: entry.paper_code,
+    description: `Syllabus details for ${entry.paper_name} (${entry.paper_code}), Semester ${entry.semester}, ${entry.university}.`,
+    provider: {
+      "@type": "CollegeOrUniversity",
+      name: entry.university,
+    },
+    educationalLevel: "Undergraduate",
+    inLanguage: "en",
+    url: `${SITE_URL}/syllabus/paper/${encodeURIComponent(entry.paper_code)}`,
+  };
 
   return (
     <MainLayout
@@ -197,6 +243,9 @@ export default async function SyllabusDetailPage({ params }: PageProps) {
       userName={userName}
       userInitials={userInitials}
     >
+    <script type="application/ld+json">
+      {serializeJsonLd(syllabusJsonLd)}
+    </script>
     <section className="mx-auto px-4 py-10" style={{ maxWidth: "var(--max-w)" }}>
       {/* Back link */}
       <Link
