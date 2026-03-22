@@ -232,6 +232,6 @@ Use this checklist to wipe counters and storage before relaunch:
 
 1) **Storage buckets:** Empty `papers`, `syllabus-files`, and (optionally) `avatars` buckets from the Appwrite console or CLI.  
 2) **Collections to clear:** Truncate `papers`, `syllabus`, `uploads`, `ai_usage`, `pdf_usage`, and `ai_embeddings` if you want a clean slate.  
-3) **Visitor counter:** Call `DELETE /api/visitor` with header `x-admin-key: APPWRITE_API_KEY` to reset `site_metrics.visitor_count` to `0`.  
+3) **Visitor counter:** Call `DELETE /api/visitor` with header `x-admin-key: APPWRITE_API_KEY` to reset `site_metrics.visitor_count` to `0` (e.g. via DevTools).  
 4) **User counters:** Set `upload_count`, `view_count`, and `download_count` to `0` for any seed documents you keep; adjust `launch_progress` as needed.  
 5) **Verify schema:** Ensure `institute`/`institution` is present on papers so university totals render correctly, and that `users` collection totals match the Auth user count after cleanup.

@@ -176,6 +176,7 @@ export default async function HomePage() {
     // feedback collection may not exist yet
   }
 
+  // Fallback: if papers exist but no institution field was set (legacy docs), show 1 to avoid a blank stat.
   const universitiesCount = universitiesSet.size || (papersTotal > 0 ? 1 : 0);
 
   const stats: { label: string; value: number; icon: React.ReactNode }[] = [
