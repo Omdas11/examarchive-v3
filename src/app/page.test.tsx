@@ -66,6 +66,7 @@ jest.mock("@/components/FireParticles", () => {
 jest.mock("@/lib/appwrite", () => ({
   adminDatabases: jest.fn().mockReturnValue({
     listDocuments: jest.fn().mockResolvedValue({ total: 0, documents: [] }),
+    getDocument: jest.fn().mockRejectedValue(new Error("not found")),
   }),
   adminUsers: jest.fn().mockReturnValue({
     list: jest.fn().mockResolvedValue({ total: 0 }),

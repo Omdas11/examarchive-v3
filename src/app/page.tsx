@@ -6,7 +6,6 @@ import HomeSearch from "@/components/HomeSearch";
 import PaperCard from "@/components/PaperCard";
 import AnimatedCounter from "@/components/AnimatedCounter";
 import DevProgressBar from "@/components/DevProgressBar";
-import VisitorTracker from "@/components/VisitorTracker";
 import FireParticles from "@/components/FireParticles";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
@@ -118,13 +117,13 @@ export default async function HomePage() {
     papersTotal = papersRes.total;
     syllabusTotal = syllabusRes.total;
 
-    // Collect distinct universities
-    for (const doc of papersRes.documents) {
-      if (doc.institution) universitiesSet.add(doc.institution as string);
+    // Normalise documents before counting institutions to include legacy fields.
+    const allPapers = papersRes.documents.map(toPaper);
+    for (const paper of allPapers) {
+      if (paper.institution) universitiesSet.add(paper.institution.trim());
     }
 
     // Popular papers: highest view_count
-    const allPapers = papersRes.documents.map(toPaper);
     popularPapers = [...allPapers]
       .sort((a, b) => (b.view_count ?? 0) - (a.view_count ?? 0))
       .slice(0, 4);
@@ -138,10 +137,17 @@ export default async function HomePage() {
   }
 
   try {
-    const { total } = await adminUsers().list([]);
+    const db = adminDatabases();
+    // Use the users collection so service accounts aren't included in the public metric.
+    const { total } = await db.listDocuments(DATABASE_ID, COLLECTION.users, [Query.limit(1)]);
     usersTotal = total;
   } catch {
-    // may not have permission in dev
+    try {
+      const { total } = await adminUsers().list([]);
+      usersTotal = total;
+    } catch {
+      // may not have permission in dev
+    }
   }
 
   // Fetch site metrics (launch_progress)
@@ -170,6 +176,8 @@ export default async function HomePage() {
     // feedback collection may not exist yet
   }
 
+  const universitiesCount = universitiesSet.size || (papersTotal > 0 ? 1 : 0);
+
   const stats: { label: string; value: number; icon: React.ReactNode }[] = [
     {
       label: "Question Papers",
@@ -196,7 +204,7 @@ export default async function HomePage() {
     },
     {
       label: "Universities",
-      value: universitiesSet.size,
+      value: universitiesCount,
       icon: (
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v3M12 14v3M16 14v3"/>
@@ -294,11 +302,6 @@ export default async function HomePage() {
               Starting with{" "}
               <span style={{ color: "var(--color-primary)", fontWeight: 600 }}>Haflong Government College</span>.
             </p>
-
-            {/* Visitor tracker (records visit silently, shows running count) */}
-            <div className="mt-2 flex justify-center">
-              <VisitorTracker />
-            </div>
 
             <div className="mt-8 flex flex-wrap justify-center gap-3">
               <Link href="/browse" className="btn-primary text-base px-6 py-2.5">
@@ -462,10 +465,10 @@ export default async function HomePage() {
               </svg>
             </div>
             <div className="flex-1 min-w-0 text-center sm:text-left">
-              <h2 className="text-base font-bold mb-1">Have Old Question Papers?</h2>
+              <h2 className="text-base font-bold mb-1">Start Uploading Question Papers</h2>
               <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
-                Help your fellow students! Upload your past exam papers and syllabi.
-                Every contribution goes through admin verification before going live.
+                Help your fellow students by submitting past exam papers and syllabi.
+                Every contribution goes through admin verification before going live for the soft launch.
               </p>
             </div>
             <Link href="/upload" className="btn-primary shrink-0 whitespace-nowrap">

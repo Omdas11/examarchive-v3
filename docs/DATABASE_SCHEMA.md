@@ -10,21 +10,29 @@ All collections live inside this single Appwrite database.
 
 Stores exam question paper metadata. Files are held in the `papers` Appwrite Storage bucket (restricted to authenticated users via `read("users")` permission).
 
-| Field         | Type    | Required | Notes                                                        |
-|---------------|---------|----------|--------------------------------------------------------------|
-| `course_code` | String  | **Yes**  | Paper code (e.g. `PHYDSC101T`); primary lookup key           |
-| `paper_name`  | String  | No       | Human-readable paper title; auto-resolved from syllabus registry |
-| `year`        | Integer | **Yes**  | Exam year (e.g. 2024)                                        |
-| `semester`    | String  | No       | Ordinal string (e.g. `"1st"`); auto-resolved from registry   |
-| `department`  | String  | No       | Disciplinary subject (e.g. `"Physics"`)                      |
-| `programme`   | String  | No       | Academic framework (e.g. `"FYUGP"`, `"CBCS"`)               |
-| `exam_type`   | String  | No       | `"Theory"` or `"Practical"`; derived from paper code suffix T/P |
-| `file_id`     | String  | No       | Appwrite Storage file ID; used to locate the PDF             |
-| `file_url`    | String  | **Yes**  | Next.js proxy URL (`/api/files/papers/{fileId}`)             |
-| `uploaded_by` | String  | No       | Appwrite user ID of the uploader                             |
-| `approved`    | Boolean | **Yes**  | `false` until admin approves; drives all browse queries      |
-| `status`      | String  | No       | `"pending"` on upload, `"approved"` after admin approval     |
-| `paper_type`  | String  | No       | Category: `DSC` / `DSM` / `SEC` / `IDC` / `GE` (FYUGP) or `CC` / `DSC` / `DSE` / `GEC` / `SEC` (CBCS) |
+| Field                 | Type    | Required | Notes                                                                                                         |
+|-----------------------|---------|----------|---------------------------------------------------------------------------------------------------------------|
+| `course_code`         | String  | **Yes**  | Paper code (e.g. `PHYDSC101T`); primary lookup key                                                            |
+| `paper_name`          | String  | No       | Human-readable paper title; auto-resolved from syllabus registry                                             |
+| `year`                | Integer | **Yes**  | Exam year (e.g. 2024)                                                                                         |
+| `semester`            | String  | No       | Ordinal string (e.g. `"1st"`); auto-resolved from registry                                                    |
+| `department`          | String  | No       | Disciplinary subject (e.g. `"Physics"`)                                                                       |
+| `programme`           | String  | No       | Academic framework (e.g. `"FYUGP"`, `"CBCS"`)                                                                 |
+| `exam_type`           | String  | No       | `"Theory"` or `"Practical"`; derived from paper code suffix T/P                                               |
+| `institute`           | String  | No       | Primary institution field; used by the UI for university counts                                               |
+| `institution`         | String  | No       | Legacy alias for `institute` (older documents). Also accepts `university` as fallback in code.                |
+| `stream`              | String  | No       | Academic stream / branch                                                                                      |
+| `paper_type`          | String  | No       | Category: `DSC` / `DSM` / `SEC` / `IDC` / `GE` (FYUGP) or `CC` / `DSC` / `DSE` / `GEC` / `SEC` (CBCS)          |
+| `marks`               | Integer | No       | Total marks                                                                                                   |
+| `duration`            | Integer | No       | Exam duration in minutes                                                                                      |
+| `file_id`             | String  | No       | Appwrite Storage file ID; used to locate the PDF                                                              |
+| `file_url`            | String  | **Yes**  | Next.js proxy URL (`/api/files/papers/{fileId}`)                                                              |
+| `uploaded_by`         | String  | No       | Appwrite user ID of the uploader                                                                              |
+| `uploaded_by_username`| String  | No       | Denormalised username for display                                                                             |
+| `approved`            | Boolean | **Yes**  | `false` until admin approves; drives all browse queries                                                       |
+| `status`              | String  | No       | `"pending"` on upload, `"approved"` after admin approval                                                      |
+| `view_count`          | Integer | No       | Incremented when a paper is viewed (used for popular list)                                                    |
+| `download_count`      | Integer | No       | Incremented when a paper is downloaded                                                                        |
 
 **Upload sets:** `approved = false`, `status = "pending"`.  
 **Approval sets:** `approved = true`, `status = "approved"`.
@@ -47,6 +55,8 @@ Stores syllabus document metadata. Files are held in the `syllabus-files` bucket
 | `approval_status`      | String  | No       | `"pending"` \| `"approved"` \| `"rejected"`         |
 | `file_url`             | String  | No       | Next.js proxy URL (`/api/files/syllabus/{fileId}`)  |
 | `uploaded_by_username` | String  | No       | Denormalised username for display                   |
+| `course_code`          | String  | No       | Legacy alias when a syllabus maps to a course       |
+| `course_name`          | String  | No       | Legacy alias for subject                            |
 | `is_hidden`            | Boolean | No       | Admin soft-hide flag (default: `false`)             |
 
 ---
@@ -55,22 +65,23 @@ Stores syllabus document metadata. Files are held in the `syllabus-files` bucket
 
 Stores user profile data alongside Appwrite Auth accounts.
 
-| Field                    | Type     | Required | Notes                                              |
-|--------------------------|----------|----------|----------------------------------------------------|
-| `email`                  | String   | **Yes**  | User email address                                 |
+| Field                    | Type     | Required | Notes                                                                                                 |
+|--------------------------|----------|----------|-------------------------------------------------------------------------------------------------------|
+| `email`                  | String   | **Yes**  | User email address                                                                                    |
 | `role`                   | String   | **Yes**  | Primary role: `visitor` / `explorer` / `contributor` / `verified_contributor` / `moderator` / `maintainer` / `admin` / `founder` |
-| `secondary_role`         | String   | No       | Cosmetic community role (display-only)             |
-| `tertiary_role`          | String   | No       | Additional cosmetic community role                 |
-| `tier`                   | String   | No       | Activity tier: `bronze` / `silver` / `gold` / `platinum` / `diamond` |
-| `display_name`           | String   | No       | User's display name                                |
-| `username`               | String   | No       | Unique @username                                   |
-| `xp`                     | Integer  | No       | Experience points                                  |
-| `streak`                 | Integer  | No       | Current daily streak count                         |
-| `avatar_url`             | String   | No       | URL of user's avatar image                         |
-| `avatar_file_id`         | String   | No       | Appwrite file ID in the avatars bucket             |
-| `last_activity`          | Datetime | No       | ISO 8601 timestamp of last activity                |
-| `upload_count`           | Integer  | No       | Total approved uploads; drives auto-promotion      |
-| `username_last_changed`  | String   | No       | ISO 8601 timestamp of last username change; enforces 7-day cooldown |
+| `primary_role`           | String   | No       | Legacy alias for `role` (kept for backwards compatibility)                                            |
+| `secondary_role`         | String   | No       | Cosmetic community role (display-only)                                                                |
+| `tertiary_role`          | String   | No       | Additional cosmetic community role                                                                    |
+| `tier`                   | String   | No       | Activity tier: `bronze` / `silver` / `gold` / `platinum` / `diamond`                                  |
+| `display_name`           | String   | No       | User's display name                                                                                   |
+| `username`               | String   | No       | Unique @username                                                                                      |
+| `xp`                     | Integer  | No       | Experience points                                                                                     |
+| `streak_days`            | Integer  | No       | Current daily streak; legacy name `streak` is accepted                                                |
+| `avatar_url`             | String   | No       | URL of user's avatar image                                                                            |
+| `avatar_file_id`         | String   | No       | Appwrite file ID in the avatars bucket                                                                |
+| `last_activity`          | Datetime | No       | ISO 8601 timestamp of last activity                                                                   |
+| `upload_count`           | Integer  | No       | Total approved uploads; drives auto-promotion                                                         |
+| `username_last_changed`  | String   | No       | ISO 8601 timestamp of last username change; enforces 7-day cooldown                                   |
 
 ---
 
@@ -124,10 +135,15 @@ Site-wide analytics singleton. Contains a single document with ID `"singleton"`.
 
 | Field              | Type    | Required | Notes                                         |
 |--------------------|---------|----------|-----------------------------------------------|
-| `visitor_count`    | Integer | **Yes**  | Total cumulative unique visitor count         |
+| `visitor_count`    | Integer | **Yes**  | Total cumulative unique visitor count (shown in footer) |
 | `launch_progress`  | Integer | No       | Dev launch progress percentage (0–100)        |
 
 Create this collection in the Appwrite console, then create one document with ID `singleton`.
+
+**Resetting the visitor counter (soft launch):**
+
+- Send `DELETE /api/visitor` with header `x-admin-key: <APPWRITE_API_KEY>` from a server-side script or the DevTool to set `visitor_count` back to `0`.  
+- The route already exists and requires the admin API key; no client UI calls this.
 
 ---
 
@@ -207,3 +223,15 @@ All files are served via Next.js proxy routes that verify the user's session:
 - Papers: `/api/files/papers/[fileId]`
 - Syllabi: `/api/files/syllabus/[fileId]`
 - Avatars: `/api/files/avatars/[fileId]`
+
+---
+
+## Soft launch reset checklist
+
+Use this checklist to wipe counters and storage before relaunch:
+
+1) **Storage buckets:** Empty `papers`, `syllabus-files`, and (optionally) `avatars` buckets from the Appwrite console or CLI.  
+2) **Collections to clear:** Truncate `papers`, `syllabus`, `uploads`, `ai_usage`, `pdf_usage`, and `ai_embeddings` if you want a clean slate.  
+3) **Visitor counter:** Call `DELETE /api/visitor` with header `x-admin-key: APPWRITE_API_KEY` to reset `site_metrics.visitor_count` to `0`.  
+4) **User counters:** Set `upload_count`, `view_count`, and `download_count` to `0` for any seed documents you keep; adjust `launch_progress` as needed.  
+5) **Verify schema:** Ensure `institute`/`institution` is present on papers so university totals render correctly, and that `users` collection totals match the Auth user count after cleanup.
