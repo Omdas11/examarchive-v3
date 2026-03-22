@@ -8,6 +8,7 @@ import AnimatedCounter from "@/components/AnimatedCounter";
 import DevProgressBar from "@/components/DevProgressBar";
 import VisitorTracker from "@/components/VisitorTracker";
 import FireParticles from "@/components/FireParticles";
+import BottomNav from "@/components/BottomNav";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import {
@@ -229,19 +230,150 @@ export default async function HomePage() {
       userName={userName}
       userInitials={userInitials}
       showSearch={false}
+      hideHeaderOnMobile
+      hideFooterOnMobile
     >
       {/* Fire particle effect — fixed bottom-to-midpoint, behind content */}
-      <FireParticles />
+      <div className="hidden md:block">
+        <FireParticles />
+      </div>
 
       <div className="mx-auto px-4 relative" style={{ maxWidth: "var(--max-w)", zIndex: 1 }}>
+        {/* ── Mobile Material 3 expressive composition ── */}
+        <section className="md:hidden -mx-4 min-h-screen px-5 pb-32 pt-5" style={{ background: "var(--color-bg)" }}>
+          <div className="flex items-center justify-between border-b pb-4" style={{ borderColor: "color-mix(in srgb, var(--color-border) 55%, transparent)" }}>
+            <div className="inline-flex items-center gap-2 text-lg font-extrabold" style={{ color: "var(--color-primary)" }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+              </svg>
+              ExamArchive
+            </div>
+            <button type="button" aria-label="Search library" className="rounded-full p-2">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <circle cx="11" cy="11" r="7" />
+                <path d="M20 20l-3.5-3.5" strokeLinecap="round" />
+              </svg>
+            </button>
+          </div>
+
+          <section className="pt-8">
+            <h1 className="text-5xl font-extrabold leading-[1.05] tracking-tight">
+              Explore the <span style={{ color: "var(--color-primary)" }}>Archive</span>
+            </h1>
+            <p className="m3-mobile-hero-subtitle mt-4 leading-tight" style={{ color: "var(--color-text-muted)" }}>
+              Access over 50,000 verified exam papers and study resources from top universities worldwide.
+            </p>
+          </section>
+
+          <section className="mt-8">
+            <HomeSearch variant="expressive" />
+          </section>
+
+          <section className="mt-10">
+            <h2 className="text-xs font-bold uppercase tracking-[0.18em]" style={{ color: "var(--color-text-muted)" }}>Universities</h2>
+            <div className="mt-4 space-y-2 text-2xl">
+              <div className="rounded-2xl px-4 py-3 font-bold" style={{ color: "var(--color-primary)", background: "color-mix(in srgb, var(--color-primary) 10%, white)" }}>
+                <div className="flex items-center justify-between">
+                  <span>Stanford</span>
+                  <span className="rounded-full px-2 py-0.5 text-xs font-semibold" style={{ background: "color-mix(in srgb, var(--color-primary) 16%, white)", color: "var(--color-primary)" }}>1.2k</span>
+                </div>
+              </div>
+              <div className="px-4 py-2">MIT</div>
+              <div className="px-4 py-2">Oxford</div>
+              <div className="px-4 py-2">Harvard</div>
+              <Link href="/browse" className="inline-flex items-center gap-1 px-4 pt-1 font-semibold" style={{ color: "var(--color-primary)" }}>
+                View all
+                <span aria-hidden="true">→</span>
+              </Link>
+            </div>
+          </section>
+
+          <section className="mt-10">
+            <h2 className="text-xs font-bold uppercase tracking-[0.18em]" style={{ color: "var(--color-text-muted)" }}>Academic year</h2>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {["2024", "2023", "2022", "2021"].map((y) => (
+                <button
+                  key={y}
+                  type="button"
+                  className="rounded-full border px-5 py-1.5 text-lg"
+                  style={y === "2023"
+                    ? { background: "var(--color-primary)", color: "var(--m3-on-primary)", borderColor: "var(--color-primary)" }
+                    : { borderColor: "var(--color-border)" }}
+                >
+                  {y}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className="mt-10">
+            <div className="mb-4 flex items-center justify-between gap-2">
+              <h2 className="text-3xl font-extrabold leading-none">Featured Resources</h2>
+              <button type="button" className="text-base" style={{ color: "var(--color-text-muted)" }}>Sort by: <span className="font-semibold" style={{ color: "var(--color-text)" }}>Newest</span></button>
+            </div>
+
+            <div className="space-y-4">
+              <article className="card p-5">
+                <div className="mb-4 flex items-start justify-between gap-3">
+                  <div className="h-11 w-11 rounded-2xl flex items-center justify-center" style={{ background: "color-mix(in srgb, var(--color-primary) 12%, white)", color: "var(--color-primary)" }}>✣</div>
+                  <span className="rounded-full px-3 py-1 text-xs font-bold tracking-[0.08em]" style={{ background: "var(--m3-mobile-verified-badge-bg)", color: "var(--m3-mobile-verified-badge-text)" }}>VERIFIED</span>
+                </div>
+                <h3 className="text-4xl font-extrabold leading-tight">Advanced Quantum Mechanics</h3>
+                <p className="m3-mobile-card-body mt-2 leading-snug" style={{ color: "var(--color-text-muted)" }}>
+                  Midterm examination papers covering Schrödinger’s equation and angular momentum.
+                </p>
+              </article>
+
+              <article className="card p-5">
+                <div className="mb-4 flex items-start justify-between gap-3">
+                  <div className="h-11 w-11 rounded-2xl flex items-center justify-center" style={{ background: "#ffe1be", color: "#8c5a16" }}>✎</div>
+                  <span className="rounded-full px-3 py-1 text-xs font-bold tracking-[0.08em]" style={{ background: "color-mix(in srgb, var(--color-primary) 18%, white)", color: "#374151" }}>SOLUTION KEY</span>
+                </div>
+                <h3 className="text-4xl font-extrabold leading-tight">European History 1848-1914</h3>
+                <p className="m3-mobile-card-body mt-2 leading-snug" style={{ color: "var(--color-text-muted)" }}>
+                  Detailed essay outlines and grading rubrics for final thesis preparation.
+                </p>
+              </article>
+
+              <article className="card p-5">
+                <div className="mb-4 h-11 w-11 rounded-2xl flex items-center justify-center" style={{ background: "color-mix(in srgb, var(--color-primary) 8%, white)", color: "var(--color-primary)" }}>‹›</div>
+                <h3 className="text-4xl font-extrabold leading-tight">Distributed Systems</h3>
+                <p className="m3-mobile-card-body mt-2 leading-snug" style={{ color: "var(--color-text-muted)" }}>
+                  Project guidelines and past exam questions focusing on consensus algorithms and Paxos.
+                </p>
+              </article>
+            </div>
+          </section>
+
+          <section className="mt-8 rounded-[2rem] px-6 py-8 text-center text-white" style={{ background: "linear-gradient(160deg, #5647ea 0%, #2f2caf 100%)" }}>
+            <div className="text-2xl">✦</div>
+            <h2 className="mt-2 text-4xl font-extrabold">Can&apos;t find it?</h2>
+            <p className="mt-2 text-xl text-white">Generate a custom mock exam based on your syllabus in seconds.</p>
+            <Link href="/ai-content" className="mt-5 inline-flex rounded-full bg-white px-6 py-2 text-base font-extrabold tracking-[0.08em]" style={{ color: "var(--m3-mobile-generator-button-text)" }}>
+              TRY GENERATOR
+            </Link>
+          </section>
+
+          <Link
+            href="/upload"
+            aria-label="Upload paper"
+            className="fixed bottom-24 right-5 z-50 inline-flex h-14 w-14 items-center justify-center rounded-full text-3xl text-white shadow-lg"
+            style={{ background: "var(--color-primary)" }}
+          >
+            +
+          </Link>
+
+          <BottomNav variant="expressive" />
+        </section>
 
         {/* ── Development progress banner ── */}
-        <div className="pt-16 md:pt-6">
+        <div className="hidden md:block pt-16 md:pt-6">
           <DevProgressBar progress={launchProgress} />
         </div>
 
         {/* ── Hero ── */}
-        <section className="py-14 text-center rounded-2xl relative overflow-hidden">
+        <section className="hidden md:block py-14 text-center rounded-2xl relative overflow-hidden">
           {/* Subtle decorative blobs that complement the full-site gradient */}
           <div
             aria-hidden="true"
@@ -322,7 +454,7 @@ export default async function HomePage() {
         </section>
 
         {/* ── Transparency Statement ── */}
-        <section className="py-5">
+        <section className="hidden md:block py-5">
           <div
             className="card p-4 text-center"
             style={{
@@ -350,7 +482,7 @@ export default async function HomePage() {
         </section>
 
         {/* ── Stats Bar ── */}
-        <section className="py-4 mb-2 ea-scroll-in">
+        <section className="hidden md:block py-4 mb-2 ea-scroll-in">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {stats.map((s) => (
               <div
@@ -381,14 +513,14 @@ export default async function HomePage() {
         </section>
 
         {/* ── Search ── */}
-        <section className="py-6">
+        <section className="hidden md:block py-6">
           <h2 className="mb-3 text-lg font-semibold">Search Exam Papers &amp; Syllabi</h2>
           <HomeSearch />
         </section>
 
         {/* ── Popular Papers ── */}
         {popularPapers.length > 0 && (
-          <section className="py-6 ea-scroll-in">
+          <section className="hidden md:block py-6 ea-scroll-in">
             <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
               <h2 className="text-lg font-semibold">Popular Papers</h2>
               <Link
@@ -409,7 +541,7 @@ export default async function HomePage() {
 
         {/* ── Recently Added Papers ── */}
         {recentPapers.length > 0 && (
-          <section className="py-6 ea-scroll-in">
+          <section className="hidden md:block py-6 ea-scroll-in">
             <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
               <h2 className="text-lg font-semibold">Recently Added</h2>
               <Link
@@ -429,7 +561,7 @@ export default async function HomePage() {
         )}
 
         {/* ── How It Works ── */}
-        <section className="py-8 ea-scroll-in">
+        <section className="hidden md:block py-8 ea-scroll-in">
           <h2 className="mb-6 text-lg font-semibold text-center">How It Works</h2>
           <div className="grid gap-4 sm:grid-cols-3">
             {HOW_IT_WORKS.map((step) => (
@@ -449,7 +581,7 @@ export default async function HomePage() {
         </section>
 
         {/* ── Community Contribution ── */}
-        <section className="py-6 ea-scroll-in">
+        <section className="hidden md:block py-6 ea-scroll-in">
           <div
             className="card p-6 sm:p-8 flex flex-col sm:flex-row items-center gap-5 overflow-hidden"
             style={{ background: "color-mix(in srgb, var(--color-primary) 6%, var(--color-surface))" }}
@@ -475,7 +607,7 @@ export default async function HomePage() {
         </section>
 
         {/* ── Student Feedback ── */}
-        <section className="py-6 ea-scroll-in">
+        <section className="hidden md:block py-6 ea-scroll-in">
           <h2 className="mb-4 text-lg font-semibold text-center">What Students Say</h2>
           {feedbackEntries.length > 0 ? (
             <div className="grid gap-4 sm:grid-cols-3">

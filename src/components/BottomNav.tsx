@@ -3,7 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-export default function BottomNav() {
+interface BottomNavProps {
+  variant?: "default" | "expressive";
+}
+
+export default function BottomNav({ variant = "default" }: BottomNavProps) {
   const pathname = usePathname();
 
   function isActive(href: string) {
@@ -11,7 +15,48 @@ export default function BottomNav() {
     return pathname.startsWith(href);
   }
 
-  const items = [
+  const items = variant === "expressive" ? [
+    {
+      href: "/",
+      label: "Library",
+      icon: (
+        <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+          <path d="M9 7h7M9 11h5" strokeLinecap="round" />
+        </svg>
+      ),
+    },
+    {
+      href: "/ai-content",
+      label: "Generate",
+      icon: (
+        <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+          <path d="M12 3v4M12 17v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M3 12h4M17 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8" strokeLinecap="round" />
+        </svg>
+      ),
+    },
+    {
+      href: "/dashboard",
+      label: "History",
+      icon: (
+        <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+          <path d="M3 12a9 9 0 1 0 3-6.7" strokeLinecap="round" />
+          <path d="M3 4v4h4M12 7v5l3 2" strokeLinecap="round" />
+        </svg>
+      ),
+    },
+    {
+      href: "/settings",
+      label: "Settings",
+      icon: (
+        <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+          <path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z" />
+          <path d="m19.4 15 1.1 1.9-1.9 1.1-1.1-1.9a7.7 7.7 0 0 1-2 .8V19h-2v-2.1a7.7 7.7 0 0 1-2-.8L9.4 18 7.5 16.9 8.6 15a7.7 7.7 0 0 1-.8-2H5.7v-2h2.1a7.7 7.7 0 0 1 .8-2L7.5 7.1 9.4 6l1.1 1.9a7.7 7.7 0 0 1 2-.8V5h2v2.1a7.7 7.7 0 0 1 2 .8L18.6 6l1.9 1.1-1.1 1.9a7.7 7.7 0 0 1 .8 2h2.1v2h-2.1a7.7 7.7 0 0 1-.8 2Z" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      ),
+    },
+  ] : [
     {
       href: "/",
       label: "Home",
@@ -60,7 +105,7 @@ export default function BottomNav() {
   ];
 
   return (
-    <nav className="bottom-nav" aria-label="Mobile navigation">
+    <nav className={`bottom-nav ${variant === "expressive" ? "bottom-nav-expressive" : ""}`} aria-label="Mobile navigation">
       {items.map((item) => (
         <Link
           key={item.href}

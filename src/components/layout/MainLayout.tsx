@@ -21,6 +21,8 @@ interface LayoutProps extends HeaderProps {
   userRole?: string;
   hideSidebar?: boolean;
   hideHeader?: boolean;
+  hideHeaderOnMobile?: boolean;
+  hideFooterOnMobile?: boolean;
   /** Whether the current user is authenticated (shows logout in sidebar when true) */
   isLoggedIn?: boolean;
   /** Show right sidebar widgets on desktop */
@@ -33,6 +35,8 @@ export default function MainLayout({
   userRole = 'user',
   hideSidebar = false,
   hideHeader = false,
+  hideHeaderOnMobile = false,
+  hideFooterOnMobile = false,
   isLoggedIn = false,
   showRightColumn = true,
   ...headerProps
@@ -102,6 +106,7 @@ export default function MainLayout({
         {!hideHeader && (
           <Header
             {...headerProps}
+            className={hideHeaderOnMobile ? "hidden md:flex" : undefined}
             onMobileMenuToggle={!hideSidebar ? () => setIsMobileOpen((v) => !v) : undefined}
             onProfileClick={() => setIsRightSidebarOpen(true)}
           />
@@ -111,7 +116,9 @@ export default function MainLayout({
         <div className="flex-1 overflow-auto flex flex-col">
           <div className="flex-1">{children}</div>
           {/* Footer on every new-layout page */}
-          <Footer />
+          <div className={hideFooterOnMobile ? "hidden md:block" : undefined}>
+            <Footer />
+          </div>
         </div>
       </main>
       {showRightColumn && (
