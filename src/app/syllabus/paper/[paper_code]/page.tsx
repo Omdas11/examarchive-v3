@@ -13,6 +13,7 @@ import type { Syllabus, Paper } from "@/types";
 import { SYLLABUS_REGISTRY, groupBySemester } from "@/data/syllabus-registry";
 import type { SyllabusRegistryEntry, SyllabusUnit } from "@/data/syllabus-registry";
 import { toRoman } from "@/lib/utils";
+import { serializeJsonLd } from "@/lib/json-ld";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 
@@ -243,7 +244,7 @@ export default async function SyllabusDetailPage({ params }: PageProps) {
       userInitials={userInitials}
     >
     <script type="application/ld+json">
-      {JSON.stringify(syllabusJsonLd).replace(/</g, "\\u003c")}
+      {serializeJsonLd(syllabusJsonLd)}
     </script>
     <section className="mx-auto px-4 py-10" style={{ maxWidth: "var(--max-w)" }}>
       {/* Back link */}

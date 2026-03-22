@@ -28,7 +28,7 @@ export interface PDFGenerationResult {
  * Allows common editorial tags/attributes used by markdownToHTML output while
  * stripping scripts, unsafe protocols, and event-handler attributes.
  */
-function sanitizeHtmlLikeContent(input: string): string {
+export function sanitizeHtmlLikeContent(input: string): string {
   return sanitizeHtml(input, {
     allowedTags: sanitizeHtml.defaults.allowedTags.concat(["h1", "h2", "img"]),
     allowedAttributes: {

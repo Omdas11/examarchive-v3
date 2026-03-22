@@ -10,6 +10,7 @@ import {
 import type { Paper } from "@/types";
 import { toPaper } from "@/types";
 import { toRoman } from "@/lib/utils";
+import { buildPaperJsonLd, serializeJsonLd } from "@/lib/json-ld";
 import { SYLLABUS_REGISTRY } from "@/data/syllabus-registry";
 import type { SyllabusRegistryEntry, SyllabusUnit } from "@/data/syllabus-registry";
 import { PAPER_TYPE_COLORS } from "@/components/PaperCard";
@@ -96,29 +97,7 @@ export default async function PaperPage({ params }: PaperPageProps) {
   }
 
   const semRoman = paper.semester ? toRoman(parseInt(paper.semester, 10)) : paper.semester;
-  const paperJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "ScholarlyArticle",
-    headline: paper.title,
-    description: `Past exam paper for ${paper.course_name ?? paper.course_code ?? "Haflong Government College students"}.`,
-    author: {
-      "@type": "Organization",
-      name: "ExamArchive Community",
-    },
-    educationalLevel: "Undergraduate",
-    inLanguage: "en",
-    isPartOf: {
-      "@type": "CollectionPage",
-      name: "ExamArchive Past Papers",
-      url: `${SITE_URL}/browse`,
-    },
-    about: {
-      "@type": "Course",
-      name: paper.course_name ?? paper.title,
-      courseCode: paper.course_code ?? undefined,
-    },
-    url: `${SITE_URL}/paper/${paper.id}`,
-  };
+  const paperJsonLd = buildPaperJsonLd(paper);
 
   const metaBadges = [
     paper.institution,
@@ -174,7 +153,7 @@ export default async function PaperPage({ params }: PaperPageProps) {
       userInitials={userInitials}
     >
     <script type="application/ld+json">
-      {JSON.stringify(paperJsonLd).replace(/</g, "\\u003c")}
+      {serializeJsonLd(paperJsonLd)}
     </script>
     <section className="mx-auto px-4 py-8 space-y-4" style={{ maxWidth: "var(--max-w)" }}>
 
