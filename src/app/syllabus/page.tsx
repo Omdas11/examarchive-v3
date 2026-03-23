@@ -1,16 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SYLLABUS_REGISTRY } from "@/data/syllabus-registry";
-
-const PROGRAMME_LABEL = "B.Sc. Physics (Hons)";
-const SEMESTER_LABEL = "Semester I";
-
-const FEATURED_PAPERS = [
-  { code: "PH-101", title: "Mathematical Physics - I", tag: "DSC", credits: 6, units: 4, lab: false, mentors: ["Dr. J. Singh", "Prof. A. Karim", "Dr. M. Talukdar", "Ms. P. Roy"] },
-  { code: "PH-102", title: "Mechanics", tag: "DSC", credits: 6, units: 4, lab: true, mentors: ["Prof. L. Saikia", "Dr. R. Verma", "Ms. K. Mukherjee"] },
-  { code: "MA-101", title: "Calculus", tag: "DSM", credits: 4, units: 3, lab: false, mentors: ["Prof. N. Baruah", "Mr. H. Sharma"] },
-  { code: "SK-101", title: "Digital Literacy", tag: "SEC", credits: 2, units: 2, lab: false, mentors: ["Ms. G. Choudhury", "Mr. T. Paul", "Ms. D. Lahon"] },
-];
+import { FEATURED_PAPERS, PROGRAMME_LABEL, SEMESTER_LABEL } from "@/data/featured-curriculum";
 const totalCredits = FEATURED_PAPERS.reduce((sum, paper) => sum + paper.credits, 0);
 const totalMentors = FEATURED_PAPERS.reduce((sum, paper) => sum + paper.mentors.length, 0);
 const formatTwoDigits = (value: number) => value.toString().padStart(2, "0");
@@ -162,7 +153,7 @@ export default async function SyllabusPage() {
           </div>
           <div className="rounded-2xl bg-surface-container p-4 shadow-lift border border-outline-variant/30">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-on-surface-variant">Faculty Reach</p>
-            <p className="mt-2 text-sm text-on-surface-variant">+{totalMentors} Mentors</p>
+            <p className="mt-2 text-2xl font-black text-on-surface">+{totalMentors} Mentors</p>
           </div>
         </div>
 
