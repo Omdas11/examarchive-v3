@@ -1,5 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { SYLLABUS_REGISTRY } from "@/data/syllabus-registry";
+
+const FEATURED_PAPERS = [
+  { code: "PH-101", title: "Mathematical Physics - I", tag: "DSC", credits: 6, units: 4, lab: false, mentors: ["JS", "AK", "MT", "PR"] },
+  { code: "PH-102", title: "Mechanics", tag: "DSC", credits: 6, units: 4, lab: true, mentors: ["LS", "RV", "KM"] },
+  { code: "MA-101", title: "Calculus", tag: "DSM", credits: 4, units: 3, lab: false, mentors: ["NB", "HS"] },
+  { code: "SK-101", title: "Digital Literacy", tag: "SEC", credits: 2, units: 2, lab: false, mentors: ["GC", "TP", "DL"] },
+];
 import {
   adminDatabases,
   DATABASE_ID,
@@ -56,17 +64,14 @@ export default async function SyllabusPage() {
     // collection may not exist yet
   }
 
-  const papers = [
-    { code: "PH-101", title: "Mathematical Physics - I", tag: "DSC", credits: 6, units: 4, lab: false, mentors: ["JS", "AK", "MT", "PR"] },
-    { code: "PH-102", title: "Mechanics", tag: "DSC", credits: 6, units: 4, lab: true, mentors: ["LS", "RV", "KM"] },
-    { code: "MA-101", title: "Calculus", tag: "DSM", credits: 4, units: 3, lab: false, mentors: ["NB", "HS"] },
-    { code: "SK-101", title: "Digital Literacy", tag: "SEC", credits: 2, units: 2, lab: false, mentors: ["GC", "TP", "DL"] },
-  ];
+  const papers = FEATURED_PAPERS;
 
   const totalCredits = papers.reduce((sum, paper) => sum + paper.credits, 0);
   const totalMentors = papers.reduce((sum, paper) => sum + paper.mentors.length, 0);
 
   const formatTwoDigits = (value: number) => value.toString().padStart(2, "0");
+  const paperExists = (code: string) =>
+    SYLLABUS_REGISTRY.some((entry) => entry.paper_code.toUpperCase() === code.toUpperCase());
 
   return (
     <MainLayout
@@ -129,9 +134,13 @@ export default async function SyllabusPage() {
                 )}
               </div>
               <div className="mt-4 flex items-center justify-between gap-3 border-t border-outline-variant/20 pt-4 text-sm">
-                <Link href={`/syllabus/paper/${paper.code}`} className="font-semibold text-primary hover:underline">
-                  View Syllabus →
-                </Link>
+                {paperExists(paper.code) ? (
+                  <Link href={`/syllabus/paper/${paper.code}`} className="font-semibold text-primary hover:underline">
+                    View Syllabus →
+                  </Link>
+                ) : (
+                  <span className="font-semibold text-on-surface-variant">Syllabus coming soon</span>
+                )}
                 {paper.lab && (
                   <span className="flex items-center gap-1 text-xs text-on-surface-variant">
                     <span className="material-symbols-outlined text-sm align-middle">science</span>
