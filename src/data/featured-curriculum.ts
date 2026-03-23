@@ -3,7 +3,7 @@ export const SEMESTER_LABEL = "Semester I";
 
 export interface FeaturedPaper {
   code: string;
-  registryCode?: string | null;
+  registryCode?: string;
   title: string;
   tag: "DSC" | "DSM" | "SEC";
   credits: number;
@@ -45,7 +45,6 @@ export const FEATURED_PAPERS: FeaturedPaper[] = [
   },
   {
     code: "SK-101",
-    registryCode: null,
     title: "Digital Literacy",
     tag: "SEC",
     credits: 2,

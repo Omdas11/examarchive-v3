@@ -11,7 +11,7 @@ import {
   getMentorInitials,
 } from "@/data/featured-curriculum";
 import { cn } from "@/lib/utils";
-const paperExists = (code?: string | null) => {
+const paperExists = (code?: string) => {
   if (!code) return false;
   return SYLLABUS_REGISTRY.some((entry) => entry.paper_code.toUpperCase() === code.toUpperCase());
 };
@@ -109,7 +109,7 @@ export default async function SyllabusPage() {
           <div className="space-y-6">
             {FEATURED_PAPERS.map((paper) => {
               const mentorInitials = paper.mentors.map(getMentorInitials).filter(Boolean).slice(0, 2);
-              const registryCode = paper.registryCode ?? null;
+              const registryCode = paper.registryCode;
               const hasRegistry = registryCode ? paperExists(registryCode) : false;
               return (
                 <article
