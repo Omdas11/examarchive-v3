@@ -1,4 +1,5 @@
 import Link from "next/link";
+import VisitorTracker from "@/components/VisitorTracker";
 import FooterContactModal from "@/components/FooterContactModal";
 
 /** Partner/platform logos uploaded to /public/branding/footer/. */
@@ -92,14 +93,15 @@ export default function Footer() {
           </div>
         </div>
 
-        {/* ── Copyright ── */}
+        {/* ── Footer meta ── */}
         <div
-          className="pt-5 text-center"
+          className="pt-5 text-center flex flex-col items-center gap-2"
           style={{ borderTop: "1px solid var(--color-border)" }}
         >
           <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
             © {new Date().getFullYear()} ExamArchive · Built by students for students · Early Access
           </p>
+          <VisitorTracker />
         </div>
       </div>
     </footer>
