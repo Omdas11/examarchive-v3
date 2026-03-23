@@ -1,7 +1,18 @@
 export const PROGRAMME_LABEL = "B.Sc. Physics (Hons)";
 export const SEMESTER_LABEL = "Semester I";
 
-export const FEATURED_PAPERS = [
+export interface FeaturedPaper {
+  code: string;
+  registryCode?: string;
+  title: string;
+  tag: "DSC" | "DSM" | "SEC";
+  credits: number;
+  units: number;
+  lab: boolean;
+  mentors: string[];
+}
+
+export const FEATURED_PAPERS: FeaturedPaper[] = [
   {
     code: "PH-101",
     registryCode: "PHYDSC101T",
@@ -34,7 +45,6 @@ export const FEATURED_PAPERS = [
   },
   {
     code: "SK-101",
-    registryCode: "",
     title: "Digital Literacy",
     tag: "SEC",
     credits: 2,
