@@ -11,7 +11,7 @@ import {
   getMentorInitials,
 } from "@/data/featured-curriculum";
 import { cn } from "@/lib/utils";
-const paperExists = (code?: string) => {
+const paperExists = (code?: string | null) => {
   if (!code) return false;
   return SYLLABUS_REGISTRY.some((entry) => entry.paper_code.toUpperCase() === code.toUpperCase());
 };
@@ -77,6 +77,8 @@ export default async function SyllabusPage() {
     SEC: "bg-tertiary-fixed text-on-tertiary-fixed",
   };
   const mentorDotTones = ["bg-primary/30", "bg-secondary/30", "bg-primary/20"];
+  const mentorDotCount = Math.min(mentorDotTones.length, Math.max(1, TOTAL_MENTORS));
+  const mentorDots = mentorDotTones.slice(0, mentorDotCount);
 
   return (
     <MainLayout
@@ -107,7 +109,7 @@ export default async function SyllabusPage() {
           <div className="space-y-6">
             {FEATURED_PAPERS.map((paper) => {
               const mentorInitials = paper.mentors.map(getMentorInitials).filter(Boolean).slice(0, 2);
-              const registryCode = paper.registryCode;
+              const registryCode = paper.registryCode ?? null;
               const hasRegistry = registryCode ? paperExists(registryCode) : false;
               return (
                 <article
@@ -160,7 +162,7 @@ export default async function SyllabusPage() {
                         <span className="material-symbols-outlined text-base">chevron_right</span>
                       </Link>
                     ) : (
-                      <span className="flex items-center gap-1 font-semibold text-primary">
+                      <span className="flex items-center gap-1 font-semibold text-on-surface-variant/70">
                         View Syllabus
                         <span className="material-symbols-outlined text-base">chevron_right</span>
                       </span>
@@ -209,7 +211,7 @@ export default async function SyllabusPage() {
               <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-on-surface-variant">Faculty Reach</p>
               <div className="mt-3 flex items-center gap-3">
                 <div className="flex -space-x-2">
-                  {mentorDotTones.map((tone) => (
+                  {mentorDots.map((tone) => (
                     <span
                       key={tone}
                       className={cn("h-6 w-6 rounded-full border border-surface", tone)}
