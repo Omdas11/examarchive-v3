@@ -34,7 +34,7 @@ export const FEATURED_PAPERS = [
   },
   {
     code: "SK-101",
-    registryCode: undefined,
+    registryCode: "",
     title: "Digital Literacy",
     tag: "SEC",
     credits: 2,
