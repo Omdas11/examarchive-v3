@@ -92,20 +92,32 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
       userInitials={userInitials}
     >
       <section className="mx-auto px-4 py-10" style={{ maxWidth: "var(--max-w)" }}>
-        <h1 className="text-2xl font-bold">Browse Question Papers</h1>
-        <p className="mt-1 text-sm" style={{ color: "var(--color-text-muted)" }}>
-          Search and filter past exam papers by programme, stream, and year.
-        </p>
+        <div className="rounded-2xl bg-gradient-to-r from-indigo-50 via-white to-slate-50 p-6 shadow-sm ring-1 ring-indigo-100/60 dark:from-neutral-900 dark:via-neutral-900 dark:to-neutral-900 dark:ring-neutral-800">
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Browse Question Papers</h1>
+          <p className="mt-2 max-w-2xl text-base text-slate-700 dark:text-slate-300">
+            Quickly search and filter past papers by programme, stream, and year. Pick a paper to inspect or use it as reference for AI notes.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-indigo-700 dark:text-indigo-200">
+            <span className="rounded-full bg-white px-3 py-1 ring-1 ring-indigo-100 dark:bg-neutral-900 dark:ring-indigo-800">
+              Library
+            </span>
+            <span className="rounded-full bg-white px-3 py-1 ring-1 ring-indigo-100 dark:bg-neutral-900 dark:ring-indigo-800">
+              Updated daily
+            </span>
+          </div>
+        </div>
 
-        <BrowseClient
-          initialPapers={papers}
-          availableYears={availableYears}
-          availableStreams={availableStreams}
-          availablePaperTypes={availablePaperTypes}
-          availableUniversities={availableUniversities}
-          isAdmin={isAdmin}
-          initialSearch={q ?? ""}
-        />
+        <div className="mt-6 rounded-2xl bg-white/95 p-4 shadow ring-1 ring-slate-100 dark:bg-neutral-900 dark:ring-neutral-800">
+          <BrowseClient
+            initialPapers={papers}
+            availableYears={availableYears}
+            availableStreams={availableStreams}
+            availablePaperTypes={availablePaperTypes}
+            availableUniversities={availableUniversities}
+            isAdmin={isAdmin}
+            initialSearch={q ?? ""}
+          />
+        </div>
       </section>
     </MainLayout>
   );

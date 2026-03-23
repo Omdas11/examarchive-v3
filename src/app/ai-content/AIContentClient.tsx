@@ -76,7 +76,12 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
             .filter((opt: NoteLengthOption) => Boolean(opt.value));
           if (normalized.length > 0) {
             setNoteLengthOptions(normalized);
-            setNoteLength(normalized[0].value);
+            setNoteLength((current) => {
+              const currentNormalized = normalizeNoteLength(current);
+              const hasCurrent = normalized.some((opt: NoteLengthOption) => opt.value === currentNormalized);
+              const standardOption = normalized.find((opt: NoteLengthOption) => opt.value === "standard");
+              return hasCurrent ? currentNormalized : (standardOption?.value ?? normalized[0].value);
+            });
           }
         }
       })
@@ -117,14 +122,26 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
 
   const filteredPapers = useMemo(() => {
     const q = paperSearch.trim().toLowerCase();
-    if (!q) return papers.slice(0, 40);
-    return papers
-      .filter((p) => {
-        const haystack = `${p.title} ${p.course_code ?? ""} ${p.course_name} ${p.department}`.toLowerCase();
-        return haystack.includes(q);
-      })
-      .slice(0, 40);
-  }, [paperSearch, papers]);
+    const base = !q
+      ? papers
+      : papers.filter((p) => {
+          const haystack = `${p.title} ${p.course_code ?? ""} ${p.course_name} ${p.department}`.toLowerCase();
+          return haystack.includes(q);
+        });
+
+    const limited = base.slice(0, 40);
+
+    if (selectedPaper) {
+      const isInLimited = limited.some((p) => p.id === selectedPaper.id);
+      const isInBase = base.some((p) => p.id === selectedPaper.id);
+      if (!isInLimited && isInBase) {
+        const withSelected = [selectedPaper, ...limited.filter((p) => p.id !== selectedPaper.id)];
+        return withSelected.slice(0, 40);
+      }
+    }
+
+    return limited;
+  }, [paperSearch, papers, selectedPaper]);
 
   async function generate() {
     const trimmed = topic.trim();
@@ -261,16 +278,15 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
   const canGenerate = isAdminPlus || (remaining !== null && remaining > 0);
 
   return (
-    <div className="min-h-screen bg-slate-50/60 px-4 py-8 dark:bg-neutral-900">
+    <div className="min-h-screen bg-gradient-to-b from-indigo-50 via-white to-slate-50 px-4 py-8 dark:from-neutral-900 dark:via-neutral-900 dark:to-neutral-900">
       <div className="mx-auto flex max-w-6xl flex-col gap-6">
-        <header className="flex flex-col gap-3 rounded-2xl bg-white/80 p-5 shadow-sm ring-1 ring-slate-100 dark:bg-neutral-900/70 dark:ring-neutral-800">
+        <header className="flex flex-col gap-3 rounded-2xl bg-white/95 p-6 shadow-lg ring-1 ring-indigo-100/60 dark:bg-neutral-900/80 dark:ring-neutral-800">
           <div className="flex items-center gap-2 text-slate-900 dark:text-white">
             <span className="text-2xl">📘</span>
-            <h1 className="text-2xl font-bold md:text-3xl">AI Notes Generator</h1>
+            <h1 className="text-3xl font-bold">AI Notes Generator</h1>
           </div>
-          <p className="max-w-3xl text-sm text-slate-600 dark:text-slate-300">
-            Transform archive PDFs into concise, high-yield study notes. Pick a reference PDF from the website bucket,
-            ask your question, choose how long the notes should be, and export a polished PDF in one click.
+          <p className="max-w-3xl text-base text-slate-700 dark:text-slate-200">
+            Transform your exam papers and textbooks into concise, high-yield study notes using archive context and live updates.
           </p>
           <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
             <span className="rounded-full bg-indigo-100 px-3 py-1 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-100">
@@ -288,74 +304,65 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
           </div>
         </header>
 
-        <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
+        <div className="grid gap-6 lg:grid-cols-[1.45fr_0.9fr]">
           <div className="space-y-5">
             {/* PDF selection */}
-            <div className="card ring-1 ring-slate-100 dark:ring-neutral-800">
+            <div className="card ring-1 ring-slate-100/80 dark:ring-neutral-800">
               <div className="flex flex-col gap-3 p-5">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
                   Reference PDF
                 </p>
-                <div className="rounded-xl border border-dashed border-indigo-200 bg-indigo-50/60 p-4 dark:border-indigo-800 dark:bg-indigo-950/40">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="rounded-2xl border border-dashed border-indigo-200 bg-indigo-50/70 p-4 dark:border-indigo-800 dark:bg-indigo-950/30">
+                  <div className="flex flex-col items-center gap-3 text-center">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white shadow-md ring-1 ring-indigo-100 dark:bg-neutral-900 dark:ring-indigo-800">
+                      <span className="text-2xl text-indigo-600">📄</span>
+                    </div>
                     <div>
-                      <p className="text-base font-semibold text-indigo-900 dark:text-indigo-100">
-                        {selectedPaper ? selectedPaper.title : "Select a PDF from the archive"}
+                      <p className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                        {selectedPaper ? selectedPaper.title : "Drop your PDF here"}
                       </p>
-                      <p className="text-xs text-indigo-700/80 dark:text-indigo-200">
+                      <p className="text-xs text-slate-600 dark:text-slate-300">
                         {selectedPaper
                           ? `${selectedPaper.course_name} • ${selectedPaper.year ?? "Year N/A"}`
-                          : "This PDF will be prioritized as context for your notes."}
+                          : "Use archive PDFs (max 50MB) from the website bucket"}
                       </p>
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-indigo-700 dark:text-indigo-200">
-                      <span className="rounded-full bg-white/80 px-2 py-1 shadow-sm ring-1 ring-indigo-100 dark:bg-indigo-900 dark:ring-indigo-700">
-                        Bucket: papers
-                      </span>
-                    </div>
-                  </div>
-                  <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
-                    <div className="flex flex-col gap-2">
-                      <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">Search archive</label>
+                    <div className="grid w-full gap-2 sm:grid-cols-[1fr,auto] sm:items-center">
                       <input
-                        className="input-field"
-                        placeholder="Search by title, course, department..."
+                        className="input-field w-full"
+                        placeholder="Search archive by title, course, department..."
                         value={paperSearch}
                         onChange={(e) => setPaperSearch(e.target.value)}
                         disabled={paperLoading}
                       />
+                      <select
+                        className="input-field w-full sm:w-52"
+                        value={selectedPaperId}
+                        onChange={(e) => setSelectedPaperId(e.target.value)}
+                        disabled={paperLoading}
+                      >
+                        {paperLoading && <option>Loading PDFs…</option>}
+                        {!paperLoading && filteredPapers.length === 0 && <option>No matching PDFs</option>}
+                        {filteredPapers.map((paper) => (
+                          <option key={paper.id} value={paper.id} disabled={!paper.file_id}>
+                            {paper.title} {paper.course_code ? `• ${paper.course_code}` : ""} {paper.year ? `(${paper.year})` : ""}
+                            {!paper.file_id ? " (unavailable)" : ""}
+                          </option>
+                        ))}
+                      </select>
                     </div>
-                    <div className="flex items-end">
-                      <div className="w-full">
-                        <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">Choose PDF</label>
-                        <select
-                          className="input-field mt-1"
-                          value={selectedPaperId}
-                          onChange={(e) => setSelectedPaperId(e.target.value)}
-                          disabled={paperLoading || filteredPapers.length === 0}
-                        >
-                          {filteredPapers.length === 0 && <option>Loading PDFs…</option>}
-                          {filteredPapers.map((paper) => (
-                            <option key={paper.id} value={paper.id} disabled={!paper.file_id}>
-                              {paper.title} {paper.course_code ? `• ${paper.course_code}` : ""} {paper.year ? `(${paper.year})` : ""}
-                              {!paper.file_id ? " (unavailable)" : ""}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
+                    {!selectedPaper?.file_id && (
+                      <p className="text-xs text-amber-700 dark:text-amber-200">
+                        Pick a PDF with a stored file ID to prioritize it in context.
+                      </p>
+                    )}
                   </div>
-                  {!selectedPaper?.file_id && (
-                    <p className="mt-2 text-xs text-amber-700 dark:text-amber-200">
-                      Selecting a PDF with a stored file ID ensures the generator can pull precise context.
-                    </p>
-                  )}
                 </div>
               </div>
             </div>
 
             {/* Generator */}
-            <div className="card ring-1 ring-slate-100 dark:ring-neutral-800">
+            <div className="card ring-1 ring-slate-100/80 dark:ring-neutral-800">
               <div className="flex flex-col gap-4 p-5">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
                   Prompt
@@ -439,7 +446,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                 </div>
 
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                  <div className="text-xs text-slate-500 dark:text-slate-300">
+                  <div className="text-xs text-slate-600 dark:text-slate-300">
                     {selectedPaper?.title ? (
                       <>
                         Using <strong>{selectedPaper.title}</strong> as the primary PDF context.
@@ -472,7 +479,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
 
             {/* Export */}
             {activeDoc && (
-              <div className="card ring-1 ring-slate-100 dark:ring-neutral-800">
+              <div className="card ring-1 ring-slate-100/80 dark:ring-neutral-800">
                 <div className="flex flex-col gap-4 p-5">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
                     Export
@@ -497,7 +504,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                     )}
                   </div>
                   <div
-                    className="max-h-[520px] overflow-auto rounded-xl border border-slate-100 bg-white p-4 text-sm leading-7 text-slate-800 shadow-inner dark:border-neutral-800 dark:bg-neutral-900 dark:text-slate-100"
+                    className="max-h-[520px] overflow-auto rounded-xl border border-slate-100 bg-slate-50/60 p-4 text-sm leading-7 text-slate-800 shadow-inner dark:border-neutral-800 dark:bg-neutral-900 dark:text-slate-100"
                     style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
                   >
                     {activeDoc.content}
@@ -509,7 +516,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
 
           {/* Right column */}
           <div className="space-y-5">
-            <div className="card ring-1 ring-slate-100 dark:ring-neutral-800">
+            <div className="card ring-1 ring-slate-100/80 dark:ring-neutral-800">
               <div className="flex flex-col gap-3 p-5">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
                   Early Access
@@ -528,7 +535,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
               </div>
             </div>
 
-            <div className="card ring-1 ring-slate-100 dark:ring-neutral-800">
+            <div className="card ring-1 ring-slate-100/80 dark:ring-neutral-800">
               <div className="flex gap-3 p-5">
                 <div className="text-xl">💡</div>
                 <div className="space-y-1">
@@ -541,7 +548,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
               </div>
             </div>
 
-            <div className="card ring-1 ring-slate-100 dark:ring-neutral-800">
+            <div className="card ring-1 ring-slate-100/80 dark:ring-neutral-800">
               <div className="flex flex-col gap-4 p-5">
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Recently Generated</p>

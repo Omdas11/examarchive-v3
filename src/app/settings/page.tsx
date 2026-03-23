@@ -30,16 +30,17 @@ export default async function SettingsPage() {
       userName={userName}
       userInitials={userName.substring(0, 2).toUpperCase()}
     >
-      <section
-        className="mx-auto px-4 py-10"
-        style={{ maxWidth: "var(--max-w)" }}
-      >
-        <h1 className="text-2xl font-bold">Settings</h1>
-        <p className="mt-1 text-sm" style={{ color: "var(--color-text-muted)" }}>
-          Manage your profile, preferences, and account.
-        </p>
+      <section className="mx-auto px-4 py-10" style={{ maxWidth: "var(--max-w)" }}>
+        <div className="rounded-2xl bg-gradient-to-r from-indigo-50 via-white to-slate-50 p-6 shadow-sm ring-1 ring-indigo-100/60 dark:from-neutral-900 dark:via-neutral-900 dark:to-neutral-900 dark:ring-neutral-800">
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Settings</h1>
+          <p className="mt-2 max-w-2xl text-base text-slate-700 dark:text-slate-300">
+            Manage your profile, preferences, and account security.
+          </p>
+        </div>
 
-        <SettingsForm user={user} />
+        <div className="mt-6 rounded-2xl bg-white/95 p-5 shadow ring-1 ring-slate-100 dark:bg-neutral-900 dark:ring-neutral-800">
+          <SettingsForm user={user} />
+        </div>
       </section>
     </MainLayout>
   );

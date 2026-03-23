@@ -20,6 +20,15 @@ import {
 const DAILY_LIMIT = 5;
 const MAX_COMPLETION_TOKENS = 3800;
 
+function sanitizeReferenceLabel(label: string | undefined): string | undefined {
+  if (!label) return undefined;
+  return label
+    .replace(/[\r\n\t\f\v]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 120);
+}
+
 function isAdminPlus(role: string): boolean {
   return role === "admin" || role === "founder";
 }
@@ -122,12 +131,13 @@ export async function POST(request: NextRequest) {
 
   try {
     const inputPaperContext = (body.paperContext ?? "").slice(0, 2000);
+    const referenceLabel = sanitizeReferenceLabel(body.referenceLabel);
     const ragContext = await buildRagContext({
       query: topic,
       coursePrefs: body.coursePrefs,
       includeWebSearch: useWebSearch,
       referenceFileId: typeof body.referenceFileId === "string" ? body.referenceFileId.trim() : undefined,
-      referenceLabel: typeof body.referenceLabel === "string" ? body.referenceLabel.slice(0, 120) : undefined,
+      referenceLabel,
     }).catch(() => ({ contextText: "", sources: [] as string[] }));
     const mergedContext = [inputPaperContext, ragContext.contextText].filter(Boolean).join("\n\n");
     const contextSection = mergedContext
