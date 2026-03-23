@@ -3,10 +3,10 @@ import Link from "next/link";
 import { SYLLABUS_REGISTRY } from "@/data/syllabus-registry";
 
 const FEATURED_PAPERS = [
-  { code: "PH-101", title: "Mathematical Physics - I", tag: "DSC", credits: 6, units: 4, lab: false, mentors: ["JS", "AK", "MT", "PR"] },
-  { code: "PH-102", title: "Mechanics", tag: "DSC", credits: 6, units: 4, lab: true, mentors: ["LS", "RV", "KM"] },
-  { code: "MA-101", title: "Calculus", tag: "DSM", credits: 4, units: 3, lab: false, mentors: ["NB", "HS"] },
-  { code: "SK-101", title: "Digital Literacy", tag: "SEC", credits: 2, units: 2, lab: false, mentors: ["GC", "TP", "DL"] },
+  { code: "PH-101", title: "Mathematical Physics - I", tag: "DSC", credits: 6, units: 4, lab: false, mentors: ["Dr. J. Singh", "Prof. A. Karim", "Dr. M. Talukdar", "Ms. P. Roy"] },
+  { code: "PH-102", title: "Mechanics", tag: "DSC", credits: 6, units: 4, lab: true, mentors: ["Prof. L. Saikia", "Dr. R. Verma", "Ms. K. Mukherjee"] },
+  { code: "MA-101", title: "Calculus", tag: "DSM", credits: 4, units: 3, lab: false, mentors: ["Prof. N. Baruah", "Mr. H. Sharma"] },
+  { code: "SK-101", title: "Digital Literacy", tag: "SEC", credits: 2, units: 2, lab: false, mentors: ["Ms. G. Choudhury", "Mr. T. Paul", "Ms. D. Lahon"] },
 ];
 import {
   adminDatabases,
@@ -64,10 +64,8 @@ export default async function SyllabusPage() {
     // collection may not exist yet
   }
 
-  const papers = FEATURED_PAPERS;
-
-  const totalCredits = papers.reduce((sum, paper) => sum + paper.credits, 0);
-  const totalMentors = papers.reduce((sum, paper) => sum + paper.mentors.length, 0);
+  const totalCredits = FEATURED_PAPERS.reduce((sum, paper) => sum + paper.credits, 0);
+  const totalMentors = FEATURED_PAPERS.reduce((sum, paper) => sum + paper.mentors.length, 0);
 
   const formatTwoDigits = (value: number) => value.toString().padStart(2, "0");
   const paperExists = (code: string) =>
@@ -98,7 +96,7 @@ export default async function SyllabusPage() {
         </header>
 
         <div className="space-y-4">
-          {papers.map((paper) => (
+          {FEATURED_PAPERS.map((paper) => (
             <article
               key={paper.code}
               className="rounded-2xl border border-outline-variant/30 bg-surface p-5 shadow-lift"
@@ -159,7 +157,7 @@ export default async function SyllabusPage() {
           </div>
           <div className="rounded-2xl bg-surface-container p-4 shadow-lift border border-outline-variant/30">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-on-surface-variant">Total Papers</p>
-            <p className="mt-2 text-2xl font-black text-on-surface">{formatTwoDigits(papers.length)} Modules</p>
+            <p className="mt-2 text-2xl font-black text-on-surface">{formatTwoDigits(FEATURED_PAPERS.length)} Modules</p>
           </div>
           <div className="rounded-2xl bg-surface-container p-4 shadow-lift border border-outline-variant/30">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-on-surface-variant">Faculty Reach</p>
