@@ -1,9 +1,15 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import ModelSelect from "@/components/ModelSelect";
 import type { CoursePrefsPayload } from "@/lib/pdf-rag";
+import {
+  getNoteLengthOptions,
+  normalizeNoteLength,
+  type NoteLength,
+} from "@/lib/note-length";
+import type { Paper } from "@/types";
 
 interface GeneratedDoc {
   topic: string;
@@ -12,33 +18,43 @@ interface GeneratedDoc {
   model?: string;
   sources?: string[];
   pageLength?: number;
+  noteLength?: NoteLength;
 }
 
 interface AIContentClientProps {
   userRole: string;
 }
 
-export default function AIContentClient({ userRole }: AIContentClientProps) {
+interface NoteLengthOption {
+  value: NoteLength;
+  label: string;
+  description: string;
+}
+
+export default function AIContentClient({ userRole: _userRole }: AIContentClientProps) {
   const [topic, setTopic] = useState("");
+  const [noteLength, setNoteLength] = useState<NoteLength>("standard");
+  const [noteLengthOptions, setNoteLengthOptions] = useState<NoteLengthOption[]>(getNoteLengthOptions());
   const [generating, setGenerating] = useState(false);
   const [loadingStep, setLoadingStep] = useState("Preparing");
   const [documents, setDocuments] = useState<GeneratedDoc[]>([]);
   const [remaining, setRemaining] = useState<number | null>(null);
-  const [isFounder, setIsFounder] = useState(false);
-  const [isAdminPlus, setIsAdminPlus] = useState(false);
-  const [pageLength, setPageLength] = useState(1);
-  const [pageOptions, setPageOptions] = useState<number[]>([1]);
+  const [isFounder, setIsFounder] = useState(_userRole === "founder");
+  const [isAdminPlus, setIsAdminPlus] = useState(_userRole === "founder" || _userRole === "admin");
   const [model, setModel] = useState("");
   const [modelOptions, setModelOptions] = useState<Array<{ id: string; label: string; available: boolean }>>([]);
   const [useWebSearch, setUseWebSearch] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeDoc, setActiveDoc] = useState<GeneratedDoc | null>(null);
-  const printRef = useRef<HTMLDivElement>(null);
+  const [papers, setPapers] = useState<Paper[]>([]);
+  const [paperSearch, setPaperSearch] = useState("");
+  const [selectedPaperId, setSelectedPaperId] = useState<string>("");
+  const [paperLoading, setPaperLoading] = useState(false);
   const loadingIntervalRef = useRef<number | null>(null);
 
   const DAILY_LIMIT = 5;
 
-  // Fetch remaining quota on load
+  // Fetch remaining quota and defaults on load
   useEffect(() => {
     fetch("/api/ai/generate")
       .then((r) => r.json())
@@ -50,12 +66,44 @@ export default function AIContentClient({ userRole }: AIContentClientProps) {
         setModelOptions(fetchedModels);
         const availableModels = fetchedModels.filter((option: { available: boolean }) => option.available);
         setModel(availableModels[0]?.id ?? "");
-        const fetchedPages = Array.isArray(d.pageOptions) ? d.pageOptions.filter((v: unknown) => Number.isFinite(v)) : [1];
-        const normalizedPages = fetchedPages.length > 0 ? fetchedPages : [1];
-        setPageOptions(normalizedPages);
-        setPageLength((current) => (normalizedPages.includes(current) ? current : normalizedPages[0]));
+        if (Array.isArray(d.noteLengthOptions)) {
+          const normalized = d.noteLengthOptions
+            .map((opt: NoteLengthOption) => ({
+              value: normalizeNoteLength(opt.value),
+              label: opt.label || opt.value,
+              description: opt.description || "",
+            }))
+            .filter((opt: NoteLengthOption) => Boolean(opt.value));
+          if (normalized.length > 0) {
+            setNoteLengthOptions(normalized);
+            setNoteLength((current) => {
+              const currentNormalized = normalizeNoteLength(current);
+              const hasCurrent = normalized.some((opt: NoteLengthOption) => opt.value === currentNormalized);
+              const standardOption = normalized.find((opt: NoteLengthOption) => opt.value === "standard");
+              return hasCurrent ? currentNormalized : (standardOption?.value ?? normalized[0].value);
+            });
+          }
+        }
       })
       .catch(() => {});
+  }, []);
+
+  // Fetch archive papers for selection
+  useEffect(() => {
+    setPaperLoading(true);
+    fetch("/api/papers")
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setPapers(data as Paper[]);
+          const firstWithFile = (data as Paper[]).find((p) => p.file_id);
+          if (firstWithFile?.id) {
+            setSelectedPaperId(firstWithFile.id);
+          }
+        }
+      })
+      .catch(() => {})
+      .finally(() => setPaperLoading(false));
   }, []);
 
   useEffect(() => {
@@ -66,6 +114,34 @@ export default function AIContentClient({ userRole }: AIContentClientProps) {
       }
     };
   }, []);
+
+  const selectedPaper = useMemo(
+    () => papers.find((paper) => paper.id === selectedPaperId) ?? null,
+    [papers, selectedPaperId],
+  );
+
+  const filteredPapers = useMemo(() => {
+    const q = paperSearch.trim().toLowerCase();
+    const base = !q
+      ? papers
+      : papers.filter((p) => {
+          const haystack = `${p.title} ${p.course_code ?? ""} ${p.course_name} ${p.department}`.toLowerCase();
+          return haystack.includes(q);
+        });
+
+    const limited = base.slice(0, 40);
+
+    if (selectedPaper) {
+      const isInLimited = limited.some((p) => p.id === selectedPaper.id);
+      const isInBase = base.some((p) => p.id === selectedPaper.id);
+      if (!isInLimited && isInBase) {
+        const withSelected = [selectedPaper, ...limited.filter((p) => p.id !== selectedPaper.id)];
+        return withSelected.slice(0, 40);
+      }
+    }
+
+    return limited;
+  }, [paperSearch, papers, selectedPaper]);
 
   async function generate() {
     const trimmed = topic.trim();
@@ -95,10 +171,12 @@ export default function AIContentClient({ userRole }: AIContentClientProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           topic: trimmed,
-          pageLength,
+          noteLength,
           model,
           useWebSearch,
           coursePrefs: loadCoursePrefsFromStorage(),
+          referenceFileId: selectedPaper?.file_id,
+          referenceLabel: selectedPaper?.title,
         }),
       });
       const data = await res.json();
@@ -114,7 +192,8 @@ export default function AIContentClient({ userRole }: AIContentClientProps) {
         generatedAt: data.generatedAt,
         model: data.model,
         sources: Array.isArray(data.sources) ? data.sources : [],
-        pageLength: typeof data.pageLength === "number" ? data.pageLength : pageLength,
+        pageLength: typeof data.pageLength === "number" ? data.pageLength : undefined,
+        noteLength: normalizeNoteLength(data.noteLength ?? noteLength),
       };
 
       setDocuments((prev) => [doc, ...prev]);
@@ -122,9 +201,6 @@ export default function AIContentClient({ userRole }: AIContentClientProps) {
       setTopic("");
       if (data.remaining !== undefined && data.remaining !== null) {
         setRemaining(data.remaining);
-      }
-      if (Array.isArray(data.pageOptions)) {
-        setPageOptions(data.pageOptions);
       }
     } catch {
       setError("Network error. Please try again.");
@@ -174,7 +250,8 @@ export default function AIContentClient({ userRole }: AIContentClientProps) {
         body: JSON.stringify({
           content: activeDoc.content,
           topic: activeDoc.topic,
-          pageLength: activeDoc.pageLength || 5,
+          pageLength: activeDoc.pageLength || undefined,
+          noteLength: activeDoc.noteLength ?? noteLength,
         }),
       });
 
@@ -183,7 +260,6 @@ export default function AIContentClient({ userRole }: AIContentClientProps) {
         return;
       }
 
-      // Download the PDF
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -202,301 +278,312 @@ export default function AIContentClient({ userRole }: AIContentClientProps) {
   const canGenerate = isAdminPlus || (remaining !== null && remaining > 0);
 
   return (
-    <div style={{ maxWidth: 800, margin: "0 auto", padding: "1.5rem 1rem" }}>
-      {/* Header */}
-      <div style={{ marginBottom: "1.5rem" }}>
-        <h1
-          style={{
-            fontSize: "1.6rem",
-            fontWeight: 800,
-            color: "var(--color-text)",
-            margin: 0,
-            display: "flex",
-            alignItems: "center",
-            gap: "0.5rem",
-          }}
-        >
-          <span>✨</span> AI Generated Content
-        </h1>
-        <p style={{ color: "var(--color-text-muted)", marginTop: "0.35rem", fontSize: "0.9rem" }}>
-          Generate AI-powered detailed exam notes with archive-first RAG + optional live web updates.
-        </p>
-      </div>
-
-      {/* Quota badge */}
-      <div
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: "0.4rem",
-          padding: "0.35rem 0.75rem",
-          borderRadius: 9999,
-          background: isFounder
-            ? "linear-gradient(135deg, #7c3aed, #4f46e5)"
-            : remaining === 0
-            ? "#fce8eb"
-            : "var(--color-accent-soft)",
-          color: isFounder ? "#fff" : remaining === 0 ? "var(--brand-crimson)" : "var(--color-text)",
-          fontSize: "0.8rem",
-          fontWeight: 600,
-          marginBottom: "1.25rem",
-        }}
-      >
-        {isFounder ? (
-          <>👑 Founder – Unlimited generations</>
-        ) : remaining === null ? (
-          <>⏳ Loading quota…</>
-        ) : (
-          <>
-            📄 {remaining}/{DAILY_LIMIT} generations remaining today
-          </>
-        )}
-      </div>
-
-      {/* Generator card */}
-      <div
-        style={{
-          background: "var(--color-surface)",
-          border: "1px solid var(--color-border)",
-          borderRadius: "var(--radius-lg)",
-          padding: "1.25rem",
-          marginBottom: "1.5rem",
-        }}
-      >
-        <label
-          htmlFor="ai-topic"
-          style={{ fontWeight: 600, fontSize: "0.875rem", display: "block", marginBottom: "0.5rem" }}
-        >
-          What topic should ExamBot generate detailed notes for?
-        </label>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: "0.5rem", marginBottom: "0.6rem" }}>
-          <label style={{ fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
-            Length (pages)
-            <select
-              value={String(pageLength)}
-              onChange={(e) => setPageLength(Number(e.target.value))}
-              disabled={generating || !canGenerate}
-              className="input-field"
-              style={{ marginTop: 4 }}
-            >
-              {pageOptions.map((p) => (
-                <option key={p} value={String(p)}>
-                  {p} page{p > 1 ? "s" : ""}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
-            <label style={{ display: "block", marginBottom: 4 }}>Model</label>
-            <ModelSelect
-              options={modelOptions}
-              value={model}
-              onChange={setModel}
-              disabled={generating || !canGenerate}
-            />
+    <div className="min-h-screen bg-gradient-to-b from-indigo-50 via-white to-slate-50 px-4 py-8 dark:from-neutral-900 dark:via-neutral-900 dark:to-neutral-900">
+      <div className="mx-auto flex max-w-6xl flex-col gap-6">
+        <header className="flex flex-col gap-3 rounded-2xl bg-white/95 p-6 shadow-lg ring-1 ring-indigo-100/60 dark:bg-neutral-900/80 dark:ring-neutral-800">
+          <div className="flex items-center gap-2 text-slate-900 dark:text-white">
+            <span className="text-2xl">📘</span>
+            <h1 className="text-3xl font-bold">AI Notes Generator</h1>
           </div>
-          <label style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", display: "flex", alignItems: "center", gap: 6, marginTop: 18 }}>
-            <input
-              type="checkbox"
-              checked={useWebSearch}
-              onChange={(e) => setUseWebSearch(e.target.checked)}
-              disabled={generating || !canGenerate}
-            />
-            Include live web search
-          </label>
-        </div>
-        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-          <input
-            id="ai-topic"
-            type="text"
-            value={topic}
-            onChange={(e) => setTopic(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && canGenerate && generate()}
-            placeholder="e.g. PHYDSC101T electrostatics derivation set, Indian Constitution federalism PYQ trend…"
-            maxLength={500}
-            disabled={generating || !canGenerate}
-            className="input-field"
-            style={{ flex: 1, minWidth: 200 }}
-          />
-          <button
-            onClick={generate}
-             disabled={generating || !topic.trim() || !canGenerate || !model}
-             className="btn-primary"
-             style={{ whiteSpace: "nowrap" }}
-           >
-             {generating ? `Generating… (${loadingStep})` : "✨ Generate Notes"}
-           </button>
-         </div>
-
-        {!canGenerate && !isAdminPlus && (
-          <p style={{ marginTop: "0.6rem", fontSize: "0.8rem", color: "var(--brand-crimson)" }}>
-            Daily limit reached. Come back tomorrow for {DAILY_LIMIT} more generations.
+          <p className="max-w-3xl text-base text-slate-700 dark:text-slate-200">
+            Transform your exam papers and textbooks into concise, high-yield study notes using archive context and live updates.
           </p>
-        )}
+          <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
+            <span className="rounded-full bg-indigo-100 px-3 py-1 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-100">
+              {isFounder
+                ? "Founder • Unlimited generations"
+                : remaining === null
+                ? "Loading quota…"
+                : `${remaining}/${DAILY_LIMIT} generations left today`}
+            </span>
+            {useWebSearch && (
+              <span className="rounded-full bg-emerald-100 px-3 py-1 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-100">
+                Web updates on
+              </span>
+            )}
+          </div>
+        </header>
 
-        {error && (
-          <p style={{ marginTop: "0.6rem", fontSize: "0.8rem", color: "var(--brand-crimson)" }}>
-            ⚠ {error}
-          </p>
-        )}
+        <div className="grid gap-6 lg:grid-cols-[1.45fr_0.9fr]">
+          <div className="space-y-5">
+            {/* PDF selection */}
+            <div className="card ring-1 ring-slate-100/80 dark:ring-neutral-800">
+              <div className="flex flex-col gap-3 p-5">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+                  Reference PDF
+                </p>
+                <div className="rounded-2xl border border-dashed border-indigo-200 bg-indigo-50/70 p-4 dark:border-indigo-800 dark:bg-indigo-950/30">
+                  <div className="flex flex-col items-center gap-3 text-center">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white shadow-md ring-1 ring-indigo-100 dark:bg-neutral-900 dark:ring-indigo-800">
+                      <span className="text-2xl text-indigo-600">📄</span>
+                    </div>
+                    <div>
+                      <p className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                        {selectedPaper ? selectedPaper.title : "Drop your PDF here"}
+                      </p>
+                      <p className="text-xs text-slate-600 dark:text-slate-300">
+                        {selectedPaper
+                          ? `${selectedPaper.course_name} • ${selectedPaper.year ?? "Year N/A"}`
+                          : "Use archive PDFs (max 50MB) from the website bucket"}
+                      </p>
+                    </div>
+                    <div className="grid w-full gap-2 sm:grid-cols-[1fr,auto] sm:items-center">
+                      <input
+                        className="input-field w-full"
+                        placeholder="Search archive by title, course, department..."
+                        value={paperSearch}
+                        onChange={(e) => setPaperSearch(e.target.value)}
+                        disabled={paperLoading}
+                      />
+                      <select
+                        className="input-field w-full sm:w-52"
+                        value={selectedPaperId}
+                        onChange={(e) => setSelectedPaperId(e.target.value)}
+                        disabled={paperLoading}
+                      >
+                        {paperLoading && <option>Loading PDFs…</option>}
+                        {!paperLoading && filteredPapers.length === 0 && <option>No matching PDFs</option>}
+                        {filteredPapers.map((paper) => (
+                          <option key={paper.id} value={paper.id} disabled={!paper.file_id}>
+                            {paper.title} {paper.course_code ? `• ${paper.course_code}` : ""} {paper.year ? `(${paper.year})` : ""}
+                            {!paper.file_id ? " (unavailable)" : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    {!selectedPaper?.file_id && (
+                      <p className="text-xs text-amber-700 dark:text-amber-200">
+                        Pick a PDF with a stored file ID to prioritize it in context.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
 
-        {/* Quick topic suggestions */}
-        <div style={{ marginTop: "0.75rem", display: "flex", flexWrap: "wrap", gap: "0.4rem" }}>
-          {["Photosynthesis", "Ohm's Law", "Federalism", "Organic Chemistry Basics", "Newton's Laws"].map(
-            (s) => (
-              <button
-                key={s}
-                onClick={() => setTopic(s)}
-                disabled={generating || !canGenerate}
-                style={{
-                  padding: "0.2rem 0.6rem",
-                  fontSize: "0.75rem",
-                  borderRadius: 9999,
-                  border: "1px solid var(--color-border)",
-                  background: "transparent",
-                  cursor: generating || !canGenerate ? "not-allowed" : "pointer",
-                  color: "var(--color-text-muted)",
-                  transition: "border-color 0.15s",
-                }}
-              >
-                {s}
-              </button>
-            ),
-          )}
-        </div>
-      </div>
+            {/* Generator */}
+            <div className="card ring-1 ring-slate-100/80 dark:ring-neutral-800">
+              <div className="flex flex-col gap-4 p-5">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
+                  Prompt
+                </p>
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                    What should we generate notes for?
+                  </label>
+                  <input
+                    id="ai-topic"
+                    type="text"
+                    value={topic}
+                    onChange={(e) => setTopic(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && canGenerate && generate()}
+                    placeholder="e.g. Derive lens-maker formula with ray diagram steps"
+                    maxLength={500}
+                    disabled={generating || !canGenerate}
+                    className="input-field"
+                  />
+                  <div className="flex flex-wrap gap-2 text-xs text-slate-500">
+                    {["Photosynthesis summary", "Ohm's Law derivation", "Federalism case study", "Organic mechanisms", "Data structures overview"].map(
+                      (suggestion) => (
+                        <button
+                          key={suggestion}
+                          type="button"
+                          onClick={() => setTopic(suggestion)}
+                          disabled={generating || !canGenerate}
+                          className="rounded-full border border-slate-200 px-3 py-1 transition hover:border-indigo-400 hover:text-indigo-700 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:hover:border-indigo-500 dark:hover:text-indigo-200"
+                        >
+                          {suggestion}
+                        </button>
+                      ),
+                    )}
+                  </div>
+                </div>
 
-      {/* Generated documents list + viewer */}
-      {documents.length > 0 && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "1rem" }}>
-          {/* Viewer */}
-          {activeDoc && (
-            <div
-              style={{
-                background: "var(--color-surface)",
-                border: "1px solid var(--color-border)",
-                borderRadius: "var(--radius-lg)",
-                padding: "1.25rem",
-                position: "relative",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "flex-start",
-                  marginBottom: "1rem",
-                  gap: "0.5rem",
-                  flexWrap: "wrap",
-                }}
-              >
-                <div>
-                  <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700 }}>
-                    {activeDoc.topic}
-                  </h2>
-                  <p style={{ margin: 0, fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
-                    Generated {new Date(activeDoc.generatedAt).toLocaleString()}
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
+                      Note length
+                    </p>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                      {noteLengthOptions.map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setNoteLength(opt.value)}
+                          className={`flex flex-col rounded-xl border px-3 py-3 text-left shadow-sm transition ${
+                            noteLength === opt.value
+                              ? "border-indigo-400 bg-indigo-50 text-indigo-900 dark:border-indigo-500 dark:bg-indigo-950 dark:text-indigo-50"
+                              : "border-slate-200 bg-white text-slate-800 hover:border-indigo-300 dark:border-slate-800 dark:bg-neutral-900 dark:text-slate-100"
+                          }`}
+                          disabled={generating}
+                        >
+                          <span className="text-sm font-semibold">{opt.label}</span>
+                          <span className="text-xs text-slate-500 dark:text-slate-400">{opt.description}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
+                      AI Analysis Model
+                    </p>
+                    <ModelSelect
+                      options={modelOptions}
+                      value={model}
+                      onChange={setModel}
+                      disabled={generating || !canGenerate}
+                    />
+                    <label className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={useWebSearch}
+                        onChange={(e) => setUseWebSearch(e.target.checked)}
+                        disabled={generating}
+                      />
+                      Include live web updates
+                    </label>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div className="text-xs text-slate-600 dark:text-slate-300">
+                    {selectedPaper?.title ? (
+                      <>
+                        Using <strong>{selectedPaper.title}</strong> as the primary PDF context.
+                      </>
+                    ) : (
+                      "Select a PDF above to prioritize its content in your notes."
+                    )}
+                  </div>
+                  <button
+                    onClick={generate}
+                    disabled={generating || !topic.trim() || !canGenerate || !model}
+                    className="btn-primary inline-flex items-center gap-2 rounded-xl px-5 py-2 text-sm shadow-md disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {generating ? `Generating… (${loadingStep})` : "✨ Generate Notes"}
+                  </button>
+                </div>
+
+                {error && (
+                  <p className="text-sm text-rose-600 dark:text-rose-300">
+                    ⚠ {error}
+                  </p>
+                )}
+                {!canGenerate && !isAdminPlus && (
+                  <p className="text-sm text-rose-600 dark:text-rose-300">
+                    Daily limit reached. Come back tomorrow for {DAILY_LIMIT} more generations.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Export */}
+            {activeDoc && (
+              <div className="card ring-1 ring-slate-100/80 dark:ring-neutral-800">
+                <div className="flex flex-col gap-4 p-5">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
+                    Export
+                  </p>
+                  <div className="flex flex-col gap-2">
+                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                      {activeDoc.topic}
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Generated {new Date(activeDoc.generatedAt).toLocaleString()}
+                      {activeDoc.noteLength ? ` • ${activeDoc.noteLength} length` : ""}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    <button onClick={handlePrint} className="btn inline-flex items-center gap-2">
+                      📄 Export as PDF
+                    </button>
+                    {activeDoc.sources && activeDoc.sources.length > 0 && (
+                      <div className="flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600 dark:bg-neutral-800 dark:text-slate-300">
+                        Sources: {activeDoc.sources.slice(0, 3).join(", ")}
+                      </div>
+                    )}
+                  </div>
+                  <div
+                    className="max-h-[520px] overflow-auto rounded-xl border border-slate-100 bg-slate-50/60 p-4 text-sm leading-7 text-slate-800 shadow-inner dark:border-neutral-800 dark:bg-neutral-900 dark:text-slate-100"
+                    style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
+                  >
+                    {activeDoc.content}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Right column */}
+          <div className="space-y-5">
+            <div className="card ring-1 ring-slate-100/80 dark:ring-neutral-800">
+              <div className="flex flex-col gap-3 p-5">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
+                  Early Access
+                </p>
+                <p className="text-sm text-slate-600 dark:text-slate-200">
+                  Pro users can extract diagrams and equations with 99% accuracy using our updated vision engine.
+                </p>
+                <div className="flex items-center gap-2 text-xs text-indigo-700 dark:text-indigo-200">
+                  <span className="rounded-full bg-indigo-100 px-2 py-1 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-100">
+                    Vision Beta
+                  </span>
+                  <Link href="/browse" className="text-indigo-600 underline dark:text-indigo-200">
+                    Browse archive
+                  </Link>
+                </div>
+              </div>
+            </div>
+
+            <div className="card ring-1 ring-slate-100/80 dark:ring-neutral-800">
+              <div className="flex gap-3 p-5">
+                <div className="text-xl">💡</div>
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Quick Tip</p>
+                  <p className="text-sm text-slate-600 dark:text-slate-300">
+                    For best results, pick a single chapter or exam section PDF instead of a full 500-page textbook.
+                    Ask focused questions like “summarize circuits unit with key derivations”.
                   </p>
                 </div>
-                <button
-                  onClick={handlePrint}
-                  className="btn"
-                  style={{ fontSize: "0.8rem", whiteSpace: "nowrap" }}
-                >
-                  📥 Download PDF
-                </button>
-              </div>
-
-              <div
-                ref={printRef}
-                style={{
-                  fontSize: "0.875rem",
-                  lineHeight: 1.7,
-                  color: "var(--color-text)",
-                  whiteSpace: "pre-wrap",
-                  wordBreak: "break-word",
-                }}
-              >
-                {activeDoc.content}
               </div>
             </div>
-          )}
 
-          {/* Document history (if more than 1) */}
-          {documents.length > 1 && (
-            <div>
-              <p style={{ fontWeight: 600, fontSize: "0.8rem", color: "var(--color-text-muted)", marginBottom: "0.5rem" }}>
-                Session history
-              </p>
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
-                {documents.map((doc, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setActiveDoc(doc)}
-                    style={{
-                      textAlign: "left",
-                      padding: "0.5rem 0.75rem",
-                      borderRadius: "var(--radius-sm)",
-                      border: `1px solid ${activeDoc === doc ? "var(--brand-crimson)" : "var(--color-border)"}`,
-                      background: activeDoc === doc ? "var(--color-accent-soft)" : "var(--color-surface)",
-                      cursor: "pointer",
-                      fontSize: "0.8rem",
-                      color: "var(--color-text)",
-                    }}
-                  >
-                    <strong>{doc.topic}</strong>
-                    <span style={{ color: "var(--color-text-muted)", marginLeft: "0.5rem" }}>
-                      {new Date(doc.generatedAt).toLocaleTimeString()}
-                    </span>
-                  </button>
-                ))}
+            <div className="card ring-1 ring-slate-100/80 dark:ring-neutral-800">
+              <div className="flex flex-col gap-4 p-5">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Recently Generated</p>
+                  <span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600 dark:bg-neutral-800 dark:text-slate-300">
+                    {documents.length} docs
+                  </span>
+                </div>
+                {documents.length === 0 && (
+                  <p className="text-sm text-slate-500 dark:text-slate-300">
+                    No documents yet. Generate your first notes above to see them here.
+                  </p>
+                )}
+                <div className="space-y-3">
+                  {documents.map((doc, idx) => (
+                    <button
+                      key={`${doc.topic}-${idx}`}
+                      onClick={() => setActiveDoc(doc)}
+                      className={`w-full rounded-xl border px-3 py-3 text-left transition ${
+                        activeDoc === doc
+                          ? "border-indigo-400 bg-indigo-50 text-indigo-900 shadow-sm dark:border-indigo-500 dark:bg-indigo-950 dark:text-indigo-100"
+                          : "border-slate-200 bg-white hover:border-indigo-300 dark:border-slate-800 dark:bg-neutral-900 dark:hover:border-indigo-600"
+                      }`}
+                    >
+                      <p className="text-sm font-semibold">{doc.topic}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {new Date(doc.generatedAt).toLocaleString()}
+                      </p>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
-          )}
+          </div>
         </div>
-      )}
-
-      {/* Empty state */}
-      {documents.length === 0 && !generating && (
-        <div
-          style={{
-            textAlign: "center",
-            padding: "3rem 1rem",
-            color: "var(--color-text-muted)",
-          }}
-        >
-         <div style={{ fontSize: 48, marginBottom: "0.75rem" }}>✨</div>
-          <p style={{ fontWeight: 600 }}>No documents generated yet</p>
-          <p style={{ fontSize: "0.85rem" }}>
-             Enter a topic above and click <em>Generate Notes</em> to create your first AI study document.
-           </p>
-         </div>
-       )}
-
-      {/* Info box */}
-      <div
-        style={{
-          marginTop: "2rem",
-          padding: "1rem",
-          background: "var(--color-accent-soft)",
-          borderRadius: "var(--radius-md)",
-          fontSize: "0.8rem",
-          color: "var(--color-text-muted)",
-          lineHeight: 1.6,
-        }}
-      >
-         <strong style={{ color: "var(--color-text)" }}>ℹ How it works:</strong>{" "}
-         ExamBot prioritizes your archive syllabus/paper context (including My Course preference when available),
-         optionally adds live web updates, and generates detailed notes with revision-ready structure.
-         Use the <em>Download PDF</em> button to save the document directly. Generated content is for study
-         reference only — always verify with official sources.{" "}
-         {userRole !== "founder" && userRole !== "admin" && (
-           <>
-             You have a daily limit of <strong>{DAILY_LIMIT} documents</strong>. Need more? Browse
-             real papers at <Link href="/browse" style={{ color: "var(--brand-crimson)" }}>/browse</Link>.
-           </>
-         )}
-       </div>
+      </div>
     </div>
   );
 }

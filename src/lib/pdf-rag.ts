@@ -233,9 +233,60 @@ export async function buildRagContext(args: {
   query: string;
   coursePrefs?: CoursePrefsPayload;
   includeWebSearch?: boolean;
+  referenceFileId?: string;
+  referenceLabel?: string;
 }): Promise<RagContext> {
   const queryEmbedding = await embedText(args.query);
   const docs = await getEmbeddingDocsBySubjects(args.coursePrefs);
+
+  const safeLabel =
+    typeof args.referenceLabel === "string"
+      ? sanitizeUntrustedContext(
+          args.referenceLabel.replace(/[\r\n\t\f\v]/g, " ").replace(/\s+/g, " ").trim().slice(0, 120),
+        )
+      : undefined;
+
+  let referenceSection = "";
+  if (args.referenceFileId) {
+    try {
+      // Prefer already ingested chunks for the reference file to avoid re-downloading large PDFs.
+      const matchingDocs = docs.filter(
+        (doc) => String((doc as Record<string, unknown>).file_id ?? "") === args.referenceFileId,
+      );
+
+      let referenceChunksText = "";
+
+      if (matchingDocs.length > 0) {
+        const sortedMatchingDocs = matchingDocs.slice().sort((a, b) => {
+          const aIdx = typeof (a as Record<string, unknown>).chunk_index === "number" ? ((a as Record<string, unknown>).chunk_index as number) : 0;
+          const bIdx = typeof (b as Record<string, unknown>).chunk_index === "number" ? ((b as Record<string, unknown>).chunk_index as number) : 0;
+          return aIdx - bIdx;
+        });
+
+        const firstChunks = sortedMatchingDocs
+          .map((doc) => {
+            const textChunk = (doc as Record<string, unknown>).text_chunk;
+            return typeof textChunk === "string" ? textChunk : "";
+          })
+          .filter((chunk) => chunk)
+          .slice(0, 2);
+
+        referenceChunksText = firstChunks.join("\n\n");
+      }
+
+      if (!referenceChunksText) {
+        const referenceText = await extractPdfText(BUCKET_ID, args.referenceFileId);
+        referenceChunksText = chunkText(referenceText, 1200, 150).slice(0, 2).join("\n\n");
+      }
+
+      if (referenceChunksText) {
+        const label = safeLabel || "Selected PDF";
+        referenceSection = `Selected PDF (${label}):\n${sanitizeUntrustedContext(referenceChunksText.slice(0, 2000))}`;
+      }
+    } catch (e) {
+      console.warn("[RAG] Failed to include reference PDF:", e);
+    }
+  }
 
   const ranked = docs
     .map((doc) => {
@@ -262,8 +313,9 @@ export async function buildRagContext(args: {
   const webResults = args.includeWebSearch ? await runWebSearch(args.query, 5) : [];
   const webSection = webResults.length ? `Web updates:\n${formatSearchResults(webResults)}` : "";
 
-  const contextText = [ragSection, webSection].filter(Boolean).join("\n\n");
+  const contextText = [referenceSection, ragSection, webSection].filter(Boolean).join("\n\n");
   const sources = [
+    ...(referenceSection ? [safeLabel || "Selected PDF"] : []),
     ...ranked
       .map((entry) => String(entry.doc.source_label ?? entry.doc.file_id ?? "archive"))
       .filter(Boolean),

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { adminDatabases, COLLECTION, DATABASE_ID, Query, ID } from "@/lib/appwrite";
 import { getServerUser } from "@/lib/auth";
 import { generatePDF, markdownToHTML } from "@/lib/pdf-generator";
+import { getNoteLengthTargets, normalizeNoteLength, type NoteLength } from "@/lib/note-length";
 
 const MAX_PAGES = 5;
 const PDF_DAILY_LIMIT = 5;
@@ -61,6 +62,7 @@ export async function POST(request: NextRequest) {
     content?: string;
     topic?: string;
     pageLength?: number;
+    noteLength?: NoteLength;
   };
 
   try {
@@ -73,7 +75,8 @@ export async function POST(request: NextRequest) {
   const rawTopic = typeof body.topic === "string" ? body.topic : "";
   const content = rawContent.trim();
   const topic = (rawTopic || "Document").trim();
-  const pageLength = normalizePageLength(body.pageLength);
+  const noteLength = normalizeNoteLength(body.noteLength);
+  const pageLength = normalizePageLength(body.pageLength ?? getNoteLengthTargets(noteLength).maxPages);
 
   if (!content) {
     return NextResponse.json({ error: "Content is required." }, { status: 400 });
