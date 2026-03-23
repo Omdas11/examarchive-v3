@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SYLLABUS_REGISTRY } from "@/data/syllabus-registry";
-import { FEATURED_PAPERS, PROGRAMME_LABEL, SEMESTER_LABEL } from "@/data/featured-curriculum";
-const totalCredits = FEATURED_PAPERS.reduce((sum, paper) => sum + paper.credits, 0);
-const totalMentors = FEATURED_PAPERS.reduce((sum, paper) => sum + paper.mentors.length, 0);
-const formatTwoDigits = (value: number) => value.toString().padStart(2, "0");
+import {
+  FEATURED_PAPERS,
+  PROGRAMME_LABEL,
+  SEMESTER_LABEL,
+  TOTAL_CREDITS,
+  TOTAL_MENTORS,
+  formatTwoDigits,
+} from "@/data/featured-curriculum";
 const paperExists = (code: string) =>
   SYLLABUS_REGISTRY.some((entry) => entry.paper_code.toUpperCase() === code.toUpperCase());
 import {
@@ -145,7 +149,7 @@ export default async function SyllabusPage() {
         <div className="grid gap-4 md:grid-cols-3">
           <div className="rounded-2xl bg-surface-container p-4 shadow-lift border border-outline-variant/30">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-on-surface-variant">Total Semester Credits</p>
-            <p className="mt-2 text-4xl font-black text-on-surface">{totalCredits}</p>
+            <p className="mt-2 text-4xl font-black text-on-surface">{TOTAL_CREDITS}</p>
           </div>
           <div className="rounded-2xl bg-surface-container p-4 shadow-lift border border-outline-variant/30">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-on-surface-variant">Total Papers</p>
@@ -153,7 +157,7 @@ export default async function SyllabusPage() {
           </div>
           <div className="rounded-2xl bg-surface-container p-4 shadow-lift border border-outline-variant/30">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-on-surface-variant">Faculty Reach</p>
-            <p className="mt-2 text-2xl font-black text-on-surface">+{totalMentors} Mentors</p>
+            <p className="mt-2 text-2xl font-black text-on-surface">+{TOTAL_MENTORS} Mentors</p>
           </div>
         </div>
 

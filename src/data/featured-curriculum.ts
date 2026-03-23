@@ -7,3 +7,8 @@ export const FEATURED_PAPERS = [
   { code: "MA-101", title: "Calculus", tag: "DSM", credits: 4, units: 3, lab: false, mentors: ["Prof. N. Baruah", "Mr. H. Sharma"] },
   { code: "SK-101", title: "Digital Literacy", tag: "SEC", credits: 2, units: 2, lab: false, mentors: ["Ms. G. Choudhury", "Mr. T. Paul", "Ms. D. Lahon"] },
 ] as const;
+
+export const TOTAL_CREDITS = FEATURED_PAPERS.reduce((sum, paper) => sum + paper.credits, 0);
+export const TOTAL_MENTORS = FEATURED_PAPERS.reduce((sum, paper) => sum + paper.mentors.length, 0);
+
+export const formatTwoDigits = (value: number) => value.toString().padStart(2, "0");

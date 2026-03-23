@@ -279,7 +279,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
 
   return (
     <div className="relative min-h-screen bg-surface px-4 py-8 text-on-surface">
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-primary/5 via-surface to-surface" aria-hidden="true" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-primary/10 via-primary/0 to-transparent" aria-hidden="true" />
       <div className="relative mx-auto flex max-w-6xl flex-col gap-6">
         <header className="flex flex-col gap-3 rounded-2xl bg-surface-container p-6 shadow-lift border border-outline-variant/30">
           <div className="flex items-center gap-2 text-on-surface">
