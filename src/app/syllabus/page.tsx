@@ -108,7 +108,7 @@ export default async function SyllabusPage() {
             {FEATURED_PAPERS.map((paper) => {
               const mentorInitials = paper.mentors.map(getMentorInitials).filter(Boolean).slice(0, 2);
               const registryCode = paper.registryCode;
-              const hasRegistry = paperExists(registryCode);
+              const hasRegistry = registryCode ? paperExists(registryCode) : false;
               return (
                 <article
                   key={paper.code}
@@ -151,9 +151,9 @@ export default async function SyllabusPage() {
                   </div>
 
                   <div className="mt-5 flex items-center justify-between gap-3 border-t border-outline-variant/15 pt-4 text-sm">
-                    {hasRegistry ? (
+                    {hasRegistry && registryCode ? (
                       <Link
-                        href={`/syllabus/paper/${registryCode!}`}
+                        href={`/syllabus/paper/${registryCode}`}
                         className="flex items-center gap-1 font-semibold text-primary hover:underline"
                       >
                         View Syllabus
@@ -209,9 +209,9 @@ export default async function SyllabusPage() {
               <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-on-surface-variant">Faculty Reach</p>
               <div className="mt-3 flex items-center gap-3">
                 <div className="flex -space-x-2">
-                  {mentorDotTones.map((tone, index) => (
+                  {mentorDotTones.map((tone) => (
                     <span
-                      key={`mentor-dot-${index}`}
+                      key={tone}
                       className={cn("h-6 w-6 rounded-full border border-surface", tone)}
                     />
                   ))}
