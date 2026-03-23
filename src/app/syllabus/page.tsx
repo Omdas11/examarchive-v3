@@ -2,12 +2,20 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SYLLABUS_REGISTRY } from "@/data/syllabus-registry";
 
+const PROGRAMME_LABEL = "B.Sc. Physics (Hons)";
+const SEMESTER_LABEL = "Semester I";
+
 const FEATURED_PAPERS = [
   { code: "PH-101", title: "Mathematical Physics - I", tag: "DSC", credits: 6, units: 4, lab: false, mentors: ["Dr. J. Singh", "Prof. A. Karim", "Dr. M. Talukdar", "Ms. P. Roy"] },
   { code: "PH-102", title: "Mechanics", tag: "DSC", credits: 6, units: 4, lab: true, mentors: ["Prof. L. Saikia", "Dr. R. Verma", "Ms. K. Mukherjee"] },
   { code: "MA-101", title: "Calculus", tag: "DSM", credits: 4, units: 3, lab: false, mentors: ["Prof. N. Baruah", "Mr. H. Sharma"] },
   { code: "SK-101", title: "Digital Literacy", tag: "SEC", credits: 2, units: 2, lab: false, mentors: ["Ms. G. Choudhury", "Mr. T. Paul", "Ms. D. Lahon"] },
 ];
+const totalCredits = FEATURED_PAPERS.reduce((sum, paper) => sum + paper.credits, 0);
+const totalMentors = FEATURED_PAPERS.reduce((sum, paper) => sum + paper.mentors.length, 0);
+const formatTwoDigits = (value: number) => value.toString().padStart(2, "0");
+const paperExists = (code: string) =>
+  SYLLABUS_REGISTRY.some((entry) => entry.paper_code.toUpperCase() === code.toUpperCase());
 import {
   adminDatabases,
   DATABASE_ID,
@@ -64,13 +72,6 @@ export default async function SyllabusPage() {
     // collection may not exist yet
   }
 
-  const totalCredits = FEATURED_PAPERS.reduce((sum, paper) => sum + paper.credits, 0);
-  const totalMentors = FEATURED_PAPERS.reduce((sum, paper) => sum + paper.mentors.length, 0);
-
-  const formatTwoDigits = (value: number) => value.toString().padStart(2, "0");
-  const paperExists = (code: string) =>
-    SYLLABUS_REGISTRY.some((entry) => entry.paper_code.toUpperCase() === code.toUpperCase());
-
   return (
     <MainLayout
       title="Syllabus"
@@ -86,8 +87,8 @@ export default async function SyllabusPage() {
       <div className="space-y-8">
         <header className="rounded-2xl bg-surface-container p-6 shadow-lift border border-outline-variant/30">
           <div className="flex items-center gap-3 text-xs font-semibold text-on-surface-variant">
-            <span className="rounded-full bg-surface px-3 py-1 border border-outline-variant/30">B.Sc. Physics (Hons)</span>
-            <span className="rounded-full bg-surface px-3 py-1 border border-outline-variant/30">Semester I</span>
+            <span className="rounded-full bg-surface px-3 py-1 border border-outline-variant/30">{PROGRAMME_LABEL}</span>
+            <span className="rounded-full bg-surface px-3 py-1 border border-outline-variant/30">{SEMESTER_LABEL}</span>
           </div>
           <h1 className="mt-3 text-3xl font-extrabold text-on-surface">Curriculum Structure</h1>
           <p className="mt-3 max-w-2xl text-base text-on-surface-variant leading-relaxed">
