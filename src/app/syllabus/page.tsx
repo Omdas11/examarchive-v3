@@ -56,6 +56,18 @@ export default async function SyllabusPage() {
     // collection may not exist yet
   }
 
+  const papers = [
+    { code: "PH-101", title: "Mathematical Physics - I", tag: "DSC", credits: 6, units: 4, lab: false, mentors: ["JS", "AK", "MT", "PR"] },
+    { code: "PH-102", title: "Mechanics", tag: "DSC", credits: 6, units: 4, lab: true, mentors: ["LS", "RV", "KM"] },
+    { code: "MA-101", title: "Calculus", tag: "DSM", credits: 4, units: 3, lab: false, mentors: ["NB", "HS"] },
+    { code: "SK-101", title: "Digital Literacy", tag: "SEC", credits: 2, units: 2, lab: false, mentors: ["GC", "TP", "DL"] },
+  ];
+
+  const totalCredits = papers.reduce((sum, paper) => sum + paper.credits, 0);
+  const totalMentors = papers.reduce((sum, paper) => sum + paper.mentors.length, 0);
+
+  const formatTwoDigits = (value: number) => value.toString().padStart(2, "0");
+
   return (
     <MainLayout
       title="Syllabus"
@@ -81,12 +93,7 @@ export default async function SyllabusPage() {
         </header>
 
         <div className="space-y-4">
-          {[
-            { code: "PH-101", title: "Mathematical Physics - I", tag: "DSC", credits: 6, units: 4, lab: false, mentors: ["JS", "AK"] },
-            { code: "PH-102", title: "Mechanics", tag: "DSC", credits: 6, units: 4, lab: true, mentors: [] },
-            { code: "MA-101", title: "Calculus", tag: "DSM", credits: 4, units: 3, lab: false, mentors: [] },
-            { code: "SK-101", title: "Digital Literacy", tag: "SEC", credits: 2, units: 2, lab: false, mentors: [] },
-          ].map((paper) => (
+          {papers.map((paper) => (
             <article
               key={paper.code}
               className="rounded-2xl border border-outline-variant/30 bg-surface p-5 shadow-lift"
@@ -105,14 +112,14 @@ export default async function SyllabusPage() {
                   <span className="material-symbols-outlined text-base">star</span>
                   <div>
                     <p className="text-[10px] uppercase tracking-wide text-on-surface-variant">Credits</p>
-                    <p className="text-base text-on-surface">{paper.credits.toString().padStart(2, "0")}</p>
+                    <p className="text-base text-on-surface">{formatTwoDigits(paper.credits)}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 rounded-xl bg-surface-container px-3 py-2 text-sm font-semibold text-primary">
                   <span className="material-symbols-outlined text-base">developer_board</span>
                   <div>
                     <p className="text-[10px] uppercase tracking-wide text-on-surface-variant">Units</p>
-                    <p className="text-base text-on-surface">{paper.units.toString().padStart(2, "0")}</p>
+                    <p className="text-base text-on-surface">{formatTwoDigits(paper.units)}</p>
                   </div>
                 </div>
                 {paper.mentors.length > 0 && (
@@ -139,15 +146,15 @@ export default async function SyllabusPage() {
         <div className="grid gap-4 md:grid-cols-3">
           <div className="rounded-2xl bg-surface-container p-4 shadow-lift border border-outline-variant/30">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-on-surface-variant">Total Semester Credits</p>
-            <p className="mt-2 text-4xl font-black text-on-surface">18</p>
+            <p className="mt-2 text-4xl font-black text-on-surface">{totalCredits}</p>
           </div>
           <div className="rounded-2xl bg-surface-container p-4 shadow-lift border border-outline-variant/30">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-on-surface-variant">Total Papers</p>
-            <p className="mt-2 text-2xl font-black text-on-surface">04 Modules</p>
+            <p className="mt-2 text-2xl font-black text-on-surface">{formatTwoDigits(papers.length)} Modules</p>
           </div>
           <div className="rounded-2xl bg-surface-container p-4 shadow-lift border border-outline-variant/30">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-on-surface-variant">Faculty Reach</p>
-            <p className="mt-2 text-sm text-on-surface-variant">+12 Mentors</p>
+            <p className="mt-2 text-sm text-on-surface-variant">+{totalMentors} Mentors</p>
           </div>
         </div>
 
