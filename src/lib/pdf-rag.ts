@@ -233,9 +233,25 @@ export async function buildRagContext(args: {
   query: string;
   coursePrefs?: CoursePrefsPayload;
   includeWebSearch?: boolean;
+  referenceFileId?: string;
+  referenceLabel?: string;
 }): Promise<RagContext> {
   const queryEmbedding = await embedText(args.query);
   const docs = await getEmbeddingDocsBySubjects(args.coursePrefs);
+
+  let referenceSection = "";
+  if (args.referenceFileId) {
+    try {
+      const referenceText = await extractPdfText(BUCKET_ID, args.referenceFileId);
+      const referenceChunks = chunkText(referenceText, 1200, 150).slice(0, 2).join("\n\n");
+      if (referenceChunks) {
+        const label = args.referenceLabel?.trim() || "Selected PDF";
+        referenceSection = `Selected PDF (${label}):\n${sanitizeUntrustedContext(referenceChunks.slice(0, 2000))}`;
+      }
+    } catch (e) {
+      console.warn("[RAG] Failed to include reference PDF:", e);
+    }
+  }
 
   const ranked = docs
     .map((doc) => {
@@ -262,8 +278,9 @@ export async function buildRagContext(args: {
   const webResults = args.includeWebSearch ? await runWebSearch(args.query, 5) : [];
   const webSection = webResults.length ? `Web updates:\n${formatSearchResults(webResults)}` : "";
 
-  const contextText = [ragSection, webSection].filter(Boolean).join("\n\n");
+  const contextText = [referenceSection, ragSection, webSection].filter(Boolean).join("\n\n");
   const sources = [
+    ...(referenceSection ? [args.referenceLabel?.trim() || "Selected PDF"] : []),
     ...ranked
       .map((entry) => String(entry.doc.source_label ?? entry.doc.file_id ?? "archive"))
       .filter(Boolean),
