@@ -25,7 +25,7 @@ export const FEATURED_PAPERS: FeaturedPaper[] = [
   },
   {
     code: "PH-102",
-    registryCode: "PHSDSC101T",
+    registryCode: "PHYDSC102T",
     title: "Mechanics",
     tag: "DSC",
     credits: 6,
