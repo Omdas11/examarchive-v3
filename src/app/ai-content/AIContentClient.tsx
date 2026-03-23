@@ -290,7 +290,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
             Transform your exam papers and textbooks into concise, high-yield study notes using archive context and live updates.
           </p>
           <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
-            <span className="rounded-full bg-indigo-100 px-3 py-1 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-100">
+            <span className="rounded-full bg-primary/10 px-3 py-1 text-primary">
               {isFounder
                 ? "Founder • Unlimited generations"
                 : remaining === null
@@ -298,7 +298,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                 : `${remaining}/${DAILY_LIMIT} generations left today`}
             </span>
             {useWebSearch && (
-              <span className="rounded-full bg-emerald-100 px-3 py-1 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-100">
+              <span className="rounded-full bg-secondary/20 px-3 py-1 text-secondary">
                 Web updates on
               </span>
             )}
@@ -308,21 +308,21 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
         <div className="grid gap-6 lg:grid-cols-[1.45fr_0.9fr]">
           <div className="space-y-5">
             {/* PDF selection */}
-            <div className="card ring-1 ring-slate-100/80 dark:ring-neutral-800">
+            <div className="card border border-outline-variant/30">
               <div className="flex flex-col gap-3 p-5">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+                <p className="text-xs font-semibold uppercase tracking-wide text-on-surface-variant">
                   Reference PDF
                 </p>
-                <div className="rounded-2xl border border-dashed border-indigo-200 bg-indigo-50/70 p-4 dark:border-indigo-800 dark:bg-indigo-950/30">
+                <div className="rounded-2xl border border-dashed border-primary/30 bg-primary/5 p-4">
                   <div className="flex flex-col items-center gap-3 text-center">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white shadow-md ring-1 ring-indigo-100 dark:bg-neutral-900 dark:ring-indigo-800">
-                      <span className="text-2xl text-indigo-600">📄</span>
+                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-surface shadow-md ring-1 ring-primary/20">
+                      <span className="text-2xl text-primary">📄</span>
                     </div>
                     <div>
-                      <p className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                      <p className="text-base font-semibold text-on-surface">
                         {selectedPaper ? selectedPaper.title : "Drop your PDF here"}
                       </p>
-                      <p className="text-xs text-slate-600 dark:text-slate-300">
+                      <p className="text-xs text-on-surface-variant">
                         {selectedPaper
                           ? `${selectedPaper.course_name} • ${selectedPaper.year ?? "Year N/A"}`
                           : "Use archive PDFs (max 50MB) from the website bucket"}
@@ -353,7 +353,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                       </select>
                     </div>
                     {!selectedPaper?.file_id && (
-                      <p className="text-xs text-amber-700 dark:text-amber-200">
+                      <p className="text-xs text-tertiary">
                         Pick a PDF with a stored file ID to prioritize it in context.
                       </p>
                     )}
@@ -363,13 +363,13 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
             </div>
 
             {/* Generator */}
-            <div className="card ring-1 ring-slate-100/80 dark:ring-neutral-800">
+            <div className="card border border-outline-variant/30">
               <div className="flex flex-col gap-4 p-5">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
+                <p className="text-xs font-semibold uppercase tracking-wide text-on-surface-variant">
                   Prompt
                 </p>
                 <div className="space-y-2">
-                  <label className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                  <label className="text-sm font-semibold text-on-surface">
                     What should we generate notes for?
                   </label>
                   <input
@@ -383,7 +383,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                     disabled={generating || !canGenerate}
                     className="input-field"
                   />
-                  <div className="flex flex-wrap gap-2 text-xs text-slate-500">
+                  <div className="flex flex-wrap gap-2 text-xs text-on-surface-variant">
                     {["Photosynthesis summary", "Ohm's Law derivation", "Federalism case study", "Organic mechanisms", "Data structures overview"].map(
                       (suggestion) => (
                         <button
@@ -391,7 +391,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                           type="button"
                           onClick={() => setTopic(suggestion)}
                           disabled={generating || !canGenerate}
-                          className="rounded-full border border-slate-200 px-3 py-1 transition hover:border-indigo-400 hover:text-indigo-700 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:hover:border-indigo-500 dark:hover:text-indigo-200"
+                          className="rounded-full border border-outline-variant/30 px-3 py-1 transition hover:border-primary/60 hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           {suggestion}
                         </button>
@@ -402,7 +402,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
 
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="space-y-2">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-on-surface-variant">
                       Note length
                     </p>
                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
@@ -413,19 +413,19 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                           onClick={() => setNoteLength(opt.value)}
                           className={`flex flex-col rounded-xl border px-3 py-3 text-left shadow-sm transition ${
                             noteLength === opt.value
-                              ? "border-indigo-400 bg-indigo-50 text-indigo-900 dark:border-indigo-500 dark:bg-indigo-950 dark:text-indigo-50"
-                              : "border-slate-200 bg-white text-slate-800 hover:border-indigo-300 dark:border-slate-800 dark:bg-neutral-900 dark:text-slate-100"
+                              ? "border-primary/60 bg-primary/10 text-primary"
+                              : "border-outline-variant/30 bg-surface text-on-surface hover:border-primary/40"
                           }`}
                           disabled={generating}
                         >
                           <span className="text-sm font-semibold">{opt.label}</span>
-                          <span className="text-xs text-slate-500 dark:text-slate-400">{opt.description}</span>
+                          <span className="text-xs text-on-surface-variant">{opt.description}</span>
                         </button>
                       ))}
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-on-surface-variant">
                       AI Analysis Model
                     </p>
                     <ModelSelect
@@ -434,7 +434,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                       onChange={setModel}
                       disabled={generating || !canGenerate}
                     />
-                    <label className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+                    <label className="flex items-center gap-2 text-xs text-on-surface-variant">
                       <input
                         type="checkbox"
                         checked={useWebSearch}
@@ -447,7 +447,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                 </div>
 
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                  <div className="text-xs text-slate-600 dark:text-slate-300">
+                  <div className="text-xs text-on-surface-variant">
                     {selectedPaper?.title ? (
                       <>
                         Using <strong>{selectedPaper.title}</strong> as the primary PDF context.
@@ -466,12 +466,12 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                 </div>
 
                 {error && (
-                  <p className="text-sm text-rose-600 dark:text-rose-300">
+                  <p className="text-sm text-error">
                     ⚠ {error}
                   </p>
                 )}
                 {!canGenerate && !isAdminPlus && (
-                  <p className="text-sm text-rose-600 dark:text-rose-300">
+                  <p className="text-sm text-error">
                     Daily limit reached. Come back tomorrow for {DAILY_LIMIT} more generations.
                   </p>
                 )}
@@ -480,16 +480,16 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
 
             {/* Export */}
             {activeDoc && (
-              <div className="card ring-1 ring-slate-100/80 dark:ring-neutral-800">
+              <div className="card border border-outline-variant/30">
                 <div className="flex flex-col gap-4 p-5">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-on-surface-variant">
                     Export
                   </p>
                   <div className="flex flex-col gap-2">
-                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                    <p className="text-sm font-semibold text-on-surface">
                       {activeDoc.topic}
                     </p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                    <p className="text-xs text-on-surface-variant">
                       Generated {new Date(activeDoc.generatedAt).toLocaleString()}
                       {activeDoc.noteLength ? ` • ${activeDoc.noteLength} length` : ""}
                     </p>
@@ -499,13 +499,13 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                       📄 Export as PDF
                     </button>
                     {activeDoc.sources && activeDoc.sources.length > 0 && (
-                      <div className="flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600 dark:bg-neutral-800 dark:text-slate-300">
+                      <div className="flex items-center gap-2 rounded-full bg-surface-container-low px-3 py-1 text-xs text-on-surface-variant">
                         Sources: {activeDoc.sources.slice(0, 3).join(", ")}
                       </div>
                     )}
                   </div>
                   <div
-                    className="max-h-[520px] overflow-auto rounded-xl border border-slate-100 bg-slate-50/60 p-4 text-sm leading-7 text-slate-800 shadow-inner dark:border-neutral-800 dark:bg-neutral-900 dark:text-slate-100"
+                    className="max-h-[520px] overflow-auto rounded-xl border border-outline-variant/30 bg-surface-container-low p-4 text-sm leading-7 text-on-surface shadow-inner"
                     style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
                   >
                     {activeDoc.content}
@@ -517,31 +517,31 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
 
           {/* Right column */}
           <div className="space-y-5">
-            <div className="card ring-1 ring-slate-100/80 dark:ring-neutral-800">
+            <div className="card border border-outline-variant/30">
               <div className="flex flex-col gap-3 p-5">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
+                <p className="text-xs font-semibold uppercase tracking-wide text-on-surface-variant">
                   Early Access
                 </p>
-                <p className="text-sm text-slate-600 dark:text-slate-200">
+                <p className="text-sm text-on-surface-variant">
                   Pro users can extract diagrams and equations with 99% accuracy using our updated vision engine.
                 </p>
-                <div className="flex items-center gap-2 text-xs text-indigo-700 dark:text-indigo-200">
-                  <span className="rounded-full bg-indigo-100 px-2 py-1 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-100">
+                <div className="flex items-center gap-2 text-xs text-primary">
+                  <span className="rounded-full bg-primary/10 px-2 py-1 text-primary">
                     Vision Beta
                   </span>
-                  <Link href="/browse" className="text-indigo-600 underline dark:text-indigo-200">
+                  <Link href="/browse" className="text-primary underline">
                     Browse archive
                   </Link>
                 </div>
               </div>
             </div>
 
-            <div className="card ring-1 ring-slate-100/80 dark:ring-neutral-800">
+            <div className="card border border-outline-variant/30">
               <div className="flex gap-3 p-5">
                 <div className="text-xl">💡</div>
                 <div className="space-y-1">
-                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Quick Tip</p>
-                  <p className="text-sm text-slate-600 dark:text-slate-300">
+                  <p className="text-sm font-semibold text-on-surface">Quick Tip</p>
+                  <p className="text-sm text-on-surface-variant">
                     For best results, pick a single chapter or exam section PDF instead of a full 500-page textbook.
                     Ask focused questions like “summarize circuits unit with key derivations”.
                   </p>
@@ -549,16 +549,16 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
               </div>
             </div>
 
-            <div className="card ring-1 ring-slate-100/80 dark:ring-neutral-800">
+            <div className="card border border-outline-variant/30">
               <div className="flex flex-col gap-4 p-5">
                 <div className="flex items-center gap-2">
-                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Recently Generated</p>
-                  <span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600 dark:bg-neutral-800 dark:text-slate-300">
+                  <p className="text-sm font-semibold text-on-surface">Recently Generated</p>
+                  <span className="rounded-full bg-surface-container-low px-2 py-1 text-xs text-on-surface-variant">
                     {documents.length} docs
                   </span>
                 </div>
                 {documents.length === 0 && (
-                  <p className="text-sm text-slate-500 dark:text-slate-300">
+                  <p className="text-sm text-on-surface-variant">
                     No documents yet. Generate your first notes above to see them here.
                   </p>
                 )}
@@ -569,12 +569,12 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                       onClick={() => setActiveDoc(doc)}
                       className={`w-full rounded-xl border px-3 py-3 text-left transition ${
                         activeDoc === doc
-                          ? "border-indigo-400 bg-indigo-50 text-indigo-900 shadow-sm dark:border-indigo-500 dark:bg-indigo-950 dark:text-indigo-100"
-                          : "border-slate-200 bg-white hover:border-indigo-300 dark:border-slate-800 dark:bg-neutral-900 dark:hover:border-indigo-600"
+                          ? "border-primary/60 bg-primary/10 text-primary shadow-sm"
+                          : "border-outline-variant/30 bg-surface hover:border-primary/40"
                       }`}
                     >
                       <p className="text-sm font-semibold">{doc.topic}</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                      <p className="text-xs text-on-surface-variant">
                         {new Date(doc.generatedAt).toLocaleString()}
                       </p>
                     </button>
