@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+const STORAGE_KEY = "ea_visitor_count";
+
 /**
  * Silently records a unique visit and displays the running visitor count.
  * The count is stored in the `site_metrics` Appwrite collection.
@@ -12,14 +14,28 @@ export default function VisitorTracker() {
   useEffect(() => {
     async function track() {
       try {
+        if (typeof window !== "undefined") {
+          const cached = window.sessionStorage.getItem(STORAGE_KEY);
+          if (cached !== null) {
+            const parsed = Number(cached);
+            if (!Number.isNaN(parsed)) {
+              setCount(parsed);
+              return;
+            }
+          }
+        }
+
         const res = await fetch("/api/visitor", {
           method: "POST",
           // If already counted, the server skips the increment (cookie check).
         });
         if (res.ok) {
           const data = await res.json() as { visitor_count?: number };
-          if (typeof data.visitor_count === "number" && data.visitor_count > 0) {
+          if (typeof data.visitor_count === "number" && data.visitor_count >= 0) {
             setCount(data.visitor_count);
+            if (typeof window !== "undefined") {
+              window.sessionStorage.setItem(STORAGE_KEY, String(data.visitor_count));
+            }
           }
         }
       } catch {

@@ -81,6 +81,7 @@ jest.mock("@/lib/appwrite", () => ({
     equal: jest.fn(),
     limit: jest.fn(),
     orderDesc: jest.fn(),
+    offset: jest.fn(),
   },
 }));
 

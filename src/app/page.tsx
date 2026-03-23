@@ -103,10 +103,11 @@ export default async function HomePage() {
   try {
     const db = adminDatabases();
 
+    const pageSize = 100;
     const [papersRes, syllabusRes] = await Promise.all([
       db.listDocuments(DATABASE_ID, COLLECTION.papers, [
         Query.equal("approved", true),
-        Query.limit(100),
+        Query.limit(pageSize),
       ]),
       db.listDocuments(DATABASE_ID, COLLECTION.syllabus, [
         Query.equal("approval_status", "approved"),
@@ -117,10 +118,33 @@ export default async function HomePage() {
     papersTotal = papersRes.total;
     syllabusTotal = syllabusRes.total;
 
-    // Normalise documents before counting institutions to include legacy fields.
-    const allPapers = papersRes.documents.map(toPaper);
-    for (const paper of allPapers) {
-      if (paper.institution) universitiesSet.add(paper.institution.trim());
+    const allPapers: Paper[] = [];
+    const addInstitutions = (papers: Paper[]) => {
+      for (const paper of papers) {
+        const institution = paper.institution?.trim();
+        if (institution) universitiesSet.add(institution);
+      }
+    };
+
+    const firstPagePapers = papersRes.documents.map(toPaper);
+    allPapers.push(...firstPagePapers);
+    addInstitutions(firstPagePapers);
+
+    const firstPageCount = papersRes.documents.length;
+    if (papersTotal > firstPageCount && firstPageCount > 0) {
+      let offset = firstPageCount;
+      while (offset < papersTotal) {
+        const pageRes = await db.listDocuments(DATABASE_ID, COLLECTION.papers, [
+          Query.equal("approved", true),
+          Query.limit(pageSize),
+          Query.offset(offset),
+        ]);
+        if (pageRes.documents.length === 0) break;
+        const pagePapers = pageRes.documents.map(toPaper);
+        allPapers.push(...pagePapers);
+        addInstitutions(pagePapers);
+        offset += pageRes.documents.length;
+      }
     }
 
     // Popular papers: highest view_count
@@ -176,8 +200,7 @@ export default async function HomePage() {
     // feedback collection may not exist yet
   }
 
-  // Fallback: if papers exist but no institution field was set (legacy docs), show 1 to avoid a blank stat.
-  const universitiesCount = universitiesSet.size || (papersTotal > 0 ? 1 : 0);
+  const universitiesCount = universitiesSet.size;
 
   const stats: { label: string; value: number; icon: React.ReactNode }[] = [
     {

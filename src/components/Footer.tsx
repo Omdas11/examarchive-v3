@@ -101,9 +101,7 @@ export default function Footer() {
           <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
             © {new Date().getFullYear()} ExamArchive · Built by students for students · Early Access
           </p>
-          <div className="text-xs" style={{ color: "var(--color-text-muted)" }}>
-            <VisitorTracker />
-          </div>
+          <VisitorTracker />
         </div>
       </div>
     </footer>

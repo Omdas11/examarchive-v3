@@ -142,8 +142,8 @@ Create this collection in the Appwrite console, then create one document with ID
 
 **Resetting the visitor counter (soft launch):**
 
-- Send `DELETE /api/visitor` with header `x-admin-key: <APPWRITE_API_KEY>` from a server-side script or the DevTool to set `visitor_count` back to `0`.  
-- The route already exists and requires the admin API key; no client UI calls this.
+- Perform a **server-to-server** `DELETE /api/visitor` with header `x-admin-key: <APPWRITE_API_KEY>` from a trusted backend environment (CI job, backend admin script, or a founder-only authenticated `/api/devtool` flow). Never paste `APPWRITE_API_KEY` into browser DevTools or any client-side code.  
+- The route already exists, requires the admin API key, and is intended for backend/admin use only; no browser or public client should call it directly.
 
 ---
 
