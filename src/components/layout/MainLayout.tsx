@@ -89,7 +89,7 @@ export default function MainLayout({
       {/* Main Content Area */}
       <main
         className={cn(
-          'flex-1 flex flex-col overflow-hidden',
+          'flex-1 flex flex-col overflow-hidden bg-surface text-on-surface',
           showRightColumn && 'lg:pr-[var(--right-sidebar-width)]',
           !hideSidebar && (
             isCollapsed
@@ -108,7 +108,7 @@ export default function MainLayout({
         )}
 
         {/* Page Content */}
-        <div className="flex-1 overflow-auto flex flex-col">
+        <div className="flex-1 overflow-auto flex flex-col bg-surface">
           <div className="flex-1">{children}</div>
           {/* Footer on every new-layout page */}
           <Footer />

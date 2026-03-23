@@ -278,14 +278,15 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
   const canGenerate = isAdminPlus || (remaining !== null && remaining > 0);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-indigo-50 via-white to-slate-50 px-4 py-8 dark:from-neutral-900 dark:via-neutral-900 dark:to-neutral-900">
-      <div className="mx-auto flex max-w-6xl flex-col gap-6">
-        <header className="flex flex-col gap-3 rounded-2xl bg-white/95 p-6 shadow-lg ring-1 ring-indigo-100/60 dark:bg-neutral-900/80 dark:ring-neutral-800">
-          <div className="flex items-center gap-2 text-slate-900 dark:text-white">
+    <div className="relative min-h-screen bg-surface px-4 py-8 text-on-surface">
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-primary/5 via-surface to-surface" aria-hidden="true" />
+      <div className="relative mx-auto flex max-w-6xl flex-col gap-6">
+        <header className="flex flex-col gap-3 rounded-2xl bg-surface-container p-6 shadow-lift border border-outline-variant/30">
+          <div className="flex items-center gap-2 text-on-surface">
             <span className="text-2xl">📘</span>
             <h1 className="text-3xl font-bold">AI Notes Generator</h1>
           </div>
-          <p className="max-w-3xl text-base text-slate-700 dark:text-slate-200">
+          <p className="max-w-3xl text-base text-on-surface-variant">
             Transform your exam papers and textbooks into concise, high-yield study notes using archive context and live updates.
           </p>
           <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
