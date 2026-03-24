@@ -8,6 +8,7 @@ import { toRoman } from "@/lib/utils";
 import { SYLLABUS_REGISTRY, groupBySemester, getAllUniversities } from "@/data/syllabus-registry";
 import type { SyllabusRegistryEntry } from "@/data/syllabus-registry";
 import { PAPER_TYPE_COLORS } from "@/components/PaperCard";
+import { makeAccentGradient } from "@/lib/gradients";
 import {
   COURSE_PREFS_UPDATED_EVENT,
   loadCoursePrefs,
@@ -39,7 +40,7 @@ function statusTone(approval?: Syllabus["approval_status"]) {
     case "rejected":
       return { bg: "bg-rose-50", text: "text-rose-700", ring: "ring-rose-100", label: "Rejected" };
     default:
-      return { bg: "bg-surface-container-high", text: "text-on-surface-variant", ring: "ring-outline-variant/40", label: "Status" };
+      return { bg: "bg-surface-container-high", text: "text-on-surface-variant", ring: "ring-outline-variant/40", label: "Unknown status" };
   }
 }
 
@@ -88,9 +89,7 @@ function SyllabusPdfCard({
     <div className="relative group overflow-hidden rounded-3xl border border-outline-variant/30 bg-surface shadow-lift ring-1 ring-surface-container-high/30 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-ambient">
       <div
         className="h-1 w-full"
-        style={{
-          background: `linear-gradient(90deg, ${programmeAccentColor(s.programme)} 0%, var(--color-primary) 60%, var(--color-primary) 100%)`,
-        }}
+        style={{ background: makeAccentGradient(programmeAccentColor(s.programme)) }}
         aria-hidden="true"
       />
 

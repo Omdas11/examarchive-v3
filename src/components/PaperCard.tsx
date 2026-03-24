@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { Paper } from "@/types";
 import { toRoman } from "@/lib/utils";
+import { makeAccentGradient } from "@/lib/gradients";
 
 interface PaperCardProps {
   paper: Paper;
@@ -51,7 +52,7 @@ export default function PaperCard({ paper }: PaperCardProps) {
   const uploaderDisplay = paper.uploaded_by_username ? `@${paper.uploaded_by_username}` : null;
   const courseLabel = paper.course_code || paper.course_name;
 
-  const topGradient = `linear-gradient(90deg, ${accent} 0%, ${typeColors?.text ?? "var(--color-primary)"} 50%, var(--color-primary) 100%)`;
+  const topGradient = makeAccentGradient(accent, typeColors?.text);
 
   return (
     <Link
