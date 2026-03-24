@@ -35,7 +35,6 @@ export const metadata: Metadata = {
 
 export default async function SyllabusPage() {
   const user = await getServerUser();
-  const isAdmin = user?.role === "admin" || user?.role === "moderator" || user?.role === "founder";
   const userName = user ? (user.name || user.username || "Scholar") : "";
   const userInitials = userName ? userName.slice(0, 2).toUpperCase() : "";
 
@@ -65,7 +64,7 @@ export default async function SyllabusPage() {
       userName={userName}
       userInitials={userInitials}
     >
-      <SyllabusCatalogClient syllabi={syllabi} isAdmin={isAdmin} />
+      <SyllabusCatalogClient syllabi={syllabi} />
     </MainLayout>
   );
 }

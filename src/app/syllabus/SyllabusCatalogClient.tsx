@@ -4,13 +4,9 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import type { Syllabus } from "@/types";
-import {
-  FEATURED_PAPERS,
-  formatTwoDigits,
-  getMentorInitials,
-} from "@/data/featured-curriculum";
+import { formatTwoDigits, getMentorInitials } from "@/data/featured-curriculum";
 import { SYLLABUS_REGISTRY } from "@/data/syllabus-registry";
-import SyllabusClient from "./SyllabusClient";
+import { PaperLibrary } from "./SyllabusClient";
 
 const DEPARTMENT_FILTERS = ["All Departments", "Science", "Arts"];
 
@@ -77,17 +73,32 @@ function MentorGroup({ mentors }: { mentors: string[] }) {
   );
 }
 
+type SyllabusCard = {
+  code?: string | null;
+  title: string;
+  credits?: number | null;
+  units?: number | null;
+  mentors?: string[];
+  registryCode?: string | null;
+  fileUrl?: string | null;
+  year?: number | null;
+  university?: string | null;
+};
+
 function FeaturedCard({
   code,
   title,
   credits,
   units,
-  mentors,
+  mentors = [],
   registryCode,
-}: typeof FEATURED_PAPERS[number]) {
-  const meta = CARD_META[code] ?? { icon: "description", accent: "bg-surface-container text-primary" };
-  const hasRegistry = paperExists(registryCode);
-  const href = hasRegistry && registryCode ? `/syllabus/paper/${registryCode}` : undefined;
+  fileUrl,
+  year,
+  university,
+}: SyllabusCard) {
+  const meta = code ? CARD_META[code] ?? { icon: "description", accent: "bg-surface-container text-primary" } : { icon: "description", accent: "bg-surface-container text-primary" };
+  const hasRegistry = paperExists(registryCode ?? code ?? undefined);
+  const href = fileUrl ?? (hasRegistry && registryCode ? `/syllabus/paper/${registryCode}` : undefined);
 
   return (
     <article className="rounded-[32px] border border-surface-container-high/30 bg-gradient-to-b from-surface to-surface-container-low shadow-xl shadow-primary/10 ring-1 ring-primary/5">
@@ -113,9 +124,9 @@ function FeaturedCard({
 
           <p className="flex items-center gap-2 text-base font-medium text-on-surface-variant">
             <span className="material-symbols-outlined text-lg">apartment</span>
-            {meta.university ?? "Assam University"}
+            {university || meta.university || "Assam University"}
             <span className="text-on-surface-variant/60">•</span>
-            <span>{meta.year ?? "2024-25"}</span>
+            <span>{year ?? meta.year ?? "2024-25"}</span>
           </p>
 
           {meta.verified && (
@@ -125,18 +136,24 @@ function FeaturedCard({
             </div>
           )}
 
-          <div className="flex items-center gap-6 text-sm text-on-surface-variant">
-            <div className="flex items-center gap-1">
-              <span className="material-symbols-outlined text-base">star</span>
-              <span className="font-semibold text-on-surface">{formatTwoDigits(credits)}</span>
-              <span className="text-xs text-on-surface-variant/70">Credits</span>
+          {(credits ?? units) && (
+            <div className="flex items-center gap-6 text-sm text-on-surface-variant">
+              {credits != null && (
+                <div className="flex items-center gap-1">
+                  <span className="material-symbols-outlined text-base">star</span>
+                  <span className="font-semibold text-on-surface">{formatTwoDigits(credits || 0)}</span>
+                  <span className="text-xs text-on-surface-variant/70">Credits</span>
+                </div>
+              )}
+              {units != null && (
+                <div className="flex items-center gap-1">
+                  <span className="material-symbols-outlined text-base">grid_view</span>
+                  <span className="font-semibold text-on-surface">{formatTwoDigits(units || 0)}</span>
+                  <span className="text-xs text-on-surface-variant/70">Units</span>
+                </div>
+              )}
             </div>
-            <div className="flex items-center gap-1">
-              <span className="material-symbols-outlined text-base">grid_view</span>
-              <span className="font-semibold text-on-surface">{formatTwoDigits(units)}</span>
-              <span className="text-xs text-on-surface-variant/70">Units</span>
-            </div>
-          </div>
+          )}
         </div>
       </div>
 
@@ -161,16 +178,66 @@ function FeaturedCard({
   );
 }
 
-export default function SyllabusCatalogClient({ syllabi, isAdmin }: { syllabi: Syllabus[]; isAdmin?: boolean }) {
+export default function SyllabusCatalogClient({ syllabi }: { syllabi: Syllabus[] }) {
   const [activeTab, setActiveTab] = useState<"pdfs" | "library">("pdfs");
   const [activeFilter, setActiveFilter] = useState(DEPARTMENT_FILTERS[0]);
 
-  const filteredFeatured = useMemo(() => {
-    if (activeFilter === "All Departments") return FEATURED_PAPERS;
-    if (activeFilter === "Science") return FEATURED_PAPERS.filter((p) => p.tag !== "SEC");
-    if (activeFilter === "Arts") return FEATURED_PAPERS.filter((p) => p.tag === "SEC");
-    return FEATURED_PAPERS;
-  }, [activeFilter]);
+  const normalizedAvailable: SyllabusCard[] = useMemo(() => {
+    const base = syllabi.map((s) => ({
+      code: s.course_code ?? s.course_name ?? s.subject,
+      title: s.subject || s.course_name || "Syllabus",
+      credits: null,
+      units: null,
+      mentors: [],
+      registryCode: s.course_code,
+      fileUrl: s.file_url,
+      year: s.year,
+      university: s.university,
+    }));
+    if (base.length > 0) return base;
+    // Fallback to curated examples when no syllabi exist
+    return [
+      {
+        code: "PH-101",
+        title: "Physics",
+        credits: 12,
+        units: 8,
+        mentors: ["Ananya Iyer", "Ravi Menon", "Priya Patel"],
+        registryCode: "PH-101",
+        fileUrl: undefined,
+        year: 2024,
+        university: "Assam University",
+      },
+      {
+        code: "PH-102",
+        title: "Computer Science",
+        credits: 14,
+        units: 10,
+        mentors: ["Mayank Sharma", "Disha Rao", "Karan Kapoor"],
+        registryCode: "PH-102",
+        fileUrl: undefined,
+        year: 2024,
+        university: "Assam University",
+      },
+      {
+        code: "MA-101",
+        title: "Mathematics",
+        credits: 10,
+        units: 6,
+        mentors: ["Aakash Mehta", "Neha Singh"],
+        registryCode: "MA-101",
+        fileUrl: undefined,
+        year: 2023,
+        university: "Assam University",
+      },
+    ];
+  }, [syllabi]);
+
+  const filteredAvailable = useMemo(() => {
+    if (activeFilter === "All Departments") return normalizedAvailable;
+    const matcher = activeFilter.toLowerCase();
+    return normalizedAvailable.filter((p) => (p.title ?? "").toLowerCase().includes(matcher) || (p.code ?? "").toLowerCase().includes(matcher));
+  }, [activeFilter, normalizedAvailable]);
 
   return (
     <section className="mx-auto w-full max-w-5xl px-4 pb-16 pt-8">
@@ -224,13 +291,13 @@ export default function SyllabusCatalogClient({ syllabi, isAdmin }: { syllabi: S
 
         {activeTab === "pdfs" ? (
           <div className="space-y-6">
-            {filteredFeatured.map((paper) => (
-              <FeaturedCard key={paper.code} {...paper} />
+            {filteredAvailable.map((paper, idx) => (
+              <FeaturedCard key={paper.code ?? idx} {...paper} />
             ))}
           </div>
         ) : (
-          <div className="rounded-3xl bg-surface p-4 shadow-sm shadow-primary/5">
-            <SyllabusClient syllabi={syllabi} isAdmin={isAdmin} />
+          <div className="rounded-3xl bg-surface p-4 shadow-sm shadow-primary/5 ring-1 ring-surface-container-high/40">
+            <PaperLibrary />
           </div>
         )}
       </div>

@@ -187,7 +187,7 @@ function programmeBadgeStyle(programme?: string): CSSProperties {
 
 
 /** Tab 2: Paper Syllabus Library from the registry. */
-function PaperLibrary() {
+export function PaperLibrary() {
   const [filterUniversity, setFilterUniversity] = useState<string>("ALL");
   const [filterProg, setFilterProg] = useState<string>("ALL");
   const [filterCategory, setFilterCategory] = useState<string>("ALL");
