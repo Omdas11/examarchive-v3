@@ -374,28 +374,23 @@ export function PaperLibrary() {
   }
 
   const CAT_COLORS = PAPER_TYPE_COLORS;
+  const chipClass = (active: boolean) =>
+    `inline-flex items-center justify-center rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+      active
+        ? "bg-primary text-on-primary ring-1 ring-primary/40"
+        : "bg-surface-container text-on-surface-variant ring-1 ring-outline-variant/50 hover:bg-surface-container-high hover:text-on-surface"
+    }`;
 
   return (
-    <div className="mt-6 space-y-4">
+    <div className="mt-6 space-y-5">
       {/* My Courses banner — shown when course prefs are set */}
       {coursePrefs && (
-        <div
-          className="flex flex-wrap items-center justify-between gap-2 rounded-lg px-3 py-2"
-          style={{
-            background: myCoursesActive
-              ? "color-mix(in srgb, var(--nav-teal) 10%, var(--color-surface))"
-              : "color-mix(in srgb, var(--color-border) 30%, var(--color-surface))",
-            border: `1px solid ${myCoursesActive ? "var(--nav-teal)" : "var(--color-border)"}`,
-          }}
-        >
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-outline-variant/40 bg-surface-container px-3 py-2.5 ring-1 ring-surface-container-high/40">
           <div className="flex items-center gap-2 min-w-0">
-            <span
-              className="text-xs font-semibold"
-              style={{ color: myCoursesActive ? "var(--nav-teal)" : "var(--color-text-muted)" }}
-            >
+            <span className={`text-xs font-semibold ${myCoursesActive ? "text-primary" : "text-on-surface-variant"}`}>
               🎓 My Courses:
             </span>
-            <span className="text-xs truncate" style={{ color: "var(--color-text-muted)" }}>
+            <span className="text-xs truncate text-on-surface-variant">
               DSC: {coursePrefs.dsc} · DSM: {coursePrefs.dsm1}, {coursePrefs.dsm2}
               {coursePrefs.sec ? ` · SEC: ${coursePrefs.sec}` : ""}
               {coursePrefs.idc ? ` · IDC: ${coursePrefs.idc}` : ""}
@@ -404,12 +399,11 @@ export function PaperLibrary() {
           <button
             type="button"
             onClick={() => setMyCoursesActive((v) => !v)}
-            className="shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-colors"
-            style={{
-              background: myCoursesActive ? "var(--nav-teal)" : "transparent",
-              color: myCoursesActive ? "#fff" : "var(--nav-teal)",
-              border: "1.5px solid var(--nav-teal)",
-            }}
+            className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-colors ring-1 ${
+              myCoursesActive
+                ? "bg-primary text-on-primary ring-primary/40"
+                : "bg-surface text-primary ring-primary/40 hover:bg-primary/10"
+            }`}
           >
             {myCoursesActive ? "✓ Filtered" : "Filter by my courses"}
           </button>
@@ -420,13 +414,13 @@ export function PaperLibrary() {
       {!myCoursesActive && (<>
       {/* University filter */}
       {universities.length > 2 && (
-        <div className="flex flex-wrap gap-1">
+        <div className="flex flex-wrap gap-1.5 rounded-2xl border border-outline-variant/30 bg-surface-container-low p-2">
           {universities.map((u) => (
             <button
               key={u}
               type="button"
               onClick={() => handleUniversityClick(u)}
-              className={`toggle-btn${filterUniversity === u ? " active" : ""}`}
+              className={chipClass(filterUniversity === u)}
             >
               {u}
             </button>
@@ -435,13 +429,13 @@ export function PaperLibrary() {
       )}
 
       {/* Programme filter */}
-      <div className="flex flex-wrap gap-1">
+      <div className="flex flex-wrap gap-1.5 rounded-2xl border border-outline-variant/30 bg-surface-container-low p-2">
         {programmes.map((p) => (
           <button
             key={p}
             type="button"
             onClick={() => handleProgClick(p)}
-            className={`toggle-btn${filterProg === p ? " active" : ""}`}
+            className={chipClass(filterProg === p)}
           >
             {p}
           </button>
@@ -450,7 +444,7 @@ export function PaperLibrary() {
 
       {/* Category filter */}
       {categories.length > 2 && (
-        <div className="flex flex-wrap gap-1">
+        <div className="flex flex-wrap gap-1.5 rounded-2xl border border-outline-variant/30 bg-surface-container-low p-2">
           {categories.map((c) => {
             const colors = c !== "ALL" && CAT_COLORS[c] ? CAT_COLORS[c] : null;
             return (
@@ -458,7 +452,7 @@ export function PaperLibrary() {
                 key={c}
                 type="button"
                 onClick={() => handleCategoryClick(c)}
-                className={`toggle-btn${filterCategory === c ? " active" : ""}`}
+                className={chipClass(filterCategory === c)}
                 style={
                   filterCategory === c && colors
                     ? { borderColor: colors.text, color: colors.text, background: colors.bg }
@@ -474,13 +468,13 @@ export function PaperLibrary() {
 
       {/* Subject filter */}
       {subjects.length > 2 && (
-        <div className="flex flex-wrap gap-1">
+        <div className="flex flex-wrap gap-1.5 rounded-2xl border border-outline-variant/30 bg-surface-container-low p-2">
           {subjects.map((s) => (
             <button
               key={s}
               type="button"
               onClick={() => setFilterSubject(s)}
-              className={`toggle-btn${filterSubject === s ? " active" : ""}`}
+              className={chipClass(filterSubject === s)}
             >
               {s}
             </button>
@@ -491,22 +485,21 @@ export function PaperLibrary() {
 
       {/* Sort controls + count */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+        <p className="text-xs text-on-surface-variant">
           {filtered.length} paper{filtered.length !== 1 ? "s" : ""} in registry
         </p>
         <div className="flex items-center gap-1.5">
-          <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>Sort:</span>
+          <span className="text-xs text-on-surface-variant">Sort:</span>
           {(["semester", "code", "name", "credits"] as SortKey[]).map((key) => (
             <button
               key={key}
               type="button"
               onClick={() => setSortKey(key)}
-              className="text-[11px] px-2 py-0.5 rounded-full border transition-colors"
-              style={
+              className={`text-[11px] px-2.5 py-1 rounded-full ring-1 transition-colors ${
                 sortKey === key
-                  ? { background: "var(--color-primary)", color: "#fff", borderColor: "var(--color-primary)" }
-                  : { background: "transparent", color: "var(--color-text-muted)", borderColor: "var(--color-border)" }
-              }
+                  ? "bg-primary text-on-primary ring-primary/40"
+                  : "bg-surface-container text-on-surface-variant ring-outline-variant/40 hover:bg-surface-container-high hover:text-on-surface"
+              }`}
             >
               {key === "semester" ? "Semester" : key === "code" ? "Code" : key === "name" ? "Name" : "Credits"}
             </button>
@@ -515,7 +508,7 @@ export function PaperLibrary() {
       </div>
 
       {filtered.length === 0 ? (
-        <p className="text-sm text-center py-8" style={{ color: "var(--color-text-muted)" }}>
+        <p className="py-8 text-center text-sm text-on-surface-variant">
           No papers match the selected filters.
         </p>
       ) : (
@@ -525,15 +518,9 @@ export function PaperLibrary() {
           return (
             <div key={subject}>
               {/* Subject heading */}
-              <h3
-                className="text-base font-bold mt-6 mb-3 pb-1 flex items-center gap-2"
-                style={{ borderBottom: "2px solid var(--color-primary)" }}
-              >
-                <span style={{ color: "var(--color-primary)" }}>{subject}</span>
-                <span
-                  className="text-[11px] font-normal rounded-full px-2 py-0.5"
-                  style={{ background: "var(--color-accent-soft)", color: "var(--color-text-muted)" }}
-                >
+              <h3 className="mb-3 mt-6 flex items-center gap-2 border-b border-outline-variant/40 pb-2 text-base font-semibold text-on-surface">
+                <span className="text-primary">{subject}</span>
+                <span className="rounded-full bg-surface-container-high px-2 py-0.5 text-[11px] font-normal text-on-surface-variant">
                   {subjectEntries.length} paper{subjectEntries.length !== 1 ? "s" : ""}
                 </span>
               </h3>
@@ -573,17 +560,14 @@ function SemesterAccordion({
       <button
         id={`accordion-header-${label}`}
         type="button"
-        className="accordion-header w-full"
+        className="flex w-full items-center justify-between rounded-2xl border border-outline-variant/35 bg-surface-container px-4 py-3 text-sm font-semibold text-on-surface transition-colors hover:bg-surface-container-high"
         onClick={() => setOpen(!open)}
         aria-expanded={open}
         aria-controls={`accordion-body-${label}`}
       >
         <span className="flex items-center gap-2">
           {label}
-          <span
-            className="text-[11px] font-normal rounded-full px-2 py-0.5"
-            style={{ background: "var(--color-accent-soft)", color: "var(--color-text-muted)" }}
-          >
+          <span className="rounded-full bg-surface-container-high px-2 py-0.5 text-[11px] font-normal text-on-surface-variant">
             {count}
           </span>
         </span>
@@ -594,7 +578,7 @@ function SemesterAccordion({
           stroke="currentColor"
           strokeWidth="2"
           viewBox="0 0 24 24"
-          className={`accordion-chevron${open ? " open" : ""}`}
+          className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`}
           aria-hidden="true"
         >
           <path d="M19 9l-7 7-7-7" strokeLinecap="round" strokeLinejoin="round" />
@@ -620,15 +604,15 @@ function PaperTable({
   catColors: typeof PAPER_TYPE_COLORS;
 }) {
   return (
-    <div className="overflow-x-auto">
-      <table className="zebra-table">
+    <div className="overflow-x-auto rounded-2xl border border-outline-variant/30 bg-surface-container-low">
+      <table className="min-w-full text-sm">
         <thead>
           <tr>
-            <th>Paper Code</th>
-            <th>Paper Name</th>
-            <th>Cat.</th>
-            <th>Credits</th>
-            <th>Units</th>
+            <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant">Paper Code</th>
+            <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant">Paper Name</th>
+            <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant">Cat.</th>
+            <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant">Credits</th>
+            <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant">Units</th>
           </tr>
         </thead>
         <tbody>
@@ -638,48 +622,46 @@ function PaperTable({
             return (
               <tr
                 key={e.paper_code}
-                className="border-t transition-colors hover:opacity-80"
-                style={{ borderColor: "var(--color-border)" }}
+                className="border-t border-outline-variant/30 transition-colors odd:bg-surface even:bg-surface-container-low hover:bg-surface-container"
               >
                 <td className="py-2 pr-3">
                   <Link
                     href={`/syllabus/paper/${encodeURIComponent(e.paper_code)}`}
-                    className="font-mono text-xs font-semibold hover:underline"
-                    style={{ color: "var(--color-primary)" }}
+                    className="px-3 font-mono text-xs font-semibold text-primary hover:underline"
                   >
                     {e.paper_code}
                   </Link>
                 </td>
-                <td className="py-2 pr-3">
+                <td className="px-3 py-2 pr-3">
                   <Link
                     href={`/syllabus/paper/${encodeURIComponent(e.paper_code)}`}
-                    className="hover:underline text-xs"
+                    className="text-xs text-on-surface hover:underline"
                   >
                     {e.paper_name}
                   </Link>
                 </td>
-                <td className="py-2 pr-3">
+                <td className="px-3 py-2 pr-3">
                   {e.category && colors ? (
                     <span
-                      className="inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                      className="inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-outline-variant/40"
                       style={{ background: colors.bg, color: colors.text }}
                     >
                       {e.category}
                     </span>
                   ) : (
-                    <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+                    <span className="text-xs text-on-surface-variant">
                       {e.category ?? "—"}
                     </span>
                   )}
                 </td>
-                <td className="py-2 pr-3 text-xs" style={{ color: "var(--color-text-muted)" }}>
+                <td className="px-3 py-2 pr-3 text-xs text-on-surface-variant">
                   {e.credits}
                 </td>
-                <td className="py-2 text-xs">
+                <td className="px-3 py-2 text-xs">
                   {hasUnits ? (
-                    <span style={{ color: "#16a34a" }}>✓ {e.units!.length}</span>
+                    <span className="font-medium" style={{ color: "var(--success-green)" }}>✓ {e.units!.length}</span>
                   ) : (
-                    <span style={{ color: "var(--color-text-muted)" }}>—</span>
+                    <span className="text-on-surface-variant">—</span>
                   )}
                 </td>
               </tr>
@@ -710,11 +692,30 @@ export default function SyllabusClient({ syllabi, isAdmin }: SyllabusClientProps
   }
 
   return (
-    <div className="mt-6">
+    <div className="mt-6 space-y-6">
+      <section className="rounded-3xl border border-outline-variant/30 bg-surface-container-low p-5 ring-1 ring-surface-container-high/40 sm:p-6">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">Syllabus hub</p>
+            <h1 className="mt-1 text-2xl font-semibold text-on-surface sm:text-3xl">Syllabus Explorer</h1>
+            <p className="mt-2 max-w-2xl text-sm text-on-surface-variant">
+              Discover approved syllabus PDFs and structured paper-wise syllabus data with expressive Material 3 styling.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+              PDFs {visibleSyllabi.length}
+            </span>
+            <span className="rounded-full bg-surface-container-high px-3 py-1 text-xs font-semibold text-on-surface-variant">
+              Library {SYLLABUS_REGISTRY.length}
+            </span>
+          </div>
+        </div>
+      </section>
+
       {/* Tabs */}
       <div
-        className="flex gap-0 border-b"
-        style={{ borderColor: "var(--color-border)" }}
+        className="inline-flex flex-wrap gap-1 rounded-2xl border border-outline-variant/35 bg-surface-container p-1"
         role="tablist"
       >
         <button
@@ -722,23 +723,15 @@ export default function SyllabusClient({ syllabi, isAdmin }: SyllabusClientProps
           aria-selected={activeTab === "pdfs"}
           type="button"
           onClick={() => setActiveTab("pdfs")}
-          className="inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors relative"
-          style={
+          className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors ${
             activeTab === "pdfs"
-              ? {
-                  color: "var(--color-primary)",
-                  borderBottom: "2px solid var(--color-primary)",
-                  marginBottom: "-1px",
-                }
-              : { color: "var(--color-text-muted)" }
-          }
+              ? "bg-primary text-on-primary shadow-sm"
+              : "text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"
+          }`}
         >
           Available Syllabus PDFs
           {visibleSyllabi.length > 0 && (
-            <span
-              className="inline-flex items-center justify-center rounded-full px-1.5 min-w-[1.25rem] h-5 text-[10px] font-semibold"
-              style={{ background: "var(--color-accent-soft)", color: "var(--color-primary)" }}
-            >
+            <span className={`inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-[10px] font-semibold ${activeTab === "pdfs" ? "bg-on-primary/15 text-on-primary" : "bg-surface-container-high text-primary"}`}>
               {visibleSyllabi.length}
             </span>
           )}
@@ -748,22 +741,14 @@ export default function SyllabusClient({ syllabi, isAdmin }: SyllabusClientProps
           aria-selected={activeTab === "library"}
           type="button"
           onClick={() => setActiveTab("library")}
-          className="inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors relative"
-          style={
+          className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors ${
             activeTab === "library"
-              ? {
-                  color: "var(--color-primary)",
-                  borderBottom: "2px solid var(--color-primary)",
-                  marginBottom: "-1px",
-                }
-              : { color: "var(--color-text-muted)" }
-          }
+              ? "bg-primary text-on-primary shadow-sm"
+              : "text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"
+          }`}
         >
           Paper Syllabus Library
-          <span
-            className="inline-flex items-center justify-center rounded-full px-1.5 min-w-[1.25rem] h-5 text-[10px] font-semibold"
-            style={{ background: "var(--color-accent-soft)", color: "var(--color-primary)" }}
-          >
+          <span className={`inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-[10px] font-semibold ${activeTab === "library" ? "bg-on-primary/15 text-on-primary" : "bg-surface-container-high text-primary"}`}>
             {SYLLABUS_REGISTRY.length}
           </span>
         </button>
@@ -771,23 +756,17 @@ export default function SyllabusClient({ syllabi, isAdmin }: SyllabusClientProps
 
       {/* Tab content */}
       {activeTab === "pdfs" && (
-        <div role="tabpanel" aria-label="Available Syllabus PDFs" className="mt-6 space-y-10">
+        <div role="tabpanel" aria-label="Available Syllabus PDFs" className="mt-2 space-y-8">
           {/* Departmental Syllabus section */}
           {deptSyllabi.length > 0 && (
             <div>
-              <h2
-                className="text-base font-bold mb-1 pb-1 flex items-center gap-2"
-                style={{ borderBottom: "2px solid var(--color-primary)" }}
-              >
-                <span style={{ color: "var(--color-primary)" }}>Departmental Syllabus</span>
-                <span
-                  className="text-[11px] font-normal rounded-full px-2 py-0.5"
-                  style={{ background: "var(--color-accent-soft)", color: "var(--color-text-muted)" }}
-                >
+              <h2 className="mb-1 flex items-center gap-2 border-b border-outline-variant/40 pb-2 text-base font-semibold text-on-surface">
+                <span className="text-primary">Departmental Syllabus</span>
+                <span className="rounded-full bg-surface-container-high px-2 py-0.5 text-[11px] font-normal text-on-surface-variant">
                   {deptSyllabi.length}
                 </span>
               </h2>
-              <p className="text-xs mb-4" style={{ color: "var(--color-text-muted)" }}>
+              <p className="mb-4 text-xs text-on-surface-variant">
                 Full programme syllabi covering all semesters (e.g. Physics FYUG Full Syllabus).
               </p>
               <div
@@ -806,14 +785,10 @@ export default function SyllabusClient({ syllabi, isAdmin }: SyllabusClientProps
             <div>
               {deptSyllabi.length > 0 && (
                 <h2
-                  className="text-base font-bold mb-1 pb-1 flex items-center gap-2"
-                  style={{ borderBottom: "2px solid var(--color-primary)" }}
+                  className="mb-1 flex items-center gap-2 border-b border-outline-variant/40 pb-2 text-base font-semibold text-on-surface"
                 >
-                  <span style={{ color: "var(--color-primary)" }}>Semester Syllabi</span>
-                  <span
-                    className="text-[11px] font-normal rounded-full px-2 py-0.5"
-                    style={{ background: "var(--color-accent-soft)", color: "var(--color-text-muted)" }}
-                  >
+                  <span className="text-primary">Semester Syllabi</span>
+                  <span className="rounded-full bg-surface-container-high px-2 py-0.5 text-[11px] font-normal text-on-surface-variant">
                     {singleSyllabi.length}
                   </span>
                 </h2>
