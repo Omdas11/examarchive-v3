@@ -52,7 +52,7 @@ export const FEATURED_PAPERS: FeaturedPaper[] = [
     lab: false,
     mentors: ["Ms. G. Choudhury", "Mr. T. Paul", "Ms. D. Lahon"],
   },
-] as const;
+] ;
 
 export const TOTAL_CREDITS = FEATURED_PAPERS.reduce((sum, paper) => sum + paper.credits, 0);
 export const TOTAL_MENTORS = FEATURED_PAPERS.reduce((sum, paper) => sum + paper.mentors.length, 0);
