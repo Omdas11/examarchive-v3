@@ -120,6 +120,7 @@ export default function Sidebar({
         // Mobile transform: off-screen when closed, on-screen when open
         isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
       )}
+      style={{ minHeight: '100vh' }}
     >
       {/* Logo Section */}
       <div className="p-6">
@@ -159,7 +160,7 @@ export default function Sidebar({
       </div>
 
       {/* Navigation Items */}
-      <nav className="flex-1 space-y-1 px-3">
+      <nav className="flex-1 min-h-0 space-y-1 px-3 pb-4 overflow-y-auto" aria-label="Primary">
         {visibleItems.map((item) => (
           <Link
             key={item.href}
@@ -209,7 +210,7 @@ export default function Sidebar({
       </nav>
 
       {/* Bottom Actions */}
-      <div className="p-3 space-y-2 border-t border-outline-variant/20">
+      <div className="p-3 space-y-2 border-t border-outline-variant/20 bg-surface">
         <Link
           href="/upload"
           onClick={() => onNavigate?.('/upload')}

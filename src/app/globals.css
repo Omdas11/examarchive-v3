@@ -127,7 +127,7 @@ html {
 
 body {
   color: var(--color-text);
-  background: transparent;
+  background: rgb(var(--rgb-surface));
   min-height: 100vh;
   transition: color 0.2s;
 }
