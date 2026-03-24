@@ -136,14 +136,6 @@ export default function PaperCard({ paper }: PaperCardProps) {
 
         <div className="flex flex-wrap items-center justify-between gap-3 text-[11px] text-on-surface-variant">
           <div className="flex flex-wrap items-center gap-3">
-            {paper.programme && (
-              <span className="inline-flex items-center gap-1">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M4 19h16" /><path d="M4 11h16" /><path d="M4 7h16" /><path d="M9 3v4" /><path d="M15 3v4" />
-                </svg>
-                {paper.programme}
-              </span>
-            )}
             {uploaderDisplay && (
               <span className="inline-flex items-center gap-1 truncate max-w-[120px]" title={uploaderDisplay}>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

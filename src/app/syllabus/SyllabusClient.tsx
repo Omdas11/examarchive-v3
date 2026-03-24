@@ -30,6 +30,19 @@ function semLabel(sem: string | number | null | undefined): string {
 }
 
 /** A single uploaded syllabus PDF card — styled like Browse page cards. */
+function statusTone(approval?: Syllabus["approval_status"]) {
+  switch (approval) {
+    case "approved":
+      return { bg: "bg-emerald-50", text: "text-emerald-700", ring: "ring-emerald-100", label: "Approved" };
+    case "pending":
+      return { bg: "bg-amber-50", text: "text-amber-700", ring: "ring-amber-100", label: "Pending review" };
+    case "rejected":
+      return { bg: "bg-rose-50", text: "text-rose-700", ring: "ring-rose-100", label: "Rejected" };
+    default:
+      return { bg: "bg-surface-container-high", text: "text-on-surface-variant", ring: "ring-outline-variant/40", label: "Status" };
+  }
+}
+
 function SyllabusPdfCard({
   s,
   isAdmin,
@@ -69,12 +82,7 @@ function SyllabusPdfCard({
     ? new Date(s.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
     : null;
 
-  const statusTone =
-    s.approval_status === "approved"
-      ? { bg: "bg-emerald-50", text: "text-emerald-700", ring: "ring-emerald-100" }
-      : s.approval_status === "pending"
-        ? { bg: "bg-amber-50", text: "text-amber-700", ring: "ring-amber-100" }
-        : { bg: "bg-rose-50", text: "text-rose-700", ring: "ring-rose-100" };
+  const tone = statusTone(s.approval_status);
 
   return (
     <div className="relative group overflow-hidden rounded-3xl border border-outline-variant/30 bg-surface shadow-lift ring-1 ring-surface-container-high/30 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-ambient">
@@ -110,9 +118,9 @@ function SyllabusPdfCard({
             )}
             {s.approval_status && (
               <span
-                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ${statusTone.bg} ${statusTone.text} ${statusTone.ring}`}
+                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ${tone.bg} ${tone.text} ${tone.ring}`}
               >
-                {s.approval_status === "approved" ? "Approved" : s.approval_status === "pending" ? "Pending review" : "Rejected"}
+                {tone.label}
               </span>
             )}
           </div>
