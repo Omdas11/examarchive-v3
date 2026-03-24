@@ -18,10 +18,23 @@ const CARD_META: Record<
   string,
   { icon: string; accent: string; badge?: string; year?: string; university?: string; verified?: boolean }
 > = {
-  "PH-101": { icon: "science", accent: "bg-primary/10 text-primary", badge: "CORE ELECTIVE", year: "2023-24", university: "Assam University" },
-  "PH-102": { icon: "computer", accent: "bg-emerald-100 text-emerald-700", badge: "IN DEMAND", year: "2024-25", university: "Assam University", verified: true },
-  "MA-101": { icon: "calculate", accent: "bg-amber-100 text-amber-800", year: "2022-23", university: "Assam University" },
-  "SK-101": { icon: "menu_book", accent: "bg-sky-100 text-sky-700", year: "2024-25", university: "Assam University" },
+  "PH-101": {
+    icon: "science",
+    accent: "bg-[#ebe8ff] text-[#3c2fd6]",
+    badge: "CORE ELECTIVE",
+    year: "2023-24",
+    university: "Assam University",
+  },
+  "PH-102": {
+    icon: "computer",
+    accent: "bg-[#e4f5ef] text-[#1f8a63]",
+    badge: "IN DEMAND",
+    year: "2024-25",
+    university: "Assam University",
+    verified: true,
+  },
+  "MA-101": { icon: "calculate", accent: "bg-[#f3ecdf] text-[#c1842c]", year: "2022-23", university: "Assam University" },
+  "SK-101": { icon: "menu_book", accent: "bg-[#e5f1ff] text-[#2b6cb0]", year: "2024-25", university: "Assam University" },
 };
 
 function paperExists(code?: string) {
@@ -77,16 +90,22 @@ function FeaturedCard({
   const href = hasRegistry && registryCode ? `/syllabus/paper/${registryCode}` : undefined;
 
   return (
-    <article className="rounded-[32px] border border-surface-container-high/40 bg-surface shadow-lg shadow-primary/10">
-      <div className="grid grid-cols-[auto_1fr] gap-4 p-5 md:p-6">
-        <div className={cn("flex h-16 w-16 items-center justify-center rounded-2xl text-3xl", meta.accent)} aria-hidden="true">
+    <article className="rounded-[32px] border border-surface-container-high/30 bg-gradient-to-b from-surface to-surface-container-low shadow-xl shadow-primary/10 ring-1 ring-primary/5">
+      <div className="grid grid-cols-[auto_1fr] gap-4 p-6 md:p-7">
+        <div
+          className={cn(
+            "flex h-16 w-16 items-center justify-center rounded-2xl text-3xl shadow-[0_10px_24px_-12px_rgba(0,0,0,0.25)]",
+            meta.accent,
+          )}
+          aria-hidden="true"
+        >
           <span className="material-symbols-outlined text-3xl">{meta.icon}</span>
         </div>
         <div className="space-y-3">
           <div className="flex items-start justify-between gap-3">
             <h3 className="text-2xl font-semibold text-on-surface">{title}</h3>
             {meta.badge && (
-              <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold tracking-wide text-amber-700">
+              <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold tracking-wide text-amber-700 shadow-inner">
                 {meta.badge}
               </span>
             )}
@@ -121,18 +140,18 @@ function FeaturedCard({
         </div>
       </div>
 
-      <div className="flex items-center justify-between border-t border-outline-variant/30 px-5 py-4 md:px-6">
+      <div className="flex items-center justify-between border-t border-outline-variant/40 px-6 py-5 md:px-7">
         <MentorGroup mentors={mentors} />
         {href ? (
           <Link
             href={href}
-            className="inline-flex items-center gap-2 rounded-2xl bg-primary px-6 py-3 text-base font-semibold text-primary-foreground shadow-md shadow-primary/30"
+            className="inline-flex items-center gap-2 rounded-2xl bg-[#3c2fd6] px-7 py-3 text-base font-semibold text-white shadow-lg shadow-primary/30 transition hover:translate-y-[-1px] hover:shadow-primary/40"
           >
             Open PDF
             <span className="material-symbols-outlined text-base">open_in_new</span>
           </Link>
         ) : (
-          <span className="inline-flex items-center gap-2 rounded-2xl bg-surface-container px-6 py-3 text-base font-semibold text-on-surface-variant">
+          <span className="inline-flex items-center gap-2 rounded-2xl bg-surface-container px-7 py-3 text-base font-semibold text-on-surface-variant">
             Open PDF
             <span className="material-symbols-outlined text-base">lock</span>
           </span>
@@ -154,19 +173,19 @@ export default function SyllabusCatalogClient({ syllabi, isAdmin }: { syllabi: S
   }, [activeFilter]);
 
   return (
-    <section className="mx-auto w-full max-w-4xl px-4 pb-16 pt-6">
-      <div className="space-y-8 rounded-[36px] bg-gradient-to-b from-surface to-surface-container-low p-4 shadow-inner shadow-primary/5">
-        <header className="space-y-4 rounded-[28px] bg-surface p-6 shadow-sm shadow-primary/5">
+    <section className="mx-auto w-full max-w-5xl px-4 pb-16 pt-8">
+      <div className="space-y-8 rounded-[36px] bg-gradient-to-b from-surface to-surface-container-lowest p-5 shadow-inner shadow-primary/5 ring-1 ring-primary/5">
+        <header className="space-y-5 rounded-[28px] bg-surface p-6 shadow-sm shadow-primary/10 ring-1 ring-surface-container-high/40">
           <h1 className="text-4xl font-black leading-tight text-on-surface">Syllabus Catalog</h1>
           <p className="max-w-2xl text-base text-on-surface-variant">
             Access verified curriculum and exam structures for your department.
           </p>
-          <div className="grid grid-cols-2 gap-2 rounded-2xl bg-surface-container-low p-2 text-sm font-semibold shadow-inner">
+          <div className="grid grid-cols-2 gap-2 rounded-2xl bg-surface-container-low p-2 text-sm font-semibold shadow-inner ring-1 ring-surface-container-high/40">
             <button
               className={cn(
                 "rounded-xl px-3 py-3 transition",
                 activeTab === "pdfs"
-                  ? "bg-primary text-primary-foreground shadow-md"
+                  ? "bg-[#3c2fd6] text-white shadow-lg shadow-primary/30"
                   : "text-on-surface-variant hover:bg-surface",
               )}
               onClick={() => setActiveTab("pdfs")}
@@ -177,7 +196,7 @@ export default function SyllabusCatalogClient({ syllabi, isAdmin }: { syllabi: S
               className={cn(
                 "rounded-xl px-3 py-3 transition",
                 activeTab === "library"
-                  ? "bg-primary text-primary-foreground shadow-md"
+                  ? "bg-[#3c2fd6] text-white shadow-lg shadow-primary/30"
                   : "text-on-surface-variant hover:bg-surface",
               )}
               onClick={() => setActiveTab("library")}
@@ -191,10 +210,10 @@ export default function SyllabusCatalogClient({ syllabi, isAdmin }: { syllabi: S
                 key={filter}
                 onClick={() => setActiveFilter(filter)}
                 className={cn(
-                  "rounded-full px-5 py-2.5 text-sm font-semibold transition shadow-sm",
+                  "rounded-full px-5 py-2.5 text-sm font-semibold transition shadow-sm ring-1 ring-transparent",
                   activeFilter === filter
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-surface text-on-surface-variant hover:bg-surface-container",
+                    ? "bg-[#3c2fd6] text-white shadow-md shadow-primary/30"
+                    : "bg-surface-container text-on-surface hover:bg-surface-container-high",
                 )}
               >
                 {filter}
