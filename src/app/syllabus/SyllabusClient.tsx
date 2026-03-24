@@ -65,73 +65,126 @@ function SyllabusPdfCard({
 
   const displayTitle = s.course_name || s.subject || "Unnamed Syllabus";
   const displayCode = s.course_code;
+  const submittedOn = s.created_at
+    ? new Date(s.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+    : null;
+
+  const statusTone =
+    s.approval_status === "approved"
+      ? { bg: "bg-emerald-50", text: "text-emerald-700", ring: "ring-emerald-100" }
+      : s.approval_status === "pending"
+        ? { bg: "bg-amber-50", text: "text-amber-700", ring: "ring-amber-100" }
+        : { bg: "bg-rose-50", text: "text-rose-700", ring: "ring-rose-100" };
 
   return (
-    <div className="relative group card overflow-hidden flex hover:shadow-md transition-all duration-200 hover:-translate-y-0.5">
-      {/* Coloured accent bar — colour-coded by programme */}
+    <div className="relative group overflow-hidden rounded-3xl border border-outline-variant/30 bg-surface shadow-lift ring-1 ring-surface-container-high/30 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-ambient">
       <div
-        className="w-1 shrink-0 rounded-l-lg"
-        style={{ background: programmeAccentColor(s.programme) }}
+        className="h-1 w-full"
+        style={{
+          background: `linear-gradient(90deg, ${programmeAccentColor(s.programme)} 0%, var(--color-primary) 60%, var(--color-primary) 100%)`,
+        }}
         aria-hidden="true"
       />
 
-      {/* Card body */}
       <a
         href={s.file_url || "#"}
         target="_blank"
         rel="noopener noreferrer"
-        className="flex-1 min-w-0 p-4 flex flex-col gap-2"
+        className="flex min-w-0 flex-col gap-3 p-4 sm:p-5"
         style={{ textDecoration: "none", color: "inherit" }}
       >
-        {/* Subject / paper name — prominent, always first */}
-        <p className="text-sm font-semibold leading-snug line-clamp-2">{displayTitle}</p>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            {s.programme && (
+              <span
+                className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold"
+                style={programmeBadgeStyle(s.programme)}
+              >
+                {s.programme}
+              </span>
+            )}
+            {displayCode && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary">
+                {displayCode}
+              </span>
+            )}
+            {s.approval_status && (
+              <span
+                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ${statusTone.bg} ${statusTone.text} ${statusTone.ring}`}
+              >
+                {s.approval_status === "approved" ? "Approved" : s.approval_status === "pending" ? "Pending review" : "Rejected"}
+              </span>
+            )}
+          </div>
 
-        {/* Programme & paper-code badges */}
-        <div className="flex flex-wrap items-center gap-1.5">
-          {s.programme && (
-            <span
-              className="inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold"
-              style={programmeBadgeStyle(s.programme)}
-            >
-              {s.programme}
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-surface-container-high text-sm font-semibold text-primary ring-1 ring-outline-variant/40">
+            {s.year && s.year > 0 ? s.year : "PDF"}
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          <p className="text-base font-semibold leading-snug text-on-surface line-clamp-2">{displayTitle}</p>
+          <p className="text-sm text-on-surface-variant line-clamp-2">
+            {[
+              s.university || "Unknown University",
+              s.semester ? semLabel(s.semester) : null,
+              s.department || null,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-1.5 text-[11px] font-semibold text-on-surface-variant">
+          {s.course_name && s.course_name !== displayTitle && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-surface-container-high px-2.5 py-1">
+              {s.course_name}
             </span>
           )}
-          {displayCode && (
-            <span
-              className="inline-block rounded-full px-2.5 py-0.5 text-[11px] font-semibold font-mono"
-              style={{ background: "var(--color-accent-soft)", color: "var(--color-primary)" }}
-            >
-              {displayCode}
+          {s.subject && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-surface-container-high px-2.5 py-1">
+              {s.subject}
+            </span>
+          )}
+          {s.department && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-surface-container-high px-2.5 py-1">
+              {s.department}
             </span>
           )}
         </div>
 
-        {/* Meta: university, semester, dept */}
-        <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
-          {[
-            s.university || "Unknown University",
-            s.semester ? semLabel(s.semester) : null,
-            s.department || null,
-            s.year && s.year > 0 ? String(s.year) : null,
-          ]
-            .filter(Boolean)
-            .join(" · ")}
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-3 text-[11px] text-on-surface-variant">
+          <div className="flex flex-wrap items-center gap-3">
+            {submittedOn && (
+              <span className="inline-flex items-center gap-1">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                  <line x1="16" y1="2" x2="16" y2="6" />
+                  <line x1="8" y1="2" x2="8" y2="6" />
+                  <line x1="3" y1="10" x2="21" y2="10" />
+                </svg>
+                {submittedOn}
+              </span>
+            )}
+            {s.uploaded_by_username && (
+              <span className="inline-flex items-center gap-1 truncate max-w-[140px]" title={`@${s.uploaded_by_username}`}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M12 12c2.761 0 5-2.239 5-5s-2.239-5-5-5-5 2.239-5 5 2.239 5 5 5Z" /><path d="M3 21c0-3.866 3.134-7 7-7h4c3.866 0 7 3.134 7 7" />
+                </svg>
+                @{s.uploaded_by_username}
+              </span>
+            )}
+          </div>
 
-        {/* Open PDF indicator */}
-        {s.file_url && (
-          <div className="flex justify-end pt-1">
-            <span
-              className="inline-flex items-center gap-1 text-xs font-medium"
-              style={{ color: "var(--color-primary)" }}
-            >
+          {s.file_url && (
+            <span className="inline-flex items-center gap-1 text-xs font-semibold text-primary transition-transform duration-150 group-hover:translate-x-0.5">
               Open PDF
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" />
               </svg>
             </span>
-          </div>
-        )}
+          )}
+        </div>
       </a>
 
       {/* Admin hide button — neutral grey to indicate moderation, not a destructive action */}
