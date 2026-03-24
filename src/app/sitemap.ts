@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 
-const SITE_URL = "https://examarchive.dev";
+const SITE_URL = "https://www.examarchive.dev";
 
 /**
  * Generates /sitemap.xml via Next.js Metadata API.

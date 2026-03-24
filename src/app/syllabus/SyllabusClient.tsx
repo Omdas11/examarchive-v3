@@ -34,11 +34,11 @@ function semLabel(sem: string | number | null | undefined): string {
 function statusTone(approval?: Syllabus["approval_status"]) {
   switch (approval) {
     case "approved":
-      return { bg: "bg-emerald-50", text: "text-emerald-700", ring: "ring-emerald-100", label: "Approved" };
+      return { bg: "bg-primary-container", text: "text-on-primary", ring: "ring-primary/30", label: "Approved" };
     case "pending":
-      return { bg: "bg-amber-50", text: "text-amber-700", ring: "ring-amber-100", label: "Pending review" };
+      return { bg: "bg-secondary-container", text: "text-on-secondary", ring: "ring-secondary/30", label: "Pending review" };
     case "rejected":
-      return { bg: "bg-rose-50", text: "text-rose-700", ring: "ring-rose-100", label: "Rejected" };
+      return { bg: "bg-error-container", text: "text-on-error", ring: "ring-error/30", label: "Rejected" };
     default:
       return { bg: "bg-surface-container-high", text: "text-on-surface-variant", ring: "ring-outline-variant/40", label: "Unknown status" };
   }

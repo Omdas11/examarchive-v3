@@ -90,7 +90,7 @@ export default function PaperCard({ paper }: PaperCardProps) {
           </div>
 
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-surface-container-high text-sm font-semibold text-primary ring-1 ring-outline-variant/40">
-            {paper.year ?? "PDF"}
+            {paper.year > 0 ? paper.year : "PDF"}
           </div>
         </div>
 
@@ -98,8 +98,10 @@ export default function PaperCard({ paper }: PaperCardProps) {
           <h3 className="text-base font-semibold leading-snug text-on-surface line-clamp-2">{paper.title}</h3>
           {courseLabel && (
             <p className="text-sm text-on-surface-variant line-clamp-1">
-              {paper.course_code ? paper.course_code : null}
-              {paper.course_name && paper.course_name !== paper.title ? <> · {paper.course_name}</> : null}
+              {paper.course_code ?? ""}
+              {paper.course_name && paper.course_name !== paper.title ? (
+                paper.course_code ? <> · {paper.course_name}</> : <>{paper.course_name}</>
+              ) : null}
             </p>
           )}
         </div>
