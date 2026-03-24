@@ -131,7 +131,7 @@ function SyllabusPdfCard({
 
         <div className="space-y-1">
           <p className="text-base font-semibold leading-snug text-on-surface line-clamp-2">{displayTitle}</p>
-          <p className="text-sm text-on-surface-variant line-clamp-2">
+          <p className="text-sm text-on-surface-variant line-clamp-1">
             {[
               s.university || "Unknown University",
               s.semester ? semLabel(s.semester) : null,

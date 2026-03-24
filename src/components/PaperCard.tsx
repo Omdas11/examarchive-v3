@@ -98,7 +98,7 @@ export default function PaperCard({ paper }: PaperCardProps) {
           <h3 className="text-base font-semibold leading-snug text-on-surface line-clamp-2">{paper.title}</h3>
           {courseLabel && (
             <p className="text-sm text-on-surface-variant line-clamp-1">
-              {paper.course_code}
+              {paper.course_code ? paper.course_code : null}
               {paper.course_name && paper.course_name !== paper.title ? <> · {paper.course_name}</> : null}
             </p>
           )}
