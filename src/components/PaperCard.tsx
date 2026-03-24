@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { Paper } from "@/types";
 import { toRoman } from "@/lib/utils";
+import { makeAccentGradient } from "@/lib/gradients";
 
 interface PaperCardProps {
   paper: Paper;
@@ -46,126 +47,118 @@ export default function PaperCard({ paper }: PaperCardProps) {
   const accent = subjectColor(paper.department);
   const semNum = paper.semester ? parseInt(paper.semester, 10) : NaN;
   const semRoman = !isNaN(semNum) && semNum >= 1 ? toRoman(semNum) : paper.semester;
+  const typeColors = paper.paper_type ? PAPER_TYPE_COLORS[paper.paper_type] : undefined;
 
-  const metaLine = [
-    paper.institution,
-    paper.programme,
-    paper.department,
-    semRoman ? `Sem ${semRoman}` : null,
-    paper.year && String(paper.year),
-  ].filter(Boolean).join(" · ");
+  const uploaderDisplay = paper.uploaded_by_username ? `@${paper.uploaded_by_username}` : null;
+  const courseLabel = paper.course_code || paper.course_name;
 
-  const uploaderDisplay = paper.uploaded_by_username
-    ? `@${paper.uploaded_by_username}`
-    : null;
+  const topGradient = makeAccentGradient(accent, typeColors?.text);
 
   return (
     <Link
       href={`/paper/${paper.id}`}
-      className="card group flex overflow-hidden transition-all duration-200 hover:shadow-md hover:-translate-y-0.5"
-      style={{
-        textDecoration: "none",
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.background = "color-mix(in srgb, var(--brand-crimson) 4%, var(--color-surface))";
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.background = "";
-      }}
+      className="group block overflow-hidden rounded-3xl border border-outline-variant/30 bg-surface shadow-lift ring-1 ring-surface-container-high/30 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-ambient focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
+      style={{ textDecoration: "none" }}
     >
-      {/* Vertical accent bar on the left */}
-      <div
-        className="w-1 shrink-0 rounded-l-lg"
-        style={{ background: accent }}
-        aria-hidden="true"
-      />
+      <div className="h-1 w-full" style={{ background: topGradient }} aria-hidden="true" />
 
-      {/* Card content */}
-      <div className="flex-1 min-w-0 p-4">
-        {/* Title + code */}
-        <div className="min-w-0">
-          <h3 className="text-sm font-semibold leading-snug line-clamp-2">{paper.title}</h3>
-          <p className="mt-0.5 text-xs" style={{ color: "var(--color-text-muted)" }}>
-            {paper.course_code}
-            {paper.course_name && paper.course_name !== paper.title && (
-              <> · {paper.course_name}</>
+      <div className="flex flex-col gap-3 p-4 sm:p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            {paper.paper_type && (
+              <span
+                className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold"
+                style={
+                  typeColors
+                    ? { background: typeColors.bg, color: typeColors.text }
+                    : { background: "var(--color-border)", color: "var(--color-text-muted)" }
+                }
+              >
+                {paper.paper_type}
+              </span>
             )}
-          </p>
+            {paper.exam_type && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary">
+                {paper.exam_type}
+              </span>
+            )}
+            {paper.programme && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-surface-container-high px-2.5 py-1 text-[11px] font-semibold text-on-surface">
+                {paper.programme}
+              </span>
+            )}
+          </div>
+
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-surface-container-high text-sm font-semibold text-primary ring-1 ring-outline-variant/40">
+            {paper.year > 0 ? paper.year : "PDF"}
+          </div>
         </div>
 
-        {/* Exam type badge + department tag */}
-        <div className="mt-2 flex flex-wrap gap-1">
-          <span
-            className="inline-block rounded-full px-2 py-0.5 text-[11px] font-medium"
-            style={{ background: "var(--color-border)", color: accent }}
-          >
-            {paper.department}
-          </span>
-          {paper.exam_type && (
+        <div className="space-y-1">
+          <h3 className="text-base font-semibold leading-snug text-on-surface line-clamp-2">{paper.title}</h3>
+          {courseLabel && (
+            <p className="text-sm text-on-surface-variant line-clamp-1">
+              {paper.course_code ?? ""}
+              {paper.course_name && paper.course_name !== paper.title ? (
+                paper.course_code ? <> · {paper.course_name}</> : <>{paper.course_name}</>
+              ) : null}
+            </p>
+          )}
+        </div>
+
+        <div className="flex flex-wrap gap-1.5 text-[11px] font-semibold">
+          {paper.department && (
             <span
-              className="inline-block rounded-full px-2 py-0.5 text-[11px]"
-              style={{ background: "var(--color-accent-soft)", color: "var(--color-primary)" }}
+              className="inline-flex items-center gap-1 rounded-full px-2.5 py-1"
+              style={{ background: "var(--color-border)", color: accent }}
             >
-              {paper.exam_type}
+              {paper.department}
             </span>
           )}
-          {paper.paper_type && (
-            <span
-              className="inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold"
-              style={
-                PAPER_TYPE_COLORS[paper.paper_type]
-                  ? { background: PAPER_TYPE_COLORS[paper.paper_type].bg, color: PAPER_TYPE_COLORS[paper.paper_type].text }
-                  : { background: "var(--color-border)", color: "var(--color-text-muted)" }
-              }
-            >
-              {paper.paper_type}
-            </span>
-          )}
-          {paper.semester && (
-            <span
-              className="inline-block rounded-full px-2 py-0.5 text-[11px]"
-              style={{ background: "var(--color-border)", color: "var(--color-text-muted)" }}
-            >
+          {semRoman && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-surface-container-high px-2.5 py-1 text-on-surface-variant">
               Sem {semRoman}
             </span>
           )}
-          {paper.year && (
-            <span
-              className="inline-block rounded-full px-2 py-0.5 text-[11px]"
-              style={{ background: "var(--color-border)", color: "var(--color-text-muted)" }}
-            >
-              {paper.year}
+          {paper.institution && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-surface-container-high px-2.5 py-1 text-on-surface-variant">
+              {paper.institution}
+            </span>
+          )}
+          {paper.marks != null && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-surface-container-high px-2.5 py-1 text-on-surface-variant">
+              {paper.marks} marks
+            </span>
+          )}
+          {paper.duration != null && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-surface-container-high px-2.5 py-1 text-on-surface-variant">
+              {paper.duration} mins
             </span>
           )}
         </div>
 
-        {/* Meta row: university + programme */}
-        {metaLine && (
-          <p className="mt-2 text-[11px] line-clamp-1" style={{ color: "var(--color-text-muted)" }}>
-            {metaLine}
-          </p>
-        )}
-
-        {/* Footer: uploader + stats + link indicator */}
-        <div className="mt-3 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-3 text-[11px]" style={{ color: "var(--color-text-muted)" }}>
+        <div className="flex flex-wrap items-center justify-between gap-3 text-[11px] text-on-surface-variant">
+          <div className="flex flex-wrap items-center gap-3">
             {uploaderDisplay && (
-              <span className="truncate max-w-[90px]" title={uploaderDisplay}>
+              <span className="inline-flex items-center gap-1 truncate max-w-[120px]" title={uploaderDisplay}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M12 12c2.761 0 5-2.239 5-5s-2.239-5-5-5-5 2.239-5 5 2.239 5 5 5Z" /><path d="M3 21c0-3.866 3.134-7 7-7h4c3.866 0 7 3.134 7 7" />
+                </svg>
                 {uploaderDisplay}
               </span>
             )}
-            {(paper.view_count !== undefined && paper.view_count > 0) && (
-              <span className="inline-flex items-center gap-0.5">
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            {paper.view_count !== undefined && paper.view_count > 0 && (
+              <span className="inline-flex items-center gap-1">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                   <circle cx="12" cy="12" r="3" />
                 </svg>
                 {paper.view_count}
               </span>
             )}
-            {(paper.download_count !== undefined && paper.download_count > 0) && (
-              <span className="inline-flex items-center gap-0.5">
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            {paper.download_count !== undefined && paper.download_count > 0 && (
+              <span className="inline-flex items-center gap-1">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M12 3v12" /><path d="M7 10l5 5 5-5" /><path d="M5 21h14" />
                 </svg>
                 {paper.download_count}
@@ -173,10 +166,7 @@ export default function PaperCard({ paper }: PaperCardProps) {
             )}
           </div>
 
-          <span
-            className="shrink-0 inline-flex items-center gap-1 text-xs font-medium transition-colors"
-            style={{ color: "var(--color-primary)" }}
-          >
+          <span className="inline-flex items-center gap-1 text-xs font-semibold text-primary transition-transform duration-150 group-hover:translate-x-0.5">
             Open PDF
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M5 12h14M12 5l7 7-7 7" />
@@ -187,4 +177,3 @@ export default function PaperCard({ paper }: PaperCardProps) {
     </Link>
   );
 }
-
