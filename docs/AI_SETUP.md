@@ -112,7 +112,7 @@ ExamArchive uses an OpenRouter-only pool filtered to **free-tier** models:
 - Admin/Founder: full free pool is unlocked
 - Preferred model is tried first, then the rest of the free pool is attempted sequentially
 
-If no free models are available, the API responds with a 503 explaining how to set `OPENROUTER_MODEL_ALLOWLIST`.
+If no free models are available, the API responds with a temporary-unavailable 503. Check `OPENROUTER_MODEL_ALLOWLIST` and confirm the listed models still show $0 pricing on OpenRouter.
 
 ---
 

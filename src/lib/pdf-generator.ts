@@ -315,10 +315,11 @@ function buildWatermarkDataUrl(): string {
 <svg xmlns="http://www.w3.org/2000/svg" width="260" height="260">
   <text x="20" y="150"
     transform="rotate(45 130 130)"
-    fill="rgb(0,0,0)"
+    fill="#000000"
     opacity="0.08"
-    font-family="Georgia, 'Times New Roman', serif"
+    font-family="Georgia, Times New Roman, serif"
     font-size="28">ExamArchive</text>
 </svg>`;
-  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+  const svgBase64 = Buffer.from(svg, "utf8").toString("base64");
+  return `data:image/svg+xml;base64,${svgBase64}`;
 }

@@ -6,6 +6,35 @@ const REQUEST_TIMEOUT_MS = 15_000;
 const OVERALL_TIMEOUT_MS = 25_000;
 const MODEL_CACHE_TTL_MS = 10 * 60 * 1000;
 
+// Fallback pool of known $0/$0 OpenRouter models so the app works out-of-the-box
+// without a custom allowlist. This mirrors the pricing Low→High free list.
+const DEFAULT_FREE_MODEL_ALLOWLIST = [
+  "deepseek/deepseek-r1-distill-llama-8b:free",
+  "deepseek/deepseek-r1:free",
+  "neuralmagic/llama-3.2-1b-instruct:free",
+  "meta-llama/llama-3.2-1b-instruct:free",
+  "meta-llama/llama-3.2-3b-instruct:free",
+  "meta-llama/llama-3.1-8b-instruct:free",
+  "meta-llama/llama-3.1-70b-instruct:free",
+  "qwen/qwen-2.5-1.5b-instruct:free",
+  "qwen/qwen-2.5-3b-instruct:free",
+  "qwen/qwen-2.5-7b-instruct:free",
+  "qwen/qwen-2.5-8b-instruct:free",
+  "qwen/qwen-2.5-14b-instruct:free",
+  "qwen/qwen-2.5-32b-instruct:free",
+  "qwen/qwen-2.5-72b-instruct:free",
+  "qwen/qwen-2.5-math-1.5b-instruct:free",
+  "qwen/qwen-2.5-math-7b-instruct:free",
+  "qwen/qwen-2.5-math-72b-instruct:free",
+  "qwen/qwen-2.5-coder-7b-instruct:free",
+  "qwen/qwen-2.5-coder-14b-instruct:free",
+  "qwen/qwen-2.5-coder-32b-instruct:free",
+  "google/gemma-2-2b-it:free",
+  "google/gemma-2-9b-it:free",
+  "openchat/openchat-3.6-8b:free",
+  "nousresearch/hermes-3-llama-3.1-8b:free",
+];
+
 const DEFAULT_APP_URL =
   process.env.OPENROUTER_APP_URL ||
   process.env.NEXT_PUBLIC_SITE_URL ||
@@ -59,10 +88,11 @@ interface OpenRouterModelListResponse {
 let cachedFreeModels: { models: string[]; fetchedAt: number } | null = null;
 
 function parseAllowlist(): string[] {
-  return (process.env.OPENROUTER_MODEL_ALLOWLIST ?? "")
+  const fromEnv = (process.env.OPENROUTER_MODEL_ALLOWLIST ?? "")
     .split(",")
     .map((m) => m.trim())
     .filter(Boolean);
+  return fromEnv.length ? fromEnv : DEFAULT_FREE_MODEL_ALLOWLIST;
 }
 
 function classifyProviderError(failure: ModelAttemptFailure): AIServiceError {
