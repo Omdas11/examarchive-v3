@@ -125,8 +125,9 @@ export async function POST(request: NextRequest) {
   try {
     const modelPool = await getOpenRouterModelPool(apiKey);
     if (modelPool.length === 0) {
+      console.error("[AI generate] No free OpenRouter models resolved. Check OPENROUTER_MODEL_ALLOWLIST and pricing.");
       return NextResponse.json(
-        { error: "No free OpenRouter models are available. Configure OPENROUTER_MODEL_ALLOWLIST with $0 models." },
+        { error: "AI generation is temporarily unavailable. Please try again shortly." },
         { status: 503 },
       );
     }
@@ -230,8 +231,9 @@ export async function GET() {
 
   const modelPool = await getOpenRouterModelPool(process.env.OPENROUTER_API_KEY);
   if (modelPool.length === 0) {
+    console.error("[AI generate] No free OpenRouter models resolved in GET. Check OPENROUTER_MODEL_ALLOWLIST and pricing.");
     return NextResponse.json(
-      { error: "No free OpenRouter models are available. Configure OPENROUTER_MODEL_ALLOWLIST with $0 models." },
+      { error: "AI generation is temporarily unavailable. Please try again shortly." },
       { status: 503 },
     );
   }

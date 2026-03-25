@@ -19,7 +19,7 @@ ExamArchive v3 ships with a lightweight AI assistant (ExamBot) powered exclusive
 3. Click **Create Key** and copy the generated key (keep it secret)
 4. Visit [https://openrouter.ai/models](https://openrouter.ai/models) and filter pricing to **Low → High**
 5. Select only models where both **Input** and **Output** columns display **$0** (e.g. `meta-llama/llama-3.1-8b-instruct:free`, `mistralai/mistral-7b-instruct:free`, `qwen/qwen-2.5-14b-instruct:free`)
-6. Add those model IDs to `OPENROUTER_MODEL_ALLOWLIST` in `.env.local` (comma-separated) to lock the app to free-tier choices
+6. Add those model IDs to `OPENROUTER_MODEL_ALLOWLIST` in `.env.local` (comma-separated) to lock the app to free-tier choices. Model availability and pricing can change, so re-check the OpenRouter models page periodically.
 
 ---
 

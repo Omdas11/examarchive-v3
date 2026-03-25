@@ -122,6 +122,7 @@ async function fetchFreeModelsFromOpenRouter(apiKey: string): Promise<string[]> 
     .filter((model) => {
       const promptCost = Number(model.pricing?.prompt ?? Number.POSITIVE_INFINITY);
       const completionCost = Number(model.pricing?.completion ?? Number.POSITIVE_INFINITY);
+      // Treat missing pricing as non-free to avoid accidental paid usage.
       return promptCost === 0 && completionCost === 0;
     })
     .map((model) => model.id)

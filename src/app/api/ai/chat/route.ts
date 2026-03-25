@@ -105,8 +105,9 @@ Additional UX rules:
 
     const modelPool = await getOpenRouterModelPool(apiKey);
     if (modelPool.length === 0) {
+      console.error("[AI chat] No free OpenRouter models resolved. Check OPENROUTER_MODEL_ALLOWLIST and pricing.");
       return NextResponse.json(
-        { error: "No free OpenRouter models are available. Configure OPENROUTER_MODEL_ALLOWLIST with $0 models." },
+        { error: "AI assistant is temporarily unavailable. Please try again shortly." },
         { status: 503 },
       );
     }
