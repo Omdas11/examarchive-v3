@@ -14,53 +14,45 @@ export interface ModelCapability {
 }
 
 export const MODEL_CAPABILITIES: Record<string, ModelCapability> = {
-  "openai/gpt-oss-120b": {
-    id: "openai/gpt-oss-120b",
-    label: "GPT OSS 120B",
-    displayName: "GPT-OSS 120B",
-    speed: "slow",
-    quality: "high",
-    cost: "high",
-    description: "Largest open-source GPT model. Best quality for complex topics.",
-    badge: "Best Quality",
-  },
-  "openai/gpt-oss-20b": {
-    id: "openai/gpt-oss-20b",
-    label: "GPT OSS 20B",
-    displayName: "GPT-OSS 20B",
-    speed: "medium",
-    quality: "high",
-    cost: "medium",
-    description: "Balanced performance and quality for academic content.",
-    badge: "Recommended",
-  },
-  "llama-3.3-70b-versatile": {
-    id: "llama-3.3-70b-versatile",
-    label: "Llama 3.3 70B",
-    displayName: "Llama 3.3 70B Versatile",
-    speed: "medium",
-    quality: "high",
-    cost: "medium",
-    description: "Versatile model with strong reasoning capabilities.",
-  },
-  "llama-3.1-8b-instant": {
-    id: "llama-3.1-8b-instant",
-    label: "Llama 3.1 8B",
-    displayName: "Llama 3.1 8B Instant",
+  "meta-llama/llama-3.1-8b-instruct:free": {
+    id: "meta-llama/llama-3.1-8b-instruct:free",
+    label: "Llama 3.1 8B (Free)",
+    displayName: "Llama 3.1 8B (Free)",
     speed: "fast",
     quality: "medium",
     cost: "low",
-    description: "Fast generation for quick study notes and summaries.",
-    badge: "Fastest",
+    description: "Fast, lightweight Llama 3.1 8B tuned for instruction-following. Great for quick drafts.",
+    badge: "Free Tier",
   },
-  "llama-3.1-70b-versatile": {
-    id: "llama-3.1-70b-versatile",
-    label: "Llama 3.1 70B",
-    displayName: "Llama 3.1 70B Versatile",
+  "meta-llama/llama-3.1-70b-instruct:free": {
+    id: "meta-llama/llama-3.1-70b-instruct:free",
+    label: "Llama 3.1 70B (Free)",
+    displayName: "Llama 3.1 70B (Free)",
     speed: "medium",
     quality: "high",
-    cost: "medium",
-    description: "Reliable choice for detailed academic explanations.",
+    cost: "low",
+    description: "High-quality Llama 70B for detailed academic answers while staying on free pricing.",
+    badge: "Best Quality",
+  },
+  "mistralai/mistral-7b-instruct:free": {
+    id: "mistralai/mistral-7b-instruct:free",
+    label: "Mistral 7B (Free)",
+    displayName: "Mistral 7B (Free)",
+    speed: "fast",
+    quality: "medium",
+    cost: "low",
+    description: "Low-latency Mistral 7B instruct. Good for concise summaries and quick feedback.",
+    badge: "Fastest",
+  },
+  "qwen/qwen-2.5-14b-instruct:free": {
+    id: "qwen/qwen-2.5-14b-instruct:free",
+    label: "Qwen 2.5 14B (Free)",
+    displayName: "Qwen 2.5 14B (Free)",
+    speed: "medium",
+    quality: "high",
+    cost: "low",
+    description: "Balanced reasoning and creativity with Qwen 14B while keeping both token costs at $0.",
+    badge: "Balanced",
   },
 };
 
@@ -71,12 +63,21 @@ export function getModelCapability(modelId: string): ModelCapability {
   return MODEL_CAPABILITIES[modelId] || {
     id: modelId,
     label: modelId,
-    displayName: modelId,
+    displayName: humanizeModelId(modelId),
     speed: "medium",
     quality: "medium",
     cost: "medium",
     description: "Standard AI model",
   };
+}
+
+function humanizeModelId(modelId: string): string {
+  return modelId
+    .replace(/[:/_-]+/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map((chunk) => chunk.charAt(0).toUpperCase() + chunk.slice(1))
+    .join(" ");
 }
 
 /**

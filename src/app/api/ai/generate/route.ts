@@ -7,7 +7,7 @@ import {
   Query,
   ID,
 } from "@/lib/appwrite";
-import { AIServiceError, getGroqModelPool, runGroqCompletionWithFallback } from "@/lib/groq-fallback";
+import { AIServiceError, getOpenRouterModelPool, runOpenRouterCompletionWithFallback } from "@/lib/openrouter";
 import { buildRagContext, type CoursePrefsPayload } from "@/lib/pdf-rag";
 import {
   getNoteLengthOptions,
@@ -33,9 +33,8 @@ function isAdminPlus(role: string): boolean {
   return role === "admin" || role === "founder";
 }
 
-function canUseModel(role: string, model: string): boolean {
+function canUseModel(role: string, model: string, pool: string[]): boolean {
   if (isAdminPlus(role)) return true;
-  const pool = getGroqModelPool();
   const allowed = pool.slice(0, 3);
   return allowed.includes(model);
 }
@@ -74,7 +73,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
 
-  const apiKey = process.env.GROQ_API_KEY;
+  const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
     return NextResponse.json({ error: "AI generation is not configured." }, { status: 503 });
   }
@@ -102,12 +101,6 @@ export async function POST(request: NextRequest) {
   const noteLength = normalizeNoteLength(body.noteLength);
   const noteTargets = getNoteLengthTargets(noteLength);
   const preferredModel = typeof body.model === "string" ? body.model.trim() : "";
-  if (preferredModel && !canUseModel(user.role, preferredModel)) {
-    return NextResponse.json(
-      { error: "Selected model is not available for your role." },
-      { status: 403 },
-    );
-  }
   const useWebSearch = Boolean(body.useWebSearch);
 
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -130,6 +123,22 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const modelPool = await getOpenRouterModelPool(apiKey);
+    if (modelPool.length === 0) {
+      return NextResponse.json(
+        { error: "No free OpenRouter models are available. Configure OPENROUTER_MODEL_ALLOWLIST with $0 models." },
+        { status: 503 },
+      );
+    }
+    if (preferredModel) {
+      const allowedForRole = canUseModel(user.role, preferredModel, modelPool);
+      if (!allowedForRole) {
+        return NextResponse.json(
+          { error: "Selected model is not available for your role." },
+          { status: 403 },
+        );
+      }
+    }
     const inputPaperContext = (body.paperContext ?? "").slice(0, 2000);
     const referenceLabel = sanitizeReferenceLabel(body.referenceLabel);
     const ragContext = await buildRagContext({
@@ -169,12 +178,13 @@ Format requirements:
 
 Write in plain text with Markdown headings only (no HTML).`;
 
-    const { content: generatedContent, model } = await runGroqCompletionWithFallback({
+    const { content: generatedContent, model } = await runOpenRouterCompletionWithFallback({
       apiKey,
       messages: [{ role: "user", content: prompt }],
       maxTokens: Math.min(MAX_COMPLETION_TOKENS, noteTargets.maxTokens),
       temperature: 0.6,
       preferredModel: preferredModel || undefined,
+      modelPool,
     });
     const content = generatedContent;
 
@@ -202,7 +212,7 @@ Write in plain text with Markdown headings only (no HTML).`;
     if (err instanceof AIServiceError) {
       return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
     }
-    console.error("[AI generate] Groq error:", err);
+    console.error("[AI generate] OpenRouter error:", err);
     return NextResponse.json({ error: "Service temporarily unavailable. Please try again shortly." }, { status: 503 });
   }
 }
@@ -214,7 +224,17 @@ export async function GET() {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
 
-  const modelPool = getGroqModelPool();
+  if (!process.env.OPENROUTER_API_KEY) {
+    return NextResponse.json({ error: "AI generation is not configured." }, { status: 503 });
+  }
+
+  const modelPool = await getOpenRouterModelPool(process.env.OPENROUTER_API_KEY);
+  if (modelPool.length === 0) {
+    return NextResponse.json(
+      { error: "No free OpenRouter models are available. Configure OPENROUTER_MODEL_ALLOWLIST with $0 models." },
+      { status: 503 },
+    );
+  }
   const modelOptions = modelPool.map((model, index) => ({
     id: model,
     label: model,

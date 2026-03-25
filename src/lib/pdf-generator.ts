@@ -52,6 +52,7 @@ export async function generatePDF(
   const { html, maxPages, title = "Document" } = options;
   const safeMaxPages = Math.max(1, Math.floor(maxPages));
   const safeHtml = sanitizeHtmlLikeContent(html);
+  const watermarkDataUrl = buildWatermarkDataUrl();
 
   let browser;
   try {
@@ -85,6 +86,11 @@ export async function generatePDF(
       max-width: 100%;
       margin: 0;
       padding: 0;
+      background-image: url('${watermarkDataUrl}');
+      background-repeat: repeat;
+      background-size: 240px 240px;
+      background-position: 0 0;
+      background-attachment: fixed;
     }
     h1 {
       font-size: 20pt;
@@ -302,4 +308,17 @@ export function markdownToHTML(markdown: string): string {
   html = html.replace(/<p><br><\/p>/g, "");
 
   return html;
+}
+
+function buildWatermarkDataUrl(): string {
+  const svg = `
+<svg xmlns="http://www.w3.org/2000/svg" width="260" height="260">
+  <text x="20" y="150"
+    transform="rotate(45 130 130)"
+    fill="rgb(0,0,0)"
+    opacity="0.08"
+    font-family="Georgia, 'Times New Roman', serif"
+    font-size="28">ExamArchive</text>
+</svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }

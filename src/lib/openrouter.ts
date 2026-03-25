@@ -1,16 +1,16 @@
-type GroqRole = "system" | "user" | "assistant";
+type OpenRouterRole = "system" | "user" | "assistant";
 
-const GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
+const OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
+const OPENROUTER_MODELS_ENDPOINT = "https://openrouter.ai/api/v1/models";
 const REQUEST_TIMEOUT_MS = 15_000;
 const OVERALL_TIMEOUT_MS = 25_000;
+const MODEL_CACHE_TTL_MS = 10 * 60 * 1000;
 
-const DEFAULT_MODEL_POOL = [
-  "openai/gpt-oss-120b",
-  "openai/gpt-oss-20b",
-  "llama-3.3-70b-versatile",
-  "llama-3.1-8b-instant",
-  "llama-3.1-70b-versatile",
-];
+const DEFAULT_APP_URL =
+  process.env.OPENROUTER_APP_URL ||
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  "https://www.examarchive.dev";
+const DEFAULT_APP_NAME = process.env.OPENROUTER_APP_NAME || "ExamArchive";
 
 export type AIErrorCode = "HIGH_TRAFFIC" | "DAILY_LIMIT_REACHED" | "SERVICE_UNAVAILABLE";
 
@@ -24,7 +24,7 @@ export class AIServiceError extends Error {
   }
 }
 
-interface GroqErrorPayload {
+interface OpenRouterErrorPayload {
   error?: {
     message?: string;
     type?: string;
@@ -32,7 +32,7 @@ interface GroqErrorPayload {
   };
 }
 
-interface GroqCompletionResponse {
+interface OpenRouterCompletionResponse {
   choices?: Array<{
     message?: {
       content?: string;
@@ -46,12 +46,23 @@ interface ModelAttemptFailure {
   timeout?: boolean;
 }
 
-export function getGroqModelPool(): string[] {
-  const fromEnv = (process.env.GROQ_MODEL_POOL ?? "")
+interface OpenRouterModelListResponse {
+  data?: Array<{
+    id: string;
+    pricing?: {
+      prompt?: number | string | null;
+      completion?: number | string | null;
+    };
+  }>;
+}
+
+let cachedFreeModels: { models: string[]; fetchedAt: number } | null = null;
+
+function parseAllowlist(): string[] {
+  return (process.env.OPENROUTER_MODEL_ALLOWLIST ?? "")
     .split(",")
-    .map((model) => model.trim())
+    .map((m) => m.trim())
     .filter(Boolean);
-  return [...new Set(fromEnv.length ? fromEnv : DEFAULT_MODEL_POOL)];
 }
 
 function classifyProviderError(failure: ModelAttemptFailure): AIServiceError {
@@ -91,21 +102,84 @@ function summarizeFailures(failures: ModelAttemptFailure[]): AIServiceError {
   return new AIServiceError("SERVICE_UNAVAILABLE", 503, "Service temporarily unavailable. Please try again shortly.");
 }
 
-async function callGroqModel(args: {
+async function fetchFreeModelsFromOpenRouter(apiKey: string): Promise<string[]> {
+  const response = await fetch(OPENROUTER_MODELS_ENDPOINT, {
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "HTTP-Referer": DEFAULT_APP_URL,
+      "X-Title": DEFAULT_APP_NAME,
+    },
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch OpenRouter models (status ${response.status})`);
+  }
+
+  const payload = (await response.json()) as OpenRouterModelListResponse;
+  const models = payload.data ?? [];
+  return models
+    .filter((model) => {
+      const promptCost = Number(model.pricing?.prompt ?? Number.POSITIVE_INFINITY);
+      const completionCost = Number(model.pricing?.completion ?? Number.POSITIVE_INFINITY);
+      return promptCost === 0 && completionCost === 0;
+    })
+    .map((model) => model.id)
+    .filter(Boolean);
+}
+
+export async function getOpenRouterModelPool(apiKey?: string): Promise<string[]> {
+  const allowlist = parseAllowlist();
+  if (!apiKey) {
+    return allowlist;
+  }
+
+  const now = Date.now();
+  if (cachedFreeModels && now - cachedFreeModels.fetchedAt < MODEL_CACHE_TTL_MS) {
+    const fromCache = cachedFreeModels.models;
+    return allowlist.length ? allowlist.filter((id) => fromCache.includes(id)) : fromCache;
+  }
+
+  try {
+    const freeModels = await fetchFreeModelsFromOpenRouter(apiKey);
+    const uniqueFree = [...new Set(freeModels)];
+    const filtered = allowlist.length ? allowlist.filter((id) => uniqueFree.includes(id)) : uniqueFree;
+    if (filtered.length > 0) {
+      cachedFreeModels = { models: filtered, fetchedAt: now };
+      return filtered;
+    }
+    // If no overlap with allowlist, fall back to discovered free models.
+    if (uniqueFree.length > 0) {
+      cachedFreeModels = { models: uniqueFree, fetchedAt: now };
+      return uniqueFree;
+    }
+  } catch (error) {
+    console.error("[OpenRouter] Failed to list models:", error);
+  }
+
+  // Last-resort: return allowlist without validation (assumed to be free per developer configuration)
+  return allowlist;
+}
+
+async function callOpenRouterModel(args: {
   apiKey: string;
   model: string;
-  messages: Array<{ role: GroqRole; content: string }>;
+  messages: Array<{ role: OpenRouterRole; content: string }>;
   maxTokens: number;
   temperature: number;
   timeoutMs: number;
+  referer?: string;
+  appName?: string;
 }): Promise<{ content: string }> {
   let response: Response;
   try {
-    response = await fetch(GROQ_ENDPOINT, {
+    response = await fetch(OPENROUTER_ENDPOINT, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${args.apiKey}`,
+        "HTTP-Referer": args.referer || DEFAULT_APP_URL,
+        "X-Title": args.appName || DEFAULT_APP_NAME,
       },
       body: JSON.stringify({
         model: args.model,
@@ -125,9 +199,9 @@ async function callGroqModel(args: {
   }
 
   if (!response.ok) {
-    let payload: GroqErrorPayload | null = null;
+    let payload: OpenRouterErrorPayload | null = null;
     try {
-      payload = (await response.json()) as GroqErrorPayload;
+      payload = (await response.json()) as OpenRouterErrorPayload;
     } catch {
       payload = null;
     }
@@ -138,7 +212,7 @@ async function callGroqModel(args: {
     } satisfies ModelAttemptFailure;
   }
 
-  const payload = (await response.json()) as GroqCompletionResponse;
+  const payload = (await response.json()) as OpenRouterCompletionResponse;
   const content = payload.choices?.[0]?.message?.content?.trim();
   if (!content) {
     throw {
@@ -161,14 +235,19 @@ function isModelAttemptFailure(error: unknown): error is ModelAttemptFailure {
   );
 }
 
-export async function runGroqCompletionWithFallback(args: {
+export async function runOpenRouterCompletionWithFallback(args: {
   apiKey: string;
-  messages: Array<{ role: GroqRole; content: string }>;
+  messages: Array<{ role: OpenRouterRole; content: string }>;
   maxTokens: number;
   temperature: number;
   preferredModel?: string;
+  modelPool?: string[];
+  referer?: string;
+  appName?: string;
 }): Promise<{ content: string; model: string }> {
-  const basePool = getGroqModelPool();
+  const basePool = args.modelPool && args.modelPool.length > 0
+    ? args.modelPool
+    : await getOpenRouterModelPool(args.apiKey);
   const preferred = args.preferredModel?.trim();
   const modelPool = preferred && basePool.includes(preferred)
     ? [preferred, ...basePool.filter((model) => model !== preferred)]
@@ -187,13 +266,15 @@ export async function runGroqCompletionWithFallback(args: {
       break;
     }
     try {
-      const result = await callGroqModel({
+      const result = await callOpenRouterModel({
         apiKey: args.apiKey,
         model,
         messages: args.messages,
         maxTokens: args.maxTokens,
         temperature: args.temperature,
         timeoutMs: Math.min(REQUEST_TIMEOUT_MS, remainingOverallMs),
+        referer: args.referer,
+        appName: args.appName,
       });
       return { ...result, model };
     } catch (error) {

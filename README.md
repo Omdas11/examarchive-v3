@@ -26,7 +26,8 @@ ExamArchive is a community-driven platform for sharing and discovering universit
    - `APPWRITE_BUCKET_ID` — bucket for exam paper PDFs (default: `papers`)
    - `APPWRITE_SYLLABUS_BUCKET_ID` — bucket for syllabus PDFs (default: `syllabus-files`)
    - `APPWRITE_AVATARS_BUCKET_ID` — bucket for user avatars (default: `avatars`)
-   - `GROQ_API_KEY` — server-side Groq API key for AI chat/content generation
+   - `OPENROUTER_API_KEY` — server-side OpenRouter API key for AI chat/content generation (free-tier models only)
+   - Optional: `OPENROUTER_MODEL_ALLOWLIST` — comma-separated list of OpenRouter model IDs that have $0 prompt + completion cost (e.g. `meta-llama/llama-3.1-8b-instruct:free,mistralai/mistral-7b-instruct:free`)
 
 3. **Run the development server**:
    ```bash
@@ -41,7 +42,8 @@ ExamArchive is a community-driven platform for sharing and discovering universit
 - **Browse & Search** — Filter papers by department, year, semester, and exam type.
 - **Authenticated File Access** — PDFs are served through a Next.js proxy and require a valid login session.
 - **User Roles & XP** — Role hierarchy with XP and achievement tracking.
-- **Resilient AI Assistant** — `/api/ai/chat` and `/api/ai/generate` use Groq multi-model fallback (`openai/gpt-oss-120b`, `openai/gpt-oss-20b`, `llama-3.3-70b-versatile`, `llama-3.1-8b-instant`, `llama-3.1-70b-versatile`) with user-friendly high-traffic/service error messages.
+- **Resilient AI Assistant** — `/api/ai/chat` and `/api/ai/generate` now route exclusively through OpenRouter and automatically restrict to free-tier ($0/$0) models. Preferred models are validated against the free list per role before each request, with friendly high-traffic/service error messages.
+- **PDF Watermarking** — generated PDFs render with a low-opacity, 45° tiled “ExamArchive” watermark across every page while keeping the main content fully legible.
 
 ## Security
 
@@ -55,7 +57,7 @@ ExamArchive is a community-driven platform for sharing and discovering universit
 |----------|-------------|
 | [docs/DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md) | Appwrite collection schemas |
 | [docs/UPLOAD_FLOW.md](docs/UPLOAD_FLOW.md) | End-to-end upload architecture |
-| [docs/AI_SETUP.md](docs/AI_SETUP.md) | Groq-based AI setup, limits, and endpoint usage |
+| [docs/AI_SETUP.md](docs/AI_SETUP.md) | OpenRouter-based AI setup, limits, and endpoint usage |
 | [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md) | Complete environment variable reference |
 | [docs/AI_EXTENSIONS_SETUP.md](docs/AI_EXTENSIONS_SETUP.md) | AI extensions and RAG setup |
 

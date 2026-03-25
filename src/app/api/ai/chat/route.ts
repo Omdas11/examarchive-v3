@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getServerUser } from "@/lib/auth";
-import { AIServiceError, runGroqCompletionWithFallback } from "@/lib/groq-fallback";
+import { AIServiceError, getOpenRouterModelPool, runOpenRouterCompletionWithFallback } from "@/lib/openrouter";
 import { buildRagContext } from "@/lib/pdf-rag";
 
 // ── System prompt — describes the assistant role and site structure ──────────
@@ -18,7 +18,7 @@ Navigation guide:
 - /syllabus — explore course syllabi with links to related papers.
 - /upload — submit new exam papers (requires login + admin approval).
 - /profile — view your profile, XP, tier, achievements, and course preferences.
-- /ai-content — generate AI-summarised study documents (requires login, 3 per day limit).
+- /ai-content — generate AI-summarised study documents (requires login, 5 per day limit).
 
 Rules:
 - You assist students with site navigation, finding papers, and study guidance.
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Login required to use the AI assistant." }, { status: 401 });
   }
 
-  const apiKey = process.env.GROQ_API_KEY;
+  const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
     return NextResponse.json({ error: "AI assistant is not configured." }, { status: 503 });
   }
@@ -103,18 +103,27 @@ Additional UX rules:
       { role: "user", content: `${userMessage}\n\nUI hint: ${uiHint}${contextBlock}` },
     ];
 
-    const { content, model } = await runGroqCompletionWithFallback({
+    const modelPool = await getOpenRouterModelPool(apiKey);
+    if (modelPool.length === 0) {
+      return NextResponse.json(
+        { error: "No free OpenRouter models are available. Configure OPENROUTER_MODEL_ALLOWLIST with $0 models." },
+        { status: 503 },
+      );
+    }
+
+    const { content, model } = await runOpenRouterCompletionWithFallback({
       apiKey,
       messages,
       maxTokens: 512,
       temperature: 0.7,
+      modelPool,
     });
     return NextResponse.json({ reply: content, model, sources: ragContext.sources });
   } catch (err) {
     if (err instanceof AIServiceError) {
       return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
     }
-    console.error("[AI chat] Groq error:", err);
+    console.error("[AI chat] OpenRouter error:", err);
     return NextResponse.json({ error: "Service temporarily unavailable. Please try again shortly." }, { status: 503 });
   }
 }

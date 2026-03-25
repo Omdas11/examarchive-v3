@@ -177,7 +177,7 @@ counting documents matching `(user_id, date)`.
 
 ### AI fallback + error behavior (no schema changes)
 
-- AI chat and generation endpoints use a server-side Groq multi-model fallback pool (priority order) to improve reliability under load.
+- AI chat and generation endpoints use a server-side OpenRouter free-tier fallback pool (priority order) to improve reliability under load while keeping costs at $0.
 - If one model fails due to overload, timeout, or provider errors, the next model is tried automatically.
 - User-facing API responses expose only safe messages such as:
   - `"AI is under high traffic. Please try again in a moment."`
