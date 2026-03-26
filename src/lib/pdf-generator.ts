@@ -11,11 +11,23 @@
 import puppeteer, { type Page } from "puppeteer-core";
 import chromium from "@sparticuz/chromium";
 import sanitizeHtml from "sanitize-html";
+import { marked } from "marked";
+import katex from "katex";
+
+const katexCSS =
+  ".katex { font: normal 1em 'Times New Roman', serif; }" +
+  ".katex-display { margin: 0.8em 0; }" +
+  ".katex .mord { font: normal 1em 'Times New Roman', serif; }";
 
 export interface PDFGenerationOptions {
   html: string;
   maxPages: number;
   title?: string;
+  meta?: {
+    topic?: string;
+    model?: string;
+    generatedAt?: string;
+  };
 }
 
 export interface PDFGenerationResult {
@@ -30,11 +42,34 @@ export interface PDFGenerationResult {
  */
 export function sanitizeHtmlLikeContent(input: string): string {
   return sanitizeHtml(input, {
-    allowedTags: sanitizeHtml.defaults.allowedTags.concat(["h1", "h2", "img"]),
+    allowedTags: sanitizeHtml.defaults.allowedTags.concat([
+      "h1",
+      "h2",
+      "img",
+      "span",
+      "math",
+      "semantics",
+      "mrow",
+      "mi",
+      "mo",
+      "mn",
+      "msup",
+      "mfrac",
+      "msqrt",
+      "mspace",
+      "mstyle",
+      "mtable",
+      "mtr",
+      "mtd",
+      "annotation",
+    ]),
     allowedAttributes: {
       ...sanitizeHtml.defaults.allowedAttributes,
       a: ["href", "name", "target", "rel"],
       img: ["src", "alt", "width", "height"],
+      span: ["class", "style"],
+      math: ["xmlns", "display"],
+      annotation: ["encoding"],
     },
     allowedSchemes: ["http", "https", "mailto"],
     allowedSchemesAppliedToAttributes: ["href", "src"],
@@ -49,10 +84,13 @@ export function sanitizeHtmlLikeContent(input: string): string {
 export async function generatePDF(
   options: PDFGenerationOptions
 ): Promise<PDFGenerationResult> {
-  const { html, maxPages, title = "Document" } = options;
+  const { html, maxPages, title = "Document", meta } = options;
   const safeMaxPages = Math.max(1, Math.floor(maxPages));
   const safeHtml = sanitizeHtmlLikeContent(html);
   const watermarkDataUrl = buildWatermarkDataUrl();
+  const metaTitle = escapeHtml(meta?.topic || title);
+  const metaModel = escapeHtml(meta?.model || "OpenRouter model");
+  const metaTimestamp = escapeHtml(meta?.generatedAt || new Date().toISOString());
 
   let browser;
   try {
@@ -73,10 +111,16 @@ export async function generatePDF(
 <head>
   <meta charset="UTF-8">
   <title>${escapeHtml(title)}</title>
+  <style>${katexCSS}</style>
   <style>
     @page {
       size: A4;
       margin: 2cm;
+      @bottom-center {
+        content: "Page " counter(page) " of " counter(pages);
+        font-size: 9pt;
+        color: #666;
+      }
     }
     body {
       font-family: 'Georgia', 'Times New Roman', serif;
@@ -91,6 +135,21 @@ export async function generatePDF(
       background-size: 240px 240px;
       background-position: 0 0;
       background-attachment: fixed;
+    }
+    header.doc-meta {
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    header.doc-meta h1 {
+      margin: 0 0 6px 0;
+      border: none;
+      padding: 0;
+      color: #111827;
+    }
+    .doc-meta__row {
+      font-size: 10pt;
+      color: #4b5563;
     }
     h1 {
       font-size: 20pt;
@@ -197,6 +256,12 @@ export async function generatePDF(
   </style>
 </head>
 <body>
+  <header class="doc-meta">
+    <h1>${metaTitle}</h1>
+    <div class="doc-meta__row">
+      Model: ${metaModel} • Generated: ${metaTimestamp}
+    </div>
+  </header>
   ${safeHtml}
 </body>
 </html>
@@ -261,53 +326,38 @@ function escapeHtml(text: string): string {
 }
 
 /**
- * Convert markdown to HTML (basic conversion for PDF generation)
+ * Convert markdown (with LaTeX) to HTML.
  */
 export function markdownToHTML(markdown: string): string {
-  let html = markdown;
+  const raw = markdown || "";
+  const withMath = renderMath(raw);
 
-  // Escape HTML first
-  html = html.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  marked.setOptions({
+    gfm: true,
+    breaks: true,
+  });
 
-  // Headers
-  html = html.replace(/^### (.*$)/gim, "<h3>$1</h3>");
-  html = html.replace(/^## (.*$)/gim, "<h2>$1</h2>");
-  html = html.replace(/^# (.*$)/gim, "<h1>$1</h1>");
+  const html = marked.parse(withMath);
+  return typeof html === "string" ? html : "";
+}
 
-  // Bold and italic
-  html = html.replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>");
-  html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-  html = html.replace(/\*(.+?)\*/g, "<em>$1</em>");
-  html = html.replace(/___(.+?)___/g, "<strong><em>$1</em></strong>");
-  html = html.replace(/__(.+?)__/g, "<strong>$1</strong>");
-  html = html.replace(/_(.+?)_/g, "<em>$1</em>");
+function renderMath(input: string): string {
+  // simple replacement before markdown parsing; avoids raw LaTeX leaking through
+  const replaceDisplay = input.replace(/\$\$([\s\S]+?)\$\$/g, (_, expr) => {
+    try {
+      return katex.renderToString(expr, { displayMode: true, throwOnError: false, strict: "ignore" });
+    } catch {
+      return `<pre>${escapeHtml(expr)}</pre>`;
+    }
+  });
 
-  // Code blocks
-  html = html.replace(/```([\s\S]*?)```/g, "<pre><code>$1</code></pre>");
-  html = html.replace(/`(.+?)`/g, "<code>$1</code>");
-
-  // Lists
-  html = html.replace(/^\* (.+$)/gim, "<li>$1</li>");
-  html = html.replace(/^\- (.+$)/gim, "<li>$1</li>");
-  html = html.replace(/^(\d+)\. (.+$)/gim, "<li>$2</li>");
-  html = html.replace(/(<li>.*<\/li>)/gi, "<ul>$1</ul>");
-
-  // Links
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
-
-  // Blockquotes
-  html = html.replace(/^&gt; (.+$)/gim, "<blockquote>$1</blockquote>");
-
-  // Line breaks and paragraphs
-  html = html.replace(/\n\n/g, "</p><p>");
-  html = html.replace(/\n/g, "<br>");
-  html = `<p>${html}</p>`;
-
-  // Clean up empty paragraphs
-  html = html.replace(/<p><\/p>/g, "");
-  html = html.replace(/<p><br><\/p>/g, "");
-
-  return html;
+  return replaceDisplay.replace(/(^|[^\\])\$([^$\n]+?)\$/g, (match, prefix, expr) => {
+    try {
+      return `${prefix}${katex.renderToString(expr, { displayMode: false, throwOnError: false, strict: "ignore" })}`;
+    } catch {
+      return `${prefix}<code>${escapeHtml(expr)}</code>`;
+    }
+  });
 }
 
 function buildWatermarkDataUrl(): string {
@@ -320,6 +370,6 @@ function buildWatermarkDataUrl(): string {
     font-family="Georgia, Times New Roman, serif"
     font-size="28">ExamArchive</text>
 </svg>`;
-  const svgBase64 = Buffer.from(svg, "utf8").toString("base64");
-  return `data:image/svg+xml;base64,${svgBase64}`;
+const svgBase64 = Buffer.from(svg, "utf8").toString("base64");
+return `data:image/svg+xml;base64,${svgBase64}`;
 }

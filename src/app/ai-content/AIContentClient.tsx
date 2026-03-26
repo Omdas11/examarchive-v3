@@ -50,6 +50,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
   const [paperSearch, setPaperSearch] = useState("");
   const [selectedPaperId, setSelectedPaperId] = useState<string>("");
   const [paperLoading, setPaperLoading] = useState(false);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const loadingIntervalRef = useRef<number | null>(null);
 
   const DAILY_LIMIT = 5;
@@ -114,8 +115,11 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
         window.clearInterval(loadingIntervalRef.current);
         loadingIntervalRef.current = null;
       }
+      if (pdfPreviewUrl) {
+        window.URL.revokeObjectURL(pdfPreviewUrl);
+      }
     };
-  }, []);
+  }, [pdfPreviewUrl]);
 
   const selectedPaper = useMemo(
     () => papers.find((paper) => paper.id === selectedPaperId) ?? null,
@@ -242,7 +246,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
     }
   }
 
-  async function handlePrint() {
+  async function handlePrint(mode: "download" | "preview" = "download") {
     if (!activeDoc) return;
 
     try {
@@ -254,6 +258,8 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
           topic: activeDoc.topic,
           pageLength: activeDoc.pageLength || undefined,
           noteLength: activeDoc.noteLength ?? noteLength,
+          model: activeDoc.model,
+          generatedAt: activeDoc.generatedAt,
         }),
       });
 
@@ -264,6 +270,15 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
 
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
+
+      if (mode === "preview") {
+        if (pdfPreviewUrl) {
+          window.URL.revokeObjectURL(pdfPreviewUrl);
+        }
+        setPdfPreviewUrl(url);
+        return;
+      }
+
       const a = document.createElement("a");
       a.href = url;
       a.download = `${activeDoc.topic.replace(/[^a-zA-Z0-9]/g, "_")}_${new Date().toISOString().slice(0, 10)}.pdf`;
@@ -497,8 +512,14 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-3">
-                    <button onClick={handlePrint} className="btn inline-flex items-center gap-2">
+                    <button onClick={() => handlePrint("download")} className="btn inline-flex items-center gap-2">
                       📄 Export as PDF
+                    </button>
+                    <button
+                      onClick={() => handlePrint("preview")}
+                      className="btn inline-flex items-center gap-2"
+                    >
+                      👁️ Preview PDF
                     </button>
                     {activeDoc.sources && activeDoc.sources.length > 0 && (
                       <div className="flex items-center gap-2 rounded-full bg-surface-container-low px-3 py-1 text-xs text-on-surface-variant">
@@ -506,6 +527,23 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                       </div>
                     )}
                   </div>
+                  {pdfPreviewUrl && (
+                    <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-3">
+                      <div className="flex items-center justify-between text-xs text-on-surface-variant mb-2">
+                        <span>PDF Preview</span>
+                        <button
+                          type="button"
+                          className="underline"
+                          onClick={() => {
+                            window.open(pdfPreviewUrl, "_blank");
+                          }}
+                        >
+                          Open in new tab
+                        </button>
+                      </div>
+                      <iframe title="PDF preview" src={pdfPreviewUrl} className="h-96 w-full rounded-lg border border-outline-variant/30" />
+                    </div>
+                  )}
                   <div
                     className="max-h-[520px] overflow-auto rounded-xl border border-outline-variant/30 bg-surface-container-low p-4 text-sm leading-7 text-on-surface shadow-inner"
                     style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}

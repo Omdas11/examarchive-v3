@@ -63,6 +63,8 @@ export async function POST(request: NextRequest) {
     topic?: string;
     pageLength?: number;
     noteLength?: NoteLength;
+    model?: string;
+    generatedAt?: string;
   };
 
   try {
@@ -120,6 +122,11 @@ export async function POST(request: NextRequest) {
       html,
       maxPages: pageLength,
       title: topic,
+      meta: {
+        topic,
+        model: body.model,
+        generatedAt: body.generatedAt,
+      },
     });
 
     // Return PDF as a downloadable file

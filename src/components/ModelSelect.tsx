@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useId } from "react";
-import { getModelCapability, getSpeedIcon, getQualityIcon, getCostIcon } from "@/lib/model-capabilities";
+import { getModelCapability } from "@/lib/model-capabilities";
 
 interface ModelSelectOption {
   id: string;
@@ -62,7 +62,6 @@ export default function ModelSelect({
 
   return (
     <div className={`relative ${className}`}>
-      {/* Trigger button */}
       <button
         ref={buttonRef}
         type="button"
@@ -80,56 +79,35 @@ export default function ModelSelect({
           opacity: disabled ? 0.6 : 1,
         }}
       >
-        <div style={{ flex: 1, overflow: "hidden" }}>
+        <div style={{ flex: 1, overflow: "hidden", display: "flex", alignItems: "center", gap: 8 }}>
           {selectedCapability ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.875rem" }}>
-                <span style={{ fontWeight: 500 }}>{selectedCapability.displayName}</span>
-                {selectedCapability.badge && (
-                  <span
-                    style={{
-                      fontSize: "0.65rem",
-                      padding: "1px 6px",
-                      borderRadius: "9999px",
-                      background: "var(--brand-crimson)",
-                      color: "white",
-                      fontWeight: 600,
-                    }}
-                  >
-                    {selectedCapability.badge}
-                  </span>
-                )}
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.7rem", color: "var(--color-text-muted)" }}>
-                <span title="Speed">{getSpeedIcon(selectedCapability.speed)}</span>
-                <span title="Quality">{getQualityIcon(selectedCapability.quality)}</span>
-                <span title="Cost">{getCostIcon(selectedCapability.cost)}</span>
-              </div>
-            </div>
+            <>
+              <SimpleDot active />
+              <span style={{ fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {selectedCapability.displayName}
+              </span>
+              {selectedCapability.badge && (
+                <span
+                  style={{
+                    fontSize: "0.65rem",
+                    padding: "1px 6px",
+                    borderRadius: "9999px",
+                    background: "var(--brand-crimson)",
+                    color: "white",
+                    fontWeight: 600,
+                  }}
+                >
+                  {selectedCapability.badge}
+                </span>
+              )}
+            </>
           ) : (
             <span style={{ color: "var(--color-text-muted)", opacity: 0.6 }}>Select model…</span>
           )}
         </div>
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          aria-hidden="true"
-          style={{
-            flexShrink: 0,
-            transition: "transform 0.15s",
-            transform: open ? "rotate(180deg)" : "rotate(0deg)",
-            color: "var(--color-text-muted)",
-          }}
-        >
-          <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
+        <Chevron open={open} />
       </button>
 
-      {/* Dropdown panel */}
       {open && (
         <div
           ref={listRef}
@@ -146,7 +124,7 @@ export default function ModelSelect({
             border: "1px solid var(--color-primary)",
             background: "var(--color-surface)",
             boxShadow: "0 6px 20px rgba(0,0,0,0.15)",
-            maxHeight: 360,
+            maxHeight: 320,
             overflowY: "auto",
             padding: "4px 0",
           }}
@@ -170,9 +148,12 @@ export default function ModelSelect({
                   padding: "10px 12px",
                   cursor: locked ? "not-allowed" : "pointer",
                   background: active ? "var(--color-accent-soft)" : "transparent",
-                  opacity: locked ? 0.5 : 1,
+                  opacity: locked ? 0.6 : 1,
                   borderBottom: "1px solid var(--color-border)",
                   transition: "background 0.1s",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
                 }}
                 onMouseEnter={(e) => {
                   if (!active && !locked) (e.currentTarget as HTMLElement).style.background = "var(--color-accent-soft)";
@@ -181,11 +162,11 @@ export default function ModelSelect({
                   if (!active) (e.currentTarget as HTMLElement).style.background = "transparent";
                 }}
               >
-                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                    <span style={{ fontWeight: active ? 600 : 500, fontSize: "0.875rem" }}>
+                <SimpleDot active={active} muted={locked} />
+                <div style={{ display: "flex", flexDirection: "column", gap: "2px", flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: 0 }}>
+                    <span style={{ fontWeight: 600, fontSize: "0.9rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                       {capability.displayName}
-                      {locked && " 🔒"}
                     </span>
                     {capability.badge && (
                       <span
@@ -201,21 +182,13 @@ export default function ModelSelect({
                         {capability.badge}
                       </span>
                     )}
+                    {locked && <LockIcon />}
                   </div>
-                  <div style={{ fontSize: "0.7rem", color: "var(--color-text-muted)", lineHeight: 1.4 }}>
-                    {capability.description}
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "12px", fontSize: "0.7rem", color: "var(--color-text-muted)", marginTop: "2px" }}>
-                    <span title="Speed">
-                      {getSpeedIcon(capability.speed)} {capability.speed === "fast" ? "Fast" : capability.speed === "medium" ? "Medium" : "Slower"}
+                  {capability.description && (
+                    <span style={{ fontSize: "0.7rem", color: "var(--color-text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {capability.description}
                     </span>
-                    <span title="Quality">
-                      {getQualityIcon(capability.quality)} {capability.quality === "high" ? "High Quality" : capability.quality === "medium" ? "Good" : "Basic"}
-                    </span>
-                    <span title="Cost">
-                      {getCostIcon(capability.cost)} {capability.cost === "low" ? "Low Cost" : capability.cost === "medium" ? "Medium" : "Higher Cost"}
-                    </span>
-                  </div>
+                  )}
                 </div>
               </div>
             );
@@ -223,5 +196,45 @@ export default function ModelSelect({
         </div>
       )}
     </div>
+  );
+}
+
+function SimpleDot({ active, muted }: { active?: boolean; muted?: boolean }) {
+  const color = muted ? "#9ca3af" : active ? "var(--color-primary)" : "#4b5563";
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <circle cx="12" cy="12" r="6" fill={color} />
+    </svg>
+  );
+}
+
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      aria-hidden="true"
+      style={{
+        flexShrink: 0,
+        transition: "transform 0.15s",
+        transform: open ? "rotate(180deg)" : "rotate(0deg)",
+        color: "var(--color-text-muted)",
+      }}
+    >
+      <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function LockIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" aria-hidden="true">
+      <rect x="6" y="10" width="12" height="9" rx="2" />
+      <path d="M9 10V8a3 3 0 0 1 6 0v2" />
+    </svg>
   );
 }
