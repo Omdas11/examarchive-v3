@@ -141,7 +141,7 @@ If no free models are available, the API responds with a temporary-unavailable 5
 | Symptom | Cause | Fix |
 |---------|-------|-----|
 | `"AI assistant is not configured."` | `OPENROUTER_API_KEY` missing | Add the key to `.env.local` and restart |
-| `"No free OpenRouter models are available."` | Allowlist empty or models not $0 | Set `OPENROUTER_MODEL_ALLOWLIST` to IDs showing $0 input/output |
+| `"Service temporarily unavailable. Please try again shortly."` | Allowlist empty, models no longer $0, or provider-side model issues | Verify `OPENROUTER_MODEL_ALLOWLIST` IDs still show $0 input/output and retry |
 | `"Daily limit reached."` | User exceeded 5/day | Wait until next UTC day (admin/founder exempt) |
 | Watermark missing in PDFs | Old cached build | Restart server; ensure `printBackground` stays enabled |
 
