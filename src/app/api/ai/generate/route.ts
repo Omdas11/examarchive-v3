@@ -225,10 +225,6 @@ export async function GET() {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
 
-  if (!process.env.OPENROUTER_API_KEY) {
-    return NextResponse.json({ error: "AI generation is not configured." }, { status: 503 });
-  }
-
   const modelPool = await getOpenRouterModelPool(process.env.OPENROUTER_API_KEY);
   if (modelPool.length === 0) {
     console.error("[AI generate] No free OpenRouter models resolved in GET. Check OPENROUTER_MODEL_ALLOWLIST and pricing.");

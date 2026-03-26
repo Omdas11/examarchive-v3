@@ -59,7 +59,9 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
     fetch("/api/ai/generate")
       .then((r) => r.json())
       .then((d) => {
-        setRemaining(d.remaining ?? null);
+        if (typeof d.remaining === "number" || d.remaining === null) {
+          setRemaining(d.remaining);
+        }
         setIsFounder(d.isFounder ?? false);
         setIsAdminPlus(d.isAdminPlus ?? false);
         const fetchedModels = Array.isArray(d.modelOptions) ? d.modelOptions : [];
@@ -275,7 +277,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
     }
   }
 
-  const canGenerate = isAdminPlus || (remaining !== null && remaining > 0);
+  const canGenerate = isAdminPlus || remaining === null || remaining > 0;
 
   return (
     <div className="relative min-h-screen bg-surface px-4 py-8 text-on-surface">
@@ -470,7 +472,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                     ⚠ {error}
                   </p>
                 )}
-                {!canGenerate && !isAdminPlus && (
+                {remaining === 0 && !isAdminPlus && (
                   <p className="text-sm text-error">
                     Daily limit reached. Come back tomorrow for {DAILY_LIMIT} more generations.
                   </p>
