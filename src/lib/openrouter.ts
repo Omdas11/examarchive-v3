@@ -72,6 +72,10 @@ const DEFAULT_APP_URL =
   "https://www.examarchive.dev";
 const DEFAULT_APP_NAME = process.env.OPENROUTER_APP_NAME || "ExamArchive";
 
+// Rotate the fallback start position between requests so we don't stick to a
+// single model (e.g., when earlier models intermittently fail).
+let modelStartOffset = 0;
+
 export type AIErrorCode = "HIGH_TRAFFIC" | "DAILY_LIMIT_REACHED" | "SERVICE_UNAVAILABLE";
 
 export class AIServiceError extends Error {
@@ -154,6 +158,13 @@ function orderModelPool(models: string[]): string[] {
     return true;
   });
   return [...prioritized, ...remaining];
+}
+
+function rotateModelPool(models: string[]): string[] {
+  if (models.length <= 1) return models;
+  modelStartOffset = (modelStartOffset + 1) % models.length;
+  const offset = modelStartOffset;
+  return [...models.slice(offset), ...models.slice(0, offset)];
 }
 
 function classifyProviderError(failure: ModelAttemptFailure): AIServiceError {
@@ -368,7 +379,7 @@ export async function runOpenRouterCompletionWithFallback(args: {
     args.modelPool && args.modelPool.length > 0
       ? args.modelPool
       : await getOpenRouterModelPool(args.apiKey);
-  const orderedBase = orderModelPool(basePoolRaw);
+  const orderedBase = rotateModelPool(orderModelPool(basePoolRaw));
   const limitedBase = orderedBase.slice(0, MAX_FALLBACK_MODELS);
   const preferred = args.preferredModel?.trim();
   const modelPool =

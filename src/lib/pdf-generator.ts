@@ -105,32 +105,8 @@ export async function generatePDF(
 
     const page = await browser.newPage();
 
-    // Set content with base styles
-    const headerTemplate = `
-      <style>
-        .header {
-          font-family: 'Georgia', 'Times New Roman', serif;
-          font-size: 10pt;
-          color: #4b5563;
-          padding: 10px 24px 8px 24px;
-          width: 100%;
-          box-sizing: border-box;
-          border-bottom: 1px solid #e5e7eb;
-          border-top: 1px solid #e5e7eb;
-        }
-        .header__title {
-          font-weight: 700;
-          color: #111827;
-          font-size: 11pt;
-        }
-        .header__meta {
-          margin-top: 2px;
-        }
-      </style>
-      <div class="header">
-        <div class="header__title">${metaTitle}</div>
-        <div class="header__meta">Model: ${metaModel}</div>
-      </div>`;
+    // Keep header area empty; footer handles pagination and attribution.
+    const headerTemplate = `<div></div>`;
 
     const footerTemplate = `
       <style>
@@ -144,8 +120,6 @@ export async function generatePDF(
           display: flex;
           align-items: center;
           justify-content: space-between;
-          border-top: 1px solid #e5e7eb;
-          border-bottom: 1px solid #e5e7eb;
         }
         .page-info {
           font-variant-numeric: tabular-nums;
@@ -189,20 +163,10 @@ export async function generatePDF(
       box-sizing: border-box;
       width: 100%;
     }
-    header.doc-meta {
-      margin-bottom: 16px;
-      padding-bottom: 12px;
-      border-bottom: 1px solid #e5e7eb;
-    }
-    header.doc-meta h1 {
-      margin: 0 0 6px 0;
-      border: none;
-      padding: 0;
-      color: #111827;
-    }
     .doc-meta__row {
       font-size: 10pt;
       color: #4b5563;
+      margin-bottom: 16px;
     }
     img {
       max-width: 100%;
@@ -324,12 +288,10 @@ export async function generatePDF(
 </head>
 <body>
   <div class="doc-body">
-    <header class="doc-meta">
-      <h1>${metaTitle}</h1>
-      <div class="doc-meta__row">
-        Model: ${metaModel} • Generated: ${metaTimestamp}
-      </div>
-    </header>
+    <h1>${metaTitle}</h1>
+    <div class="doc-meta__row">
+      Model: ${metaModel} • Generated: ${metaTimestamp}
+    </div>
     ${safeHtml}
   </div>
 </body>
@@ -349,7 +311,7 @@ export async function generatePDF(
       displayHeaderFooter: true,
       headerTemplate,
       footerTemplate,
-      margin: { top: "80px", bottom: "65px", left: "18mm", right: "18mm" },
+      margin: { top: "40px", bottom: "55px", left: "18mm", right: "18mm" },
       preferCSSPageSize: true,
       pageRanges: `1-${safeMaxPages}`,
     });
