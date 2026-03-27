@@ -13,13 +13,19 @@ const DEFAULT_FREE_MODEL_ALLOWLIST = [
   "openai/gpt-oss-120b:free",
   "openai/gpt-oss-20b:free",
   "meta-llama/llama-3.3-70b-instruct:free",
+  "meta-llama/llama-3.2-3b-instruct:free",
+  "meta-llama/llama-3.2-1b-instruct:free",
   "deepseek/deepseek-r1-distill-llama-8b:free",
   "deepseek/deepseek-r1:free",
-  "neuralmagic/llama-3.2-1b-instruct:free",
-  "meta-llama/llama-3.2-1b-instruct:free",
-  "meta-llama/llama-3.2-3b-instruct:free",
   "meta-llama/llama-3.1-8b-instruct:free",
   "meta-llama/llama-3.1-70b-instruct:free",
+  "google/gemma-3-27b-it:free",
+  "google/gemma-3-12b-it:free",
+  "google/gemma-3-4b-it:free",
+  "google/gemma-3n-2b:free",
+  "google/gemma-3n-4b:free",
+  "google/gemma-2-2b-it:free",
+  "google/gemma-2-9b-it:free",
   "qwen/qwen-2.5-1.5b-instruct:free",
   "qwen/qwen-2.5-3b-instruct:free",
   "qwen/qwen-2.5-7b-instruct:free",
@@ -35,12 +41,14 @@ const DEFAULT_FREE_MODEL_ALLOWLIST = [
   "qwen/qwen-2.5-coder-32b-instruct:free",
   "qwen/qwen3-8b:free",
   "qwen/qwen3-4b:free",
-  "google/gemma-2-2b-it:free",
-  "google/gemma-2-9b-it:free",
-  "google/gemma-3-27b-it:free",
-  "google/gemma-3-12b-it:free",
-  "google/gemma-3-4b-it:free",
-  "google/gemma-3n-e4b-it:free",
+  "liquid/lfm-2.5-1.2b-thinking:free",
+  "liquid/lfm-2.5-1.2b-instruct:free",
+  "stepfun/step-3.5-flash:free",
+  "arcee-ai/trinity-large-preview:free",
+  "arcee-ai/trinity-mini:free",
+  "sourceful/riverflow-v2:free",
+  "sourceful/riverflow-v2-fast:free",
+  "sourceful/riverflow-v2-pro:free",
   "openchat/openchat-3.6-8b:free",
   "nousresearch/hermes-3-llama-3.1-8b:free",
   "nousresearch/hermes-3-405b-instruct:free",
@@ -182,11 +190,13 @@ async function fetchFreeModelsFromOpenRouter(apiKey: string): Promise<string[]> 
       return promptCost === 0 && completionCost === 0;
     })
     .map((model) => model.id)
-    .filter(Boolean);
+    .filter(Boolean)
+    .filter((id) => !/embed|vision|image|video|sora|veo|flux/i.test(id));
 }
 
 export async function getOpenRouterModelPool(apiKey?: string): Promise<string[]> {
   const allowlist = parseAllowlist();
+  const isDefaultAllowlist = (process.env.OPENROUTER_MODEL_ALLOWLIST ?? "").trim().length === 0;
   if (!apiKey) {
     return allowlist;
   }
@@ -200,7 +210,12 @@ export async function getOpenRouterModelPool(apiKey?: string): Promise<string[]>
   try {
     const freeModels = await fetchFreeModelsFromOpenRouter(apiKey);
     const uniqueFree = [...new Set(freeModels)];
-    const filtered = allowlist.length ? allowlist.filter((id) => uniqueFree.includes(id)) : uniqueFree;
+    const filtered =
+      isDefaultAllowlist && uniqueFree.length > 0
+        ? uniqueFree
+        : allowlist.length
+          ? allowlist.filter((id) => uniqueFree.includes(id))
+          : uniqueFree;
     if (filtered.length > 0) {
       cachedFreeModels = { models: filtered, fetchedAt: now };
       return filtered;

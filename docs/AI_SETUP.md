@@ -106,11 +106,9 @@ Tracked in Appwrite `ai_usage` collection (`{ user_id, date }`).
 ## Model Fallback + Selection System
 
 ExamArchive uses an OpenRouter-only pool filtered to **free-tier** models:
-- The pool is resolved from `OPENROUTER_MODEL_ALLOWLIST` (comma-separated)
-- Each ID is validated against OpenRouter’s model catalog and kept only if both prompt+completion pricing are `$0`
-- Non-admin users: top 3 free models in the pool are selectable
-- Admin/Founder: full free pool is unlocked
-- Preferred model is tried first, then the rest of the free pool is attempted sequentially
+- The pool is resolved from `OPENROUTER_MODEL_ALLOWLIST` (comma-separated). If unset, the app auto-syncs with the current OpenRouter free catalog and falls back to the built-in free allowlist.
+- Each ID is validated against OpenRouter’s model catalog and kept only if both prompt+completion pricing are `$0` (embeddings/vision/video are filtered out).
+- All free models in the pool are selectable for every role; the preferred model is honored first, then the rest of the free pool is attempted sequentially.
 
 If no free models are available, the API responds with a temporary-unavailable 503. Check `OPENROUTER_MODEL_ALLOWLIST` and confirm the listed models still show $0 pricing on OpenRouter.
 
@@ -141,8 +139,18 @@ If no free models are available, the API responds with a temporary-unavailable 5
 | Symptom | Cause | Fix |
 |---------|-------|-----|
 | `"AI assistant is not configured."` | `OPENROUTER_API_KEY` missing | Add the key to `.env.local` and restart |
-| `"Service temporarily unavailable. Please try again shortly."` | Allowlist empty, models no longer $0, or provider-side model issues | Verify `OPENROUTER_MODEL_ALLOWLIST` IDs still show $0 input/output and retry |
+| `"Service temporarily unavailable. Please try again shortly."` | Allowlist empty, models no longer $0, or provider-side model issues | Verify `OPENROUTER_MODEL_ALLOWLIST` IDs still show $0 input/output, or leave it unset to auto-sync the free catalog and retry |
 | `"Daily limit reached."` | User exceeded 5/day | Wait until next UTC day (admin/founder exempt) |
 | Watermark missing in PDFs | Old cached build | Restart server; ensure `printBackground` stays enabled |
 
 For quick endpoint testing, start the app with `npm run dev`, log in, and call the API routes above with sample payloads.
+
+---
+
+## Appwrite Collections referenced by AI routes
+
+- `ai_usage`: `user_id` (string), `date` (string YYYY-MM-DD), `count` (integer; optional). Each generation inserts one document for daily rate limiting.
+- `pdf_usage`: `user_id` (string), `date` (string YYYY-MM-DD). Each PDF render/download inserts one document.
+- `ai_embeddings`: stores RAG chunks (`file_id`, `source_type`, `source_label`, `text_chunk`, `embedding[]`, metadata).
+
+Ensure these attributes exist in the `examarchive` database before deploying the backend.

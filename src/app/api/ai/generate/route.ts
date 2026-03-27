@@ -125,16 +125,9 @@ export async function POST(request: NextRequest) {
         { status: 503 },
       );
     }
-    const isAdmin = isAdminPlus(user.role);
-    const availablePool = isAdmin ? modelPool : modelPool.slice(0, 3);
+    const availablePool = modelPool;
     const preferredModelSafe =
       preferredModel && availablePool.includes(preferredModel) ? preferredModel : undefined;
-    if (preferredModel && !preferredModelSafe) {
-      return NextResponse.json(
-        { error: "Selected model is not available for your role." },
-        { status: 403 },
-      );
-    }
     const inputPaperContext = (body.paperContext ?? "").slice(0, 2000);
     const referenceLabel = sanitizeReferenceLabel(body.referenceLabel);
     const ragContext = await buildRagContext({
@@ -230,10 +223,10 @@ export async function GET() {
       { status: 503 },
     );
   }
-  const modelOptions = modelPool.map((model, index) => ({
+  const modelOptions = modelPool.map((model) => ({
     id: model,
     label: model,
-    available: isAdminPlus(user.role) || index < 3,
+    available: true,
   }));
 
   if (isAdminPlus(user.role)) {
