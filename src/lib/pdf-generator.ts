@@ -225,7 +225,7 @@ export async function generatePDF(
     p {
       margin: 0.5em 0;
       text-align: justify;
-      word-break: break-word;
+      overflow-wrap: break-word;
     }
     ul, ol {
       margin: 0.5em 0;
@@ -233,6 +233,7 @@ export async function generatePDF(
     }
     li {
       margin: 0.3em 0;
+      overflow-wrap: break-word;
     }
     code {
       font-family: 'Courier New', monospace;
@@ -249,7 +250,7 @@ export async function generatePDF(
       font-size: 9pt;
       line-height: 1.4;
       white-space: pre-wrap;
-      word-break: break-word;
+      overflow-wrap: break-word;
     }
     pre code {
       background: none;
@@ -261,7 +262,7 @@ export async function generatePDF(
       margin: 0.8em 0;
       font-size: 10pt;
       table-layout: fixed;
-      word-break: break-word;
+      overflow-wrap: break-word;
     }
     th, td {
       border: 1px solid #ddd;
@@ -429,7 +430,7 @@ return `data:image/svg+xml;base64,${svgBase64}`;
 
 function formatIST(timestamp?: string): string {
   const date = timestamp ? new Date(timestamp) : new Date();
-  if (Number.isNaN(date.getTime())) return escapeHtml(new Date().toISOString());
+  if (Number.isNaN(date.getTime())) return escapeHtml(date.toISOString());
 
   const formatter = new Intl.DateTimeFormat("en-IN", {
     timeZone: "Asia/Kolkata",
