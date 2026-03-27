@@ -85,13 +85,10 @@ export function sanitizeHtmlLikeContent(input: string): string {
 export async function generatePDF(
   options: PDFGenerationOptions
 ): Promise<PDFGenerationResult> {
-  const { html, maxPages, title = "Document", meta } = options;
+  const { html, maxPages, title = "Document" } = options;
   const safeMaxPages = Math.max(1, Math.floor(maxPages));
   const safeHtml = sanitizeHtmlLikeContent(html);
   const watermarkDataUrl = buildWatermarkDataUrl();
-  const metaTitle = escapeHtml(meta?.topic || title);
-  const metaModel = escapeHtml(meta?.modelLabel || meta?.model || "AI");
-  const metaTimestamp = formatIST(meta?.generatedAt);
 
   let browser;
   try {
@@ -159,28 +156,15 @@ export async function generatePDF(
     .doc-body {
       max-width: 720px;
       margin: 0 auto;
-      padding: 0 12px 32px;
+      padding: 16px 12px 32px;
       box-sizing: border-box;
       width: 100%;
-    }
-    .doc-meta__row {
-      font-size: 10pt;
-      color: #4b5563;
-      margin-bottom: 16px;
     }
     img {
       max-width: 100%;
       height: auto;
       display: block;
       margin: 0.5em 0;
-    }
-    h1 {
-      font-size: 20pt;
-      font-weight: bold;
-      color: #D3273E;
-      margin: 0 0 0.5em 0;
-      border-bottom: 2px solid #D3273E;
-      padding-bottom: 0.3em;
     }
     h2 {
       font-size: 16pt;
@@ -288,10 +272,6 @@ export async function generatePDF(
 </head>
 <body>
   <div class="doc-body">
-    <h1>${metaTitle}</h1>
-    <div class="doc-meta__row">
-      Model: ${metaModel} • Generated: ${metaTimestamp}
-    </div>
     ${safeHtml}
   </div>
 </body>
@@ -407,21 +387,4 @@ function buildWatermarkDataUrl(): string {
 </svg>`;
 const svgBase64 = Buffer.from(svg, "utf8").toString("base64");
 return `data:image/svg+xml;base64,${svgBase64}`;
-}
-
-function formatIST(timestamp?: string): string {
-  const date = timestamp ? new Date(timestamp) : new Date();
-  if (Number.isNaN(date.getTime())) return escapeHtml(date.toISOString());
-
-  const formatter = new Intl.DateTimeFormat("en-IN", {
-    timeZone: "Asia/Kolkata",
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-
-  return escapeHtml(`${formatter.format(date)} IST`);
 }

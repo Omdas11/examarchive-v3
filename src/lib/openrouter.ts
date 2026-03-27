@@ -7,6 +7,7 @@ const OVERALL_TIMEOUT_MS = 45_000;
 const MAX_FALLBACK_MODELS = 16;
 const MODEL_CACHE_TTL_MS = 10 * 60 * 1000;
 const DOMEXCEPTION_TIMEOUT_ERR = 23;
+const PRIMARY_MODEL = "openai/gpt-oss-120b:free";
 
 // Fallback pool of known $0/$0 OpenRouter models so the app works out-of-the-box
 // without a custom allowlist. This mirrors the current free catalog provided by the user.
@@ -165,6 +166,15 @@ function rotateModelPool(models: string[]): string[] {
   modelStartOffset = (modelStartOffset + 1) % models.length;
   const offset = modelStartOffset;
   return [...models.slice(offset), ...models.slice(0, offset)];
+}
+
+function rotateModelPoolPreservingPrimary(models: string[]): string[] {
+  if (!models.includes(PRIMARY_MODEL)) {
+    return rotateModelPool(models);
+  }
+  const remainder = models.filter((id) => id !== PRIMARY_MODEL);
+  const rotatedRemainder = rotateModelPool(remainder);
+  return [PRIMARY_MODEL, ...rotatedRemainder];
 }
 
 function classifyProviderError(failure: ModelAttemptFailure): AIServiceError {
@@ -379,7 +389,7 @@ export async function runOpenRouterCompletionWithFallback(args: {
     args.modelPool && args.modelPool.length > 0
       ? args.modelPool
       : await getOpenRouterModelPool(args.apiKey);
-  const orderedBase = rotateModelPool(orderModelPool(basePoolRaw));
+  const orderedBase = rotateModelPoolPreservingPrimary(orderModelPool(basePoolRaw));
   const limitedBase = orderedBase.slice(0, MAX_FALLBACK_MODELS);
   const preferred = args.preferredModel?.trim();
   const modelPool =
