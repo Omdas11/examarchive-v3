@@ -16,6 +16,7 @@ interface GeneratedDoc {
   content: string;
   generatedAt: string;
   model?: string;
+  modelLabel?: string;
   sources?: string[];
   pageLength?: number;
   noteLength?: NoteLength;
@@ -192,11 +193,14 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
         return;
       }
 
+      const modelLabel = modelOptions.find((opt) => opt.id === data.model)?.label ?? data.model;
+
       const doc: GeneratedDoc = {
         topic: data.topic,
         content: data.content,
         generatedAt: data.generatedAt,
         model: data.model,
+        modelLabel,
         sources: Array.isArray(data.sources) ? data.sources : [],
         pageLength: typeof data.pageLength === "number" ? data.pageLength : undefined,
         noteLength: normalizeNoteLength(data.noteLength ?? noteLength),
@@ -259,6 +263,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
           pageLength: activeDoc.pageLength || undefined,
           noteLength: activeDoc.noteLength ?? noteLength,
           model: activeDoc.model,
+          modelLabel: activeDoc.modelLabel,
           generatedAt: activeDoc.generatedAt,
         }),
       });

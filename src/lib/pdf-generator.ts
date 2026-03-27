@@ -26,6 +26,7 @@ export interface PDFGenerationOptions {
   meta?: {
     topic?: string;
     model?: string;
+    modelLabel?: string;
     generatedAt?: string;
   };
 }
@@ -89,8 +90,8 @@ export async function generatePDF(
   const safeHtml = sanitizeHtmlLikeContent(html);
   const watermarkDataUrl = buildWatermarkDataUrl();
   const metaTitle = escapeHtml(meta?.topic || title);
-  const metaModel = escapeHtml(meta?.model || "OpenRouter model");
-  const metaTimestamp = escapeHtml(meta?.generatedAt || new Date().toISOString());
+  const metaModel = escapeHtml(meta?.modelLabel || meta?.model || "AI");
+  const metaTimestamp = formatIST(meta?.generatedAt);
 
   let browser;
   try {
@@ -105,6 +106,52 @@ export async function generatePDF(
     const page = await browser.newPage();
 
     // Set content with base styles
+    const headerTemplate = `
+      <style>
+        .header {
+          font-family: 'Georgia', 'Times New Roman', serif;
+          font-size: 10pt;
+          color: #4b5563;
+          padding: 8px 24px 4px 24px;
+          width: 100%;
+          box-sizing: border-box;
+        }
+        .header__title {
+          font-weight: 700;
+          color: #111827;
+          font-size: 11pt;
+        }
+        .header__meta {
+          margin-top: 2px;
+        }
+      </style>
+      <div class="header">
+        <div class="header__title">${metaTitle}</div>
+        <div class="header__meta">Model: ${metaModel}</div>
+      </div>`;
+
+    const footerTemplate = `
+      <style>
+        .footer {
+          font-family: 'Georgia', 'Times New Roman', serif;
+          font-size: 9pt;
+          color: #4b5563;
+          padding: 6px 24px 10px 24px;
+          width: 100%;
+          box-sizing: border-box;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+        .page-info {
+          font-variant-numeric: tabular-nums;
+        }
+      </style>
+      <div class="footer">
+        <span>ExamArchive ©</span>
+        <span class="page-info">Page <span class="pageNumber"></span> of <span class="totalPages"></span></span>
+      </div>`;
+
     const styledHTML = `
 <!DOCTYPE html>
 <html>
@@ -113,23 +160,14 @@ export async function generatePDF(
   <title>${escapeHtml(title)}</title>
   <style>${katexCSS}</style>
   <style>
-    @page {
-      size: A4;
-      margin: 2cm;
-      @bottom-center {
-        content: "Page " counter(page) " of " counter(pages);
-        font-size: 9pt;
-        color: #666;
-      }
-    }
     body {
       font-family: 'Georgia', 'Times New Roman', serif;
       font-size: 11pt;
       line-height: 1.6;
       color: #1a1a1a;
       max-width: 100%;
-      margin: 0;
-      padding: 0;
+      margin: 0 auto;
+      padding: 0 0 32px 0;
       background-image: url('${watermarkDataUrl}');
       background-repeat: repeat;
       background-size: 240px 240px;
@@ -150,6 +188,12 @@ export async function generatePDF(
     .doc-meta__row {
       font-size: 10pt;
       color: #4b5563;
+    }
+    img {
+      max-width: 100%;
+      height: auto;
+      display: block;
+      margin: 0.5em 0;
     }
     h1 {
       font-size: 20pt;
@@ -181,6 +225,7 @@ export async function generatePDF(
     p {
       margin: 0.5em 0;
       text-align: justify;
+      word-break: break-word;
     }
     ul, ol {
       margin: 0.5em 0;
@@ -203,6 +248,8 @@ export async function generatePDF(
       overflow-x: auto;
       font-size: 9pt;
       line-height: 1.4;
+      white-space: pre-wrap;
+      word-break: break-word;
     }
     pre code {
       background: none;
@@ -213,6 +260,8 @@ export async function generatePDF(
       width: 100%;
       margin: 0.8em 0;
       font-size: 10pt;
+      table-layout: fixed;
+      word-break: break-word;
     }
     th, td {
       border: 1px solid #ddd;
@@ -277,6 +326,10 @@ export async function generatePDF(
     const pdfBuffer = await page.pdf({
       format: "A4",
       printBackground: true,
+      displayHeaderFooter: true,
+      headerTemplate,
+      footerTemplate,
+      margin: { top: "80px", bottom: "65px", left: "18mm", right: "18mm" },
       preferCSSPageSize: true,
       pageRanges: `1-${safeMaxPages}`,
     });
@@ -372,4 +425,21 @@ function buildWatermarkDataUrl(): string {
 </svg>`;
 const svgBase64 = Buffer.from(svg, "utf8").toString("base64");
 return `data:image/svg+xml;base64,${svgBase64}`;
+}
+
+function formatIST(timestamp?: string): string {
+  const date = timestamp ? new Date(timestamp) : new Date();
+  if (Number.isNaN(date.getTime())) return escapeHtml(new Date().toISOString());
+
+  const formatter = new Intl.DateTimeFormat("en-IN", {
+    timeZone: "Asia/Kolkata",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+
+  return escapeHtml(`${formatter.format(date)} IST`);
 }

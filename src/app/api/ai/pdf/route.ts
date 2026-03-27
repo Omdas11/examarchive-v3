@@ -64,6 +64,7 @@ export async function POST(request: NextRequest) {
     pageLength?: number;
     noteLength?: NoteLength;
     model?: string;
+    modelLabel?: string;
     generatedAt?: string;
   };
 
@@ -125,6 +126,7 @@ export async function POST(request: NextRequest) {
       meta: {
         topic,
         model: body.model,
+        modelLabel: body.modelLabel,
         generatedAt: body.generatedAt,
       },
     });
