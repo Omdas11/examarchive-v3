@@ -87,6 +87,19 @@ interface ModelAttemptFailure {
   timeout?: boolean;
 }
 
+function isTimeoutLikeError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const maybeError = error as { name?: unknown; message?: unknown; code?: unknown };
+  const name = typeof maybeError.name === "string" ? maybeError.name : "";
+  const message = typeof maybeError.message === "string" ? maybeError.message : "";
+  return (
+    name === "AbortError" ||
+    name === "TimeoutError" ||
+    maybeError.code === 23 ||
+    /timeout|timed out|aborted/i.test(message)
+  );
+}
+
 interface OpenRouterModelListResponse {
   data?: Array<{
     id: string;
@@ -230,7 +243,7 @@ async function callOpenRouterModel(args: {
       signal: AbortSignal.timeout(args.timeoutMs),
     });
   } catch (error) {
-    const isTimeout = error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError");
+    const isTimeout = isTimeoutLikeError(error);
     throw {
       status: 503,
       timeout: isTimeout,
@@ -242,8 +255,14 @@ async function callOpenRouterModel(args: {
     let payload: OpenRouterErrorPayload | null = null;
     try {
       payload = (await response.json()) as OpenRouterErrorPayload;
-    } catch {
-      payload = null;
+    } catch (error) {
+      if (isTimeoutLikeError(error)) {
+        throw {
+          status: 503,
+          message: "Request timed out",
+          timeout: true,
+        } satisfies ModelAttemptFailure;
+      }
     }
     throw {
       status: response.status,
@@ -252,7 +271,17 @@ async function callOpenRouterModel(args: {
     } satisfies ModelAttemptFailure;
   }
 
-  const payload = (await response.json()) as OpenRouterCompletionResponse;
+  let payload: OpenRouterCompletionResponse;
+  try {
+    payload = (await response.json()) as OpenRouterCompletionResponse;
+  } catch (error) {
+    const isTimeout = isTimeoutLikeError(error);
+    throw {
+      status: 503,
+      message: isTimeout ? "Request timed out" : "Provider response parse failed",
+      timeout: isTimeout,
+    } satisfies ModelAttemptFailure;
+  }
   const content = payload.choices?.[0]?.message?.content?.trim();
   if (!content) {
     throw {
