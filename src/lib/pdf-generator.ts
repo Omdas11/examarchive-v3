@@ -160,19 +160,30 @@ export async function generatePDF(
   <title>${escapeHtml(title)}</title>
   <style>${katexCSS}</style>
   <style>
+    html, body {
+      width: 100%;
+      box-sizing: border-box;
+    }
     body {
       font-family: 'Georgia', 'Times New Roman', serif;
       font-size: 11pt;
       line-height: 1.6;
       color: #1a1a1a;
       max-width: 100%;
-      margin: 0 auto;
+      margin: 0;
       padding: 0 0 32px 0;
       background-image: url('${watermarkDataUrl}');
       background-repeat: repeat;
       background-size: 240px 240px;
       background-position: 0 0;
       background-attachment: fixed;
+    }
+    .doc-body {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 0 12px 32px;
+      box-sizing: border-box;
+      width: 100%;
     }
     header.doc-meta {
       margin-bottom: 16px;
@@ -226,6 +237,7 @@ export async function generatePDF(
       margin: 0.5em 0;
       text-align: justify;
       overflow-wrap: break-word;
+      word-break: break-word;
     }
     ul, ol {
       margin: 0.5em 0;
@@ -251,6 +263,7 @@ export async function generatePDF(
       line-height: 1.4;
       white-space: pre-wrap;
       overflow-wrap: break-word;
+      word-break: break-word;
     }
     pre code {
       background: none;
@@ -306,13 +319,15 @@ export async function generatePDF(
   </style>
 </head>
 <body>
-  <header class="doc-meta">
-    <h1>${metaTitle}</h1>
-    <div class="doc-meta__row">
-      Model: ${metaModel} • Generated: ${metaTimestamp}
-    </div>
-  </header>
-  ${safeHtml}
+  <div class="doc-body">
+    <header class="doc-meta">
+      <h1>${metaTitle}</h1>
+      <div class="doc-meta__row">
+        Model: ${metaModel} • Generated: ${metaTimestamp}
+      </div>
+    </header>
+    ${safeHtml}
+  </div>
 </body>
 </html>
     `;

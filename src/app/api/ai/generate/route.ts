@@ -33,12 +33,6 @@ function isAdminPlus(role: string): boolean {
   return role === "admin" || role === "founder";
 }
 
-function canUseModel(role: string, model: string, pool: string[]): boolean {
-  if (isAdminPlus(role)) return true;
-  const allowed = pool.slice(0, 3);
-  return allowed.includes(model);
-}
-
 /** Check how many documents a user has generated today. */
 async function getDailyCount(userId: string, todayStr: string): Promise<number> {
   const db = adminDatabases();
@@ -131,14 +125,15 @@ export async function POST(request: NextRequest) {
         { status: 503 },
       );
     }
-    if (preferredModel) {
-      const allowedForRole = canUseModel(user.role, preferredModel, modelPool);
-      if (!allowedForRole) {
-        return NextResponse.json(
-          { error: "Selected model is not available for your role." },
-          { status: 403 },
-        );
-      }
+    const isAdmin = isAdminPlus(user.role);
+    const availablePool = isAdmin ? modelPool : modelPool.slice(0, 3);
+    const preferredModelSafe =
+      preferredModel && availablePool.includes(preferredModel) ? preferredModel : undefined;
+    if (preferredModel && !preferredModelSafe) {
+      return NextResponse.json(
+        { error: "Selected model is not available for your role." },
+        { status: 403 },
+      );
     }
     const inputPaperContext = (body.paperContext ?? "").slice(0, 2000);
     const referenceLabel = sanitizeReferenceLabel(body.referenceLabel);
@@ -184,8 +179,10 @@ Write in plain text with Markdown headings only (no HTML).`;
       messages: [{ role: "user", content: prompt }],
       maxTokens: Math.min(MAX_COMPLETION_TOKENS, noteTargets.maxTokens),
       temperature: 0.6,
-      preferredModel: preferredModel || undefined,
-      modelPool,
+      preferredModel: preferredModelSafe,
+      // when a preferred model is supplied and allowed, only try that model to avoid
+      // unexpected fallbacks that can mis-match the user's selection.
+      modelPool: preferredModelSafe ? [preferredModelSafe] : availablePool,
     });
     const content = generatedContent;
 
