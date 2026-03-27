@@ -2,58 +2,80 @@ type OpenRouterRole = "system" | "user" | "assistant";
 
 const OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
 const OPENROUTER_MODELS_ENDPOINT = "https://openrouter.ai/api/v1/models";
-const REQUEST_TIMEOUT_MS = 15_000;
-const OVERALL_TIMEOUT_MS = 25_000;
+const REQUEST_TIMEOUT_MS = 20_000;
+const OVERALL_TIMEOUT_MS = 40_000;
+const MAX_FALLBACK_MODELS = 12;
 const MODEL_CACHE_TTL_MS = 10 * 60 * 1000;
 const DOMEXCEPTION_TIMEOUT_ERR = 23;
 
 // Fallback pool of known $0/$0 OpenRouter models so the app works out-of-the-box
 // without a custom allowlist. This mirrors the pricing Low→High free list.
 const DEFAULT_FREE_MODEL_ALLOWLIST = [
-  "openai/gpt-oss-120b:free",
-  "openai/gpt-oss-20b:free",
-  "meta-llama/llama-3.3-70b-instruct:free",
+  // Prioritized quick/cheap text models first
+  "sourceful/riverflow-v2-fast:free",
+  "sourceful/riverflow-v2:free",
+  "sourceful/riverflow-v2-pro:free",
+  "stepfun/step-3.5-flash:free",
+  "liquid/lfm-2.5-1.2b-thinking:free",
+  "liquid/lfm-2.5-1.2b-instruct:free",
+  "arcee-ai/trinity-mini:free",
+  "arcee-ai/trinity-large-preview:free",
+  "qwen/qwen-2.5-3b-instruct:free",
+  "qwen/qwen-2.5-7b-instruct:free",
+  "qwen/qwen-2.5-14b-instruct:free",
+  "qwen/qwen-2.5-coder-7b-instruct:free",
+  "qwen/qwen-2.5-math-7b-instruct:free",
+  "google/gemma-3-4b-it:free",
+  "google/gemma-3n-2b:free",
+  "google/gemma-3n-4b:free",
   "meta-llama/llama-3.2-3b-instruct:free",
   "meta-llama/llama-3.2-1b-instruct:free",
+  // High-quality but slower fallbacks
   "deepseek/deepseek-r1-distill-llama-8b:free",
   "deepseek/deepseek-r1:free",
   "meta-llama/llama-3.1-8b-instruct:free",
   "meta-llama/llama-3.1-70b-instruct:free",
-  "google/gemma-3-27b-it:free",
+  "meta-llama/llama-3.3-70b-instruct:free",
   "google/gemma-3-12b-it:free",
-  "google/gemma-3-4b-it:free",
-  "google/gemma-3n-2b:free",
-  "google/gemma-3n-4b:free",
+  "google/gemma-3-27b-it:free",
   "google/gemma-2-2b-it:free",
   "google/gemma-2-9b-it:free",
-  "qwen/qwen-2.5-1.5b-instruct:free",
-  "qwen/qwen-2.5-3b-instruct:free",
-  "qwen/qwen-2.5-7b-instruct:free",
   "qwen/qwen-2.5-8b-instruct:free",
-  "qwen/qwen-2.5-14b-instruct:free",
   "qwen/qwen-2.5-32b-instruct:free",
   "qwen/qwen-2.5-72b-instruct:free",
+  "qwen/qwen-2.5-1.5b-instruct:free",
   "qwen/qwen-2.5-math-1.5b-instruct:free",
-  "qwen/qwen-2.5-math-7b-instruct:free",
   "qwen/qwen-2.5-math-72b-instruct:free",
-  "qwen/qwen-2.5-coder-7b-instruct:free",
   "qwen/qwen-2.5-coder-14b-instruct:free",
   "qwen/qwen-2.5-coder-32b-instruct:free",
   "qwen/qwen3-8b:free",
   "qwen/qwen3-4b:free",
-  "liquid/lfm-2.5-1.2b-thinking:free",
-  "liquid/lfm-2.5-1.2b-instruct:free",
-  "stepfun/step-3.5-flash:free",
-  "arcee-ai/trinity-large-preview:free",
-  "arcee-ai/trinity-mini:free",
-  "sourceful/riverflow-v2:free",
-  "sourceful/riverflow-v2-fast:free",
-  "sourceful/riverflow-v2-pro:free",
+  "openai/gpt-oss-20b:free",
+  "openai/gpt-oss-120b:free",
   "openchat/openchat-3.6-8b:free",
   "nousresearch/hermes-3-llama-3.1-8b:free",
   "nousresearch/hermes-3-405b-instruct:free",
   "mistralai/mistral-small-3.1-24b-instruct:free",
   "z-ai/glm-4.5-air:free",
+];
+
+// Optional ordering preference so we try the most responsive free models first.
+const PRIORITY_MODEL_ORDER = [
+  "sourceful/riverflow-v2-fast:free",
+  "sourceful/riverflow-v2:free",
+  "sourceful/riverflow-v2-pro:free",
+  "stepfun/step-3.5-flash:free",
+  "liquid/lfm-2.5-1.2b-thinking:free",
+  "liquid/lfm-2.5-1.2b-instruct:free",
+  "arcee-ai/trinity-mini:free",
+  "arcee-ai/trinity-large-preview:free",
+  "qwen/qwen-2.5-3b-instruct:free",
+  "qwen/qwen-2.5-7b-instruct:free",
+  "qwen/qwen-2.5-14b-instruct:free",
+  "google/gemma-3-4b-it:free",
+  "google/gemma-3n-2b:free",
+  "meta-llama/llama-3.2-3b-instruct:free",
+  "deepseek/deepseek-r1-distill-llama-8b:free",
 ];
 
 const DEFAULT_APP_URL =
@@ -129,6 +151,22 @@ function parseAllowlist(): string[] {
   return fromEnv.length ? fromEnv : DEFAULT_FREE_MODEL_ALLOWLIST;
 }
 
+function orderModelPool(models: string[]): string[] {
+  const seen = new Set<string>();
+  const prioritized = PRIORITY_MODEL_ORDER.filter((id) => {
+    if (seen.has(id)) return false;
+    if (!models.includes(id)) return false;
+    seen.add(id);
+    return true;
+  });
+  const remaining = models.filter((id) => {
+    if (seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+  return [...prioritized, ...remaining];
+}
+
 function classifyProviderError(failure: ModelAttemptFailure): AIServiceError {
   const normalized = (failure.message ?? "").toLowerCase();
 
@@ -191,14 +229,14 @@ async function fetchFreeModelsFromOpenRouter(apiKey: string): Promise<string[]> 
     })
     .map((model) => model.id)
     .filter(Boolean)
-    .filter((id) => !/embed|vision|image|video|sora|veo|flux/i.test(id));
+    .filter((id) => !/embed|vision|image|video|sora|veo|flux|-vl\b/i.test(id));
 }
 
 export async function getOpenRouterModelPool(apiKey?: string): Promise<string[]> {
   const allowlist = parseAllowlist();
   const isDefaultAllowlist = (process.env.OPENROUTER_MODEL_ALLOWLIST ?? "").trim().length === 0;
   if (!apiKey) {
-    return allowlist;
+    return orderModelPool(allowlist);
   }
 
   const now = Date.now();
@@ -216,9 +254,10 @@ export async function getOpenRouterModelPool(apiKey?: string): Promise<string[]>
         : allowlist.length
           ? allowlist.filter((id) => uniqueFree.includes(id))
           : uniqueFree;
-    if (filtered.length > 0) {
-      cachedFreeModels = { models: filtered, fetchedAt: now };
-      return filtered;
+    const ordered = orderModelPool(filtered);
+    if (ordered.length > 0) {
+      cachedFreeModels = { models: ordered, fetchedAt: now };
+      return ordered;
     }
     // Keep routing pinned to the curated allowlist to avoid pulling non-text
     // free models (e.g., image/video) into the app's text-generation UI.
@@ -227,7 +266,7 @@ export async function getOpenRouterModelPool(apiKey?: string): Promise<string[]>
   }
 
   // Last-resort: return allowlist without validation (assumed to be free per developer configuration)
-  return allowlist;
+  return orderModelPool(allowlist);
 }
 
 async function callOpenRouterModel(args: {
@@ -336,13 +375,19 @@ export async function runOpenRouterCompletionWithFallback(args: {
   referer?: string;
   appName?: string;
 }): Promise<{ content: string; model: string }> {
-  const basePool = args.modelPool && args.modelPool.length > 0
-    ? args.modelPool
-    : await getOpenRouterModelPool(args.apiKey);
+  const basePoolRaw =
+    args.modelPool && args.modelPool.length > 0
+      ? args.modelPool
+      : await getOpenRouterModelPool(args.apiKey);
+  const orderedBase = orderModelPool(basePoolRaw);
+  const limitedBase = orderedBase.slice(0, MAX_FALLBACK_MODELS);
   const preferred = args.preferredModel?.trim();
-  const modelPool = preferred && basePool.includes(preferred)
-    ? [preferred, ...basePool.filter((model) => model !== preferred)]
-    : basePool;
+  const modelPool =
+    preferred && limitedBase.includes(preferred)
+      ? [preferred, ...limitedBase.filter((model) => model !== preferred)]
+      : preferred
+        ? [preferred, ...limitedBase].slice(0, MAX_FALLBACK_MODELS)
+        : limitedBase;
   if (modelPool.length === 0) {
     throw new AIServiceError("SERVICE_UNAVAILABLE", 503, "Service temporarily unavailable. Please try again shortly.");
   }

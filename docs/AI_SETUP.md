@@ -105,10 +105,11 @@ Tracked in Appwrite `ai_usage` collection (`{ user_id, date }`).
 
 ## Model Fallback + Selection System
 
-ExamArchive uses an OpenRouter-only pool filtered to **free-tier** models:
+ExamArchive uses an OpenRouter-only pool filtered to **free-tier text** models:
 - The pool is resolved from `OPENROUTER_MODEL_ALLOWLIST` (comma-separated). If unset, the app auto-syncs with the current OpenRouter free catalog and falls back to the built-in free allowlist.
-- Each ID is validated against OpenRouter’s model catalog and kept only if both prompt+completion pricing are `$0` (embeddings/vision/video are filtered out).
-- All free models in the pool are selectable for every role; the preferred model is honored first, then the rest of the free pool is attempted sequentially.
+- Each ID is validated against OpenRouter’s model catalog and kept only if both prompt+completion pricing are `$0` (embeddings/vision/video/VL/flux/veo are filtered out).
+- The built-in default list is prioritized for speed/reliability first: `riverflow-v2(-fast/-pro)`, `step-3.5-flash`, `lfm-2.5-1.2b-(thinking|instruct)`, `trinity-(mini|large-preview)`, `qwen-2.5-3b/7b/14b`, `gemma-3-4b-it`, `llama-3.2-3b/1b`, then larger fallbacks (DeepSeek R1, Llama 70B/3.3 70B, GPT-OSS 20B/120B, etc.).
+- All free models in the pool are selectable for every role; the preferred model is tried first, then a capped set of the remaining free pool (prioritized as above) is attempted if the preferred model fails.
 
 If no free models are available, the API responds with a temporary-unavailable 503. Check `OPENROUTER_MODEL_ALLOWLIST` and confirm the listed models still show $0 pricing on OpenRouter.
 
@@ -139,7 +140,7 @@ If no free models are available, the API responds with a temporary-unavailable 5
 | Symptom | Cause | Fix |
 |---------|-------|-----|
 | `"AI assistant is not configured."` | `OPENROUTER_API_KEY` missing | Add the key to `.env.local` and restart |
-| `"Service temporarily unavailable. Please try again shortly."` | Allowlist empty, models no longer $0, or provider-side model issues | Verify `OPENROUTER_MODEL_ALLOWLIST` IDs still show $0 input/output, or leave it unset to auto-sync the free catalog and retry |
+| `"Service temporarily unavailable. Please try again shortly."` | Allowlist empty, models no longer $0, or provider-side model issues | Verify `OPENROUTER_MODEL_ALLOWLIST` IDs still show $0 input/output, or leave it unset to auto-sync the free catalog. The API now tries your preferred model first and then the remaining free pool (ordered by speed) to avoid one-model failures. |
 | `"Daily limit reached."` | User exceeded 5/day | Wait until next UTC day (admin/founder exempt) |
 | Watermark missing in PDFs | Old cached build | Restart server; ensure `printBackground` stays enabled |
 
