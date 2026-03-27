@@ -4,7 +4,7 @@ import { getServerUser } from "@/lib/auth";
 import { generatePDF, markdownToHTML } from "@/lib/pdf-generator";
 import { getNoteLengthTargets, normalizeNoteLength, type NoteLength } from "@/lib/note-length";
 
-const MAX_PAGES = 5;
+const MAX_PAGES = 8;
 const PDF_DAILY_LIMIT = 5;
 const TOPIC_MAX_LENGTH = 500;
 const CONTENT_MAX_LENGTH = 100_000;

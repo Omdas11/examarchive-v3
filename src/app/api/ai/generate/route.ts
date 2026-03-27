@@ -94,7 +94,6 @@ export async function POST(request: NextRequest) {
   }
   const noteLength = normalizeNoteLength(body.noteLength);
   const noteTargets = getNoteLengthTargets(noteLength);
-  const preferredModel = typeof body.model === "string" ? body.model.trim() : "";
   const useWebSearch = Boolean(body.useWebSearch);
 
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -126,8 +125,6 @@ export async function POST(request: NextRequest) {
       );
     }
     const availablePool = modelPool;
-    const preferredModelSafe =
-      preferredModel && availablePool.includes(preferredModel) ? preferredModel : undefined;
     const inputPaperContext = (body.paperContext ?? "").slice(0, 2000);
     const referenceLabel = sanitizeReferenceLabel(body.referenceLabel);
     const ragContext = await buildRagContext({
@@ -172,10 +169,7 @@ Write in plain text with Markdown headings only (no HTML).`;
       messages: [{ role: "user", content: prompt }],
       maxTokens: Math.min(MAX_COMPLETION_TOKENS, noteTargets.maxTokens),
       temperature: 0.6,
-      preferredModel: preferredModelSafe,
-      // when a preferred model is supplied and allowed, only try that model to avoid
-      // unexpected fallbacks that can mis-match the user's selection.
-      modelPool: preferredModelSafe ? [preferredModelSafe] : availablePool,
+      modelPool: availablePool,
     });
     const content = generatedContent;
 
@@ -223,11 +217,6 @@ export async function GET() {
       { status: 503 },
     );
   }
-  const modelOptions = modelPool.map((model) => ({
-    id: model,
-    label: model,
-    available: true,
-  }));
 
   if (isAdminPlus(user.role)) {
     return NextResponse.json({
@@ -235,7 +224,6 @@ export async function GET() {
       limit: null,
       isFounder: user.role === "founder",
       isAdminPlus: true,
-      modelOptions,
       noteLengthOptions: getNoteLengthOptions(),
     });
   }
@@ -248,7 +236,6 @@ export async function GET() {
     limit: DAILY_LIMIT,
     isFounder: false,
     isAdminPlus: false,
-    modelOptions,
     noteLengthOptions: getNoteLengthOptions(),
   });
 }

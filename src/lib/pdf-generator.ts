@@ -112,9 +112,11 @@ export async function generatePDF(
           font-family: 'Georgia', 'Times New Roman', serif;
           font-size: 10pt;
           color: #4b5563;
-          padding: 8px 24px 4px 24px;
+          padding: 10px 24px 8px 24px;
           width: 100%;
           box-sizing: border-box;
+          border-bottom: 1px solid #e5e7eb;
+          border-top: 1px solid #e5e7eb;
         }
         .header__title {
           font-weight: 700;
@@ -136,12 +138,14 @@ export async function generatePDF(
           font-family: 'Georgia', 'Times New Roman', serif;
           font-size: 9pt;
           color: #4b5563;
-          padding: 6px 24px 10px 24px;
+          padding: 8px 24px 12px 24px;
           width: 100%;
           box-sizing: border-box;
           display: flex;
           align-items: center;
           justify-content: space-between;
+          border-top: 1px solid #e5e7eb;
+          border-bottom: 1px solid #e5e7eb;
         }
         .page-info {
           font-variant-numeric: tabular-nums;

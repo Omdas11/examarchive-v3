@@ -79,7 +79,7 @@ Tracked in Appwrite `ai_usage` collection (`{ user_id, date }`).
 |-------|--------|------|-------------|
 | `/api/ai/chat` | `POST` | Required | Sends a chat message; returns `{ reply: string }` |
 | `/api/ai/generate` | `POST` | Required | Generates a study document; returns `{ content, topic, generatedAt, remaining }` |
-| `/api/ai/generate` | `GET` | Required | Returns remaining daily quota and available models |
+| `/api/ai/generate` | `GET` | Required | Returns remaining daily quota and note-length presets |
 
 ### Chat request body
 ```json
@@ -96,20 +96,20 @@ Tracked in Appwrite `ai_usage` collection (`{ user_id, date }`).
 ```json
 {
   "topic": "Photosynthesis",
-  "paperContext": "(optional) raw text from a relevant syllabus or paper",
-  "model": "meta-llama/llama-3.1-8b-instruct:free"
+  "paperContext": "(optional) raw text from a relevant syllabus or paper"
 }
 ```
 
 ---
 
-## Model Fallback + Selection System
+## Model Fallback System (no manual picker)
 
-ExamArchive uses an OpenRouter-only pool filtered to **free-tier text** models:
+ExamArchive now auto-selects from an OpenRouter-only **free-tier text** pool:
 - The pool is resolved from `OPENROUTER_MODEL_ALLOWLIST` (comma-separated). If unset, the app auto-syncs with the current OpenRouter free catalog and falls back to the built-in free allowlist.
 - Each ID is validated against OpenRouter’s model catalog and kept only if both prompt+completion pricing are `$0` (embeddings/vision/video/VL/flux/veo are filtered out).
-- The built-in default list is prioritized for speed/reliability first: `riverflow-v2(-fast/-pro)`, `step-3.5-flash`, `lfm-2.5-1.2b-(thinking|instruct)`, `trinity-(mini|large-preview)`, `qwen-2.5-3b/7b/14b`, `gemma-3-4b-it`, `llama-3.2-3b/1b`, then larger fallbacks (DeepSeek R1, Llama 70B/3.3 70B, GPT-OSS 20B/120B, etc.).
-- All free models in the pool are selectable for every role; the preferred model is tried first, then a capped set of the remaining free pool (prioritized as above) is attempted if the preferred model fails.
+- The built-in default list is the user-requested catalog (ordered for speed first):  
+  `nvidia/nemotron-3-super:free, minimax/minimax-m2.5:free, sourceful/riverflow-v2-pro:free, sourceful/riverflow-v2-fast:free, stepfun/step-3.5-flash:free, arcee/trinity-large-preview:free, liquid/lfm-2.5-1.2b-thinking:free, liquid/lfm-2.5-1.2b-instruct:free, nvidia/nemotron-3-nano-30b-a3b:free, sourceful/riverflow-v2-max-preview:free, sourceful/riverflow-v2-standard-preview:free, sourceful/riverflow-v2-fast-preview:free, arcee/trinity-mini:free, qwen/qwen-3-next-80b-a3b-instruct:free, nvidia/nemotron-nano-9b-v2:free, openai/gpt-oss-120b:free, openai/gpt-oss-20b:free, z-ai/glm-4.5-air:free, qwen/qwen-3-coder-480b-a35b:free, venice/uncensored:free, google/gemma-3n-2b:free, google/gemma-3n-4b:free, qwen/qwen-3-4b:free, mistralai/mistral-small-3.1-24b:free, google/gemma-3-4b:free, google/gemma-3-12b:free, google/gemma-3-27b:free, meta-llama/llama-3.3-70b-instruct:free, meta-llama/llama-3.2-3b-instruct:free, nousresearch/hermes-3-405b-instruct:free`.
+- The API automatically falls back across this ordered pool; no manual selection is exposed in the UI.
 
 If no free models are available, the API responds with a temporary-unavailable 503. Check `OPENROUTER_MODEL_ALLOWLIST` and confirm the listed models still show $0 pricing on OpenRouter.
 

@@ -26,9 +26,9 @@ export const NOTE_LENGTH_PRESETS: Record<NoteLength, NoteLengthPreset> = {
   detailed: {
     label: "Detailed",
     description: "Extended explanations + examples",
-    targetWords: 1200,
-    maxTokens: 3400,
-    maxPages: 5,
+    targetWords: 1400,
+    maxTokens: 3800,
+    maxPages: 7,
   },
 };
 

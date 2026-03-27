@@ -3,83 +3,67 @@ type OpenRouterRole = "system" | "user" | "assistant";
 const OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
 const OPENROUTER_MODELS_ENDPOINT = "https://openrouter.ai/api/v1/models";
 const REQUEST_TIMEOUT_MS = 20_000;
-const OVERALL_TIMEOUT_MS = 40_000;
-const MAX_FALLBACK_MODELS = 12;
+const OVERALL_TIMEOUT_MS = 45_000;
+const MAX_FALLBACK_MODELS = 16;
 const MODEL_CACHE_TTL_MS = 10 * 60 * 1000;
 const DOMEXCEPTION_TIMEOUT_ERR = 23;
 
 // Fallback pool of known $0/$0 OpenRouter models so the app works out-of-the-box
-// without a custom allowlist. This mirrors the pricing Low→High free list.
+// without a custom allowlist. This mirrors the current free catalog provided by the user.
 const NON_TEXT_FREE_REGEX = /embed|vision|image|video|sora|veo|flux|-vl\b/i;
 
 const DEFAULT_FREE_MODEL_ALLOWLIST = [
-  // Prioritized quick/cheap text models first
-  "sourceful/riverflow-v2-fast:free",
-  "sourceful/riverflow-v2:free",
+  "nvidia/nemotron-3-super:free",
+  "minimax/minimax-m2.5:free",
   "sourceful/riverflow-v2-pro:free",
+  "sourceful/riverflow-v2-fast:free",
   "stepfun/step-3.5-flash:free",
+  "arcee/trinity-large-preview:free",
   "liquid/lfm-2.5-1.2b-thinking:free",
   "liquid/lfm-2.5-1.2b-instruct:free",
-  "arcee-ai/trinity-mini:free",
-  "arcee-ai/trinity-large-preview:free",
-  "qwen/qwen-2.5-3b-instruct:free",
-  "qwen/qwen-2.5-7b-instruct:free",
-  "qwen/qwen-2.5-14b-instruct:free",
-  "qwen/qwen-2.5-coder-7b-instruct:free",
-  "qwen/qwen-2.5-math-7b-instruct:free",
-  "google/gemma-3-4b-it:free",
+  "nvidia/nemotron-3-nano-30b-a3b:free",
+  "sourceful/riverflow-v2-max-preview:free",
+  "sourceful/riverflow-v2-standard-preview:free",
+  "sourceful/riverflow-v2-fast-preview:free",
+  "arcee/trinity-mini:free",
+  "qwen/qwen-3-next-80b-a3b-instruct:free",
+  "nvidia/nemotron-nano-9b-v2:free",
+  "openai/gpt-oss-120b:free",
+  "openai/gpt-oss-20b:free",
+  "z-ai/glm-4.5-air:free",
+  "qwen/qwen-3-coder-480b-a35b:free",
+  "venice/uncensored:free",
   "google/gemma-3n-2b:free",
   "google/gemma-3n-4b:free",
-  "meta-llama/llama-3.2-3b-instruct:free",
-  "meta-llama/llama-3.2-1b-instruct:free",
-  // High-quality but slower fallbacks
-  "deepseek/deepseek-r1-distill-llama-8b:free",
-  "deepseek/deepseek-r1:free",
-  "meta-llama/llama-3.1-8b-instruct:free",
-  "meta-llama/llama-3.1-70b-instruct:free",
+  "qwen/qwen-3-4b:free",
+  "mistralai/mistral-small-3.1-24b:free",
+  "google/gemma-3-4b:free",
+  "google/gemma-3-12b:free",
+  "google/gemma-3-27b:free",
   "meta-llama/llama-3.3-70b-instruct:free",
-  "google/gemma-3-12b-it:free",
-  "google/gemma-3-27b-it:free",
-  "google/gemma-2-2b-it:free",
-  "google/gemma-2-9b-it:free",
-  "qwen/qwen-2.5-8b-instruct:free",
-  "qwen/qwen-2.5-32b-instruct:free",
-  "qwen/qwen-2.5-72b-instruct:free",
-  "qwen/qwen-2.5-1.5b-instruct:free",
-  "qwen/qwen-2.5-math-1.5b-instruct:free",
-  "qwen/qwen-2.5-math-72b-instruct:free",
-  "qwen/qwen-2.5-coder-14b-instruct:free",
-  "qwen/qwen-2.5-coder-32b-instruct:free",
-  "qwen/qwen3-8b:free",
-  "qwen/qwen3-4b:free",
-  "openai/gpt-oss-20b:free",
-  "openai/gpt-oss-120b:free",
-  "openchat/openchat-3.6-8b:free",
-  "nousresearch/hermes-3-llama-3.1-8b:free",
+  "meta-llama/llama-3.2-3b-instruct:free",
   "nousresearch/hermes-3-405b-instruct:free",
-  "mistralai/mistral-small-3.1-24b-instruct:free",
-  "z-ai/glm-4.5-air:free",
 ];
 
 // Optional ordering preference so we try the most responsive free models first.
-// This is intentionally a subset/ordering of the default allowlist to bias toward
-// speedy text models; keep in sync when adjusting the allowlist.
+// This reflects the user-provided set and biases toward fast/cheap models.
 const PRIORITY_MODEL_ORDER = [
   "sourceful/riverflow-v2-fast:free",
-  "sourceful/riverflow-v2:free",
+  "sourceful/riverflow-v2-fast-preview:free",
   "sourceful/riverflow-v2-pro:free",
+  "sourceful/riverflow-v2-standard-preview:free",
+  "sourceful/riverflow-v2-max-preview:free",
   "stepfun/step-3.5-flash:free",
   "liquid/lfm-2.5-1.2b-thinking:free",
   "liquid/lfm-2.5-1.2b-instruct:free",
-  "arcee-ai/trinity-mini:free",
-  "arcee-ai/trinity-large-preview:free",
-  "qwen/qwen-2.5-3b-instruct:free",
-  "qwen/qwen-2.5-7b-instruct:free",
-  "qwen/qwen-2.5-14b-instruct:free",
-  "google/gemma-3-4b-it:free",
+  "arcee/trinity-mini:free",
+  "arcee/trinity-large-preview:free",
+  "minimax/minimax-m2.5:free",
   "google/gemma-3n-2b:free",
-  "meta-llama/llama-3.2-3b-instruct:free",
-  "deepseek/deepseek-r1-distill-llama-8b:free",
+  "google/gemma-3n-4b:free",
+  "google/gemma-3-4b:free",
+  "google/gemma-3-12b:free",
+  "google/gemma-3-27b:free",
 ];
 
 const DEFAULT_APP_URL =

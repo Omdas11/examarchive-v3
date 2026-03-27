@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import ModelSelect from "@/components/ModelSelect";
 import type { CoursePrefsPayload } from "@/lib/pdf-rag";
 import {
   getNoteLengthOptions,
@@ -42,8 +41,6 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
   const [remaining, setRemaining] = useState<number | null>(null);
   const [isFounder, setIsFounder] = useState(_userRole === "founder");
   const [isAdminPlus, setIsAdminPlus] = useState(_userRole === "founder" || _userRole === "admin");
-  const [model, setModel] = useState("");
-  const [modelOptions, setModelOptions] = useState<Array<{ id: string; label: string; available: boolean }>>([]);
   const [useWebSearch, setUseWebSearch] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeDoc, setActiveDoc] = useState<GeneratedDoc | null>(null);
@@ -66,10 +63,6 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
         }
         setIsFounder(d.isFounder ?? false);
         setIsAdminPlus(d.isAdminPlus ?? false);
-        const fetchedModels = Array.isArray(d.modelOptions) ? d.modelOptions : [];
-        setModelOptions(fetchedModels);
-        const availableModels = fetchedModels.filter((option: { available: boolean }) => option.available);
-        setModel(availableModels[0]?.id ?? "");
         if (Array.isArray(d.noteLengthOptions)) {
           const normalized = d.noteLengthOptions
             .map((opt: NoteLengthOption) => ({
@@ -179,7 +172,6 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
         body: JSON.stringify({
           topic: trimmed,
           noteLength,
-          model,
           useWebSearch,
           coursePrefs: loadCoursePrefsFromStorage(),
           referenceFileId: selectedPaper?.file_id,
@@ -193,14 +185,12 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
         return;
       }
 
-      const modelLabel = modelOptions.find((opt) => opt.id === data.model)?.label ?? data.model;
-
       const doc: GeneratedDoc = {
         topic: data.topic,
         content: data.content,
         generatedAt: data.generatedAt,
         model: data.model,
-        modelLabel,
+        modelLabel: data.model,
         sources: Array.isArray(data.sources) ? data.sources : [],
         pageLength: typeof data.pageLength === "number" ? data.pageLength : undefined,
         noteLength: normalizeNoteLength(data.noteLength ?? noteLength),
@@ -446,26 +436,24 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                       ))}
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-on-surface-variant">
-                      AI Analysis Model
-                    </p>
-                    <ModelSelect
-                      options={modelOptions}
-                      value={model}
-                      onChange={setModel}
-                      disabled={generating || !canGenerate}
-                    />
-                    <label className="flex items-center gap-2 text-xs text-on-surface-variant">
-                      <input
-                        type="checkbox"
-                        checked={useWebSearch}
-                        onChange={(e) => setUseWebSearch(e.target.checked)}
-                        disabled={generating}
-                      />
-                      Include live web updates
-                    </label>
-                  </div>
+                   <div className="space-y-2">
+                     <p className="text-xs font-semibold uppercase tracking-wide text-on-surface-variant">
+                       AI Analysis Model
+                     </p>
+                     <div className="rounded-xl border border-outline-variant/30 bg-surface p-3 text-sm text-on-surface flex items-center justify-between">
+                       <span className="font-semibold">Auto-select best free model</span>
+                       <span className="text-xs text-on-surface-variant">Fallback across curated pool</span>
+                     </div>
+                     <label className="flex items-center gap-2 text-xs text-on-surface-variant">
+                       <input
+                         type="checkbox"
+                         checked={useWebSearch}
+                         onChange={(e) => setUseWebSearch(e.target.checked)}
+                         disabled={generating}
+                       />
+                       Include live web updates
+                     </label>
+                   </div>
                 </div>
 
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -479,8 +467,8 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                     )}
                   </div>
                   <button
-                    onClick={generate}
-                    disabled={generating || !topic.trim() || !canGenerate || !model}
+                     onClick={generate}
+                     disabled={generating || !topic.trim() || !canGenerate}
                     className="btn-primary inline-flex items-center gap-2 rounded-xl px-5 py-2 text-sm shadow-md disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {generating ? `Generating… (${loadingStep})` : "✨ Generate Notes"}
