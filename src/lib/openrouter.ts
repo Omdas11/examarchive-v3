@@ -9,6 +9,9 @@ const MODEL_CACHE_TTL_MS = 10 * 60 * 1000;
 // Fallback pool of known $0/$0 OpenRouter models so the app works out-of-the-box
 // without a custom allowlist. This mirrors the pricing Low→High free list.
 const DEFAULT_FREE_MODEL_ALLOWLIST = [
+  "openai/gpt-oss-120b:free",
+  "openai/gpt-oss-20b:free",
+  "meta-llama/llama-3.3-70b-instruct:free",
   "deepseek/deepseek-r1-distill-llama-8b:free",
   "deepseek/deepseek-r1:free",
   "neuralmagic/llama-3.2-1b-instruct:free",
@@ -29,10 +32,19 @@ const DEFAULT_FREE_MODEL_ALLOWLIST = [
   "qwen/qwen-2.5-coder-7b-instruct:free",
   "qwen/qwen-2.5-coder-14b-instruct:free",
   "qwen/qwen-2.5-coder-32b-instruct:free",
+  "qwen/qwen3-8b:free",
+  "qwen/qwen3-4b:free",
   "google/gemma-2-2b-it:free",
   "google/gemma-2-9b-it:free",
+  "google/gemma-3-27b-it:free",
+  "google/gemma-3-12b-it:free",
+  "google/gemma-3-4b-it:free",
+  "google/gemma-3n-e4b-it:free",
   "openchat/openchat-3.6-8b:free",
   "nousresearch/hermes-3-llama-3.1-8b:free",
+  "nousresearch/hermes-3-405b-instruct:free",
+  "mistralai/mistral-small-3.1-24b-instruct:free",
+  "z-ai/glm-4.5-air:free",
 ];
 
 const DEFAULT_APP_URL =
@@ -179,11 +191,8 @@ export async function getOpenRouterModelPool(apiKey?: string): Promise<string[]>
       cachedFreeModels = { models: filtered, fetchedAt: now };
       return filtered;
     }
-    // If no overlap with allowlist, fall back to discovered free models.
-    if (uniqueFree.length > 0) {
-      cachedFreeModels = { models: uniqueFree, fetchedAt: now };
-      return uniqueFree;
-    }
+    // Keep routing pinned to the curated allowlist to avoid pulling non-text
+    // free models (e.g., image/video) into the app's text-generation UI.
   } catch (error) {
     console.error("[OpenRouter] Failed to list models:", error);
   }
