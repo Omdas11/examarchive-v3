@@ -10,6 +10,8 @@ const DOMEXCEPTION_TIMEOUT_ERR = 23;
 
 // Fallback pool of known $0/$0 OpenRouter models so the app works out-of-the-box
 // without a custom allowlist. This mirrors the pricing Low→High free list.
+const NON_TEXT_FREE_REGEX = /embed|vision|image|video|sora|veo|flux|-vl\b/i;
+
 const DEFAULT_FREE_MODEL_ALLOWLIST = [
   // Prioritized quick/cheap text models first
   "sourceful/riverflow-v2-fast:free",
@@ -60,6 +62,8 @@ const DEFAULT_FREE_MODEL_ALLOWLIST = [
 ];
 
 // Optional ordering preference so we try the most responsive free models first.
+// This is intentionally a subset/ordering of the default allowlist to bias toward
+// speedy text models; keep in sync when adjusting the allowlist.
 const PRIORITY_MODEL_ORDER = [
   "sourceful/riverflow-v2-fast:free",
   "sourceful/riverflow-v2:free",
@@ -152,10 +156,11 @@ function parseAllowlist(): string[] {
 }
 
 function orderModelPool(models: string[]): string[] {
+  const modelSet = new Set(models);
   const seen = new Set<string>();
   const prioritized = PRIORITY_MODEL_ORDER.filter((id) => {
     if (seen.has(id)) return false;
-    if (!models.includes(id)) return false;
+    if (!modelSet.has(id)) return false;
     seen.add(id);
     return true;
   });
@@ -229,7 +234,7 @@ async function fetchFreeModelsFromOpenRouter(apiKey: string): Promise<string[]> 
     })
     .map((model) => model.id)
     .filter(Boolean)
-    .filter((id) => !/embed|vision|image|video|sora|veo|flux|-vl\b/i.test(id));
+    .filter((id) => !NON_TEXT_FREE_REGEX.test(id));
 }
 
 export async function getOpenRouterModelPool(apiKey?: string): Promise<string[]> {
