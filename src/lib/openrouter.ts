@@ -5,6 +5,7 @@ const OPENROUTER_MODELS_ENDPOINT = "https://openrouter.ai/api/v1/models";
 const REQUEST_TIMEOUT_MS = 15_000;
 const OVERALL_TIMEOUT_MS = 25_000;
 const MODEL_CACHE_TTL_MS = 10 * 60 * 1000;
+const DOMEXCEPTION_TIMEOUT_ERR = 23;
 
 // Fallback pool of known $0/$0 OpenRouter models so the app works out-of-the-box
 // without a custom allowlist. This mirrors the pricing Low→High free list.
@@ -95,8 +96,8 @@ function isTimeoutLikeError(error: unknown): boolean {
   return (
     name === "AbortError" ||
     name === "TimeoutError" ||
-    maybeError.code === 23 ||
-    /timeout|timed out|aborted/i.test(message)
+    maybeError.code === DOMEXCEPTION_TIMEOUT_ERR ||
+    /timed out|timeout|aborted due to timeout|operation was aborted due to timeout/i.test(message)
   );
 }
 
@@ -263,6 +264,12 @@ async function callOpenRouterModel(args: {
           timeout: true,
         } satisfies ModelAttemptFailure;
       }
+      const parseMessage = error instanceof Error ? error.message : "unknown parse error";
+      throw {
+        status: response.status,
+        message: `Provider error response parse failed: ${parseMessage}`,
+        timeout: false,
+      } satisfies ModelAttemptFailure;
     }
     throw {
       status: response.status,
