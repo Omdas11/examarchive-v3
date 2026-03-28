@@ -519,10 +519,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
             {activeDoc && (
               <div className="card border border-outline-variant/30 print-visible">
                 <div className="flex flex-col gap-4 p-5">
-                  <p
-                    className="text-xs font-bold uppercase tracking-wide text-on-surface-variant"
-                    style={{ letterSpacing: "0.1em" }}
-                  >
+                  <p className="text-xs font-bold uppercase text-on-surface-variant" style={{ letterSpacing: "0.1em" }}>
                     EXAMARCHIVE
                   </p>
                   <div className="no-print flex flex-col gap-2">
@@ -569,7 +566,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                         </p>
                       </div>
                       <div className="markdown-preview print-body" dangerouslySetInnerHTML={{ __html: activeDocHtml }} />
-                      <div className="print-footer avoid-break" style={{ marginTop: "40px", textAlign: "center" }}>
+                      <div className="print-footer avoid-break mt-10 text-center">
                         <p>
                           Thank you for generating your study notes with ExamArchive! If you found this helpful, please share it with your
                           friends and classmates.
