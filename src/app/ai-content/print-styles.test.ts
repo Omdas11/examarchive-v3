@@ -43,14 +43,22 @@ describe("AI content print/mobile styles", () => {
     );
   });
 
-  it("applies compact margins and tiling watermark to printable container", () => {
+  it("applies compact margins and uses a DOM watermark in print", () => {
     expect(css).toMatch(/@page\s*\{\s*margin:\s*12mm;\s*\}/);
-    expect(css).toMatch(/@media print[\s\S]*?#printable-exam-notes\s*\{[\s\S]*?padding:\s*0 !important;[\s\S]*?background-image:\s*url\("data:image\/svg\+xml;utf8,[\s\S]*?ExamArchive[\s\S]*?"\);[\s\S]*?background-repeat:\s*repeat;[\s\S]*?\}/);
+    expect(css).toMatch(/@media print[\s\S]*?#printable-exam-notes\s*\{[\s\S]*?padding:\s*0 !important;[\s\S]*?\}/);
     expect(css).toMatch(/@media print[\s\S]*?#printable-exam-notes\s*\{[\s\S]*?-webkit-print-color-adjust:\s*exact !important;[\s\S]*?print-color-adjust:\s*exact !important;[\s\S]*?\}/);
+    expect(css).toMatch(
+      /@media print[\s\S]*?\.print-watermark[\s\S]*?display:\s*block !important;[\s\S]*?position:\s*fixed;[\s\S]*?transform:[\s\S]*rotate\(-45deg\);[\s\S]*?font-size:\s*12rem;[\s\S]*?opacity:\s*0\.04;[\s\S]*?pointer-events:\s*none;/
+    );
+    expect(css).toMatch(/\.print-watermark\s*\{\s*display:\s*none;\s*\}/);
   });
 
   it("locks print typography sizing for main text elements", () => {
     expect(css).toMatch(/@media print[\s\S]*?#printable-exam-notes p[\s\S]*font-size:\s*11pt !important;[\s\S]*line-height:\s*1\.5 !important;/);
     expect(css).toMatch(/@media print[\s\S]*?#printable-exam-notes p[\s\S]*-webkit-text-size-adjust:\s*100%;[\s\S]*text-size-adjust:\s*100%;/);
+  });
+
+  it("hides ghost/mobile preview containers during print", () => {
+    expect(css).toMatch(/@media print[\s\S]*?\.print-ghost-preview\s*\{\s*display:\s*none !important;\s*\}/);
   });
 });

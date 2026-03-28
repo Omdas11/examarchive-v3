@@ -18,6 +18,7 @@ interface GeneratedDoc {
   generatedAt: string;
   model?: string;
   modelLabel?: string;
+  modelName?: string;
   sources?: string[];
   pageLength?: number;
   noteLength?: NoteLength;
@@ -260,10 +261,27 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
     event?.preventDefault();
     event?.stopPropagation();
     if (!activeDoc) return;
+
+    const originalTitle = document.title;
+    const topicName = activeDoc.topic ? `${activeDoc.topic}_Notes` : originalTitle;
+    document.title = topicName;
+
+    let restored = false;
+    const restoreTitle = () => {
+      if (restored) return;
+      restored = true;
+      window.clearTimeout(timeoutId);
+      document.title = originalTitle;
+      window.removeEventListener("afterprint", restoreTitle);
+    };
+
+    const timeoutId = window.setTimeout(restoreTitle, 4000);
+    window.addEventListener("afterprint", restoreTitle);
     window.print();
   }
 
   const canGenerate = isAdminPlus || remaining === null || remaining > 0;
+  const modelDisplay = activeDoc ? activeDoc.modelLabel || activeDoc.model || activeDoc.modelName : undefined;
 
   return (
     <div className="relative min-h-screen bg-surface px-4 py-8 text-on-surface">
@@ -530,7 +548,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                     )}
                   </div>
                   <div
-                    className="max-h-[520px] overflow-auto rounded-xl border border-outline-variant/30 bg-surface-container-low p-4 text-sm leading-7 text-on-surface shadow-inner"
+                    className="no-print print-ghost-preview max-h-[520px] overflow-auto rounded-xl border border-outline-variant/30 bg-surface-container-low p-4 text-sm leading-7 text-on-surface shadow-inner"
                     style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
                   >
                     <div className="markdown-preview" dangerouslySetInnerHTML={{ __html: activeDocHtml }} />
@@ -540,12 +558,15 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                     className="pdf-export-source print-root-wrapper"
                     aria-hidden="true"
                   >
+                    <div className="print-watermark" aria-hidden="true">
+                      ExamArchive
+                    </div>
                     <div className="print-root">
                       <div className="print-title-block avoid-break">
                         <h1>{activeDoc.topic}</h1>
                         <p>
                           Generated {new Date(activeDoc.generatedAt).toLocaleString()}
-                          {activeDoc.modelLabel || activeDoc.model ? ` • Model: ${activeDoc.modelLabel || activeDoc.model}` : ""}
+                          {modelDisplay ? ` • Model: ${modelDisplay}` : ""}
                           {activeDoc.noteLength ? ` • ${activeDoc.noteLength} length` : ""}
                         </p>
                       </div>

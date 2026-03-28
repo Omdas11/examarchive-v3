@@ -981,8 +981,9 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
   font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
   position: relative;
   overflow: hidden;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Ctext x='20' y='150' transform='rotate(-45 130 130)' fill='%230f172a' opacity='0.05' font-family='Inter, Helvetica Neue, Arial, sans-serif' font-size='18'%3EExamArchive (https://www.examarchive.dev/)%3C/text%3E%3C/svg%3E");
-  background-size: 260px 260px;
+}
+.print-watermark {
+  display: none;
 }
 .pdf-export-source {
   display: none;
@@ -1055,8 +1056,6 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
     padding: 0 !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><text x='20' y='120' font-size='24' font-family='Inter,Arial,sans-serif' fill='rgba(0,0,0,0.06)' transform='rotate(-30 110 110)'>ExamArchive</text></svg>");
-    background-repeat: repeat;
   }
 
   .no-print {
@@ -1114,6 +1113,24 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
     line-height: 1.5 !important;
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
+  }
+
+  .print-watermark {
+    display: block !important;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-45deg);
+    font-size: 12rem;
+    font-weight: bold;
+    color: black;
+    opacity: 0.04;
+    z-index: -1;
+    pointer-events: none;
+  }
+
+  .print-ghost-preview {
+    display: none !important;
   }
 
   p,
