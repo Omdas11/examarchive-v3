@@ -165,8 +165,10 @@ Analyze the topic to pick the correct academic domain, then produce one complete
 Topic: "${topic}"${contextSection}
 
 Strict formatting:
+- Return raw Markdown text only (no HTML/XML blocks).
 - Use Markdown headings only.
-- All inline math uses single $...$; all standalone equations use $$ on their own lines.
+- Use only $...$ for inline math and $$...$$ on their own lines for display math.
+- Never use \\(...\\) or \\[...\\] delimiters.
 - Do NOT mix plain text with math symbols; wrap every symbol/variable in LaTeX.
 
 Required sections in order:

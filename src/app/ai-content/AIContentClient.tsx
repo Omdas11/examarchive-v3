@@ -3,12 +3,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { CoursePrefsPayload } from "@/lib/pdf-rag";
+import { markdownToHtmlWithKatex } from "@/lib/client-markdown";
 import {
   getNoteLengthOptions,
   normalizeNoteLength,
   type NoteLength,
 } from "@/lib/note-length";
 import type { Paper } from "@/types";
+import "katex/dist/katex.min.css";
 
 interface GeneratedDoc {
   topic: string;
@@ -52,6 +54,11 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
   const [adminModelOverride, setAdminModelOverride] = useState("");
   const [applyOverrideGlobally, setApplyOverrideGlobally] = useState(false);
   const loadingIntervalRef = useRef<number | null>(null);
+  const exportRef = useRef<HTMLDivElement | null>(null);
+  const activeDocHtml = useMemo(
+    () => (activeDoc ? markdownToHtmlWithKatex(activeDoc.content) : ""),
+    [activeDoc],
+  );
 
   const DAILY_LIMIT = 5;
 
@@ -251,31 +258,31 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
 
   async function handlePrint(mode: "download" | "preview" = "download") {
     if (!activeDoc) return;
+    if (!exportRef.current) return;
 
     try {
-      const response = await fetch("/api/ai/pdf", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          content: activeDoc.content,
-          topic: activeDoc.topic,
-          pageLength: activeDoc.pageLength || undefined,
-          noteLength: activeDoc.noteLength ?? noteLength,
-          model: activeDoc.model,
-          modelLabel: activeDoc.modelLabel,
-          generatedAt: activeDoc.generatedAt,
-        }),
+      const html2pdfModule = await import("html2pdf.js");
+      type Html2PdfWorker = {
+        set: (options: Record<string, unknown>) => Html2PdfWorker;
+        outputPdf: (type: "blob") => Promise<Blob>;
+        save: () => Promise<void>;
+      };
+      const html2pdf = (html2pdfModule as { default?: unknown }).default as (
+        source: HTMLElement
+      ) => Html2PdfWorker;
+
+      const filename = `${activeDoc.topic.replace(/[^a-zA-Z0-9]/g, "_")}_${new Date().toISOString().slice(0, 10)}.pdf`;
+      const worker: Html2PdfWorker = html2pdf(exportRef.current).set({
+        margin: [12, 10, 14, 10],
+        filename,
+        html2canvas: { scale: 2, useCORS: true, logging: false },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+        pagebreak: { mode: ["css", "legacy"], avoid: [".equation-block", "table", "pre", "blockquote"] },
       });
 
-      if (!response.ok) {
-        alert("Failed to generate PDF. Please try again.");
-        return;
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-
       if (mode === "preview") {
+        const blob = await worker.outputPdf("blob");
+        const url = window.URL.createObjectURL(blob);
         if (pdfPreviewUrl) {
           window.URL.revokeObjectURL(pdfPreviewUrl);
         }
@@ -283,13 +290,8 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
         return;
       }
 
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${activeDoc.topic.replace(/[^a-zA-Z0-9]/g, "_")}_${new Date().toISOString().slice(0, 10)}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      await worker.save();
+      setPdfPreviewUrl(null);
     } catch (error) {
       console.error("PDF generation error:", error);
       alert("Failed to generate PDF. Please try again.");
@@ -581,7 +583,19 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                     className="max-h-[520px] overflow-auto rounded-xl border border-outline-variant/30 bg-surface-container-low p-4 text-sm leading-7 text-on-surface shadow-inner"
                     style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
                   >
-                    {activeDoc.content}
+                    <div className="markdown-preview" dangerouslySetInnerHTML={{ __html: activeDocHtml }} />
+                  </div>
+                  <div className="pdf-export-source print-root-wrapper" aria-hidden="true">
+                    <div ref={exportRef} className="print-root">
+                      <div className="print-title-block avoid-break">
+                        <h1>{activeDoc.topic}</h1>
+                        <p>
+                          Generated {new Date(activeDoc.generatedAt).toLocaleString()}
+                          {activeDoc.noteLength ? ` • ${activeDoc.noteLength} length` : ""}
+                        </p>
+                      </div>
+                      <div className="markdown-preview print-body" dangerouslySetInnerHTML={{ __html: activeDocHtml }} />
+                    </div>
                   </div>
                 </div>
               </div>

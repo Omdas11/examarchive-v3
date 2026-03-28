@@ -904,3 +904,117 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
     padding-bottom: 4rem;
   }
 }
+
+/* ── AI markdown preview + print/PDF rules ── */
+.markdown-preview {
+  white-space: normal;
+}
+.markdown-preview h1,
+.markdown-preview h2,
+.markdown-preview h3,
+.markdown-preview h4 {
+  margin: 1rem 0 0.5rem;
+  line-height: 1.3;
+}
+.markdown-preview p,
+.markdown-preview ul,
+.markdown-preview ol,
+.markdown-preview table,
+.markdown-preview pre,
+.markdown-preview blockquote {
+  margin: 0.5rem 0;
+}
+.markdown-preview table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.markdown-preview th,
+.markdown-preview td {
+  border: 1px solid var(--color-border);
+  padding: 0.4rem 0.5rem;
+  text-align: left;
+  vertical-align: top;
+}
+.equation-block,
+.katex-display {
+  margin: 0.8rem 0;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+.print-root {
+  max-width: 794px;
+  margin: 0 auto;
+  padding: 24px 24px 10px;
+  background: #fff;
+  color: #111827;
+}
+.pdf-export-source {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  width: 794px;
+  z-index: -1;
+  pointer-events: none;
+}
+.print-title-block h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.4rem;
+  line-height: 1.25;
+}
+.print-title-block p {
+  margin: 0 0 1rem;
+  font-size: 0.85rem;
+  color: #4b5563;
+}
+.print-body > * {
+  break-inside: auto;
+}
+.avoid-break,
+.print-body table,
+.print-body pre,
+.print-body blockquote {
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+@media print {
+  .btn,
+  .btn-primary,
+  button,
+  input,
+  select,
+  textarea,
+  nav,
+  header,
+  footer,
+  .card:not(.print-root-wrapper) {
+    display: none !important;
+  }
+
+  .print-root-wrapper {
+    display: block !important;
+    position: static !important;
+    width: auto !important;
+    height: auto !important;
+    clip: auto !important;
+    clip-path: none !important;
+    overflow: visible !important;
+  }
+
+  .print-root {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .katex,
+  .katex-display {
+    font-size: 0.96em !important;
+    line-height: 1.35;
+  }
+
+  h1, h2, h3, h4, table, pre, blockquote, .equation-block, .katex-display {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+}
