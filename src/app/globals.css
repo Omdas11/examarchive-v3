@@ -1021,6 +1021,10 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
 }
 
 @media print {
+  :root {
+    --print-watermark-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'%3E%3Cg transform='rotate(-35 75 75)' fill='%231f2937' fill-opacity='0.08'%3E%3Ctext x='12' y='42' font-size='14' font-family='Inter,Arial,sans-serif' font-weight='700'%3EExamArchive%3C/text%3E%3Ctext x='12' y='102' font-size='14' font-family='Inter,Arial,sans-serif' font-weight='700'%3EExamArchive%3C/text%3E%3C/g%3E%3C/svg%3E");
+  }
+
   html,
   body,
   #root,
@@ -1055,13 +1059,39 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
     top: 0;
     padding: 0 !important;
     background: transparent !important;
+    background-color: transparent !important;
+    background-image: var(--print-watermark-image) !important;
+    background-repeat: repeat !important;
+    background-size: 150px 150px !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+  }
+
+  #printable-exam-notes::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background-image: var(--print-watermark-image) !important;
+    background-repeat: repeat !important;
+    background-size: 150px 150px !important;
+    pointer-events: none;
+    z-index: 0;
   }
 
   body,
   main {
     background: transparent !important;
+    background-color: transparent !important;
+  }
+
+  #printable-exam-notes,
+  .pdf-export-source,
+  .print-root-wrapper,
+  .print-root {
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    border: none !important;
+    background-color: transparent !important;
   }
 
   .no-print {
@@ -1097,6 +1127,8 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
     margin: 0;
     padding: 0;
     overflow: visible;
+    position: relative;
+    z-index: 1;
   }
 
   .pdf-export-source {
@@ -1122,17 +1154,7 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
   }
 
   .print-watermark {
-    display: block !important;
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%) rotate(-45deg);
-    font-size: 12rem;
-    font-weight: bold;
-    color: black;
-    opacity: 0.04;
-    z-index: 1 !important;
-    pointer-events: none;
+    display: none !important;
   }
 
   .print-ghost-preview {
