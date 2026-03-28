@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 type Limits = {
   dailyLimit: number;
@@ -27,7 +27,7 @@ export default function AiStatsClient() {
     rpmLimit: "",
   });
 
-  async function loadStats() {
+  const loadStats = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -46,7 +46,7 @@ export default function AiStatsClient() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   async function saveLimits() {
     setLoading(true);
@@ -79,7 +79,7 @@ export default function AiStatsClient() {
     loadStats();
     const interval = setInterval(loadStats, 15_000);
     return () => clearInterval(interval);
-  }, []);
+  }, [loadStats]);
 
   return (
     <div className="mt-6 space-y-4">
