@@ -54,6 +54,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
   const [adminModelOverride, setAdminModelOverride] = useState("");
   const [applyOverrideGlobally, setApplyOverrideGlobally] = useState(false);
   const loadingIntervalRef = useRef<number | null>(null);
+  const originalDocumentTitleRef = useRef<string>("");
   const [loadingSteps, setLoadingSteps] = useState<string[]>([]);
   const [loadingStepIndex, setLoadingStepIndex] = useState(0);
   const activeDocHtml = useMemo(
@@ -121,6 +122,23 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    originalDocumentTitleRef.current = document.title;
+    return () => {
+      if (originalDocumentTitleRef.current) {
+        document.title = originalDocumentTitleRef.current;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (activeDoc?.topic) {
+      document.title = `${activeDoc.topic}_Notes`;
+    }
+  }, [activeDoc?.topic]);
 
   const selectedPaper = useMemo(
     () => papers.find((paper) => paper.id === selectedPaperId) ?? null,
@@ -261,22 +279,6 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
     event?.preventDefault();
     event?.stopPropagation();
     if (!activeDoc) return;
-
-    const originalTitle = document.title;
-    const topicName = activeDoc.topic ? `${activeDoc.topic}_Notes` : originalTitle;
-    document.title = topicName;
-
-    let restored = false;
-    const restoreTitle = () => {
-      if (restored) return;
-      restored = true;
-      window.clearTimeout(timeoutId);
-      document.title = originalTitle;
-      window.removeEventListener("afterprint", restoreTitle);
-    };
-
-    const timeoutId = window.setTimeout(restoreTitle, 4000);
-    window.addEventListener("afterprint", restoreTitle);
     window.print();
   }
 
@@ -287,7 +289,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
     <div className="relative min-h-screen bg-surface px-4 py-8 text-on-surface">
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-primary/10 via-primary/0 to-transparent" aria-hidden="true" />
       <div className="relative mx-auto flex max-w-6xl flex-col gap-6">
-        <header className="flex flex-col gap-3 rounded-2xl bg-surface-container p-6 shadow-lift border border-outline-variant/30">
+        <header className="no-print flex flex-col gap-3 rounded-2xl bg-surface-container p-6 shadow-lift border border-outline-variant/30">
           <div className="flex items-center gap-2 text-on-surface">
             <span className="text-2xl">📘</span>
             <h1 className="text-3xl font-bold">AI Notes Generator</h1>

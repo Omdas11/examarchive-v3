@@ -46,9 +46,11 @@ describe("AI content print/mobile styles", () => {
   it("applies compact margins and uses a DOM watermark in print", () => {
     expect(css).toMatch(/@page\s*\{\s*margin:\s*12mm;\s*\}/);
     expect(css).toMatch(/@media print[\s\S]*?#printable-exam-notes\s*\{[\s\S]*?padding:\s*0 !important;[\s\S]*?\}/);
+    expect(css).toMatch(/@media print[\s\S]*?#printable-exam-notes\s*\{[\s\S]*?background:\s*transparent !important;[\s\S]*?\}/);
     expect(css).toMatch(/@media print[\s\S]*?#printable-exam-notes\s*\{[\s\S]*?-webkit-print-color-adjust:\s*exact !important;[\s\S]*?print-color-adjust:\s*exact !important;[\s\S]*?\}/);
+    expect(css).toMatch(/@media print[\s\S]*?body,\s*main\s*\{[\s\S]*?background:\s*transparent !important;[\s\S]*?\}/);
     expect(css).toMatch(
-      /@media print[\s\S]*?\.print-watermark[\s\S]*?display:\s*block !important;[\s\S]*?position:\s*fixed;[\s\S]*?transform:[\s\S]*rotate\(-45deg\);[\s\S]*?font-size:\s*12rem;[\s\S]*?opacity:\s*0\.04;[\s\S]*?pointer-events:\s*none;/
+      /@media print[\s\S]*?\.print-watermark[\s\S]*?display:\s*block !important;[\s\S]*?position:\s*fixed;[\s\S]*?transform:[\s\S]*rotate\(-45deg\);[\s\S]*?font-size:\s*12rem;[\s\S]*?opacity:\s*0\.04;[\s\S]*?z-index:\s*1 !important;[\s\S]*?pointer-events:\s*none;/
     );
     expect(css).toMatch(/\.print-watermark\s*\{\s*display:\s*none;\s*\}/);
   });

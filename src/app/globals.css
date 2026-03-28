@@ -1054,8 +1054,14 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
     left: 0;
     top: 0;
     padding: 0 !important;
+    background: transparent !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+  }
+
+  body,
+  main {
+    background: transparent !important;
   }
 
   .no-print {
@@ -1125,7 +1131,7 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
     font-weight: bold;
     color: black;
     opacity: 0.04;
-    z-index: -1;
+    z-index: 1 !important;
     pointer-events: none;
   }
 
