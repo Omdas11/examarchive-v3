@@ -1013,7 +1013,7 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
     line-height: 1.35;
   }
 
-  h1, h2, h3, h4, table, pre, blockquote, .equation-block, .katex-display {
+  h1, h2, h3, h4, table, pre, blockquote {
     page-break-inside: avoid;
     break-inside: avoid;
   }

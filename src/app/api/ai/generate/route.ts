@@ -165,7 +165,7 @@ Analyze the topic to pick the correct academic domain, then produce one complete
 Topic: "${topic}"${contextSection}
 
 Strict formatting:
-- Return raw Markdown text only (no HTML/XML blocks).
+- Return plain Markdown text only; do not include any HTML/XML tags or blocks.
 - Use Markdown headings only.
 - Use only $...$ for inline math and $$...$$ on their own lines for display math.
 - Never use \\(...\\) or \\[...\\] delimiters.

@@ -33,6 +33,16 @@ interface NoteLengthOption {
   description: string;
 }
 
+type Html2PdfWorker = {
+  set: (options: Record<string, unknown>) => Html2PdfWorker;
+  outputPdf: (type: "blob") => Promise<Blob>;
+  save: () => Promise<void>;
+};
+
+function isHtml2PdfFactory(value: unknown): value is (source: HTMLElement) => Html2PdfWorker {
+  return typeof value === "function";
+}
+
 export default function AIContentClient({ userRole: _userRole }: AIContentClientProps) {
   const [topic, setTopic] = useState("");
   const [noteLength, setNoteLength] = useState<NoteLength>("standard");
@@ -262,14 +272,11 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
 
     try {
       const html2pdfModule = await import("html2pdf.js");
-      type Html2PdfWorker = {
-        set: (options: Record<string, unknown>) => Html2PdfWorker;
-        outputPdf: (type: "blob") => Promise<Blob>;
-        save: () => Promise<void>;
-      };
-      const html2pdf = (html2pdfModule as { default?: unknown }).default as (
-        source: HTMLElement
-      ) => Html2PdfWorker;
+      const candidate = (html2pdfModule as { default?: unknown }).default;
+      if (!isHtml2PdfFactory(candidate)) {
+        throw new Error("html2pdf.js module is unavailable or has an unexpected export shape.");
+      }
+      const html2pdf = candidate;
 
       const filename = `${activeDoc.topic.replace(/[^a-zA-Z0-9]/g, "_")}_${new Date().toISOString().slice(0, 10)}.pdf`;
       const worker: Html2PdfWorker = html2pdf(exportRef.current).set({

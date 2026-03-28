@@ -1,5 +1,6 @@
 import { marked } from "marked";
 import katex from "katex";
+import DOMPurify from "dompurify";
 
 function escapeHtml(text: string): string {
   const map: Record<string, string> = {
@@ -25,27 +26,57 @@ function renderMath(input: string): string {
     }
   });
 
-  return replaceDisplay.replace(/(^|[^\\])\$([^$\n]+?)\$/g, (_, prefix, expr) => {
-    try {
-      return `${prefix}${katex.renderToString(String(expr).trim(), {
-        displayMode: false,
-        throwOnError: false,
-        strict: "ignore",
-      })}`;
-    } catch {
-      return `${prefix}<code>${escapeHtml(String(expr))}</code>`;
+  let output = "";
+  let inlineBuffer = "";
+  let inInlineMath = false;
+  let trailingBackslashes = 0;
+
+  for (let i = 0; i < replaceDisplay.length; i += 1) {
+    const ch = replaceDisplay[i];
+    const isUnescapedDollar = ch === "$" && trailingBackslashes % 2 === 0;
+
+    if (inInlineMath) {
+      if (ch === "\n") {
+        output += `$${inlineBuffer}\n`;
+        inlineBuffer = "";
+        inInlineMath = false;
+      } else if (isUnescapedDollar) {
+        const expr = inlineBuffer.trim();
+        try {
+          output += katex.renderToString(expr, {
+            displayMode: false,
+            throwOnError: false,
+            strict: "ignore",
+          });
+        } catch {
+          output += `<code>${escapeHtml(expr)}</code>`;
+        }
+        inlineBuffer = "";
+        inInlineMath = false;
+      } else {
+        inlineBuffer += ch;
+      }
+    } else if (isUnescapedDollar) {
+      inInlineMath = true;
+      inlineBuffer = "";
+    } else {
+      output += ch;
     }
-  });
+
+    trailingBackslashes = ch === "\\" ? trailingBackslashes + 1 : 0;
+  }
+
+  if (inInlineMath) {
+    output += `$${inlineBuffer}`;
+  }
+
+  return output;
 }
 
 function sanitizeRenderedHtml(input: string): string {
-  return input
-    .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "")
-    .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, "")
-    .replace(/<(iframe|object|embed)[^>]*>[\s\S]*?<\/\1>/gi, "")
-    .replace(/\son[a-z]+\s*=\s*(["']).*?\1/gi, "")
-    .replace(/\son[a-z]+\s*=\s*[^\s>]+/gi, "")
-    .replace(/\s(href|src)\s*=\s*(["'])\s*javascript:[\s\S]*?\2/gi, ' $1="#"');
+  return DOMPurify.sanitize(input, {
+    FORBID_TAGS: ["script", "style", "iframe", "object", "embed"],
+  });
 }
 
 export function markdownToHtmlWithKatex(markdown: string): string {
@@ -53,8 +84,7 @@ export function markdownToHtmlWithKatex(markdown: string): string {
     gfm: true,
     breaks: true,
   });
-  const escapedRawMarkdown = (markdown || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  const withMath = renderMath(escapedRawMarkdown);
+  const withMath = renderMath(markdown || "");
   const html = marked.parse(withMath);
   if (typeof html !== "string") return "";
   return sanitizeRenderedHtml(html);
