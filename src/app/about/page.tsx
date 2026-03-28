@@ -45,7 +45,7 @@ const steps = [
   { icon: STEP_ICONS[0], title: "Upload", desc: "Students upload past question papers and notes." },
   { icon: STEP_ICONS[1], title: "Review", desc: "Admins review and verify each submission." },
   { icon: STEP_ICONS[2], title: "Publish", desc: "Approved papers are published to the archive." },
-  { icon: STEP_ICONS[3], title: "Discover & Earn", desc: "Approved activity earns XP, cosmetics, and AI credits." },
+  { icon: STEP_ICONS[3], title: "Discover & Earn", desc: "Approved activity earns XP, cosmetic unlocks, and AI credits." },
 ];
 
 const contributions = [
@@ -299,8 +299,8 @@ export default async function AboutPage() {
           papers from various universities, programmes, and streams.
         </p>
         <p>
-          We are expanding progression with activity-based XP, cosmetic role designations, and an AI
-          credit economy that includes a 5-level referral reward hierarchy.
+          We are documenting current and planned progression with activity-based XP, cosmetic role
+          designations, and an AI credit economy that includes a 5-level referral reward hierarchy.
         </p>
       </div>
 

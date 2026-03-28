@@ -113,7 +113,12 @@ Guests visiting `/paper/*` pages are automatically redirected to `/login` by the
 
 After submission:
 1. Admin sees the paper in the moderation queue (`/admin`, queried by `approved: false`).
-2. On **approval**: `papers.approved` → `true`, `papers.status` → `"approved"`, user's `upload_count` increments, XP is awarded, and AI credits can be granted by activity policy.
+2. On **approval**:
+   - `papers.approved` → `true`
+   - `papers.status` → `"approved"`
+   - user's `upload_count` increments
+   - XP is awarded
+   - AI credits can be granted by activity policy
 3. On **rejection**: paper document is deleted; storage file is also deleted to prevent orphaned files.
 4. All admin actions are logged to the `activity_logs` collection.
 

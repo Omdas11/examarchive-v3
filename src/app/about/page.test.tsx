@@ -7,7 +7,7 @@ jest.mock("next/link", () => {
     children,
     href,
     ...rest
-  }: Record<string, unknown>) {
+  }: React.ComponentProps<"a">) {
     return React.createElement("a", { href, ...rest }, children as React.ReactNode);
   };
 });
