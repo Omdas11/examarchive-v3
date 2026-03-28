@@ -42,7 +42,8 @@ ExamArchive is a community-driven platform for sharing and discovering universit
 - **Admin Moderation Queue** — All uploads require admin approval before publishing.
 - **Browse & Search** — Filter papers by department, year, semester, and exam type.
 - **Authenticated File Access** — PDFs are served through a Next.js proxy and require a valid login session.
-- **User Roles & XP** — Role hierarchy with XP and achievement tracking.
+- **User Roles, XP & Cosmetics** — Role hierarchy with XP progression, cosmetic role designations, and achievement tracking.
+- **AI Credit Economy** — Activity earns AI credits for AI features. Referral rewards support up to 5 hierarchy levels, with future credit purchase support planned.
 - **Resilient AI Assistant** — `/api/ai/chat` and `/api/ai/generate` now route exclusively through OpenRouter and automatically restrict to free-tier ($0/$0) models. Preferred models are validated against the free list per role before each request, with friendly high-traffic/service error messages.
 - **PDF Watermarking** — generated PDFs render with a low-opacity, 45° tiled “ExamArchive” watermark across every page while keeping the main content fully legible.
 

@@ -45,11 +45,12 @@ const steps = [
   { icon: STEP_ICONS[0], title: "Upload", desc: "Students upload past question papers and notes." },
   { icon: STEP_ICONS[1], title: "Review", desc: "Admins review and verify each submission." },
   { icon: STEP_ICONS[2], title: "Publish", desc: "Approved papers are published to the archive." },
-  { icon: STEP_ICONS[3], title: "Discover", desc: "Anyone can browse and download freely." },
+  { icon: STEP_ICONS[3], title: "Discover & Earn", desc: "Approved activity earns XP, cosmetic unlocks, and AI credits." },
 ];
 
 const contributions = [
   "Upload question papers you have access to.",
+  "Refer classmates to earn referral XP and AI credits.",
   "Report incorrect or duplicate papers.",
   "Share the platform with fellow students.",
   "Provide feedback to help us improve.",
@@ -203,6 +204,33 @@ const XP_EVENTS = [
   { event: "First ever upload",           xp: "+20 bonus" },
   { event: "7-day streak reached",        xp: "+100 bonus" },
   { event: "30-day streak reached",       xp: "+500 bonus" },
+  { event: "Successful direct referral",  xp: "+40" },
+];
+
+const COSMETIC_UNLOCKS = [
+  "XP rank title and profile ring colours are unlocked automatically by XP milestones.",
+  "Secondary and tertiary community designations are assigned by contribution quality and trust signals.",
+  "Role cosmetics are display-only and never grant moderation or admin permissions.",
+];
+
+const ROLE_ASSIGNMENT_RULES = [
+  "Student is the default role for new accounts.",
+  "Verified contributors and moderators are promoted after consistent approved activity and moderation history.",
+  "Community designations (Contributor, Mentor, Archivist, etc.) are assigned from activity patterns and quality of contributions.",
+];
+
+const REFERRAL_CREDIT_EVENTS = [
+  { event: "First approved upload", credit: "+5 credits" },
+  { event: "First approved syllabus", credit: "+3 credits" },
+  { event: "Constructive report accepted by moderators", credit: "+1 credit" },
+];
+
+const REFERRAL_LEVELS = [
+  { level: "Level 1 (Direct)", referralCredit: "+10", referralXp: "+40" },
+  { level: "Level 2", referralCredit: "+5", referralXp: "+20" },
+  { level: "Level 3", referralCredit: "+3", referralXp: "+10" },
+  { level: "Level 4", referralCredit: "+2", referralXp: "+5" },
+  { level: "Level 5", referralCredit: "+1", referralXp: "+2" },
 ];
 
 /** Fetch live platform statistics from Appwrite. Falls back to 0 on error. */
@@ -269,6 +297,10 @@ export default async function AboutPage() {
         <p>
           Our goal is to make exam preparation easier by providing free and open access to question
           papers from various universities, programmes, and streams.
+        </p>
+        <p>
+          We are documenting current and planned progression with activity-based XP, cosmetic role
+          designations, and an AI credit economy that includes a 5-level referral reward hierarchy.
         </p>
       </div>
 
@@ -451,6 +483,76 @@ export default async function AboutPage() {
           </div>
         ))}
       </div>
+
+      <h3 className="mt-6 text-base font-semibold">Cosmetics & Role Assignment</h3>
+      <div className="mt-3 space-y-2">
+        {COSMETIC_UNLOCKS.map((item) => (
+          <div key={item} className="card px-4 py-3">
+            <p className="text-sm">{item}</p>
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 space-y-2">
+        {ROLE_ASSIGNMENT_RULES.map((item) => (
+          <div key={item} className="card px-4 py-3">
+            <p className="text-sm">{item}</p>
+          </div>
+        ))}
+      </div>
+
+      <h2 className="mt-10 text-xl font-semibold">AI Credits & Referrals</h2>
+      <p className="mt-2 text-sm" style={{ color: "var(--color-text-muted)" }}>
+        AI Credits are used for AI generation features. Credits are earned from approved activity and
+        referral growth, and spending controls are designed to keep usage fair and transparent.
+      </p>
+
+      <h3 className="mt-6 text-base font-semibold">How to Earn AI Credits</h3>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        {REFERRAL_CREDIT_EVENTS.map((e) => (
+          <div key={e.event} className="card flex items-center justify-between gap-3 px-4 py-3">
+            <p className="text-sm">{e.event}</p>
+            <span
+              className="shrink-0 rounded-full px-2.5 py-0.5 text-xs font-bold"
+              style={{ background: "var(--color-accent-soft)", color: "var(--color-primary)" }}
+            >
+              {e.credit}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      <h3 className="mt-6 text-base font-semibold">5-Level Referral Rewards</h3>
+      <p className="mt-1 text-xs" style={{ color: "var(--color-text-muted)" }}>
+        When a referred user becomes active, rewards flow up to five hierarchy levels.
+      </p>
+      <div className="mt-3 overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-xs uppercase text-left" style={{ color: "var(--color-text-muted)" }}>
+              <th className="pb-2 pr-4 font-medium">Referral Level</th>
+              <th className="pb-2 pr-4 font-medium">Credits to Referrer</th>
+              <th className="pb-2 font-medium">XP to Referrer</th>
+            </tr>
+          </thead>
+          <tbody>
+            {REFERRAL_LEVELS.map((r) => (
+              <tr key={r.level} className="border-t" style={{ borderColor: "var(--color-border)" }}>
+                <td className="py-2 pr-4">{r.level}</td>
+                <td className="py-2 pr-4 text-xs" style={{ color: "var(--color-text-muted)" }}>
+                  {r.referralCredit}
+                </td>
+                <td className="py-2 text-xs" style={{ color: "var(--color-text-muted)" }}>
+                  {r.referralXp}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-3 text-xs" style={{ color: "var(--color-text-muted)" }}>
+        Future provision: users will be able to purchase additional AI Credits, while keeping earned
+        credits and referral rewards fully available.
+      </p>
 
       {/* How to Contribute */}
       <h2 className="mt-10 text-xl font-semibold">How to Contribute</h2>

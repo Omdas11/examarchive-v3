@@ -54,7 +54,7 @@ OPENAI_API_KEY=your-openai-api-key
 
 ## Features
 
-### 1. AI Chat Bubble (`💭`)
+### 1. AI Chat API (`/api/ai/chat`)
 - Requires login; otherwise redirects to `/login`
 - Server-side only OpenRouter calls in `/api/ai/chat`
 - Uses archive/web context when helpful and surfaces source links

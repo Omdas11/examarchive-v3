@@ -13,6 +13,7 @@ import XPBar from "@/components/XPBar";
 import ProfileCoursePrefs from "@/components/ProfileCoursePrefs";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
+import ReferralShareCard from "./ReferralShareCard";
 
 export const metadata: Metadata = {
   title: "Profile",
@@ -169,6 +170,9 @@ export default async function ProfilePage() {
   ].filter(Boolean) as EarnedAchievement[];
 
   const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.examarchive.dev";
+  const referralCode = user.referral_code ?? "";
+  const referralLink = `${siteUrl}/login?mode=signup&ref=${encodeURIComponent(referralCode)}`;
 
   // XP bar left label: show primary role name for system roles, XP rank for students
   // mirrors v2 profile-panel.js xpCurrentTierEl logic
@@ -393,6 +397,9 @@ export default async function ProfilePage() {
 
       {/* ── Course Selection ── */}
       <ProfileCoursePrefs />
+
+      {/* ── Referral Share ── */}
+      <ReferralShareCard referralCode={referralCode} referralLink={referralLink} />
 
       {/* Sign out */}
       <form action={signOut}>
