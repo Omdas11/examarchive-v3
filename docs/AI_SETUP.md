@@ -30,8 +30,8 @@ Add the following variables to your `.env.local` file:
 ```env
 # Primary — Google Gemini (server-only, never NEXT_PUBLIC_)
 GEMINI_API_KEY=your-gemini-api-key
-# Optional: override Gemini model (default: gemini-3.1-flash-lite)
-# GEMINI_MODEL_ID=gemini-3.1-flash-lite
+# Optional: override Gemini model (default: gemini-3.1-flash-lite-preview)
+# GEMINI_MODEL_ID=gemini-3.1-flash-lite-preview
 
 # OpenRouter fallback — server-only (never NEXT_PUBLIC_)
 OPENROUTER_API_KEY=your-openrouter-api-key

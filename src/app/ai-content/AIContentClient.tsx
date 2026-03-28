@@ -472,7 +472,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                         </div>
                         <input
                           type="text"
-                          placeholder="gemini:gemini-3.1-flash-lite or openrouter:model-id"
+                          placeholder="gemini:gemini-3.1-flash-lite-preview or openrouter:model-id"
                           value={adminModelOverride}
                           onChange={(e) => setAdminModelOverride(e.target.value)}
                           disabled={generating}
