@@ -11,6 +11,7 @@ import {
 } from "@/lib/note-length";
 import type { Paper } from "@/types";
 import "katex/dist/katex.min.css";
+import DOMPurify from "dompurify";
 
 interface GeneratedDoc {
   topic: string;
@@ -63,6 +64,10 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
   const activeDocHtml = useMemo(
     () => (activeDoc ? markdownToHtmlWithKatex(activeDoc.content) : ""),
     [activeDoc],
+  );
+  const sanitizedActiveDocHtml = useMemo(
+    () => (activeDocHtml ? DOMPurify.sanitize(activeDocHtml) : ""),
+    [activeDocHtml],
   );
 
   const DAILY_LIMIT = 5;
@@ -544,7 +549,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                     className="no-print print-ghost-preview max-h-[520px] overflow-auto rounded-xl border border-outline-variant/30 bg-surface-container-low p-4 text-sm leading-7 text-on-surface shadow-inner"
                     style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
                   >
-                    <div className="markdown-preview" dangerouslySetInnerHTML={{ __html: activeDocHtml }} />
+                    <div className="markdown-preview" dangerouslySetInnerHTML={{ __html: sanitizedActiveDocHtml }} />
                   </div>
                   <div
                     id="printable-exam-notes"
@@ -563,7 +568,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                           {activeDoc.noteLength ? ` • ${activeDoc.noteLength} length` : ""}
                         </p>
                       </div>
-                      <div className="markdown-preview print-body" dangerouslySetInnerHTML={{ __html: activeDocHtml }} />
+                      <div className="markdown-preview print-body" dangerouslySetInnerHTML={{ __html: sanitizedActiveDocHtml }} />
                       <footer className="print-footer avoid-break mt-10 text-center" aria-label="ExamArchive print footer">
                         <p className="mb-2">{PRINT_FOOTER_MESSAGE}</p>
                         <a
