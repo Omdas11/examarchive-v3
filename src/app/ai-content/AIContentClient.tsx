@@ -524,7 +524,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
             {activeDoc && (
               <div className="card border border-outline-variant/30 print-visible">
                 <div className="flex flex-col gap-4 p-5">
-                  <p className="text-xs font-bold uppercase tracking-[0.1em] text-on-surface-variant">{PRINT_HEADER_BRAND}</p>
+                  <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">{PRINT_HEADER_BRAND}</p>
                   <div className="no-print flex flex-col gap-2">
                     <p className="text-sm font-semibold text-on-surface">
                       {activeDoc.topic}
@@ -577,7 +577,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                           rel="noopener noreferrer"
                           aria-label="Visit ExamArchive website (opens in a new tab)"
                         >
-                          Visit ExamArchive website (opens in a new tab)
+                          Visit ExamArchive website
                         </a>
                       </footer>
                     </div>
