@@ -30,8 +30,8 @@ Add the following variables to your `.env.local` file:
 ```env
 # Primary — Google Gemini (server-only, never NEXT_PUBLIC_)
 GEMINI_API_KEY=your-gemini-api-key
-# Optional: override Gemini model (default: gemini-1.5-flash-latest)
-# GEMINI_MODEL_ID=gemini-1.5-flash-latest
+# Optional: override Gemini model (default: gemini-3.1-flash-lite)
+# GEMINI_MODEL_ID=gemini-3.1-flash-lite
 
 # OpenRouter fallback — server-only (never NEXT_PUBLIC_)
 OPENROUTER_API_KEY=your-openrouter-api-key
@@ -62,7 +62,7 @@ OPENAI_API_KEY=your-openai-api-key
 ### 2. AI Generated Content Page (`/ai-content`)
 - Signed-in users can generate revision summaries and download PDFs
 - **Daily limit:** 5 generations per user (admin/founder unlimited)
-- Users can choose page length (1–5), model (role-limited), and optional live web search
+- Auto-fallback tries Gemini first, then OpenRouter free allowlist; admin/founder can set a `gemini:` or `openrouter:` override (optional “apply to everyone” toggle)
 - Generated PDFs include a low-opacity, 45° tiled **ExamArchive** watermark on every page
 
 ---

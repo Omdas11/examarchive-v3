@@ -49,6 +49,8 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
   const [selectedPaperId, setSelectedPaperId] = useState<string>("");
   const [paperLoading, setPaperLoading] = useState(false);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [adminModelOverride, setAdminModelOverride] = useState("");
+  const [applyOverrideGlobally, setApplyOverrideGlobally] = useState(false);
   const loadingIntervalRef = useRef<number | null>(null);
 
   const DAILY_LIMIT = 5;
@@ -166,17 +168,24 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
     setError(null);
 
     try {
+      const payload: Record<string, unknown> = {
+        topic: trimmed,
+        noteLength,
+        useWebSearch,
+        coursePrefs: loadCoursePrefsFromStorage(),
+        referenceFileId: selectedPaper?.file_id,
+        referenceLabel: selectedPaper?.title,
+      };
+
+      if (isAdminPlus && adminModelOverride.trim()) {
+        payload.model = adminModelOverride.trim();
+        payload.applyGlobally = applyOverrideGlobally;
+      }
+
       const res = await fetch("/api/ai/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          topic: trimmed,
-          noteLength,
-          useWebSearch,
-          coursePrefs: loadCoursePrefsFromStorage(),
-          referenceFileId: selectedPaper?.file_id,
-          referenceLabel: selectedPaper?.title,
-        }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
 
@@ -436,24 +445,55 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                       ))}
                     </div>
                   </div>
-                   <div className="space-y-2">
-                     <p className="text-xs font-semibold uppercase tracking-wide text-on-surface-variant">
-                       AI Analysis Model
-                     </p>
-                     <div className="rounded-xl border border-outline-variant/30 bg-surface p-3 text-sm text-on-surface flex items-center justify-between">
-                       <span className="font-semibold">Auto-select best free model</span>
-                       <span className="text-xs text-on-surface-variant">Fallback across curated pool</span>
-                     </div>
-                     <label className="flex items-center gap-2 text-xs text-on-surface-variant">
-                       <input
-                         type="checkbox"
-                         checked={useWebSearch}
-                         onChange={(e) => setUseWebSearch(e.target.checked)}
-                         disabled={generating}
-                       />
-                       Include live web updates
-                     </label>
-                   </div>
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-on-surface-variant">
+                      AI Analysis Model
+                    </p>
+                    <div className="rounded-xl border border-outline-variant/30 bg-surface p-3 text-sm text-on-surface flex items-center justify-between">
+                      <span className="font-semibold">Auto-select best free model</span>
+                      <span className="text-xs text-on-surface-variant">Fallback across curated pool</span>
+                    </div>
+                    <label className="flex items-center gap-2 text-xs text-on-surface-variant">
+                      <input
+                        type="checkbox"
+                        checked={useWebSearch}
+                        onChange={(e) => setUseWebSearch(e.target.checked)}
+                        disabled={generating}
+                      />
+                      Include live web updates
+                    </label>
+                    {isAdminPlus && (
+                      <div className="space-y-2 rounded-xl border border-outline-variant/30 bg-surface-container-low p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-on-surface-variant">
+                            Admin override
+                          </p>
+                          <span className="text-[10px] font-medium text-primary">Admin+</span>
+                        </div>
+                        <input
+                          type="text"
+                          placeholder="gemini:gemini-3.1-flash-lite or openrouter:model-id"
+                          value={adminModelOverride}
+                          onChange={(e) => setAdminModelOverride(e.target.value)}
+                          disabled={generating}
+                          className="input-field text-xs"
+                        />
+                        <label className="flex items-center gap-2 text-xs text-on-surface-variant">
+                          <input
+                            type="checkbox"
+                            checked={applyOverrideGlobally}
+                            onChange={(e) => setApplyOverrideGlobally(e.target.checked)}
+                            disabled={generating}
+                          />
+                          Apply for everyone until server restart
+                        </label>
+                        <p className="text-[11px] text-tertiary">
+                          Prefix with <code className="rounded bg-surface px-1">gemini:</code> to force Gemini or{" "}
+                          <code className="rounded bg-surface px-1">openrouter:</code> for OpenRouter IDs.
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
