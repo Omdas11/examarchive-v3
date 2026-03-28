@@ -20,6 +20,7 @@ import {
 /** Maximum AI-generated PDFs per user per calendar day. */
 const DAILY_LIMIT = 5;
 const MAX_COMPLETION_TOKENS = 3800;
+let globalModelOverride: string | null = null;
 
 function sanitizeReferenceLabel(label: string | undefined): string | undefined {
   if (!label) return undefined;
@@ -81,6 +82,7 @@ export async function POST(request: NextRequest) {
     referenceFileId?: string;
     referenceLabel?: string;
     model?: string;
+    applyGlobally?: boolean;
     useWebSearch?: boolean;
     coursePrefs?: CoursePrefsPayload;
   };
@@ -98,6 +100,7 @@ export async function POST(request: NextRequest) {
   const noteTargets = getNoteLengthTargets(noteLength);
   const useWebSearch = Boolean(body.useWebSearch);
   const adminRequestedModel = isAdminPlus(user.role) && typeof body.model === "string" ? body.model.trim() : undefined;
+  const adminRequestedGlobal = isAdminPlus(user.role) && Boolean(body.applyGlobally);
 
   const todayStr = new Date().toISOString().slice(0, 10);
 
@@ -123,8 +126,14 @@ export async function POST(request: NextRequest) {
       if (!value) return undefined;
       return value.startsWith(prefix) ? value.replace(new RegExp(`^${prefix}`), "") : value;
     };
-    const preferredOpenRouterModel = stripPrefix(adminRequestedModel, "openrouter:");
-    const preferredGeminiModel = stripPrefix(adminRequestedModel, "gemini:");
+    // Admin can set a global override that applies to all users until the server restarts
+    if (adminRequestedModel && adminRequestedGlobal) {
+      globalModelOverride = adminRequestedModel;
+    }
+
+    const effectiveModel = adminRequestedModel ?? globalModelOverride ?? undefined;
+    const preferredOpenRouterModel = stripPrefix(effectiveModel, "openrouter:");
+    const preferredGeminiModel = stripPrefix(effectiveModel, "gemini:");
 
     const modelPool = openRouterApiKey ? await getOpenRouterModelPool(openRouterApiKey) : [];
     if (openRouterApiKey && modelPool.length === 0) {
@@ -173,24 +182,20 @@ Write in plain text with Markdown headings only (no HTML).`;
     let content: string | null = null;
     let usedModel = "";
 
-    if (geminiApiKey) {
-      try {
-        const gemini = await runGeminiCompletion({
-          apiKey: geminiApiKey,
-          prompt,
-          maxTokens: Math.min(MAX_COMPLETION_TOKENS, noteTargets.maxTokens),
-          temperature: 0.6,
-          model: preferredGeminiModel,
-        });
-        content = gemini.content;
-        usedModel = `gemini:${gemini.model}`;
-      } catch (error) {
-        const message = error instanceof GeminiServiceError ? error.message : "Gemini call failed";
-        console.warn("[AI generate] Gemini failed, falling back to OpenRouter:", message);
-      }
-    }
+    const prefersOpenRouter = Boolean(preferredOpenRouterModel);
+    const shouldUseGemini = geminiApiKey && !prefersOpenRouter;
 
-    if (!content) {
+    if (shouldUseGemini) {
+      const gemini = await runGeminiCompletion({
+        apiKey: geminiApiKey,
+        prompt,
+        maxTokens: Math.min(MAX_COMPLETION_TOKENS, noteTargets.maxTokens),
+        temperature: 0.6,
+        model: preferredGeminiModel,
+      });
+      content = gemini.content;
+      usedModel = `gemini:${gemini.model}`;
+    } else {
       if (!openRouterApiKey || availablePool.length === 0) {
         throw new AIServiceError("SERVICE_UNAVAILABLE", 503, "Service temporarily unavailable. Please try again shortly.");
       }
