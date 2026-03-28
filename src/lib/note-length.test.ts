@@ -1,4 +1,4 @@
-import { getNoteLengthTargets, normalizeNoteLength } from "./note-length";
+import { getNoteLengthOptions, getNoteLengthTargets, normalizeNoteLength } from "./note-length";
 
 describe("note-length helpers", () => {
   it("normalizes unknown values to standard", () => {
@@ -21,5 +21,15 @@ describe("note-length helpers", () => {
     expect(detailed.targetWords).toBeGreaterThan(standard.targetWords);
     expect(comprehensive.maxPages).toBeGreaterThanOrEqual(detailed.maxPages);
     expect(exhaustive.maxPages).toBeGreaterThan(comprehensive.maxPages);
+  });
+
+  it("exposes all note length options including deep dives", () => {
+    const options = getNoteLengthOptions();
+    const values = options.map((opt) => opt.value);
+    expect(values).toEqual(["concise", "standard", "detailed", "comprehensive", "exhaustive"]);
+    const comprehensive = options.find((opt) => opt.value === "comprehensive");
+    const exhaustive = options.find((opt) => opt.value === "exhaustive");
+    expect(comprehensive?.description).toMatch(/8-10 pages/i);
+    expect(exhaustive?.description).toMatch(/12-15 pages/i);
   });
 });
