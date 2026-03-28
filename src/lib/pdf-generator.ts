@@ -85,10 +85,11 @@ export function sanitizeHtmlLikeContent(input: string): string {
 export async function generatePDF(
   options: PDFGenerationOptions
 ): Promise<PDFGenerationResult> {
-  const { html, maxPages, title = "Document" } = options;
+  const { html, maxPages, title = "Document", meta } = options;
   const safeMaxPages = Math.max(1, Math.floor(maxPages));
   const safeHtml = sanitizeHtmlLikeContent(html);
   const watermarkDataUrl = buildWatermarkDataUrl();
+  const headerHtml = buildHeaderBlock(meta);
 
   let browser;
   try {
@@ -152,6 +153,37 @@ export async function generatePDF(
       background-size: 240px 240px;
       background-position: 0 0;
       background-attachment: fixed;
+    }
+    .pdf-cover {
+      margin-bottom: 18px;
+    }
+    .pdf-title {
+      font-size: 20pt;
+      font-weight: bold;
+      color: #0f172a;
+      margin: 0 0 6px;
+      line-height: 1.3;
+      word-break: break-word;
+    }
+    .pdf-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      color: #475569;
+      font-size: 10pt;
+    }
+    .pdf-chip {
+      border: 1px solid #cbd5e1;
+      padding: 4px 8px;
+      border-radius: 12px;
+      background: #f8fafc;
+      font-variant-numeric: tabular-nums;
+    }
+    .cover-divider {
+      border-bottom: 1px solid #e2e8f0;
+      margin: 0 0 12px 0;
+      height: 1px;
     }
     .doc-body {
       max-width: 720px;
@@ -272,6 +304,7 @@ export async function generatePDF(
 </head>
 <body>
   <div class="doc-body">
+    ${headerHtml}
     ${safeHtml}
   </div>
 </body>
@@ -354,6 +387,39 @@ export function markdownToHTML(markdown: string): string {
 
   const html = marked.parse(withMath);
   return typeof html === "string" ? html : "";
+}
+
+function formatIST(dateIso?: string): string {
+  const date = dateIso ? new Date(dateIso) : new Date();
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Kolkata",
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+}
+
+function buildHeaderBlock(
+  meta?: PDFGenerationOptions["meta"],
+): string {
+  if (!meta) return "";
+  const topic = escapeHtml(meta.topic || "");
+  const model = escapeHtml(meta.modelLabel || meta.model || "");
+  const timestamp = meta.generatedAt ? formatIST(meta.generatedAt) : "";
+
+  if (!topic && !model && !timestamp) return "";
+
+  return `
+    <div class="pdf-cover">
+      ${topic ? `<div class="pdf-title">${topic}</div>` : ""}
+      ${(model || timestamp)
+        ? `<div class="pdf-meta">
+            ${model ? `<span class="pdf-chip">Model: ${model}</span>` : ""}
+            ${timestamp ? `<span class="pdf-chip">Generated: ${timestamp} IST</span>` : ""}
+          </div>`
+        : ""}
+    </div>
+    <div class="cover-divider"></div>
+  `;
 }
 
 function renderMath(input: string): string {

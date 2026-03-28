@@ -26,8 +26,9 @@ ExamArchive is a community-driven platform for sharing and discovering universit
    - `APPWRITE_BUCKET_ID` — bucket for exam paper PDFs (default: `papers`)
    - `APPWRITE_SYLLABUS_BUCKET_ID` — bucket for syllabus PDFs (default: `syllabus-files`)
    - `APPWRITE_AVATARS_BUCKET_ID` — bucket for user avatars (default: `avatars`)
-   - `OPENROUTER_API_KEY` — server-side OpenRouter API key for AI chat/content generation (free-tier models only)
-   - Optional: `OPENROUTER_MODEL_ALLOWLIST` — comma-separated list of OpenRouter model IDs that have $0 prompt + completion cost (e.g. `meta-llama/llama-3.1-8b-instruct:free,mistralai/mistral-7b-instruct:free`)
+  - `GEMINI_API_KEY` — primary default Google Gemini key (uses Gemini 1.5/Flash Lite first, falls back automatically)
+  - `OPENROUTER_API_KEY` — server-side OpenRouter API key for AI chat/content generation (free-tier models only)
+  - Optional: `OPENROUTER_MODEL_ALLOWLIST` — comma-separated list of OpenRouter model IDs that have $0 prompt + completion cost (e.g. `meta-llama/llama-3.1-8b-instruct:free,mistralai/mistral-7b-instruct:free`)
 
 3. **Run the development server**:
    ```bash

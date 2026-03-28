@@ -1,6 +1,6 @@
 # AI Setup — ExamArchive v3 (OpenRouter)
 
-ExamArchive v3 ships with a lightweight AI assistant (ExamBot) powered exclusively by **OpenRouter**. The backend restricts all inference to OpenRouter models whose prompt **and** completion prices are `$0`.
+ExamArchive v3 ships with a lightweight AI assistant (ExamBot) that prefers **Google Gemini (Flash Lite)** when a Gemini key is present, then automatically falls back to **OpenRouter** free-tier models whose prompt **and** completion prices are `$0`.
 
 ---
 
@@ -28,7 +28,12 @@ ExamArchive v3 ships with a lightweight AI assistant (ExamBot) powered exclusive
 Add the following variables to your `.env.local` file:
 
 ```env
-# OpenRouter — server-only (never NEXT_PUBLIC_)
+# Primary — Google Gemini (server-only, never NEXT_PUBLIC_)
+GEMINI_API_KEY=your-gemini-api-key
+# Optional: override Gemini model (default: gemini-1.5-flash-latest)
+# GEMINI_MODEL_ID=gemini-1.5-flash-latest
+
+# OpenRouter fallback — server-only (never NEXT_PUBLIC_)
 OPENROUTER_API_KEY=your-openrouter-api-key
 
 # Only include models that show $0 for both prompt+completion

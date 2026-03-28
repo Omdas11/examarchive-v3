@@ -8,6 +8,7 @@ import {
   ID,
 } from "@/lib/appwrite";
 import { AIServiceError, getOpenRouterModelPool, runOpenRouterCompletionWithFallback } from "@/lib/openrouter";
+import { runGeminiCompletion, GeminiServiceError } from "@/lib/gemini";
 import { buildRagContext, type CoursePrefsPayload } from "@/lib/pdf-rag";
 import {
   getNoteLengthOptions,
@@ -67,8 +68,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
 
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) {
+  const openRouterApiKey = process.env.OPENROUTER_API_KEY;
+  const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+  if (!openRouterApiKey && !geminiApiKey) {
     return NextResponse.json({ error: "AI generation is not configured." }, { status: 503 });
   }
 
@@ -95,6 +97,7 @@ export async function POST(request: NextRequest) {
   const noteLength = normalizeNoteLength(body.noteLength);
   const noteTargets = getNoteLengthTargets(noteLength);
   const useWebSearch = Boolean(body.useWebSearch);
+  const adminRequestedModel = isAdminPlus(user.role) && typeof body.model === "string" ? body.model.trim() : undefined;
 
   const todayStr = new Date().toISOString().slice(0, 10);
 
@@ -116,15 +119,16 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const modelPool = await getOpenRouterModelPool(apiKey);
-    if (modelPool.length === 0) {
+    const preferredOpenRouterModel =
+      adminRequestedModel?.startsWith("openrouter:") ? adminRequestedModel.replace(/^openrouter:/, "") : undefined;
+    const preferredGeminiModel =
+      adminRequestedModel?.startsWith("gemini:") ? adminRequestedModel.replace(/^gemini:/, "") : undefined;
+
+    const modelPool = openRouterApiKey ? await getOpenRouterModelPool(openRouterApiKey) : [];
+    if (openRouterApiKey && modelPool.length === 0) {
       console.error("[AI generate] No free OpenRouter models resolved. Check OPENROUTER_MODEL_ALLOWLIST and pricing.");
-      return NextResponse.json(
-        { error: "AI generation is temporarily unavailable. Please try again shortly." },
-        { status: 503 },
-      );
     }
-    const availablePool = modelPool;
+    const availablePool = modelPool || [];
     const inputPaperContext = (body.paperContext ?? "").slice(0, 2000);
     const referenceLabel = sanitizeReferenceLabel(body.referenceLabel);
     const ragContext = await buildRagContext({
@@ -164,14 +168,41 @@ Format requirements:
 
 Write in plain text with Markdown headings only (no HTML).`;
 
-    const { content: generatedContent, model } = await runOpenRouterCompletionWithFallback({
-      apiKey,
-      messages: [{ role: "user", content: prompt }],
-      maxTokens: Math.min(MAX_COMPLETION_TOKENS, noteTargets.maxTokens),
-      temperature: 0.6,
-      modelPool: availablePool,
-    });
-    const content = generatedContent;
+    let content: string | null = null;
+    let usedModel = "";
+
+    if (geminiApiKey) {
+      try {
+        const gemini = await runGeminiCompletion({
+          apiKey: geminiApiKey,
+          prompt,
+          maxTokens: Math.min(MAX_COMPLETION_TOKENS, noteTargets.maxTokens),
+          temperature: 0.6,
+          model: preferredGeminiModel,
+        });
+        content = gemini.content;
+        usedModel = `gemini:${gemini.model}`;
+      } catch (error) {
+        const message = error instanceof GeminiServiceError ? error.message : "Gemini call failed";
+        console.warn("[AI generate] Gemini failed, falling back to OpenRouter:", message);
+      }
+    }
+
+    if (!content) {
+      if (!openRouterApiKey || availablePool.length === 0) {
+        throw new AIServiceError("SERVICE_UNAVAILABLE", 503, "Service temporarily unavailable. Please try again shortly.");
+      }
+      const { content: generatedContent, model } = await runOpenRouterCompletionWithFallback({
+        apiKey: openRouterApiKey,
+        messages: [{ role: "user", content: prompt }],
+        maxTokens: Math.min(MAX_COMPLETION_TOKENS, noteTargets.maxTokens),
+        temperature: 0.6,
+        modelPool: availablePool,
+        preferredModel: preferredOpenRouterModel,
+      });
+      content = generatedContent;
+      usedModel = model;
+    }
 
     // Record this generation for rate-limiting
     if (!isAdminPlus(user.role)) {
@@ -188,7 +219,7 @@ Write in plain text with Markdown headings only (no HTML).`;
       topic,
       pageLength: noteTargets.maxPages,
       noteLength,
-      model,
+      model: usedModel,
       sources: ragContext.sources,
       generatedAt: new Date().toISOString(),
       remaining,
@@ -196,6 +227,9 @@ Write in plain text with Markdown headings only (no HTML).`;
   } catch (err) {
     if (err instanceof AIServiceError) {
       return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
+    }
+    if (err instanceof GeminiServiceError) {
+      return NextResponse.json({ error: err.message, code: "SERVICE_UNAVAILABLE" }, { status: err.status });
     }
     console.error("[AI generate] OpenRouter error:", err);
     return NextResponse.json({ error: "Service temporarily unavailable. Please try again shortly." }, { status: 503 });

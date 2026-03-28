@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getServerUser } from "@/lib/auth";
 import { AIServiceError, getOpenRouterModelPool, runOpenRouterCompletionWithFallback } from "@/lib/openrouter";
+import { runGeminiCompletion, GeminiServiceError } from "@/lib/gemini";
 import { buildRagContext } from "@/lib/pdf-rag";
 
 // ── System prompt — describes the assistant role and site structure ──────────
@@ -47,8 +48,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Login required to use the AI assistant." }, { status: 401 });
   }
 
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) {
+  const openRouterApiKey = process.env.OPENROUTER_API_KEY;
+  const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+  if (!openRouterApiKey && !geminiApiKey) {
     return NextResponse.json({ error: "AI assistant is not configured." }, { status: 503 });
   }
 
@@ -103,26 +105,51 @@ Additional UX rules:
       { role: "user", content: `${userMessage}\n\nUI hint: ${uiHint}${contextBlock}` },
     ];
 
-    const modelPool = await getOpenRouterModelPool(apiKey);
-    if (modelPool.length === 0) {
-      console.error("[AI chat] No free OpenRouter models resolved. Check OPENROUTER_MODEL_ALLOWLIST and pricing.");
-      return NextResponse.json(
-        { error: "AI assistant is temporarily unavailable. Please try again shortly." },
-        { status: 503 },
-      );
+    let reply = "";
+    let usedModel = "";
+
+    if (geminiApiKey) {
+      try {
+        const gemini = await runGeminiCompletion({
+          apiKey: geminiApiKey,
+          prompt: messages.map((m) => `${m.role.toUpperCase()}: ${m.content}`).join("\n\n"),
+          maxTokens: 512,
+          temperature: 0.7,
+        });
+        reply = gemini.content;
+        usedModel = `gemini:${gemini.model}`;
+      } catch (error) {
+        console.warn(
+          "[AI chat] Gemini failed, falling back to OpenRouter:",
+          error instanceof GeminiServiceError ? error.message : "unknown",
+        );
+      }
     }
 
-    const { content, model } = await runOpenRouterCompletionWithFallback({
-      apiKey,
-      messages,
-      maxTokens: 512,
-      temperature: 0.7,
-      modelPool,
-    });
-    return NextResponse.json({ reply: content, model, sources: ragContext.sources });
+    if (!reply) {
+      const modelPool = openRouterApiKey ? await getOpenRouterModelPool(openRouterApiKey) : [];
+      if (!openRouterApiKey || modelPool.length === 0) {
+        throw new AIServiceError("SERVICE_UNAVAILABLE", 503, "Service temporarily unavailable. Please try again shortly.");
+      }
+
+      const result = await runOpenRouterCompletionWithFallback({
+        apiKey: openRouterApiKey,
+        messages,
+        maxTokens: 512,
+        temperature: 0.7,
+        modelPool,
+      });
+      reply = result.content;
+      usedModel = result.model;
+    }
+
+    return NextResponse.json({ reply, model: usedModel, sources: ragContext.sources });
   } catch (err) {
     if (err instanceof AIServiceError) {
       return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
+    }
+    if (err instanceof GeminiServiceError) {
+      return NextResponse.json({ error: err.message, code: "SERVICE_UNAVAILABLE" }, { status: err.status });
     }
     console.error("[AI chat] OpenRouter error:", err);
     return NextResponse.json({ error: "Service temporarily unavailable. Please try again shortly." }, { status: 503 });
