@@ -7,9 +7,21 @@ import {
   createSessionClient,
   Account,
   ID,
+  adminDatabases,
+  COLLECTION,
+  DATABASE_ID,
+  Query,
+  Permission,
+  Role,
 } from "@/lib/appwrite";
 import { OAuthProvider } from "node-appwrite";
 import { SESSION_COOKIE } from "@/lib/auth";
+import {
+  normalizeReferralCode,
+  isValidReferralCode,
+  buildReferralPath,
+} from "@/lib/referral";
+import { generateUniqueReferralCode } from "@/lib/referral-server";
 
 /**
  * Server Action – initiate Google OAuth sign-in via Appwrite.
@@ -132,6 +144,9 @@ export async function signInWithPassword(formData: FormData) {
 export async function signUp(formData: FormData) {
   const email = (formData.get("email") as string | null)?.trim();
   const password = formData.get("password") as string | null;
+  const referralCode = normalizeReferralCode(
+    formData.get("referral_code") as string | null,
+  );
 
   if (!email || !password) {
     redirect("/login?mode=signup&error=fields_required");
@@ -140,9 +155,65 @@ export async function signUp(formData: FormData) {
   try {
     const client = createAdminClient();
     const account = new Account(client);
+    const db = adminDatabases();
+
+    let referredBy: string | null = null;
+    let referralPath: string[] = [];
+    if (referralCode) {
+      if (!isValidReferralCode(referralCode)) {
+        redirect("/login?mode=signup&error=invalid_referral_code");
+      }
+      const { documents } = await db.listDocuments(
+        DATABASE_ID,
+        COLLECTION.users,
+        [Query.equal("referral_code", referralCode), Query.limit(1)],
+      );
+      if (documents.length === 0) {
+        redirect("/login?mode=signup&error=invalid_referral_code");
+      }
+      referredBy = documents[0].$id;
+      referralPath = buildReferralPath(
+        referredBy,
+        (documents[0].referral_path as string[] | undefined) ?? [],
+      );
+    }
 
     // Create the account
-    await account.create(ID.unique(), email, password);
+    const created = await account.create(ID.unique(), email, password);
+
+    // Create profile during signup so referral metadata is tracked immediately.
+    try {
+      const referralCodeForNewUser = await generateUniqueReferralCode(db);
+      await db.createDocument(
+        DATABASE_ID,
+        COLLECTION.users,
+        created.$id,
+        {
+          email,
+          role: "visitor",
+          display_name: "",
+          username: "",
+          xp: 0,
+          streak: 0,
+          upload_count: 0,
+          secondary_role: null,
+          tertiary_role: null,
+          tier: "bronze",
+          avatar_url: "",
+          last_activity: "",
+          referral_code: referralCodeForNewUser,
+          referred_by: referredBy,
+          referral_path: referralPath,
+          ai_credits: 0,
+        },
+        [
+          Permission.read(Role.user(created.$id)),
+          Permission.update(Role.user(created.$id)),
+        ],
+      );
+    } catch {
+      // Non-fatal: getServerUser has fallback profile creation on first request.
+    }
 
     // Immediately sign in
     const session = await account.createEmailPasswordSession(email, password);

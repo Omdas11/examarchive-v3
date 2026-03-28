@@ -89,6 +89,10 @@ export interface UserProfile {
   /** Activity-based tier. */
   tier?: UserTier;
   xp: number;
+  referral_code?: string;
+  referred_by?: string | null;
+  referral_path?: string[];
+  ai_credits?: number;
   streak_days: number;
   last_activity: string;
   created_at: string;

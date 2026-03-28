@@ -82,9 +82,10 @@ Stores user profile data alongside Appwrite Auth accounts.
 | `last_activity`          | Datetime | No       | ISO 8601 timestamp of last activity                                                                   |
 | `upload_count`           | Integer  | No       | Total approved uploads; drives auto-promotion                                                         |
 | `username_last_changed`  | String   | No       | ISO 8601 timestamp of last username change; enforces 7-day cooldown                                   |
-| `ai_credits`             | Integer  | No       | Spendable credits for AI features (planned/optional field)                                             |
-| `referred_by`            | String   | No       | Referrer user ID for referral tree attribution (planned/optional field)                                |
-| `referral_path`          | Array (string) | No | Ordered ancestor user IDs (max depth 5) for multi-level referral rewards (planned/optional field)     |
+| `referral_code`          | String   | No       | Unique 6-character alphanumeric code (uppercase) used for invite/referral links                        |
+| `ai_credits`             | Integer  | No       | Spendable credits for AI features                                                                       |
+| `referred_by`            | String   | No       | Direct referrer user ID                                                                                 |
+| `referral_path`          | Array (string) | No | Ordered ancestor user IDs (max depth 5) for multi-level referral rewards                               |
 
 ---
 
@@ -217,6 +218,45 @@ Embeddings are generated server-side and stored directly in Appwrite (no externa
 
 **Recommended indexes:** `file_id`, `department`, `(source_type, file_id, chunk_index)`.
 Similarity is computed server-side with cosine scoring.
+
+---
+
+## Collection: `pdf_usage`
+
+Tracks PDF generation usage events for `/api/ai/pdf` throttling.
+
+| Field       | Type   | Required | Notes |
+|-------------|--------|----------|-------|
+| `user_id`   | String | **Yes**  | Appwrite user ID of the requester |
+| `date`      | String | **Yes**  | Calendar date (`YYYY-MM-DD`) |
+
+**Permissions:** server-side admin client writes/reads for quota checks.
+
+---
+
+## Referral tracking (implemented)
+
+- Signup accepts optional `referral_code` on the login/signup form.
+- On successful signup, backend resolves referrer from `users.referral_code` and stores pending referral metadata server-side.
+- On first authenticated profile load, backend creates/updates the user profile with:
+  - `users.referral_code` (generated unique 6-character uppercase code if missing)
+  - `users.referred_by` (direct referrer user ID, if provided)
+  - `users.referral_path` (up to 5 levels of ancestors)
+- Profile page exposes a shareable link format:
+  - `/login?mode=signup&ref=<REFERRAL_CODE>`
+
+### Admin setup checklist for referrals
+
+Ensure the `users` collection includes these attributes:
+
+1. `referral_code` — string (size 6)
+2. `referred_by` — string (size compatible with Appwrite user IDs)
+3. `referral_path` — string array
+4. `ai_credits` — integer (default `0`)
+
+Recommended index:
+
+- unique index on `referral_code`
 
 ---
 

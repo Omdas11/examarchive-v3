@@ -43,11 +43,22 @@ interface LoginFormProps {
   isRateLimit: boolean;
   message: string | null;
   initialMode: Mode;
+  initialReferralCode: string | null;
 }
 
-export default function LoginForm({ errorText, isRateLimit, message, initialMode }: LoginFormProps) {
+export default function LoginForm({
+  errorText,
+  isRateLimit,
+  message,
+  initialMode,
+  initialReferralCode,
+}: LoginFormProps) {
   const [mode, setMode] = useState<Mode>(initialMode);
   useEffect(() => { setMode(initialMode); }, [initialMode]);
+  const [referralCode, setReferralCode] = useState((initialReferralCode ?? "").trim().toUpperCase());
+  useEffect(() => {
+    setReferralCode((initialReferralCode ?? "").trim().toUpperCase());
+  }, [initialReferralCode]);
 
   const [sent, setSent] = useState(message === "check_email");
   const [cooling, setCooling] = useState(message === "check_email");
@@ -300,6 +311,24 @@ export default function LoginForm({ errorText, isRateLimit, message, initialMode
               minLength={6}
               placeholder="At least 6 characters"
               className="input-field"
+            />
+          </div>
+          <div>
+            <label htmlFor="referral-code-signup" className="mb-1.5 block text-xs font-medium" style={{ color: "var(--color-text-muted)" }}>
+              Referral code (optional)
+            </label>
+            <input
+              id="referral-code-signup"
+              name="referral_code"
+              type="text"
+              inputMode="text"
+              autoCapitalize="characters"
+              maxLength={6}
+              pattern="[A-Za-z0-9]{6}"
+              value={referralCode}
+              onChange={(event) => setReferralCode(event.target.value.toUpperCase())}
+              placeholder="A1B2C3"
+              className="input-field uppercase"
             />
           </div>
           <SubmitButton label="Create account" pendingLabel="Creating account…" />
