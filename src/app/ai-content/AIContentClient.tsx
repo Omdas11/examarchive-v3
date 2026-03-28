@@ -569,7 +569,11 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                         </p>
                       </div>
                       <div className="markdown-preview print-body" dangerouslySetInnerHTML={{ __html: activeDocHtml }} />
-                      <div className="print-footer avoid-break mt-10 text-center">
+                      <footer
+                        className="print-footer avoid-break mt-10 text-center"
+                        role="contentinfo"
+                        aria-label="ExamArchive print footer"
+                      >
                         <p>{PRINT_FOOTER_MESSAGE}</p>
                         <a
                           href={PRINT_FOOTER_URL}
@@ -579,7 +583,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                         >
                           Visit ExamArchive website
                         </a>
-                      </div>
+                      </footer>
                     </div>
                   </div>
                 </div>
