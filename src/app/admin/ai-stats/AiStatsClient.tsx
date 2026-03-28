@@ -116,7 +116,7 @@ export default function AiStatsClient() {
         </div>
         <div className="mt-3 flex flex-wrap gap-2 text-xs text-on-surface-variant">
           <span>
-            Defaults: Daily {stats?.limits?.defaults.dailyLimit ?? "—"}, RPM {stats?.limits?.defaults.rpmLimit ?? "—"}
+            Default limits: Daily {stats?.limits?.defaults.dailyLimit ?? "—"}, RPM {stats?.limits?.defaults.rpmLimit ?? "—"}
           </span>
           <span>Changes apply immediately until server restart.</span>
         </div>

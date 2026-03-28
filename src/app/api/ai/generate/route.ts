@@ -160,7 +160,7 @@ END_UNTRUSTED_CONTEXT`
     const targetWords = noteTargets.targetWords;
 
   const prompt = `You are an expert university professor generating rigorous, exam-ready study notes.
-Analyze the topic to pick the correct academic domain, then produce one complete response without requesting follow-ups.
+Analyze the topic to pick the correct academic domain, then produce one complete response without requesting follow-up.
 
 Topic: "${topic}"${contextSection}
 
