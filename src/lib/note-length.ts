@@ -14,21 +14,21 @@ export const NOTE_LENGTH_PRESETS: Record<NoteLength, NoteLengthPreset> = {
     description: "Quick skim, high-yield pointers",
     targetWords: 450,
     maxTokens: 1700,
-    maxPages: 2,
+    maxPages: 3,
   },
   standard: {
     label: "Standard",
     description: "Balanced depth for a chapter",
     targetWords: 800,
     maxTokens: 2500,
-    maxPages: 3,
+    maxPages: 5,
   },
   detailed: {
     label: "Detailed",
     description: "Extended explanations + examples",
-    targetWords: 1200,
-    maxTokens: 3400,
-    maxPages: 5,
+    targetWords: 1400,
+    maxTokens: 3800,
+    maxPages: 9,
   },
 };
 

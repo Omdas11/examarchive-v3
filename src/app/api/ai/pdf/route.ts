@@ -4,7 +4,7 @@ import { getServerUser } from "@/lib/auth";
 import { generatePDF, markdownToHTML } from "@/lib/pdf-generator";
 import { getNoteLengthTargets, normalizeNoteLength, type NoteLength } from "@/lib/note-length";
 
-const MAX_PAGES = 5;
+const MAX_PAGES = 8;
 const PDF_DAILY_LIMIT = 5;
 const TOPIC_MAX_LENGTH = 500;
 const CONTENT_MAX_LENGTH = 100_000;
@@ -63,6 +63,9 @@ export async function POST(request: NextRequest) {
     topic?: string;
     pageLength?: number;
     noteLength?: NoteLength;
+    model?: string;
+    modelLabel?: string;
+    generatedAt?: string;
   };
 
   try {
@@ -120,6 +123,12 @@ export async function POST(request: NextRequest) {
       html,
       maxPages: pageLength,
       title: topic,
+      meta: {
+        topic,
+        model: body.model,
+        modelLabel: body.modelLabel,
+        generatedAt: body.generatedAt,
+      },
     });
 
     // Return PDF as a downloadable file

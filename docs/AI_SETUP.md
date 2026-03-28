@@ -1,82 +1,80 @@
-# AI Setup — ExamArchive v3
+# AI Setup — ExamArchive v3 (OpenRouter)
 
-ExamArchive v3 ships with a lightweight AI assistant (ExamBot) powered by Groq.
-This document explains how to configure the integration, the security model, usage limits,
-and how to extend it.
+ExamArchive v3 ships with a lightweight AI assistant (ExamBot) that prefers **Google Gemini (Flash Lite)** when a Gemini key is present, then automatically falls back to **OpenRouter** free-tier models whose prompt **and** completion prices are `$0`.
 
 ---
 
 ## Prerequisites
 
-- A Groq account with API access
-- A Groq API key
+- An OpenRouter account with API access
+- An OpenRouter API key
+- At least one OpenRouter model that shows `$0` for both **Input** and **Output** pricing (see the Models page filter: Pricing Low→High)
 
 ---
 
-## Getting a Groq API Key
+## Getting an OpenRouter API Key
 
-1. Go to [https://console.groq.com/keys](https://console.groq.com/keys)
-2. Sign in to your Groq account
-3. Click **Create API Key**
-4. Copy the generated key and keep it secret
+1. Go to [https://openrouter.ai/keys](https://openrouter.ai/keys)
+2. Sign in to your OpenRouter account
+3. Click **Create Key** and copy the generated key (keep it secret)
+4. Visit [https://openrouter.ai/models](https://openrouter.ai/models) and filter pricing to **Low → High**
+5. Select only models where both **Input** and **Output** columns display **$0** (e.g. `meta-llama/llama-3.1-8b-instruct:free`, `mistralai/mistral-7b-instruct:free`, `qwen/qwen-2.5-14b-instruct:free`)
+6. Add those model IDs to `OPENROUTER_MODEL_ALLOWLIST` in `.env.local` (comma-separated) to lock the app to free-tier choices. Model availability and pricing can change, so re-check the OpenRouter models page periodically.
 
 ---
 
 ## Environment Configuration
 
-Add the following variable to your `.env.local` file:
+Add the following variables to your `.env.local` file:
 
 ```env
-# Groq API key — server-side only, never exposed to the browser
-GROQ_API_KEY=gsk_your_key_here
+# Primary — Google Gemini (server-only, never NEXT_PUBLIC_)
+GEMINI_API_KEY=your-gemini-api-key
+# Optional: override Gemini model (default: gemini-3.1-flash-lite-preview)
+# GEMINI_MODEL_ID=gemini-3.1-flash-lite-preview
 
-# Optional: override model fallback priority (comma-separated)
-# GROQ_MODEL_POOL=openai/gpt-oss-120b,openai/gpt-oss-20b,llama-3.3-70b-versatile,llama-3.1-8b-instant,llama-3.1-70b-versatile
+# OpenRouter fallback — server-only (never NEXT_PUBLIC_)
+OPENROUTER_API_KEY=your-openrouter-api-key
+
+# Only include models that show $0 for both prompt+completion
+# Example: meta-llama/llama-3.1-8b-instruct:free,mistralai/mistral-7b-instruct:free
+OPENROUTER_MODEL_ALLOWLIST=
+
+# Optional attribution headers recommended by OpenRouter
+# OPENROUTER_APP_URL=https://your-domain.com
+# OPENROUTER_APP_NAME=ExamArchive
+
+# Embeddings (still OpenAI-compatible for RAG)
+OPENAI_API_KEY=your-openai-api-key
 ```
 
-> **Security note:** `GROQ_API_KEY` does **not** have the `NEXT_PUBLIC_` prefix.
-> This means it is only available in server-side code (API routes, Server Components)
-> and is **never** bundled into the client-side JavaScript. It will not appear in
-> browser DevTools, network requests, or the compiled page source.
+> **Security note:** `OPENROUTER_API_KEY` is server-only (no `NEXT_PUBLIC_`). It never reaches the browser or client bundles.
 
 ---
 
 ## Features
 
 ### 1. AI Chat Bubble (`💭`)
-
-A floating bubble appears on every page (bottom-right corner).
-
-- **Requires login:** Unauthenticated users are redirected to `/login` when they click the bubble.
-- **Server-side only:** All Groq API calls happen in `/api/ai/chat` — the key never reaches the browser.
-- **Context-aware:** ExamBot is aware of the site's structure (browse, syllabus, upload, profile pages) and provides navigation guidance.
-- **History:** Up to the last 10 messages are sent as context with each request, keeping conversations coherent.
+- Requires login; otherwise redirects to `/login`
+- Server-side only OpenRouter calls in `/api/ai/chat`
+- Uses archive/web context when helpful and surfaces source links
 
 ### 2. AI Generated Content Page (`/ai-content`)
-
-Signed-in users can request AI-generated revision summaries.
-
-- **Daily limit:** 5 generated documents per user per calendar day.
-- **Admin+ unlimited:** `admin` and `founder` roles have unlimited generations.
-- **Output format:** Structured Markdown with headings, key concepts, exam tips, and a quick-revision checklist.
-- **PDF Download:** Users can download generated content as a professionally formatted PDF file.
-- **Advanced controls:** Users can choose page length (1–5), model (role-limited), and optional live web search.
-- **RAG priority:** Archive syllabus/paper context is retrieved first (Appwrite-only embeddings) before fallback to raw topic input.
+- Signed-in users can generate revision summaries and download PDFs
+- **Daily limit:** 5 generations per user (admin/founder unlimited)
+- Auto-fallback tries Gemini first, then OpenRouter free allowlist; admin/founder can set a `gemini:` or `openrouter:` override (optional “apply to everyone” toggle)
+- Generated PDFs include a low-opacity, 45° tiled **ExamArchive** watermark on every page
 
 ---
 
 ## Usage Limits
 
-| User role  | Daily AI generations |
-|------------|----------------------|
-| Regular users | 5 per day |
-| `admin` / `founder`  | Unlimited            |
+| User role        | Daily AI generations |
+|------------------|----------------------|
+| Regular users    | 5 per day            |
+| `admin`/`founder`| Unlimited            |
 
-Limits are tracked in the Appwrite `ai_usage` collection. Each generation creates one document with `{ user_id, date }`. The quota check counts documents matching `(user_id, today_date)`.
-
-**Alignment with credits:** The 5 PDF/day limit aligns with ~1000 monthly generation credits (assuming ~200 tokens per generation across the user base).
-
-See [`DATABASE_SCHEMA.md`](./DATABASE_SCHEMA.md) for the full `ai_usage` collection schema.
+Tracked in Appwrite `ai_usage` collection (`{ user_id, date }`).
 
 ---
 
@@ -86,10 +84,9 @@ See [`DATABASE_SCHEMA.md`](./DATABASE_SCHEMA.md) for the full `ai_usage` collect
 |-------|--------|------|-------------|
 | `/api/ai/chat` | `POST` | Required | Sends a chat message; returns `{ reply: string }` |
 | `/api/ai/generate` | `POST` | Required | Generates a study document; returns `{ content, topic, generatedAt, remaining }` |
-| `/api/ai/generate` | `GET` | Required | Returns remaining daily quota: `{ remaining, limit, isFounder }` |
+| `/api/ai/generate` | `GET` | Required | Returns remaining daily quota and note-length presets |
 
 ### Chat request body
-
 ```json
 {
   "message": "How do I find past papers for Physics?",
@@ -101,7 +98,6 @@ See [`DATABASE_SCHEMA.md`](./DATABASE_SCHEMA.md) for the full `ai_usage` collect
 ```
 
 ### Generate request body
-
 ```json
 {
   "topic": "Photosynthesis",
@@ -111,58 +107,36 @@ See [`DATABASE_SCHEMA.md`](./DATABASE_SCHEMA.md) for the full `ai_usage` collect
 
 ---
 
-## Model Fallback + Selection System
+## Model Fallback System (no manual picker)
 
-ExamArchive now uses a **priority-based multi-model fallback pool** for both:
-- `POST /api/ai/chat`
-- `POST /api/ai/generate`
+ExamArchive now auto-selects from an OpenRouter-only **free-tier text** pool:
+- The pool is resolved from `OPENROUTER_MODEL_ALLOWLIST` (comma-separated). If unset, the app auto-syncs with the current OpenRouter free catalog and falls back to the built-in free allowlist.
+- Each ID is validated against OpenRouter’s model catalog and kept only if both prompt+completion pricing are `$0` (embeddings/vision/video/VL/flux/veo are filtered out).
+- The built-in default list is the user-requested catalog (ordered for speed first):  
+  `nvidia/nemotron-3-super:free, minimax/minimax-m2.5:free, sourceful/riverflow-v2-pro:free, sourceful/riverflow-v2-fast:free, stepfun/step-3.5-flash:free, arcee/trinity-large-preview:free, liquid/lfm-2.5-1.2b-thinking:free, liquid/lfm-2.5-1.2b-instruct:free, nvidia/nemotron-3-nano-30b-a3b:free, sourceful/riverflow-v2-max-preview:free, sourceful/riverflow-v2-standard-preview:free, sourceful/riverflow-v2-fast-preview:free, arcee/trinity-mini:free, qwen/qwen-3-next-80b-a3b-instruct:free, nvidia/nemotron-nano-9b-v2:free, openai/gpt-oss-120b:free, openai/gpt-oss-20b:free, z-ai/glm-4.5-air:free, qwen/qwen-3-coder-480b-a35b:free, venice/uncensored:free, google/gemma-3n-2b:free, google/gemma-3n-4b:free, qwen/qwen-3-4b:free, mistralai/mistral-small-3.1-24b:free, google/gemma-3-4b:free, google/gemma-3-12b:free, google/gemma-3-27b:free, meta-llama/llama-3.3-70b-instruct:free, meta-llama/llama-3.2-3b-instruct:free, nousresearch/hermes-3-405b-instruct:free`.
+- The API automatically falls back across this ordered pool; no manual selection is exposed in the UI.
 
-Default model priority:
-1. `openai/gpt-oss-120b`
-2. `openai/gpt-oss-20b`
-3. `llama-3.3-70b-versatile`
-4. `llama-3.1-8b-instant`
-5. `llama-3.1-70b-versatile`
-
-If the current model fails (timeout, overload/rate limit, or provider error), the API automatically retries the next model until one succeeds or the pool is exhausted.
-
-Users can select a preferred model in `/ai-content`:
-- non-admin users: can select from allowed model subset
-- admin/founder: full pool access
-- preferred model is used first, then fallback pool continues automatically
-
-You can override the priority order using `GROQ_MODEL_POOL` (comma-separated) without code changes.
-
-### Notes on model differences vs Gemini
-
-- Output style may be slightly less verbose than Gemini on the same prompt.
-- Reasoning depth can vary for highly technical topics; adjust prompt detail for best results.
-- Latency is typically lower, but occasional provider-side throttling can still happen.
+If no free models are available, the API responds with a temporary-unavailable 503. Check `OPENROUTER_MODEL_ALLOWLIST` and confirm the listed models still show $0 pricing on OpenRouter.
 
 ---
 
 ## Security Checklist
 
-- [x] `GROQ_API_KEY` is a server-only environment variable (no `NEXT_PUBLIC_` prefix)
-- [x] AI API routes verify user session before making Groq calls
-- [x] API key is never returned in any API response
-- [x] Web search API key (`TAVILY_API_KEY`) and embeddings key (`OPENAI_API_KEY`) are server-only
-- [x] Model fallback executes server-side only; no model credentials or internal errors are exposed to the browser
-- [x] System prompt instructs ExamBot to refuse sharing internal details
-- [x] Message length is limited (1–1000 characters for chat, 1–500 for topic)
-- [x] Rate limiting (3/day) prevents abuse of AI quota
+- [x] `OPENROUTER_API_KEY` is server-only (no `NEXT_PUBLIC_`)
+- [x] API routes require an authenticated session before hitting OpenRouter
+- [x] Model selection is restricted to $0/$0 models only
+- [x] Keys are never returned in responses
+- [x] Message/topic length limits enforced (chat: 1–1000 chars, generate topic: 1–500 chars)
+- [x] HTML for PDFs is sanitized before rendering; watermark is applied at render time only
 
 ---
 
 ## Appwrite-only RAG + Web Search
 
-- PDF text is extracted from Appwrite storage uploads.
-- Text is chunked and stored in Appwrite collection `ai_embeddings` with embeddings array + metadata.
-- Retrieval computes cosine similarity server-side and injects relevant chunks into prompts.
-- Tavily-style web search is invoked server-side only and summarized before prompt injection.
-- If retrieval/search is unavailable, generation falls back gracefully to topic-driven notes.
-
-See [`../AI_EXTENSIONS_SETUP.md`](../AI_EXTENSIONS_SETUP.md) for full schema and setup details.
+- PDF text is chunked and stored in Appwrite collection `ai_embeddings`
+- Embeddings currently use `OPENAI_API_KEY` (OpenAI-compatible)
+- Tavily-style web search is optional (server-side only)
+- Retrieval + web results are injected as **untrusted** context into prompts
 
 ---
 
@@ -170,18 +144,19 @@ See [`../AI_EXTENSIONS_SETUP.md`](../AI_EXTENSIONS_SETUP.md) for full schema and
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| `"AI assistant is not configured."` | `GROQ_API_KEY` is missing | Add the key to `.env.local` and restart the dev server |
-| `"AI is under high traffic. Please try again in a moment."` | Temporary provider overload/rate limit/timeout across fallback pool | Retry shortly; request will auto-fallback across models |
-| `"Daily limit reached. Please try again tomorrow."` | Daily generation quota reached (or provider quota issue) | Wait until next day for app quota; check provider billing if persistent |
-| `"Service temporarily unavailable. Please try again shortly."` | All models in fallback pool failed | Retry in a few moments |
-| `"Daily limit reached"` | User exceeded 3 generations | Wait until the next calendar day (UTC) |
-| Bubble does not appear | Component not rendering | Ensure `AIBubble` is imported in `src/app/layout.tsx` |
+| `"AI assistant is not configured."` | `OPENROUTER_API_KEY` missing | Add the key to `.env.local` and restart |
+| `"Service temporarily unavailable. Please try again shortly."` | Allowlist empty, models no longer $0, or provider-side model issues | Verify `OPENROUTER_MODEL_ALLOWLIST` IDs still show $0 input/output, or leave it unset to auto-sync the free catalog. The API now tries your preferred model first and then the remaining free pool (ordered by speed) to avoid one-model failures. |
+| `"Daily limit reached."` | User exceeded 5/day | Wait until next UTC day (admin/founder exempt) |
+| Watermark missing in PDFs | Old cached build | Restart server; ensure `printBackground` stays enabled |
 
-## Quick endpoint testing
+For quick endpoint testing, start the app with `npm run dev`, log in, and call the API routes above with sample payloads.
 
-1. Start app with `npm run dev`.
-2. Log in with a non-founder user and test:
-   - `POST /api/ai/chat` with a sample message/history payload.
-   - `GET /api/ai/generate` to confirm remaining quota.
-   - `POST /api/ai/generate` with a topic (and optional paperContext), verify `remaining` decreases.
-3. Log in as founder and confirm `GET /api/ai/generate` returns `{ isFounder: true, remaining: null }`.
+---
+
+## Appwrite Collections referenced by AI routes
+
+- `ai_usage`: `user_id` (string), `date` (string YYYY-MM-DD), `count` (integer; optional). Each generation inserts one document for daily rate limiting.
+- `pdf_usage`: `user_id` (string), `date` (string YYYY-MM-DD). Each PDF render/download inserts one document.
+- `ai_embeddings`: stores RAG chunks (`file_id`, `source_type`, `source_label`, `text_chunk`, `embedding[]`, metadata).
+
+Ensure these attributes exist in the `examarchive` database before deploying the backend.

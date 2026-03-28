@@ -47,24 +47,27 @@ APPWRITE_SYLLABUS_BUCKET_ID=syllabus-files
 All AI service keys are **server-side only** and must never be prefixed with `NEXT_PUBLIC_`:
 
 ```bash
-# Groq API key for AI chat and content generation
-# Get your key at: https://console.groq.com/
+# OpenRouter API key for AI chat and content generation
 # Required for /api/ai/chat and /api/ai/generate endpoints
-GROQ_API_KEY=your-groq-api-key
+# Only free-tier ($0/$0) models are allowed by the app
+OPENROUTER_API_KEY=your-openrouter-api-key
 
-# Optional: Override default Groq model pool (comma-separated)
-# Default: openai/gpt-oss-120b,openai/gpt-oss-20b,llama-3.3-70b-versatile,llama-3.1-8b-instant,llama-3.1-70b-versatile
-# GROQ_MODEL_POOL=openai/gpt-oss-120b,openai/gpt-oss-20b,llama-3.3-70b-versatile
+# Optional: restrict to a specific free-tier allowlist (comma-separated)
+# Example: meta-llama/llama-3.1-8b-instruct:free,mistralai/mistral-7b-instruct:free
+# OPENROUTER_MODEL_ALLOWLIST=
+
+# Optional: headers OpenRouter recommends for attribution
+# OPENROUTER_APP_URL=https://your-domain.com
+# OPENROUTER_APP_NAME=ExamArchive
 
 # Embeddings provider for RAG (Retrieval Augmented Generation)
 # Currently supports OpenAI-compatible embedding APIs
 # Used for generating embeddings from uploaded PDFs
-# Get your key at: https://platform.openai.com/ or use Groq-compatible alternative
+# Get your key at: https://platform.openai.com/ or any OpenAI-compatible embeddings provider
 OPENAI_API_KEY=your-openai-api-key
 ```
 
-> **Note**: OpenAI is only used for embeddings. For inference, we use Groq exclusively. Consider using Groq-compatible embedding alternatives like:
-> - Groq Embeddings (if/when available)
+> **Note**: OpenAI is only used for embeddings. Inference now routes exclusively through OpenRouter. Consider using compatible embedding alternatives like:
 > - Voyage AI embeddings
 > - Cohere embeddings
 > - Self-hosted embedding models
@@ -171,13 +174,13 @@ When deploying to Vercel:
 ## Troubleshooting
 
 ### "AI generation is not configured"
-- Ensure `GROQ_API_KEY` is set in your environment
+- Ensure `OPENROUTER_API_KEY` is set in your environment
 - Verify the key is valid and not expired
 
 ### "Service temporarily unavailable"
-- Check Groq API status at https://status.groq.com/
-- Verify your API key has sufficient quota
-- Check for any Groq service outages
+- Verify your OpenRouter key has sufficient quota and is active
+- Confirm your allowlist models are currently marked as $0 for both prompt and completion costs
+- Check OpenRouter service status or try a different free model from the allowlist
 
 ### "Login required" / Authentication issues
 - Verify all `NEXT_PUBLIC_APPWRITE_*` variables are set correctly
@@ -185,7 +188,7 @@ When deploying to Vercel:
 - Ensure the Appwrite project ID matches across public and server variables
 
 ### Embeddings/RAG not working
-- Verify `OPENAI_API_KEY` is set (or Groq-compatible alternative)
+- Verify `OPENAI_API_KEY` is set (or another OpenAI-compatible embedding provider)
 - Check that the `ai_embeddings` collection exists in Appwrite
 - Ensure PDF uploads are processing correctly
 
@@ -198,10 +201,9 @@ When deploying to Vercel:
 
 ### Removing OpenAI Dependency
 
-The codebase currently uses OpenAI only for embeddings. To fully migrate to Groq or open-source alternatives:
+The codebase currently uses OpenAI only for embeddings. To fully migrate to open-source embedding alternatives:
 
 1. **For embeddings**, consider:
-   - Groq embeddings (when available)
    - Voyage AI: https://www.voyageai.com/
    - Cohere: https://cohere.com/
    - Self-hosted: sentence-transformers, Ollama

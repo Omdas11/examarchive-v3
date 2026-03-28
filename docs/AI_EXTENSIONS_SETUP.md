@@ -12,12 +12,17 @@ This setup enables:
 Add these to `.env.local` (server-side only, **never** `NEXT_PUBLIC_`):
 
 ```env
-GROQ_API_KEY=...
-# Optional priority override
-# GROQ_MODEL_POOL=openai/gpt-oss-120b,openai/gpt-oss-20b,llama-3.3-70b-versatile,llama-3.1-8b-instant,llama-3.1-70b-versatile
+# OpenRouter free-tier inference
+OPENROUTER_API_KEY=...
+# Only include $0/$0 models
+# OPENROUTER_MODEL_ALLOWLIST=meta-llama/llama-3.1-8b-instruct:free,mistralai/mistral-7b-instruct:free
+# OPENROUTER_APP_URL=https://your-domain.com
+# OPENROUTER_APP_NAME=ExamArchive
 
+# Embeddings (OpenAI-compatible)
 OPENAI_API_KEY=...
 
+# Optional Tavily-style search
 TAVILY_API_KEY=...
 # Optional, for Tavily-compatible endpoint override:
 # TAVILY_SEARCH_URL=https://api.tavily.com/search
@@ -105,6 +110,6 @@ If ingestion fails, upload remains valid (non-blocking).
 ## 6) Operational Tips
 
 - Run ingestion once enough uploads exist; retrieval quality improves as `ai_embeddings` grows.
-- Keep `GROQ_MODEL_POOL` sorted by cost/performance preference.
+- Keep `OPENROUTER_MODEL_ALLOWLIST` sorted by your preferred free-tier model priority.
 - If web search quota is exhausted, routes gracefully continue with archive context only.
 - If embedding key is missing, RAG gracefully degrades to non-embedded behavior (no hard crash).

@@ -162,22 +162,23 @@ User-submitted testimonials displayed on the homepage.
 
 ## Collection: `ai_usage`
 
-Tracks daily AI-generated document events per user for rate-limiting.
-Each document represents one generation event. The daily limit is enforced by
-counting documents matching `(user_id, date)`.
+Tracks per-request AI generation events for rate limiting and metrics. Each document
+represents one generation invocation.
 
-| Field     | Type   | Required | Notes                                                        |
-|-----------|--------|----------|--------------------------------------------------------------|
-| `user_id` | String | **Yes**  | Appwrite user ID of the requester                            |
-| `date`    | String | **Yes**  | Calendar date of the generation event (`YYYY-MM-DD` format)  |
+| Field       | Type     | Required | Notes                                                        |
+|-------------|----------|----------|--------------------------------------------------------------|
+| `user_id`   | String   | **Yes**  | Appwrite user ID of the requester                            |
+| `date`      | String   | **Yes**  | Calendar date of the generation event (`YYYY-MM-DD` format)  |
+| `$createdAt`| Datetime | **Yes**  | Auto-managed by Appwrite; used for RPM calculations          |
 
-**Permissions:** only the server-side admin client writes to this collection.
-**Daily limit:** 5 generations per `(user_id, date)`. Admin and founder accounts are exempt.
-**Index recommendation:** create an index on `(user_id, date)` for efficient quota queries.
+**Permissions:** only the server-side admin client writes to this collection.  
+**Daily limit (configurable):** defaults to 5/day per `(user_id, date)` via server config; admin and founder accounts are exempt.  
+**RPM tracking:** the API queries `$createdAt` within the last minute to derive RPM.  
+**Index recommendation:** create indexes on `(user_id, date)` and on `$createdAt` for efficient quota and RPM queries.
 
 ### AI fallback + error behavior (no schema changes)
 
-- AI chat and generation endpoints use a server-side Groq multi-model fallback pool (priority order) to improve reliability under load.
+- AI chat and generation endpoints use a server-side OpenRouter free-tier fallback pool (priority order) to improve reliability under load while keeping costs at $0.
 - If one model fails due to overload, timeout, or provider errors, the next model is tried automatically.
 - User-facing API responses expose only safe messages such as:
   - `"AI is under high traffic. Please try again in a moment."`

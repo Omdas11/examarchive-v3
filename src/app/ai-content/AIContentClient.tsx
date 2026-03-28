@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import ModelSelect from "@/components/ModelSelect";
 import type { CoursePrefsPayload } from "@/lib/pdf-rag";
 import {
   getNoteLengthOptions,
@@ -16,6 +15,7 @@ interface GeneratedDoc {
   content: string;
   generatedAt: string;
   model?: string;
+  modelLabel?: string;
   sources?: string[];
   pageLength?: number;
   noteLength?: NoteLength;
@@ -41,8 +41,6 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
   const [remaining, setRemaining] = useState<number | null>(null);
   const [isFounder, setIsFounder] = useState(_userRole === "founder");
   const [isAdminPlus, setIsAdminPlus] = useState(_userRole === "founder" || _userRole === "admin");
-  const [model, setModel] = useState("");
-  const [modelOptions, setModelOptions] = useState<Array<{ id: string; label: string; available: boolean }>>([]);
   const [useWebSearch, setUseWebSearch] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeDoc, setActiveDoc] = useState<GeneratedDoc | null>(null);
@@ -50,6 +48,9 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
   const [paperSearch, setPaperSearch] = useState("");
   const [selectedPaperId, setSelectedPaperId] = useState<string>("");
   const [paperLoading, setPaperLoading] = useState(false);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [adminModelOverride, setAdminModelOverride] = useState("");
+  const [applyOverrideGlobally, setApplyOverrideGlobally] = useState(false);
   const loadingIntervalRef = useRef<number | null>(null);
 
   const DAILY_LIMIT = 5;
@@ -59,13 +60,11 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
     fetch("/api/ai/generate")
       .then((r) => r.json())
       .then((d) => {
-        setRemaining(d.remaining ?? null);
+        if (typeof d.remaining === "number" || d.remaining === null) {
+          setRemaining(d.remaining);
+        }
         setIsFounder(d.isFounder ?? false);
         setIsAdminPlus(d.isAdminPlus ?? false);
-        const fetchedModels = Array.isArray(d.modelOptions) ? d.modelOptions : [];
-        setModelOptions(fetchedModels);
-        const availableModels = fetchedModels.filter((option: { available: boolean }) => option.available);
-        setModel(availableModels[0]?.id ?? "");
         if (Array.isArray(d.noteLengthOptions)) {
           const normalized = d.noteLengthOptions
             .map((opt: NoteLengthOption) => ({
@@ -112,8 +111,11 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
         window.clearInterval(loadingIntervalRef.current);
         loadingIntervalRef.current = null;
       }
+      if (pdfPreviewUrl) {
+        window.URL.revokeObjectURL(pdfPreviewUrl);
+      }
     };
-  }, []);
+  }, [pdfPreviewUrl]);
 
   const selectedPaper = useMemo(
     () => papers.find((paper) => paper.id === selectedPaperId) ?? null,
@@ -166,18 +168,24 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
     setError(null);
 
     try {
+      const payload: Record<string, unknown> = {
+        topic: trimmed,
+        noteLength,
+        useWebSearch,
+        coursePrefs: loadCoursePrefsFromStorage(),
+        referenceFileId: selectedPaper?.file_id,
+        referenceLabel: selectedPaper?.title,
+      };
+
+      if (isAdminPlus && adminModelOverride.trim()) {
+        payload.model = adminModelOverride.trim();
+        payload.applyGlobally = applyOverrideGlobally;
+      }
+
       const res = await fetch("/api/ai/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          topic: trimmed,
-          noteLength,
-          model,
-          useWebSearch,
-          coursePrefs: loadCoursePrefsFromStorage(),
-          referenceFileId: selectedPaper?.file_id,
-          referenceLabel: selectedPaper?.title,
-        }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
 
@@ -191,6 +199,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
         content: data.content,
         generatedAt: data.generatedAt,
         model: data.model,
+        modelLabel: data.model,
         sources: Array.isArray(data.sources) ? data.sources : [],
         pageLength: typeof data.pageLength === "number" ? data.pageLength : undefined,
         noteLength: normalizeNoteLength(data.noteLength ?? noteLength),
@@ -240,7 +249,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
     }
   }
 
-  async function handlePrint() {
+  async function handlePrint(mode: "download" | "preview" = "download") {
     if (!activeDoc) return;
 
     try {
@@ -252,6 +261,9 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
           topic: activeDoc.topic,
           pageLength: activeDoc.pageLength || undefined,
           noteLength: activeDoc.noteLength ?? noteLength,
+          model: activeDoc.model,
+          modelLabel: activeDoc.modelLabel,
+          generatedAt: activeDoc.generatedAt,
         }),
       });
 
@@ -262,6 +274,15 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
 
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
+
+      if (mode === "preview") {
+        if (pdfPreviewUrl) {
+          window.URL.revokeObjectURL(pdfPreviewUrl);
+        }
+        setPdfPreviewUrl(url);
+        return;
+      }
+
       const a = document.createElement("a");
       a.href = url;
       a.download = `${activeDoc.topic.replace(/[^a-zA-Z0-9]/g, "_")}_${new Date().toISOString().slice(0, 10)}.pdf`;
@@ -275,7 +296,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
     }
   }
 
-  const canGenerate = isAdminPlus || (remaining !== null && remaining > 0);
+  const canGenerate = isAdminPlus || remaining === null || remaining > 0;
 
   return (
     <div className="relative min-h-screen bg-surface px-4 py-8 text-on-surface">
@@ -428,12 +449,10 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                     <p className="text-xs font-semibold uppercase tracking-wide text-on-surface-variant">
                       AI Analysis Model
                     </p>
-                    <ModelSelect
-                      options={modelOptions}
-                      value={model}
-                      onChange={setModel}
-                      disabled={generating || !canGenerate}
-                    />
+                    <div className="rounded-xl border border-outline-variant/30 bg-surface p-3 text-sm text-on-surface flex items-center justify-between">
+                      <span className="font-semibold">Auto-select best free model</span>
+                      <span className="text-xs text-on-surface-variant">Fallback across curated pool</span>
+                    </div>
                     <label className="flex items-center gap-2 text-xs text-on-surface-variant">
                       <input
                         type="checkbox"
@@ -443,6 +462,37 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                       />
                       Include live web updates
                     </label>
+                    {isAdminPlus && (
+                      <div className="space-y-2 rounded-xl border border-outline-variant/30 bg-surface-container-low p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-on-surface-variant">
+                            Admin override
+                          </p>
+                          <span className="text-[10px] font-medium text-primary">Admin+</span>
+                        </div>
+                        <input
+                          type="text"
+                          placeholder="gemini:gemini-3.1-flash-lite-preview or openrouter:model-id"
+                          value={adminModelOverride}
+                          onChange={(e) => setAdminModelOverride(e.target.value)}
+                          disabled={generating}
+                          className="input-field text-xs"
+                        />
+                        <label className="flex items-center gap-2 text-xs text-on-surface-variant">
+                          <input
+                            type="checkbox"
+                            checked={applyOverrideGlobally}
+                            onChange={(e) => setApplyOverrideGlobally(e.target.checked)}
+                            disabled={generating}
+                          />
+                          Apply for everyone until server restart
+                        </label>
+                        <p className="text-[11px] text-tertiary">
+                          Prefix with <code className="rounded bg-surface px-1">gemini:</code> to force Gemini or{" "}
+                          <code className="rounded bg-surface px-1">openrouter:</code> for OpenRouter IDs.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -457,8 +507,8 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                     )}
                   </div>
                   <button
-                    onClick={generate}
-                    disabled={generating || !topic.trim() || !canGenerate || !model}
+                     onClick={generate}
+                     disabled={generating || !topic.trim() || !canGenerate}
                     className="btn-primary inline-flex items-center gap-2 rounded-xl px-5 py-2 text-sm shadow-md disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {generating ? `Generating… (${loadingStep})` : "✨ Generate Notes"}
@@ -470,7 +520,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                     ⚠ {error}
                   </p>
                 )}
-                {!canGenerate && !isAdminPlus && (
+                {remaining === 0 && !isAdminPlus && (
                   <p className="text-sm text-error">
                     Daily limit reached. Come back tomorrow for {DAILY_LIMIT} more generations.
                   </p>
@@ -495,8 +545,14 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-3">
-                    <button onClick={handlePrint} className="btn inline-flex items-center gap-2">
+                    <button onClick={() => handlePrint("download")} className="btn inline-flex items-center gap-2">
                       📄 Export as PDF
+                    </button>
+                    <button
+                      onClick={() => handlePrint("preview")}
+                      className="btn inline-flex items-center gap-2"
+                    >
+                      👁️ Preview PDF
                     </button>
                     {activeDoc.sources && activeDoc.sources.length > 0 && (
                       <div className="flex items-center gap-2 rounded-full bg-surface-container-low px-3 py-1 text-xs text-on-surface-variant">
@@ -504,6 +560,23 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                       </div>
                     )}
                   </div>
+                  {pdfPreviewUrl && (
+                    <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-3">
+                      <div className="flex items-center justify-between text-xs text-on-surface-variant mb-2">
+                        <span>PDF Preview</span>
+                        <button
+                          type="button"
+                          className="underline"
+                          onClick={() => {
+                            window.open(pdfPreviewUrl, "_blank");
+                          }}
+                        >
+                          Open in new tab
+                        </button>
+                      </div>
+                      <iframe title="PDF preview" src={pdfPreviewUrl} className="h-96 w-full rounded-lg border border-outline-variant/30" />
+                    </div>
+                  )}
                   <div
                     className="max-h-[520px] overflow-auto rounded-xl border border-outline-variant/30 bg-surface-container-low p-4 text-sm leading-7 text-on-surface shadow-inner"
                     style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
