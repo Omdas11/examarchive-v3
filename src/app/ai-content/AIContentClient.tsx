@@ -535,7 +535,11 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                   >
                     <div className="markdown-preview" dangerouslySetInnerHTML={{ __html: activeDocHtml }} />
                   </div>
-                  <div className="pdf-export-source print-root-wrapper" aria-hidden="true">
+                  <div
+                    id="printable-exam-notes"
+                    className="pdf-export-source print-root-wrapper"
+                    aria-hidden="true"
+                  >
                     <div className="print-root">
                       <div className="print-title-block avoid-break">
                         <h1>{activeDoc.topic}</h1>

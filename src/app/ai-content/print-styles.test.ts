@@ -34,4 +34,14 @@ describe("AI content print/mobile styles", () => {
       /@media print[\s\S]*?#__next > div\s*\{[\s\S]*?display:\s*block !important;[\s\S]*?height:\s*auto !important;[\s\S]*?overflow:\s*visible !important;[\s\S]*?\}/
     );
   });
+
+  it("only reveals the printable notes container during print", () => {
+    expect(css).toMatch(/@media print[\s\S]*?body \*\s*\{\s*visibility:\s*hidden;\s*\}/);
+    expect(css).toMatch(
+      /@media print[\s\S]*?#printable-exam-notes,\s*#printable-exam-notes \*\s*\{\s*visibility:\s*visible;\s*\}/
+    );
+    expect(css).toMatch(
+      /@media print[\s\S]*?#printable-exam-notes\s*\{\s*position:\s*absolute;\s*left:\s*0;\s*top:\s*0;\s*\}/
+    );
+  });
 });

@@ -1048,6 +1048,22 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
     overflow: visible !important;
   }
 
+  /* Only expose printable notes; hide all other DOM during print */
+  body * {
+    visibility: hidden;
+  }
+
+  #printable-exam-notes,
+  #printable-exam-notes * {
+    visibility: visible;
+  }
+
+  #printable-exam-notes {
+    position: absolute;
+    left: 0;
+    top: 0;
+  }
+
   .print-action-controls,
   .btn,
   .btn-primary,
