@@ -87,7 +87,7 @@ export default function AiStatsClient() {
         <StatCard label="Requests Today" value={stats?.rpd ?? 0} />
         <StatCard label="RPM Limit" value={stats?.limits.rpmLimit ?? 0} />
         <StatCard label="Daily Limit" value={stats?.limits.dailyLimit ?? 0} />
-        <StatCard label="Tokens / Request" value="Not tracked" />
+        {/* TODO: Add tokens/request once metering is available */}
       </div>
 
       <div className="rounded-xl border border-outline-variant/40 bg-surface p-4 shadow-sm">
@@ -117,7 +117,7 @@ export default function AiStatsClient() {
           <span>
             Default limits: Daily {stats?.limits?.defaults.dailyLimit ?? "—"}, RPM {stats?.limits?.defaults.rpmLimit ?? "—"}
           </span>
-          <span>Changes apply immediately until server restart.</span>
+          <span>Runtime overrides apply immediately but revert to defaults on server restart.</span>
         </div>
         <div className="mt-3 flex gap-2">
           <button
