@@ -82,7 +82,7 @@ Stores user profile data alongside Appwrite Auth accounts.
 | `last_activity`          | Datetime | No       | ISO 8601 timestamp of last activity                                                                   |
 | `upload_count`           | Integer  | No       | Total approved uploads; drives auto-promotion                                                         |
 | `username_last_changed`  | String   | No       | ISO 8601 timestamp of last username change; enforces 7-day cooldown                                   |
-| `referral_code`          | String   | No       | Unique 6-character alphanumeric code (uppercase) used for invite/referral links                        |
+| `referral_code`          | String   | No       | Unique 6-character alphanumeric code (uppercase) used for invite/referral links (requires unique index) |
 | `ai_credits`             | Integer  | No       | Spendable credits for AI features                                                                       |
 | `referred_by`            | String   | No       | Direct referrer user ID                                                                                 |
 | `referral_path`          | Array (string) | No | Ordered ancestor user IDs (max depth 5) for multi-level referral rewards                               |

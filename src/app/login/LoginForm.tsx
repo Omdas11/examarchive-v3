@@ -46,6 +46,10 @@ interface LoginFormProps {
   initialReferralCode: string | null;
 }
 
+function normalizeReferralCodeInput(value: string | null): string {
+  return (value ?? "").trim().toUpperCase();
+}
+
 export default function LoginForm({
   errorText,
   isRateLimit,
@@ -55,9 +59,9 @@ export default function LoginForm({
 }: LoginFormProps) {
   const [mode, setMode] = useState<Mode>(initialMode);
   useEffect(() => { setMode(initialMode); }, [initialMode]);
-  const [referralCode, setReferralCode] = useState((initialReferralCode ?? "").trim().toUpperCase());
+  const [referralCode, setReferralCode] = useState(normalizeReferralCodeInput(initialReferralCode));
   useEffect(() => {
-    setReferralCode((initialReferralCode ?? "").trim().toUpperCase());
+    setReferralCode(normalizeReferralCodeInput(initialReferralCode));
   }, [initialReferralCode]);
 
   const [sent, setSent] = useState(message === "check_email");

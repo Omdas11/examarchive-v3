@@ -1,10 +1,12 @@
 import { adminDatabases, COLLECTION, DATABASE_ID, Query } from "@/lib/appwrite";
 import { generateReferralCode } from "./referral";
 
+const MAX_COLLISION_RETRIES = 8;
+
 export async function generateUniqueReferralCode(
   db: ReturnType<typeof adminDatabases>,
 ): Promise<string> {
-  for (let i = 0; i < 8; i += 1) {
+  for (let i = 0; i < MAX_COLLISION_RETRIES; i += 1) {
     const candidate = generateReferralCode();
     try {
       const existing = await db.listDocuments(DATABASE_ID, COLLECTION.users, [

@@ -211,8 +211,9 @@ export async function signUp(formData: FormData) {
           Permission.update(Role.user(created.$id)),
         ],
       );
-    } catch {
+    } catch (profileError) {
       // Non-fatal: getServerUser has fallback profile creation on first request.
+      console.error("[auth] Profile creation during signup failed:", profileError);
     }
 
     // Immediately sign in

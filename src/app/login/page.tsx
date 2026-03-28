@@ -29,6 +29,12 @@ const ERROR_MESSAGES: Record<string, string> = {
 
 const VALID_MODES: Mode[] = ["magic", "signin", "signup"];
 
+function resolveInitialMode(mode: string | undefined, ref: string | undefined): Mode {
+  if (VALID_MODES.includes(mode as Mode)) return mode as Mode;
+  if (ref) return "signup";
+  return "magic";
+}
+
 export default async function LoginPage({ searchParams }: Props) {
   const { error, message, mode, ref } = await searchParams;
 
@@ -36,9 +42,7 @@ export default async function LoginPage({ searchParams }: Props) {
     ? (ERROR_MESSAGES[error] ?? decodeURIComponent(error))
     : null;
   const isRateLimit = error === "rate_limit";
-  const initialMode: Mode = VALID_MODES.includes(mode as Mode)
-    ? (mode as Mode)
-    : (ref ? "signup" : "magic");
+  const initialMode = resolveInitialMode(mode, ref);
 
   return (
     <MainLayout
