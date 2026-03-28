@@ -519,8 +519,11 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
             {activeDoc && (
               <div className="card border border-outline-variant/30 print-visible">
                 <div className="flex flex-col gap-4 p-5">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-on-surface-variant">
-                    Export
+                  <p
+                    className="text-xs font-bold uppercase tracking-wide text-on-surface-variant"
+                    style={{ letterSpacing: "0.1em" }}
+                  >
+                    EXAMARCHIVE
                   </p>
                   <div className="no-print flex flex-col gap-2">
                     <p className="text-sm font-semibold text-on-surface">
@@ -534,14 +537,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                   <div className="print-action-controls no-print flex flex-wrap gap-3">
                     <button onClick={(e) => handlePrint(e)} className="btn inline-flex items-center gap-2">
                       <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" className="text-primary"><path fill="currentColor" d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm7 1.5V8h4.5L13 3.5ZM8 13h3v6H8v-6Zm5 0h3v6h-3v-6Zm-5-4h8v2H8v-2Z"/></svg>
-                      Export as PDF
-                    </button>
-                    <button
-                      onClick={(e) => handlePrint(e)}
-                      className="btn inline-flex items-center gap-2"
-                    >
-                      <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" className="text-primary"><path fill="currentColor" d="M12 5c5 0 9 4 10 7-1 3-5 7-10 7s-9-4-10-7c1-3 5-7 10-7Zm0 2c-3.53 0-6.43 2.61-7.62 5C5.57 14.39 8.47 17 12 17s6.43-2.61 7.62-5C18.43 9.61 15.53 7 12 7Zm0 2a3 3 0 1 1 0 6a3 3 0 0 1 0-6Zm0 2a1 1 0 1 0 0 2a1 1 0 0 0 0-2Z"/></svg>
-                      Preview PDF
+                      PRINT PDF
                     </button>
                     {activeDoc.sources && activeDoc.sources.length > 0 && (
                       <div className="flex items-center gap-2 rounded-full bg-surface-container-low px-3 py-1 text-xs text-on-surface-variant">
@@ -573,6 +569,13 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                         </p>
                       </div>
                       <div className="markdown-preview print-body" dangerouslySetInnerHTML={{ __html: activeDocHtml }} />
+                      <div className="print-footer avoid-break" style={{ marginTop: "40px", textAlign: "center" }}>
+                        <p>
+                          Thank you for generating your study notes with ExamArchive! If you found this helpful, please share it with your
+                          friends and classmates.
+                        </p>
+                        <a href="https://www.examarchive.dev">https://www.examarchive.dev</a>
+                      </div>
                     </div>
                   </div>
                 </div>
