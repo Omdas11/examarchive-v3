@@ -19,6 +19,7 @@ export async function runGeminiCompletion(args: {
   maxTokens: number;
   temperature: number;
   model?: string;
+  contents?: Array<{ role: "user" | "model"; parts: Array<{ text: string }> }>;
 }): Promise<GeminiResult> {
   const model = (args.model || DEFAULT_GEMINI_MODEL).trim();
   const url = `${GEMINI_ENDPOINT}/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(args.apiKey)}`;
@@ -29,7 +30,9 @@ export async function runGeminiCompletion(args: {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: args.prompt }]}],
+        contents: args.contents && args.contents.length > 0
+          ? args.contents
+          : [{ role: "user", parts: [{ text: args.prompt }] }],
         generationConfig: {
           maxOutputTokens: args.maxTokens,
           temperature: args.temperature,

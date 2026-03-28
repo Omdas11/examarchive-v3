@@ -119,10 +119,12 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const preferredOpenRouterModel =
-      adminRequestedModel?.startsWith("openrouter:") ? adminRequestedModel.replace(/^openrouter:/, "") : undefined;
-    const preferredGeminiModel =
-      adminRequestedModel?.startsWith("gemini:") ? adminRequestedModel.replace(/^gemini:/, "") : undefined;
+    const stripPrefix = (value: string | undefined, prefix: string): string | undefined => {
+      if (!value) return undefined;
+      return value.startsWith(prefix) ? value.replace(new RegExp(`^${prefix}`), "") : value;
+    };
+    const preferredOpenRouterModel = stripPrefix(adminRequestedModel, "openrouter:");
+    const preferredGeminiModel = stripPrefix(adminRequestedModel, "gemini:");
 
     const modelPool = openRouterApiKey ? await getOpenRouterModelPool(openRouterApiKey) : [];
     if (openRouterApiKey && modelPool.length === 0) {
@@ -231,7 +233,7 @@ Write in plain text with Markdown headings only (no HTML).`;
     if (err instanceof GeminiServiceError) {
       return NextResponse.json({ error: err.message, code: "SERVICE_UNAVAILABLE" }, { status: err.status });
     }
-    console.error("[AI generate] OpenRouter error:", err);
+    console.error("[AI generate] AI service error:", err);
     return NextResponse.json({ error: "Service temporarily unavailable. Please try again shortly." }, { status: 503 });
   }
 }

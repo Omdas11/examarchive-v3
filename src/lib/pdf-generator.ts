@@ -408,15 +408,19 @@ function buildHeaderBlock(
 
   if (!topic && !model && !timestamp) return "";
 
+  const chips = [
+    model ? `<span class="pdf-chip">Model: ${model}</span>` : "",
+    timestamp ? `<span class="pdf-chip">Generated: ${timestamp} IST</span>` : "",
+  ]
+    .filter(Boolean)
+    .join("");
+
+  const metaRow = chips ? `<div class="pdf-meta">${chips}</div>` : "";
+
   return `
     <div class="pdf-cover">
       ${topic ? `<div class="pdf-title">${topic}</div>` : ""}
-      ${(model || timestamp)
-        ? `<div class="pdf-meta">
-            ${model ? `<span class="pdf-chip">Model: ${model}</span>` : ""}
-            ${timestamp ? `<span class="pdf-chip">Generated: ${timestamp} IST</span>` : ""}
-          </div>`
-        : ""}
+      ${metaRow}
     </div>
     <div class="cover-divider"></div>
   `;

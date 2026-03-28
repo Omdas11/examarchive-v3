@@ -110,12 +110,16 @@ Additional UX rules:
 
     if (geminiApiKey) {
       try {
-        const gemini = await runGeminiCompletion({
-          apiKey: geminiApiKey,
-          prompt: messages.map((m) => `${m.role.toUpperCase()}: ${m.content}`).join("\n\n"),
-          maxTokens: 512,
-          temperature: 0.7,
-        });
+    const gemini = await runGeminiCompletion({
+      apiKey: geminiApiKey,
+      prompt: messages.map((m) => `${m.role.toUpperCase()}: ${m.content}`).join("\n\n"),
+      contents: messages.map((m) => ({
+        role: m.role === "assistant" ? "model" : "user",
+        parts: [{ text: m.content }],
+      })),
+      maxTokens: 512,
+      temperature: 0.7,
+    });
         reply = gemini.content;
         usedModel = `gemini:${gemini.model}`;
       } catch (error) {
@@ -151,7 +155,7 @@ Additional UX rules:
     if (err instanceof GeminiServiceError) {
       return NextResponse.json({ error: err.message, code: "SERVICE_UNAVAILABLE" }, { status: err.status });
     }
-    console.error("[AI chat] OpenRouter error:", err);
+    console.error("[AI chat] AI service error:", err);
     return NextResponse.json({ error: "Service temporarily unavailable. Please try again shortly." }, { status: 503 });
   }
 }
