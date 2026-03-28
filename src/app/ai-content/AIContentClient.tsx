@@ -570,7 +570,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                       </div>
                       <div className="markdown-preview print-body" dangerouslySetInnerHTML={{ __html: activeDocHtml }} />
                       <footer className="print-footer avoid-break mt-10 text-center" aria-label="ExamArchive print footer">
-                        <p>{PRINT_FOOTER_MESSAGE}</p>
+                        <p className="mb-2">{PRINT_FOOTER_MESSAGE}</p>
                         <a
                           href={PRINT_FOOTER_URL}
                           target="_blank"
