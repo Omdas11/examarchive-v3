@@ -910,7 +910,6 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
   white-space: normal;
   font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
   overflow-wrap: anywhere;
-  word-break: break-word;
 }
 .markdown-preview h1,
 .markdown-preview h2,
