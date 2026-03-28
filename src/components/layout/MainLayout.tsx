@@ -71,19 +71,21 @@ export default function MainLayout({
     >
       {/* Sidebar */}
       {!hideSidebar && (
-        <Sidebar
-          items={sidebarItems}
-          userRole={userRole}
-          onNavigate={() => {
-            setIsMobileOpen(false);
-          }}
-          isCollapsed={isCollapsed}
-          onCollapseToggle={setIsCollapsed}
-          isMobileOpen={isMobileOpen}
-          onMobileClose={() => setIsMobileOpen(false)}
-          isLoggedIn={isLoggedIn}
-          userName={headerProps.userName}
-        />
+        <div className="no-print">
+          <Sidebar
+            items={sidebarItems}
+            userRole={userRole}
+            onNavigate={() => {
+              setIsMobileOpen(false);
+            }}
+            isCollapsed={isCollapsed}
+            onCollapseToggle={setIsCollapsed}
+            isMobileOpen={isMobileOpen}
+            onMobileClose={() => setIsMobileOpen(false)}
+            isLoggedIn={isLoggedIn}
+            userName={headerProps.userName}
+          />
+        </div>
       )}
 
       {/* Main Content Area */}
@@ -101,6 +103,7 @@ export default function MainLayout({
         {/* Header */}
         {!hideHeader && (
           <Header
+            className="no-print"
             {...headerProps}
             onMobileMenuToggle={!hideSidebar ? () => setIsMobileOpen((v) => !v) : undefined}
             onProfileClick={() => setIsRightSidebarOpen(true)}
@@ -111,7 +114,9 @@ export default function MainLayout({
         <div className="flex-1 overflow-auto flex flex-col bg-surface">
           <div className="flex-1">{children}</div>
           {/* Footer on every new-layout page */}
-          <Footer />
+          <div className="no-print">
+            <Footer />
+          </div>
         </div>
       </main>
       {showRightColumn && (

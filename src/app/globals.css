@@ -1048,16 +1048,6 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
     overflow: visible !important;
   }
 
-  /* Only expose printable notes; hide all other DOM during print */
-  body * {
-    display: none !important;
-  }
-
-  #printable-exam-notes,
-  #printable-exam-notes * {
-    display: block !important;
-  }
-
   #printable-exam-notes {
     position: absolute;
     left: 0;
@@ -1065,6 +1055,10 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
     padding: 0 !important;
     background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><text x='20' y='120' font-size='24' font-family='Inter,Arial,sans-serif' fill='rgba(0,0,0,0.06)' transform='rotate(-30 110 110)'>ExamArchive</text></svg>");
     background-repeat: repeat;
+  }
+
+  .no-print {
+    display: none !important;
   }
 
   .print-action-controls,

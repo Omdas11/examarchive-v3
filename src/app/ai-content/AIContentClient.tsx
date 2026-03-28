@@ -511,7 +511,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                       {activeDoc.noteLength ? ` • ${activeDoc.noteLength} length` : ""}
                     </p>
                   </div>
-                  <div className="print-action-controls flex flex-wrap gap-3">
+                  <div className="print-action-controls no-print flex flex-wrap gap-3">
                     <button onClick={(e) => handlePrint(e)} className="btn inline-flex items-center gap-2">
                       <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" className="text-primary"><path fill="currentColor" d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm7 1.5V8h4.5L13 3.5ZM8 13h3v6H8v-6Zm5 0h3v6h-3v-6Zm-5-4h8v2H8v-2Z"/></svg>
                       Export as PDF

@@ -36,10 +36,8 @@ describe("AI content print/mobile styles", () => {
   });
 
   it("only reveals the printable notes container during print", () => {
-    expect(css).toMatch(/@media print[\s\S]*?body \*\s*\{\s*display:\s*none !important;\s*\}/);
-    expect(css).toMatch(
-      /@media print[\s\S]*?#printable-exam-notes,\s*#printable-exam-notes \*\s*\{\s*display:\s*block !important;\s*\}/
-    );
+    expect(css).not.toMatch(/@media print[\s\S]*?body \*\s*\{\s*display:\s*none !important;\s*\}/);
+    expect(css).toMatch(/@media print[\s\S]*?\.no-print\s*\{\s*display:\s*none !important;\s*\}/);
     expect(css).toMatch(
       /@media print[\s\S]*?#printable-exam-notes\s*\{[\s\S]*?position:\s*absolute;[\s\S]*?left:\s*0;[\s\S]*?top:\s*0;[\s\S]*?\}/
     );
