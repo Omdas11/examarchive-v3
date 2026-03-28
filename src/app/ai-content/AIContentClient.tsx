@@ -63,6 +63,9 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
   );
 
   const DAILY_LIMIT = 5;
+  const PRINT_FOOTER_MESSAGE =
+    "Thank you for generating your study notes with ExamArchive! If you found this helpful, please share it with your friends and classmates.";
+  const PRINT_FOOTER_URL = "https://www.examarchive.dev";
 
   // Fetch remaining quota and defaults on load
   useEffect(() => {
@@ -567,11 +570,10 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                       </div>
                       <div className="markdown-preview print-body" dangerouslySetInnerHTML={{ __html: activeDocHtml }} />
                       <div className="print-footer avoid-break mt-10 text-center">
-                        <p>
-                          Thank you for generating your study notes with ExamArchive! If you found this helpful, please share it with your
-                          friends and classmates.
-                        </p>
-                        <a href="https://www.examarchive.dev">https://www.examarchive.dev</a>
+                        <p>{PRINT_FOOTER_MESSAGE}</p>
+                        <a href={PRINT_FOOTER_URL} aria-label="Visit ExamArchive website">
+                          Visit ExamArchive website
+                        </a>
                       </div>
                     </div>
                   </div>
