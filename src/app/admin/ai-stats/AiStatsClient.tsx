@@ -86,8 +86,8 @@ export default function AiStatsClient() {
       <div className="flex flex-wrap gap-3">
         <StatCard label="Requests / Minute" value={stats?.rpm ?? 0} />
         <StatCard label="Requests Today" value={stats?.rpd ?? 0} />
-        <StatCard label="Daily Limit" value={stats?.limits.dailyLimit ?? 0} />
         <StatCard label="RPM Limit" value={stats?.limits.rpmLimit ?? 0} />
+        <StatCard label="Daily Limit" value={stats?.limits.dailyLimit ?? 0} />
         <StatCard label="Tokens / Request" value="Not tracked" />
       </div>
 
@@ -116,7 +116,7 @@ export default function AiStatsClient() {
         </div>
         <div className="mt-3 flex flex-wrap gap-2 text-xs text-on-surface-variant">
           <span>
-            Defaults: daily {stats?.limits?.defaults.dailyLimit ?? "—"}, rpm {stats?.limits?.defaults.rpmLimit ?? "—"}
+            Defaults: Daily {stats?.limits?.defaults.dailyLimit ?? "—"}, RPM {stats?.limits?.defaults.rpmLimit ?? "—"}
           </span>
           <span>Changes apply immediately until server restart.</span>
         </div>
