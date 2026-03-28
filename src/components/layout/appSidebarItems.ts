@@ -74,6 +74,12 @@ export const APP_SIDEBAR_ITEMS: AppSidebarItem[] = [
     roles: ["admin", "moderator", "founder"],
   },
   {
+    label: "AI Controls",
+    icon: "monitoring",
+    href: "/admin/ai-stats",
+    roles: ["admin", "founder"],
+  },
+  {
     label: "Manage Users",
     icon: "group",
     href: "/admin/users",
