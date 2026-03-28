@@ -178,6 +178,7 @@ Required sections in order:
 4) ## Two Worked Examples — fully solved with step-by-step reasoning; include final answers.
 5) ## Common Pitfalls & Exam Strategies — high-yield warnings and timing tips.
 6) ## Quick Revision Table — Markdown table of symbols, meanings, and must-know facts.
+7) ## References & Further Study — 2 to 3 realistic academic references (e.g., standard textbooks, reputable academic sites).
 
 Additional requirements:
 - Target length: about ${targetWords} words (${noteTargets.label}).

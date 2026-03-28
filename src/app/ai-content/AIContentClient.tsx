@@ -522,7 +522,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                   <p className="text-xs font-semibold uppercase tracking-wide text-on-surface-variant">
                     Export
                   </p>
-                  <div className="flex flex-col gap-2">
+                  <div className="no-print flex flex-col gap-2">
                     <p className="text-sm font-semibold text-on-surface">
                       {activeDoc.topic}
                     </p>
