@@ -519,7 +519,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
             {activeDoc && (
               <div className="card border border-outline-variant/30 print-visible">
                 <div className="flex flex-col gap-4 p-5">
-                  <p className="text-xs font-bold uppercase text-on-surface-variant" style={{ letterSpacing: "0.1em" }}>
+                  <p className="text-xs font-bold uppercase tracking-[0.1em] text-on-surface-variant">
                     EXAMARCHIVE
                   </p>
                   <div className="no-print flex flex-col gap-2">
