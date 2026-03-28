@@ -34,6 +34,11 @@ interface NoteLengthOption {
   description: string;
 }
 
+const PRINT_HEADER_BRAND = "EXAMARCHIVE";
+const PRINT_FOOTER_MESSAGE =
+  "Thank you for generating your study notes with ExamArchive! If you found this helpful, please share it with your friends and classmates.";
+const PRINT_FOOTER_URL = "https://www.examarchive.dev";
+
 export default function AIContentClient({ userRole: _userRole }: AIContentClientProps) {
   const [topic, setTopic] = useState("");
   const [noteLength, setNoteLength] = useState<NoteLength>("standard");
@@ -63,10 +68,6 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
   );
 
   const DAILY_LIMIT = 5;
-  const PRINT_HEADER_BRAND = "EXAMARCHIVE";
-  const PRINT_FOOTER_MESSAGE =
-    "Thank you for generating your study notes with ExamArchive! If you found this helpful, please share it with your friends and classmates.";
-  const PRINT_FOOTER_URL = "https://www.examarchive.dev";
 
   // Fetch remaining quota and defaults on load
   useEffect(() => {
@@ -570,7 +571,14 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                       <div className="markdown-preview print-body" dangerouslySetInnerHTML={{ __html: activeDocHtml }} />
                       <div className="print-footer avoid-break mt-10 text-center">
                         <p>{PRINT_FOOTER_MESSAGE}</p>
-                        <a href={PRINT_FOOTER_URL}>Visit ExamArchive website</a>
+                        <a
+                          href={PRINT_FOOTER_URL}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label="Visit ExamArchive website (opens in a new tab)"
+                        >
+                          Visit ExamArchive website
+                        </a>
                       </div>
                     </div>
                   </div>
