@@ -63,6 +63,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
   );
 
   const DAILY_LIMIT = 5;
+  const PRINT_HEADER_BRAND = "EXAMARCHIVE";
   const PRINT_FOOTER_MESSAGE =
     "Thank you for generating your study notes with ExamArchive! If you found this helpful, please share it with your friends and classmates.";
   const PRINT_FOOTER_URL = "https://www.examarchive.dev";
@@ -522,9 +523,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
             {activeDoc && (
               <div className="card border border-outline-variant/30 print-visible">
                 <div className="flex flex-col gap-4 p-5">
-                  <p className="text-xs font-bold uppercase tracking-[0.1em] text-on-surface-variant">
-                    EXAMARCHIVE
-                  </p>
+                  <p className="text-xs font-bold uppercase tracking-[0.1em] text-on-surface-variant">{PRINT_HEADER_BRAND}</p>
                   <div className="no-print flex flex-col gap-2">
                     <p className="text-sm font-semibold text-on-surface">
                       {activeDoc.topic}
@@ -571,9 +570,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                       <div className="markdown-preview print-body" dangerouslySetInnerHTML={{ __html: activeDocHtml }} />
                       <div className="print-footer avoid-break mt-10 text-center">
                         <p>{PRINT_FOOTER_MESSAGE}</p>
-                        <a href={PRINT_FOOTER_URL} aria-label="Visit ExamArchive website">
-                          Visit ExamArchive website
-                        </a>
+                        <a href={PRINT_FOOTER_URL}>Visit ExamArchive website</a>
                       </div>
                     </div>
                   </div>
