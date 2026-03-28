@@ -60,8 +60,6 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
   const [applyOverrideGlobally, setApplyOverrideGlobally] = useState(false);
   const loadingIntervalRef = useRef<number | null>(null);
   const originalDocumentTitleRef = useRef<string>("");
-  const [loadingSteps, setLoadingSteps] = useState<string[]>([]);
-  const [loadingStepIndex, setLoadingStepIndex] = useState(0);
   const activeDocHtml = useMemo(
     () => (activeDoc ? markdownToHtmlWithKatex(activeDoc.content) : ""),
     [activeDoc],
@@ -188,13 +186,10 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
       "Finalizing PDF-ready output",
     ];
     let stepIndex = 0;
-    setLoadingSteps(steps);
-    setLoadingStepIndex(0);
     setLoadingStep(steps[0]);
     loadingIntervalRef.current = window.setInterval(() => {
       stepIndex = Math.min(stepIndex + 1, steps.length - 1);
       setLoadingStep(steps[stepIndex]);
-      setLoadingStepIndex(stepIndex);
     }, 900);
     setError(null);
 
@@ -503,7 +498,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                      disabled={generating || !topic.trim() || !canGenerate}
                     className="btn-primary inline-flex items-center gap-2 rounded-xl px-5 py-2 text-sm shadow-md disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {generating ? `Generating… (${loadingStep})` : "✨ Generate Notes"}
+                    {generating ? "AI is compiling your notes..." : "✨ Generate Notes"}
                   </button>
                 </div>
 
@@ -583,19 +578,16 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                     </div>
                   </div>
                 </div>
-                {generating && loadingSteps.length > 0 && (
-                  <div className="mt-3 flex flex-col items-start gap-2">
-                    {loadingSteps.map((step, idx) => (
-                      <div key={step} className="flex items-start gap-2 text-xs text-on-surface-variant">
-                        <span
-                          className={`mt-[2px] inline-flex h-3 w-3 rounded-full ${
-                            idx < loadingStepIndex ? "bg-primary" : idx === loadingStepIndex ? "bg-primary/70 animate-pulse" : "bg-outline-variant/60"
-                          }`}
-                          aria-hidden="true"
-                        />
-                        <span className={idx === loadingStepIndex ? "text-on-surface font-medium" : ""}>{step}</span>
-                      </div>
-                    ))}
+                {generating && (
+                  <div className="mt-3 inline-flex items-center gap-2 text-sm text-on-surface-variant" aria-live="polite">
+                    <span className="sr-only">{loadingStep}</span>
+                    <span className="inline-flex items-end gap-1" aria-hidden="true">
+                      <span className="h-2 w-2 rounded-full bg-primary animate-bounce" />
+                      <span className="h-2 w-2 rounded-full bg-primary animate-bounce [animation-delay:150ms]" />
+                    <span className="h-2 w-2 rounded-full bg-primary animate-bounce [animation-delay:300ms]" />
+                    </span>
+                    <span>AI is compiling your notes...</span>
+                    <span className="text-xs">({loadingStep})</span>
                   </div>
                 )}
               </div>

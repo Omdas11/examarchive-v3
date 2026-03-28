@@ -171,10 +171,16 @@ Strict formatting:
 - Never use \\(...\\) or \\[...\\] delimiters.
 - Do NOT mix plain text with math symbols; wrap every symbol/variable in LaTeX.
 
+Before generating the notes, silently analyze the topic's academic domain and adapt section headings accordingly:
+- For STEM (Math, Physics, Engineering): use "Derivations & Step-by-Step Methodologies" and include strict mathematical proofs.
+- For Humanities & Arts (History, Literature, Sociology): replace derivations with "Historical Context & Critical Analysis" or "Major Themes & Case Studies"; do not invent math.
+- For Business & Commerce: use "Core Frameworks", "Real-World Applications", and "Economic Impact".
+- For Computer Science: use "Algorithmic Logic", "Complexity Analysis", and "Implementation Insights".
+
 Required sections in order:
 1) ## Precise Definition — concise, domain-accurate definition.
 2) ## Core Theories & Methodologies — key laws/principles; cite assumptions.
-3) ## Derivations & Steps — show step-by-step logic for important formulas (LaTeX).
+3) ## Domain-Specific Deep Dive — use the domain-appropriate heading/rules above.
 4) ## Two Worked Examples — fully solved with step-by-step reasoning; include final answers.
 5) ## Common Pitfalls & Exam Strategies — high-yield warnings and timing tips.
 6) ## Quick Revision Table — Markdown table of symbols, meanings, and must-know facts.

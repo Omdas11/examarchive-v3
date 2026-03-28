@@ -67,4 +67,10 @@ describe("AI content print/mobile styles", () => {
   it("hides ghost/mobile preview containers during print", () => {
     expect(css).toMatch(/@media print[\s\S]*?\.print-ghost-preview\s*\{\s*display:\s*none !important;\s*\}/);
   });
+
+  it("keeps print footer visible and break-safe in print media", () => {
+    expect(css).toMatch(
+      /@media print[\s\S]*?\.print-footer\s*\{[\s\S]*?page-break-inside:\s*avoid;[\s\S]*?display:\s*block !important;[\s\S]*?margin-top:\s*40px !important;[\s\S]*?\}/
+    );
+  });
 });

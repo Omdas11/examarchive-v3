@@ -1162,6 +1162,13 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
     display: none !important;
   }
 
+  .print-footer {
+    page-break-inside: avoid;
+    break-inside: avoid;
+    display: block !important;
+    margin-top: 40px !important;
+  }
+
   p,
   table,
   .katex-display,
