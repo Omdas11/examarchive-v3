@@ -82,15 +82,11 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
     () => (activeDocHtml ? DOMPurify.sanitize(activeDocHtml) : ""),
     [activeDocHtml],
   );
-  const lastUpdatedLabel = useMemo(
-    () =>
-      new Date().toLocaleDateString(undefined, {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      }),
-    [],
-  );
+  const lastUpdatedLabel = new Date().toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 
   const DAILY_LIMIT = 5;
 
@@ -470,7 +466,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                     </p>
                     <div className="rounded-xl border border-outline-variant/30 bg-surface p-3 text-sm text-on-surface flex items-center justify-between">
                       <div>
-                        <p className="font-semibold">Gemini 3.1 Flash</p>
+                        <p className="font-semibold">{DEFAULT_MODEL_LABEL}</p>
                         <p className="text-xs text-on-surface-variant">Active default model (auto-selected)</p>
                       </div>
                       <span className="rounded-full bg-primary/10 px-3 py-1 text-[11px] font-semibold text-primary">
@@ -763,6 +759,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                 className="btn-primary inline-flex items-center gap-2"
                 onClick={() => {
                   setShowDownloadModal(false);
+                  // Small delay lets the modal close paint before the print dialog opens.
                   setTimeout(() => handlePrint(), 150);
                 }}
               >
