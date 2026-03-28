@@ -33,26 +33,6 @@ interface NoteLengthOption {
   description: string;
 }
 
-type JsPdfInstance = {
-  internal: { getNumberOfPages: () => number; pageSize: { getWidth: () => number; getHeight: () => number } };
-  setPage: (page: number) => void;
-  setFontSize: (size: number) => void;
-  setTextColor: (r: number, g: number, b: number) => void;
-  text: (text: string, x: number, y: number, options?: { align?: "left" | "center" | "right" }) => void;
-  output: (type: "blob" | string) => Blob;
-  save: (filename: string) => void;
-};
-
-type Html2PdfWorker = {
-  set: (options: Record<string, unknown>) => Html2PdfWorker;
-  toPdf: () => Promise<Html2PdfWorker>;
-  get: (key: "pdf") => Promise<JsPdfInstance>;
-};
-
-function isHtml2PdfFactory(value: unknown): value is (source: HTMLElement) => Html2PdfWorker {
-  return typeof value === "function";
-}
-
 export default function AIContentClient({ userRole: _userRole }: AIContentClientProps) {
   const [topic, setTopic] = useState("");
   const [noteLength, setNoteLength] = useState<NoteLength>("standard");
@@ -70,11 +50,9 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
   const [paperSearch, setPaperSearch] = useState("");
   const [selectedPaperId, setSelectedPaperId] = useState<string>("");
   const [paperLoading, setPaperLoading] = useState(false);
-  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [adminModelOverride, setAdminModelOverride] = useState("");
   const [applyOverrideGlobally, setApplyOverrideGlobally] = useState(false);
   const loadingIntervalRef = useRef<number | null>(null);
-  const exportRef = useRef<HTMLDivElement | null>(null);
   const [loadingSteps, setLoadingSteps] = useState<string[]>([]);
   const [loadingStepIndex, setLoadingStepIndex] = useState(0);
   const activeDocHtml = useMemo(
@@ -140,11 +118,8 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
         window.clearInterval(loadingIntervalRef.current);
         loadingIntervalRef.current = null;
       }
-      if (pdfPreviewUrl) {
-        window.URL.revokeObjectURL(pdfPreviewUrl);
-      }
     };
-  }, [pdfPreviewUrl]);
+  }, []);
 
   const selectedPaper = useMemo(
     () => papers.find((paper) => paper.id === selectedPaperId) ?? null,
@@ -281,69 +256,11 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
     }
   }
 
-  async function handlePrint(event?: React.MouseEvent, mode: "download" | "preview" = "download") {
-    if (event) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
+  function handlePrint(event?: React.MouseEvent) {
+    event?.preventDefault();
+    event?.stopPropagation();
     if (!activeDoc) return;
-    if (!exportRef.current) return;
-
-    try {
-      const html2pdfModule = await import("html2pdf.js");
-      const candidate = (html2pdfModule as { default?: unknown }).default;
-      if (!isHtml2PdfFactory(candidate)) {
-        throw new Error("html2pdf.js module is unavailable or has an unexpected export shape.");
-      }
-      const html2pdf = candidate;
-
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      const filename = `${activeDoc.topic.replace(/[^a-zA-Z0-9]/g, "_")}_${new Date().toISOString().slice(0, 10)}.pdf`;
-      const topicTitle = activeDoc.topic || "ExamArchive Notes";
-      const worker: Html2PdfWorker = html2pdf(exportRef.current).set({
-        margin: [15, 15, 15, 15],
-        filename,
-        html2canvas: { scale: 2, useCORS: true, logging: false },
-        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-        pagebreak: { mode: ["avoid-all", "css", "legacy"], avoid: [".equation-block", "table", "pre", "blockquote"] },
-      });
-
-      await worker.toPdf();
-      const pdf = await worker.get("pdf");
-      const totalPages = pdf.internal.getNumberOfPages();
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      for (let i = 1; i <= totalPages; i += 1) {
-        pdf.setPage(i);
-        pdf.setFontSize(11);
-        pdf.setTextColor(20, 39, 82);
-        pdf.text(`ExamArchive — ${topicTitle}`, 20, 12);
-        pdf.setFontSize(9);
-        pdf.setTextColor(90, 96, 111);
-        pdf.text(`Page ${i} of ${totalPages}`, pageWidth - 20, pageHeight - 10, { align: "right" });
-      }
-
-      if (mode === "preview") {
-        const arrayBuffer = pdf.output("arraybuffer");
-        const blob = new Blob([arrayBuffer], { type: "application/pdf" });
-        const url = window.URL.createObjectURL(blob);
-        if (pdfPreviewUrl) {
-          window.URL.revokeObjectURL(pdfPreviewUrl);
-        }
-        setPdfPreviewUrl(url);
-        return;
-      }
-
-      pdf.save(filename);
-      if (pdfPreviewUrl) {
-        window.URL.revokeObjectURL(pdfPreviewUrl);
-      }
-      setPdfPreviewUrl(null);
-    } catch (error) {
-      console.error("PDF generation error:", error);
-      alert("Failed to generate PDF. Please try again.");
-    }
+    window.print();
   }
 
   const canGenerate = isAdminPlus || remaining === null || remaining > 0;
@@ -594,13 +511,13 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                       {activeDoc.noteLength ? ` • ${activeDoc.noteLength} length` : ""}
                     </p>
                   </div>
-                  <div className="flex flex-wrap gap-3">
-                    <button onClick={(e) => handlePrint(e, "download")} className="btn inline-flex items-center gap-2">
+                  <div className="print-action-controls flex flex-wrap gap-3">
+                    <button onClick={(e) => handlePrint(e)} className="btn inline-flex items-center gap-2">
                       <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" className="text-primary"><path fill="currentColor" d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm7 1.5V8h4.5L13 3.5ZM8 13h3v6H8v-6Zm5 0h3v6h-3v-6Zm-5-4h8v2H8v-2Z"/></svg>
                       Export as PDF
                     </button>
                     <button
-                      onClick={(e) => handlePrint(e, "preview")}
+                      onClick={(e) => handlePrint(e)}
                       className="btn inline-flex items-center gap-2"
                     >
                       <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" className="text-primary"><path fill="currentColor" d="M12 5c5 0 9 4 10 7-1 3-5 7-10 7s-9-4-10-7c1-3 5-7 10-7Zm0 2c-3.53 0-6.43 2.61-7.62 5C5.57 14.39 8.47 17 12 17s6.43-2.61 7.62-5C18.43 9.61 15.53 7 12 7Zm0 2a3 3 0 1 1 0 6a3 3 0 0 1 0-6Zm0 2a1 1 0 1 0 0 2a1 1 0 0 0 0-2Z"/></svg>
@@ -612,23 +529,6 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                       </div>
                     )}
                   </div>
-                  {pdfPreviewUrl && (
-                    <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-3">
-                      <div className="flex items-center justify-between text-xs text-on-surface-variant mb-2">
-                        <span>PDF Preview</span>
-                        <button
-                          type="button"
-                          className="underline"
-                          onClick={() => {
-                            window.open(pdfPreviewUrl, "_blank");
-                          }}
-                        >
-                          Open in new tab
-                        </button>
-                      </div>
-                      <iframe title="PDF preview" src={pdfPreviewUrl} className="h-96 w-full rounded-lg border border-outline-variant/30" />
-                    </div>
-                  )}
                   <div
                     className="max-h-[520px] overflow-auto rounded-xl border border-outline-variant/30 bg-surface-container-low p-4 text-sm leading-7 text-on-surface shadow-inner"
                     style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
@@ -636,7 +536,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                     <div className="markdown-preview" dangerouslySetInnerHTML={{ __html: activeDocHtml }} />
                   </div>
                   <div className="pdf-export-source print-root-wrapper" aria-hidden="true">
-                    <div ref={exportRef} className="print-root">
+                    <div className="print-root">
                       <div className="print-title-block avoid-break">
                         <h1>{activeDoc.topic}</h1>
                         <p>
