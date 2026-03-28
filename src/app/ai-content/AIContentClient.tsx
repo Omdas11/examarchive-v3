@@ -13,6 +13,18 @@ import type { Paper } from "@/types";
 import "katex/dist/katex.min.css";
 import DOMPurify from "dompurify";
 
+const DEFAULT_MODEL_LABEL = "Gemini 3.1 Flash";
+
+function LoadingDots() {
+  return (
+    <span className="inline-flex items-end gap-1" aria-hidden="true">
+      <span className="h-2 w-2 rounded-full bg-primary animate-bounce" />
+      <span className="h-2 w-2 rounded-full bg-primary animate-bounce [animation-delay:150ms]" />
+      <span className="h-2 w-2 rounded-full bg-primary animate-bounce [animation-delay:300ms]" />
+    </span>
+  );
+}
+
 interface GeneratedDoc {
   topic: string;
   content: string;
@@ -48,6 +60,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
   const [loadingStep, setLoadingStep] = useState("Preparing");
   const [documents, setDocuments] = useState<GeneratedDoc[]>([]);
   const [remaining, setRemaining] = useState<number | null>(null);
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
   const [isFounder, setIsFounder] = useState(_userRole === "founder");
   const [isAdminPlus, setIsAdminPlus] = useState(_userRole === "founder" || _userRole === "admin");
   const [useWebSearch, setUseWebSearch] = useState(true);
@@ -68,6 +81,15 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
   const sanitizedActiveDocHtml = useMemo(
     () => (activeDocHtml ? DOMPurify.sanitize(activeDocHtml) : ""),
     [activeDocHtml],
+  );
+  const lastUpdatedLabel = useMemo(
+    () =>
+      new Date().toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      }),
+    [],
   );
 
   const DAILY_LIMIT = 5;
@@ -230,7 +252,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
         content: data.content,
         generatedAt: data.generatedAt,
         model: data.model,
-        modelLabel: data.model,
+        modelLabel: data.model_label || data.model || DEFAULT_MODEL_LABEL,
         sources: Array.isArray(data.sources) ? data.sources : [],
         pageLength: typeof data.pageLength === "number" ? data.pageLength : undefined,
         noteLength: normalizeNoteLength(data.noteLength ?? noteLength),
@@ -288,7 +310,9 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
   }
 
   const canGenerate = isAdminPlus || remaining === null || remaining > 0;
-  const modelDisplay = activeDoc ? activeDoc.modelLabel || activeDoc.model || activeDoc.modelName : undefined;
+  const modelDisplay = activeDoc
+    ? activeDoc.modelLabel || activeDoc.model || activeDoc.modelName || DEFAULT_MODEL_LABEL
+    : DEFAULT_MODEL_LABEL;
 
   return (
     <div className="relative min-h-screen bg-surface px-4 py-8 text-on-surface">
@@ -315,6 +339,9 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                 Web updates on
               </span>
             )}
+            <span className="rounded-full bg-surface-container-low px-3 py-1 text-on-surface">
+              Last Updated: {lastUpdatedLabel}
+            </span>
           </div>
         </header>
 
@@ -442,9 +469,17 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                       AI Analysis Model
                     </p>
                     <div className="rounded-xl border border-outline-variant/30 bg-surface p-3 text-sm text-on-surface flex items-center justify-between">
-                      <span className="font-semibold">Auto-select best free model</span>
-                      <span className="text-xs text-on-surface-variant">Fallback across curated pool</span>
+                      <div>
+                        <p className="font-semibold">Gemini 3.1 Flash</p>
+                        <p className="text-xs text-on-surface-variant">Active default model (auto-selected)</p>
+                      </div>
+                      <span className="rounded-full bg-primary/10 px-3 py-1 text-[11px] font-semibold text-primary">
+                        Default
+                      </span>
                     </div>
+                    <p className="text-xs text-on-surface-variant">
+                      We prioritize Gemini 3.1 Flash for analysis and gracefully fall back to a curated pool if needed.
+                    </p>
                     <label className="flex items-center gap-2 text-xs text-on-surface-variant">
                       <input
                         type="checkbox"
@@ -503,7 +538,14 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                      disabled={generating || !topic.trim() || !canGenerate}
                     className="btn-primary inline-flex items-center gap-2 rounded-xl px-5 py-2 text-sm shadow-md disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {generating ? "AI is compiling your notes..." : "✨ Generate Notes"}
+                    {generating ? (
+                      <span className="flex items-center gap-2">
+                        <span>AI is compiling your notes...</span>
+                        <LoadingDots />
+                      </span>
+                    ) : (
+                      "✨ Generate Notes"
+                    )}
                   </button>
                 </div>
 
@@ -534,10 +576,31 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                       {activeDoc.noteLength ? ` • ${activeDoc.noteLength} length` : ""}
                     </p>
                   </div>
-                  <div className="print-action-controls no-print flex flex-wrap gap-3">
+                  <div className="print-action-controls no-print flex flex-wrap items-center gap-3">
+                    <button
+                      onClick={() => setShowDownloadModal(true)}
+                      className="btn inline-flex items-center gap-2"
+                    >
+                      <svg
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                        focusable="false"
+                        className="text-primary"
+                      >
+                        <path
+                          fill="currentColor"
+                          d="M12 16a1 1 0 0 1-.7-.29l-4-4 1.4-1.42L11 12.59V3h2v9.59l2.3-2.3 1.4 1.42-4 4a1 1 0 0 1-.7.29ZM5 19v-4h2v3h10v-3h2v4a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2Z"
+                        />
+                      </svg>
+                      Download PDF
+                    </button>
                     <button onClick={(e) => handlePrint(e)} className="btn inline-flex items-center gap-2">
-                      <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" className="text-primary"><path fill="currentColor" d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm7 1.5V8h4.5L13 3.5ZM8 13h3v6H8v-6Zm5 0h3v6h-3v-6Zm-5-4h8v2H8v-2Z"/></svg>
-                      PRINT PDF
+                      <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" className="text-primary">
+                        <path fill="currentColor" d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm7 1.5V8h4.5L13 3.5ZM8 13h3v6H8v-6Zm5 0h3v6h-3v-6Zm-5-4h8v2H8v-2Z" />
+                      </svg>
+                      Print Preview
                     </button>
                     {activeDoc.sources && activeDoc.sources.length > 0 && (
                       <div className="flex items-center gap-2 rounded-full bg-surface-container-low px-3 py-1 text-xs text-on-surface-variant">
@@ -584,15 +647,11 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                   </div>
                 </div>
                 {generating && (
-                  <div className="mt-3 inline-flex items-center gap-2 text-sm text-on-surface-variant" aria-live="polite">
+                  <div className="mt-3 inline-flex flex-wrap items-center gap-2 text-sm text-on-surface-variant" aria-live="polite">
                     <span className="sr-only">{loadingStep}</span>
-                    <span className="inline-flex items-end gap-1" aria-hidden="true">
-                      <span className="h-2 w-2 rounded-full bg-primary animate-bounce" />
-                      <span className="h-2 w-2 rounded-full bg-primary animate-bounce [animation-delay:150ms]" />
-                    <span className="h-2 w-2 rounded-full bg-primary animate-bounce [animation-delay:300ms]" />
-                    </span>
+                    <LoadingDots />
                     <span>AI is compiling your notes...</span>
-                    <span className="text-xs">({loadingStep})</span>
+                    <span className="text-xs text-on-surface-variant">({loadingStep})</span>
                   </div>
                 )}
               </div>
@@ -669,6 +728,50 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
           </div>
         </div>
       </div>
+      {showDownloadModal && (
+        <div className="no-print fixed inset-0 z-40 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-lg rounded-2xl bg-surface p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-primary">Export helper</p>
+                <h2 className="text-xl font-bold text-on-surface">How to Download your Notes</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDownloadModal(false)}
+                aria-label="Close download instructions"
+                className="rounded-full bg-surface-container-low px-2 py-1 text-sm text-on-surface-variant transition hover:text-on-surface"
+              >
+                ✕
+              </button>
+            </div>
+            <ul className="mt-4 list-decimal space-y-2 pl-5 text-sm text-on-surface">
+              <li>Change the destination to Save as PDF.</li>
+              <li>Set Paper Size to ISO A4.</li>
+              <li>Click Save.</li>
+            </ul>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowDownloadModal(false)}
+                className="btn border border-outline-variant/40 bg-surface text-on-surface"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn-primary inline-flex items-center gap-2"
+                onClick={() => {
+                  setShowDownloadModal(false);
+                  setTimeout(() => handlePrint(), 150);
+                }}
+              >
+                Got it, let&apos;s go!
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
