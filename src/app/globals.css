@@ -1016,7 +1016,7 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
 }
 
 @page {
-  margin: 20mm;
+  margin: 12mm;
 }
 
 @media print {
@@ -1050,18 +1050,21 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
 
   /* Only expose printable notes; hide all other DOM during print */
   body * {
-    visibility: hidden;
+    display: none !important;
   }
 
   #printable-exam-notes,
   #printable-exam-notes * {
-    visibility: visible;
+    display: block !important;
   }
 
   #printable-exam-notes {
     position: absolute;
     left: 0;
     top: 0;
+    padding: 0 !important;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><text x='20' y='120' font-size='24' font-family='Inter,Arial,sans-serif' fill='rgba(0,0,0,0.06)' transform='rotate(-30 110 110)'>ExamArchive</text></svg>");
+    background-repeat: repeat;
   }
 
   .print-action-controls,

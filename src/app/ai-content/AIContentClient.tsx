@@ -545,6 +545,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                         <h1>{activeDoc.topic}</h1>
                         <p>
                           Generated {new Date(activeDoc.generatedAt).toLocaleString()}
+                          {activeDoc.modelLabel || activeDoc.model ? ` • Model: ${activeDoc.modelLabel || activeDoc.model}` : ""}
                           {activeDoc.noteLength ? ` • ${activeDoc.noteLength} length` : ""}
                         </p>
                       </div>

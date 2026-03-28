@@ -36,12 +36,17 @@ describe("AI content print/mobile styles", () => {
   });
 
   it("only reveals the printable notes container during print", () => {
-    expect(css).toMatch(/@media print[\s\S]*?body \*\s*\{\s*visibility:\s*hidden;\s*\}/);
+    expect(css).toMatch(/@media print[\s\S]*?body \*\s*\{\s*display:\s*none !important;\s*\}/);
     expect(css).toMatch(
-      /@media print[\s\S]*?#printable-exam-notes,\s*#printable-exam-notes \*\s*\{\s*visibility:\s*visible;\s*\}/
+      /@media print[\s\S]*?#printable-exam-notes,\s*#printable-exam-notes \*\s*\{\s*display:\s*block !important;\s*\}/
     );
     expect(css).toMatch(
-      /@media print[\s\S]*?#printable-exam-notes\s*\{\s*position:\s*absolute;\s*left:\s*0;\s*top:\s*0;\s*\}/
+      /@media print[\s\S]*?#printable-exam-notes\s*\{[\s\S]*?position:\s*absolute;[\s\S]*?left:\s*0;[\s\S]*?top:\s*0;[\s\S]*?\}/
     );
+  });
+
+  it("applies compact margins and tiling watermark to printable container", () => {
+    expect(css).toMatch(/@page\s*\{\s*margin:\s*12mm;\s*\}/);
+    expect(css).toMatch(/@media print[\s\S]*?#printable-exam-notes\s*\{[\s\S]*?padding:\s*0 !important;[\s\S]*?background-image:\s*url\("data:image\/svg\+xml;utf8,[\s\S]*?ExamArchive[\s\S]*?"\);[\s\S]*?background-repeat:\s*repeat;[\s\S]*?\}/);
   });
 });
