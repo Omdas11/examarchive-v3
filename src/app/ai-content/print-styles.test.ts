@@ -46,5 +46,11 @@ describe("AI content print/mobile styles", () => {
   it("applies compact margins and tiling watermark to printable container", () => {
     expect(css).toMatch(/@page\s*\{\s*margin:\s*12mm;\s*\}/);
     expect(css).toMatch(/@media print[\s\S]*?#printable-exam-notes\s*\{[\s\S]*?padding:\s*0 !important;[\s\S]*?background-image:\s*url\("data:image\/svg\+xml;utf8,[\s\S]*?ExamArchive[\s\S]*?"\);[\s\S]*?background-repeat:\s*repeat;[\s\S]*?\}/);
+    expect(css).toMatch(/@media print[\s\S]*?#printable-exam-notes\s*\{[\s\S]*?-webkit-print-color-adjust:\s*exact !important;[\s\S]*?print-color-adjust:\s*exact !important;[\s\S]*?\}/);
+  });
+
+  it("locks print typography sizing for main text elements", () => {
+    expect(css).toMatch(/@media print[\s\S]*?#printable-exam-notes p[\s\S]*font-size:\s*11pt !important;[\s\S]*line-height:\s*1\.5 !important;/);
+    expect(css).toMatch(/@media print[\s\S]*?#printable-exam-notes p[\s\S]*-webkit-text-size-adjust:\s*100%;[\s\S]*text-size-adjust:\s*100%;/);
   });
 });
