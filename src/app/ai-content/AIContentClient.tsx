@@ -13,7 +13,7 @@ import type { Paper } from "@/types";
 import "katex/dist/katex.min.css";
 import DOMPurify from "dompurify";
 
-const DEFAULT_MODEL_LABEL = "Gemini 3.1 Flash";
+const DEFAULT_MODEL_LABEL = "Gemini 3.1 Flash Lite (Preview)";
 
 function LoadingDots() {
   return (
@@ -74,6 +74,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
   const [applyOverrideGlobally, setApplyOverrideGlobally] = useState(false);
   const loadingIntervalRef = useRef<number | null>(null);
   const originalDocumentTitleRef = useRef<string>("");
+  const downloadModalRef = useRef<HTMLDivElement | null>(null);
   const activeDocHtml = useMemo(
     () => (activeDoc ? markdownToHtmlWithKatex(activeDoc.content) : ""),
     [activeDoc],
@@ -82,11 +83,6 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
     () => (activeDocHtml ? DOMPurify.sanitize(activeDocHtml) : ""),
     [activeDocHtml],
   );
-  const lastUpdatedLabel = new Date().toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
 
   const DAILY_LIMIT = 5;
 
@@ -148,6 +144,12 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (showDownloadModal && downloadModalRef.current) {
+      downloadModalRef.current.focus();
+    }
+  }, [showDownloadModal]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -248,7 +250,11 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
         content: data.content,
         generatedAt: data.generatedAt,
         model: data.model,
-        modelLabel: data.model_label || data.model || DEFAULT_MODEL_LABEL,
+        modelLabel: data.model
+          ? data.model.includes("gemini-3.1-flash-lite")
+            ? DEFAULT_MODEL_LABEL
+            : data.model
+          : DEFAULT_MODEL_LABEL,
         sources: Array.isArray(data.sources) ? data.sources : [],
         pageLength: typeof data.pageLength === "number" ? data.pageLength : undefined,
         noteLength: normalizeNoteLength(data.noteLength ?? noteLength),
@@ -309,6 +315,10 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
   const modelDisplay = activeDoc
     ? activeDoc.modelLabel || activeDoc.model || activeDoc.modelName || DEFAULT_MODEL_LABEL
     : DEFAULT_MODEL_LABEL;
+  const latestGeneratedAt = documents[0]?.generatedAt ?? activeDoc?.generatedAt ?? null;
+  const lastGeneratedLabel = latestGeneratedAt
+    ? `Last generated: ${new Date(latestGeneratedAt).toLocaleString()}`
+    : "Ready for a fresh generation";
 
   return (
     <div className="relative min-h-screen bg-surface px-4 py-8 text-on-surface">
@@ -336,7 +346,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
               </span>
             )}
             <span className="rounded-full bg-surface-container-low px-3 py-1 text-on-surface">
-              Last Updated: {lastUpdatedLabel}
+              {lastGeneratedLabel}
             </span>
           </div>
         </header>
@@ -467,14 +477,14 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                     <div className="rounded-xl border border-outline-variant/30 bg-surface p-3 text-sm text-on-surface flex items-center justify-between">
                       <div>
                         <p className="font-semibold">{DEFAULT_MODEL_LABEL}</p>
-                        <p className="text-xs text-on-surface-variant">Active default model (auto-selected)</p>
+                        <p className="text-xs text-on-surface-variant">Server default (auto-selected)</p>
                       </div>
                       <span className="rounded-full bg-primary/10 px-3 py-1 text-[11px] font-semibold text-primary">
                         Default
                       </span>
                     </div>
                     <p className="text-xs text-on-surface-variant">
-                      We prioritize Gemini 3.1 Flash for analysis and gracefully fall back to a curated pool if needed.
+                      Default model ID: gemini-3.1-flash-lite-preview. We prioritize Gemini-first analysis and gracefully fall back to a curated pool when needed.
                     </p>
                     <label className="flex items-center gap-2 text-xs text-on-surface-variant">
                       <input
@@ -726,11 +736,27 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
       </div>
       {showDownloadModal && (
         <div className="no-print fixed inset-0 z-40 flex items-center justify-center bg-black/50 px-4">
-          <div className="w-full max-w-lg rounded-2xl bg-surface p-6 shadow-2xl">
+          <div
+            className="w-full max-w-lg rounded-2xl bg-surface p-6 shadow-2xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="download-modal-title"
+            tabIndex={-1}
+            ref={downloadModalRef}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.preventDefault();
+                event.stopPropagation();
+                setShowDownloadModal(false);
+              }
+            }}
+          >
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold text-primary">Export helper</p>
-                <h2 className="text-xl font-bold text-on-surface">How to Download your Notes</h2>
+                <h2 id="download-modal-title" className="text-xl font-bold text-on-surface">
+                  How to Download your Notes
+                </h2>
               </div>
               <button
                 type="button"
