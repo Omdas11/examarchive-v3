@@ -909,6 +909,8 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
 .markdown-preview {
   white-space: normal;
   font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 .markdown-preview h1,
 .markdown-preview h2,
@@ -939,6 +941,7 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
 .markdown-preview table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
 }
 .markdown-preview th,
 .markdown-preview td {
@@ -960,6 +963,16 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
   page-break-inside: avoid;
   break-inside: avoid;
 }
+.markdown-preview pre,
+.markdown-preview table,
+.markdown-preview .katex-display {
+  max-width: 100%;
+}
+.markdown-preview pre,
+.markdown-preview .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
 .print-root {
   max-width: 794px;
   margin: 0 auto;
@@ -973,12 +986,7 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
   background-size: 260px 260px;
 }
 .pdf-export-source {
-  position: fixed;
-  left: -10000px;
-  top: 0;
-  width: 794px;
-  z-index: -1;
-  pointer-events: none;
+  display: none;
 }
 .print-title-block h1 {
   margin: 0 0 0.25rem;
@@ -1041,6 +1049,12 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
     max-width: none;
     margin: 0;
     padding: 0;
+    overflow: visible;
+  }
+
+  .pdf-export-source {
+    display: block !important;
+    width: auto !important;
   }
 
   .katex,
@@ -1055,5 +1069,13 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
   h1, h2, h3, h4, pre, blockquote {
     page-break-inside: avoid;
     break-inside: avoid;
+  }
+}
+
+@media (max-width: 640px) {
+  .markdown-preview table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 }
