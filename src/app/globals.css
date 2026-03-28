@@ -1020,6 +1020,34 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
 }
 
 @media print {
+  html,
+  body,
+  #root,
+  #__next {
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+
+  /* Ensure the top-level app shell (MainLayout wrapper) loses flex constraints */
+  #__next > div {
+    display: block !important;
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Allow page content containers to paginate naturally */
+  main,
+  main > div,
+  main > section {
+    display: block !important;
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+  }
+
   .print-action-controls,
   .btn,
   .btn-primary,

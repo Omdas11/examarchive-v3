@@ -25,4 +25,13 @@ describe("AI content print/mobile styles", () => {
       /@media \(max-width:\s*640px\)\s*\{[\s\S]*?\.markdown-preview table\s*\{\s*display:\s*block;[\s\S]*?overflow-x:\s*auto;[\s\S]*?\}/
     );
   });
+
+  it("relaxes parent layout constraints in print to avoid blank pages", () => {
+    expect(css).toMatch(
+      /@media print[\s\S]*?html,\s*body,\s*#root,\s*#__next\s*\{[\s\S]*?height:\s*auto !important;[\s\S]*?overflow:\s*visible !important;[\s\S]*?display:\s*block !important;[\s\S]*?\}/
+    );
+    expect(css).toMatch(
+      /@media print[\s\S]*?#__next > div\s*\{[\s\S]*?display:\s*block !important;[\s\S]*?height:\s*auto !important;[\s\S]*?overflow:\s*visible !important;[\s\S]*?\}/
+    );
+  });
 });
