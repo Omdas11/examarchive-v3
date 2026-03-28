@@ -3,12 +3,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { CoursePrefsPayload } from "@/lib/pdf-rag";
+import { markdownToHtmlWithKatex } from "@/lib/client-markdown";
 import {
   getNoteLengthOptions,
   normalizeNoteLength,
   type NoteLength,
 } from "@/lib/note-length";
 import type { Paper } from "@/types";
+import "katex/dist/katex.min.css";
+import DOMPurify from "dompurify";
 
 interface GeneratedDoc {
   topic: string;
@@ -16,6 +19,7 @@ interface GeneratedDoc {
   generatedAt: string;
   model?: string;
   modelLabel?: string;
+  modelName?: string;
   sources?: string[];
   pageLength?: number;
   noteLength?: NoteLength;
@@ -30,6 +34,11 @@ interface NoteLengthOption {
   label: string;
   description: string;
 }
+
+const PRINT_HEADER_BRAND = "EXAMARCHIVE";
+const PRINT_FOOTER_MESSAGE =
+  "Thank you for generating your study notes with ExamArchive! If you found this helpful, please share it with your friends and classmates.";
+const PRINT_FOOTER_URL = "https://www.examarchive.dev";
 
 export default function AIContentClient({ userRole: _userRole }: AIContentClientProps) {
   const [topic, setTopic] = useState("");
@@ -48,10 +57,18 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
   const [paperSearch, setPaperSearch] = useState("");
   const [selectedPaperId, setSelectedPaperId] = useState<string>("");
   const [paperLoading, setPaperLoading] = useState(false);
-  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [adminModelOverride, setAdminModelOverride] = useState("");
   const [applyOverrideGlobally, setApplyOverrideGlobally] = useState(false);
   const loadingIntervalRef = useRef<number | null>(null);
+  const originalDocumentTitleRef = useRef<string>("");
+  const activeDocHtml = useMemo(
+    () => (activeDoc ? markdownToHtmlWithKatex(activeDoc.content) : ""),
+    [activeDoc],
+  );
+  const sanitizedActiveDocHtml = useMemo(
+    () => (activeDocHtml ? DOMPurify.sanitize(activeDocHtml) : ""),
+    [activeDocHtml],
+  );
 
   const DAILY_LIMIT = 5;
 
@@ -111,11 +128,25 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
         window.clearInterval(loadingIntervalRef.current);
         loadingIntervalRef.current = null;
       }
-      if (pdfPreviewUrl) {
-        window.URL.revokeObjectURL(pdfPreviewUrl);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    originalDocumentTitleRef.current = document.title;
+    return () => {
+      if (originalDocumentTitleRef.current) {
+        document.title = originalDocumentTitleRef.current;
       }
     };
-  }, [pdfPreviewUrl]);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (activeDoc?.topic) {
+      document.title = `${activeDoc.topic}_Notes`;
+    }
+  }, [activeDoc?.topic]);
 
   const selectedPaper = useMemo(
     () => papers.find((paper) => paper.id === selectedPaperId) ?? null,
@@ -249,60 +280,21 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
     }
   }
 
-  async function handlePrint(mode: "download" | "preview" = "download") {
+  function handlePrint(event?: React.MouseEvent) {
+    event?.preventDefault();
+    event?.stopPropagation();
     if (!activeDoc) return;
-
-    try {
-      const response = await fetch("/api/ai/pdf", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          content: activeDoc.content,
-          topic: activeDoc.topic,
-          pageLength: activeDoc.pageLength || undefined,
-          noteLength: activeDoc.noteLength ?? noteLength,
-          model: activeDoc.model,
-          modelLabel: activeDoc.modelLabel,
-          generatedAt: activeDoc.generatedAt,
-        }),
-      });
-
-      if (!response.ok) {
-        alert("Failed to generate PDF. Please try again.");
-        return;
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-
-      if (mode === "preview") {
-        if (pdfPreviewUrl) {
-          window.URL.revokeObjectURL(pdfPreviewUrl);
-        }
-        setPdfPreviewUrl(url);
-        return;
-      }
-
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${activeDoc.topic.replace(/[^a-zA-Z0-9]/g, "_")}_${new Date().toISOString().slice(0, 10)}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (error) {
-      console.error("PDF generation error:", error);
-      alert("Failed to generate PDF. Please try again.");
-    }
+    window.print();
   }
 
   const canGenerate = isAdminPlus || remaining === null || remaining > 0;
+  const modelDisplay = activeDoc ? activeDoc.modelLabel || activeDoc.model || activeDoc.modelName : undefined;
 
   return (
     <div className="relative min-h-screen bg-surface px-4 py-8 text-on-surface">
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-primary/10 via-primary/0 to-transparent" aria-hidden="true" />
       <div className="relative mx-auto flex max-w-6xl flex-col gap-6">
-        <header className="flex flex-col gap-3 rounded-2xl bg-surface-container p-6 shadow-lift border border-outline-variant/30">
+        <header className="no-print flex flex-col gap-3 rounded-2xl bg-surface-container p-6 shadow-lift border border-outline-variant/30">
           <div className="flex items-center gap-2 text-on-surface">
             <span className="text-2xl">📘</span>
             <h1 className="text-3xl font-bold">AI Notes Generator</h1>
@@ -511,7 +503,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                      disabled={generating || !topic.trim() || !canGenerate}
                     className="btn-primary inline-flex items-center gap-2 rounded-xl px-5 py-2 text-sm shadow-md disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {generating ? `Generating… (${loadingStep})` : "✨ Generate Notes"}
+                    {generating ? "AI is compiling your notes..." : "✨ Generate Notes"}
                   </button>
                 </div>
 
@@ -530,12 +522,10 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
 
             {/* Export */}
             {activeDoc && (
-              <div className="card border border-outline-variant/30">
+              <div className="card border border-outline-variant/30 print-visible">
                 <div className="flex flex-col gap-4 p-5">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-on-surface-variant">
-                    Export
-                  </p>
-                  <div className="flex flex-col gap-2">
+                  <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">{PRINT_HEADER_BRAND}</p>
+                  <div className="no-print flex flex-col gap-2">
                     <p className="text-sm font-semibold text-on-surface">
                       {activeDoc.topic}
                     </p>
@@ -544,15 +534,10 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                       {activeDoc.noteLength ? ` • ${activeDoc.noteLength} length` : ""}
                     </p>
                   </div>
-                  <div className="flex flex-wrap gap-3">
-                    <button onClick={() => handlePrint("download")} className="btn inline-flex items-center gap-2">
-                      📄 Export as PDF
-                    </button>
-                    <button
-                      onClick={() => handlePrint("preview")}
-                      className="btn inline-flex items-center gap-2"
-                    >
-                      👁️ Preview PDF
+                  <div className="print-action-controls no-print flex flex-wrap gap-3">
+                    <button onClick={(e) => handlePrint(e)} className="btn inline-flex items-center gap-2">
+                      <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" className="text-primary"><path fill="currentColor" d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm7 1.5V8h4.5L13 3.5ZM8 13h3v6H8v-6Zm5 0h3v6h-3v-6Zm-5-4h8v2H8v-2Z"/></svg>
+                      PRINT PDF
                     </button>
                     {activeDoc.sources && activeDoc.sources.length > 0 && (
                       <div className="flex items-center gap-2 rounded-full bg-surface-container-low px-3 py-1 text-xs text-on-surface-variant">
@@ -560,30 +545,56 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                       </div>
                     )}
                   </div>
-                  {pdfPreviewUrl && (
-                    <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-3">
-                      <div className="flex items-center justify-between text-xs text-on-surface-variant mb-2">
-                        <span>PDF Preview</span>
-                        <button
-                          type="button"
-                          className="underline"
-                          onClick={() => {
-                            window.open(pdfPreviewUrl, "_blank");
-                          }}
-                        >
-                          Open in new tab
-                        </button>
-                      </div>
-                      <iframe title="PDF preview" src={pdfPreviewUrl} className="h-96 w-full rounded-lg border border-outline-variant/30" />
-                    </div>
-                  )}
                   <div
-                    className="max-h-[520px] overflow-auto rounded-xl border border-outline-variant/30 bg-surface-container-low p-4 text-sm leading-7 text-on-surface shadow-inner"
+                    className="no-print print-ghost-preview max-h-[520px] overflow-auto rounded-xl border border-outline-variant/30 bg-surface-container-low p-4 text-sm leading-7 text-on-surface shadow-inner"
                     style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
                   >
-                    {activeDoc.content}
+                    <div className="markdown-preview" dangerouslySetInnerHTML={{ __html: sanitizedActiveDocHtml }} />
+                  </div>
+                  <div
+                    id="printable-exam-notes"
+                    className="pdf-export-source print-root-wrapper"
+                    aria-hidden="true"
+                  >
+                    <div className="print-watermark" aria-hidden="true">
+                      ExamArchive
+                    </div>
+                    <div className="print-root">
+                      <div className="print-title-block avoid-break">
+                        <h1>{activeDoc.topic}</h1>
+                        <p>
+                          Generated {new Date(activeDoc.generatedAt).toLocaleString()}
+                          {modelDisplay ? ` • Model: ${modelDisplay}` : ""}
+                          {activeDoc.noteLength ? ` • ${activeDoc.noteLength} length` : ""}
+                        </p>
+                      </div>
+                      <div className="markdown-preview print-body" dangerouslySetInnerHTML={{ __html: sanitizedActiveDocHtml }} />
+                      <footer className="print-footer avoid-break mt-10 text-center" aria-label="ExamArchive print footer">
+                        <p className="mb-2">{PRINT_FOOTER_MESSAGE}</p>
+                        <a
+                          href={PRINT_FOOTER_URL}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label="Visit ExamArchive website (opens in a new tab)"
+                        >
+                          Visit ExamArchive website
+                        </a>
+                      </footer>
+                    </div>
                   </div>
                 </div>
+                {generating && (
+                  <div className="mt-3 inline-flex items-center gap-2 text-sm text-on-surface-variant" aria-live="polite">
+                    <span className="sr-only">{loadingStep}</span>
+                    <span className="inline-flex items-end gap-1" aria-hidden="true">
+                      <span className="h-2 w-2 rounded-full bg-primary animate-bounce" />
+                      <span className="h-2 w-2 rounded-full bg-primary animate-bounce [animation-delay:150ms]" />
+                    <span className="h-2 w-2 rounded-full bg-primary animate-bounce [animation-delay:300ms]" />
+                    </span>
+                    <span>AI is compiling your notes...</span>
+                    <span className="text-xs">({loadingStep})</span>
+                  </div>
+                )}
               </div>
             )}
           </div>

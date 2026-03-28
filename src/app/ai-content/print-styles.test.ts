@@ -1,0 +1,76 @@
+import fs from "fs";
+import path from "path";
+
+describe("AI content print/mobile styles", () => {
+  const cssPath = path.join(process.cwd(), "src", "app", "globals.css");
+  const css = fs.readFileSync(cssPath, "utf8");
+
+  it("keeps pdf export source hidden on screen and visible in print", () => {
+    expect(css).toMatch(
+      /\.pdf-export-source\s*\{\s*display:\s*none;\s*\}/
+    );
+    expect(css).toMatch(
+      /@media print\s*\{[\s\S]*?\.pdf-export-source\s*\{\s*display:\s*block !important;\s*width:\s*auto !important;\s*\}/
+    );
+  });
+
+  it("adds overflow guards for markdown content on small screens", () => {
+    expect(css).toMatch(
+      /\.markdown-preview\s*\{[\s\S]*?white-space:\s*normal;[\s\S]*?overflow-wrap:\s*anywhere;[\s\S]*?\}/
+    );
+    expect(css).toMatch(
+      /\.markdown-preview pre,\s*\.markdown-preview table,\s*\.markdown-preview \.katex-display\s*\{\s*max-width:\s*100%;\s*\}/
+    );
+    expect(css).toMatch(
+      /@media \(max-width:\s*640px\)\s*\{[\s\S]*?\.markdown-preview table\s*\{\s*display:\s*block;[\s\S]*?overflow-x:\s*auto;[\s\S]*?\}/
+    );
+  });
+
+  it("relaxes parent layout constraints in print to avoid blank pages", () => {
+    expect(css).toMatch(
+      /@media print[\s\S]*?html,\s*body,\s*#root,\s*#__next\s*\{[\s\S]*?height:\s*auto !important;[\s\S]*?overflow:\s*visible !important;[\s\S]*?display:\s*block !important;[\s\S]*?\}/
+    );
+    expect(css).toMatch(
+      /@media print[\s\S]*?#__next > div\s*\{[\s\S]*?display:\s*block !important;[\s\S]*?height:\s*auto !important;[\s\S]*?overflow:\s*visible !important;[\s\S]*?\}/
+    );
+  });
+
+  it("only reveals the printable notes container during print", () => {
+    expect(css).not.toMatch(/@media print[\s\S]*?body \*\s*\{\s*display:\s*none !important;\s*\}/);
+    expect(css).toMatch(/@media print[\s\S]*?\.no-print\s*\{\s*display:\s*none !important;\s*\}/);
+    expect(css).toMatch(
+      /@media print[\s\S]*?#printable-exam-notes\s*\{[\s\S]*?position:\s*absolute;[\s\S]*?left:\s*0;[\s\S]*?top:\s*0;[\s\S]*?\}/
+    );
+  });
+
+  it("applies compact margins and uses a DOM watermark in print", () => {
+    expect(css).toMatch(/@page\s*\{\s*margin:\s*12mm;\s*\}/);
+    expect(css).toMatch(/@media print[\s\S]*?:root\s*\{[\s\S]*?--print-watermark-image:\s*url\((["'])data:image\/svg\+xml(?:;utf8)?,[\s\S]*?\1\);\s*[\s\S]*?\}/);
+    expect(css).toMatch(/@media print[\s\S]*?#printable-exam-notes\s*\{[\s\S]*?padding:\s*0 !important;[\s\S]*?\}/);
+    expect(css).toMatch(/@media print[\s\S]*?#printable-exam-notes\s*\{[\s\S]*?background:\s*transparent !important;[\s\S]*?\}/);
+    expect(css).toMatch(/@media print[\s\S]*?#printable-exam-notes\s*\{[\s\S]*?background-image:\s*var\(--print-watermark-image\) !important;[\s\S]*?background-repeat:\s*repeat !important;[\s\S]*?background-size:\s*200px 200px !important;[\s\S]*?\}/);
+    expect(css).toMatch(/@media print[\s\S]*?#printable-exam-notes::before\s*\{[\s\S]*?background-image:\s*var\(--print-watermark-image\)[\s\S]*?background-repeat:\s*repeat !important;[\s\S]*?background-size:\s*200px 200px !important;/);
+    expect(css).toMatch(/@media print[\s\S]*?#printable-exam-notes\s*\{[\s\S]*?-webkit-print-color-adjust:\s*exact !important;[\s\S]*?print-color-adjust:\s*exact !important;[\s\S]*?\}/);
+    expect(css).toMatch(/@media print[\s\S]*?body,\s*main\s*\{[\s\S]*?background:\s*transparent !important;[\s\S]*?background-color:\s*transparent !important;[\s\S]*?\}/);
+    expect(css).toMatch(/@media print[\s\S]*?#printable-exam-notes,\s*\.pdf-export-source,\s*\.print-root-wrapper,\s*\.print-root\s*\{[\s\S]*?box-shadow:\s*none !important;[\s\S]*?border-radius:\s*0 !important;[\s\S]*?border:\s*none !important;[\s\S]*?background-color:\s*transparent !important;[\s\S]*?\}/);
+    expect(css).toMatch(
+      /@media print[\s\S]*?\.print-watermark[\s\S]*?display:\s*none !important;/
+    );
+    expect(css).toMatch(/\.print-watermark\s*\{\s*display:\s*none;\s*\}/);
+  });
+
+  it("locks print typography sizing for main text elements", () => {
+    expect(css).toMatch(/@media print[\s\S]*?#printable-exam-notes p[\s\S]*font-size:\s*11pt !important;[\s\S]*line-height:\s*1\.5 !important;/);
+    expect(css).toMatch(/@media print[\s\S]*?#printable-exam-notes p[\s\S]*-webkit-text-size-adjust:\s*100%;[\s\S]*text-size-adjust:\s*100%;/);
+  });
+
+  it("hides ghost/mobile preview containers during print", () => {
+    expect(css).toMatch(/@media print[\s\S]*?\.print-ghost-preview\s*\{\s*display:\s*none !important;\s*\}/);
+  });
+
+  it("keeps print footer visible and break-safe in print media", () => {
+    expect(css).toMatch(
+      /@media print[\s\S]*?\.print-footer\s*\{[\s\S]*?page-break-inside:\s*avoid;[\s\S]*?display:\s*block !important;[\s\S]*?margin-top:\s*40px !important;[\s\S]*?\}/
+    );
+  });
+});
