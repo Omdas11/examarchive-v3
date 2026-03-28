@@ -281,7 +281,11 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
     }
   }
 
-  async function handlePrint(mode: "download" | "preview" = "download") {
+  async function handlePrint(event?: React.MouseEvent, mode: "download" | "preview" = "download") {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
     if (!activeDoc) return;
     if (!exportRef.current) return;
 
@@ -293,14 +297,16 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
       }
       const html2pdf = candidate;
 
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
       const filename = `${activeDoc.topic.replace(/[^a-zA-Z0-9]/g, "_")}_${new Date().toISOString().slice(0, 10)}.pdf`;
       const topicTitle = activeDoc.topic || "ExamArchive Notes";
       const worker: Html2PdfWorker = html2pdf(exportRef.current).set({
-        margin: [20, 20, 20, 20],
+        margin: [15, 15, 15, 15],
         filename,
         html2canvas: { scale: 2, useCORS: true, logging: false },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-        pagebreak: { mode: ["css", "legacy"], avoid: [".equation-block", "table", "pre", "blockquote"] },
+        pagebreak: { mode: ["avoid-all", "css", "legacy"], avoid: [".equation-block", "table", "pre", "blockquote"] },
       });
 
       await worker.toPdf();
@@ -314,18 +320,18 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
         pdf.setTextColor(20, 39, 82);
         pdf.text(`ExamArchive — ${topicTitle}`, 20, 12);
         pdf.setFontSize(9);
-      pdf.setTextColor(90, 96, 111);
-      pdf.text(`Page ${i} of ${totalPages}`, pageWidth - 20, pageHeight - 10, { align: "right" });
-    }
-
-    if (mode === "preview") {
-      const arrayBuffer = pdf.output("arraybuffer");
-      const blob = new Blob([arrayBuffer], { type: "application/pdf" });
-      const url = window.URL.createObjectURL(blob);
-      if (pdfPreviewUrl) {
-        window.URL.revokeObjectURL(pdfPreviewUrl);
+        pdf.setTextColor(90, 96, 111);
+        pdf.text(`Page ${i} of ${totalPages}`, pageWidth - 20, pageHeight - 10, { align: "right" });
       }
-      setPdfPreviewUrl(url);
+
+      if (mode === "preview") {
+        const arrayBuffer = pdf.output("arraybuffer");
+        const blob = new Blob([arrayBuffer], { type: "application/pdf" });
+        const url = window.URL.createObjectURL(blob);
+        if (pdfPreviewUrl) {
+          window.URL.revokeObjectURL(pdfPreviewUrl);
+        }
+        setPdfPreviewUrl(url);
         return;
       }
 
@@ -589,12 +595,12 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-3">
-                    <button onClick={() => handlePrint("download")} className="btn inline-flex items-center gap-2">
+                    <button onClick={(e) => handlePrint(e, "download")} className="btn inline-flex items-center gap-2">
                       <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" className="text-primary"><path fill="currentColor" d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm7 1.5V8h4.5L13 3.5ZM8 13h3v6H8v-6Zm5 0h3v6h-3v-6Zm-5-4h8v2H8v-2Z"/></svg>
                       Export as PDF
                     </button>
                     <button
-                      onClick={() => handlePrint("preview")}
+                      onClick={(e) => handlePrint(e, "preview")}
                       className="btn inline-flex items-center gap-2"
                     >
                       <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" className="text-primary"><path fill="currentColor" d="M12 5c5 0 9 4 10 7-1 3-5 7-10 7s-9-4-10-7c1-3 5-7 10-7Zm0 2c-3.53 0-6.43 2.61-7.62 5C5.57 14.39 8.47 17 12 17s6.43-2.61 7.62-5C18.43 9.61 15.53 7 12 7Zm0 2a3 3 0 1 1 0 6a3 3 0 0 1 0-6Zm0 2a1 1 0 1 0 0 2a1 1 0 0 0 0-2Z"/></svg>
