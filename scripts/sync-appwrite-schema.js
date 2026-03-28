@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+const fs = require("fs");
+const path = require("path");
 const { createAppwriteDatabasesClient } = require("./appwrite-schema-setup");
 
 const DATABASE_ID = "examarchive";
@@ -8,6 +10,9 @@ const FILENAME_SIZE = 512;
 const LARGE_STRING_SIZE = 8192;
 const TEXT_CHUNK_SIZE = 65535;
 const REFERRAL_CODE_SIZE = 6;
+const DATABASE_SCHEMA_DOC_PATH = path.resolve(__dirname, "../docs/DATABASE_SCHEMA.md");
+const STATUS_BLOCK_START = "<!-- SCHEMA_SYNC_STATUS_START -->";
+const STATUS_BLOCK_END = "<!-- SCHEMA_SYNC_STATUS_END -->";
 
 const TARGET_SCHEMA = [
   {
@@ -229,7 +234,9 @@ function printMismatchWarning(collectionId, target, live) {
       `[warn] ${collectionId}.${target.key} exists but differs (${mismatches.join(", ")}). ` +
         "Script only creates missing attributes and does not mutate existing definitions.",
     );
+    return 1;
   }
+  return 0;
 }
 
 async function waitForAttributeAvailability(
@@ -344,10 +351,11 @@ async function syncCollection(databases, databaseId, collection) {
   const liveByKey = new Map(liveAttributes.map((attribute) => [attribute.key, attribute]));
   const missingAttributes = getMissingAttributes(collection.attributes, liveAttributes);
 
+  let mismatchCount = 0;
   for (const attribute of collection.attributes) {
     const existing = liveByKey.get(attribute.key);
     if (existing) {
-      printMismatchWarning(collection.id, attribute, existing);
+      mismatchCount += printMismatchWarning(collection.id, attribute, existing);
     }
   }
 
@@ -361,14 +369,82 @@ async function syncCollection(databases, databaseId, collection) {
   if (missingAttributes.length === 0) {
     console.log(`[up-to-date] ${collection.id} has all required attributes`);
   }
+
+  return {
+    collectionId: collection.id,
+    createdCollection: created,
+    totalTargetAttributes: collection.attributes.length,
+    createdAttributes: missingAttributes.length,
+    mismatchCount,
+    connected: mismatchCount === 0,
+  };
+}
+
+function renderSchemaStatusSection(results, now = new Date()) {
+  const lines = [
+    "## Schema Sync Status (Auto-generated)",
+    "",
+    "_This section is updated by `scripts/sync-appwrite-schema.js` when run with `--update-schema-md`._",
+    "",
+    `Last sync: \`${now.toISOString()}\``,
+    "",
+    "| Collection | Status | Created in run | Notes |",
+    "|---|---|---:|---|",
+  ];
+
+  for (const result of results) {
+    const status = result.connected ? "✅ Perfectly connected" : "⚠️ Connected with differences";
+    const createdInRun = result.createdAttributes + (result.createdCollection ? 1 : 0);
+    const notes = [
+      result.createdCollection ? "collection created" : "collection existed",
+      `${result.createdAttributes}/${result.totalTargetAttributes} missing attrs created`,
+      result.mismatchCount > 0 ? `${result.mismatchCount} attr definition mismatch(es)` : "no mismatches detected",
+    ].join("; ");
+
+    lines.push(`| \`${result.collectionId}\` | ${status} | ${createdInRun} | ${notes} |`);
+  }
+
+  lines.push("");
+  return lines.join("\n");
+}
+
+function upsertSchemaStatusBlock(markdown, statusSection) {
+  const wrapped = `${STATUS_BLOCK_START}\n${statusSection}\n${STATUS_BLOCK_END}`;
+  const startIndex = markdown.indexOf(STATUS_BLOCK_START);
+  const endIndex = markdown.indexOf(STATUS_BLOCK_END);
+
+  if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
+    const before = markdown.slice(0, startIndex).replace(/\s*$/, "");
+    const after = markdown.slice(endIndex + STATUS_BLOCK_END.length).replace(/^\s*/, "");
+    return `${before}\n\n${wrapped}\n\n${after}`.trimEnd() + "\n";
+  }
+
+  return `${markdown.trimEnd()}\n\n---\n\n${wrapped}\n`;
+}
+
+function updateSchemaDocWithStatus(results, filePath = DATABASE_SCHEMA_DOC_PATH) {
+  const current = fs.readFileSync(filePath, "utf8");
+  const statusSection = renderSchemaStatusSection(results);
+  const next = upsertSchemaStatusBlock(current, statusSection);
+  if (next !== current) {
+    fs.writeFileSync(filePath, next, "utf8");
+    console.log(`[update] wrote schema sync status to ${filePath}`);
+  } else {
+    console.log("[up-to-date] schema markdown status already current");
+  }
 }
 
 async function main() {
+  const shouldUpdateSchemaDoc = process.argv.includes("--update-schema-md");
   const databases = createAppwriteDatabasesClient();
 
   console.log(`Starting Appwrite schema sync for database "${DATABASE_ID}"`);
+  const results = [];
   for (const collection of TARGET_SCHEMA) {
-    await syncCollection(databases, DATABASE_ID, collection);
+    results.push(await syncCollection(databases, DATABASE_ID, collection));
+  }
+  if (shouldUpdateSchemaDoc) {
+    updateSchemaDocWithStatus(results);
   }
   console.log("Schema sync complete.");
 }
@@ -386,6 +462,9 @@ module.exports = {
   createAttribute,
   getMissingAttributes,
   isNotFoundError,
+  renderSchemaStatusSection,
   syncCollection,
+  updateSchemaDocWithStatus,
+  upsertSchemaStatusBlock,
   waitForAttributeAvailability,
 };

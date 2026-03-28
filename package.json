@@ -10,7 +10,8 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:ci": "jest --coverage",
-    "sync:appwrite-schema": "node scripts/sync-appwrite-schema.js"
+    "sync:appwrite-schema": "node scripts/sync-appwrite-schema.js",
+    "sync:appwrite-schema:status": "node scripts/sync-appwrite-schema.js --update-schema-md"
   },
   "dependencies": {
     "@sparticuz/chromium": "^143.0.4",

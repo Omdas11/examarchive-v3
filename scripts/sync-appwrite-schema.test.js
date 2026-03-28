@@ -1,6 +1,8 @@
 const {
   createAttribute,
   getMissingAttributes,
+  renderSchemaStatusSection,
+  upsertSchemaStatusBlock,
   waitForAttributeAvailability,
 } = require("./sync-appwrite-schema");
 
@@ -75,5 +77,35 @@ describe("sync-appwrite-schema helpers", () => {
 
     expect(attribute.status).toBe("available");
     expect(databases.getAttribute).toHaveBeenCalledTimes(2);
+  });
+
+  test("renderSchemaStatusSection includes perfectly connected status", () => {
+    const markdown = renderSchemaStatusSection(
+      [
+        {
+          collectionId: "papers",
+          createdCollection: false,
+          totalTargetAttributes: 21,
+          createdAttributes: 0,
+          mismatchCount: 0,
+          connected: true,
+        },
+      ],
+      new Date("2026-03-28T00:00:00.000Z"),
+    );
+
+    expect(markdown).toContain("✅ Perfectly connected");
+    expect(markdown).toContain("`papers`");
+    expect(markdown).toContain("2026-03-28T00:00:00.000Z");
+  });
+
+  test("upsertSchemaStatusBlock inserts and replaces tagged section", () => {
+    const base = "# Title\n\nSome text.\n";
+    const inserted = upsertSchemaStatusBlock(base, "## Status A");
+    expect(inserted).toContain("## Status A");
+
+    const replaced = upsertSchemaStatusBlock(inserted, "## Status B");
+    expect(replaced).toContain("## Status B");
+    expect(replaced).not.toContain("## Status A");
   });
 });
