@@ -45,7 +45,7 @@ describe("AI content print/mobile styles", () => {
 
   it("applies compact margins and uses a DOM watermark in print", () => {
     expect(css).toMatch(/@page\s*\{\s*margin:\s*12mm;\s*\}/);
-    expect(css).toMatch(/@media print[\s\S]*?:root\s*\{[\s\S]*?--print-watermark-image:\s*url\((["'])data:image\/svg\+xml;utf8,[\s\S]*?\1\);\s*[\s\S]*?\}/);
+    expect(css).toMatch(/@media print[\s\S]*?:root\s*\{[\s\S]*?--print-watermark-image:\s*url\((["'])data:image\/svg\+xml(?:;utf8)?,[\s\S]*?\1\);\s*[\s\S]*?\}/);
     expect(css).toMatch(/@media print[\s\S]*?#printable-exam-notes\s*\{[\s\S]*?padding:\s*0 !important;[\s\S]*?\}/);
     expect(css).toMatch(/@media print[\s\S]*?#printable-exam-notes\s*\{[\s\S]*?background:\s*transparent !important;[\s\S]*?\}/);
     expect(css).toMatch(/@media print[\s\S]*?#printable-exam-notes\s*\{[\s\S]*?background-image:\s*var\(--print-watermark-image\) !important;[\s\S]*?background-repeat:\s*repeat !important;[\s\S]*?background-size:\s*200px 200px !important;[\s\S]*?\}/);

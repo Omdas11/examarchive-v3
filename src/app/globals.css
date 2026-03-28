@@ -1022,7 +1022,7 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
 
 @media print {
   :root {
-    --print-watermark-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3E%3Cg fill='%231f2937' fill-opacity='0.06'%3E%3Ctext x='50%25' y='38%25' text-anchor='middle' font-family='Inter,Arial,sans-serif' font-size='16' font-weight='700'%3EExamArchive%3C/text%3E%3Ctext x='50%25' y='74%25' text-anchor='middle' font-family='Inter,Arial,sans-serif' font-size='16' font-weight='700'%3EExamArchive%3C/text%3E%3C/g%3E%3C/svg%3E");
+    --print-watermark-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Ctext x='100' y='100' transform='rotate(-45 100 100)' fill='rgba(0,0,0,0.05)' font-size='22' font-family='sans-serif' font-weight='bold' text-anchor='middle' dominant-baseline='middle'%3EExamArchive%3C/text%3E%3C/svg%3E");
   }
 
   html,
@@ -1054,6 +1054,7 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
   }
 
   #printable-exam-notes {
+    display: block !important;
     position: absolute;
     left: 0;
     top: 0;
