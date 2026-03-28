@@ -160,7 +160,7 @@ END_UNTRUSTED_CONTEXT`
     const targetWords = noteTargets.targetWords;
 
   const prompt = `You are an expert university professor generating rigorous, exam-ready study notes.
-Analyze the topic to pick the correct academic domain, then produce ONE complete response only (API is rate-limited).
+Analyze the topic to pick the correct academic domain, then produce one complete response without requesting follow-ups.
 
 Topic: "${topic}"${contextSection}
 
@@ -173,7 +173,7 @@ Required sections in order:
 1) ## Precise Definition — concise, domain-accurate definition.
 2) ## Core Theories & Methodologies — key laws/principles; cite assumptions.
 3) ## Derivations & Steps — show step-by-step logic for important formulas (LaTeX).
-4) ## Two Worked Examples — fully solved, pre-verified; include reasoning and final answers.
+4) ## Two Worked Examples — fully solved with step-by-step reasoning; include final answers.
 5) ## Common Pitfalls & Exam Strategies — high-yield warnings and timing tips.
 6) ## Quick Revision Table — Markdown table of symbols, meanings, and must-know facts.
 

@@ -115,7 +115,9 @@ export default function AiStatsClient() {
           />
         </div>
         <div className="mt-3 flex flex-wrap gap-2 text-xs text-on-surface-variant">
-          <span>Defaults: daily {stats?.limits.defaults.dailyLimit ?? 5}, rpm {stats?.limits.defaults.rpmLimit ?? 15}</span>
+          <span>
+            Defaults: daily {stats?.limits?.defaults.dailyLimit ?? "—"}, rpm {stats?.limits?.defaults.rpmLimit ?? "—"}
+          </span>
           <span>Changes apply immediately until server restart.</span>
         </div>
         <div className="mt-3 flex gap-2">
@@ -138,7 +140,7 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="min-w-[180px] flex-1 rounded-xl border border-outline-variant/40 bg-surface p-3 shadow-sm">
       <p className="text-xs uppercase tracking-wide text-on-surface-variant">{label}</p>
-      <p className="text-2xl font-semibold text-on-surface mt-1">{value}</p>
+      <p className="mt-1 text-2xl font-semibold text-on-surface">{value}</p>
     </div>
   );
 }
