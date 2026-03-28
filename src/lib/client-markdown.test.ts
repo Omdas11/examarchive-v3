@@ -29,7 +29,7 @@ $$`;
 
     expect(html).not.toContain("<script>alert(");
     expect(html).not.toContain('href="javascript:');
-    expect(html).not.toContain("onClick=");
+    expect(html).not.toContain("onclick=");
     expect(html).toContain("<a>dangerous link</a>");
   });
 

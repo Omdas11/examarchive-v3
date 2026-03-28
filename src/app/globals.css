@@ -908,6 +908,7 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
 /* ── AI markdown preview + print/PDF rules ── */
 .markdown-preview {
   white-space: normal;
+  font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
 }
 .markdown-preview h1,
 .markdown-preview h2,
@@ -924,6 +925,17 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
 .markdown-preview blockquote {
   margin: 0.5rem 0;
 }
+.markdown-preview p {
+  text-align: justify;
+}
+.markdown-preview h1,
+.markdown-preview h2 {
+  color: #0f172a;
+}
+.markdown-preview h3,
+.markdown-preview h4 {
+  color: #82182d;
+}
 .markdown-preview table {
   width: 100%;
   border-collapse: collapse;
@@ -934,6 +946,13 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
   padding: 0.4rem 0.5rem;
   text-align: left;
   vertical-align: top;
+}
+.markdown-preview th {
+  background: #f5f0ff;
+  color: #0f172a;
+}
+.markdown-preview tr:nth-child(even) td {
+  background: #f8fafc;
 }
 .equation-block,
 .katex-display {
@@ -947,6 +966,11 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
   padding: 24px 24px 10px;
   background: #fff;
   color: #111827;
+  font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+  position: relative;
+  overflow: hidden;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Ctext x='20' y='150' transform='rotate(-45 130 130)' fill='%230f172a' opacity='0.05' font-family='Inter, Helvetica Neue, Arial, sans-serif' font-size='18'%3EExamArchive (https://www.examarchive.dev/)%3C/text%3E%3C/svg%3E");
+  background-size: 260px 260px;
 }
 .pdf-export-source {
   position: fixed;
@@ -977,6 +1001,17 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
   break-inside: avoid;
 }
 
+.print-body table thead th {
+  background: #f0f4ff;
+}
+.print-body table tbody tr:nth-child(even) td {
+  background: #f8f9fb;
+}
+
+@page {
+  margin: 20mm;
+}
+
 @media print {
   .btn,
   .btn-primary,
@@ -987,7 +1022,7 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
   nav,
   header,
   footer,
-  .card:not(.print-root-wrapper) {
+  .card:not(.print-visible) {
     display: none !important;
   }
 

@@ -76,6 +76,7 @@ function renderMath(input: string): string {
 function sanitizeRenderedHtml(input: string): string {
   return DOMPurify.sanitize(input, {
     FORBID_TAGS: ["script", "style", "iframe", "object", "embed"],
+    USE_PROFILES: { html: true },
   });
 }
 

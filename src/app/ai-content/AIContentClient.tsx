@@ -33,10 +33,20 @@ interface NoteLengthOption {
   description: string;
 }
 
+type JsPdfInstance = {
+  internal: { getNumberOfPages: () => number; pageSize: { getWidth: () => number; getHeight: () => number } };
+  setPage: (page: number) => void;
+  setFontSize: (size: number) => void;
+  setTextColor: (r: number, g: number, b: number) => void;
+  text: (text: string, x: number, y: number, options?: { align?: "left" | "center" | "right" }) => void;
+  output: (type: "blob" | string) => Blob;
+  save: (filename: string) => void;
+};
+
 type Html2PdfWorker = {
   set: (options: Record<string, unknown>) => Html2PdfWorker;
-  outputPdf: (type: "blob") => Promise<Blob>;
-  save: () => Promise<void>;
+  toPdf: () => Promise<Html2PdfWorker>;
+  get: (key: "pdf") => Promise<JsPdfInstance>;
 };
 
 function isHtml2PdfFactory(value: unknown): value is (source: HTMLElement) => Html2PdfWorker {
@@ -65,6 +75,8 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
   const [applyOverrideGlobally, setApplyOverrideGlobally] = useState(false);
   const loadingIntervalRef = useRef<number | null>(null);
   const exportRef = useRef<HTMLDivElement | null>(null);
+  const [loadingSteps, setLoadingSteps] = useState<string[]>([]);
+  const [loadingStepIndex, setLoadingStepIndex] = useState(0);
   const activeDocHtml = useMemo(
     () => (activeDoc ? markdownToHtmlWithKatex(activeDoc.content) : ""),
     [activeDoc],
@@ -177,10 +189,13 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
       "Finalizing PDF-ready output",
     ];
     let stepIndex = 0;
+    setLoadingSteps(steps);
+    setLoadingStepIndex(0);
     setLoadingStep(steps[0]);
     loadingIntervalRef.current = window.setInterval(() => {
       stepIndex = Math.min(stepIndex + 1, steps.length - 1);
       setLoadingStep(steps[stepIndex]);
+      setLoadingStepIndex(stepIndex);
     }, 900);
     setError(null);
 
@@ -279,25 +294,45 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
       const html2pdf = candidate;
 
       const filename = `${activeDoc.topic.replace(/[^a-zA-Z0-9]/g, "_")}_${new Date().toISOString().slice(0, 10)}.pdf`;
+      const topicTitle = activeDoc.topic || "ExamArchive Notes";
       const worker: Html2PdfWorker = html2pdf(exportRef.current).set({
-        margin: [12, 10, 14, 10],
+        margin: [20, 20, 20, 20],
         filename,
         html2canvas: { scale: 2, useCORS: true, logging: false },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
         pagebreak: { mode: ["css", "legacy"], avoid: [".equation-block", "table", "pre", "blockquote"] },
       });
 
-      if (mode === "preview") {
-        const blob = await worker.outputPdf("blob");
-        const url = window.URL.createObjectURL(blob);
-        if (pdfPreviewUrl) {
-          window.URL.revokeObjectURL(pdfPreviewUrl);
-        }
-        setPdfPreviewUrl(url);
+      await worker.toPdf();
+      const pdf = await worker.get("pdf");
+      const totalPages = pdf.internal.getNumberOfPages();
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      for (let i = 1; i <= totalPages; i += 1) {
+        pdf.setPage(i);
+        pdf.setFontSize(11);
+        pdf.setTextColor(20, 39, 82);
+        pdf.text(`ExamArchive — ${topicTitle}`, 20, 12);
+        pdf.setFontSize(9);
+      pdf.setTextColor(90, 96, 111);
+      pdf.text(`Page ${i} of ${totalPages}`, pageWidth - 20, pageHeight - 10, { align: "right" });
+    }
+
+    if (mode === "preview") {
+      const arrayBuffer = pdf.output("arraybuffer");
+      const blob = new Blob([arrayBuffer], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+      if (pdfPreviewUrl) {
+        window.URL.revokeObjectURL(pdfPreviewUrl);
+      }
+      setPdfPreviewUrl(url);
         return;
       }
 
-      await worker.save();
+      pdf.save(filename);
+      if (pdfPreviewUrl) {
+        window.URL.revokeObjectURL(pdfPreviewUrl);
+      }
       setPdfPreviewUrl(null);
     } catch (error) {
       console.error("PDF generation error:", error);
@@ -539,7 +574,7 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
 
             {/* Export */}
             {activeDoc && (
-              <div className="card border border-outline-variant/30">
+              <div className="card border border-outline-variant/30 print-visible">
                 <div className="flex flex-col gap-4 p-5">
                   <p className="text-xs font-semibold uppercase tracking-wide text-on-surface-variant">
                     Export
@@ -555,13 +590,15 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                   </div>
                   <div className="flex flex-wrap gap-3">
                     <button onClick={() => handlePrint("download")} className="btn inline-flex items-center gap-2">
-                      📄 Export as PDF
+                      <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" className="text-primary"><path fill="currentColor" d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm7 1.5V8h4.5L13 3.5ZM8 13h3v6H8v-6Zm5 0h3v6h-3v-6Zm-5-4h8v2H8v-2Z"/></svg>
+                      Export as PDF
                     </button>
                     <button
                       onClick={() => handlePrint("preview")}
                       className="btn inline-flex items-center gap-2"
                     >
-                      👁️ Preview PDF
+                      <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" className="text-primary"><path fill="currentColor" d="M12 5c5 0 9 4 10 7-1 3-5 7-10 7s-9-4-10-7c1-3 5-7 10-7Zm0 2c-3.53 0-6.43 2.61-7.62 5C5.57 14.39 8.47 17 12 17s6.43-2.61 7.62-5C18.43 9.61 15.53 7 12 7Zm0 2a3 3 0 1 1 0 6a3 3 0 0 1 0-6Zm0 2a1 1 0 1 0 0 2a1 1 0 0 0 0-2Z"/></svg>
+                      Preview PDF
                     </button>
                     {activeDoc.sources && activeDoc.sources.length > 0 && (
                       <div className="flex items-center gap-2 rounded-full bg-surface-container-low px-3 py-1 text-xs text-on-surface-variant">
@@ -605,6 +642,21 @@ export default function AIContentClient({ userRole: _userRole }: AIContentClient
                     </div>
                   </div>
                 </div>
+                {generating && loadingSteps.length > 0 && (
+                  <div className="mt-3 flex flex-col items-start gap-2">
+                    {loadingSteps.map((step, idx) => (
+                      <div key={step} className="flex items-start gap-2 text-xs text-on-surface-variant">
+                        <span
+                          className={`mt-[2px] inline-flex h-3 w-3 rounded-full ${
+                            idx < loadingStepIndex ? "bg-primary" : idx === loadingStepIndex ? "bg-primary/70 animate-pulse" : "bg-outline-variant/60"
+                          }`}
+                          aria-hidden="true"
+                        />
+                        <span className={idx === loadingStepIndex ? "text-on-surface font-medium" : ""}>{step}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
