@@ -82,6 +82,9 @@ Stores user profile data alongside Appwrite Auth accounts.
 | `last_activity`          | Datetime | No       | ISO 8601 timestamp of last activity                                                                   |
 | `upload_count`           | Integer  | No       | Total approved uploads; drives auto-promotion                                                         |
 | `username_last_changed`  | String   | No       | ISO 8601 timestamp of last username change; enforces 7-day cooldown                                   |
+| `ai_credits`             | Integer  | No       | Spendable credits for AI features (planned/optional field)                                             |
+| `referred_by`            | String   | No       | Referrer user ID for referral tree attribution (planned/optional field)                                |
+| `referral_path`          | String[] | No       | Ordered ancestor user IDs (max depth 5) for multi-level referral rewards (planned/optional field)     |
 
 ---
 
@@ -175,6 +178,11 @@ represents one generation invocation.
 **Daily limit (configurable):** defaults to 5/day per `(user_id, date)` via server config; admin and founder accounts are exempt.  
 **RPM tracking:** the API queries `$createdAt` within the last minute to derive RPM.  
 **Index recommendation:** create indexes on `(user_id, date)` and on `$createdAt` for efficient quota and RPM queries.
+
+### Planned AI credits + referrals notes
+
+- `ai_usage` tracks invocation count/rate limiting. A future monetized credit flow should additionally decrement `users.ai_credits` per generation.
+- Referral rewards can propagate up to 5 levels by resolving `users.referral_path` and applying credit+XP rewards from nearest ancestor to level 5.
 
 ### AI fallback + error behavior (no schema changes)
 

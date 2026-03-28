@@ -6,7 +6,6 @@ import DebugPanel from "@/components/DebugPanel";
 import { ToastProvider } from "@/components/ToastContext";
 import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 import CourseSetupWrapper from "@/components/CourseSetupWrapper";
-import AIBubble from "@/components/AIBubble";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/next";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
@@ -145,7 +144,6 @@ export default async function RootLayout({
             </AppShell>
             <PWAInstallPrompt />
             <CourseSetupWrapper isLoggedIn={!!user} />
-            <AIBubble isLoggedIn={!!user} />
             {process.env.NODE_ENV !== "production" &&
               process.env.NEXT_PUBLIC_ENABLE_DEBUG_PANEL === "true" && (
                 <DebugPanel />
