@@ -52,7 +52,13 @@ export interface FlashcardSavePayload {
 
 export async function runFlashcardsFunction(payload: { subject: string; topic: string }) {
   const functions = adminFunctions();
-  const execution = await functions.createExecution("ai-flashcards", JSON.stringify(payload), false);
+  let execution;
+  try {
+    execution = await functions.createExecution("ai-flashcards", JSON.stringify(payload), false);
+  } catch (error) {
+    console.error("[flashcards] Failed to trigger ai-flashcards function", error);
+    throw new Error("Flashcard generator is currently unavailable. Please try again later.");
+  }
 
   let flashcards: FlashcardPayload[] = [];
   if (execution.responseBody) {
@@ -84,7 +90,7 @@ export async function saveFlashcardsDocument(data: FlashcardSavePayload) {
       generatedAt: new Date().toISOString(),
     }),
     model: data.model ?? "ai-flashcards",
-    tags: [data.subject].filter(Boolean),
+    tags: [data.subject],
   };
 
   return db.createDocument(DATABASE_ID, COLLECTION.ai_flashcards, ID.unique(), documentPayload);

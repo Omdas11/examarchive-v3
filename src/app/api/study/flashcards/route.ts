@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("[study] Invalid flashcards request body", error);
     return NextResponse.json(
-      { error: "Invalid request body. Expected JSON with optional 'subject' and 'topic' strings." },
+      { error: "Invalid request body. Expected JSON with at least one of: 'subject' or 'topic' (strings)." },
       { status: 400 },
     );
   }
@@ -48,6 +48,7 @@ export async function POST(request: NextRequest) {
   if (!targetTopic) {
     return NextResponse.json({ error: "Please provide a subject or topic." }, { status: 400 });
   }
+  const finalSubject = subject || targetTopic;
 
   const limitStatus = await checkDailyLimit(user.id);
   if (!limitStatus.allowed) {
@@ -63,7 +64,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const { flashcards } = await runFlashcardsFunction({
-      subject: subject || targetTopic,
+      subject: finalSubject,
       topic: targetTopic,
     });
 
@@ -76,7 +77,7 @@ export async function POST(request: NextRequest) {
 
     await saveFlashcardsDocument({
       userId: user.id,
-      subject: subject || targetTopic,
+      subject: finalSubject,
       topic: targetTopic,
       flashcards,
     });
