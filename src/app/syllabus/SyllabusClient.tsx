@@ -296,12 +296,8 @@ export function PaperLibrary({ entries }: { entries: SyllabusRegistryRecord[] })
           typeof e.full_marks === "number" && Number.isFinite(e.full_marks)
             ? e.full_marks
             : undefined,
-        units: Array.isArray((e as SyllabusRegistryEntry).units)
-          ? (e as SyllabusRegistryEntry).units
-          : undefined,
-        reference_books: Array.isArray((e as SyllabusRegistryEntry).reference_books)
-          ? (e as SyllabusRegistryEntry).reference_books
-          : undefined,
+        units: Array.isArray(e.units) ? e.units : undefined,
+        reference_books: Array.isArray(e.reference_books) ? e.reference_books : undefined,
       })),
     [entries],
   );
@@ -368,7 +364,7 @@ export function PaperLibrary({ entries }: { entries: SyllabusRegistryRecord[] })
       switch (sortKey) {
         case "code": return a.paper_code.localeCompare(b.paper_code);
         case "name": return a.paper_name.localeCompare(b.paper_name);
-        case "credits": return (b.credits ?? 0) - (a.credits ?? 0);
+        case "credits": return b.credits - a.credits;
         case "semester":
         default: return (a.semester ?? 0) - (b.semester ?? 0);
       }
@@ -718,14 +714,15 @@ export default function SyllabusClient({ syllabi, isAdmin }: SyllabusClientProps
       setRegistryLoading(true);
       try {
         const res = await fetch("/api/syllabus/registry");
-        if (!res.ok) throw new Error(`Failed with status ${res.status}`);
+        if (!res.ok) throw new Error(`Failed with status ${res.status}: ${res.statusText}`);
         const data = await res.json();
         if (!cancelled) {
           setRegistryEntries(Array.isArray(data.entries) ? data.entries : []);
           setRegistryError(null);
         }
-      } catch {
+      } catch (err) {
         if (!cancelled) {
+          console.error("[syllabus] registry fetch failed", err);
           setRegistryError("Unable to load syllabus registry at the moment.");
         }
       } finally {

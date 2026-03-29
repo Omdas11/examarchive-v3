@@ -170,14 +170,15 @@ export default function SyllabusCatalogClient({ syllabi }: { syllabi: Syllabus[]
       setRegistryLoading(true);
       try {
         const res = await fetch("/api/syllabus/registry");
-        if (!res.ok) throw new Error(`Failed with status ${res.status}`);
+        if (!res.ok) throw new Error(`Failed with status ${res.status}: ${res.statusText}`);
         const data = await res.json();
         if (!cancelled) {
           setRegistryEntries(Array.isArray(data.entries) ? data.entries : []);
           setRegistryError(null);
         }
-      } catch {
+      } catch (err) {
         if (!cancelled) {
+          console.error("[syllabus] registry fetch failed", err);
           setRegistryError("Unable to load the syllabus registry right now. Please try again shortly.");
         }
       } finally {
@@ -205,20 +206,15 @@ export default function SyllabusCatalogClient({ syllabi }: { syllabi: Syllabus[]
     return base;
   }, [syllabi]);
 
-  const availableCodes = useMemo(() => {
-    if (registryEntries.length > 0) {
-      return new Set(
+  const availableCodes = useMemo(
+    () =>
+      new Set(
         registryEntries
           .map((e) => (e.paper_code || "").toUpperCase())
           .filter(Boolean),
-      );
-    }
-    return new Set(
-      syllabi
-        .map((s) => (s.course_code || s.course_name || s.subject || "").toUpperCase())
-        .filter(Boolean),
-    );
-  }, [registryEntries, syllabi]);
+      ),
+    [registryEntries],
+  );
 
   const filteredAvailable = useMemo(() => {
     if (activeFilter === "All Departments") return normalizedAvailable;
