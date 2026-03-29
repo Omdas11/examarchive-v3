@@ -150,11 +150,15 @@ async function ensureFunctionExists(functions, func) {
     if (!isNotFoundError(error)) {
       throw error;
     }
-    await functions.create(func.id, func.name, func.runtime, {
-      execute: func.execute ?? [],
-      schedule: func.schedule,
-      description: func.description,
-    });
+    await functions.create(
+      func.id,
+      func.name,
+      func.execute ?? [],
+      func.runtime,
+      undefined,
+      undefined,
+      func.schedule,
+    );
     console.log(`[create] function ${func.id}`);
     return { functionId: func.id, created: true };
   }

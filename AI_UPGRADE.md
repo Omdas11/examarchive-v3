@@ -8,7 +8,7 @@ Comprehensive implementation guide for scaling ExamArchive’s AI pipeline while
 - **Models**:  
   - `gemini-3.1-flash-lite-preview` for Phases 1–3 (large-context ingestion + content generation).  
   - `gemini-2.5-flash` for Phase 4 (admin/security analytics).  
-- **Env vars**: `GEMINI_API_KEY`, `APPWRITE_ENDPOINT`, `APPWRITE_PROJECT_ID`, `APPWRITE_API_KEY`, `APPWRITE_DB_ID`, `APPWRITE_QUESTION_PAPERS_COLLECTION_ID`. Keep them in `.env.local` / Appwrite function secrets.  
+- **Env vars**: `GEMINI_API_KEY`, `APPWRITE_ENDPOINT`, `APPWRITE_PROJECT_ID`, `APPWRITE_API_KEY`, `APPWRITE_DB_ID`, `APPWRITE_QUESTION_PAPERS_COLLECTION_ID`. Keep them in `.env.local` / Appwrite function secrets. The schema sync scripts (`sync:appwrite-schema`, `sync:appwrite-ai`) currently target Appwrite database id `examarchive` directly; `APPWRITE_DB_ID` is used by application runtime code (API routes/functions) rather than those sync scripts.  
 - **Node deps (install in app workspace)**:
   ```bash
   npm install @google/generative-ai pdf-parse appwrite node-appwrite
@@ -39,10 +39,10 @@ Use this helper for all phases to keep timeouts, error handling, and default mod
 
 | Asset | Purpose | Managed by | Sync status once run |
 |---|---|---|---|
-| `ai_ingestions` | Stores PDF ingestion runs (model, status, digest, counts) | `sync:appwrite-ai` | ✅ Created/filled with missing columns |
-| `ai_syllabus_maps` | Structured syllabus JSON + checksum for mappings | `sync:appwrite-ai` | ✅ Created/filled with missing columns |
-| `ai_flashcards` | Generated flashcards/quizzes payload per source paper | `sync:appwrite-ai` | ✅ Created/filled with missing columns |
-| `ai_admin_reports` | Weekly admin/security reports | `sync:appwrite-ai` | ✅ Created/filled with missing columns |
+| `ai_ingestions` | Stores PDF ingestion runs (model, status, digest, counts) | `sync:appwrite-ai` | ✅ Created/updated schema (missing attributes added) |
+| `ai_syllabus_maps` | Structured syllabus JSON + checksum for mappings | `sync:appwrite-ai` | ✅ Created/updated schema (missing attributes added) |
+| `ai_flashcards` | Generated flashcards/quizzes payload per source paper | `sync:appwrite-ai` | ✅ Created/updated schema (missing attributes added) |
+| `ai_admin_reports` | Weekly admin/security reports | `sync:appwrite-ai` | ✅ Created/updated schema (missing attributes added) |
 | Function `ai-admin-report` | Gemini 2.5 Flash weekly report (cron-ready) | `sync:appwrite-ai` | ✅ Ensures function exists |
 | Function `ai-syllabus-map` | Gemini 3.1 Flash Lite syllabus mapper | `sync:appwrite-ai` | ✅ Ensures function exists |
 | Function `ai-flashcards` | Gemini 3.1 Flash Lite flashcard generator | `sync:appwrite-ai` | ✅ Ensures function exists |

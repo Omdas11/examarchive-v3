@@ -1,0 +1,43 @@
+name: Appwrite AI Sync
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - "AI_UPGRADE.md"
+      - "scripts/sync-appwrite-ai.js"
+      - "scripts/appwrite-schema-setup.js"
+      - "scripts/sync-appwrite-schema.js"
+      - ".github/workflows/appwrite-ai-sync.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: appwrite-ai-sync-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sync-ai:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Sync Appwrite AI schema and functions
+        env:
+          APPWRITE_ENDPOINT: ${{ secrets.APPWRITE_ENDPOINT }}
+          APPWRITE_PROJECT_ID: ${{ secrets.APPWRITE_PROJECT_ID }}
+          APPWRITE_API_KEY: ${{ secrets.APPWRITE_API_KEY }}
+        run: npm run sync:appwrite-ai
