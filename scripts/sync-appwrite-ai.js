@@ -103,6 +103,11 @@ function createFunctionsClient() {
   return new Functions(client);
 }
 
+function isAttributeLimitExceeded(error) {
+  const type = error?.type ?? error?.response?.type;
+  return type === "attribute_limit_exceeded";
+}
+
 async function ensureCollectionExists(databases, collection) {
   try {
     await databases.getCollection(DATABASE_ID, collection.id);
@@ -121,11 +126,26 @@ async function syncCollection(databases, collection) {
   const liveAttributesResponse = await databases.listAttributes(DATABASE_ID, collection.id);
   const liveAttributes = liveAttributesResponse.attributes;
   const missing = getMissingAttributes(collection.attributes, liveAttributes);
+  let createdAttributes = 0;
+  let attributeLimitExceeded = false;
 
   for (const attribute of missing) {
     console.log(`[create] attribute ${collection.id}.${attribute.key}`);
-    await createAttribute(databases, DATABASE_ID, collection.id, attribute);
-    await waitForAttributeAvailability(databases, DATABASE_ID, collection.id, attribute.key);
+    try {
+      await createAttribute(databases, DATABASE_ID, collection.id, attribute);
+      await waitForAttributeAvailability(databases, DATABASE_ID, collection.id, attribute.key);
+      createdAttributes += 1;
+    } catch (error) {
+      if (isAttributeLimitExceeded(error)) {
+        attributeLimitExceeded = true;
+        console.warn(
+          `[warn] attribute limit reached for ${collection.id} while creating ${attribute.key}; ` +
+            "skipping remaining attributes. Remove unused attributes in Appwrite and re-run sync if needed.",
+        );
+        break;
+      }
+      throw error;
+    }
   }
 
   if (missing.length === 0 && !createdCollection) {
@@ -135,9 +155,10 @@ async function syncCollection(databases, collection) {
   return {
     collectionId: collection.id,
     createdCollection,
-    createdAttributes: missing.length,
+    createdAttributes,
     totalTargetAttributes: collection.attributes.length,
     connected: missing.length === 0 && !createdCollection,
+    attributeLimitExceeded,
   };
 }
 
@@ -181,9 +202,11 @@ async function main() {
 
   console.log("AI collections:");
   for (const result of collectionResults) {
-    const status = result.connected ? "✅" : "⚙️";
+    const status = result.attributeLimitExceeded ? "⚠️" : result.connected ? "✅" : "⚙️";
     console.log(
-      ` ${status} ${result.collectionId}: created collection=${result.createdCollection} created attributes=${result.createdAttributes}/${result.totalTargetAttributes}`,
+      ` ${status} ${result.collectionId}: created collection=${result.createdCollection} ` +
+        `created attributes=${result.createdAttributes}/${result.totalTargetAttributes}` +
+        (result.attributeLimitExceeded ? " (attribute limit reached)" : ""),
     );
   }
 
