@@ -1,6 +1,7 @@
 import { adminDatabases, adminFunctions, COLLECTION, DATABASE_ID, ID, Query } from "./appwrite";
 
 export const DAILY_FLASHCARD_LIMIT = 5;
+export const FLASHCARDS_FUNCTION_ID = "ai-flashcards";
 
 export function startOfTodayISOString(now: Date = new Date()): string {
   const start = new Date(now);
@@ -54,7 +55,7 @@ export async function runFlashcardsFunction(payload: { subject: string; topic: s
   const functions = adminFunctions();
   let execution;
   try {
-    execution = await functions.createExecution("ai-flashcards", JSON.stringify(payload), false);
+    execution = await functions.createExecution(FLASHCARDS_FUNCTION_ID, JSON.stringify(payload), false);
   } catch (error) {
     console.error("[flashcards] Failed to trigger ai-flashcards function", error);
     throw new Error("Flashcard generator is currently unavailable. Please try again later.");

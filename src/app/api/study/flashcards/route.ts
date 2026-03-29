@@ -7,8 +7,10 @@ import {
   DAILY_FLASHCARD_LIMIT,
 } from "@/lib/flashcards";
 
+const FIELD_MAX_LEN = 200;
+
 function normalizeField(value: unknown) {
-  return typeof value === "string" ? value.trim().slice(0, 200) : "";
+  return typeof value === "string" ? value.trim().slice(0, FIELD_MAX_LEN) : "";
 }
 
 export async function GET() {

@@ -168,7 +168,7 @@ export default function StudyClient() {
         <div className="grid gap-4 md:grid-cols-2">
           {flashcards.map((card, idx) => (
             <div
-              key={`card-${idx}`}
+              key={card.question ? `${card.question}-${idx}` : `card-${idx}`}
               className="rounded-2xl border border-outline/10 bg-surface p-5 shadow-sm transition hover:shadow-md"
             >
               <div className="mb-2 flex items-center justify-between">
