@@ -24,6 +24,7 @@ const NEW_LAYOUT_PREFIXES = [
   "/papers",
   "/syllabus",
   "/ai-content",
+  "/study",
   "/about",
   "/support",
   "/stats",
