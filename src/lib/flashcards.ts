@@ -29,7 +29,7 @@ export async function checkDailyLimit(userId: string) {
     console.error("[flashcards] Failed to read daily limit", error);
     return {
       allowed: false,
-      used: DAILY_FLASHCARD_LIMIT,
+      used: 0,
       limit: DAILY_FLASHCARD_LIMIT,
       startOfDay,
     };

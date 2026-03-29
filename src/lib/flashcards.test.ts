@@ -56,5 +56,6 @@ describe("checkDailyLimit", () => {
     const result = await checkDailyLimit("user-123");
 
     expect(result.allowed).toBe(false);
+    expect(result.used).toBe(0);
   });
 });

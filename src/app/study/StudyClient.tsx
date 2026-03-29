@@ -75,8 +75,8 @@ export default function StudyClient() {
       }
 
       setFlashcards(data.flashcards ?? []);
-      setLimitUsed(data.used ?? limitUsed);
-      setLimit(data.limit ?? limit);
+      setLimitUsed(typeof data.used === "number" ? data.used : 0);
+      setLimit(typeof data.limit === "number" ? data.limit : limit);
       showToast("Flashcards generated successfully!", "success");
     } catch {
       showToast("Something went wrong. Please try again.", "error");
