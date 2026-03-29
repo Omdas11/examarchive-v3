@@ -1,5 +1,6 @@
 const {
   createAttribute,
+  getAppwriteDefaultValue,
   getMissingAttributes,
   renderSchemaStatusSection,
   upsertSchemaStatusBlock,
@@ -15,6 +16,7 @@ describe("sync-appwrite-schema helpers", () => {
   });
 
   test("createAttribute routes to matching Appwrite create method", async () => {
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
     const databases = {
       createStringAttribute: jest.fn().mockResolvedValue({}),
       createIntegerAttribute: jest.fn().mockResolvedValue({}),
@@ -57,6 +59,37 @@ describe("sync-appwrite-schema helpers", () => {
     expect(databases.createBooleanAttribute).toHaveBeenCalled();
     expect(databases.createDatetimeAttribute).toHaveBeenCalled();
     expect(databases.createFloatAttribute).toHaveBeenCalled();
+    expect(databases.createBooleanAttribute).toHaveBeenCalledWith(
+      "examarchive",
+      "users",
+      "approved",
+      true,
+      undefined,
+      false,
+    );
+    warnSpy.mockRestore();
+  });
+
+  test("getAppwriteDefaultValue omits default for required attributes", () => {
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    expect(getAppwriteDefaultValue("users", { key: "approved", required: true, default: false })).toBeUndefined();
+    expect(getAppwriteDefaultValue("users", { key: "approved", required: false, default: false })).toBe(false);
+    expect(getAppwriteDefaultValue("users", { key: "status", required: false, default: "pending" })).toBe(
+      "pending",
+    );
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    warnSpy.mockRestore();
+  });
+
+  test("getAppwriteDefaultValue warns when required attributes declare defaults", () => {
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const value = getAppwriteDefaultValue("feedback", { key: "approved", required: true, default: false });
+    expect(value).toBeUndefined();
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[warn] feedback.approved defines a default but is required. " +
+        "Appwrite does not allow defaults on required attributes, so the default is omitted.",
+    );
+    warnSpy.mockRestore();
   });
 
   test("waitForAttributeAvailability waits until status is available", async () => {
