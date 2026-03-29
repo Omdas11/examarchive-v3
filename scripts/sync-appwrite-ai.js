@@ -175,9 +175,8 @@ async function ensureFunctionExists(functions, func) {
       func.id,
       func.name,
       func.runtime,
-      undefined,
       func.execute ?? [],
-      undefined,
+      func.events,
       func.schedule,
     );
     console.log(`[create] function ${func.id}`);
