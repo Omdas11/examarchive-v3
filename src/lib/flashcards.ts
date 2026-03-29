@@ -1,9 +1,11 @@
 import { adminDatabases, adminFunctions, COLLECTION, DATABASE_ID, ID, Query } from "@/lib/appwrite";
+import { runGeminiCompletion } from "@/lib/gemini";
 import { FLASHCARD_FIELD_MAX_LEN } from "@/lib/flashcards-constants";
 
 export const DAILY_FLASHCARD_LIMIT = 5;
 export const FLASHCARDS_FUNCTION_ID = "ai-flashcards";
 const TAG_MAX_LENGTH = 128;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
 
 function isFlashcardPayload(card: unknown): card is FlashcardPayload {
   if (!card || typeof card !== "object") return false;
@@ -73,6 +75,20 @@ export async function runFlashcardsFunction(payload: { subject: string; topic: s
     throw new Error("Flashcard generator is currently unavailable. Please try again later.");
   }
 
+  const statusCode = typeof execution.responseStatusCode === "number" ? execution.responseStatusCode : undefined;
+  const failedStatus = execution.status !== "completed" || (statusCode !== undefined && statusCode >= 400);
+
+  if (failedStatus) {
+    console.error("[flashcards] ai-flashcards execution failed", {
+      executionId: execution.$id,
+      status: execution.status,
+      statusCode,
+      errors: execution.errors?.slice?.(0, 500),
+      responseBody: execution.responseBody?.slice?.(0, 500),
+    });
+    throw new Error("Flashcard generator is currently unavailable. Please try again later.");
+  }
+
   let flashcards: FlashcardPayload[] = [];
   if (execution.responseBody) {
     try {
@@ -97,6 +113,68 @@ export async function runFlashcardsFunction(payload: { subject: string; topic: s
   }
 
   return { execution, flashcards };
+}
+
+async function generateFlashcardsWithGemini(payload: { subject: string; topic: string }) {
+  if (!GEMINI_API_KEY) {
+    throw new Error("Gemini API key not configured");
+  }
+
+  const prompt = `Create exactly ${DAILY_FLASHCARD_LIMIT} concise study flashcards for the subject "${payload.subject}" on the topic "${payload.topic}".
+
+Return ONLY valid JSON array (no Markdown) where each element has:
+- "question": string
+- "answer": string
+- Optional "hint": string
+
+Example:
+[
+  {"question":"...", "answer":"...", "hint":"optional"}
+]`;
+
+  const result = await runGeminiCompletion({
+    apiKey: GEMINI_API_KEY,
+    prompt,
+    maxTokens: 600,
+    temperature: 0.4,
+  });
+
+  const cleaned = result.content.trim().replace(/```(?:json)?/g, "").replace(/```/g, "").trim();
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch (error) {
+    console.error("[flashcards] Failed to parse Gemini flashcards", { error, cleaned: cleaned.slice(0, 500) });
+    throw new Error("Flashcard generator returned invalid data.");
+  }
+
+  if (!Array.isArray(parsed)) {
+    throw new Error("Flashcard generator returned invalid format.");
+  }
+
+  const flashcards = parsed.filter(isFlashcardPayload);
+  if (flashcards.length === 0) {
+    throw new Error("Flashcard generator returned no cards. Please try again.");
+  }
+
+  return { flashcards, model: result.model };
+}
+
+export async function generateFlashcards(payload: { subject: string; topic: string }) {
+  try {
+    const { flashcards } = await runFlashcardsFunction(payload);
+    if (flashcards.length > 0) {
+      return { flashcards, model: FLASHCARDS_FUNCTION_ID };
+    }
+  } catch (error) {
+    console.error("[flashcards] Appwrite generation failed, falling back to Gemini if available", error);
+  }
+
+  if (GEMINI_API_KEY) {
+    return generateFlashcardsWithGemini(payload);
+  }
+
+  throw new Error("Flashcard generator is currently unavailable. Please try again later.");
 }
 
 export async function saveFlashcardsDocument(data: FlashcardSavePayload) {

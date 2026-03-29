@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getServerUser } from "@/lib/auth";
 import {
   checkDailyLimit,
-  runFlashcardsFunction,
+  generateFlashcards,
   saveFlashcardsDocument,
   DAILY_FLASHCARD_LIMIT,
 } from "@/lib/flashcards";
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { flashcards } = await runFlashcardsFunction({
+    const { flashcards, model } = await generateFlashcards({
       subject: finalSubject,
       topic: targetTopic,
     });
@@ -78,19 +78,34 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await saveFlashcardsDocument({
-      userId: user.id,
-      subject: finalSubject,
-      topic: targetTopic,
-      flashcards,
-    });
-
-    const postSaveStatus = await checkDailyLimit(user.id);
+    let postSaveStatus = await checkDailyLimit(user.id);
+    let saved = true;
+    try {
+      await saveFlashcardsDocument({
+        userId: user.id,
+        subject: finalSubject,
+        topic: targetTopic,
+        flashcards,
+        model,
+      });
+      postSaveStatus = await checkDailyLimit(user.id);
+    } catch (saveError) {
+      saved = false;
+      console.error("[study] Failed to persist flashcards", saveError);
+      // Best-effort optimistic increment when persistence fails
+      postSaveStatus = {
+        allowed: postSaveStatus.allowed,
+        used: Math.min(postSaveStatus.used + 1, DAILY_FLASHCARD_LIMIT),
+        limit: postSaveStatus.limit,
+        startOfDay: postSaveStatus.startOfDay,
+      };
+    }
 
     return NextResponse.json({
       flashcards,
       used: postSaveStatus.used,
       limit: postSaveStatus.limit,
+      saved,
     });
   } catch (error) {
     console.error("[study] Failed to generate flashcards", error);
