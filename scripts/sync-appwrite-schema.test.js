@@ -69,9 +69,22 @@ describe("sync-appwrite-schema helpers", () => {
   });
 
   test("getAppwriteDefaultValue omits default for required attributes", () => {
-    expect(getAppwriteDefaultValue({ required: true, default: false })).toBeUndefined();
-    expect(getAppwriteDefaultValue({ required: false, default: false })).toBe(false);
-    expect(getAppwriteDefaultValue({ required: false, default: "pending" })).toBe("pending");
+    expect(getAppwriteDefaultValue("users", { key: "approved", required: true, default: false })).toBeUndefined();
+    expect(getAppwriteDefaultValue("users", { key: "approved", required: false, default: false })).toBe(false);
+    expect(getAppwriteDefaultValue("users", { key: "status", required: false, default: "pending" })).toBe(
+      "pending",
+    );
+  });
+
+  test("getAppwriteDefaultValue warns when required attributes declare defaults", () => {
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const value = getAppwriteDefaultValue("feedback", { key: "approved", required: true, default: false });
+    expect(value).toBeUndefined();
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[warn] feedback.approved defines a default but is required. " +
+        "Appwrite does not allow defaults on required attributes, so the default is omitted.",
+    );
+    warnSpy.mockRestore();
   });
 
   test("waitForAttributeAvailability waits until status is available", async () => {

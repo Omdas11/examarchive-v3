@@ -201,7 +201,13 @@ function formatType(type, array) {
   return array ? `${type}[]` : type;
 }
 
-function getAppwriteDefaultValue(attribute) {
+function getAppwriteDefaultValue(collectionId, attribute) {
+  if (attribute.required && typeof attribute.default !== "undefined") {
+    console.warn(
+      `[warn] ${collectionId}.${attribute.key} defines a default but is required. ` +
+        "Appwrite does not allow defaults on required attributes, so the default is omitted.",
+    );
+  }
   if (attribute.required) {
     return undefined;
   }
@@ -280,7 +286,7 @@ async function waitForAttributeAvailability(
 }
 
 async function createAttribute(databases, databaseId, collectionId, attribute) {
-  const defaultValue = getAppwriteDefaultValue(attribute);
+  const defaultValue = getAppwriteDefaultValue(collectionId, attribute);
   switch (attribute.type) {
     case "string":
       return databases.createStringAttribute(
