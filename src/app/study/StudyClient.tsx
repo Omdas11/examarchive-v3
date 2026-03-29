@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useToast } from "@/components/ToastContext";
 import { FLASHCARD_COUNT_OPTIONS, FLASHCARD_FIELD_MAX_LEN } from "@/lib/flashcards-constants";
+import { IconCheck, IconSparkles, IconXMark } from "@/components/Icons";
 
 interface Flashcard {
   question: string;
@@ -230,19 +231,20 @@ export default function StudyClient() {
         )}
 
         {flashcards.length > 0 && (
-          <p className="text-sm text-on-surface-variant">
-            Tap a card to flip. Swipe right for ✅, left for ❌. You can also use the buttons on each card.
-          </p>
+          <div className="flex items-center gap-2 rounded-xl bg-surface-variant/40 px-3 py-2 text-sm text-on-surface-variant">
+            <IconSparkles size={16} className="text-primary" />
+            <span>Tap to flip. Swipe right to mark Known, left for Review. Buttons work too.</span>
+          </div>
         )}
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="relative min-h-[460px]">
           {flashcards.map((card, idx) => {
             const status = cardStatus[idx] ?? "pending";
             const isFlipped = flipped[idx] ?? false;
             const statusStyles =
               status === "checked"
                 ? "bg-green-100 text-green-700 border-green-300"
-              : status === "unchecked"
+                : status === "unchecked"
                   ? "bg-error/10 text-error border-error/30"
                   : "bg-primary/5 text-primary border-primary/20";
 
@@ -253,20 +255,28 @@ export default function StudyClient() {
               handlePointerEnd(idx, e.clientX);
             };
 
+            const layer = flashcards.length - idx;
+            const offset = idx * 14;
+            const scale = 1 - idx * 0.015;
+
             return (
               <div
                 key={card.question ? `${card.question}-${idx}` : `card-${idx}`}
-                className="group relative aspect-square w-full cursor-pointer overflow-hidden rounded-2xl border border-outline/15 bg-surface shadow-lg transition hover:shadow-xl"
+                className="group absolute inset-0 mx-auto aspect-[4/5] w-full max-w-xl cursor-pointer overflow-hidden rounded-3xl border border-outline/15 bg-surface shadow-2xl transition hover:shadow-primary/30"
+                style={{
+                  zIndex: layer,
+                  transform: `translateY(${offset}px) scale(${scale})`,
+                }}
                 onClick={() => toggleFlip(idx)}
                 onPointerDown={handlePointerDown}
                 onPointerUp={handlePointerUp}
               >
                 <div
-                  className={`absolute inset-0 h-full w-full p-4 transition-transform duration-300 [transform-style:preserve-3d] ${
+                  className={`absolute inset-0 h-full w-full p-5 transition-transform duration-300 [transform-style:preserve-3d] ${
                     isFlipped ? "[transform:rotateY(180deg)]" : ""
                   }`}
                 >
-                  <div className="absolute inset-0 flex flex-col gap-3 rounded-2xl bg-surface p-4 [backface-visibility:hidden]">
+                  <div className="absolute inset-0 flex flex-col gap-3 rounded-3xl bg-surface p-4 [backface-visibility:hidden]">
                     <div className="flex items-center justify-between">
                       <span
                         className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide ${statusStyles}`}
@@ -275,13 +285,13 @@ export default function StudyClient() {
                       </span>
                       <span className="text-xs font-semibold text-primary">Card {idx + 1}</span>
                     </div>
-                    <div className="flex-1 rounded-xl bg-surface-variant/60 p-3 text-on-surface shadow-inner">
+                    <div className="flex-1 rounded-2xl bg-surface-variant/50 p-3 text-on-surface shadow-inner">
                       <h3 className="text-base font-semibold text-on-surface">Q: {card.question}</h3>
                     </div>
                     <p className="text-xs text-on-surface-variant">Tap to flip and see the answer</p>
                   </div>
 
-                  <div className="absolute inset-0 flex flex-col gap-3 rounded-2xl bg-surface p-4 [backface-visibility:hidden] [transform:rotateY(180deg)]">
+                  <div className="absolute inset-0 flex flex-col gap-3 rounded-3xl bg-surface p-4 [backface-visibility:hidden] [transform:rotateY(180deg)]">
                     <div className="flex items-center justify-between">
                       <span
                         className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide ${statusStyles}`}
@@ -290,7 +300,7 @@ export default function StudyClient() {
                       </span>
                       <span className="text-xs font-semibold text-primary">Answer</span>
                     </div>
-                    <div className="flex-1 rounded-xl bg-surface-variant/60 p-3 text-on-surface shadow-inner">
+                    <div className="flex-1 rounded-2xl bg-surface-variant/50 p-3 text-on-surface shadow-inner">
                       <p className="text-sm leading-relaxed text-on-surface-variant">{card.answer}</p>
                     </div>
                     {card.hint && (
@@ -302,26 +312,28 @@ export default function StudyClient() {
                   </div>
                 </div>
 
-                <div className="absolute inset-x-3 bottom-3 flex items-center justify-between gap-2 rounded-xl bg-surface/80 px-2 py-2 shadow-sm backdrop-blur">
+                <div className="absolute inset-x-4 bottom-4 flex items-center justify-between gap-3 rounded-2xl bg-surface/90 px-3 py-2 shadow-lg backdrop-blur">
                   <button
                     type="button"
-                    className="flex-1 rounded-lg border border-error/40 bg-error/10 px-2 py-2 text-sm font-semibold text-error transition hover:bg-error/20"
+                    className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl border border-error/40 bg-error/10 px-3 py-2 text-sm font-semibold text-error transition hover:bg-error/20"
                     onClick={(e) => {
                       e.stopPropagation();
                       markCard(idx, "unchecked");
                     }}
                   >
-                    ❌ Review
+                    <IconXMark size={18} />
+                    Review
                   </button>
                   <button
                     type="button"
-                    className="flex-1 rounded-lg border border-green-300 bg-green-100 px-2 py-2 text-sm font-semibold text-green-700 transition hover:bg-green-200"
+                    className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl border border-green-300 bg-green-100 px-3 py-2 text-sm font-semibold text-green-700 transition hover:bg-green-200"
                     onClick={(e) => {
                       e.stopPropagation();
                       markCard(idx, "checked");
                     }}
                   >
-                    ✅ Known
+                    <IconCheck size={18} />
+                    Known
                   </button>
                 </div>
               </div>
@@ -336,8 +348,14 @@ export default function StudyClient() {
               <span className="rounded-full bg-primary/10 px-3 py-1 text-primary">
                 Total cards: {flashcards.length}
               </span>
-              <span className="rounded-full bg-green-100 px-3 py-1 text-green-700">Checked ✅: {checkedCount}</span>
-              <span className="rounded-full bg-error/10 px-3 py-1 text-error">Review ❌: {uncheckedCount}</span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-3 py-1 text-green-700">
+                <IconCheck size={16} />
+                Checked: {checkedCount}
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-error/10 px-3 py-1 text-error">
+                <IconXMark size={16} />
+                Review: {uncheckedCount}
+              </span>
               <span className="rounded-full bg-on-surface/5 px-3 py-1 text-on-surface-variant">
                 Remaining: {pendingCount}
               </span>
