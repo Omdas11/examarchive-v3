@@ -40,6 +40,11 @@ export const APP_SIDEBAR_ITEMS: AppSidebarItem[] = [
     href: "/ai-content",
   },
   {
+    label: "Study",
+    icon: "school",
+    href: "/study",
+  },
+  {
     label: "Upload Paper",
     icon: "upload_file",
     href: "/upload",

@@ -4,6 +4,7 @@ import {
   Databases,
   Storage,
   Users,
+  Functions,
   ID,
   Query,
   Permission,
@@ -50,6 +51,7 @@ export const COLLECTION = {
    * Create this collection in the Appwrite console with the attributes above.
    */
   ai_usage: "ai_usage",
+  ai_flashcards: "ai_flashcards",
   /**
    * Tracks daily PDF render/download usage per user to protect the Puppeteer route.
    * Each document: user_id (string), date (string YYYY-MM-DD).
@@ -124,6 +126,10 @@ export function adminUsers() {
 
 export function adminAccount() {
   return new Account(createAdminClient());
+}
+
+export function adminFunctions() {
+  return new Functions(createAdminClient());
 }
 
 // ── File storage helpers ────────────────────────────────────────────────
@@ -203,4 +209,4 @@ export async function deleteFileFromAppwrite(fileId: string): Promise<void> {
 }
 
 // Re-export utilities so consumers can import from a single module.
-export { Account, Databases, Storage, Users, ID, Query, Permission, Role };
+export { Account, Databases, Storage, Users, Functions, ID, Query, Permission, Role };
