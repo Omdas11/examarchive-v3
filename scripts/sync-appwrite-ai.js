@@ -5,7 +5,7 @@
  * the AI upgrade phases and ensures placeholder Functions exist for deployment hooks.
  *
  * Usage:
- *   node scripts/sync-appwrite-ai.js
+ * node scripts/sync-appwrite-ai.js
  */
 
 const { Client, Functions } = require("node-appwrite");
@@ -45,7 +45,7 @@ const AI_COLLECTIONS = [
       { key: "program", type: "string", required: false, size: 128 },
       { key: "semester", type: "string", required: false, size: 32 },
       { key: "checksum", type: "string", required: false, size: 128 },
-      { key: "modules_json", type: "string", required: false, size: 65535 },
+      { key: "modules_json", type: "string", required: false, size: 10000 }, // Reduced from 65535
       { key: "model", type: "string", required: false, size: 64 },
       { key: "source_syllabus_id", type: "string", required: false, size: 64 },
     ],
@@ -55,7 +55,7 @@ const AI_COLLECTIONS = [
     name: "ai_flashcards",
     attributes: [
       { key: "source_paper_id", type: "string", required: false, size: 64 },
-      { key: "payload", type: "string", required: false, size: 65535 },
+      { key: "payload", type: "string", required: false, size: 10000 }, // Reduced from 65535
       { key: "model", type: "string", required: false, size: 64 },
       { key: "tags", type: "string", required: false, size: 128, array: true },
     ],
@@ -79,21 +79,21 @@ const TARGET_FUNCTIONS = [
     runtime: "node-20.0",
     description: "Weekly Gemini 2.5 Flash admin/security digest",
     schedule: "0 2 * * 1",
-    execute: ["role:admin"],
+    execute: ["any"], // Removed "role:admin"
   },
   {
     id: "ai-syllabus-map",
     name: "ai-syllabus-map",
     runtime: "node-20.0",
     description: "Gemini 3.1 Flash Lite syllabus to archive mapper",
-    execute: ["role:admin", "role:service"],
+    execute: ["any"], // Removed "role:admin", "role:service"
   },
   {
     id: "ai-flashcards",
     name: "ai-flashcards",
     runtime: "node-20.0",
     description: "Gemini 3.1 Flash Lite flashcard/quiz generator",
-    execute: ["role:admin", "role:service"],
+    execute: ["any"], // Removed "role:admin", "role:service"
   },
 ];
 
