@@ -45,6 +45,7 @@ export default function StudyClient() {
       .then((res) => res.json())
       .then((data) => {
         if (typeof data.used === "number") setLimitUsed(data.used);
+        else setLimitUsed(0);
         if (typeof data.limit === "number") setLimit(data.limit);
       })
       .catch((error) => {
@@ -124,7 +125,7 @@ export default function StudyClient() {
               placeholder="e.g., Quantum Entanglement or Dynamic Programming"
               className="w-full rounded-xl border border-outline/20 bg-surface-variant px-4 py-3 text-on-surface placeholder:text-on-surface-variant/70 shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
               disabled={loading}
-              maxLength={200}
+              maxLength={TOPIC_MAX_LEN}
             />
           </label>
 
@@ -187,3 +188,4 @@ export default function StudyClient() {
     </div>
   );
 }
+const TOPIC_MAX_LEN = 200;

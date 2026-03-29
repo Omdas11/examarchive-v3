@@ -37,7 +37,10 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("[study] Invalid flashcards request body", error);
     return NextResponse.json(
-      { error: "Invalid request body. Expected JSON with at least one of: 'subject' or 'topic' (strings)." },
+      {
+        error:
+          "Invalid request body. Expected JSON with at least one of: 'subject' or 'topic' (non-empty strings).",
+      },
       { status: 400 },
     );
   }
