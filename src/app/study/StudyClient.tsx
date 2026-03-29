@@ -11,6 +11,7 @@ interface Flashcard {
 }
 
 type CardStatus = "pending" | "checked" | "unchecked";
+const SWIPE_THRESHOLD_PX = 40;
 
 function LoadingDots() {
   return (
@@ -78,10 +79,9 @@ export default function StudyClient() {
   const handlePointerEnd = (index: number, clientX: number) => {
     if (!activeSwipe || activeSwipe.index !== index) return;
     const deltaX = clientX - activeSwipe.startX;
-    const threshold = 40;
-    if (deltaX > threshold) {
+    if (deltaX > SWIPE_THRESHOLD_PX) {
       markCard(index, "checked");
-    } else if (deltaX < -threshold) {
+    } else if (deltaX < -SWIPE_THRESHOLD_PX) {
       markCard(index, "unchecked");
     }
     setActiveSwipe(null);
@@ -246,19 +246,11 @@ export default function StudyClient() {
                   ? "bg-error/10 text-error border-error/30"
                   : "bg-primary/5 text-primary border-primary/20";
 
-            const handleMouseDown = (e: React.PointerEvent<HTMLDivElement>) => {
+            const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
               handlePointerStart(idx, e.clientX);
             };
-            const handleMouseUp = (e: React.PointerEvent<HTMLDivElement>) => {
+            const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
               handlePointerEnd(idx, e.clientX);
-            };
-            const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
-              const x = e.touches?.[0]?.clientX;
-              if (typeof x === "number") handlePointerStart(idx, x);
-            };
-            const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
-              const x = e.changedTouches?.[0]?.clientX;
-              if (typeof x === "number") handlePointerEnd(idx, x);
             };
 
             return (
@@ -266,10 +258,8 @@ export default function StudyClient() {
                 key={card.question ? `${card.question}-${idx}` : `card-${idx}`}
                 className="group relative aspect-square w-full cursor-pointer overflow-hidden rounded-2xl border border-outline/15 bg-surface shadow-lg transition hover:shadow-xl"
                 onClick={() => toggleFlip(idx)}
-                onPointerDown={handleMouseDown}
-                onPointerUp={handleMouseUp}
-                onTouchStart={handleTouchStart}
-                onTouchEnd={handleTouchEnd}
+                onPointerDown={handlePointerDown}
+                onPointerUp={handlePointerUp}
               >
                 <div
                   className={`absolute inset-0 h-full w-full p-4 transition-transform duration-300 [transform-style:preserve-3d] ${

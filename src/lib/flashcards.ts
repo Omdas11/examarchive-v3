@@ -6,6 +6,9 @@ export const DAILY_FLASHCARD_LIMIT = 5;
 export const FLASHCARDS_FUNCTION_ID = "ai-flashcards";
 const TAG_MAX_LENGTH = 128;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+const GEMINI_MAX_TOKENS = 250_000;
+const GEMINI_MIN_TOKENS = 400;
+const TOKENS_PER_CARD = 80;
 
 function isFlashcardPayload(card: unknown): card is FlashcardPayload {
   if (!card || typeof card !== "object") return false;
@@ -133,7 +136,7 @@ async function generateFlashcardsWithGemini(payload: FlashcardRequest) {
   }
 
   const count = normalizeCount(payload.count);
-  const maxTokens = Math.min(250_000, Math.max(400, count * 80));
+  const maxTokens = Math.min(GEMINI_MAX_TOKENS, Math.max(GEMINI_MIN_TOKENS, count * TOKENS_PER_CARD));
 
   const prompt = `Create exactly ${count} concise study flashcards for the subject "${payload.subject}" on the topic "${payload.topic}".
 
