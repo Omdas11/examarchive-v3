@@ -11,6 +11,14 @@ interface Flashcard {
   hint?: string;
 }
 
+interface HistoryEntry {
+  id: string;
+  subject: string;
+  topic: string;
+  createdAt: string;
+  cards: Flashcard[];
+}
+
 type CardStatus = "pending" | "checked" | "unchecked" | "skipped";
 
 function LoadingDots() {
@@ -48,6 +56,7 @@ export default function StudyClient() {
   const [loading, setLoading] = useState(false);
   const [limitUsed, setLimitUsed] = useState(0);
   const [limit, setLimit] = useState(5);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
 
   const remaining = useMemo(() => Math.max(limit - limitUsed, 0), [limit, limitUsed]);
   const checkedCount = useMemo(() => cardStatus.filter((s) => s === "checked").length, [cardStatus]);
@@ -67,10 +76,52 @@ export default function StudyClient() {
       .catch((error) => {
         console.error("[study] Failed to load flashcard limits", error);
       });
+    }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const stored = localStorage.getItem("flashcardHistory");
+      if (stored) {
+        const parsed = JSON.parse(stored) as HistoryEntry[];
+        setHistory(parsed);
+      }
+    } catch (error) {
+      console.warn("[study] Unable to read flashcard history", error);
+    }
   }, []);
 
   const toggleFlip = (index: number) => {
     setFlipped((prev) => prev.map((v, i) => (i === index ? !v : v)));
+  };
+
+  const persistHistory = (entries: HistoryEntry[]) => {
+    setHistory(entries);
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem("flashcardHistory", JSON.stringify(entries));
+    } catch (error) {
+      console.warn("[study] Unable to persist flashcard history", error);
+    }
+  };
+
+  const saveSessionToHistory = (cards: Flashcard[], subj: string, top: string) => {
+    const entry: HistoryEntry = {
+      id: `${Date.now()}`,
+      subject: subj,
+      topic: top,
+      createdAt: new Date().toISOString(),
+      cards,
+    };
+    const updated = [entry, ...history].slice(0, 5);
+    persistHistory(updated);
+  };
+
+  const loadHistoryEntry = (entry: HistoryEntry) => {
+    setSubject(entry.subject);
+    setTopic(entry.topic);
+    setFlashcards(entry.cards);
+    resetCardState(entry.cards);
   };
 
   const markCard = (index: number, status: CardStatus) => {
@@ -147,12 +198,14 @@ export default function StudyClient() {
     }
   };
 
-  const navigateToCard = (newIndex: number) => {
+  const navigateToCard = (newIndex: number, markAsSkipped: boolean) => {
     if (newIndex >= 0 && newIndex < flashcards.length) {
-      // Mark current card as skipped if it's still pending/skipped
-      const currentStatus = cardStatus[currentCardIndex];
-      if (currentStatus === "pending" || currentStatus === "skipped") {
-        setCardStatus((prev) => prev.map((v, i) => (i === currentCardIndex ? "skipped" : v)));
+      // Mark current card as skipped when moving forward without a decision
+      if (markAsSkipped) {
+        const currentStatus = cardStatus[currentCardIndex];
+        if (currentStatus === "pending" || currentStatus === "skipped") {
+          setCardStatus((prev) => prev.map((v, i) => (i === currentCardIndex ? "skipped" : v)));
+        }
       }
       setCurrentCardIndex(newIndex);
       setFlipped((prev) => prev.map((v, i) => (i === newIndex ? false : v)));
@@ -162,13 +215,13 @@ export default function StudyClient() {
 
   const handlePrevCard = () => {
     if (currentCardIndex > 0) {
-      navigateToCard(currentCardIndex - 1);
+      navigateToCard(currentCardIndex - 1, false);
     }
   };
 
   const handleNextCard = () => {
     if (currentCardIndex < flashcards.length - 1) {
-      navigateToCard(currentCardIndex + 1);
+      navigateToCard(currentCardIndex + 1, true);
     }
   };
 
@@ -202,6 +255,7 @@ export default function StudyClient() {
       const cards: Flashcard[] = data.flashcards ?? [];
       setFlashcards(cards);
       resetCardState(cards);
+      saveSessionToHistory(cards, subject, topic);
       setLimitUsed(typeof data.used === "number" ? data.used : 0);
       setLimit(typeof data.limit === "number" ? data.limit : limit);
       showToast("Flashcards generated successfully!", "success");
@@ -310,6 +364,35 @@ export default function StudyClient() {
           )}
         </div>
 
+        {history.length > 0 && (
+          <div className="rounded-2xl border border-outline/10 bg-surface-variant/30 px-4 py-4">
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-on-surface">Recent history</p>
+                <p className="text-xs text-on-surface-variant">Jump back into your last flashcard sets.</p>
+              </div>
+              <span className="text-xs font-medium text-on-surface-variant">{history.length} saved</span>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+              {history.map((entry) => (
+                <button
+                  type="button"
+                  key={entry.id}
+                  className="flex flex-col items-start gap-1 rounded-xl border border-outline/20 bg-surface px-3 py-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md"
+                  onClick={() => loadHistoryEntry(entry)}
+                >
+                  <span className="text-xs font-semibold uppercase tracking-wide text-primary">History</span>
+                  <span className="text-sm font-bold text-on-surface">{entry.subject}</span>
+                  <span className="line-clamp-1 text-xs text-on-surface-variant">{entry.topic || "Untitled topic"}</span>
+                  <span className="text-[11px] font-semibold text-on-surface-variant/80">
+                    {entry.cards.length} cards • {new Date(entry.createdAt).toLocaleString()}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {flashcards.length === 0 && !loading && (
           <div className="rounded-xl border border-dashed border-outline/30 bg-surface-variant/40 px-6 py-10 text-center text-on-surface-variant">
             Start by picking a subject and topic, then hit Generate to see AI flashcards here.
@@ -320,6 +403,26 @@ export default function StudyClient() {
           <div className="flex items-center gap-2 rounded-xl bg-surface-variant/40 px-3 py-2 text-sm text-on-surface-variant">
             <IconSparkles size={16} className="text-primary" />
             <span>Tap to flip. Swipe right to mark Known, left for Review. Use arrows to browse cards.</span>
+          </div>
+        )}
+
+        {flashcards.length > 0 && (
+          <div className="flex flex-wrap gap-3 rounded-xl border border-outline/10 bg-surface-variant/30 px-4 py-3 text-xs font-semibold text-on-surface">
+            <span className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-primary">
+              Total: {flashcards.length}
+            </span>
+            <span className="inline-flex items-center gap-2 rounded-full bg-green-100 px-3 py-1 text-green-700">
+              Known: {checkedCount}
+            </span>
+            <span className="inline-flex items-center gap-2 rounded-full bg-error/10 px-3 py-1 text-error">
+              Review: {uncheckedCount}
+            </span>
+            <span className="inline-flex items-center gap-2 rounded-full bg-orange-100 px-3 py-1 text-orange-700">
+              Skipped: {skippedCount}
+            </span>
+            <span className="inline-flex items-center gap-2 rounded-full bg-surface px-3 py-1 text-on-surface-variant">
+              Pending: {pendingCount}
+            </span>
           </div>
         )}
 
@@ -437,7 +540,7 @@ export default function StudyClient() {
                   <div className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-4 rounded-b-2xl bg-surface/95 px-4 py-3 shadow-lg backdrop-blur">
                     <button
                       type="button"
-                      className="inline-flex h-12 w-12 items-center justify-center rounded-full border-2 border-error/40 bg-error/10 text-error transition hover:bg-error/20 hover:scale-110"
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-error/40 bg-error/10 text-error transition hover:bg-error/15"
                       onClick={(e) => {
                         e.stopPropagation();
                         markCard(idx, "unchecked");
@@ -449,7 +552,7 @@ export default function StudyClient() {
                     </button>
                     <button
                       type="button"
-                      className="inline-flex h-12 w-12 items-center justify-center rounded-full border-2 border-green-400 bg-green-100 text-green-700 transition hover:bg-green-200 hover:scale-110"
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-green-300 bg-green-100 text-green-700 transition hover:bg-green-200"
                       onClick={(e) => {
                         e.stopPropagation();
                         markCard(idx, "checked");
@@ -527,6 +630,10 @@ export default function StudyClient() {
                   <div className="w-4 h-4 rounded-full bg-red-300"></div>
                   <span className="text-sm text-on-surface">Review: {uncheckedCount} ({Math.round((uncheckedCount / flashcards.length) * 100)}%)</span>
                 </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded-full bg-orange-200"></div>
+                  <span className="text-sm text-on-surface">Skipped: {skippedCount}</span>
+                </div>
               </div>
             </div>
 
@@ -535,6 +642,9 @@ export default function StudyClient() {
                 <span className="font-semibold">Session summary</span>
                 <span className="rounded-full bg-primary/10 px-3 py-1 text-primary">
                   Total cards: {flashcards.length}
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-surface px-3 py-1 text-on-surface-variant">
+                  Reviewed: {reviewedCount}
                 </span>
                 <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-3 py-1 text-green-700">
                   <IconCheck size={16} />
