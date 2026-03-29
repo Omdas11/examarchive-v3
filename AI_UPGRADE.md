@@ -230,7 +230,7 @@ export async function GET() {
 ---
 
 ## Operational Guards
-- **Rate limits**: Batch Gemini calls, add jittered retries, and surface `Retry-After` headers to the client.  
+- **Rate limits**: Batch Gemini calls, implement retries with jitter, and surface `Retry-After` headers to the client.  
 - **PII handling**: Strip student names/emails before sending to Gemini; keep only course/session metadata.  
 - **Observability**: Log model ID, prompt hash, latency, and Appwrite document IDs; avoid logging raw PDF content.  
 - **Testing**: Add integration tests around prompt shape and Zod validation stubs; use fixtures with synthetic PDFs.  
