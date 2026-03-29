@@ -105,6 +105,7 @@ describe("sync-appwrite-ai", () => {
         createdAttributes: 1,
         totalTargetAttributes: 2,
         connected: false,
+        attributeLimitExceeded: false,
       });
     });
 
@@ -132,6 +133,39 @@ describe("sync-appwrite-ai", () => {
       expect(result.connected).toBe(true);
       expect(result.createdAttributes).toBe(0);
       expect(result.createdCollection).toBe(false);
+      expect(result.attributeLimitExceeded).toBe(false);
+    });
+
+    test("skips remaining attributes when Appwrite reports attribute_limit_exceeded", async () => {
+      const databases = {
+        getCollection: jest.fn().mockResolvedValue({ $id: "ai_admin_reports" }),
+        createCollection: jest.fn(),
+        listAttributes: jest.fn().mockResolvedValue({ attributes: [] }),
+      };
+      createAttribute
+        .mockImplementationOnce(() => Promise.resolve({}))
+        .mockRejectedValueOnce({ type: "attribute_limit_exceeded" });
+
+      const collection = {
+        id: "ai_admin_reports",
+        name: "ai_admin_reports",
+        attributes: [
+          { key: "run_at", type: "datetime", required: false },
+          { key: "summary", type: "string", required: false, size: 8192 },
+        ],
+      };
+
+      const result = await syncCollection(databases, collection);
+
+      expect(result).toEqual({
+        collectionId: "ai_admin_reports",
+        createdCollection: false,
+        createdAttributes: 1,
+        totalTargetAttributes: 2,
+        connected: false,
+        attributeLimitExceeded: true,
+      });
+      expect(waitForAttributeAvailability).toHaveBeenCalledTimes(1);
     });
   });
 });
