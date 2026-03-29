@@ -8,8 +8,17 @@ import {
 } from "@/lib/flashcards";
 import { FLASHCARD_COUNT_OPTIONS, FLASHCARD_FIELD_MAX_LEN } from "@/lib/flashcards-constants";
 
+type FlashcardCountOption = (typeof FLASHCARD_COUNT_OPTIONS)[number];
+
 function normalizeField(value: unknown) {
   return typeof value === "string" ? value.trim().slice(0, FLASHCARD_FIELD_MAX_LEN) : "";
+}
+
+function normalizeCount(value: unknown): FlashcardCountOption {
+  const num = typeof value === "number" ? value : FLASHCARD_COUNT_OPTIONS[0];
+  return FLASHCARD_COUNT_OPTIONS.includes(num as FlashcardCountOption)
+    ? (num as FlashcardCountOption)
+    : FLASHCARD_COUNT_OPTIONS[0];
 }
 
 export async function GET() {
@@ -52,10 +61,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Please provide a subject or topic." }, { status: 400 });
   }
   const finalSubject = subject || targetTopic;
-  const requestedCount = typeof body.count === "number" ? body.count : FLASHCARD_COUNT_OPTIONS[0];
-  const count = FLASHCARD_COUNT_OPTIONS.includes(requestedCount)
-    ? requestedCount
-    : FLASHCARD_COUNT_OPTIONS[0];
+  const count = normalizeCount(body.count);
 
   const limitStatus = await checkDailyLimit(user.id);
   if (!limitStatus.allowed) {
