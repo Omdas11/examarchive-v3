@@ -25,7 +25,8 @@ export async function checkDailyLimit(userId: string) {
       limit: DAILY_FLASHCARD_LIMIT,
       startOfDay,
     };
-  } catch {
+  } catch (error) {
+    console.error("[flashcards] Failed to read daily limit", error);
     return {
       allowed: true,
       used: 0,
@@ -51,11 +52,7 @@ export interface FlashcardSavePayload {
 
 export async function runFlashcardsFunction(payload: { subject: string; topic: string }) {
   const functions = adminFunctions();
-  const execution = await functions.createExecution({
-    functionId: "ai-flashcards",
-    body: JSON.stringify(payload),
-    async: false,
-  });
+  const execution = await functions.createExecution("ai-flashcards", JSON.stringify(payload), false);
 
   let flashcards: FlashcardPayload[] = [];
   if (execution.responseBody) {
@@ -64,7 +61,8 @@ export async function runFlashcardsFunction(payload: { subject: string; topic: s
       if (Array.isArray(parsed)) {
         flashcards = parsed;
       }
-    } catch {
+    } catch (error) {
+      console.error("[flashcards] Failed to parse flashcards response", error);
       flashcards = [];
     }
   }

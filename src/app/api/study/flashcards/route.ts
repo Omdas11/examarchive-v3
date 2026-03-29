@@ -34,7 +34,8 @@ export async function POST(request: NextRequest) {
   let body: { subject?: string; topic?: string };
   try {
     body = await request.json();
-  } catch {
+  } catch (error) {
+    console.error("[study] Invalid flashcards request body", error);
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
 
@@ -77,10 +78,12 @@ export async function POST(request: NextRequest) {
       flashcards,
     });
 
+    const postSaveStatus = await checkDailyLimit(user.id);
+
     return NextResponse.json({
       flashcards,
-      used: limitStatus.used + 1,
-      limit: DAILY_FLASHCARD_LIMIT,
+      used: postSaveStatus.used,
+      limit: postSaveStatus.limit,
     });
   } catch (error) {
     console.error("[study] Failed to generate flashcards", error);

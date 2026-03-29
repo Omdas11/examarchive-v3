@@ -51,8 +51,8 @@ export default function StudyClient() {
   }, []);
 
   const handleGenerate = async () => {
-    if (!topic.trim() && !subject.trim()) {
-      showToast("Please select a subject or topic.", "warning");
+    if (!topic.trim()) {
+      showToast("Please enter a topic to generate flashcards.", "warning");
       return;
     }
     setLoading(true);
@@ -171,7 +171,7 @@ export default function StudyClient() {
                 <span className="text-xs font-semibold uppercase tracking-wide text-primary">Card {idx + 1}</span>
                 {card.hint && <span className="text-xs text-on-surface-variant">Hint available</span>}
               </div>
-              <h3 className="text-base font-semibold text-on-surface mb-2">{card.question}</h3>
+              <h3 className="mb-2 text-base font-semibold text-on-surface">{card.question}</h3>
               <p className="text-sm text-on-surface-variant leading-relaxed">{card.answer}</p>
               {card.hint && (
                 <p className="mt-3 rounded-lg bg-primary/5 px-3 py-2 text-xs text-primary">
