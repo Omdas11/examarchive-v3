@@ -1,6 +1,6 @@
 import { adminDatabases, adminFunctions, COLLECTION, DATABASE_ID, ID, Query } from "@/lib/appwrite";
 import { runGeminiCompletion } from "@/lib/gemini";
-import { FLASHCARD_FIELD_MAX_LEN } from "@/lib/flashcards-constants";
+import { FLASHCARD_COUNT_OPTIONS, FLASHCARD_FIELD_MAX_LEN } from "@/lib/flashcards-constants";
 
 export const DAILY_FLASHCARD_LIMIT = 5;
 export const FLASHCARDS_FUNCTION_ID = "ai-flashcards";
@@ -65,11 +65,23 @@ export interface FlashcardSavePayload {
   model?: string;
 }
 
-export async function runFlashcardsFunction(payload: { subject: string; topic: string }) {
+type FlashcardRequest = { subject: string; topic: string; count?: number };
+
+function normalizeCount(count?: number): number {
+  if (typeof count !== "number") return FLASHCARD_COUNT_OPTIONS[0];
+  const allowed = FLASHCARD_COUNT_OPTIONS.find((opt) => opt === count);
+  return allowed ?? FLASHCARD_COUNT_OPTIONS[0];
+}
+
+export async function runFlashcardsFunction(payload: FlashcardRequest) {
   const functions = adminFunctions();
   let execution;
   try {
-    execution = await functions.createExecution(FLASHCARDS_FUNCTION_ID, JSON.stringify(payload), false);
+    execution = await functions.createExecution(
+      FLASHCARDS_FUNCTION_ID,
+      JSON.stringify({ ...payload, count: normalizeCount(payload.count) }),
+      false,
+    );
   } catch (error) {
     console.error("[flashcards] Failed to trigger ai-flashcards function", error);
     throw new Error("Flashcard generator is currently unavailable. Please try again later.");
@@ -115,12 +127,15 @@ export async function runFlashcardsFunction(payload: { subject: string; topic: s
   return { execution, flashcards };
 }
 
-async function generateFlashcardsWithGemini(payload: { subject: string; topic: string }) {
+async function generateFlashcardsWithGemini(payload: FlashcardRequest) {
   if (!GEMINI_API_KEY) {
     throw new Error("Gemini API key not configured");
   }
 
-  const prompt = `Create exactly ${DAILY_FLASHCARD_LIMIT} concise study flashcards for the subject "${payload.subject}" on the topic "${payload.topic}".
+  const count = normalizeCount(payload.count);
+  const maxTokens = Math.min(250_000, Math.max(400, count * 80));
+
+  const prompt = `Create exactly ${count} concise study flashcards for the subject "${payload.subject}" on the topic "${payload.topic}".
 
 Return ONLY valid JSON array (no Markdown) where each element has:
 - "question": string
@@ -135,7 +150,7 @@ Example:
   const result = await runGeminiCompletion({
     apiKey: GEMINI_API_KEY,
     prompt,
-    maxTokens: 600,
+    maxTokens,
     temperature: 0.4,
   });
 
@@ -160,11 +175,12 @@ Example:
   return { flashcards, model: result.model };
 }
 
-export async function generateFlashcards(payload: { subject: string; topic: string }) {
+export async function generateFlashcards(payload: FlashcardRequest) {
   try {
     const { flashcards } = await runFlashcardsFunction(payload);
+    const desired = normalizeCount(payload.count);
     if (flashcards.length > 0) {
-      return { flashcards, model: FLASHCARDS_FUNCTION_ID };
+      return { flashcards: flashcards.slice(0, desired), model: FLASHCARDS_FUNCTION_ID };
     }
   } catch (error) {
     console.error("[flashcards] Appwrite generation failed, falling back to Gemini if available", error);

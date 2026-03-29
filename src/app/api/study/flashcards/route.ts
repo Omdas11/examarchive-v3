@@ -6,7 +6,7 @@ import {
   saveFlashcardsDocument,
   DAILY_FLASHCARD_LIMIT,
 } from "@/lib/flashcards";
-import { FLASHCARD_FIELD_MAX_LEN } from "@/lib/flashcards-constants";
+import { FLASHCARD_COUNT_OPTIONS, FLASHCARD_FIELD_MAX_LEN } from "@/lib/flashcards-constants";
 
 function normalizeField(value: unknown) {
   return typeof value === "string" ? value.trim().slice(0, FLASHCARD_FIELD_MAX_LEN) : "";
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Login required" }, { status: 401 });
   }
 
-  let body: { subject?: string; topic?: string };
+  let body: { subject?: string; topic?: string; count?: number };
   try {
     body = await request.json();
   } catch (error) {
@@ -52,6 +52,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Please provide a subject or topic." }, { status: 400 });
   }
   const finalSubject = subject || targetTopic;
+  const requestedCount = typeof body.count === "number" ? body.count : FLASHCARD_COUNT_OPTIONS[0];
+  const count = FLASHCARD_COUNT_OPTIONS.includes(requestedCount)
+    ? requestedCount
+    : FLASHCARD_COUNT_OPTIONS[0];
 
   const limitStatus = await checkDailyLimit(user.id);
   if (!limitStatus.allowed) {
@@ -69,6 +73,7 @@ export async function POST(request: NextRequest) {
     const { flashcards, model } = await generateFlashcards({
       subject: finalSubject,
       topic: targetTopic,
+      count,
     });
 
     if (!flashcards || flashcards.length === 0) {
@@ -106,6 +111,7 @@ export async function POST(request: NextRequest) {
       used: postSaveStatus.used,
       limit: postSaveStatus.limit,
       saved,
+      count,
     });
   } catch (error) {
     console.error("[study] Failed to generate flashcards", error);

@@ -1,14 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useToast } from "@/components/ToastContext";
-import { FLASHCARD_FIELD_MAX_LEN } from "@/lib/flashcards-constants";
+import { FLASHCARD_COUNT_OPTIONS, FLASHCARD_FIELD_MAX_LEN } from "@/lib/flashcards-constants";
 
 interface Flashcard {
   question: string;
   answer: string;
   hint?: string;
 }
+
+type CardStatus = "pending" | "checked" | "unchecked";
 
 function LoadingDots() {
   return (
@@ -35,11 +37,18 @@ export default function StudyClient() {
   const [subject, setSubject] = useState<string>(SUBJECT_OPTIONS[0]);
   const [topic, setTopic] = useState<string>("");
   const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
+  const [cardStatus, setCardStatus] = useState<CardStatus[]>([]);
+  const [flipped, setFlipped] = useState<boolean[]>([]);
+  const [activeSwipe, setActiveSwipe] = useState<{ index: number; startX: number } | null>(null);
+  const [count, setCount] = useState<number>(FLASHCARD_COUNT_OPTIONS[0]);
   const [loading, setLoading] = useState(false);
   const [limitUsed, setLimitUsed] = useState(0);
   const [limit, setLimit] = useState(5);
 
   const remaining = useMemo(() => Math.max(limit - limitUsed, 0), [limit, limitUsed]);
+  const checkedCount = useMemo(() => cardStatus.filter((s) => s === "checked").length, [cardStatus]);
+  const uncheckedCount = useMemo(() => cardStatus.filter((s) => s === "unchecked").length, [cardStatus]);
+  const pendingCount = useMemo(() => cardStatus.filter((s) => s === "pending").length, [cardStatus]);
 
   useEffect(() => {
     fetch("/api/study/flashcards")
@@ -54,6 +63,35 @@ export default function StudyClient() {
       });
   }, []);
 
+  const toggleFlip = (index: number) => {
+    setFlipped((prev) => prev.map((v, i) => (i === index ? !v : v)));
+  };
+
+  const markCard = (index: number, status: CardStatus) => {
+    setCardStatus((prev) => prev.map((v, i) => (i === index ? status : v)));
+  };
+
+  const handlePointerStart = (index: number, clientX: number) => {
+    setActiveSwipe({ index, startX: clientX });
+  };
+
+  const handlePointerEnd = (index: number, clientX: number) => {
+    if (!activeSwipe || activeSwipe.index !== index) return;
+    const deltaX = clientX - activeSwipe.startX;
+    const threshold = 40;
+    if (deltaX > threshold) {
+      markCard(index, "checked");
+    } else if (deltaX < -threshold) {
+      markCard(index, "unchecked");
+    }
+    setActiveSwipe(null);
+  };
+
+  const resetCardState = (cards: Flashcard[]) => {
+    setCardStatus(cards.map(() => "pending"));
+    setFlipped(cards.map(() => false));
+  };
+
   const handleGenerate = async () => {
     if (!topic.trim()) {
       showToast("Please enter a topic to generate flashcards.", "warning");
@@ -64,7 +102,7 @@ export default function StudyClient() {
       const res = await fetch("/api/study/flashcards", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subject, topic }),
+        body: JSON.stringify({ subject, topic, count }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -74,7 +112,9 @@ export default function StudyClient() {
         return;
       }
 
-      setFlashcards(data.flashcards ?? []);
+      const cards: Flashcard[] = data.flashcards ?? [];
+      setFlashcards(cards);
+      resetCardState(cards);
       setLimitUsed(typeof data.used === "number" ? data.used : 0);
       setLimit(typeof data.limit === "number" ? data.limit : limit);
       showToast("Flashcards generated successfully!", "success");
@@ -130,6 +170,30 @@ export default function StudyClient() {
             />
           </label>
 
+          <div className="space-y-2 md:col-span-2">
+            <span className="text-sm font-semibold text-on-surface-variant">Cards per run</span>
+            <div className="flex flex-wrap gap-2">
+              {FLASHCARD_COUNT_OPTIONS.map((option) => {
+                const isActive = option === count;
+                return (
+                  <button
+                    type="button"
+                    key={option}
+                    onClick={() => setCount(option)}
+                    disabled={loading}
+                    className={`rounded-full border px-3 py-2 text-sm font-semibold transition ${
+                      isActive
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-outline/30 bg-surface-variant text-on-surface"
+                    } disabled:cursor-not-allowed disabled:opacity-70`}
+                  >
+                    {option} cards
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <button
             type="button"
             onClick={handleGenerate}
@@ -165,26 +229,131 @@ export default function StudyClient() {
           </div>
         )}
 
-        <div className="grid gap-4 md:grid-cols-2">
-          {flashcards.map((card, idx) => (
-            <div
-              key={card.question ? `${card.question}-${idx}` : `card-${idx}`}
-              className="rounded-2xl border border-outline/10 bg-surface p-5 shadow-sm transition hover:shadow-md"
-            >
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wide text-primary">Card {idx + 1}</span>
-                {card.hint && <span className="text-xs text-on-surface-variant">Hint available</span>}
+        {flashcards.length > 0 && (
+          <p className="text-sm text-on-surface-variant">
+            Tap a card to flip. Swipe right for ✅, left for ❌. You can also use the buttons on each card.
+          </p>
+        )}
+
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {flashcards.map((card, idx) => {
+            const status = cardStatus[idx] ?? "pending";
+            const isFlipped = flipped[idx] ?? false;
+            const statusStyles =
+              status === "checked"
+                ? "bg-green-100 text-green-700 border-green-300"
+              : status === "unchecked"
+                  ? "bg-error/10 text-error border-error/30"
+                  : "bg-primary/5 text-primary border-primary/20";
+
+            const handleMouseDown = (e: React.PointerEvent<HTMLDivElement>) => {
+              handlePointerStart(idx, e.clientX);
+            };
+            const handleMouseUp = (e: React.PointerEvent<HTMLDivElement>) => {
+              handlePointerEnd(idx, e.clientX);
+            };
+            const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+              const x = e.touches?.[0]?.clientX;
+              if (typeof x === "number") handlePointerStart(idx, x);
+            };
+            const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+              const x = e.changedTouches?.[0]?.clientX;
+              if (typeof x === "number") handlePointerEnd(idx, x);
+            };
+
+            return (
+              <div
+                key={card.question ? `${card.question}-${idx}` : `card-${idx}`}
+                className="group relative aspect-square w-full cursor-pointer overflow-hidden rounded-2xl border border-outline/15 bg-surface shadow-lg transition hover:shadow-xl"
+                onClick={() => toggleFlip(idx)}
+                onPointerDown={handleMouseDown}
+                onPointerUp={handleMouseUp}
+                onTouchStart={handleTouchStart}
+                onTouchEnd={handleTouchEnd}
+              >
+                <div
+                  className={`absolute inset-0 h-full w-full p-4 transition-transform duration-300 [transform-style:preserve-3d] ${
+                    isFlipped ? "[transform:rotateY(180deg)]" : ""
+                  }`}
+                >
+                  <div className="absolute inset-0 flex flex-col gap-3 rounded-2xl bg-surface p-4 [backface-visibility:hidden]">
+                    <div className="flex items-center justify-between">
+                      <span
+                        className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide ${statusStyles}`}
+                      >
+                        {status === "checked" ? "Known" : status === "unchecked" ? "Review" : "Pending"}
+                      </span>
+                      <span className="text-xs font-semibold text-primary">Card {idx + 1}</span>
+                    </div>
+                    <div className="flex-1 rounded-xl bg-surface-variant/60 p-3 text-on-surface shadow-inner">
+                      <h3 className="text-base font-semibold text-on-surface">Q: {card.question}</h3>
+                    </div>
+                    <p className="text-xs text-on-surface-variant">Tap to flip and see the answer</p>
+                  </div>
+
+                  <div className="absolute inset-0 flex flex-col gap-3 rounded-2xl bg-surface p-4 [backface-visibility:hidden] [transform:rotateY(180deg)]">
+                    <div className="flex items-center justify-between">
+                      <span
+                        className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide ${statusStyles}`}
+                      >
+                        {status === "checked" ? "Known" : status === "unchecked" ? "Review" : "Pending"}
+                      </span>
+                      <span className="text-xs font-semibold text-primary">Answer</span>
+                    </div>
+                    <div className="flex-1 rounded-xl bg-surface-variant/60 p-3 text-on-surface shadow-inner">
+                      <p className="text-sm leading-relaxed text-on-surface-variant">{card.answer}</p>
+                    </div>
+                    {card.hint && (
+                      <p className="rounded-lg bg-primary/5 px-3 py-2 text-xs text-primary">
+                        Hint: {card.hint}
+                      </p>
+                    )}
+                    <p className="text-xs text-on-surface-variant">Tap to flip back</p>
+                  </div>
+                </div>
+
+                <div className="absolute inset-x-3 bottom-3 flex items-center justify-between gap-2 rounded-xl bg-surface/80 px-2 py-2 shadow-sm backdrop-blur">
+                  <button
+                    type="button"
+                    className="flex-1 rounded-lg border border-error/40 bg-error/10 px-2 py-2 text-sm font-semibold text-error transition hover:bg-error/20"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      markCard(idx, "unchecked");
+                    }}
+                  >
+                    ❌ Review
+                  </button>
+                  <button
+                    type="button"
+                    className="flex-1 rounded-lg border border-green-300 bg-green-100 px-2 py-2 text-sm font-semibold text-green-700 transition hover:bg-green-200"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      markCard(idx, "checked");
+                    }}
+                  >
+                    ✅ Known
+                  </button>
+                </div>
               </div>
-              <h3 className="mb-2 text-base font-semibold text-on-surface">{card.question}</h3>
-              <p className="text-sm text-on-surface-variant leading-relaxed">{card.answer}</p>
-              {card.hint && (
-                <p className="mt-3 rounded-lg bg-primary/5 px-3 py-2 text-xs text-primary">
-                  Hint: {card.hint}
-                </p>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
+
+        {flashcards.length > 0 && (
+          <div className="rounded-2xl border border-outline/10 bg-surface-variant/40 px-4 py-3 text-sm text-on-surface">
+            <div className="flex flex-wrap items-center gap-4">
+              <span className="font-semibold">Session summary</span>
+              <span className="rounded-full bg-primary/10 px-3 py-1 text-primary">
+                Total cards: {flashcards.length}
+              </span>
+              <span className="rounded-full bg-green-100 px-3 py-1 text-green-700">Checked ✅: {checkedCount}</span>
+              <span className="rounded-full bg-error/10 px-3 py-1 text-error">Review ❌: {uncheckedCount}</span>
+              <span className="rounded-full bg-on-surface/5 px-3 py-1 text-on-surface-variant">
+                Remaining: {pendingCount}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
