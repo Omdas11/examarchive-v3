@@ -64,9 +64,9 @@ describe("sync-appwrite-ai", () => {
       expect(functions.create).toHaveBeenCalledWith(
         "ai-admin-report",
         "ai-admin-report",
-        ["role:admin"],
         "node-20.0",
         undefined,
+        ["role:admin"],
         undefined,
         "0 2 * * 1",
       );
@@ -151,7 +151,7 @@ describe("sync-appwrite-ai", () => {
         name: "ai_admin_reports",
         attributes: [
           { key: "run_at", type: "datetime", required: false },
-          { key: "summary", type: "string", required: false, size: 8192 },
+          { key: "summary", type: "string", required: false, size: 10000 },
         ],
       };
 
