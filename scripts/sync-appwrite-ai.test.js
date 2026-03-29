@@ -152,6 +152,7 @@ describe("sync-appwrite-ai", () => {
         attributes: [
           { key: "run_at", type: "datetime", required: false },
           { key: "summary", type: "string", required: false, size: 10000 },
+          { key: "risks_json", type: "string", required: false, size: 10000 },
         ],
       };
 
@@ -161,7 +162,7 @@ describe("sync-appwrite-ai", () => {
         collectionId: "ai_admin_reports",
         createdCollection: false,
         createdAttributes: 1,
-        totalTargetAttributes: 2,
+        totalTargetAttributes: 3,
         connected: false,
         attributeLimitExceeded: true,
       });
