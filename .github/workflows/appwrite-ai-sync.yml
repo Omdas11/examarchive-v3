@@ -5,7 +5,7 @@ on:
   push:
     branches: [ main ]
     paths:
-      - "AI_UPGRADE.md"
+      - "docs/AI_UPGRADE.md"
       - "scripts/sync-appwrite-ai.js"
       - "scripts/appwrite-schema-setup.js"
       - "scripts/sync-appwrite-schema.js"

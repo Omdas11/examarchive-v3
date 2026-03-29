@@ -12,7 +12,8 @@
     "test:ci": "jest --coverage",
     "sync:appwrite-schema": "node scripts/sync-appwrite-schema.js",
     "sync:appwrite-schema:status": "node scripts/sync-appwrite-schema.js --update-schema-md",
-    "sync:appwrite-ai": "node scripts/sync-appwrite-ai.js"
+    "sync:appwrite-ai": "node scripts/sync-appwrite-ai.js",
+    "sync:appwrite-syllabus-registry": "node scripts/sync-appwrite-syllabus-registry.js"
   },
   "dependencies": {
     "@sparticuz/chromium": "^143.0.4",

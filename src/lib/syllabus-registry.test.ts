@@ -1,18 +1,18 @@
-import fs from "fs";
+const statSync = jest.fn();
+const readFileSync = jest.fn();
 
 jest.mock("fs", () => ({
-  statSync: jest.fn(),
-  readFileSync: jest.fn(),
+  __esModule: true,
+  default: { statSync, readFileSync },
+  statSync,
+  readFileSync,
 }));
 
 describe("syllabus registry parser", () => {
-  const mockStat = fs.statSync as jest.Mock;
-  const mockRead = fs.readFileSync as jest.Mock;
-
   beforeEach(() => {
     jest.resetModules();
-    mockStat.mockReset();
-    mockRead.mockReset();
+    statSync.mockReset();
+    readFileSync.mockReset();
   });
 
   it("parses numeric columns and preserves extra columns", async () => {
@@ -22,8 +22,8 @@ describe("syllabus registry parser", () => {
       "| CODE1 | Name 1 | 1 | 3 | Physics | FYUGP | Uni | DSC | keepme |",
     ].join("\n");
 
-    mockStat.mockReturnValue({ mtimeMs: 1 });
-    mockRead.mockReturnValue(md);
+    statSync.mockReturnValue({ mtimeMs: 1 });
+    readFileSync.mockReturnValue(md);
 
     const { loadSyllabusRegistry } = await import("./syllabus-registry");
     const rows = await loadSyllabusRegistry();
@@ -42,8 +42,8 @@ describe("syllabus registry parser", () => {
       "Not a table row",
     ].join("\n");
 
-    mockStat.mockReturnValue({ mtimeMs: 2 });
-    mockRead.mockReturnValue(md);
+    statSync.mockReturnValue({ mtimeMs: 2 });
+    readFileSync.mockReturnValue(md);
 
     const { loadSyllabusRegistry } = await import("./syllabus-registry");
     const rows = await loadSyllabusRegistry();
@@ -64,14 +64,14 @@ describe("syllabus registry parser", () => {
       "| CODE3 | New Name | 2 | 4 | Physics | FYUGP | Uni |",
     ].join("\n");
 
-    mockStat.mockReturnValueOnce({ mtimeMs: 3 });
-    mockRead.mockReturnValueOnce(md1);
+    statSync.mockReturnValueOnce({ mtimeMs: 3 });
+    readFileSync.mockReturnValueOnce(md1);
     const { loadSyllabusRegistry } = await import("./syllabus-registry");
     const first = await loadSyllabusRegistry();
     expect(first[0].paper_name).toBe("Old Name");
 
-    mockStat.mockReturnValueOnce({ mtimeMs: 4 });
-    mockRead.mockReturnValueOnce(md2);
+    statSync.mockReturnValueOnce({ mtimeMs: 4 });
+    readFileSync.mockReturnValueOnce(md2);
     const refreshed = await loadSyllabusRegistry();
     expect(refreshed[0].paper_name).toBe("New Name");
     expect(refreshed[0].semester).toBe(2);
