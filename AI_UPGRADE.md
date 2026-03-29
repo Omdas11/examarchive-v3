@@ -32,6 +32,21 @@ export async function runGeminiCompletion(args: {
 
 Use this helper for all phases to keep timeouts, error handling, and default model behavior consistent.
 
+### Appwrite automation (schema + functions)
+
+- **Base schema**: `npm run sync:appwrite-schema` (or `npm run sync:appwrite-schema:status` to refresh `docs/DATABASE_SCHEMA.md`). Creates/patches the core collections used today (papers, syllabus, users, uploads, etc.).
+- **AI schema + function stubs**: `npm run sync:appwrite-ai` creates the AI collections and placeholder functions used across these phases. It only creates missing collections/attributes/functions; existing definitions are left intact.
+
+| Asset | Purpose | Managed by | Sync status once run |
+|---|---|---|---|
+| `ai_ingestions` | Stores PDF ingestion runs (model, status, digest, counts) | `sync:appwrite-ai` | ✅ Created/filled with missing columns |
+| `ai_syllabus_maps` | Structured syllabus JSON + checksum for mappings | `sync:appwrite-ai` | ✅ Created/filled with missing columns |
+| `ai_flashcards` | Generated flashcards/quizzes payload per source paper | `sync:appwrite-ai` | ✅ Created/filled with missing columns |
+| `ai_admin_reports` | Weekly admin/security reports | `sync:appwrite-ai` | ✅ Created/filled with missing columns |
+| Function `ai-admin-report` | Gemini 2.5 Flash weekly report (cron-ready) | `sync:appwrite-ai` | ✅ Ensures function exists |
+| Function `ai-syllabus-map` | Gemini 3.1 Flash Lite syllabus mapper | `sync:appwrite-ai` | ✅ Ensures function exists |
+| Function `ai-flashcards` | Gemini 3.1 Flash Lite flashcard generator | `sync:appwrite-ai` | ✅ Ensures function exists |
+
 ## Suggested Directory Skeleton
 
 ```
