@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useToast } from "@/components/ToastContext";
+import { FLASHCARD_FIELD_MAX_LEN } from "@/lib/flashcards-constants";
 
 interface Flashcard {
   question: string;
@@ -28,7 +29,6 @@ const SUBJECT_OPTIONS = [
   "Economics",
   "History",
 ];
-const TOPIC_MAX_LEN = 200;
 
 export default function StudyClient() {
   const { showToast } = useToast();
@@ -126,7 +126,7 @@ export default function StudyClient() {
               placeholder="e.g., Quantum Entanglement or Dynamic Programming"
               className="w-full rounded-xl border border-outline/20 bg-surface-variant px-4 py-3 text-on-surface placeholder:text-on-surface-variant/70 shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
               disabled={loading}
-              maxLength={TOPIC_MAX_LEN}
+              maxLength={FLASHCARD_FIELD_MAX_LEN}
             />
           </label>
 

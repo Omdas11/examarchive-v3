@@ -6,11 +6,10 @@ import {
   saveFlashcardsDocument,
   DAILY_FLASHCARD_LIMIT,
 } from "@/lib/flashcards";
-
-const FIELD_MAX_LEN = 200;
+import { FLASHCARD_FIELD_MAX_LEN } from "@/lib/flashcards-constants";
 
 function normalizeField(value: unknown) {
-  return typeof value === "string" ? value.trim().slice(0, FIELD_MAX_LEN) : "";
+  return typeof value === "string" ? value.trim().slice(0, FLASHCARD_FIELD_MAX_LEN) : "";
 }
 
 export async function GET() {

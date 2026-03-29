@@ -8,6 +8,7 @@ jest.mock("@/lib/appwrite", () => {
       attribute,
       values: [value],
     }),
+    limit: (value: number) => ({ method: "limit", values: [value] }),
   };
   return {
     Query,
@@ -33,10 +34,15 @@ describe("checkDailyLimit", () => {
     expect(result.allowed).toBe(true);
     expect(result.used).toBe(2);
     expect(result.limit).toBe(DAILY_FLASHCARD_LIMIT);
-    expect(mockListDocuments).toHaveBeenCalledWith(expect.any(String), expect.any(String), [
-      expect.objectContaining({ method: "equal", attribute: "userId", values: ["user-123"] }),
-      expect.objectContaining({ attribute: "$createdAt", method: "greaterThanEqual" }),
-    ]);
+    expect(mockListDocuments).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      expect.arrayContaining([
+        expect.objectContaining({ method: "equal", attribute: "userId", values: ["user-123"] }),
+        expect.objectContaining({ attribute: "$createdAt", method: "greaterThanEqual" }),
+        expect.objectContaining({ method: "limit", values: [1] }),
+      ]),
+    );
   });
 
   it("blocks when limit is reached", async () => {
@@ -49,13 +55,14 @@ describe("checkDailyLimit", () => {
     expect(result.used).toBe(5);
   });
 
-  it("blocks when the database query fails", async () => {
+  it("allows when the database query fails but records error", async () => {
     mockListDocuments.mockRejectedValue(new Error("not found"));
     const { checkDailyLimit } = await import("./flashcards");
 
     const result = await checkDailyLimit("user-123");
 
-    expect(result.allowed).toBe(false);
+    expect(result.allowed).toBe(true);
     expect(result.used).toBe(0);
+    expect(result.error).toBe(true);
   });
 });

@@ -1,0 +1,1 @@
+export const FLASHCARD_FIELD_MAX_LEN = 200;
