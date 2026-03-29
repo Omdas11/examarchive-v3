@@ -9,7 +9,6 @@ import {
 } from "@/lib/appwrite";
 import { getServerUser } from "@/lib/auth";
 import { isModerator } from "@/lib/roles";
-import { SYLLABUS_REGISTRY } from "@/data/syllabus-registry";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 
@@ -36,6 +35,7 @@ async function fetchPlatformStats() {
     syllabusApproved,
     syllabusTotal,
     usersTotal,
+    syllabusDocs,
   ] = await Promise.allSettled([
     db.listDocuments(DATABASE_ID, COLLECTION.papers, [
       Query.equal("approved", true),
@@ -52,6 +52,10 @@ async function fetchPlatformStats() {
     ]),
     db.listDocuments(DATABASE_ID, COLLECTION.syllabus, [Query.limit(1)]),
     db.listDocuments(DATABASE_ID, COLLECTION.users, [Query.limit(1)]),
+    db.listDocuments(DATABASE_ID, COLLECTION.syllabus, [
+      Query.equal("approval_status", "approved"),
+      Query.limit(500),
+    ]),
   ]);
 
   return {
@@ -69,6 +73,22 @@ async function fetchPlatformStats() {
       syllabusTotal.status === "fulfilled" ? syllabusTotal.value.total : 0,
     usersTotal:
       usersTotal.status === "fulfilled" ? usersTotal.value.total : 0,
+    syllabusSubjects:
+      syllabusDocs.status === "fulfilled"
+        ? new Set(
+            syllabusDocs.value.documents
+              .map((d) => (d.subject as string | undefined)?.trim())
+              .filter(Boolean),
+          ).size
+        : 0,
+    syllabusCodes:
+      syllabusDocs.status === "fulfilled"
+        ? new Set(
+            syllabusDocs.value.documents
+              .map((d) => (d.course_code as string | undefined)?.trim())
+              .filter(Boolean),
+          ).size
+        : 0,
   };
 }
 
@@ -162,13 +182,24 @@ export default async function StatsPage() {
         ))}
       </div>
 
-      {/* Registry stats (static data) */}
-      <h2 className="mt-10 text-lg font-semibold">Syllabus Registry</h2>
+      {/* Live syllabus stats */}
+      <h2 className="mt-10 text-lg font-semibold">Syllabus Coverage</h2>
       <p className="mt-1 text-sm mb-4" style={{ color: "var(--color-text-muted)" }}>
-        Built-in paper registry (local data — always available offline).
+        Live counts computed from approved syllabi in Appwrite.
       </p>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-        <RegistryStats />
+        <div className="card p-5 text-center">
+          <p className="text-3xl font-bold" style={{ color: "var(--color-primary)" }}>{stats.syllabusTotal}</p>
+          <p className="mt-1 text-sm font-medium">Total Syllabi</p>
+        </div>
+        <div className="card p-5 text-center">
+          <p className="text-3xl font-bold">{stats.syllabusSubjects}</p>
+          <p className="mt-1 text-sm font-medium">Subjects Covered</p>
+        </div>
+        <div className="card p-5 text-center">
+          <p className="text-3xl font-bold">{stats.syllabusCodes}</p>
+          <p className="mt-1 text-sm font-medium">Paper Codes</p>
+        </div>
       </div>
 
       {/* Footer note */}
@@ -177,34 +208,5 @@ export default async function StatsPage() {
       </p>
     </section>
     </MainLayout>
-  );
-}
-
-/** Registry counts are static — computed at render time from local data. */
-function RegistryStats() {
-  const total = SYLLABUS_REGISTRY.length;
-  const withUnits = SYLLABUS_REGISTRY.filter((e) => (e.units?.length ?? 0) > 0).length;
-  const subjects = new Set(SYLLABUS_REGISTRY.map((e) => e.subject)).size;
-
-  const registryCards = [
-    { label: "Registry Entries", value: total },
-    { label: "With Full Units", value: withUnits },
-    { label: "Subjects Covered", value: subjects },
-  ];
-
-  return (
-    <>
-      {registryCards.map((c) => (
-        <div key={c.label} className="card p-5 text-center">
-          <p
-            className="text-3xl font-bold"
-            style={{ color: "var(--color-primary)" }}
-          >
-            {c.value}
-          </p>
-          <p className="mt-1 text-sm font-medium">{c.label}</p>
-        </div>
-      ))}
-    </>
   );
 }

@@ -8,7 +8,7 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import { cn } from '@/lib/utils';
 
@@ -54,65 +54,43 @@ interface PaperItem {
   category: string;
 }
 
-const FEATURED_PAPERS: PaperItem[] = [
-  {
-    id: '1',
-    title: 'Distributed Systems Design Patterns',
-    author: 'Dr. Sarah Chen',
-    course: 'CS 3050 - Advanced Systems',
-    year: 2024,
-    views: 3400,
-    downloads: 850,
-    verified: true,
-    university: 'Stanford University',
-    category: 'Lecture Notes',
-  },
-  {
-    id: '2',
-    title: 'Machine Learning for Financial Markets',
-    author: 'Prof. James Wilson',
-    course: 'FIN 4200 - Computational Finance',
-    year: 2024,
-    views: 2100,
-    downloads: 520,
-    verified: true,
-    university: 'MIT',
-    category: 'Research Paper',
-  },
-  {
-    id: '3',
-    title: 'Quantum Computing Fundamentals',
-    author: 'Dr. Anita Patel',
-    course: 'CS 4890 - Quantum Algorithms',
-    year: 2024,
-    views: 1850,
-    downloads: 310,
-    verified: true,
-    university: 'UC Berkeley',
-    category: 'Textbook Chapter',
-  },
-  {
-    id: '4',
-    title: 'Natural Language Processing Applications',
-    author: 'Prof. Michael Zhang',
-    course: 'NLP 3100 - Deep Learning for NLP',
-    year: 2024,
-    views: 5200,
-    downloads: 1340,
-    verified: true,
-    university: 'Oxford University',
-    category: 'Tutorial',
-  },
-];
-
 export default function BrowsePageExample() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState('trending');
   const [searchQuery, setSearchQuery] = useState('');
+  const [papers, setPapers] = useState<PaperItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const categories = ['All', 'Lecture Notes', 'Research Papers', 'Tutorial', 'Exam Papers'];
+  const categories = ['All', 'Question Paper', 'Lecture Notes', 'Research Papers', 'Tutorial', 'Exam Papers'];
 
-  const filteredPapers = FEATURED_PAPERS.filter(paper => {
+  useEffect(() => {
+    async function loadPapers() {
+      try {
+        const res = await fetch('/api/papers');
+        const docs = await res.json();
+        const mapped = (docs as any[]).map((doc) => ({
+          id: doc.$id,
+          title: doc.title ?? doc.course_name ?? 'Paper',
+          author: doc.uploaded_by_username ?? 'Unknown',
+          course: doc.course_name ?? doc.course_code ?? 'Course',
+          year: doc.year ?? 0,
+          views: doc.view_count ?? 0,
+          downloads: doc.download_count ?? 0,
+          verified: doc.approved ?? false,
+          university: doc.institution ?? doc.department ?? 'Unknown',
+          category: doc.paper_type ?? 'Question Paper',
+        })) as PaperItem[];
+        setPapers(mapped);
+      } catch {
+        setPapers([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadPapers();
+  }, []);
+
+  const filteredPapers = papers.filter(paper => {
     const matchesCategory = !selectedCategory || paper.category === selectedCategory;
     const matchesSearch = !searchQuery || 
       paper.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -121,9 +99,9 @@ export default function BrowsePageExample() {
   });
 
   const sortedPapers = [...filteredPapers].sort((a, b) => {
-    if (sortBy === 'trending') return b.views - a.views;
-    if (sortBy === 'popular') return b.downloads - a.downloads;
-    if (sortBy === 'recent') return b.year - a.year;
+    if (sortBy === 'trending') return (b.views || 0) - (a.views || 0);
+    if (sortBy === 'popular') return (b.downloads || 0) - (a.downloads || 0);
+    if (sortBy === 'recent') return (b.year || 0) - (a.year || 0);
     return 0;
   });
 

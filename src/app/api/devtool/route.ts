@@ -34,6 +34,49 @@ export async function POST(request: NextRequest) {
   const db = adminDatabases();
 
   switch (action) {
+    case "purge_collections": {
+      try {
+        const skipped = new Set([COLLECTION.users]);
+        let offset = 0;
+        const collections = [];
+        while (true) {
+          const res = await db.listCollections(DATABASE_ID, [Query.limit(100), Query.offset(offset)]);
+          collections.push(...res.collections);
+          if (res.collections.length < 100) break;
+          offset += res.collections.length;
+        }
+
+        let totalDeleted = 0;
+        for (const col of collections) {
+          if (skipped.has(col.$id)) continue;
+          let colDeleted = 0;
+          let docOffset = 0;
+          while (true) {
+            const { documents } = await db.listDocuments(DATABASE_ID, col.$id, [
+              Query.limit(100),
+              Query.offset(docOffset),
+            ]);
+            if (documents.length === 0) break;
+            for (const doc of documents) {
+              await db.deleteDocument(DATABASE_ID, col.$id, doc.$id);
+              colDeleted++;
+              totalDeleted++;
+            }
+            if (documents.length < 100) break;
+            docOffset += documents.length;
+          }
+        }
+
+        return NextResponse.json({
+          success: true,
+          message: `Purged ${totalDeleted} document${totalDeleted !== 1 ? "s" : ""} across ${collections.length - skipped.size} collection${collections.length - skipped.size !== 1 ? "s" : ""}. Users collection was skipped.`,
+        });
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return NextResponse.json({ error: msg }, { status: 500 });
+      }
+    }
+
     case "clear_pending_uploads": {
       try {
         let deleted = 0;
@@ -235,4 +278,3 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });
   }
 }
-

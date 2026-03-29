@@ -10,8 +10,9 @@ import {
 } from "@/lib/appwrite";
 import { toSyllabus, toPaper } from "@/types";
 import type { Syllabus, Paper } from "@/types";
-import { SYLLABUS_REGISTRY, groupBySemester } from "@/data/syllabus-registry";
-import type { SyllabusRegistryEntry, SyllabusUnit } from "@/data/syllabus-registry";
+import { groupBySemester } from "@/data/syllabus-registry";
+import type { SyllabusUnit } from "@/data/syllabus-registry";
+import { loadSyllabusRegistry, findRegistryEntry } from "@/lib/syllabus-registry";
 import { toRoman } from "@/lib/utils";
 import { serializeJsonLd } from "@/lib/json-ld";
 import MainLayout from "@/components/layout/MainLayout";
@@ -27,9 +28,7 @@ interface PageProps {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { paper_code } = await params;
   const code = decodeURIComponent(paper_code);
-  const entry = SYLLABUS_REGISTRY.find(
-    (e) => e.paper_code.toUpperCase() === code.toUpperCase(),
-  );
+  const entry = await findRegistryEntry(code);
   return {
     title: entry ? `${entry.paper_code} – ${entry.paper_name}` : `Syllabus: ${code}`,
     description: entry
@@ -71,9 +70,7 @@ async function fetchSyllabusPdfs(paperCode: string): Promise<Syllabus[]> {
   // Look up the canonical paper name from the registry to match the `subject`
   // field written by the syllabus upload route. The `syllabus` collection does
   // not have a `course_code` field — it stores the paper name in `subject`.
-  const entry = SYLLABUS_REGISTRY.find(
-    (e) => e.paper_code.toUpperCase() === paperCode.toUpperCase(),
-  );
+  const entry = await findRegistryEntry(paperCode);
   if (!entry) return [];
 
   try {
@@ -201,7 +198,8 @@ export default async function SyllabusDetailPage({ params }: PageProps) {
   ]);
 
   // Related papers: same subject + programme + university, different code
-  const relatedEntries = SYLLABUS_REGISTRY.filter(
+  const registryEntries = await loadSyllabusRegistry();
+  const relatedEntries = registryEntries.filter(
     (e) =>
       e.subject === entry.subject &&
       e.programme === entry.programme &&

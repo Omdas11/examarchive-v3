@@ -9,7 +9,6 @@ import {
   MAX_UPLOAD_BYTES,
   type UploadProgress,
 } from "@/lib/appwrite-client";
-import { SYLLABUS_REGISTRY, getAllUniversities } from "@/data/syllabus-registry";
 import type { SyllabusRegistryEntry } from "@/data/syllabus-registry";
 
 type MessageState = { type: "success" | "error"; text: string } | null;
@@ -50,9 +49,6 @@ function examTypeFromCode(code: string): string | undefined {
   return undefined;
 }
 
-const KNOWN_UNIVERSITIES = getAllUniversities();
-const universityOptions = KNOWN_UNIVERSITIES.map((u) => ({ value: u, label: u }));
-
 export default function UploadForm() {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -65,40 +61,79 @@ export default function UploadForm() {
   const [registryEntry, setRegistryEntry] = useState<SyllabusRegistryEntry | null>(null);
   const [derivedExamType, setDerivedExamType] = useState<string | undefined>(undefined);
   const [noRegistryMatch, setNoRegistryMatch] = useState(false);
+  const [paperCodeInput, setPaperCodeInput] = useState("");
+  const [universities, setUniversities] = useState<Array<{ value: string; label: string }>>([]);
   const formRef = useRef<HTMLFormElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const startTimeRef = useRef<number>(0);
   const router = useRouter();
   const { showToast } = useToast();
 
-  /** When paper code changes, auto-resolve metadata from the registry. */
+  // Load distinct universities for selector
+  useEffect(() => {
+    let active = true;
+    fetch("/api/syllabus/registry?distinct=university")
+      .then((res) => res.json())
+      .then((data) => {
+        if (!active) return;
+        const list: string[] = data.universities ?? [];
+        setUniversities(list.map((u) => ({ value: u, label: u })));
+      })
+      .catch(() => {
+        if (!active) return;
+        setUniversities([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  /** When paper code changes, auto-resolve metadata from the backend registry. */
   const handlePaperCodeChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const code = e.target.value.trim().toUpperCase();
+      setPaperCodeInput(code);
       if (!code) {
         setRegistryEntry(null);
         setDerivedExamType(undefined);
         setNoRegistryMatch(false);
         return;
       }
-      // Derive exam type from the paper code suffix regardless of registry match
       setDerivedExamType(examTypeFromCode(code));
-      const entry = SYLLABUS_REGISTRY.find((r) => {
-        const codeMatch = r.paper_code.toUpperCase() === code;
-        if (!codeMatch) return false;
-        if (university) return r.university.toLowerCase() === university.toLowerCase();
-        return true;
-      });
-      if (entry) {
-        setRegistryEntry(entry);
-        setNoRegistryMatch(false);
-      } else {
-        setRegistryEntry(null);
-        setNoRegistryMatch(true);
-      }
     },
-    [university],
+    [],
   );
+
+  // Debounced fetch for registry entry
+  useEffect(() => {
+    if (!paperCodeInput) return;
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const url = new URL("/api/syllabus/registry", window.location.origin);
+        url.searchParams.set("code", paperCodeInput);
+        const res = await fetch(url.toString(), { signal: controller.signal });
+        const data = await res.json();
+        const entry: SyllabusRegistryEntry | null = data.entry ?? null;
+        if (entry && (!university || entry.university.toLowerCase() === university.toLowerCase())) {
+          setRegistryEntry(entry);
+          setNoRegistryMatch(false);
+        } else {
+          setRegistryEntry(null);
+          setNoRegistryMatch(true);
+        }
+      } catch {
+        if (!controller.signal.aborted) {
+          setRegistryEntry(null);
+          setNoRegistryMatch(true);
+        }
+      }
+    }, 150);
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [paperCodeInput, university]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -197,6 +232,7 @@ export default function UploadForm() {
     : progress < 50
     ? lerpColor("#d32f2f", "#f59e0b", progress / 50)
     : lerpColor("#f59e0b", "#16a34a", (progress - 50) / 50);
+  const universityOptions = universities.length ? universities : [];
 
   return (
     <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
@@ -382,4 +418,3 @@ export default function UploadForm() {
     </form>
   );
 }
-

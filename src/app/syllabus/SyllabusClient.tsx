@@ -5,7 +5,7 @@ import type { CSSProperties } from "react";
 import Link from "next/link";
 import type { Syllabus } from "@/types";
 import { toRoman } from "@/lib/utils";
-import { SYLLABUS_REGISTRY, groupBySemester, getAllUniversities } from "@/data/syllabus-registry";
+import { groupBySemester } from "@/data/syllabus-registry";
 import type { SyllabusRegistryEntry } from "@/data/syllabus-registry";
 import { PAPER_TYPE_COLORS } from "@/components/PaperCard";
 import { makeAccentGradient } from "@/lib/gradients";
@@ -247,7 +247,7 @@ function programmeBadgeStyle(programme?: string): CSSProperties {
 
 
 /** Tab 2: Paper Syllabus Library from the registry. */
-export function PaperLibrary() {
+export function PaperLibrary({ entries }: { entries: Syllabus[] }) {
   const [filterUniversity, setFilterUniversity] = useState<string>("ALL");
   const [filterProg, setFilterProg] = useState<string>("ALL");
   const [filterCategory, setFilterCategory] = useState<string>("ALL");
@@ -274,18 +274,34 @@ export function PaperLibrary() {
     };
   }, []);
 
-  const universities = ["ALL", ...getAllUniversities()];
+  const registryEntries = useMemo(
+    () =>
+      entries.map((s) => ({
+        paper_code: (s.course_code || s.course_name || s.subject || s.id).toUpperCase(),
+        paper_name: s.course_name || s.subject || "Syllabus",
+        semester: Number.parseInt(String(s.semester ?? ""), 10) || 0,
+        subject: s.subject || s.course_name || "General",
+        credits: 0,
+        programme: s.programme || "Unknown",
+        university: s.university || "Unknown",
+        category: s.programme || undefined,
+        units: undefined,
+      })),
+    [entries],
+  );
+
+  const universities = ["ALL", ...Array.from(new Set(registryEntries.map((e) => e.university))).sort()];
   const programmes = useMemo(() => ["ALL", ...Array.from(new Set(
-    SYLLABUS_REGISTRY
+    registryEntries
       .filter((e) => filterUniversity === "ALL" || e.university === filterUniversity)
       .map((e) => e.programme),
-  )).sort()], [filterUniversity]);
+  )).sort()], [filterUniversity, registryEntries]);
 
   const categories = useMemo(() => [
     "ALL",
     ...Array.from(
       new Set(
-        SYLLABUS_REGISTRY.filter((e) => {
+        registryEntries.filter((e) => {
           if (filterUniversity !== "ALL" && e.university !== filterUniversity) return false;
           if (filterProg !== "ALL" && e.programme !== filterProg) return false;
           return true;
@@ -294,13 +310,13 @@ export function PaperLibrary() {
           .filter(Boolean),
       ),
     ).sort() as string[],
-  ], [filterUniversity, filterProg]);
+  ], [filterUniversity, filterProg, registryEntries]);
 
   const subjects = useMemo(() => [
     "ALL",
     ...Array.from(
       new Set(
-        SYLLABUS_REGISTRY.filter((e) => {
+        registryEntries.filter((e) => {
           if (filterUniversity !== "ALL" && e.university !== filterUniversity) return false;
           if (filterProg !== "ALL" && e.programme !== filterProg) return false;
           if (filterCategory !== "ALL" && e.category !== filterCategory) return false;
@@ -308,10 +324,10 @@ export function PaperLibrary() {
         }).map((e) => e.subject),
       ),
     ).sort(),
-  ], [filterUniversity, filterProg, filterCategory]);
+  ], [filterUniversity, filterProg, filterCategory, registryEntries]);
 
   const filtered = useMemo(() => {
-    const entries = SYLLABUS_REGISTRY.filter((e) => {
+    const entries = registryEntries.filter((e) => {
       if (!myCoursesActive && filterUniversity !== "ALL" && e.university !== filterUniversity) return false;
       if (!myCoursesActive && filterProg !== "ALL" && e.programme !== filterProg) return false;
       if (!myCoursesActive && filterCategory !== "ALL" && e.category !== filterCategory) return false;
@@ -341,7 +357,7 @@ export function PaperLibrary() {
         default: return a.semester - b.semester;
       }
     });
-  }, [filterUniversity, filterProg, filterCategory, filterSubject, sortKey, myCoursesActive, coursePrefs]);
+  }, [filterUniversity, filterProg, filterCategory, filterSubject, sortKey, myCoursesActive, coursePrefs, registryEntries]);
 
   // When grouping by subject, sort=semester still applies within each group.
   // Group: subject → semester → entries
@@ -707,7 +723,7 @@ export default function SyllabusClient({ syllabi, isAdmin }: SyllabusClientProps
               PDFs {visibleSyllabi.length}
             </span>
             <span className="rounded-full bg-surface-container-high px-3 py-1 text-xs font-semibold text-on-surface-variant">
-              Library {SYLLABUS_REGISTRY.length}
+              Library {syllabi.length}
             </span>
           </div>
         </div>
@@ -749,7 +765,7 @@ export default function SyllabusClient({ syllabi, isAdmin }: SyllabusClientProps
         >
           Paper Syllabus Library
           <span className={`inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-[10px] font-semibold ${activeTab === "library" ? "bg-on-primary/15 text-on-primary" : "bg-surface-container-high text-primary"}`}>
-            {SYLLABUS_REGISTRY.length}
+            {syllabi.length}
           </span>
         </button>
       </div>
@@ -836,7 +852,7 @@ export default function SyllabusClient({ syllabi, isAdmin }: SyllabusClientProps
 
       {activeTab === "library" && (
         <div role="tabpanel" aria-label="Paper Syllabus Library">
-          <PaperLibrary />
+          <PaperLibrary entries={syllabi} />
         </div>
       )}
     </div>

@@ -27,8 +27,8 @@ jest.mock("@/components/layout/appSidebarItems", () => ({
 jest.mock("@/components/PaperCard", () => ({
   PAPER_TYPE_COLORS: {},
 }));
-jest.mock("@/data/syllabus-registry", () => ({
-  SYLLABUS_REGISTRY: [],
+jest.mock("@/lib/syllabus-registry", () => ({
+  findRegistryEntry: jest.fn().mockResolvedValue(undefined),
 }));
 
 import { adminDatabases } from "@/lib/appwrite";
