@@ -65,7 +65,6 @@ describe("sync-appwrite-ai", () => {
         "ai-admin-report",
         "ai-admin-report",
         "node-20.0",
-        undefined,
         ["role:admin"],
         undefined,
         "0 2 * * 1",
