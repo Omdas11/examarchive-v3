@@ -12,8 +12,6 @@ interface Flashcard {
 }
 
 type CardStatus = "pending" | "checked" | "unchecked";
-const SWIPE_THRESHOLD_PX = 80;
-const MOVE_THRESHOLD_PX = 5;
 
 function LoadingDots() {
   return (
@@ -411,7 +409,7 @@ export default function StudyClient() {
               <IconCheck size={32} className="text-primary" />
             </div>
             <h3 className="text-xl font-bold text-on-surface">Session Complete!</h3>
-            <p className="text-on-surface-variant">You've reviewed all flashcards in this set.</p>
+            <p className="text-on-surface-variant">You&apos;ve reviewed all flashcards in this set.</p>
 
             <div className="rounded-2xl border border-outline/10 bg-surface-variant/40 px-4 py-4 text-sm text-on-surface">
               <div className="flex flex-wrap items-center justify-center gap-4">
