@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import type { Syllabus } from "@/types";
 import { getMentorInitials } from "@/data/featured-curriculum";
 import { PaperLibrary } from "./SyllabusClient";
+import type { SyllabusRegistryRecord } from "@/lib/syllabus-registry";
 
 const DEPARTMENT_FILTERS = ["All Departments", "Science", "Arts"];
 
@@ -140,7 +141,7 @@ function FeaturedCard({
         {href ? (
           <Link
             href={href}
-            className="inline-flex items-center gap-2 rounded-2xl bg-[#3c2fd6] px-7 py-3 text-base font-semibold text-white shadow-lg shadow-primary/30 transition hover:translate-y-[-1px] hover:shadow-primary/40"
+            className="inline-flex items-center gap-2 rounded-2xl bg-primary px-7 py-3 text-base font-semibold text-on-primary shadow-lg shadow-primary/30 transition hover:translate-y-[-1px] hover:shadow-primary/40"
           >
             Open PDF
             <span className="material-symbols-outlined text-base">open_in_new</span>
@@ -159,6 +160,36 @@ function FeaturedCard({
 export default function SyllabusCatalogClient({ syllabi }: { syllabi: Syllabus[] }) {
   const [activeTab, setActiveTab] = useState<"pdfs" | "library">("pdfs");
   const [activeFilter, setActiveFilter] = useState(DEPARTMENT_FILTERS[0]);
+  const [registryEntries, setRegistryEntries] = useState<SyllabusRegistryRecord[]>([]);
+  const [registryLoading, setRegistryLoading] = useState(true);
+  const [registryError, setRegistryError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadRegistry() {
+      setRegistryLoading(true);
+      try {
+        const res = await fetch("/api/syllabus/registry");
+        if (!res.ok) throw new Error(`Failed with status ${res.status}: ${res.statusText}`);
+        const data = await res.json();
+        if (!cancelled) {
+          setRegistryEntries(Array.isArray(data.entries) ? data.entries : []);
+          setRegistryError(null);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error("[syllabus] registry fetch failed", err);
+          setRegistryError("Unable to load the syllabus registry right now. Please try again shortly.");
+        }
+      } finally {
+        if (!cancelled) setRegistryLoading(false);
+      }
+    }
+    loadRegistry();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const normalizedAvailable: SyllabusCard[] = useMemo(() => {
     const base = syllabi.map((s) => ({
@@ -178,11 +209,11 @@ export default function SyllabusCatalogClient({ syllabi }: { syllabi: Syllabus[]
   const availableCodes = useMemo(
     () =>
       new Set(
-        syllabi
-          .map((s) => (s.course_code || s.course_name || s.subject || "").toUpperCase())
+        registryEntries
+          .map((e) => (e.paper_code || "").toUpperCase())
           .filter(Boolean),
       ),
-    [syllabi],
+    [registryEntries],
   );
 
   const filteredAvailable = useMemo(() => {
@@ -204,7 +235,7 @@ export default function SyllabusCatalogClient({ syllabi }: { syllabi: Syllabus[]
               className={cn(
                 "rounded-xl px-3 py-3 transition",
                 activeTab === "pdfs"
-                  ? "bg-[#3c2fd6] text-white shadow-lg shadow-primary/30"
+                  ? "bg-primary text-on-primary shadow-lg shadow-primary/30"
                   : "text-on-surface-variant hover:bg-surface",
               )}
               onClick={() => setActiveTab("pdfs")}
@@ -215,7 +246,7 @@ export default function SyllabusCatalogClient({ syllabi }: { syllabi: Syllabus[]
               className={cn(
                 "rounded-xl px-3 py-3 transition",
                 activeTab === "library"
-                  ? "bg-[#3c2fd6] text-white shadow-lg shadow-primary/30"
+                  ? "bg-primary text-on-primary shadow-lg shadow-primary/30"
                   : "text-on-surface-variant hover:bg-surface",
               )}
               onClick={() => setActiveTab("library")}
@@ -231,7 +262,7 @@ export default function SyllabusCatalogClient({ syllabi }: { syllabi: Syllabus[]
                 className={cn(
                   "rounded-full px-5 py-2.5 text-sm font-semibold transition shadow-sm ring-1 ring-transparent",
                   activeFilter === filter
-                    ? "bg-[#3c2fd6] text-white shadow-md shadow-primary/30"
+                    ? "bg-primary text-on-primary shadow-md shadow-primary/30"
                     : "bg-surface-container text-on-surface hover:bg-surface-container-high",
                 )}
               >
@@ -255,7 +286,18 @@ export default function SyllabusCatalogClient({ syllabi }: { syllabi: Syllabus[]
           </div>
         ) : (
           <div className="rounded-3xl bg-surface p-4 shadow-sm shadow-primary/5 ring-1 ring-surface-container-high/40">
-            <PaperLibrary entries={syllabi} />
+            {registryLoading ? (
+              <div className="flex items-center gap-3 rounded-2xl bg-surface-container-low p-4 text-sm text-on-surface-variant">
+                <span className="material-symbols-outlined animate-spin text-primary">progress_activity</span>
+                Loading syllabus library…
+              </div>
+            ) : registryError ? (
+              <div className="rounded-2xl bg-error-container px-4 py-3 text-sm text-on-error">
+                {registryError}
+              </div>
+            ) : (
+              <PaperLibrary entries={registryEntries} />
+            )}
           </div>
         )}
       </div>

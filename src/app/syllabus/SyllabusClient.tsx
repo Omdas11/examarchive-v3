@@ -7,6 +7,7 @@ import type { Syllabus } from "@/types";
 import { toRoman } from "@/lib/utils";
 import { groupBySemester } from "@/data/syllabus-registry";
 import type { SyllabusRegistryEntry } from "@/data/syllabus-registry";
+import type { SyllabusRegistryRecord } from "@/lib/syllabus-registry";
 import { PAPER_TYPE_COLORS } from "@/components/PaperCard";
 import { makeAccentGradient } from "@/lib/gradients";
 import {
@@ -247,7 +248,7 @@ function programmeBadgeStyle(programme?: string): CSSProperties {
 
 
 /** Tab 2: Paper Syllabus Library from the registry. */
-export function PaperLibrary({ entries }: { entries: Syllabus[] }) {
+export function PaperLibrary({ entries }: { entries: SyllabusRegistryRecord[] }) {
   const [filterUniversity, setFilterUniversity] = useState<string>("ALL");
   const [filterProg, setFilterProg] = useState<string>("ALL");
   const [filterCategory, setFilterCategory] = useState<string>("ALL");
@@ -274,18 +275,29 @@ export function PaperLibrary({ entries }: { entries: Syllabus[] }) {
     };
   }, []);
 
-  const registryEntries = useMemo(
+  const registryEntries = useMemo<SyllabusRegistryEntry[]>(
     () =>
-      entries.map((s) => ({
-        paper_code: (s.course_code || s.course_name || s.subject || s.id).toUpperCase(),
-        paper_name: s.course_name || s.subject || "Syllabus",
-        semester: Number.parseInt(String(s.semester ?? ""), 10) || 0,
-        subject: s.subject || s.course_name || "General",
-        credits: 0,
-        programme: s.programme || "Unknown",
-        university: s.university || "Unknown",
-        category: s.programme || undefined,
-        units: undefined,
+      entries.map((e) => ({
+        paper_code: (e.paper_code || "").toUpperCase(),
+        paper_name: e.paper_name || "Syllabus",
+        subject: e.subject || "General",
+        programme: e.programme || "Unknown",
+        university: e.university || "Unknown",
+        category: e.category,
+        credits:
+          typeof e.credits === "number" && Number.isFinite(e.credits) ? e.credits : 0,
+        semester:
+          typeof e.semester === "number" && Number.isFinite(e.semester) ? e.semester : 0,
+        contact_hours:
+          typeof e.contact_hours === "number" && Number.isFinite(e.contact_hours)
+            ? e.contact_hours
+            : undefined,
+        full_marks:
+          typeof e.full_marks === "number" && Number.isFinite(e.full_marks)
+            ? e.full_marks
+            : undefined,
+        units: Array.isArray(e.units) ? e.units : undefined,
+        reference_books: Array.isArray(e.reference_books) ? e.reference_books : undefined,
       })),
     [entries],
   );
@@ -354,7 +366,7 @@ export function PaperLibrary({ entries }: { entries: Syllabus[] }) {
         case "name": return a.paper_name.localeCompare(b.paper_name);
         case "credits": return b.credits - a.credits;
         case "semester":
-        default: return a.semester - b.semester;
+        default: return (a.semester ?? 0) - (b.semester ?? 0);
       }
     });
   }, [filterUniversity, filterProg, filterCategory, filterSubject, sortKey, myCoursesActive, coursePrefs, registryEntries]);
@@ -692,6 +704,36 @@ function PaperTable({
 export default function SyllabusClient({ syllabi, isAdmin }: SyllabusClientProps) {
   const [activeTab, setActiveTab] = useState<Tab>("pdfs");
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
+  const [registryEntries, setRegistryEntries] = useState<SyllabusRegistryRecord[]>([]);
+  const [registryLoading, setRegistryLoading] = useState(true);
+  const [registryError, setRegistryError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadRegistry() {
+      setRegistryLoading(true);
+      try {
+        const res = await fetch("/api/syllabus/registry");
+        if (!res.ok) throw new Error(`Failed with status ${res.status}: ${res.statusText}`);
+        const data = await res.json();
+        if (!cancelled) {
+          setRegistryEntries(Array.isArray(data.entries) ? data.entries : []);
+          setRegistryError(null);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error("[syllabus] registry fetch failed", err);
+          setRegistryError("Unable to load syllabus registry at the moment.");
+        }
+      } finally {
+        if (!cancelled) setRegistryLoading(false);
+      }
+    }
+    loadRegistry();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const visibleSyllabi = syllabi.filter((s) => !hiddenIds.has(s.id));
 
@@ -852,7 +894,17 @@ export default function SyllabusClient({ syllabi, isAdmin }: SyllabusClientProps
 
       {activeTab === "library" && (
         <div role="tabpanel" aria-label="Paper Syllabus Library">
-          <PaperLibrary entries={syllabi} />
+          {registryLoading ? (
+            <div className="mt-3 rounded-2xl bg-surface-container-low p-4 text-sm text-on-surface-variant">
+              Loading syllabus registry…
+            </div>
+          ) : registryError ? (
+            <div className="mt-3 rounded-2xl bg-error-container px-4 py-3 text-sm text-on-error">
+              {registryError}
+            </div>
+          ) : (
+            <PaperLibrary entries={registryEntries} />
+          )}
         </div>
       )}
     </div>
