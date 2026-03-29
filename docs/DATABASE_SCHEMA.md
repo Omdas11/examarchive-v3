@@ -284,3 +284,26 @@ Use this checklist to wipe counters and storage before relaunch:
 3) **Visitor counter:** Call `DELETE /api/visitor` with header `x-admin-key: APPWRITE_API_KEY` to reset `site_metrics.visitor_count` to `0` (e.g. via DevTools).  
 4) **User counters:** Set `upload_count`, `view_count`, and `download_count` to `0` for any seed documents you keep; adjust `launch_progress` as needed.  
 5) **Verify schema:** Ensure `institute`/`institution` is present on papers so university totals render correctly, and that `users` collection totals match the Auth user count after cleanup.
+
+---
+
+<!-- SCHEMA_SYNC_STATUS_START -->
+## Schema Sync Status (Auto-generated)
+
+_This section is updated by `scripts/sync-appwrite-schema.js` when run with `--update-schema-md`._
+
+| Collection | Status | Created in run | Notes |
+|---|---|---:|---|
+| `papers` | ⚠️ Connected with differences | 0 | collection existed; 0/21 missing attrs created; 10 attr definition mismatch(es) |
+| `syllabus` | ⚠️ Connected with differences | 0 | collection existed; 0/13 missing attrs created; 9 attr definition mismatch(es) |
+| `users` | ⚠️ Connected with differences | 0 | collection existed; 0/19 missing attrs created; 11 attr definition mismatch(es) |
+| `uploads` | ⚠️ Connected with differences | 0 | collection existed; 0/4 missing attrs created; 4 attr definition mismatch(es) |
+| `activity_logs` | ⚠️ Connected with differences | 0 | collection existed; 0/8 missing attrs created; 5 attr definition mismatch(es) |
+| `achievements` | ⚠️ Connected with differences | 0 | collection existed; 0/5 missing attrs created; 4 attr definition mismatch(es) |
+| `site_metrics` | ⚠️ Connected with differences | 0 | collection existed; 0/2 missing attrs created; 1 attr definition mismatch(es) |
+| `feedback` | ✅ Perfectly connected | 1 | collection existed; 1/4 missing attrs created; no mismatches detected |
+| `ai_usage` | ✅ Perfectly connected | 0 | collection existed; 0/2 missing attrs created; no mismatches detected |
+| `ai_embeddings` | ⚠️ Connected with differences | 0 | collection existed; 0/11 missing attrs created; 8 attr definition mismatch(es) |
+| `pdf_usage` | ✅ Perfectly connected | 3 | collection created; 2/2 missing attrs created; no mismatches detected |
+
+<!-- SCHEMA_SYNC_STATUS_END -->
