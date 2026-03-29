@@ -28,6 +28,7 @@ const SUBJECT_OPTIONS = [
   "Economics",
   "History",
 ];
+const TOPIC_MAX_LEN = 200;
 
 export default function StudyClient() {
   const { showToast } = useToast();
@@ -188,4 +189,3 @@ export default function StudyClient() {
     </div>
   );
 }
-const TOPIC_MAX_LEN = 200;

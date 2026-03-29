@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error:
-          "Invalid request body. Expected JSON with at least one of: 'subject' or 'topic' (non-empty strings).",
+          "Invalid request body. Expected JSON with at least one non-empty 'subject' or 'topic' string; both cannot be empty.",
       },
       { status: 400 },
     );
