@@ -1,4 +1,4 @@
-import fs from "fs";
+import * as fs from "fs";
 import path from "path";
 
 export interface SyllabusRegistryRecord {
@@ -21,10 +21,12 @@ let cache: SyllabusRegistryRecord[] | null = null;
 let cacheMtime = 0;
 
 function parseMarkdownTable(md: string): SyllabusRegistryRecord[] {
+  if (!md) return [];
+
   const lines = md
     .split("\n")
     .map((l) => l.trim())
-    .filter((l) => l.startsWith("|") && l.endsWith("|"));
+    .filter((l) => l.startsWith("|"));
 
   if (lines.length < 2) return [];
 
@@ -38,24 +40,24 @@ function parseMarkdownTable(md: string): SyllabusRegistryRecord[] {
 
   const records: SyllabusRegistryRecord[] = [];
   for (let i = 2; i < lines.length; i++) {
-    const cols = lines[i]
-      .split("|")
-      .map((c) => c.trim())
-      .filter((_, idx) => idx !== 0 && idx !== lines[i].split("|").length - 1);
+    const segments = lines[i].split("|").map((c) => c.trim());
+    if (segments[0] === "") segments.shift();
+    if (segments[segments.length - 1] === "") segments.pop();
+    const cols = segments;
     if (cols.length === 0) continue;
 
     const row: Record<string, string | number | null | undefined> = {};
     header.forEach((key, idx) => {
       const raw = cols[idx] ?? "";
       if (numericFields.has(key)) {
-        if (raw === "") {
+        if (raw === "" || raw === "-") {
           row[key] = null;
         } else {
           const n = Number(raw);
           row[key] = Number.isFinite(n) ? n : null;
         }
       } else {
-        row[key] = raw;
+        row[key] = raw === "-" ? "" : raw;
       }
     });
 
@@ -80,10 +82,11 @@ function parseMarkdownTable(md: string): SyllabusRegistryRecord[] {
 
 export async function loadSyllabusRegistry(): Promise<SyllabusRegistryRecord[]> {
   const stat = fs.statSync(REGISTRY_MD_PATH);
-  if (cache && cacheMtime === stat.mtimeMs) return cache;
+  const mtime = stat?.mtimeMs ?? 0;
+  if (cache && cacheMtime === mtime) return cache;
   const md = fs.readFileSync(REGISTRY_MD_PATH, "utf8");
   cache = parseMarkdownTable(md);
-  cacheMtime = stat.mtimeMs;
+  cacheMtime = mtime;
   return cache;
 }
 

@@ -1,91 +1,10 @@
-# ExamArchive v3
+# examarchive-v3
 
-ExamArchive is a community-driven platform for sharing and discovering university exam question papers and syllabi. Built with Next.js 15 (App Router) and Appwrite Cloud as the backend.
+Project documentation now lives in [`/docs`](./docs).
 
-## Tech Stack
+- Primary README: [`docs/README.md`](./docs/README.md)
+- AI upgrade notes: [`docs/AI_UPGRADE.md`](./docs/AI_UPGRADE.md)
+- Stitch implementation guides and summaries are also in [`/docs`](./docs).
+- Syllabus registry source of truth: [`docs/SYLLABUS_REGISTRY.md`](./docs/SYLLABUS_REGISTRY.md)
 
-| Layer      | Technology                           |
-|------------|--------------------------------------|
-| Frontend   | Next.js 15 (App Router, TypeScript)  |
-| Auth       | Appwrite Auth (email + Google OAuth) |
-| Database   | Appwrite Databases                   |
-| Storage    | Appwrite Storage (3 buckets)         |
-| Hosting    | Vercel                               |
-
-## Quick Start
-
-1. **Clone the repository** and install dependencies:
-   ```bash
-   npm install
-   ```
-
-2. **Configure environment variables** — copy `.env.example` to `.env.local` and fill in:
-   - `NEXT_PUBLIC_APPWRITE_ENDPOINT` — Appwrite API endpoint (e.g. `https://cloud.appwrite.io/v1`)
-   - `NEXT_PUBLIC_APPWRITE_PROJECT_ID` — your Appwrite project ID
-   - `APPWRITE_API_KEY` — server-side Appwrite API key (never expose this client-side)
-   - `APPWRITE_BUCKET_ID` — bucket for exam paper PDFs (default: `papers`)
-   - `APPWRITE_SYLLABUS_BUCKET_ID` — bucket for syllabus PDFs (default: `syllabus-files`)
-   - `APPWRITE_AVATARS_BUCKET_ID` — bucket for user avatars (default: `avatars`)
-  - `GEMINI_API_KEY` — primary default Google Gemini key (uses Gemini 1.5/Flash Lite first, falls back automatically)
-  - `OPENROUTER_API_KEY` — server-side OpenRouter API key for AI chat/content generation (free-tier models only)
-  - Optional: `OPENROUTER_MODEL_ALLOWLIST` — comma-separated list of OpenRouter model IDs that have $0 prompt + completion cost (e.g. `meta-llama/llama-3.1-8b-instruct:free,mistralai/mistral-7b-instruct:free`)
-
-3. **Run the development server**:
-   ```bash
-   npm run dev
-   ```
-
-## Key Features
-
-- **Upload Question Papers** — Users enter university, paper code, and year; all other metadata is auto-resolved from the syllabus registry. Paper code suffix determines exam type: `T` = Theory, `P` = Practical.
-- **Upload Syllabi** — Same simplified three-field form; metadata auto-resolved from registry.
-- **Admin Moderation Queue** — All uploads require admin approval before publishing.
-- **Browse & Search** — Filter papers by department, year, semester, and exam type.
-- **Authenticated File Access** — PDFs are served through a Next.js proxy and require a valid login session.
-- **User Roles, XP & Cosmetics** — Role hierarchy with XP progression, cosmetic role designations, and achievement tracking.
-- **AI Credit Economy** — Activity earns AI credits for AI features. Referral rewards support up to 5 hierarchy levels, with future credit purchase support planned.
-- **Resilient AI Assistant** — `/api/ai/chat` and `/api/ai/generate` now route exclusively through OpenRouter and automatically restrict to free-tier ($0/$0) models. Preferred models are validated against the free list per role before each request, with friendly high-traffic/service error messages.
-- **PDF Watermarking** — generated PDFs render with a low-opacity, 45° tiled “ExamArchive” watermark across every page while keeping the main content fully legible.
-
-## Security
-
-- All paper and syllabus PDFs are stored with `read("users")` permission — they are accessible only to authenticated users.
-- Files are served via `/api/files/papers/[fileId]` and `/api/files/syllabus/[fileId]` proxy routes which verify the user's session before streaming the file.
-- Guests visiting `/paper/*` routes are automatically redirected to `/login`.
-
-## Documentation
-
-| Document | Description |
-|----------|-------------|
-| [docs/DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md) | Appwrite collection schemas |
-| [docs/UPLOAD_FLOW.md](docs/UPLOAD_FLOW.md) | End-to-end upload architecture |
-| [docs/AI_SETUP.md](docs/AI_SETUP.md) | OpenRouter-based AI setup, limits, and endpoint usage |
-| [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md) | Complete environment variable reference |
-| [docs/AI_EXTENSIONS_SETUP.md](docs/AI_EXTENSIONS_SETUP.md) | AI extensions and RAG setup |
-
-## Project Structure
-
-```text
-src/
-  app/           # Next.js App Router pages and API routes
-    api/
-      upload/    # POST /api/upload (papers) + /syllabus
-      admin/     # Admin moderation actions
-      files/     # Authenticated file proxy routes
-      profile/   # User profile update
-    paper/       # Individual paper page (requires auth)
-    browse/      # Browse/search papers
-    syllabus/    # Syllabus listing and detail
-    admin/       # Admin dashboard
-  components/    # Shared React components
-  data/
-    syllabus-registry.ts  # Canonical paper metadata registry
-  lib/
-    appwrite.ts        # Server-side Appwrite client + collection IDs
-    appwrite-client.ts # Browser-side Appwrite SDK upload helpers
-    auth.ts            # Session helpers and user profile resolution
-    roles.ts           # Role hierarchy helpers
-  middleware.ts  # Route protection — redirects guests from protected paths
-  types/
-    index.ts   # TypeScript interfaces and Appwrite document mappers
-```
+Run scripts and workflows from the repository root as before.
