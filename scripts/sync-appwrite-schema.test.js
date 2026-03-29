@@ -16,6 +16,7 @@ describe("sync-appwrite-schema helpers", () => {
   });
 
   test("createAttribute routes to matching Appwrite create method", async () => {
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
     const databases = {
       createStringAttribute: jest.fn().mockResolvedValue({}),
       createIntegerAttribute: jest.fn().mockResolvedValue({}),
@@ -66,14 +67,18 @@ describe("sync-appwrite-schema helpers", () => {
       undefined,
       false,
     );
+    warnSpy.mockRestore();
   });
 
   test("getAppwriteDefaultValue omits default for required attributes", () => {
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
     expect(getAppwriteDefaultValue("users", { key: "approved", required: true, default: false })).toBeUndefined();
     expect(getAppwriteDefaultValue("users", { key: "approved", required: false, default: false })).toBe(false);
     expect(getAppwriteDefaultValue("users", { key: "status", required: false, default: "pending" })).toBe(
       "pending",
     );
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    warnSpy.mockRestore();
   });
 
   test("getAppwriteDefaultValue warns when required attributes declare defaults", () => {
