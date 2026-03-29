@@ -9,7 +9,6 @@ import {
 } from "@/lib/appwrite";
 import { getServerUser } from "@/lib/auth";
 import { isModerator } from "@/lib/roles";
-import { SYLLABUS_REGISTRY } from "@/data/syllabus-registry";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 
@@ -54,6 +53,37 @@ async function fetchPlatformStats() {
     db.listDocuments(DATABASE_ID, COLLECTION.users, [Query.limit(1)]),
   ]);
 
+  // Walk all approved syllabi to compute subject/code coverage without a hard cap
+  let syllabusSubjects = 0;
+  let syllabusCodes = 0;
+  try {
+    const subjects = new Set<string>();
+    const codes = new Set<string>();
+    let cursor: string | undefined;
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const queries = [
+        Query.equal("approval_status", "approved"),
+        Query.limit(100),
+      ];
+      if (cursor) queries.push(Query.cursorAfter(cursor));
+      const page = await db.listDocuments(DATABASE_ID, COLLECTION.syllabus, queries);
+      for (const doc of page.documents) {
+        const subj = (doc.subject as string | undefined)?.trim();
+        const code = (doc.course_code as string | undefined)?.trim();
+        if (subj) subjects.add(subj);
+        if (code) codes.add(code);
+      }
+      if (page.documents.length < 100) break;
+      cursor = page.documents[page.documents.length - 1].$id;
+    }
+    syllabusSubjects = subjects.size;
+    syllabusCodes = codes.size;
+  } catch {
+    syllabusSubjects = 0;
+    syllabusCodes = 0;
+  }
+
   return {
     papersApproved:
       papersApproved.status === "fulfilled" ? papersApproved.value.total : 0,
@@ -69,6 +99,8 @@ async function fetchPlatformStats() {
       syllabusTotal.status === "fulfilled" ? syllabusTotal.value.total : 0,
     usersTotal:
       usersTotal.status === "fulfilled" ? usersTotal.value.total : 0,
+    syllabusSubjects,
+    syllabusCodes,
   };
 }
 
@@ -162,13 +194,24 @@ export default async function StatsPage() {
         ))}
       </div>
 
-      {/* Registry stats (static data) */}
-      <h2 className="mt-10 text-lg font-semibold">Syllabus Registry</h2>
+      {/* Live syllabus stats */}
+      <h2 className="mt-10 text-lg font-semibold">Syllabus Coverage</h2>
       <p className="mt-1 text-sm mb-4" style={{ color: "var(--color-text-muted)" }}>
-        Built-in paper registry (local data — always available offline).
+        Live counts computed from approved syllabi in Appwrite.
       </p>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-        <RegistryStats />
+        <div className="card p-5 text-center">
+          <p className="text-3xl font-bold" style={{ color: "var(--color-primary)" }}>{stats.syllabusApproved}</p>
+          <p className="mt-1 text-sm font-medium">Approved Syllabi</p>
+        </div>
+        <div className="card p-5 text-center">
+          <p className="text-3xl font-bold">{stats.syllabusSubjects}</p>
+          <p className="mt-1 text-sm font-medium">Subjects Covered</p>
+        </div>
+        <div className="card p-5 text-center">
+          <p className="text-3xl font-bold">{stats.syllabusCodes}</p>
+          <p className="mt-1 text-sm font-medium">Paper Codes</p>
+        </div>
       </div>
 
       {/* Footer note */}
@@ -177,34 +220,5 @@ export default async function StatsPage() {
       </p>
     </section>
     </MainLayout>
-  );
-}
-
-/** Registry counts are static — computed at render time from local data. */
-function RegistryStats() {
-  const total = SYLLABUS_REGISTRY.length;
-  const withUnits = SYLLABUS_REGISTRY.filter((e) => (e.units?.length ?? 0) > 0).length;
-  const subjects = new Set(SYLLABUS_REGISTRY.map((e) => e.subject)).size;
-
-  const registryCards = [
-    { label: "Registry Entries", value: total },
-    { label: "With Full Units", value: withUnits },
-    { label: "Subjects Covered", value: subjects },
-  ];
-
-  return (
-    <>
-      {registryCards.map((c) => (
-        <div key={c.label} className="card p-5 text-center">
-          <p
-            className="text-3xl font-bold"
-            style={{ color: "var(--color-primary)" }}
-          >
-            {c.value}
-          </p>
-          <p className="mt-1 text-sm font-medium">{c.label}</p>
-        </div>
-      ))}
-    </>
   );
 }

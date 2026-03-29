@@ -32,6 +32,7 @@ export default function DevToolClient({ adminEmail }: DevToolClientProps) {
   const [healthState, setHealthState] = useState<ActionState>(DEFAULT_STATE);
   const [resetUsersXpState, setResetUsersXpState] = useState<ActionState>(DEFAULT_STATE);
   const [clearSyllabusState, setClearSyllabusState] = useState<ActionState>(DEFAULT_STATE);
+  const [purgeCollectionsState, setPurgeCollectionsState] = useState<ActionState>(DEFAULT_STATE);
 
   // Role override state
   const [overrideUserId, setOverrideUserId] = useState("");
@@ -275,6 +276,39 @@ export default function DevToolClient({ adminEmail }: DevToolClientProps) {
         </p>
 
         <div className="space-y-4">
+          {/* Purge all collections (except users) */}
+          <div className="p-3 rounded-lg" style={{ border: "2px solid var(--brand-crimson)", background: "color-mix(in srgb, var(--brand-crimson) 6%, var(--color-surface))" }}>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <div>
+                <p className="text-sm font-bold" style={{ color: "var(--brand-crimson)" }}>
+                  Purge All Collections (skip users)
+                </p>
+                <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+                  Deletes every document from every collection in the database except the users collection.
+                </p>
+              </div>
+              <button
+                className="btn text-sm px-4 py-2 shrink-0"
+                style={{ background: "var(--brand-crimson)", color: "#fff", borderColor: "var(--brand-crimson)" }}
+                onClick={() =>
+                  openDangerModal({
+                    action: "purge_collections",
+                    confirmWord: "PURGE",
+                    title: "Purge All Collections",
+                    description:
+                      "This will delete all documents across every collection (except users). Use only before a full reseed.",
+                    setState: setPurgeCollectionsState,
+                  })
+                }
+                disabled={purgeCollectionsState.status === "loading"}
+              >
+                {purgeCollectionsState.status === "loading" && <span className="btn-spinner" />}
+                {purgeCollectionsState.status === "loading" ? "Running…" : "Purge Collections"}
+              </button>
+            </div>
+            <StatusBadge state={purgeCollectionsState} />
+          </div>
+
           {/* Reset All Users XP */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 rounded-lg" style={{ border: "1px solid var(--color-border)" }}>
             <div>
@@ -446,4 +480,3 @@ function StatusBadge({ state }: { state: ActionState }) {
     </p>
   );
 }
-

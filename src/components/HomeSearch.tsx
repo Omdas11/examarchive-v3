@@ -3,75 +3,20 @@
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { SYLLABUS_REGISTRY } from "@/data/syllabus-registry";
 
 interface SearchSuggestion {
-  type: "paper_code" | "subject" | "browse";
+  type: "paper" | "syllabus" | "browse";
   label: string;
   sublabel?: string;
   href: string;
 }
 
-function getSuggestions(query: string): SearchSuggestion[] {
-  if (!query.trim()) return [];
-  const q = query.trim().toLowerCase();
-
-  const results: SearchSuggestion[] = [];
-
-  // Match paper codes from the registry
-  const codeMatches = SYLLABUS_REGISTRY.filter(
-    (e) =>
-      e.paper_code.toLowerCase().includes(q) ||
-      e.paper_name.toLowerCase().includes(q),
-  ).slice(0, 4);
-
-  for (const e of codeMatches) {
-    results.push({
-      type: "paper_code",
-      label: e.paper_name,
-      sublabel: `${e.paper_code} · ${e.subject} · Sem ${e.semester}`,
-      href: `/syllabus/paper/${encodeURIComponent(e.paper_code)}`,
-    });
-  }
-
-  // Subject matches from registry (deduplicated)
-  const matchedSubjects = Array.from(
-    new Set(
-      SYLLABUS_REGISTRY.filter((e) =>
-        e.subject.toLowerCase().includes(q),
-      ).map((e) => e.subject),
-    ),
-  ).slice(0, 3);
-
-  for (const subj of matchedSubjects) {
-    if (!results.find((r) => r.type === "subject" && r.label === subj)) {
-      results.push({
-        type: "subject",
-        label: subj,
-        sublabel: "View syllabus entries",
-        href: `/syllabus?subject=${encodeURIComponent(subj)}`,
-      });
-    }
-  }
-
-  // Always offer a browse-all option
-  results.push({
-    type: "browse",
-    label: `Search papers for "${query.trim()}"`,
-    sublabel: "Browse all papers",
-    href: `/browse?${new URLSearchParams({ search: query.trim() }).toString()}`,
-  });
-
-  return results.slice(0, 7);
-}
-
 export default function HomeSearch() {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
+  const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
   const router = useRouter();
   const wrapperRef = useRef<HTMLDivElement>(null);
-
-  const suggestions = getSuggestions(query);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -83,6 +28,49 @@ export default function HomeSearch() {
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
+
+  // Fetch live suggestions from Appwrite via API
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (!trimmed) {
+      setSuggestions([]);
+      return;
+    }
+    const controller = new AbortController();
+    async function load() {
+      try {
+        const res = await fetch(`/api/search?${new URLSearchParams({ q: trimmed })}`, {
+          signal: controller.signal,
+        });
+        const data = await res.json();
+        if (res.ok && Array.isArray(data.suggestions)) {
+          setSuggestions(data.suggestions);
+        } else {
+          setSuggestions([
+            {
+              type: "browse",
+              label: `Search papers for "${trimmed}"`,
+              sublabel: "Browse all papers",
+              href: `/browse?${new URLSearchParams({ search: trimmed }).toString()}`,
+            },
+          ]);
+        }
+      } catch {
+        if (!controller.signal.aborted) {
+          setSuggestions([
+            {
+              type: "browse",
+              label: `Search papers for "${trimmed}"`,
+              sublabel: "Browse all papers",
+              href: `/browse?${new URLSearchParams({ search: trimmed }).toString()}`,
+            },
+          ]);
+        }
+      }
+    }
+    load();
+    return () => controller.abort();
+  }, [query]);
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -149,12 +137,12 @@ export default function HomeSearch() {
                 >
                   {/* Icon by type */}
                   <span className="shrink-0" style={{ color: "var(--color-primary)" }}>
-                    {s.type === "paper_code" && (
+                    {s.type === "paper" && (
                       <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
                         <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
                     )}
-                    {s.type === "subject" && (
+                    {s.type === "syllabus" && (
                       <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
                         <path d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
