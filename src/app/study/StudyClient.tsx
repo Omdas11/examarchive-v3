@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useToast } from "@/components/ToastContext";
 import { FLASHCARD_COUNT_OPTIONS, FLASHCARD_FIELD_MAX_LEN } from "@/lib/flashcards-constants";
-import { IconCheck, IconSparkles, IconXMark } from "@/components/Icons";
+import { IconCheck, IconSparkles, IconXMark, IconChevronLeft, IconChevronRight } from "@/components/Icons";
 
 interface Flashcard {
   question: string;
@@ -11,7 +11,7 @@ interface Flashcard {
   hint?: string;
 }
 
-type CardStatus = "pending" | "checked" | "unchecked";
+type CardStatus = "pending" | "checked" | "unchecked" | "skipped";
 
 function LoadingDots() {
   return (
@@ -52,7 +52,9 @@ export default function StudyClient() {
   const remaining = useMemo(() => Math.max(limit - limitUsed, 0), [limit, limitUsed]);
   const checkedCount = useMemo(() => cardStatus.filter((s) => s === "checked").length, [cardStatus]);
   const uncheckedCount = useMemo(() => cardStatus.filter((s) => s === "unchecked").length, [cardStatus]);
+  const skippedCount = useMemo(() => cardStatus.filter((s) => s === "skipped").length, [cardStatus]);
   const pendingCount = useMemo(() => cardStatus.filter((s) => s === "pending").length, [cardStatus]);
+  const reviewedCount = useMemo(() => checkedCount + uncheckedCount, [checkedCount, uncheckedCount]);
 
   useEffect(() => {
     fetch("/api/study/flashcards")
@@ -142,6 +144,31 @@ export default function StudyClient() {
   const handleCardClick = () => {
     if (Math.abs(swipeOffset) < 5) {
       toggleFlip(currentCardIndex);
+    }
+  };
+
+  const navigateToCard = (newIndex: number) => {
+    if (newIndex >= 0 && newIndex < flashcards.length) {
+      // Mark current card as skipped if it's still pending/skipped
+      const currentStatus = cardStatus[currentCardIndex];
+      if (currentStatus === "pending" || currentStatus === "skipped") {
+        setCardStatus((prev) => prev.map((v, i) => (i === currentCardIndex ? "skipped" : v)));
+      }
+      setCurrentCardIndex(newIndex);
+      setFlipped((prev) => prev.map((v, i) => (i === newIndex ? false : v)));
+      setSwipeOffset(0);
+    }
+  };
+
+  const handlePrevCard = () => {
+    if (currentCardIndex > 0) {
+      navigateToCard(currentCardIndex - 1);
+    }
+  };
+
+  const handleNextCard = () => {
+    if (currentCardIndex < flashcards.length - 1) {
+      navigateToCard(currentCardIndex + 1);
     }
   };
 
@@ -289,15 +316,35 @@ export default function StudyClient() {
           </div>
         )}
 
-        {flashcards.length > 0 && pendingCount > 0 && (
+        {flashcards.length > 0 && (pendingCount > 0 || skippedCount > 0) && (
           <div className="flex items-center gap-2 rounded-xl bg-surface-variant/40 px-3 py-2 text-sm text-on-surface-variant">
             <IconSparkles size={16} className="text-primary" />
-            <span>Tap to flip. Swipe right to mark Known, left for Review. Buttons work too.</span>
+            <span>Tap to flip. Swipe right to mark Known, left for Review. Use arrows to browse cards.</span>
           </div>
         )}
 
-        {flashcards.length > 0 && pendingCount > 0 && (
+        {flashcards.length > 0 && (pendingCount > 0 || skippedCount > 0) && (
           <div className="relative h-[520px] w-full">
+            {/* Navigation Arrows */}
+            <button
+              type="button"
+              onClick={handlePrevCard}
+              disabled={currentCardIndex === 0}
+              className="absolute left-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-surface/90 p-3 shadow-lg backdrop-blur transition hover:bg-surface disabled:opacity-30 disabled:cursor-not-allowed"
+              aria-label="Previous card"
+            >
+              <IconChevronLeft size={24} className="text-on-surface" />
+            </button>
+            <button
+              type="button"
+              onClick={handleNextCard}
+              disabled={currentCardIndex === flashcards.length - 1}
+              className="absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-surface/90 p-3 shadow-lg backdrop-blur transition hover:bg-surface disabled:opacity-30 disabled:cursor-not-allowed"
+              aria-label="Next card"
+            >
+              <IconChevronRight size={24} className="text-on-surface" />
+            </button>
+
             {flashcards.map((card, idx) => {
               if (idx !== currentCardIndex) return null;
 
@@ -308,7 +355,9 @@ export default function StudyClient() {
                   ? "bg-green-100 text-green-700 border-green-300"
                   : status === "unchecked"
                     ? "bg-error/10 text-error border-error/30"
-                    : "bg-primary/5 text-primary border-primary/20";
+                    : status === "skipped"
+                      ? "bg-orange-100 text-orange-700 border-orange-300"
+                      : "bg-primary/5 text-primary border-primary/20";
 
               return (
                 <div
@@ -338,7 +387,13 @@ export default function StudyClient() {
                         <span
                           className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide ${statusStyles}`}
                         >
-                          {status === "checked" ? "Known" : status === "unchecked" ? "Review" : "Pending"}
+                          {status === "checked"
+                            ? "Known"
+                            : status === "unchecked"
+                              ? "Review"
+                              : status === "skipped"
+                                ? "Skipped"
+                                : "Pending"}
                         </span>
                         <span className="text-xs font-semibold text-primary">
                           Card {idx + 1} of {flashcards.length}
@@ -355,7 +410,13 @@ export default function StudyClient() {
                         <span
                           className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide ${statusStyles}`}
                         >
-                          {status === "checked" ? "Known" : status === "unchecked" ? "Review" : "Pending"}
+                          {status === "checked"
+                            ? "Known"
+                            : status === "unchecked"
+                              ? "Review"
+                              : status === "skipped"
+                                ? "Skipped"
+                                : "Pending"}
                         </span>
                         <span className="text-xs font-semibold text-primary">Answer</span>
                       </div>
@@ -373,28 +434,30 @@ export default function StudyClient() {
                     </div>
                   </div>
 
-                  <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-3 rounded-b-2xl bg-surface/95 px-4 py-3 shadow-lg backdrop-blur">
+                  <div className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-4 rounded-b-2xl bg-surface/95 px-4 py-3 shadow-lg backdrop-blur">
                     <button
                       type="button"
-                      className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl border-2 border-error/40 bg-error/10 px-4 py-2.5 text-sm font-semibold text-error transition hover:bg-error/20"
+                      className="inline-flex h-12 w-12 items-center justify-center rounded-full border-2 border-error/40 bg-error/10 text-error transition hover:bg-error/20 hover:scale-110"
                       onClick={(e) => {
                         e.stopPropagation();
                         markCard(idx, "unchecked");
                       }}
+                      title="Need Review"
+                      aria-label="Mark for review"
                     >
-                      <IconXMark size={18} />
-                      Review
+                      <IconXMark size={24} />
                     </button>
                     <button
                       type="button"
-                      className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl border-2 border-green-400 bg-green-100 px-4 py-2.5 text-sm font-semibold text-green-700 transition hover:bg-green-200"
+                      className="inline-flex h-12 w-12 items-center justify-center rounded-full border-2 border-green-400 bg-green-100 text-green-700 transition hover:bg-green-200 hover:scale-110"
                       onClick={(e) => {
                         e.stopPropagation();
                         markCard(idx, "checked");
                       }}
+                      title="Got It"
+                      aria-label="Mark as known"
                     >
-                      <IconCheck size={18} />
-                      Known
+                      <IconCheck size={24} />
                     </button>
                   </div>
                 </div>
@@ -403,13 +466,69 @@ export default function StudyClient() {
           </div>
         )}
 
-        {flashcards.length > 0 && pendingCount === 0 && (
-          <div className="rounded-2xl border border-outline/10 bg-surface shadow-ambient px-6 py-8 text-center space-y-4">
+        {flashcards.length > 0 && (pendingCount === 0 && skippedCount === 0) && (
+          <div className="rounded-2xl border border-outline/10 bg-surface shadow-ambient px-6 py-8 text-center space-y-6">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-2">
               <IconCheck size={32} className="text-primary" />
             </div>
             <h3 className="text-xl font-bold text-on-surface">Session Complete!</h3>
             <p className="text-on-surface-variant">You&apos;ve reviewed all flashcards in this set.</p>
+
+            {/* Pie Chart */}
+            <div className="flex items-center justify-center gap-8">
+              <svg width="120" height="120" viewBox="0 0 120 120" className="transform -rotate-90">
+                <circle cx="60" cy="60" r="50" fill="none" stroke="#e5e7eb" strokeWidth="20" />
+                {(() => {
+                  const total = flashcards.length;
+                  const knownPercent = (checkedCount / total) * 100;
+                  const reviewPercent = (uncheckedCount / total) * 100;
+                  const circumference = 2 * Math.PI * 50;
+                  const knownOffset = 0;
+                  const reviewOffset = (knownPercent / 100) * circumference;
+
+                  return (
+                    <>
+                      {/* Known slice (green) */}
+                      {checkedCount > 0 && (
+                        <circle
+                          cx="60"
+                          cy="60"
+                          r="50"
+                          fill="none"
+                          stroke="#86efac"
+                          strokeWidth="20"
+                          strokeDasharray={`${(knownPercent / 100) * circumference} ${circumference}`}
+                          strokeDashoffset={-knownOffset}
+                        />
+                      )}
+                      {/* Review slice (red) */}
+                      {uncheckedCount > 0 && (
+                        <circle
+                          cx="60"
+                          cy="60"
+                          r="50"
+                          fill="none"
+                          stroke="#fca5a5"
+                          strokeWidth="20"
+                          strokeDasharray={`${(reviewPercent / 100) * circumference} ${circumference}`}
+                          strokeDashoffset={-reviewOffset}
+                        />
+                      )}
+                    </>
+                  );
+                })()}
+              </svg>
+              <div className="text-left space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded-full bg-green-300"></div>
+                  <span className="text-sm text-on-surface">Known: {checkedCount} ({Math.round((checkedCount / flashcards.length) * 100)}%)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded-full bg-red-300"></div>
+                  <span className="text-sm text-on-surface">Review: {uncheckedCount} ({Math.round((uncheckedCount / flashcards.length) * 100)}%)</span>
+                </div>
+              </div>
+            </div>
 
             <div className="rounded-2xl border border-outline/10 bg-surface-variant/40 px-4 py-4 text-sm text-on-surface">
               <div className="flex flex-wrap items-center justify-center gap-4">
