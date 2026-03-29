@@ -1,5 +1,6 @@
 const {
   createAttribute,
+  getAppwriteDefaultValue,
   getMissingAttributes,
   renderSchemaStatusSection,
   upsertSchemaStatusBlock,
@@ -57,6 +58,20 @@ describe("sync-appwrite-schema helpers", () => {
     expect(databases.createBooleanAttribute).toHaveBeenCalled();
     expect(databases.createDatetimeAttribute).toHaveBeenCalled();
     expect(databases.createFloatAttribute).toHaveBeenCalled();
+    expect(databases.createBooleanAttribute).toHaveBeenCalledWith(
+      "examarchive",
+      "users",
+      "approved",
+      true,
+      undefined,
+      false,
+    );
+  });
+
+  test("getAppwriteDefaultValue omits default for required attributes", () => {
+    expect(getAppwriteDefaultValue({ required: true, default: false })).toBeUndefined();
+    expect(getAppwriteDefaultValue({ required: false, default: false })).toBe(false);
+    expect(getAppwriteDefaultValue({ required: false, default: "pending" })).toBe("pending");
   });
 
   test("waitForAttributeAvailability waits until status is available", async () => {

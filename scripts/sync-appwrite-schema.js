@@ -201,6 +201,13 @@ function formatType(type, array) {
   return array ? `${type}[]` : type;
 }
 
+function getAppwriteDefaultValue(attribute) {
+  if (attribute.required) {
+    return undefined;
+  }
+  return attribute.default;
+}
+
 function printMismatchWarning(collectionId, target, live) {
   const mismatches = [];
   if (live.type !== target.type) {
@@ -273,6 +280,7 @@ async function waitForAttributeAvailability(
 }
 
 async function createAttribute(databases, databaseId, collectionId, attribute) {
+  const defaultValue = getAppwriteDefaultValue(attribute);
   switch (attribute.type) {
     case "string":
       return databases.createStringAttribute(
@@ -281,7 +289,7 @@ async function createAttribute(databases, databaseId, collectionId, attribute) {
         attribute.key,
         attribute.size ?? STANDARD_STRING_SIZE,
         attribute.required,
-        attribute.default,
+        defaultValue,
         Boolean(attribute.array),
       );
     case "integer":
@@ -292,7 +300,7 @@ async function createAttribute(databases, databaseId, collectionId, attribute) {
         attribute.required,
         attribute.min,
         attribute.max,
-        attribute.default,
+        defaultValue,
         Boolean(attribute.array),
       );
     case "boolean":
@@ -301,7 +309,7 @@ async function createAttribute(databases, databaseId, collectionId, attribute) {
         collectionId,
         attribute.key,
         attribute.required,
-        attribute.default,
+        defaultValue,
         Boolean(attribute.array),
       );
     case "datetime":
@@ -310,7 +318,7 @@ async function createAttribute(databases, databaseId, collectionId, attribute) {
         collectionId,
         attribute.key,
         attribute.required,
-        attribute.default,
+        defaultValue,
         Boolean(attribute.array),
       );
     case "float":
@@ -321,7 +329,7 @@ async function createAttribute(databases, databaseId, collectionId, attribute) {
         attribute.required,
         attribute.min,
         attribute.max,
-        attribute.default,
+        defaultValue,
         Boolean(attribute.array),
       );
     default:
@@ -459,6 +467,7 @@ module.exports = {
   TARGET_SCHEMA,
   createAttribute,
   getMissingAttributes,
+  getAppwriteDefaultValue,
   isNotFoundError,
   renderSchemaStatusSection,
   syncCollection,
