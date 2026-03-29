@@ -380,13 +380,11 @@ async function syncCollection(databases, databaseId, collection) {
   };
 }
 
-function renderSchemaStatusSection(results, now = new Date()) {
+function renderSchemaStatusSection(results) {
   const lines = [
     "## Schema Sync Status (Auto-generated)",
     "",
     "_This section is updated by `scripts/sync-appwrite-schema.js` when run with `--update-schema-md`._",
-    "",
-    `Last sync: \`${now.toISOString()}\``,
     "",
     "| Collection | Status | Created in run | Notes |",
     "|---|---|---:|---|",

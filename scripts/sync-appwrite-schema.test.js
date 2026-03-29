@@ -80,23 +80,20 @@ describe("sync-appwrite-schema helpers", () => {
   });
 
   test("renderSchemaStatusSection includes perfectly connected status", () => {
-    const markdown = renderSchemaStatusSection(
-      [
-        {
-          collectionId: "papers",
-          createdCollection: false,
-          totalTargetAttributes: 21,
-          createdAttributes: 0,
-          mismatchCount: 0,
-          connected: true,
-        },
-      ],
-      new Date("2026-03-28T00:00:00.000Z"),
-    );
+    const markdown = renderSchemaStatusSection([
+      {
+        collectionId: "papers",
+        createdCollection: false,
+        totalTargetAttributes: 21,
+        createdAttributes: 0,
+        mismatchCount: 0,
+        connected: true,
+      },
+    ]);
 
     expect(markdown).toContain("✅ Perfectly connected");
     expect(markdown).toContain("`papers`");
-    expect(markdown).toContain("2026-03-28T00:00:00.000Z");
+    expect(markdown).not.toContain("Last sync:");
   });
 
   test("upsertSchemaStatusBlock inserts and replaces tagged section", () => {
