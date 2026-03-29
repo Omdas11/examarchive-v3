@@ -84,7 +84,7 @@ export async function loadSyllabusRegistry(): Promise<SyllabusRegistryRecord[]> 
   const stat = fs.statSync(REGISTRY_MD_PATH);
   const mtime = stat?.mtimeMs ?? 0;
   if (cache && cacheMtime === mtime) return cache;
-  const md = fs.readFileSync(REGISTRY_MD_PATH, "utf8") as unknown as string;
+  const md = fs.readFileSync(REGISTRY_MD_PATH, "utf8");
   cache = parseMarkdownTable(md);
   cacheMtime = mtime;
   return cache;
