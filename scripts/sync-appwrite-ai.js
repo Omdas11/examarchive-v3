@@ -65,8 +65,8 @@ const AI_COLLECTIONS = [
     name: "ai_admin_reports",
     attributes: [
       { key: "run_at", type: "datetime", required: false },
-      { key: "summary", type: "string", required: false, size: 8192 },
-      { key: "risks_json", type: "string", required: false, size: 8192 },
+      { key: "summary", type: "string", required: false, size: 10000 },
+      { key: "risks_json", type: "string", required: false, size: 10000 },
       { key: "model", type: "string", required: false, size: 64 },
     ],
   },
@@ -174,9 +174,9 @@ async function ensureFunctionExists(functions, func) {
     await functions.create(
       func.id,
       func.name,
-      func.execute ?? [],
       func.runtime,
       undefined,
+      func.execute ?? [],
       undefined,
       func.schedule,
     );
