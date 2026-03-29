@@ -47,7 +47,9 @@ export default function StudyClient() {
         if (typeof data.used === "number") setLimitUsed(data.used);
         if (typeof data.limit === "number") setLimit(data.limit);
       })
-      .catch(() => {});
+      .catch((error) => {
+        console.error("[study] Failed to load flashcard limits", error);
+      });
   }, []);
 
   const handleGenerate = async () => {

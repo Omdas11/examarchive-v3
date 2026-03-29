@@ -28,8 +28,8 @@ export async function checkDailyLimit(userId: string) {
   } catch (error) {
     console.error("[flashcards] Failed to read daily limit", error);
     return {
-      allowed: true,
-      used: 0,
+      allowed: false,
+      used: DAILY_FLASHCARD_LIMIT,
       limit: DAILY_FLASHCARD_LIMIT,
       startOfDay,
     };
@@ -62,7 +62,10 @@ export async function runFlashcardsFunction(payload: { subject: string; topic: s
         flashcards = parsed;
       }
     } catch (error) {
-      console.error("[flashcards] Failed to parse flashcards response", error);
+      console.error("[flashcards] Failed to parse flashcards response", {
+        error,
+        responseBody: execution.responseBody?.slice(0, 500),
+      });
       flashcards = [];
     }
   }

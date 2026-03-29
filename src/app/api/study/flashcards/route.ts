@@ -36,7 +36,10 @@ export async function POST(request: NextRequest) {
     body = await request.json();
   } catch (error) {
     console.error("[study] Invalid flashcards request body", error);
-    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid request body. Expected JSON with optional 'subject' and 'topic' strings." },
+      { status: 400 },
+    );
   }
 
   const subject = normalizeField(body.subject);
@@ -67,7 +70,7 @@ export async function POST(request: NextRequest) {
     if (!flashcards || flashcards.length === 0) {
       return NextResponse.json(
         { error: "Flashcard generator returned no cards. Please try again." },
-        { status: 502 },
+        { status: 503 },
       );
     }
 

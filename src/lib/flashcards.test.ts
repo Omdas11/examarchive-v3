@@ -49,13 +49,12 @@ describe("checkDailyLimit", () => {
     expect(result.used).toBe(5);
   });
 
-  it("fails open if the collection is missing", async () => {
+  it("blocks when the collection is missing", async () => {
     mockListDocuments.mockRejectedValue(new Error("not found"));
     const { checkDailyLimit } = await import("./flashcards");
 
     const result = await checkDailyLimit("user-123");
 
-    expect(result.allowed).toBe(true);
-    expect(result.used).toBe(0);
+    expect(result.allowed).toBe(false);
   });
 });
