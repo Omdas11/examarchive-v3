@@ -3,9 +3,10 @@
 Single source of truth for syllabus metadata (paper code, name, programme, university, etc.). Update this table to propagate changes to the backend. Large datasets (500+ rows) are supported.
 
 <!-- SYLLABUS_REGISTRY_STATUS_START -->
-> Sync status: ⏸️ Not yet synced to Appwrite
-> Last run: n/a
+> Sync status: ✅ Synced
+> Last run: 2026-03-29T13:54:49.919Z
 > Records in markdown: 511
+> Synced: created 391, updated 120
 > Target: database `examarchive`, collection `syllabus_registry`
 <!-- SYLLABUS_REGISTRY_STATUS_END -->
 
