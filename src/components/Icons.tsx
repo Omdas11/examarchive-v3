@@ -397,6 +397,22 @@ export function IconRefresh({ size = 16, ...p }: IconProps) {
   );
 }
 
+export function IconChevronLeft({ size = 16, ...p }: IconProps) {
+  return (
+    <svg {...BASE_ATTRS} width={size} height={size} viewBox="0 0 24 24" {...p}>
+      <polyline points="15 18 9 12 15 6" />
+    </svg>
+  );
+}
+
+export function IconChevronRight({ size = 16, ...p }: IconProps) {
+  return (
+    <svg {...BASE_ATTRS} width={size} height={size} viewBox="0 0 24 24" {...p}>
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
+  );
+}
+
 // ── Icon registry (for dynamic <Icon name="…" /> usage) ────────────────────
 
 /** All named icons. Matches v2's SvgIcons registry keys. */
@@ -439,6 +455,8 @@ export const ICONS = {
   file:        IconFile,
   heart:       IconHeart,
   refresh:     IconRefresh,
+  chevron_left: IconChevronLeft,
+  chevron_right: IconChevronRight,
 } as const;
 
 export type IconName = keyof typeof ICONS;

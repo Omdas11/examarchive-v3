@@ -54,6 +54,7 @@ const AI_COLLECTIONS = [
     id: "ai_flashcards",
     name: "ai_flashcards",
     attributes: [
+      { key: "userId", type: "string", required: false, size: 64 },
       { key: "source_paper_id", type: "string", required: false, size: 64 },
       { key: "payload", type: "string", required: false, size: 10000 },
       { key: "model", type: "string", required: false, size: 64 },
