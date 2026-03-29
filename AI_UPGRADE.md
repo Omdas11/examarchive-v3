@@ -15,6 +15,23 @@ Comprehensive implementation guide for scaling ExamArchive’s AI pipeline while
   ```
   (`pdf-parse` and Appwrite SDKs are already present; include here for clarity and parity across local/dev/CI.)
 
+### Shared Gemini helper (`runGeminiCompletion`)
+
+A common wrapper already exists at `src/lib/gemini.ts`:
+
+```ts
+export async function runGeminiCompletion(args: {
+  apiKey: string;
+  prompt: string;
+  maxTokens: number;
+  temperature: number;
+  model?: string; // defaults to env.GEMINI_MODEL_ID or gemini-3.1-flash-lite-preview
+  contents?: Array<{ role: "user" | "model"; parts: Array<{ text: string }> }>;
+}): Promise<{ content: string; model: string }>;
+```
+
+Use this helper for all phases to keep timeouts, error handling, and default model behavior consistent.
+
 ## Suggested Directory Skeleton
 
 ```
