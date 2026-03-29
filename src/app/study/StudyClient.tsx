@@ -41,7 +41,7 @@ export default function StudyClient() {
   const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
   const [cardStatus, setCardStatus] = useState<CardStatus[]>([]);
   const [flipped, setFlipped] = useState<boolean[]>([]);
-  const [activeSwipe, setActiveSwipe] = useState<{ index: number; startX: number } | null>(null);
+  const [activeSwipe, setActiveSwipe] = useState<{ index: number; startX: number; lastX: number } | null>(null);
   const [count, setCount] = useState<number>(FLASHCARD_COUNT_OPTIONS[0]);
   const [loading, setLoading] = useState(false);
   const [limitUsed, setLimitUsed] = useState(0);
@@ -74,12 +74,19 @@ export default function StudyClient() {
   };
 
   const handlePointerStart = (index: number, clientX: number) => {
-    setActiveSwipe({ index, startX: clientX });
+    setActiveSwipe({ index, startX: clientX, lastX: clientX });
   };
 
-  const handlePointerEnd = (index: number, clientX: number) => {
+  const handlePointerMove = (index: number, clientX: number) => {
+    setActiveSwipe((prev) => {
+      if (!prev || prev.index !== index) return prev;
+      return { ...prev, lastX: clientX };
+    });
+  };
+
+  const handlePointerEnd = (index: number, clientX?: number) => {
     if (!activeSwipe || activeSwipe.index !== index) return;
-    const deltaX = clientX - activeSwipe.startX;
+    const deltaX = (clientX ?? activeSwipe.lastX) - activeSwipe.startX;
     if (deltaX > SWIPE_THRESHOLD_PX) {
       markCard(index, "checked");
     } else if (deltaX < -SWIPE_THRESHOLD_PX) {
@@ -251,24 +258,27 @@ export default function StudyClient() {
             const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
               handlePointerStart(idx, e.clientX);
             };
+            const handlePointerMoveEvent = (e: React.PointerEvent<HTMLDivElement>) => {
+              handlePointerMove(idx, e.clientX);
+            };
             const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
               handlePointerEnd(idx, e.clientX);
             };
 
             const layer = flashcards.length - idx;
-            const offset = idx * 14;
-            const scale = 1 - idx * 0.015;
+            const offset = idx * 12;
 
             return (
               <div
                 key={card.question ? `${card.question}-${idx}` : `card-${idx}`}
-                className="group absolute inset-0 mx-auto aspect-[4/5] w-full max-w-xl cursor-pointer overflow-hidden rounded-3xl border border-outline/15 bg-surface shadow-2xl transition hover:shadow-primary/30"
+                className="group absolute inset-0 mx-auto aspect-[4/5] w-full max-w-xl cursor-pointer overflow-hidden rounded-2xl border border-outline/20 bg-surface shadow-lg transition"
                 style={{
                   zIndex: layer,
-                  transform: `translateY(${offset}px) scale(${scale})`,
+                  transform: `translateY(${offset}px)`,
                 }}
                 onClick={() => toggleFlip(idx)}
                 onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMoveEvent}
                 onPointerUp={handlePointerUp}
               >
                 <div
