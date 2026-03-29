@@ -11,8 +11,8 @@ import {
 import { toSyllabus, toPaper } from "@/types";
 import type { Syllabus, Paper } from "@/types";
 import { groupBySemester } from "@/data/syllabus-registry";
-import type { SyllabusUnit } from "@/data/syllabus-registry";
-import { loadSyllabusRegistry, findRegistryEntry } from "@/lib/syllabus-registry";
+import type { SyllabusUnit, SyllabusRegistryEntry } from "@/data/syllabus-registry";
+import { loadSyllabusRegistry, findRegistryEntry, type SyllabusRegistryRecord } from "@/lib/syllabus-registry";
 import { toRoman } from "@/lib/utils";
 import { serializeJsonLd } from "@/lib/json-ld";
 import MainLayout from "@/components/layout/MainLayout";
@@ -184,9 +184,7 @@ export default async function SyllabusDetailPage({ params }: PageProps) {
   const { paper_code } = await params;
   const code = decodeURIComponent(paper_code).toUpperCase();
 
-  const entry: SyllabusRegistryEntry | undefined = SYLLABUS_REGISTRY.find(
-    (e) => e.paper_code.toUpperCase() === code,
-  );
+  const entry = (await findRegistryEntry(code)) as SyllabusRegistryRecord | undefined;
 
   if (!entry) {
     notFound();
@@ -206,7 +204,13 @@ export default async function SyllabusDetailPage({ params }: PageProps) {
       e.university === entry.university &&
       e.paper_code !== entry.paper_code,
   );
-  const relatedBySem = groupBySemester(relatedEntries);
+  const relatedBySem = groupBySemester(
+    relatedEntries.map((r) => ({
+      ...(r as unknown as SyllabusRegistryEntry),
+      semester: r.semester ?? 0,
+      credits: r.credits ?? 0,
+    })),
+  );
 
   const catColors = entry.category
     ? CATEGORY_COLORS[entry.category] ?? { bg: "var(--color-border)", text: "var(--color-text-muted)" }
@@ -285,7 +289,7 @@ export default async function SyllabusDetailPage({ params }: PageProps) {
               className="inline-block rounded-full px-2.5 py-0.5 text-[11px]"
               style={{ background: "var(--color-border)", color: "var(--color-text-muted)" }}
             >
-              Semester {toRoman(entry.semester)}
+               Semester {entry.semester ? toRoman(entry.semester) : "—"}
             </span>
           </div>
           <h1 className="text-2xl font-bold leading-snug">{entry.paper_name}</h1>
@@ -305,8 +309,8 @@ export default async function SyllabusDetailPage({ params }: PageProps) {
             <MetaRow label="Paper Code" value={entry.paper_code} />
             <MetaRow label="Paper Name" value={entry.paper_name} />
             <MetaRow label="Subject" value={entry.subject} />
-            <MetaRow label="Semester" value={`${toRoman(entry.semester)} (Semester ${entry.semester})`} />
-            <MetaRow label="Credits" value={entry.credits} />
+            <MetaRow label="Semester" value={entry.semester ? `${toRoman(entry.semester)} (Semester ${entry.semester})` : "—"} />
+            <MetaRow label="Credits" value={entry.credits ?? "—"} />
             {entry.contact_hours != null && (
               <MetaRow label="Contact Hours" value={`${entry.contact_hours} hrs`} />
             )}
@@ -331,7 +335,7 @@ export default async function SyllabusDetailPage({ params }: PageProps) {
           )}
 
           {/* Units & Topics */}
-          {entry.units && entry.units.length > 0 && (
+          {Array.isArray(entry.units) && entry.units.length > 0 && (
             <UnitsSection units={entry.units} />
           )}
 
@@ -346,7 +350,7 @@ export default async function SyllabusDetailPage({ params }: PageProps) {
           )}
 
           {/* Reference books */}
-          {entry.reference_books && entry.reference_books.length > 0 && (
+          {Array.isArray(entry.reference_books) && entry.reference_books.length > 0 && (
             <div className="card p-5">
               <h2 className="text-sm font-semibold mb-3">Reference Books</h2>
               <ol className="space-y-1.5 list-none">
@@ -471,7 +475,7 @@ export default async function SyllabusDetailPage({ params }: PageProps) {
             </div>
             <div className="text-center">
               <p className="text-xl font-bold" style={{ color: "var(--color-primary)" }}>
-                {entry.units?.length ?? "—"}
+                {Array.isArray(entry.units) ? entry.units.length : "—"}
               </p>
               <p className="text-[11px]" style={{ color: "var(--color-text-muted)" }}>Units</p>
             </div>

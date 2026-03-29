@@ -11,8 +11,8 @@ import type { Paper } from "@/types";
 import { toPaper } from "@/types";
 import { toRoman } from "@/lib/utils";
 import { buildPaperJsonLd, serializeJsonLd } from "@/lib/json-ld";
-import type { SyllabusRegistryEntry, SyllabusUnit } from "@/data/syllabus-registry";
-import { findRegistryEntry } from "@/lib/syllabus-registry";
+import type { SyllabusUnit } from "@/data/syllabus-registry";
+import { findRegistryEntry, type SyllabusRegistryRecord } from "@/lib/syllabus-registry";
 import { PAPER_TYPE_COLORS } from "@/components/PaperCard";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
@@ -114,7 +114,7 @@ export default async function PaperPage({ params }: PaperPageProps) {
 
   // Look up structured syllabus data from the registry by course_code.
   const courseCode = paper.course_code;
-  const syllabusEntry: SyllabusRegistryEntry | undefined = courseCode
+  const syllabusEntry: SyllabusRegistryRecord | undefined = courseCode
     ? await findRegistryEntry(courseCode)
     : undefined;
 
@@ -304,7 +304,7 @@ export default async function PaperPage({ params }: PaperPageProps) {
             </div>
 
             {/* Units summary */}
-            {syllabusEntry.units && syllabusEntry.units.length > 0 && (
+            {Array.isArray(syllabusEntry.units) && syllabusEntry.units.length > 0 && (
               <div className="space-y-2">
                 {syllabusEntry.units.map((unit: SyllabusUnit) => (
                   <div
@@ -389,7 +389,7 @@ export default async function PaperPage({ params }: PaperPageProps) {
       {/* ── Notes & Resources ── */}
       <div className="card p-5 sm:p-6">
         <h2 className="text-base font-semibold mb-3">Notes &amp; Resources</h2>
-        {syllabusEntry?.reference_books && syllabusEntry.reference_books.length > 0 ? (
+        {Array.isArray(syllabusEntry?.reference_books) && syllabusEntry.reference_books.length > 0 ? (
           <div className="space-y-2">
             <p className="text-xs mb-3" style={{ color: "var(--color-text-muted)" }}>
               Recommended reference books from the syllabus:

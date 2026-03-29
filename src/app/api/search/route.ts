@@ -5,6 +5,7 @@ import {
   DATABASE_ID,
   Query,
 } from "@/lib/appwrite";
+import type { Models } from "node-appwrite";
 
 export async function GET(request: NextRequest) {
   const q = request.nextUrl.searchParams.get("q")?.trim();
@@ -27,14 +28,32 @@ export async function GET(request: NextRequest) {
       ]),
     ]);
 
+    type PaperDoc = Models.Document & {
+      course_name?: string;
+      title?: string;
+      course_code?: string;
+      subject?: string;
+      year?: number;
+    };
+    type SyllabusDoc = Models.Document & {
+      subject?: string;
+      course_name?: string;
+      course_code?: string;
+      semester?: string | number;
+      university?: string;
+    };
+
+    const paperDocs = papers.documents as PaperDoc[];
+    const syllabusDocs = syllabi.documents as SyllabusDoc[];
+
     const suggestions = [
-      ...papers.documents.map((doc) => ({
+      ...paperDocs.map((doc) => ({
         type: "paper" as const,
         label: (doc.course_name as string) ?? (doc.title as string) ?? "Paper",
         sublabel: `${doc.course_code ?? doc.subject ?? "Paper code"}${doc.year ? ` · ${doc.year}` : ""}`,
         href: `/paper/${doc.$id}`,
       })),
-      ...syllabi.documents.map((doc) => ({
+      ...syllabusDocs.map((doc) => ({
         type: "syllabus" as const,
         label: (doc.subject as string) ?? (doc.course_name as string) ?? "Syllabus",
         sublabel: doc.course_code
@@ -56,4 +75,3 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
-

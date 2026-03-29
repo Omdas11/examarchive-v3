@@ -35,7 +35,6 @@ async function fetchPlatformStats() {
     syllabusApproved,
     syllabusTotal,
     usersTotal,
-    syllabusDocs,
   ] = await Promise.allSettled([
     db.listDocuments(DATABASE_ID, COLLECTION.papers, [
       Query.equal("approved", true),
@@ -52,11 +51,38 @@ async function fetchPlatformStats() {
     ]),
     db.listDocuments(DATABASE_ID, COLLECTION.syllabus, [Query.limit(1)]),
     db.listDocuments(DATABASE_ID, COLLECTION.users, [Query.limit(1)]),
-    db.listDocuments(DATABASE_ID, COLLECTION.syllabus, [
-      Query.equal("approval_status", "approved"),
-      Query.limit(500),
-    ]),
   ]);
+
+  // Walk all approved syllabi to compute subject/code coverage without a hard cap
+  let syllabusSubjects = 0;
+  let syllabusCodes = 0;
+  try {
+    const subjects = new Set<string>();
+    const codes = new Set<string>();
+    let cursor: string | undefined;
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const queries = [
+        Query.equal("approval_status", "approved"),
+        Query.limit(100),
+      ];
+      if (cursor) queries.push(Query.cursorAfter(cursor));
+      const page = await db.listDocuments(DATABASE_ID, COLLECTION.syllabus, queries);
+      for (const doc of page.documents) {
+        const subj = (doc.subject as string | undefined)?.trim();
+        const code = (doc.course_code as string | undefined)?.trim();
+        if (subj) subjects.add(subj);
+        if (code) codes.add(code);
+      }
+      if (page.documents.length < 100) break;
+      cursor = page.documents[page.documents.length - 1].$id;
+    }
+    syllabusSubjects = subjects.size;
+    syllabusCodes = codes.size;
+  } catch {
+    syllabusSubjects = 0;
+    syllabusCodes = 0;
+  }
 
   return {
     papersApproved:
@@ -73,22 +99,8 @@ async function fetchPlatformStats() {
       syllabusTotal.status === "fulfilled" ? syllabusTotal.value.total : 0,
     usersTotal:
       usersTotal.status === "fulfilled" ? usersTotal.value.total : 0,
-    syllabusSubjects:
-      syllabusDocs.status === "fulfilled"
-        ? new Set(
-            syllabusDocs.value.documents
-              .map((d) => (d.subject as string | undefined)?.trim())
-              .filter(Boolean),
-          ).size
-        : 0,
-    syllabusCodes:
-      syllabusDocs.status === "fulfilled"
-        ? new Set(
-            syllabusDocs.value.documents
-              .map((d) => (d.course_code as string | undefined)?.trim())
-              .filter(Boolean),
-          ).size
-        : 0,
+    syllabusSubjects,
+    syllabusCodes,
   };
 }
 
@@ -189,8 +201,8 @@ export default async function StatsPage() {
       </p>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
         <div className="card p-5 text-center">
-          <p className="text-3xl font-bold" style={{ color: "var(--color-primary)" }}>{stats.syllabusTotal}</p>
-          <p className="mt-1 text-sm font-medium">Total Syllabi</p>
+          <p className="text-3xl font-bold" style={{ color: "var(--color-primary)" }}>{stats.syllabusApproved}</p>
+          <p className="mt-1 text-sm font-medium">Approved Syllabi</p>
         </div>
         <div className="card p-5 text-center">
           <p className="text-3xl font-bold">{stats.syllabusSubjects}</p>

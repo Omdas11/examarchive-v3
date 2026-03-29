@@ -54,6 +54,19 @@ interface PaperItem {
   category: string;
 }
 
+type PaperApiItem = Partial<PaperItem> & {
+  $id?: string;
+  uploaded_by_username?: string;
+  course_name?: string;
+  course_code?: string;
+  view_count?: number;
+  download_count?: number;
+  approved?: boolean;
+  institution?: string;
+  department?: string;
+  paper_type?: string;
+};
+
 export default function BrowsePageExample() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState('trending');
@@ -67,19 +80,19 @@ export default function BrowsePageExample() {
     async function loadPapers() {
       try {
         const res = await fetch('/api/papers');
-        const docs = await res.json();
-        const mapped = (docs as any[]).map((doc) => ({
-          id: doc.$id,
-          title: doc.title ?? doc.course_name ?? 'Paper',
-          author: doc.uploaded_by_username ?? 'Unknown',
-          course: doc.course_name ?? doc.course_code ?? 'Course',
+        const docs = (await res.json()) as PaperApiItem[];
+        const mapped = docs.map((doc) => ({
+          id: doc.id ?? doc.$id ?? "",
+          title: doc.title ?? doc.course ?? "Paper",
+          author: doc.author ?? doc.uploaded_by_username ?? "Unknown",
+          course: doc.course ?? doc.course_name ?? doc.course_code ?? "Course",
           year: doc.year ?? 0,
-          views: doc.view_count ?? 0,
-          downloads: doc.download_count ?? 0,
-          verified: doc.approved ?? false,
-          university: doc.institution ?? doc.department ?? 'Unknown',
-          category: doc.paper_type ?? 'Question Paper',
-        })) as PaperItem[];
+          views: doc.views ?? doc.view_count ?? 0,
+          downloads: doc.downloads ?? doc.download_count ?? 0,
+          verified: doc.verified ?? doc.approved ?? false,
+          university: doc.university ?? doc.institution ?? doc.department ?? "Unknown",
+          category: doc.category ?? doc.paper_type ?? "Question Paper",
+        }));
         setPapers(mapped);
       } catch {
         setPapers([]);
@@ -211,7 +224,14 @@ export default function BrowsePageExample() {
         </div>
 
         {/* Papers Grid */}
-        {sortedPapers.length > 0 ? (
+        {loading ? (
+          <div className="text-center py-12">
+            <span className="material-symbols-outlined text-5xl text-on-surface-variant/40 mx-auto block mb-4">
+              hourglass_top
+            </span>
+            <p className="text-on-surface-variant">Loading papers…</p>
+          </div>
+        ) : sortedPapers.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {sortedPapers.map(paper => (
               <div

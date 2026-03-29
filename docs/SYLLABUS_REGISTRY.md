@@ -12,5 +12,4 @@ The table below powers syllabus metadata across the app. Add or update rows here
 | MATDSM101  | Calculus | 1 | Mathematics | 4 | FYUGP | Assam University | DSM |
 | SK101      | Digital Literacy | 1 | Skill Development | 2 | FYUGP | Assam University | SEC |
 
-> Tip: Keep the header row intact. Only append/edit data rows. Additional columns can be added; backend will expose them as-is.
-
+> Tip: Keep the header row intact. Only append/edit data rows. You may add additional columns; the backend will carry them through unchanged alongside the documented fields.

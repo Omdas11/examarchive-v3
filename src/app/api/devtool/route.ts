@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
   switch (action) {
     case "purge_collections": {
       try {
-        const skipped = new Set([COLLECTION.users]);
+        const skipped = new Set<string>([COLLECTION.users]);
         let offset = 0;
         const collections = [];
         while (true) {
@@ -49,21 +49,18 @@ export async function POST(request: NextRequest) {
         let totalDeleted = 0;
         for (const col of collections) {
           if (skipped.has(col.$id)) continue;
-          let colDeleted = 0;
-          let docOffset = 0;
+          // Always start from the beginning to avoid offset shifting during deletes
+          // and loop until no documents remain.
+          // eslint-disable-next-line no-constant-condition
           while (true) {
             const { documents } = await db.listDocuments(DATABASE_ID, col.$id, [
               Query.limit(100),
-              Query.offset(docOffset),
             ]);
             if (documents.length === 0) break;
             for (const doc of documents) {
               await db.deleteDocument(DATABASE_ID, col.$id, doc.$id);
-              colDeleted++;
               totalDeleted++;
             }
-            if (documents.length < 100) break;
-            docOffset += documents.length;
           }
         }
 

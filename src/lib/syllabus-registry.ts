@@ -4,12 +4,16 @@ import path from "path";
 export interface SyllabusRegistryRecord {
   paper_code: string;
   paper_name: string;
-  semester: string;
+  semester: number | null;
   subject: string;
-  credits: string;
+  credits: number | null;
   programme: string;
   university: string;
   category?: string;
+  contact_hours?: number | null;
+  full_marks?: number | null;
+  // Preserve any additional columns so the API can expose them as-is.
+  [key: string]: string | number | null | undefined;
 }
 
 const REGISTRY_MD_PATH = path.resolve(process.cwd(), "docs/SYLLABUS_REGISTRY.md");
@@ -30,6 +34,8 @@ function parseMarkdownTable(md: string): SyllabusRegistryRecord[] {
     .filter(Boolean)
     .map((h) => h.toLowerCase().replace(/\s+/g, "_"));
 
+  const numericFields = new Set(["semester", "credits", "contact_hours", "full_marks"]);
+
   const records: SyllabusRegistryRecord[] = [];
   for (let i = 2; i < lines.length; i++) {
     const cols = lines[i]
@@ -38,21 +44,34 @@ function parseMarkdownTable(md: string): SyllabusRegistryRecord[] {
       .filter((_, idx) => idx !== 0 && idx !== lines[i].split("|").length - 1);
     if (cols.length === 0) continue;
 
-    const row: Record<string, string> = {};
+    const row: Record<string, string | number | null | undefined> = {};
     header.forEach((key, idx) => {
-      row[key] = cols[idx] ?? "";
+      const raw = cols[idx] ?? "";
+      if (numericFields.has(key)) {
+        if (raw === "") {
+          row[key] = null;
+        } else {
+          const n = Number(raw);
+          row[key] = Number.isFinite(n) ? n : null;
+        }
+      } else {
+        row[key] = raw;
+      }
     });
 
     if (row.paper_code) {
       records.push({
-        paper_code: row.paper_code,
-        paper_name: row.paper_name ?? "",
-        semester: row.semester ?? "",
-        subject: row.subject ?? "",
-        credits: row.credits ?? "",
-        programme: row.programme ?? "",
-        university: row.university ?? "",
-        category: row.category ?? "",
+        paper_code: String(row.paper_code),
+        paper_name: String(row.paper_name ?? ""),
+        semester: (row.semester as number | null) ?? null,
+        subject: String(row.subject ?? ""),
+        credits: (row.credits as number | null) ?? null,
+        programme: String(row.programme ?? ""),
+        university: String(row.university ?? ""),
+        category: (row.category as string | undefined) ?? undefined,
+        contact_hours: (row.contact_hours as number | null) ?? undefined,
+        full_marks: (row.full_marks as number | null) ?? undefined,
+        ...row,
       });
     }
   }
@@ -78,4 +97,3 @@ export async function listUniversities(): Promise<string[]> {
   const entries = await loadSyllabusRegistry();
   return Array.from(new Set(entries.map((e) => e.university).filter(Boolean))).sort();
 }
-

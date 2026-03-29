@@ -55,19 +55,17 @@ async function confirmPrompt(question) {
 
 async function purgeCollection(db, collectionId) {
   let deleted = 0;
-  let offset = 0;
-  while (true) {
+  // Always re-fetch from the start to avoid offset shifting as we delete docs
+  do {
     const { documents } = await db.listDocuments(DATABASE_ID, collectionId, [
       Query.limit(PAGE_SIZE),
-      Query.offset(offset),
     ]);
     if (!documents.length) break;
     for (const doc of documents) {
       await db.deleteDocument(DATABASE_ID, collectionId, doc.$id);
       deleted += 1;
     }
-    offset += documents.length;
-  }
+  } while (true);
   return deleted;
 }
 
@@ -102,4 +100,3 @@ async function run() {
 }
 
 run();
-
