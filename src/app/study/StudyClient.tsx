@@ -42,7 +42,10 @@ export default function StudyClient() {
   const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
   const [cardStatus, setCardStatus] = useState<CardStatus[]>([]);
   const [flipped, setFlipped] = useState<boolean[]>([]);
-  const [activeSwipe, setActiveSwipe] = useState<{ index: number; startX: number; lastX: number; hasMoved: boolean } | null>(null);
+  const [currentCardIndex, setCurrentCardIndex] = useState(0);
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const [isSwiping, setIsSwiping] = useState(false);
+  const [swipeStartX, setSwipeStartX] = useState(0);
   const [count, setCount] = useState<number>(FLASHCARD_COUNT_OPTIONS[0]);
   const [loading, setLoading] = useState(false);
   const [limitUsed, setLimitUsed] = useState(0);
@@ -72,46 +75,83 @@ export default function StudyClient() {
 
   const markCard = (index: number, status: CardStatus) => {
     setCardStatus((prev) => prev.map((v, i) => (i === index ? status : v)));
+    // Move to next card after marking
+    if (index < flashcards.length - 1) {
+      setTimeout(() => {
+        setCurrentCardIndex(index + 1);
+        setFlipped((prev) => prev.map((v, i) => (i === index + 1 ? false : v)));
+      }, 300);
+    }
   };
 
-  const handlePointerStart = (index: number, clientX: number) => {
-    setActiveSwipe({ index, startX: clientX, lastX: clientX, hasMoved: false });
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setSwipeStartX(e.touches[0].clientX);
+    setIsSwiping(true);
   };
 
-  const handlePointerMove = (index: number, clientX: number) => {
-    setActiveSwipe((prev) => {
-      if (!prev || prev.index !== index) return prev;
-      const deltaX = Math.abs(clientX - prev.startX);
-      return { ...prev, lastX: clientX, hasMoved: prev.hasMoved || deltaX > MOVE_THRESHOLD_PX };
-    });
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isSwiping) return;
+    const currentX = e.touches[0].clientX;
+    const diff = currentX - swipeStartX;
+    setSwipeOffset(diff);
   };
 
-  const handlePointerEnd = (index: number, clientX?: number) => {
-    if (!activeSwipe || activeSwipe.index !== index) return;
-    const finalX = clientX ?? activeSwipe.lastX;
-    const deltaX = finalX - activeSwipe.startX;
+  const handleTouchEnd = () => {
+    if (!isSwiping) return;
+    setIsSwiping(false);
 
-    // Only process swipe if there was significant movement
-    if (activeSwipe.hasMoved) {
-      if (deltaX > SWIPE_THRESHOLD_PX) {
-        markCard(index, "checked");
-      } else if (deltaX < -SWIPE_THRESHOLD_PX) {
-        markCard(index, "unchecked");
+    const threshold = 100;
+    if (Math.abs(swipeOffset) > threshold) {
+      if (swipeOffset > 0) {
+        // Swipe right - mark as checked
+        markCard(currentCardIndex, "checked");
+      } else {
+        // Swipe left - mark as unchecked
+        markCard(currentCardIndex, "unchecked");
       }
     }
-    setActiveSwipe(null);
+    setSwipeOffset(0);
   };
 
-  const handleCardClick = (index: number) => {
-    // Only flip if there was no swipe movement
-    if (!activeSwipe || !activeSwipe.hasMoved) {
-      toggleFlip(index);
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setSwipeStartX(e.clientX);
+    setIsSwiping(true);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isSwiping) return;
+    const diff = e.clientX - swipeStartX;
+    setSwipeOffset(diff);
+  };
+
+  const handleMouseUp = () => {
+    if (!isSwiping) return;
+    setIsSwiping(false);
+
+    const threshold = 100;
+    if (Math.abs(swipeOffset) > threshold) {
+      if (swipeOffset > 0) {
+        // Swipe right - mark as checked
+        markCard(currentCardIndex, "checked");
+      } else {
+        // Swipe left - mark as unchecked
+        markCard(currentCardIndex, "unchecked");
+      }
+    }
+    setSwipeOffset(0);
+  };
+
+  const handleCardClick = () => {
+    if (Math.abs(swipeOffset) < 5) {
+      toggleFlip(currentCardIndex);
     }
   };
 
   const resetCardState = (cards: Flashcard[]) => {
     setCardStatus(cards.map(() => "pending"));
     setFlipped(cards.map(() => false));
+    setCurrentCardIndex(0);
+    setSwipeOffset(0);
   };
 
   const handleGenerate = async () => {
@@ -251,149 +291,143 @@ export default function StudyClient() {
           </div>
         )}
 
-        {flashcards.length > 0 && (
+        {flashcards.length > 0 && pendingCount > 0 && (
           <div className="flex items-center gap-2 rounded-xl bg-surface-variant/40 px-3 py-2 text-sm text-on-surface-variant">
             <IconSparkles size={16} className="text-primary" />
             <span>Tap to flip. Swipe right to mark Known, left for Review. Buttons work too.</span>
           </div>
         )}
 
-        <div className="relative h-[520px] w-full">
-          {flashcards.map((card, idx) => {
-            const status = cardStatus[idx] ?? "pending";
-            const isFlipped = flipped[idx] ?? false;
-            const statusStyles =
-              status === "checked"
-                ? "bg-green-100 text-green-700 border-green-300"
-                : status === "unchecked"
-                  ? "bg-error/10 text-error border-error/30"
-                  : "bg-primary/5 text-primary border-primary/20";
+        {flashcards.length > 0 && pendingCount > 0 && (
+          <div className="relative h-[520px] w-full">
+            {flashcards.map((card, idx) => {
+              if (idx !== currentCardIndex) return null;
 
-            const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-              e.preventDefault();
-              handlePointerStart(idx, e.clientX);
-            };
-            const handlePointerMoveEvent = (e: React.PointerEvent<HTMLDivElement>) => {
-              if (activeSwipe?.index === idx) {
-                e.preventDefault();
-                handlePointerMove(idx, e.clientX);
-              }
-            };
-            const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-              handlePointerEnd(idx, e.clientX);
-            };
-            const handlePointerCancel = () => {
-              setActiveSwipe(null);
-            };
+              const status = cardStatus[idx] ?? "pending";
+              const isFlipped = flipped[idx] ?? false;
+              const statusStyles =
+                status === "checked"
+                  ? "bg-green-100 text-green-700 border-green-300"
+                  : status === "unchecked"
+                    ? "bg-error/10 text-error border-error/30"
+                    : "bg-primary/5 text-primary border-primary/20";
 
-            const layer = flashcards.length - idx;
-            const offset = Math.min(idx * 8, 40);
-
-            return (
-              <div
-                key={card.question ? `${card.question}-${idx}` : `card-${idx}`}
-                className="group absolute left-1/2 top-0 w-full max-w-md -translate-x-1/2 cursor-pointer touch-none select-none"
-                style={{
-                  zIndex: layer,
-                  transform: `translateX(-50%) translateY(${offset}px)`,
-                  height: "calc(100% - 48px)",
-                }}
-                onPointerDown={handlePointerDown}
-                onPointerMove={handlePointerMoveEvent}
-                onPointerUp={handlePointerUp}
-                onPointerCancel={handlePointerCancel}
-                onClick={() => handleCardClick(idx)}
-              >
+              return (
                 <div
-                  className={`absolute inset-0 h-full w-full transition-transform duration-300 [transform-style:preserve-3d] ${
-                    isFlipped ? "[transform:rotateY(180deg)]" : ""
-                  }`}
+                  key={card.question ? `${card.question}-${idx}` : `card-${idx}`}
+                  className="absolute left-1/2 top-0 w-full max-w-md -translate-x-1/2 cursor-pointer select-none"
+                  style={{
+                    height: "calc(100% - 48px)",
+                    transform: `translateX(-50%) translateX(${swipeOffset}px)`,
+                    transition: isSwiping ? "none" : "transform 0.3s ease-out",
+                  }}
+                  onTouchStart={handleTouchStart}
+                  onTouchMove={handleTouchMove}
+                  onTouchEnd={handleTouchEnd}
+                  onMouseDown={handleMouseDown}
+                  onMouseMove={handleMouseMove}
+                  onMouseUp={handleMouseUp}
+                  onMouseLeave={handleMouseUp}
+                  onClick={handleCardClick}
                 >
-                  <div className="absolute inset-0 flex h-full w-full flex-col gap-3 rounded-2xl border border-outline/20 bg-surface p-6 shadow-lg [backface-visibility:hidden]">
-                    <div className="flex items-center justify-between">
-                      <span
-                        className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide ${statusStyles}`}
-                      >
-                        {status === "checked" ? "Known" : status === "unchecked" ? "Review" : "Pending"}
-                      </span>
-                      <span className="text-xs font-semibold text-primary">Card {idx + 1}</span>
-                    </div>
-                    <div className="flex-1 overflow-auto rounded-2xl bg-surface-variant/50 p-4 text-on-surface shadow-inner">
-                      <h3 className="text-lg font-semibold text-on-surface leading-relaxed">{card.question}</h3>
-                    </div>
-                    <p className="text-xs text-on-surface-variant">Tap to flip and see the answer</p>
-                  </div>
-
-                  <div className="absolute inset-0 flex h-full w-full flex-col gap-3 rounded-2xl border border-outline/20 bg-surface p-6 shadow-lg [backface-visibility:hidden] [transform:rotateY(180deg)]">
-                    <div className="flex items-center justify-between">
-                      <span
-                        className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide ${statusStyles}`}
-                      >
-                        {status === "checked" ? "Known" : status === "unchecked" ? "Review" : "Pending"}
-                      </span>
-                      <span className="text-xs font-semibold text-primary">Answer</span>
-                    </div>
-                    <div className="flex-1 overflow-auto rounded-2xl bg-surface-variant/50 p-4 text-on-surface shadow-inner">
-                      <p className="text-base leading-relaxed text-on-surface">{card.answer}</p>
-                    </div>
-                    {card.hint && (
-                      <div className="rounded-lg bg-primary/5 px-3 py-2">
-                        <p className="text-sm text-primary">
-                          <span className="font-semibold">Hint:</span> {card.hint}
-                        </p>
+                  <div
+                    className={`absolute inset-0 h-full w-full transition-transform duration-300 [transform-style:preserve-3d] ${
+                      isFlipped ? "[transform:rotateY(180deg)]" : ""
+                    }`}
+                  >
+                    <div className="absolute inset-0 flex h-full w-full flex-col gap-3 rounded-2xl border border-outline/20 bg-surface p-6 shadow-lg [backface-visibility:hidden]">
+                      <div className="flex items-center justify-between">
+                        <span
+                          className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide ${statusStyles}`}
+                        >
+                          {status === "checked" ? "Known" : status === "unchecked" ? "Review" : "Pending"}
+                        </span>
+                        <span className="text-xs font-semibold text-primary">
+                          Card {idx + 1} of {flashcards.length}
+                        </span>
                       </div>
-                    )}
-                    <p className="text-xs text-on-surface-variant">Tap to flip back</p>
+                      <div className="flex-1 overflow-auto rounded-2xl bg-surface-variant/50 p-4 text-on-surface shadow-inner">
+                        <h3 className="text-lg font-semibold text-on-surface leading-relaxed">{card.question}</h3>
+                      </div>
+                      <p className="text-xs text-on-surface-variant">Tap to flip and see the answer</p>
+                    </div>
+
+                    <div className="absolute inset-0 flex h-full w-full flex-col gap-3 rounded-2xl border border-outline/20 bg-surface p-6 shadow-lg [backface-visibility:hidden] [transform:rotateY(180deg)]">
+                      <div className="flex items-center justify-between">
+                        <span
+                          className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide ${statusStyles}`}
+                        >
+                          {status === "checked" ? "Known" : status === "unchecked" ? "Review" : "Pending"}
+                        </span>
+                        <span className="text-xs font-semibold text-primary">Answer</span>
+                      </div>
+                      <div className="flex-1 overflow-auto rounded-2xl bg-surface-variant/50 p-4 text-on-surface shadow-inner">
+                        <p className="text-base leading-relaxed text-on-surface">{card.answer}</p>
+                      </div>
+                      {card.hint && (
+                        <div className="rounded-lg bg-primary/5 px-3 py-2">
+                          <p className="text-sm text-primary">
+                            <span className="font-semibold">Hint:</span> {card.hint}
+                          </p>
+                        </div>
+                      )}
+                      <p className="text-xs text-on-surface-variant">Tap to flip back</p>
+                    </div>
+                  </div>
+
+                  <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-3 rounded-b-2xl bg-surface/95 px-4 py-3 shadow-lg backdrop-blur">
+                    <button
+                      type="button"
+                      className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl border-2 border-error/40 bg-error/10 px-4 py-2.5 text-sm font-semibold text-error transition hover:bg-error/20"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        markCard(idx, "unchecked");
+                      }}
+                    >
+                      <IconXMark size={18} />
+                      Review
+                    </button>
+                    <button
+                      type="button"
+                      className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl border-2 border-green-400 bg-green-100 px-4 py-2.5 text-sm font-semibold text-green-700 transition hover:bg-green-200"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        markCard(idx, "checked");
+                      }}
+                    >
+                      <IconCheck size={18} />
+                      Known
+                    </button>
                   </div>
                 </div>
+              );
+            })}
+          </div>
+        )}
 
-                <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-3 rounded-b-2xl bg-surface/95 px-4 py-3 shadow-lg backdrop-blur">
-                  <button
-                    type="button"
-                    className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl border-2 border-error/40 bg-error/10 px-4 py-2.5 text-sm font-semibold text-error transition hover:bg-error/20"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      markCard(idx, "unchecked");
-                    }}
-                  >
-                    <IconXMark size={18} />
-                    Review
-                  </button>
-                  <button
-                    type="button"
-                    className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl border-2 border-green-400 bg-green-100 px-4 py-2.5 text-sm font-semibold text-green-700 transition hover:bg-green-200"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      markCard(idx, "checked");
-                    }}
-                  >
-                    <IconCheck size={18} />
-                    Known
-                  </button>
-                </div>
+        {flashcards.length > 0 && pendingCount === 0 && (
+          <div className="rounded-2xl border border-outline/10 bg-surface shadow-ambient px-6 py-8 text-center space-y-4">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-2">
+              <IconCheck size={32} className="text-primary" />
+            </div>
+            <h3 className="text-xl font-bold text-on-surface">Session Complete!</h3>
+            <p className="text-on-surface-variant">You've reviewed all flashcards in this set.</p>
+
+            <div className="rounded-2xl border border-outline/10 bg-surface-variant/40 px-4 py-4 text-sm text-on-surface">
+              <div className="flex flex-wrap items-center justify-center gap-4">
+                <span className="font-semibold">Session summary</span>
+                <span className="rounded-full bg-primary/10 px-3 py-1 text-primary">
+                  Total cards: {flashcards.length}
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-3 py-1 text-green-700">
+                  <IconCheck size={16} />
+                  Known: {checkedCount}
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-error/10 px-3 py-1 text-error">
+                  <IconXMark size={16} />
+                  Review: {uncheckedCount}
+                </span>
               </div>
-            );
-          })}
-        </div>
-
-        {flashcards.length > 0 && (
-          <div className="rounded-2xl border border-outline/10 bg-surface-variant/40 px-4 py-3 text-sm text-on-surface">
-            <div className="flex flex-wrap items-center gap-4">
-              <span className="font-semibold">Session summary</span>
-              <span className="rounded-full bg-primary/10 px-3 py-1 text-primary">
-                Total cards: {flashcards.length}
-              </span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-3 py-1 text-green-700">
-                <IconCheck size={16} />
-                Checked: {checkedCount}
-              </span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-error/10 px-3 py-1 text-error">
-                <IconXMark size={16} />
-                Review: {uncheckedCount}
-              </span>
-              <span className="rounded-full bg-on-surface/5 px-3 py-1 text-on-surface-variant">
-                Remaining: {pendingCount}
-              </span>
             </div>
           </div>
         )}
