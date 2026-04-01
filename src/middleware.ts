@@ -4,7 +4,24 @@ import { NextResponse, type NextRequest } from "next/server";
 const SESSION_COOKIE = "ea_session";
 
 /** Routes that require an authenticated session. */
-const PROTECTED_PATHS = ["/upload", "/dashboard", "/admin", "/profile", "/settings", "/devtool", "/stats", "/paper", "/api/upload", "/api/admin", "/api/devtool", "/ai-content", "/api/ai", "/api/generate-notes"];
+const PROTECTED_PATHS = [
+  // App routes
+  "/upload",
+  "/dashboard",
+  "/admin",
+  "/profile",
+  "/settings",
+  "/devtool",
+  "/stats",
+  "/paper",
+  "/ai-content",
+  // API routes
+  "/api/upload",
+  "/api/admin",
+  "/api/devtool",
+  "/api/ai",
+  "/api/generate-notes",
+];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

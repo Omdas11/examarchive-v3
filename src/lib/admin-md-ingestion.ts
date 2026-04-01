@@ -38,7 +38,11 @@ export interface IngestionParseResult {
 }
 
 function splitRow(line: string): string[] {
-  return line.split("|").slice(1, -1).map((cell) => cell.trim());
+  if (!line.includes("|")) return [];
+  const cells = line.split("|").slice(1, -1).map((cell) => cell.trim());
+  if (cells.length === 0) return [];
+  if (cells.every((cell) => cell === "")) return [];
+  return cells;
 }
 
 function normalizeHeader(value: string): string {
@@ -152,7 +156,12 @@ export function parseDemoDataEntryMarkdown(source: string): IngestionParseResult
       }
       const lecturesRaw = (row.lectures || "").trim();
       const lectures = lecturesRaw ? Number(lecturesRaw) : undefined;
-      if (lecturesRaw && (typeof lectures !== "number" || !Number.isInteger(lectures) || lectures < 0)) {
+      if (lecturesRaw && (
+        typeof lectures !== "number" ||
+        Number.isNaN(lectures) ||
+        !Number.isInteger(lectures) ||
+        lectures < 0
+      )) {
         errors.push({ line, message: `Invalid lectures value "${lecturesRaw}".` });
         continue;
       }
@@ -186,7 +195,12 @@ export function parseDemoDataEntryMarkdown(source: string): IngestionParseResult
       }
       const marksRaw = (row.marks || "").trim();
       const marks = marksRaw ? Number(marksRaw) : undefined;
-      if (marksRaw && (typeof marks !== "number" || !Number.isFinite(marks) || marks < 0)) {
+      if (marksRaw && (
+        typeof marks !== "number" ||
+        Number.isNaN(marks) ||
+        !Number.isFinite(marks) ||
+        marks < 0
+      )) {
         errors.push({ line, message: `Invalid marks value "${marksRaw}".` });
         continue;
       }

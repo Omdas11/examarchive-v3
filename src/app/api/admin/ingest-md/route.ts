@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { InputFile } from "node-appwrite/file";
 import { Compression } from "node-appwrite";
+import path from "path";
 import { getServerUser } from "@/lib/auth";
 import { isAdmin } from "@/lib/roles";
 import {
@@ -17,7 +18,7 @@ import { parseDemoDataEntryMarkdown } from "@/lib/admin-md-ingestion";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const TEMPLATE_PATH = `${process.cwd()}/DEMO_DATA_ENTRY.md`;
+const TEMPLATE_PATH = path.resolve(process.cwd(), "DEMO_DATA_ENTRY.md");
 
 function normalizeError(error: unknown): string {
   if (error instanceof Error) return error.message;

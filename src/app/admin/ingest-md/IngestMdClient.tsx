@@ -20,6 +20,7 @@ export default function IngestMdClient() {
   const [logs, setLogs] = useState<IngestionLog[]>([]);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [lastResult, setLastResult] = useState<string | null>(null);
+  const [pollDelayMs, setPollDelayMs] = useState(10_000);
 
   const loadLogs = useCallback(async () => {
     try {
@@ -34,10 +35,19 @@ export default function IngestMdClient() {
   }, []);
 
   useEffect(() => {
-    loadLogs();
-    const timer = window.setInterval(loadLogs, 10_000);
-    return () => window.clearInterval(timer);
-  }, [loadLogs]);
+    let disposed = false;
+    let timeoutId: number | null = null;
+    const schedule = async () => {
+      await loadLogs();
+      if (disposed) return;
+      timeoutId = window.setTimeout(schedule, pollDelayMs);
+    };
+    void schedule();
+    return () => {
+      disposed = true;
+      if (timeoutId) window.clearTimeout(timeoutId);
+    };
+  }, [loadLogs, pollDelayMs]);
 
   async function ingestFile(file: File) {
     if (!file.name.toLowerCase().endsWith(".md")) {
@@ -45,6 +55,7 @@ export default function IngestMdClient() {
       return;
     }
     setUploading(true);
+    setPollDelayMs(2_500);
     setError(null);
     setLastResult(null);
     try {
@@ -67,6 +78,7 @@ export default function IngestMdClient() {
       setError("Network error while uploading file.");
     } finally {
       setUploading(false);
+      setPollDelayMs(10_000);
     }
   }
 
@@ -78,6 +90,10 @@ export default function IngestMdClient() {
     }),
     [],
   );
+
+  function getStatusClass(status: string): string {
+    return statusClass[status as keyof typeof statusClass] ?? "text-on-surface";
+  }
 
   return (
     <div className="mt-6 space-y-6">
@@ -145,7 +161,7 @@ export default function IngestMdClient() {
                     <td className="py-2 pr-2">{new Date(log.timestamp).toLocaleString()}</td>
                     <td className="py-2 pr-2">{log.fileName}</td>
                     <td className="py-2 pr-2">{log.paperCode || "—"}</td>
-                    <td className={`py-2 pr-2 font-semibold ${statusClass[log.status as keyof typeof statusClass] ?? "text-on-surface"}`}>
+                    <td className={`py-2 pr-2 font-semibold ${getStatusClass(log.status)}`}>
                       {log.status.toUpperCase()}
                     </td>
                     <td className="py-2 pr-2">{log.rowsAffected}</td>
