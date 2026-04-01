@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { markdownToHtmlWithKatex } from "@/lib/client-markdown";
 import "katex/dist/katex.min.css";
 import DOMPurify from "dompurify";
+import PrintableNotesDocument from "./PrintableNotesDocument";
+import PrintInstructionsModal from "./PrintInstructionsModal";
 
 const COURSE_TYPES: Record<string, string[]> = {
   FYUG: ["DSC", "DSM", "SEC", "AEC", "VAC", "IDC"],
@@ -35,10 +37,14 @@ export default function AIContentClient() {
   const [remaining, setRemaining] = useState<number | null>(null);
   const [limit, setLimit] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [paperNameMap, setPaperNameMap] = useState<Record<string, string>>({});
+  const [printInstructionsOpen, setPrintInstructionsOpen] = useState(false);
+  const [generatedAtLabel, setGeneratedAtLabel] = useState("");
   const renderedMarkdown = useMemo(
     () => (markdown ? DOMPurify.sanitize(markdownToHtmlWithKatex(markdown)) : ""),
     [markdown],
   );
+  const selectedPaperName = paperNameMap[paperCode] || paperCode;
 
   async function generate() {
     if (generating) return;
@@ -56,6 +62,7 @@ export default function AIContentClient() {
         return;
       }
       setMarkdown(typeof data.markdown === "string" ? data.markdown : "");
+      setGeneratedAtLabel(new Date().toLocaleString());
       setModel(typeof data.model === "string" ? data.model : "");
       if (typeof data.remaining === "number" || data.remaining === null) setRemaining(data.remaining);
     } catch {
@@ -65,8 +72,13 @@ export default function AIContentClient() {
     }
   }
 
-  function downloadPdf() {
+  function handleDownloadPdfClick() {
     if (!markdown) return;
+    setPrintInstructionsOpen(true);
+  }
+
+  function proceedToPrint() {
+    setPrintInstructionsOpen(false);
     window.print();
   }
 
@@ -80,6 +92,19 @@ export default function AIContentClient() {
         if (Array.isArray(data.paperCodes)) {
           const options = data.paperCodes.filter((item: unknown): item is string => typeof item === "string" && item.trim().length > 0);
           setPaperCodeOptions(options);
+          const resolvedMap: Record<string, string> = {};
+          if (Array.isArray(data.papers)) {
+            for (const paper of data.papers) {
+              const code = typeof paper?.code === "string" ? paper.code.trim() : "";
+              if (!code) continue;
+              const name = typeof paper?.name === "string" ? paper.name.trim() : "";
+              resolvedMap[code] = name || code;
+            }
+          }
+          for (const code of options) {
+            if (!resolvedMap[code]) resolvedMap[code] = code;
+          }
+          setPaperNameMap(resolvedMap);
           setPaperCode((current) => {
             if (current && options.includes(current)) return current;
             return options[0] || current;
@@ -192,7 +217,7 @@ export default function AIContentClient() {
         <section className="card border border-outline-variant/30 p-5">
           <div className="mb-3 flex items-center justify-between gap-3">
             <h2 className="text-xl font-semibold">Generated Markdown</h2>
-            <button onClick={downloadPdf} disabled={!markdown} className="btn">
+            <button onClick={handleDownloadPdfClick} disabled={!markdown} className="btn">
               Download PDF
             </button>
           </div>
@@ -200,17 +225,27 @@ export default function AIContentClient() {
             For richer client-side export, use <strong>jsPDF + html2canvas</strong> or <strong>react-to-print</strong>.
           </p>
           {model && <p className="mb-2 text-xs text-on-surface-variant">Model: {model}</p>}
-          <div id="printable-exam-notes" className="pdf-export-source print-root-wrapper">
-            <div className="print-root markdown-preview rounded-xl border border-outline-variant/30 bg-surface-container-low p-4">
-              {renderedMarkdown ? (
-                <div dangerouslySetInnerHTML={{ __html: renderedMarkdown }} />
-              ) : (
-                <p className="text-on-surface-variant">No output yet. Generate notes to preview them here.</p>
-              )}
-            </div>
+          <div className="print-root markdown-preview rounded-xl border border-outline-variant/30 bg-surface-container-low p-4">
+            {renderedMarkdown ? (
+              <div dangerouslySetInnerHTML={{ __html: renderedMarkdown }} />
+            ) : (
+              <p className="text-on-surface-variant">No output yet. Generate notes to preview them here.</p>
+            )}
           </div>
         </section>
       </div>
+      <PrintInstructionsModal
+        open={printInstructionsOpen}
+        onClose={() => setPrintInstructionsOpen(false)}
+        onProceed={proceedToPrint}
+      />
+      <PrintableNotesDocument
+        markdownHtml={renderedMarkdown}
+        paperName={selectedPaperName}
+        paperCode={paperCode}
+        generatedAt={generatedAtLabel}
+        model={model || "gemini-3.1-flash-lite-preview"}
+      />
     </div>
   );
 }

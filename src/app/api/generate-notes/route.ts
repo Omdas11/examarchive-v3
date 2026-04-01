@@ -80,18 +80,21 @@ export async function GET(request: NextRequest) {
 
     const db = adminDatabases();
     const { documents } = await db.listDocuments(DATABASE_ID, COLLECTION.syllabus_table, queries);
-    const paperCodes = Array.from(
-      new Set(
-        documents
-          .map((doc) => (typeof doc.paper_code === "string" ? doc.paper_code.trim() : ""))
-          .filter(Boolean),
-      ),
-    );
+    const papersMap = new Map<string, string>();
+    for (const doc of documents) {
+      const code = typeof doc.paper_code === "string" ? doc.paper_code.trim() : "";
+      if (!code) continue;
+      const name = typeof doc.paper_name === "string" ? doc.paper_name.trim() : "";
+      if (!papersMap.has(code)) papersMap.set(code, name || code);
+    }
+    const papers = Array.from(papersMap.entries()).map(([code, name]) => ({ code, name }));
+    const paperCodes = papers.map((paper) => paper.code);
 
     return NextResponse.json({
       remaining,
       limit: isAdminPlus(user.role) ? null : dailyLimit,
       paperCodes,
+      papers,
     });
   } catch (error) {
     console.error("[generate-notes] Failed to load options:", error);
@@ -99,6 +102,7 @@ export async function GET(request: NextRequest) {
       remaining,
       limit: isAdminPlus(user.role) ? null : dailyLimit,
       paperCodes: [],
+      papers: [],
     });
   }
 }

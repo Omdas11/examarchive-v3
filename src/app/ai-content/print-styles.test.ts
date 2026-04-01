@@ -70,7 +70,7 @@ describe("AI content print/mobile styles", () => {
 
   it("keeps print footer visible and break-safe in print media", () => {
     expect(css).toMatch(
-      /@media print[\s\S]*?\.print-footer\s*\{[\s\S]*?page-break-inside:\s*avoid;[\s\S]*?display:\s*block !important;[\s\S]*?margin-top:\s*40px !important;[\s\S]*?\}/
+      /@media print[\s\S]*?\.print-footer\s*\{[\s\S]*?page-break-inside:\s*avoid;[\s\S]*?display:\s*block !important;[\s\S]*?margin-top:\s*auto !important;[\s\S]*?\}/
     );
   });
 });

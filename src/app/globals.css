@@ -998,6 +998,39 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
   font-size: 0.85rem;
   color: #4b5563;
 }
+.printable-notes-document {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 24mm);
+}
+.print-doc-header {
+  margin-bottom: 1rem;
+}
+.print-brand-title {
+  margin: 0;
+  font-size: 2rem;
+  line-height: 1.1;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+}
+.print-paper-title {
+  margin: 0.4rem 0 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+.print-doc-meta {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+  color: #4b5563;
+}
+.print-footer {
+  margin-top: auto;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.12);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: #374151;
+}
 .print-body > * {
   break-inside: auto;
 }
@@ -1059,6 +1092,8 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
     left: 0;
     top: 0;
     padding: 0 !important;
+    width: 100% !important;
+    min-height: 100% !important;
     background: transparent !important;
     background-color: transparent !important;
     background-image: var(--print-watermark-image) !important;
@@ -1099,6 +1134,15 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
     display: none !important;
   }
 
+  body * {
+    visibility: hidden !important;
+  }
+
+  #printable-exam-notes,
+  #printable-exam-notes * {
+    visibility: visible !important;
+  }
+
   .print-action-controls,
   .btn,
   .btn-primary,
@@ -1107,8 +1151,7 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
   select,
   textarea,
   nav,
-  header,
-  footer,
+  aside,
   .card:not(.print-visible) {
     display: none !important;
   }
@@ -1162,12 +1205,24 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
     display: none !important;
   }
 
+  #printable-exam-notes .print-body,
+  .print-body,
+  #printable-exam-notes table,
+  #printable-exam-notes pre,
+  #printable-exam-notes .katex-display,
+  #printable-exam-notes .equation-block {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
   .print-footer,
   #printable-exam-notes .print-footer {
     page-break-inside: avoid;
     break-inside: avoid;
     display: block !important;
-    margin-top: 40px !important;
+    margin-top: auto !important;
+    position: relative;
+    z-index: 1;
   }
 
   p,
