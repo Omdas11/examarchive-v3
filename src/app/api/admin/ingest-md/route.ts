@@ -118,7 +118,9 @@ async function upsertQuestionRows(args: {
       Query.limit(MAX_QUESTION_ROWS_PER_NUMBER),
     ]);
     const existing = existingByQuestionNo.documents.find(
-      (document) => (document.question_subpart ?? null) === (row.question_subpart ?? null),
+      (document) =>
+        document.question_subpart === row.question_subpart ||
+        (document.question_subpart == null && row.question_subpart == null),
     );
     const rowId =
       typeof existing?.id === "string" && existing.id.trim().length > 0
