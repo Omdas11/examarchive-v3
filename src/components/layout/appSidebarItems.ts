@@ -85,6 +85,12 @@ export const APP_SIDEBAR_ITEMS: AppSidebarItem[] = [
     roles: ["admin", "founder"],
   },
   {
+    label: "MD Ingestion",
+    icon: "upload_file",
+    href: "/admin/ingest-md",
+    roles: ["admin", "founder"],
+  },
+  {
     label: "Manage Users",
     icon: "group",
     href: "/admin/users",
