@@ -29,3 +29,48 @@
 | `question_content` | String | **Yes** | Question content |
 | `marks` | Integer | No | Marks |
 | `tags` | String | No | Topic tags |
+
+---
+
+<!-- SCHEMA_SYNC_STATUS_START -->
+## Schema Sync Status (Auto-generated)
+
+_This section is updated by `scripts/sync-appwrite-schema.js` when run with `--update-schema-md`._
+
+| Collection | Status | Created in run | Notes |
+|---|---|---:|---|
+| `papers` | ⚠️ Connected with differences | 0 | collection existed; 0/21 missing attrs created; 10 attr definition mismatch(es) |
+| `syllabus` | ⚠️ Connected with differences | 0 | collection existed; 0/13 missing attrs created; 9 attr definition mismatch(es) |
+| `users` | ⚠️ Connected with differences | 0 | collection existed; 0/19 missing attrs created; 11 attr definition mismatch(es) |
+| `uploads` | ⚠️ Connected with differences | 0 | collection existed; 0/4 missing attrs created; 4 attr definition mismatch(es) |
+| `activity_logs` | ⚠️ Connected with differences | 0 | collection existed; 0/8 missing attrs created; 5 attr definition mismatch(es) |
+| `achievements` | ⚠️ Connected with differences | 0 | collection existed; 0/5 missing attrs created; 4 attr definition mismatch(es) |
+| `site_metrics` | ⚠️ Connected with differences | 0 | collection existed; 0/2 missing attrs created; 1 attr definition mismatch(es) |
+| `feedback` | ✅ Perfectly connected | 0 | collection existed; 0/4 missing attrs created; no mismatches detected |
+| `ai_usage` | ✅ Perfectly connected | 0 | collection existed; 0/2 missing attrs created; no mismatches detected |
+| `ai_embeddings` | ⚠️ Connected with differences | 0 | collection existed; 0/11 missing attrs created; 8 attr definition mismatch(es) |
+| `pdf_usage` | ✅ Perfectly connected | 0 | collection existed; 0/2 missing attrs created; no mismatches detected |
+| `Syllabus_Table` | ✅ Perfectly connected | 10 | collection created; 9/9 missing attrs created; no mismatches detected |
+| `Questions_Table` | ✅ Perfectly connected | 12 | collection created; 11/11 missing attrs created; no mismatches detected |
+
+<!-- SCHEMA_SYNC_STATUS_END -->
+
+---
+### Sync Remarks (Auto-Generated)
+**Last Synced:** 2026-04-01T14:57:54.013Z
+**Overall Status:** Partial
+**Connected:**
+- feedback updated successfully.
+- ai_usage updated successfully.
+- pdf_usage updated successfully.
+- Syllabus_Table updated successfully.
+- Questions_Table updated successfully.
+**Not Connected / Errors:**
+- papers has 10 mismatch(es).
+- syllabus has 9 mismatch(es).
+- users has 11 mismatch(es).
+- uploads has 4 mismatch(es).
+- activity_logs has 5 mismatch(es).
+- achievements has 4 mismatch(es).
+- site_metrics has 1 mismatch(es).
+- ai_embeddings has 8 mismatch(es).
