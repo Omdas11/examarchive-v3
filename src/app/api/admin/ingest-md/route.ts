@@ -105,14 +105,17 @@ async function upsertQuestionRows(args: {
   let added = 0;
   let updated = 0;
   for (const row of args.rows) {
-    const existing = await db.listDocuments(DATABASE_ID, COLLECTION.questions_table, [
+    const existingByQuestionNo = await db.listDocuments(DATABASE_ID, COLLECTION.questions_table, [
       Query.equal("paper_code", args.paperCode),
       Query.equal("question_no", row.question_no),
-      Query.limit(1),
+      Query.limit(100),
     ]);
+    const existing = existingByQuestionNo.documents.find(
+      (document) => String(document.question_subpart ?? "") === String(row.question_subpart ?? ""),
+    );
     const rowId =
-      typeof existing.documents[0]?.id === "string" && existing.documents[0].id.trim().length > 0
-        ? existing.documents[0].id
+      typeof existing?.id === "string" && existing.id.trim().length > 0
+        ? existing.id
         : randomUUID();
     const payload: Record<string, unknown> = {
       id: rowId,
@@ -129,8 +132,8 @@ async function upsertQuestionRows(args: {
     if (typeof row.marks === "number") {
       payload.marks = row.marks;
     }
-    if (existing.documents[0]) {
-      await db.updateDocument(DATABASE_ID, COLLECTION.questions_table, existing.documents[0].$id, payload);
+    if (existing) {
+      await db.updateDocument(DATABASE_ID, COLLECTION.questions_table, existing.$id, payload);
       updated += 1;
     } else {
       await db.createDocument(DATABASE_ID, COLLECTION.questions_table, ID.unique(), payload);
