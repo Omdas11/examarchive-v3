@@ -52,6 +52,7 @@ export const COLLECTION = {
    */
   ai_usage: "ai_usage",
   ai_flashcards: "ai_flashcards",
+  ai_ingestions: "ai_ingestions",
   syllabus_table: "Syllabus_Table",
   questions_table: "Questions_Table",
   /**
@@ -74,6 +75,7 @@ export const AVATARS_BUCKET_ID = process.env.APPWRITE_AVATARS_BUCKET_ID ?? "avat
 
 /** Storage bucket for syllabus PDFs. */
 export const SYLLABUS_BUCKET_ID = process.env.APPWRITE_SYLLABUS_BUCKET_ID ?? "syllabus-files";
+export const MD_INGESTION_BUCKET_ID = process.env.APPWRITE_MD_INGESTION_BUCKET_ID ?? "examarchive-md-ingestion";
 
 // ── Server-side admin client (uses API key) ─────────────────────────────
 /**
