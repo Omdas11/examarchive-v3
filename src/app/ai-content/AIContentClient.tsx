@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import "katex/dist/katex.min.css";
 import PrintableNotesDocument from "./PrintableNotesDocument";
 import PrintInstructionsModal from "./PrintInstructionsModal";
@@ -39,32 +39,97 @@ export default function AIContentClient() {
   const [paperNameMap, setPaperNameMap] = useState<Record<string, string>>({});
   const [printInstructionsOpen, setPrintInstructionsOpen] = useState(false);
   const [generatedAtLabel, setGeneratedAtLabel] = useState("");
+  const [progressStatus, setProgressStatus] = useState("");
+  const [progressTopic, setProgressTopic] = useState("");
+  const [progressIndex, setProgressIndex] = useState(0);
+  const [progressTotal, setProgressTotal] = useState(0);
+  const eventSourceRef = useRef<EventSource | null>(null);
   const selectedPaperName = paperNameMap[paperCode] || paperCode;
+  const progressPercent = progressTotal > 0 ? Math.min(100, Math.round((progressIndex / progressTotal) * 100)) : 0;
+
+  function closeEventSource() {
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
+  }
 
   async function generate() {
     if (generating) return;
+    closeEventSource();
     setGenerating(true);
     setError(null);
-    try {
-      const res = await fetch("/api/generate-notes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ university, course, type, paperCode, unitNumber }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? "Generation failed.");
+    setProgressStatus("Starting chunked generation...");
+    setProgressTopic("");
+    setProgressIndex(0);
+    setProgressTotal(0);
+    const params = new URLSearchParams({
+      university,
+      course,
+      type,
+      paperCode,
+      unitNumber: String(unitNumber),
+    });
+    const source = new EventSource(`/api/generate-notes-stream?${params.toString()}`);
+    eventSourceRef.current = source;
+    let finished = false;
+
+    source.onmessage = (event) => {
+      let data: Record<string, unknown>;
+      try {
+        data = JSON.parse(event.data);
+      } catch {
         return;
       }
-      setMarkdown(typeof data.markdown === "string" ? data.markdown : "");
-      setGeneratedAtLabel(new Date().toLocaleString());
-      setModel(typeof data.model === "string" ? data.model : "");
-      if (typeof data.remaining === "number" || data.remaining === null) setRemaining(data.remaining);
-    } catch {
+
+      const eventType = typeof data.event === "string" ? data.event : "";
+      if (eventType === "progress") {
+        setProgressStatus(typeof data.status === "string" ? data.status : "Generating...");
+        setProgressTopic(typeof data.topic === "string" ? data.topic : "");
+        setProgressIndex(typeof data.index === "number" ? data.index : 0);
+        setProgressTotal(typeof data.total === "number" ? data.total : 0);
+        return;
+      }
+
+      if (eventType === "done") {
+        finished = true;
+        setMarkdown(typeof data.markdown === "string" ? data.markdown : "");
+        setGeneratedAtLabel(new Date().toLocaleString());
+        setModel(typeof data.model === "string" ? data.model : "");
+        if (typeof data.remaining === "number" || data.remaining === null) {
+          setRemaining(data.remaining);
+        }
+        setGenerating(false);
+        setProgressStatus("");
+        setProgressTopic("");
+        setProgressIndex(0);
+        setProgressTotal(0);
+        closeEventSource();
+        return;
+      }
+
+      if (eventType === "error") {
+        finished = true;
+        setError(typeof data.error === "string" ? data.error : "Generation failed.");
+        setGenerating(false);
+        setProgressStatus("");
+        setProgressTopic("");
+        setProgressIndex(0);
+        setProgressTotal(0);
+        closeEventSource();
+      }
+    };
+
+    source.onerror = () => {
+      if (finished) return;
       setError("Network error. Please try again.");
-    } finally {
       setGenerating(false);
-    }
+      setProgressStatus("");
+      setProgressTopic("");
+      setProgressIndex(0);
+      setProgressTotal(0);
+      closeEventSource();
+    };
   }
 
   function handleDownloadPdfClick() {
@@ -116,6 +181,12 @@ export default function AIContentClient() {
       setType(allowed[0]);
     }
   }, [course, type]);
+
+  useEffect(() => {
+    return () => {
+      closeEventSource();
+    };
+  }, []);
 
   const canGenerate = generating ? false : remaining === null || remaining > 0;
 
@@ -206,6 +277,18 @@ export default function AIContentClient() {
             </button>
             {generating && <span className="text-xs text-on-surface-variant">Generation in progress — please wait.</span>}
           </div>
+          {generating && (
+            <div className="mt-4 rounded-xl border border-outline-variant/30 bg-surface-container-low p-3">
+              <p className="text-sm font-medium">{progressStatus || "Generating..."}</p>
+              {progressTopic && <p className="mt-1 text-xs text-on-surface-variant">Current topic: {progressTopic}</p>}
+              <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-outline-variant/30">
+                <div className="h-full bg-primary transition-all duration-300" style={{ width: `${progressPercent}%` }} />
+              </div>
+              <p className="mt-2 text-xs text-on-surface-variant">
+                {progressTotal > 0 ? `Progress: ${progressIndex} / ${progressTotal}` : "Preparing generation chunks..."}
+              </p>
+            </div>
+          )}
           {error && <p className="mt-3 text-sm text-error">⚠ {error}</p>}
         </section>
 
