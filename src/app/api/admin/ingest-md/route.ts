@@ -20,6 +20,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 const TEMPLATE_PATH = path.resolve(process.cwd(), "DEMO_DATA_ENTRY.md");
+const MAX_QUESTION_ROWS_PER_NUMBER = 100;
 
 function normalizeError(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -61,6 +62,9 @@ async function upsertSyllabusRows(args: {
   let updated = 0;
   for (const row of args.rows) {
     const existing = await db.listDocuments(DATABASE_ID, COLLECTION.syllabus_table, [
+      Query.equal("university", args.university),
+      Query.equal("course", args.course),
+      Query.equal("type", args.type),
       Query.equal("paper_code", args.paperCode),
       Query.equal("unit_number", row.unit_number),
       Query.limit(1),
@@ -106,12 +110,15 @@ async function upsertQuestionRows(args: {
   let updated = 0;
   for (const row of args.rows) {
     const existingByQuestionNo = await db.listDocuments(DATABASE_ID, COLLECTION.questions_table, [
+      Query.equal("university", args.university),
+      Query.equal("course", args.course),
+      Query.equal("type", args.type),
       Query.equal("paper_code", args.paperCode),
       Query.equal("question_no", row.question_no),
-      Query.limit(100),
+      Query.limit(MAX_QUESTION_ROWS_PER_NUMBER),
     ]);
     const existing = existingByQuestionNo.documents.find(
-      (document) => String(document.question_subpart ?? "") === String(row.question_subpart ?? ""),
+      (document) => (document.question_subpart ?? null) === (row.question_subpart ?? null),
     );
     const rowId =
       typeof existing?.id === "string" && existing.id.trim().length > 0
