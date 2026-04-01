@@ -99,6 +99,19 @@ TAVILY_API_KEY=your-tavily-api-key
 NEXT_PUBLIC_ENABLE_DEBUG_PANEL=false
 ```
 
+### Analytics (Optional)
+
+```bash
+# Enable Google Analytics 4 tracking
+# NEXT_PUBLIC_GA_MEASUREMENT_ID=G-XXXXXXXXXX
+
+# Enable privacy-first Simple Analytics tracking
+# Set to "true" to load the script; keep "false" locally and in CI
+NEXT_PUBLIC_SIMPLE_ANALYTICS_ENABLED=false
+# Optional: pin the hostname for previews (defaults to window.location.hostname)
+# NEXT_PUBLIC_SIMPLE_ANALYTICS_HOSTNAME=examarchive.dev
+```
+
 ## Database Collections
 
 ExamArchive requires the following Appwrite collections to be manually created in the Appwrite console:
