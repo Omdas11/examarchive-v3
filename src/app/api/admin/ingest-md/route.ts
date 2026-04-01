@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { InputFile } from "node-appwrite/file";
 import { Compression } from "node-appwrite";
 import path from "path";
+import { randomUUID } from "crypto";
 import { getServerUser } from "@/lib/auth";
 import { isAdmin } from "@/lib/roles";
 import {
@@ -60,14 +61,16 @@ async function upsertSyllabusRows(args: {
   let updated = 0;
   for (const row of args.rows) {
     const existing = await db.listDocuments(DATABASE_ID, COLLECTION.syllabus_table, [
-      Query.equal("university", args.university),
-      Query.equal("course", args.course),
-      Query.equal("type", args.type),
       Query.equal("paper_code", args.paperCode),
       Query.equal("unit_number", row.unit_number),
       Query.limit(1),
     ]);
+    const rowId =
+      typeof existing.documents[0]?.id === "string" && existing.documents[0].id.trim().length > 0
+        ? existing.documents[0].id
+        : randomUUID();
     const payload: Record<string, unknown> = {
+      id: rowId,
       university: args.university,
       course: args.course,
       type: args.type,
@@ -103,15 +106,16 @@ async function upsertQuestionRows(args: {
   let updated = 0;
   for (const row of args.rows) {
     const existing = await db.listDocuments(DATABASE_ID, COLLECTION.questions_table, [
-      Query.equal("university", args.university),
-      Query.equal("course", args.course),
-      Query.equal("type", args.type),
       Query.equal("paper_code", args.paperCode),
       Query.equal("question_no", row.question_no),
-      Query.equal("question_subpart", row.question_subpart),
       Query.limit(1),
     ]);
+    const rowId =
+      typeof existing.documents[0]?.id === "string" && existing.documents[0].id.trim().length > 0
+        ? existing.documents[0].id
+        : randomUUID();
     const payload: Record<string, unknown> = {
+      id: rowId,
       university: args.university,
       course: args.course,
       type: args.type,
