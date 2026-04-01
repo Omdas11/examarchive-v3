@@ -51,6 +51,7 @@ export const COLLECTION = {
    * Create this collection in the Appwrite console with the attributes above.
    */
   ai_usage: "ai_usage",
+  generated_notes_cache: "Generated_Notes_Cache",
   ai_flashcards: "ai_flashcards",
   ai_ingestions: "ai_ingestions",
   syllabus_table: "Syllabus_Table",

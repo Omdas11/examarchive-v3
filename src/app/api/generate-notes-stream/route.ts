@@ -7,6 +7,9 @@ import { readTopicNotesPrompt } from "@/lib/topic-notes-prompt";
 
 const TOPIC_MAX_ATTEMPTS = 3;
 const RETRY_BACKOFF_MS = 1200;
+const CHUNK_MIN_CHARS = 150;
+const CHUNK_MAX_CHARS = 250;
+const CHUNK_MAX_SENTENCES = 3;
 
 function isAdminPlus(role: string): boolean {
   return role === "admin" || role === "founder";
@@ -28,10 +31,88 @@ function normalizeTags(raw: unknown): string[] {
 }
 
 function splitSyllabusIntoSubTopics(syllabusContent: string): string[] {
-  return syllabusContent
+  const sentences = syllabusContent
     .split(".")
     .map((part) => part.replace(/\s+/g, " ").trim())
     .filter(Boolean);
+
+  const grouped: string[] = [];
+  let buffer = "";
+  let sentenceCount = 0;
+
+  for (const sentence of sentences) {
+    const next = buffer ? `${buffer}. ${sentence}` : sentence;
+    const nextSentenceCount = sentenceCount + 1;
+    const shouldFlushBySize = next.length >= CHUNK_MAX_CHARS;
+    const shouldFlushByLengthAndCount = next.length >= CHUNK_MIN_CHARS && nextSentenceCount >= 2;
+    const shouldFlushByCount = nextSentenceCount >= CHUNK_MAX_SENTENCES;
+
+    buffer = next;
+    sentenceCount = nextSentenceCount;
+
+    if (shouldFlushBySize || shouldFlushByLengthAndCount || shouldFlushByCount) {
+      grouped.push(buffer);
+      buffer = "";
+      sentenceCount = 0;
+    }
+  }
+
+  if (buffer) grouped.push(buffer);
+  return grouped;
+}
+
+function normalizeTopicHeading(topic: string): string {
+  return topic
+    .replace(/^#+\s+/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function cleanGeneratedTopicMarkdown(topic: string, markdown: string): string {
+  const trimmed = markdown.trim();
+  if (!trimmed) return trimmed;
+  const firstLine = trimmed.split("\n")[0]?.trim() || "";
+  const normalizedTopic = normalizeTopicHeading(topic).toLowerCase();
+  const normalizedFirstLine = normalizeTopicHeading(firstLine).toLowerCase();
+  if (normalizedFirstLine === normalizedTopic) {
+    return trimmed.split("\n").slice(1).join("\n").trim();
+  }
+  return trimmed;
+}
+
+async function readCachedNotes(paperCode: string, unitNumber: number): Promise<string | null> {
+  const db = adminDatabases();
+  try {
+    const res = await db.listDocuments(DATABASE_ID, COLLECTION.generated_notes_cache, [
+      Query.equal("paper_code", paperCode),
+      Query.equal("unit_number", unitNumber),
+      Query.orderDesc("$createdAt"),
+      Query.limit(1),
+    ]);
+    const doc = res.documents[0];
+    if (!doc) return null;
+    const markdown = String(doc.generated_markdown ?? "").trim();
+    return markdown || null;
+  } catch (error) {
+    console.error("[generate-notes-stream] Failed to read cache:", error);
+    return null;
+  }
+}
+
+async function writeCachedNotes(paperCode: string, unitNumber: number, markdown: string): Promise<void> {
+  const db = adminDatabases();
+  try {
+    // Keep explicit created_at because schema/docs require this field for cache reads and audits.
+    const payload = {
+      paper_code: paperCode,
+      unit_number: unitNumber,
+      generated_markdown: markdown,
+      created_at: new Date().toISOString(),
+    };
+    await db.createDocument(DATABASE_ID, COLLECTION.generated_notes_cache, ID.unique(), payload);
+  } catch (error) {
+    console.error("[generate-notes-stream] Failed to write cache:", error);
+  }
 }
 
 function formatQuestionsForPrompt(questions: Array<Record<string, unknown>>, unitNumber: number): string {
@@ -135,6 +216,23 @@ export async function GET(request: NextRequest) {
         controller.close();
       };
       try {
+        const cachedMarkdown = await readCachedNotes(paperCode, unitNumber);
+        if (cachedMarkdown) {
+          const remaining = isAdminPlus(user.role) ? null : Math.max(0, dailyLimit - (usedBefore + 1));
+          if (!isAdminPlus(user.role)) {
+            await recordGeneration(user.id, todayStr);
+          }
+          controller.enqueue(toSseData({
+            event: "done",
+            markdown: cachedMarkdown,
+            model: "cache",
+            remaining,
+            cached: true,
+          }));
+          closeStream();
+          return;
+        }
+
         const db = adminDatabases();
         const syllabusRes = await db.listDocuments(DATABASE_ID, COLLECTION.syllabus_table, [
           Query.equal("university", university),
@@ -258,9 +356,12 @@ ${formattedQuestions || "No related questions found."}
             throw lastTopicError;
           }
 
+          const cleanedTopicMarkdown = cleanGeneratedTopicMarkdown(topic, result.content);
           if (masterMarkdown) masterMarkdown += "\n\n---\n\n";
-          masterMarkdown += `## ${topic}\n\n${result.content.trim()}`;
+          masterMarkdown += `## ${topic}\n\n${cleanedTopicMarkdown}`;
         }
+
+        await writeCachedNotes(paperCode, unitNumber, masterMarkdown);
 
         if (!isAdminPlus(user.role)) {
           await recordGeneration(user.id, todayStr);

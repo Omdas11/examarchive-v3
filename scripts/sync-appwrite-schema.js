@@ -51,6 +51,16 @@ const DEFAULT_DATABASE_SCHEMA_MARKDOWN = `# DATABASE_SCHEMA
 | \`question_content\` | String | **Yes** | Question content |
 | \`marks\` | Integer | No | Marks |
 | \`tags\` | String | No | Topic tags |
+
+## Table: \`Generated_Notes_Cache\`
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| \`id\` | String | **Yes** | Document ID |
+| \`paper_code\` | String | **Yes** | Paper code |
+| \`unit_number\` | Integer | **Yes** | Unit number |
+| \`generated_markdown\` | String | **Yes** | Cached stitched markdown |
+| \`created_at\` | Datetime | **Yes** | Cache creation timestamp |
 `;
 
 const TARGET_SCHEMA = [
@@ -248,6 +258,16 @@ const TARGET_SCHEMA = [
       { key: "question_content", type: "string", required: true, size: TEXT_CHUNK_SIZE },
       { key: "marks", type: "integer", required: false },
       { key: "tags", type: "string", required: false, size: 128, array: true },
+    ],
+  },
+  {
+    id: "Generated_Notes_Cache",
+    name: "Generated_Notes_Cache",
+    attributes: [
+      { key: "paper_code", type: "string", required: true, size: 128 },
+      { key: "unit_number", type: "integer", required: true },
+      { key: "generated_markdown", type: "string", required: true, size: TEXT_CHUNK_SIZE },
+      { key: "created_at", type: "datetime", required: true },
     ],
   },
 ];

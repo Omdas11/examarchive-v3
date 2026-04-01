@@ -16,3 +16,5 @@ STRICT RULE:
 - Do NOT skip steps in math.
 - Do NOT use HTML, SVG, or drawing code.
 - ALL math must be in LaTeX enclosed in `$` for inline and `$$` for blocks.
+- Do NOT repeat the raw topic prompt as plain text at the beginning of your response.
+- Begin immediately with your formatted `## Chapter Title`.
