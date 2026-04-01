@@ -8,6 +8,7 @@ const { ensureMasterNotesPrompt, MASTER_NOTES_PROMPT_PATH } = require("./ensure-
 const { TARGET_SCHEMA, DATABASE_ID, syncCollection } = require("./sync-appwrite-schema");
 const {
   hashCoreContent,
+  mergeCollectionDefinition,
   parseDatabaseSchemaMarkdown,
   renderSyncRemarks,
   upsertSyncRemarks,
@@ -28,7 +29,9 @@ async function syncFromDatabaseSchemaMarkdown(filePath) {
   const markdown = fs.readFileSync(filePath, "utf8");
   const parsed = parseDatabaseSchemaMarkdown(markdown);
   const parsedById = new Map(parsed.map((collection) => [collection.id, collection]));
-  const effectiveSchema = TARGET_SCHEMA.map((collection) => parsedById.get(collection.id) || collection);
+  const effectiveSchema = TARGET_SCHEMA.map((collection) =>
+    mergeCollectionDefinition(collection, parsedById.get(collection.id)),
+  );
   const databases = createAppwriteDatabasesClient();
   const connected = [];
   const errors = [];

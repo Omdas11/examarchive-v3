@@ -4,6 +4,7 @@ const fs = require("fs");
 const path = require("path");
 const { createAppwriteDatabasesClient } = require("./appwrite-schema-setup");
 const {
+  mergeCollectionDefinition,
   parseDatabaseSchemaMarkdown,
   renderSyncRemarks,
   upsertSyncRemarks,
@@ -528,7 +529,9 @@ async function main() {
   }
   const parsedFromMarkdown = parseDatabaseSchemaMarkdown(fs.readFileSync(DATABASE_SCHEMA_DOC_PATH, "utf8"));
   const parsedById = new Map(parsedFromMarkdown.map((collection) => [collection.id, collection]));
-  const effectiveSchema = TARGET_SCHEMA.map((collection) => parsedById.get(collection.id) || collection);
+  const effectiveSchema = TARGET_SCHEMA.map((collection) =>
+    mergeCollectionDefinition(collection, parsedById.get(collection.id)),
+  );
   const results = [];
   for (const collection of effectiveSchema) {
     results.push(await syncCollection(databases, DATABASE_ID, collection));

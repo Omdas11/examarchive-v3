@@ -41,7 +41,8 @@ function parseMarkdownTable(tableMarkdown) {
     .split("\n")
     .map((line) => line.trim())
     .filter((line) => line.startsWith("|"));
-  if (lines.length < 3) return [];
+  if (lines.length < 2) return [];
+  if (lines.length === 2) return [];
   const headers = lines[0].split("|").map((part) => part.trim().toLowerCase());
 
   const fieldIndex = headers.findIndex((header) => header === "field" || header === "`field`");
@@ -85,7 +86,6 @@ function parseDatabaseSchemaMarkdown(markdown) {
       key: row.key,
       type: toAttributeType(row.type),
       required: row.required,
-      size: toAttributeType(row.type) === "string" ? 1024 : undefined,
     }));
     tables.push({ id, name: rawName, attributes });
   }
@@ -93,9 +93,32 @@ function parseDatabaseSchemaMarkdown(markdown) {
   return tables;
 }
 
+function mergeCollectionDefinition(baseCollection, markdownCollection) {
+  if (!markdownCollection) return baseCollection;
+  const baseByKey = new Map((baseCollection.attributes || []).map((attribute) => [attribute.key, attribute]));
+  const mergedAttributes = (markdownCollection.attributes || []).map((attribute) => {
+    const base = baseByKey.get(attribute.key) || {};
+    return {
+      ...base,
+      ...attribute,
+    };
+  });
+
+  const missingFromMarkdown = (baseCollection.attributes || []).filter(
+    (attribute) => !mergedAttributes.some((merged) => merged.key === attribute.key),
+  );
+
+  return {
+    ...baseCollection,
+    ...markdownCollection,
+    attributes: [...mergedAttributes, ...missingFromMarkdown],
+  };
+}
+
 module.exports = {
   SYNC_REMARKS_HEADING,
   hashCoreContent,
+  mergeCollectionDefinition,
   parseDatabaseSchemaMarkdown,
   renderSyncRemarks,
   stripSyncRemarks,

@@ -5,8 +5,10 @@ on:
   push:
     branches: [ main ]
     paths:
-      - "docs/DATABASE_SCHEMA.md"
+      - "DATABASE_SCHEMA.md"
       - "scripts/sync-appwrite-schema.js"
+      - "scripts/md-sync-utils.js"
+      - "scripts/watch-md-sync.js"
       - "scripts/appwrite-schema-setup.js"
       - ".github/workflows/appwrite-schema-sync.yml"
 
@@ -41,13 +43,13 @@ jobs:
 
       - name: Commit updated DATABASE_SCHEMA.md status
         run: |
-          if git diff --quiet -- docs/DATABASE_SCHEMA.md; then
+          if git diff --quiet -- DATABASE_SCHEMA.md MASTER_NOTES_PROMPT.md; then
             echo "No schema status changes to commit."
             exit 0
           fi
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/DATABASE_SCHEMA.md
+          git add DATABASE_SCHEMA.md MASTER_NOTES_PROMPT.md
           git commit -m "chore: update auto-generated schema sync status"
           git push

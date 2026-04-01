@@ -1,5 +1,6 @@
 const {
   hashCoreContent,
+  mergeCollectionDefinition,
   parseDatabaseSchemaMarkdown,
   renderSyncRemarks,
   stripSyncRemarks,
@@ -49,6 +50,29 @@ describe("md-sync-utils", () => {
       expect.arrayContaining([
         expect.objectContaining({ key: "unit_number", type: "integer", required: true }),
         expect.objectContaining({ key: "syllabus_content", type: "string", required: true }),
+      ]),
+    );
+  });
+
+  test("mergeCollectionDefinition keeps base sizes/defaults while applying markdown keys", () => {
+    const base = {
+      id: "Syllabus_Table",
+      attributes: [
+        { key: "paper_code", type: "string", required: true, size: 128 },
+        { key: "unit_number", type: "integer", required: true },
+      ],
+    };
+    const md = {
+      id: "Syllabus_Table",
+      attributes: [
+        { key: "paper_code", type: "string", required: true },
+      ],
+    };
+    const merged = mergeCollectionDefinition(base, md);
+    expect(merged.attributes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: "paper_code", size: 128, type: "string" }),
+        expect.objectContaining({ key: "unit_number", type: "integer" }),
       ]),
     );
   });

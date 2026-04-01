@@ -184,7 +184,7 @@ export default function AIContentClient() {
                 "Generate Unit Notes"
               )}
             </button>
-            <span className="text-xs text-on-surface-variant">Double-click safe: button is disabled while generation is running.</span>
+            {generating && <span className="text-xs text-on-surface-variant">Generation in progress — please wait.</span>}
           </div>
           {error && <p className="mt-3 text-sm text-error">⚠ {error}</p>}
         </section>
