@@ -120,7 +120,8 @@ async function upsertQuestionRows(args: {
     const existing = existingByQuestionNo.documents.find(
       (document) =>
         document.question_subpart === row.question_subpart ||
-        (document.question_subpart == null && row.question_subpart == null),
+        ((document.question_subpart === null || document.question_subpart === undefined) &&
+          (row.question_subpart === null || row.question_subpart === undefined)),
     );
     const rowId =
       typeof existing?.id === "string" && existing.id.trim().length > 0
