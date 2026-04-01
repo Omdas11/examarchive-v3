@@ -9,6 +9,7 @@ import CourseSetupWrapper from "@/components/CourseSetupWrapper";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/next";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
+import SimpleAnalytics from "@/components/SimpleAnalytics";
 
 const SITE_URL = "https://www.examarchive.dev";
 const OG_IMAGE_URL = `${SITE_URL}/branding/logo.png`;
@@ -152,6 +153,7 @@ export default async function RootLayout({
         </div>
         <SpeedInsights />
         <Analytics />
+        <SimpleAnalytics />
         <GoogleAnalytics />
       </body>
     </html>
