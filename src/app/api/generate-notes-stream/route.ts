@@ -7,9 +7,7 @@ import { readTopicNotesPrompt } from "@/lib/topic-notes-prompt";
 
 const TOPIC_MAX_ATTEMPTS = 3;
 const RETRY_BACKOFF_MS = 1200;
-const CHUNK_MIN_CHARS = 150;
-const CHUNK_MAX_CHARS = 250;
-const CHUNK_MAX_SENTENCES = 3;
+const TOPIC_LOOP_DELAY_MS = 4500;
 
 function isAdminPlus(role: string): boolean {
   return role === "admin" || role === "founder";
@@ -31,34 +29,10 @@ function normalizeTags(raw: unknown): string[] {
 }
 
 function splitSyllabusIntoSubTopics(syllabusContent: string): string[] {
-  const sentences = syllabusContent
-    .split(".")
+  return syllabusContent
+    .split(/(?<=[.;])\s+/)
     .map((part) => part.replace(/\s+/g, " ").trim())
     .filter(Boolean);
-
-  const grouped: string[] = [];
-  let buffer = "";
-  let sentenceCount = 0;
-
-  for (const sentence of sentences) {
-    const next = buffer ? `${buffer}. ${sentence}` : sentence;
-    const nextSentenceCount = sentenceCount + 1;
-    const shouldFlushBySize = next.length >= CHUNK_MAX_CHARS;
-    const shouldFlushByLengthAndCount = next.length >= CHUNK_MIN_CHARS && nextSentenceCount >= 2;
-    const shouldFlushByCount = nextSentenceCount >= CHUNK_MAX_SENTENCES;
-
-    buffer = next;
-    sentenceCount = nextSentenceCount;
-
-    if (shouldFlushBySize || shouldFlushByLengthAndCount || shouldFlushByCount) {
-      grouped.push(buffer);
-      buffer = "";
-      sentenceCount = 0;
-    }
-  }
-
-  if (buffer) grouped.push(buffer);
-  return grouped;
 }
 
 function normalizeTopicHeading(topic: string): string {
@@ -78,6 +52,14 @@ function cleanGeneratedTopicMarkdown(topic: string, markdown: string): string {
     return trimmed.split("\n").slice(1).join("\n").trim();
   }
   return trimmed;
+}
+
+function ensureTopicMarkdownHeader(topic: string, markdown: string): string {
+  const trimmed = markdown.trim();
+  if (!trimmed) return `## ${topic}`;
+  const firstLine = trimmed.split("\n")[0]?.trim() || "";
+  if (/^##\s+\S/.test(firstLine)) return trimmed;
+  return `## ${topic}\n\n${trimmed}`;
 }
 
 async function readCachedNotes(paperCode: string, unitNumber: number): Promise<string | null> {
@@ -357,8 +339,11 @@ ${formattedQuestions || "No related questions found."}
           }
 
           const cleanedTopicMarkdown = cleanGeneratedTopicMarkdown(topic, result.content);
+          const normalizedTopicMarkdown = ensureTopicMarkdownHeader(topic, cleanedTopicMarkdown);
           if (masterMarkdown) masterMarkdown += "\n\n---\n\n";
-          masterMarkdown += `## ${topic}\n\n${cleanedTopicMarkdown}`;
+          masterMarkdown += normalizedTopicMarkdown;
+
+          await sleep(TOPIC_LOOP_DELAY_MS);
         }
 
         await writeCachedNotes(paperCode, unitNumber, masterMarkdown);

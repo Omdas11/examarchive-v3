@@ -18,3 +18,5 @@ STRICT RULE:
 - ALL math must be in LaTeX enclosed in `$` for inline and `$$` for blocks.
 - Do NOT repeat the raw topic prompt as plain text at the beginning of your response.
 - Begin immediately with your formatted `## Chapter Title`.
+- You must start your response EXACTLY with a Markdown Header (`## [Topic Name]`).
+- Do not include any introductory conversational text, and do not repeat the prompt instructions.

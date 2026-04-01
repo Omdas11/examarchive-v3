@@ -43,9 +43,32 @@ export default function AIContentClient() {
   const [progressTopic, setProgressTopic] = useState("");
   const [progressIndex, setProgressIndex] = useState(0);
   const [progressTotal, setProgressTotal] = useState(0);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const selectedPaperName = paperNameMap[paperCode] || paperCode;
   const progressPercent = progressTotal > 0 ? Math.min(100, Math.round((progressIndex / progressTotal) * 100)) : 0;
+
+  function formatElapsedTime(totalSeconds: number): string {
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  }
+
+  function stopTimer() {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  }
+
+  function startTimer() {
+    stopTimer();
+    setElapsedSeconds(0);
+    timerRef.current = setInterval(() => {
+      setElapsedSeconds((prev) => prev + 1);
+    }, 1000);
+  }
 
   function closeEventSource() {
     if (eventSourceRef.current) {
@@ -63,6 +86,7 @@ export default function AIContentClient() {
     setProgressTopic("");
     setProgressIndex(0);
     setProgressTotal(0);
+    startTimer();
     const params = new URLSearchParams({
       university,
       course,
@@ -104,6 +128,7 @@ export default function AIContentClient() {
         setProgressTopic("");
         setProgressIndex(0);
         setProgressTotal(0);
+        stopTimer();
         closeEventSource();
         return;
       }
@@ -116,6 +141,7 @@ export default function AIContentClient() {
         setProgressTopic("");
         setProgressIndex(0);
         setProgressTotal(0);
+        stopTimer();
         closeEventSource();
       }
     };
@@ -128,6 +154,7 @@ export default function AIContentClient() {
       setProgressTopic("");
       setProgressIndex(0);
       setProgressTotal(0);
+      stopTimer();
       closeEventSource();
     };
   }
@@ -184,6 +211,7 @@ export default function AIContentClient() {
 
   useEffect(() => {
     return () => {
+      stopTimer();
       closeEventSource();
     };
   }, []);
@@ -287,6 +315,7 @@ export default function AIContentClient() {
               <p className="mt-2 text-xs text-on-surface-variant">
                 {progressTotal > 0 ? `Progress: ${progressIndex} / ${progressTotal}` : "Preparing generation chunks..."}
               </p>
+              <p className="mt-1 text-xs text-on-surface-variant">⏱️ Elapsed Time: {formatElapsedTime(elapsedSeconds)}</p>
             </div>
           )}
           {error && <p className="mt-3 text-sm text-error">⚠ {error}</p>}
