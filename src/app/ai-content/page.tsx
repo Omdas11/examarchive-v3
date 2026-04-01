@@ -46,7 +46,7 @@ export default async function AIContentPage() {
       userName={userName}
       userInitials={userInitials}
     >
-      <AIContentClient userRole={user.role} />
+      <AIContentClient />
     </MainLayout>
   );
 }

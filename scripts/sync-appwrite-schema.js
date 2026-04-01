@@ -3,6 +3,12 @@
 const fs = require("fs");
 const path = require("path");
 const { createAppwriteDatabasesClient } = require("./appwrite-schema-setup");
+const {
+  parseDatabaseSchemaMarkdown,
+  renderSyncRemarks,
+  upsertSyncRemarks,
+} = require("./md-sync-utils");
+const { ensureMasterNotesPrompt, MASTER_NOTES_PROMPT_PATH } = require("./ensure-master-notes-prompt");
 
 const DATABASE_ID = "examarchive";
 const STANDARD_STRING_SIZE = 512;
@@ -10,9 +16,41 @@ const FILENAME_SIZE = 512;
 const LARGE_STRING_SIZE = 8192;
 const TEXT_CHUNK_SIZE = 65535;
 const REFERRAL_CODE_SIZE = 6;
-const DATABASE_SCHEMA_DOC_PATH = path.resolve(__dirname, "../docs/DATABASE_SCHEMA.md");
+const DATABASE_SCHEMA_DOC_PATH = path.resolve(__dirname, "../DATABASE_SCHEMA.md");
 const STATUS_BLOCK_START = "<!-- SCHEMA_SYNC_STATUS_START -->";
 const STATUS_BLOCK_END = "<!-- SCHEMA_SYNC_STATUS_END -->";
+const DEFAULT_DATABASE_SCHEMA_MARKDOWN = `# DATABASE_SCHEMA
+
+## Table: \`Syllabus_Table\`
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| \`id\` | String | **Yes** | Document ID |
+| \`university\` | String | **Yes** | University name |
+| \`course\` | String | **Yes** | Course name (FYUG/CBCS) |
+| \`type\` | String | **Yes** | Paper type (DSC/DSM/SEC/AEC/VAC/IDC) |
+| \`paper_code\` | String | **Yes** | Paper code |
+| \`unit_number\` | Integer | **Yes** | Unit number |
+| \`syllabus_content\` | String | **Yes** | Unit syllabus content |
+| \`lectures\` | Integer | No | Number of lectures |
+| \`tags\` | String | No | Topic tags |
+
+## Table: \`Questions_Table\`
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| \`id\` | String | **Yes** | Document ID |
+| \`university\` | String | **Yes** | University name |
+| \`course\` | String | **Yes** | Course name (FYUG/CBCS) |
+| \`type\` | String | **Yes** | Paper type |
+| \`paper_code\` | String | **Yes** | Paper code |
+| \`paper_name\` | String | No | Paper name |
+| \`question_no\` | String | No | Question number |
+| \`question_subpart\` | String | No | Subpart label |
+| \`question_content\` | String | **Yes** | Question content |
+| \`marks\` | Integer | No | Marks |
+| \`tags\` | String | No | Topic tags |
+`;
 
 const TARGET_SCHEMA = [
   {
@@ -179,6 +217,36 @@ const TARGET_SCHEMA = [
     attributes: [
       { key: "user_id", type: "string", required: true, size: 64 },
       { key: "date", type: "string", required: true, size: 10 },
+    ],
+  },
+  {
+    id: "Syllabus_Table",
+    name: "Syllabus_Table",
+    attributes: [
+      { key: "university", type: "string", required: true, size: 256 },
+      { key: "course", type: "string", required: true, size: 64 },
+      { key: "type", type: "string", required: true, size: 32 },
+      { key: "paper_code", type: "string", required: true, size: 128 },
+      { key: "unit_number", type: "integer", required: true },
+      { key: "syllabus_content", type: "string", required: true, size: TEXT_CHUNK_SIZE },
+      { key: "lectures", type: "integer", required: false },
+      { key: "tags", type: "string", required: false, size: 128, array: true },
+    ],
+  },
+  {
+    id: "Questions_Table",
+    name: "Questions_Table",
+    attributes: [
+      { key: "university", type: "string", required: true, size: 256 },
+      { key: "course", type: "string", required: true, size: 64 },
+      { key: "type", type: "string", required: true, size: 32 },
+      { key: "paper_code", type: "string", required: true, size: 128 },
+      { key: "paper_name", type: "string", required: false, size: 256 },
+      { key: "question_no", type: "string", required: false, size: 32 },
+      { key: "question_subpart", type: "string", required: false, size: 32 },
+      { key: "question_content", type: "string", required: true, size: TEXT_CHUNK_SIZE },
+      { key: "marks", type: "integer", required: false },
+      { key: "tags", type: "string", required: false, size: 128, array: true },
     ],
   },
 ];
@@ -435,6 +503,9 @@ function upsertSchemaStatusBlock(markdown, statusSection) {
 }
 
 function updateSchemaDocWithStatus(results, filePath = DATABASE_SCHEMA_DOC_PATH) {
+  if (!fs.existsSync(filePath)) {
+    fs.writeFileSync(filePath, DEFAULT_DATABASE_SCHEMA_MARKDOWN, "utf8");
+  }
   const current = fs.readFileSync(filePath, "utf8");
   const statusSection = renderSchemaStatusSection(results);
   const next = upsertSchemaStatusBlock(current, statusSection);
@@ -449,14 +520,45 @@ function updateSchemaDocWithStatus(results, filePath = DATABASE_SCHEMA_DOC_PATH)
 async function main() {
   const shouldUpdateSchemaDoc = process.argv.includes("--update-schema-md");
   const databases = createAppwriteDatabasesClient();
+  ensureMasterNotesPrompt();
 
   console.log(`Starting Appwrite schema sync for database "${DATABASE_ID}"`);
+  if (!fs.existsSync(DATABASE_SCHEMA_DOC_PATH)) {
+    fs.writeFileSync(DATABASE_SCHEMA_DOC_PATH, DEFAULT_DATABASE_SCHEMA_MARKDOWN, "utf8");
+  }
+  const parsedFromMarkdown = parseDatabaseSchemaMarkdown(fs.readFileSync(DATABASE_SCHEMA_DOC_PATH, "utf8"));
+  const parsedById = new Map(parsedFromMarkdown.map((collection) => [collection.id, collection]));
+  const effectiveSchema = TARGET_SCHEMA.map((collection) => parsedById.get(collection.id) || collection);
   const results = [];
-  for (const collection of TARGET_SCHEMA) {
+  for (const collection of effectiveSchema) {
     results.push(await syncCollection(databases, DATABASE_ID, collection));
   }
   if (shouldUpdateSchemaDoc) {
     updateSchemaDocWithStatus(results);
+    const connected = results
+      .filter((result) => result.connected)
+      .map((result) => `${result.collectionId} updated successfully.`);
+    const errors = results
+      .filter((result) => !result.connected)
+      .map((result) => `${result.collectionId} has ${result.mismatchCount} mismatch(es).`);
+    const overallStatus = errors.length === 0 ? "Success" : connected.length > 0 ? "Partial" : "Failed";
+    const remarks = renderSyncRemarks({
+      timestamp: new Date().toISOString(),
+      overallStatus,
+      connected,
+      errors,
+    });
+    const schemaCurrent = fs.readFileSync(DATABASE_SCHEMA_DOC_PATH, "utf8");
+    fs.writeFileSync(DATABASE_SCHEMA_DOC_PATH, upsertSyncRemarks(schemaCurrent, remarks), "utf8");
+
+    const promptCurrent = fs.readFileSync(MASTER_NOTES_PROMPT_PATH, "utf8");
+    const promptRemarks = renderSyncRemarks({
+      timestamp: new Date().toISOString(),
+      overallStatus: "Success",
+      connected: ["MASTER_NOTES_PROMPT.md loaded and synced."],
+      errors: [],
+    });
+    fs.writeFileSync(MASTER_NOTES_PROMPT_PATH, upsertSyncRemarks(promptCurrent, promptRemarks), "utf8");
   }
   console.log("Schema sync complete.");
 }

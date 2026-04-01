@@ -10,8 +10,10 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:ci": "jest --coverage",
+    "ensure:master-notes-prompt": "node scripts/ensure-master-notes-prompt.js",
     "sync:appwrite-schema": "node scripts/sync-appwrite-schema.js",
     "sync:appwrite-schema:status": "node scripts/sync-appwrite-schema.js --update-schema-md",
+    "watch:md-sync": "node scripts/watch-md-sync.js",
     "sync:appwrite-ai": "node scripts/sync-appwrite-ai.js",
     "sync:appwrite-syllabus-registry": "node scripts/sync-appwrite-syllabus-registry.js"
   },

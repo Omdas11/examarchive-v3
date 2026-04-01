@@ -52,6 +52,8 @@ export const COLLECTION = {
    */
   ai_usage: "ai_usage",
   ai_flashcards: "ai_flashcards",
+  syllabus_table: "Syllabus_Table",
+  questions_table: "Questions_Table",
   /**
    * Tracks daily PDF render/download usage per user to protect the Puppeteer route.
    * Each document: user_id (string), date (string YYYY-MM-DD).
