@@ -5,6 +5,9 @@ import { getDailyLimit } from "@/lib/ai-limits";
 import { GeminiServiceError, runGeminiCompletion } from "@/lib/gemini";
 import { readTopicNotesPrompt } from "@/lib/topic-notes-prompt";
 
+const TOPIC_MAX_ATTEMPTS = 3;
+const RETRY_BACKOFF_MS = 1200;
+
 function isAdminPlus(role: string): boolean {
   return role === "admin" || role === "founder";
 }
@@ -56,6 +59,10 @@ function formatQuestionsForPrompt(questions: Array<Record<string, unknown>>, uni
 
 function toSseData(payload: Record<string, unknown>): Uint8Array {
   return new TextEncoder().encode(`data: ${JSON.stringify(payload)}\n\n`);
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function getDailyCount(userId: string, todayStr: string): Promise<number> {
@@ -165,6 +172,7 @@ export async function GET(request: NextRequest) {
           Query.limit(500),
         ]);
         const formattedQuestions = formatQuestionsForPrompt(questionsRes.documents, unitNumber);
+        const topicPromptTemplate = readTopicNotesPrompt();
         let masterMarkdown = "";
         const model = "gemini-3.1-flash-lite-preview";
 
@@ -177,7 +185,7 @@ export async function GET(request: NextRequest) {
             total: subTopics.length,
           }));
 
-          const prompt = `${readTopicNotesPrompt()}
+          const prompt = `${topicPromptTemplate}
 
 University: ${university}
 Course: ${course}
@@ -193,13 +201,62 @@ All Questions for this Unit:
 ${formattedQuestions || "No related questions found."}
 `;
 
-          const result = await runGeminiCompletion({
-            apiKey: geminiApiKey,
-            prompt,
-            maxTokens: 8192,
-            temperature: 0.4,
-            model,
-          });
+          let result: Awaited<ReturnType<typeof runGeminiCompletion>> | null = null;
+          let lastTopicError: GeminiServiceError | null = null;
+
+          for (let attempt = 1; attempt <= TOPIC_MAX_ATTEMPTS; attempt++) {
+            try {
+              if (attempt > 1) {
+                controller.enqueue(toSseData({
+                  event: "progress",
+                  status: `Retrying topic ${index + 1} of ${subTopics.length} (attempt ${attempt}/${TOPIC_MAX_ATTEMPTS})...`,
+                  topic,
+                  index: index + 1,
+                  total: subTopics.length,
+                }));
+              }
+
+              result = await runGeminiCompletion({
+                apiKey: geminiApiKey,
+                prompt,
+                maxTokens: 8192,
+                temperature: 0.4,
+                model,
+              });
+              lastTopicError = null;
+              break;
+            } catch (error) {
+              if (!(error instanceof GeminiServiceError)) throw error;
+              lastTopicError = error;
+              if (attempt < TOPIC_MAX_ATTEMPTS) {
+                await sleep(attempt * RETRY_BACKOFF_MS);
+              }
+            }
+          }
+
+          if (!result) {
+            const message = lastTopicError?.message || "Unknown generation error";
+            const isEmptyResponse = /empty response/i.test(message);
+            if (isEmptyResponse) {
+              controller.enqueue(toSseData({
+                event: "progress",
+                status: `Topic ${index + 1} returned an empty response after retries. Continuing with remaining topics...`,
+                topic,
+                index: index + 1,
+                total: subTopics.length,
+              }));
+              const fallbackMarkdown = [
+                `## ${topic}`,
+                "",
+                "> ⚠️ This topic could not be generated because the model returned an empty response after multiple retries.",
+                "> Remaining topics were generated normally.",
+              ].join("\n");
+              if (masterMarkdown) masterMarkdown += "\n\n---\n\n";
+              masterMarkdown += fallbackMarkdown;
+              continue;
+            }
+            throw lastTopicError;
+          }
 
           if (masterMarkdown) masterMarkdown += "\n\n---\n\n";
           masterMarkdown += `## ${topic}\n\n${result.content.trim()}`;
