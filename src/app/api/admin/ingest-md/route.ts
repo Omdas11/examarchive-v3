@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { InputFile } from "node-appwrite/file";
 import { Compression } from "node-appwrite";
 import path from "path";
+import { randomUUID } from "crypto";
 import { getServerUser } from "@/lib/auth";
 import { isAdmin } from "@/lib/roles";
 import {
@@ -19,6 +20,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 const TEMPLATE_PATH = path.resolve(process.cwd(), "DEMO_DATA_ENTRY.md");
+const MAX_QUESTION_ROWS_PER_NUMBER = 100;
 
 function normalizeError(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -67,7 +69,12 @@ async function upsertSyllabusRows(args: {
       Query.equal("unit_number", row.unit_number),
       Query.limit(1),
     ]);
+    const rowId =
+      typeof existing.documents[0]?.id === "string" && existing.documents[0].id.trim().length > 0
+        ? existing.documents[0].id
+        : randomUUID();
     const payload: Record<string, unknown> = {
+      id: rowId,
       university: args.university,
       course: args.course,
       type: args.type,
@@ -102,16 +109,26 @@ async function upsertQuestionRows(args: {
   let added = 0;
   let updated = 0;
   for (const row of args.rows) {
-    const existing = await db.listDocuments(DATABASE_ID, COLLECTION.questions_table, [
+    const existingByQuestionNo = await db.listDocuments(DATABASE_ID, COLLECTION.questions_table, [
       Query.equal("university", args.university),
       Query.equal("course", args.course),
       Query.equal("type", args.type),
       Query.equal("paper_code", args.paperCode),
       Query.equal("question_no", row.question_no),
-      Query.equal("question_subpart", row.question_subpart),
-      Query.limit(1),
+      Query.limit(MAX_QUESTION_ROWS_PER_NUMBER),
     ]);
+    const existing = existingByQuestionNo.documents.find(
+      (document) =>
+        document.question_subpart === row.question_subpart ||
+        ((document.question_subpart === null || document.question_subpart === undefined) &&
+          (row.question_subpart === null || row.question_subpart === undefined)),
+    );
+    const rowId =
+      typeof existing?.id === "string" && existing.id.trim().length > 0
+        ? existing.id
+        : randomUUID();
     const payload: Record<string, unknown> = {
+      id: rowId,
       university: args.university,
       course: args.course,
       type: args.type,
@@ -125,8 +142,8 @@ async function upsertQuestionRows(args: {
     if (typeof row.marks === "number") {
       payload.marks = row.marks;
     }
-    if (existing.documents[0]) {
-      await db.updateDocument(DATABASE_ID, COLLECTION.questions_table, existing.documents[0].$id, payload);
+    if (existing) {
+      await db.updateDocument(DATABASE_ID, COLLECTION.questions_table, existing.$id, payload);
       updated += 1;
     } else {
       await db.createDocument(DATABASE_ID, COLLECTION.questions_table, ID.unique(), payload);

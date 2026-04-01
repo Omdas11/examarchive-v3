@@ -6,6 +6,8 @@ paper_code: PHYDSC101T
 paper_name: Mechanics
 ---
 
+> **File Naming Convention: The file must be named exactly as the Paper Code. Example: `PHYDSC101T.md`.**
+>
 > Use this exact structure. Do not rename headers or columns.
 
 ## Syllabus
