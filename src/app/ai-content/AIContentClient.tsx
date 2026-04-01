@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { markdownToHtmlWithKatex } from "@/lib/client-markdown";
+import { useEffect, useState } from "react";
 import "katex/dist/katex.min.css";
-import DOMPurify from "dompurify";
 import PrintableNotesDocument from "./PrintableNotesDocument";
 import PrintInstructionsModal from "./PrintInstructionsModal";
+import MarkdownNotesRenderer from "./MarkdownNotesRenderer";
 
 const COURSE_TYPES: Record<string, string[]> = {
   FYUG: ["DSC", "DSM", "SEC", "AEC", "VAC", "IDC"],
@@ -40,10 +39,6 @@ export default function AIContentClient() {
   const [paperNameMap, setPaperNameMap] = useState<Record<string, string>>({});
   const [printInstructionsOpen, setPrintInstructionsOpen] = useState(false);
   const [generatedAtLabel, setGeneratedAtLabel] = useState("");
-  const renderedMarkdown = useMemo(
-    () => (markdown ? DOMPurify.sanitize(markdownToHtmlWithKatex(markdown)) : ""),
-    [markdown],
-  );
   const selectedPaperName = paperNameMap[paperCode] || paperCode;
 
   async function generate() {
@@ -226,11 +221,10 @@ export default function AIContentClient() {
           </p>
           {model && <p className="mb-2 text-xs text-on-surface-variant">Model: {model}</p>}
           <div className="print-root markdown-preview rounded-xl border border-outline-variant/30 bg-surface-container-low p-4">
-            {renderedMarkdown ? (
-              <div dangerouslySetInnerHTML={{ __html: renderedMarkdown }} />
-            ) : (
-              <p className="text-on-surface-variant">No output yet. Generate notes to preview them here.</p>
-            )}
+            <MarkdownNotesRenderer
+              markdown={markdown}
+              emptyFallback={<p className="text-on-surface-variant">No output yet. Generate notes to preview them here.</p>}
+            />
           </div>
         </section>
       </div>
@@ -240,7 +234,7 @@ export default function AIContentClient() {
         onProceed={proceedToPrint}
       />
       <PrintableNotesDocument
-        markdownHtml={renderedMarkdown}
+        markdown={markdown}
         paperName={selectedPaperName}
         paperCode={paperCode}
         generatedAt={generatedAtLabel}

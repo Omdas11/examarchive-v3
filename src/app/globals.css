@@ -1001,7 +1001,7 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
 .printable-notes-document {
   display: flex;
   flex-direction: column;
-  min-height: calc(100vh - 24mm);
+  min-height: auto;
 }
 .print-doc-header {
   margin-bottom: 1rem;
@@ -1170,9 +1170,30 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
     max-width: none;
     margin: 0;
     padding: 0;
+    height: auto !important;
+    min-height: auto !important;
     overflow: visible;
     position: relative;
     z-index: 1;
+  }
+
+  .printable-notes-document,
+  .print-doc-header,
+  .print-header,
+  .print-content {
+    height: auto !important;
+    min-height: auto !important;
+  }
+
+  .print-header {
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+    margin-bottom: 20px !important;
+  }
+
+  .print-content {
+    page-break-before: avoid !important;
+    break-before: avoid !important;
   }
 
   .pdf-export-source {

@@ -214,7 +214,7 @@ ${formattedQuestions || "No related questions found."}
     const gemini = await runGeminiCompletion({
       apiKey: geminiApiKey,
       prompt,
-      maxTokens: 3500,
+      maxTokens: 8192,
       temperature: 0.4,
       model: "gemini-3.1-flash-lite-preview",
     });

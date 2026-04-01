@@ -73,4 +73,13 @@ describe("AI content print/mobile styles", () => {
       /@media print[\s\S]*?\.print-footer\s*\{[\s\S]*?page-break-inside:\s*avoid;[\s\S]*?display:\s*block !important;[\s\S]*?margin-top:\s*auto !important;[\s\S]*?\}/
     );
   });
+
+  it("prevents page break between print header and content", () => {
+    expect(css).toMatch(
+      /@media print[\s\S]*?\.print-header\s*\{[\s\S]*?page-break-after:\s*avoid !important;[\s\S]*?break-after:\s*avoid !important;[\s\S]*?\}/
+    );
+    expect(css).toMatch(
+      /@media print[\s\S]*?\.print-content\s*\{[\s\S]*?page-break-before:\s*avoid !important;[\s\S]*?break-before:\s*avoid !important;[\s\S]*?\}/
+    );
+  });
 });
