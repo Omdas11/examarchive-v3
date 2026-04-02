@@ -72,14 +72,16 @@ _This section is updated by `scripts/sync-appwrite-schema.js` when run with `--u
 | `ai_usage` | ✅ Perfectly connected | 0 | collection existed; 0/2 missing attrs created; no mismatches detected |
 | `ai_embeddings` | ⚠️ Connected with differences | 0 | collection existed; 0/11 missing attrs created; 8 attr definition mismatch(es) |
 | `pdf_usage` | ✅ Perfectly connected | 0 | collection existed; 0/2 missing attrs created; no mismatches detected |
-| `Syllabus_Table` | ✅ Perfectly connected | 10 | collection created; 9/9 missing attrs created; no mismatches detected |
-| `Questions_Table` | ✅ Perfectly connected | 12 | collection created; 11/11 missing attrs created; no mismatches detected |
+| `Syllabus_Table` | ✅ Perfectly connected | 0 | collection existed; 0/9 missing attrs created; no mismatches detected |
+| `Questions_Table` | ✅ Perfectly connected | 1 | collection existed; 1/12 missing attrs created; no mismatches detected |
+| `Generated_Notes_Cache` | ✅ Perfectly connected | 7 | collection created; 6/6 missing attrs created; no mismatches detected |
+| `User_Quotas` | ✅ Perfectly connected | 6 | collection created; 5/5 missing attrs created; no mismatches detected |
 
 <!-- SCHEMA_SYNC_STATUS_END -->
 
 ---
 ### Sync Remarks (Auto-Generated)
-**Last Synced:** 2026-04-01T14:57:54.013Z
+**Last Synced:** 2026-04-02T06:10:11.323Z
 **Overall Status:** Partial
 **Connected:**
 - feedback updated successfully.
@@ -87,6 +89,8 @@ _This section is updated by `scripts/sync-appwrite-schema.js` when run with `--u
 - pdf_usage updated successfully.
 - Syllabus_Table updated successfully.
 - Questions_Table updated successfully.
+- Generated_Notes_Cache updated successfully.
+- User_Quotas updated successfully.
 **Not Connected / Errors:**
 - papers has 10 mismatch(es).
 - syllabus has 9 mismatch(es).
