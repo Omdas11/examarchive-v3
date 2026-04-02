@@ -152,7 +152,8 @@ async function upsertSolvedPaperCheckpoint(params: {
   lastProcessedIndex: number;
 }): Promise<string | null> {
   const db = adminDatabases();
-  const payload = {
+  const buildPayload = (docId: string) => ({
+    id: docId,
     paper_code: params.cachePaperCode,
     unit_number: params.year,
     generated_markdown: params.markdown,
@@ -160,7 +161,7 @@ async function upsertSolvedPaperCheckpoint(params: {
     created_at: new Date().toISOString(),
     status: params.status,
     last_processed_index: params.lastProcessedIndex,
-  };
+  });
   try {
     const tryUpdateById = async (docId: string): Promise<boolean> => {
       try {
@@ -168,7 +169,7 @@ async function upsertSolvedPaperCheckpoint(params: {
           DATABASE_ID,
           COLLECTION.generated_notes_cache,
           docId,
-          payload,
+          buildPayload(docId),
         );
         return true;
       } catch (error) {
@@ -203,11 +204,12 @@ async function upsertSolvedPaperCheckpoint(params: {
       return queriedCheckpointId;
     }
 
+    const createdId = ID.unique();
     const created = await db.createDocument(
       DATABASE_ID,
       COLLECTION.generated_notes_cache,
-      ID.unique(),
-      payload,
+      createdId,
+      buildPayload(createdId),
     );
     return String(created.$id);
   } catch (error) {
