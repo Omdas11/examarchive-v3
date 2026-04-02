@@ -162,15 +162,47 @@ async function upsertSolvedPaperCheckpoint(params: {
     last_processed_index: params.lastProcessedIndex,
   };
   try {
-    if (params.checkpointId) {
-      await db.updateDocument(
-        DATABASE_ID,
-        COLLECTION.generated_notes_cache,
-        params.checkpointId,
-        payload,
-      );
+    const tryUpdateById = async (docId: string): Promise<boolean> => {
+      try {
+        await db.updateDocument(
+          DATABASE_ID,
+          COLLECTION.generated_notes_cache,
+          docId,
+          payload,
+        );
+        return true;
+      } catch (error) {
+        console.warn(
+          `[generate-solved-paper-stream] Checkpoint update failed for id=${docId}; falling back to query-based update/create:`,
+          error,
+        );
+        return false;
+      }
+    };
+
+    if (params.checkpointId && (await tryUpdateById(params.checkpointId))) {
       return params.checkpointId;
     }
+
+    let queriedCheckpointId: string | undefined;
+    try {
+      const existing = await db.listDocuments(DATABASE_ID, COLLECTION.generated_notes_cache, [
+        Query.equal("paper_code", params.cachePaperCode),
+        Query.equal("unit_number", params.year),
+        Query.orderDesc("$createdAt"),
+        Query.limit(1),
+      ]);
+      queriedCheckpointId = existing.documents[0]?.$id;
+    } catch (error) {
+      console.warn(
+        "[generate-solved-paper-stream] Checkpoint lookup failed; falling back to create:",
+        error,
+      );
+    }
+    if (queriedCheckpointId && (await tryUpdateById(queriedCheckpointId))) {
+      return queriedCheckpointId;
+    }
+
     const created = await db.createDocument(
       DATABASE_ID,
       COLLECTION.generated_notes_cache,
