@@ -7,14 +7,29 @@ import { readSolvedPaperPrompt } from "@/lib/solved-paper-prompt";
 import { formatSearchResults, runWebSearch } from "@/lib/web-search";
 import { checkAndResetQuotas, incrementQuotaCounter } from "@/lib/user-quotas";
 
-const QUESTION_LOOP_DELAY_MS = 4500;
+const QUESTION_LOOP_DELAY_MS = 7000;
+const QUESTION_MAX_RETRIES = 4;
+const RATE_LIMIT_COOLDOWN_MS = 20000;
+const RETRY_ERROR_DELAY_MS = 4000;
+const HEARTBEAT_INTERVAL_MS = 15000;
 
 function toSseData(payload: Record<string, unknown>): Uint8Array {
   return new TextEncoder().encode(`data: ${JSON.stringify(payload)}\n\n`);
 }
 
+function toSseComment(comment: string): Uint8Array {
+  return new TextEncoder().encode(`: ${comment}\n\n`);
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRateLimitError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const status = "status" in error ? (error as { status?: unknown }).status : undefined;
+  const message = "message" in error ? String((error as { message?: unknown }).message ?? "") : "";
+  return status === 429 || message.includes("429");
 }
 
 async function fetchTavilyContext(query: string): Promise<string> {
@@ -111,6 +126,10 @@ export async function GET(request: NextRequest) {
   const stream = new ReadableStream<Uint8Array>({
     start: async (controller) => {
       let isClosed = false;
+      const heartbeat = setInterval(() => {
+        if (isClosed) return;
+        controller.enqueue(toSseComment("heartbeat"));
+      }, HEARTBEAT_INTERVAL_MS);
       const closeStream = () => {
         if (isClosed) return;
         isClosed = true;
@@ -180,15 +199,41 @@ Tavily Web Context:
 ${tavilyContext}
 `;
 
-          const result = await runGeminiCompletion({
-            apiKey: geminiApiKey,
-            prompt,
-            maxTokens: 8192,
-            temperature: 0.3,
-            model,
-          });
+          let aiResponseText = "";
+          let retries = 0;
+          while (retries < QUESTION_MAX_RETRIES) {
+            try {
+              const result = await runGeminiCompletion({
+                apiKey: geminiApiKey,
+                prompt,
+                maxTokens: 8192,
+                temperature: 0.3,
+                model,
+              });
+              const candidate = String(result.content ?? "").trim();
+              if (candidate.length > 10) {
+                aiResponseText = candidate;
+                break;
+              }
+            } catch (error) {
+              if (isRateLimitError(error)) {
+                controller.enqueue(toSseData({
+                  event: "progress",
+                  status: "Rate limit hit. Cooling down for 20 seconds...",
+                  index: index + 1,
+                  total: questions.length,
+                  question: qLabel,
+                }));
+                await sleep(RATE_LIMIT_COOLDOWN_MS);
+              } else {
+                console.error("[generate-solved-paper-stream] Gemini API error:", error);
+                await sleep(RETRY_ERROR_DELAY_MS);
+              }
+            }
+            retries += 1;
+          }
 
-          const solvedChunk = String(result.content ?? "").trim() || "_No solution generated._";
+          const solvedChunk = aiResponseText || "_No solution generated after retries._";
           if (masterMarkdown) masterMarkdown += "\n\n";
           masterMarkdown += `### ${qLabel}: ${questionContent}\n\n${solvedChunk}\n\n---\n`;
 
@@ -213,6 +258,7 @@ ${tavilyContext}
           controller.enqueue(toSseData({ event: "error", error: "Failed to generate solved paper." }));
         }
       } finally {
+        clearInterval(heartbeat);
         closeStream();
       }
     },
