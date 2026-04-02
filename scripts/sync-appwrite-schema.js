@@ -281,6 +281,8 @@ const TARGET_SCHEMA = [
       { key: "generated_markdown", type: "string", required: true, size: TEXT_CHUNK_SIZE },
       { key: "syllabus_content", type: "string", required: false, size: TEXT_CHUNK_SIZE },
       { key: "created_at", type: "datetime", required: true },
+      { key: "status", type: "string", required: false, size: 32 },
+      { key: "last_processed_index", type: "integer", required: false },
     ],
   },
   {

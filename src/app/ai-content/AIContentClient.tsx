@@ -5,6 +5,7 @@ import "katex/dist/katex.min.css";
 import PrintableNotesDocument from "./PrintableNotesDocument";
 import PrintInstructionsModal from "./PrintInstructionsModal";
 import MarkdownNotesRenderer from "./MarkdownNotesRenderer";
+import { useToast } from "@/components/ToastContext";
 
 const COURSE_TYPES: Record<string, string[]> = {
   FYUG: ["DSC", "DSM", "SEC", "AEC", "VAC", "IDC"],
@@ -23,6 +24,7 @@ function LoadingDots() {
 }
 
 export default function AIContentClient() {
+  const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<"notes" | "papers">("notes");
   const [university] = useState("Assam University");
   const [course, setCourse] = useState("FYUG");
@@ -52,6 +54,7 @@ export default function AIContentClient() {
   const [progressIndex, setProgressIndex] = useState(0);
   const [progressTotal, setProgressTotal] = useState(0);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [canResumeGeneration, setCanResumeGeneration] = useState(false);
   const eventSourceRef = useRef<EventSource | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const selectedPaperName = paperNameMap[paperCode] || paperCode;
@@ -104,6 +107,7 @@ export default function AIContentClient() {
     setProgressTopic("");
     setProgressIndex(0);
     setProgressTotal(0);
+    setCanResumeGeneration(false);
     startTimer();
     setMarkdown("");
     setModel("");
@@ -181,7 +185,16 @@ export default function AIContentClient() {
 
     source.onerror = () => {
       if (finished) return;
-      setError("Network error. Please try again.");
+      const timeoutError = activeTab === "papers";
+      setError(
+        timeoutError
+          ? "Server timeout reached. Click Resume to continue from where it left off."
+          : "Network error. Please try again.",
+      );
+      if (timeoutError) {
+        setCanResumeGeneration(true);
+        showToast("Server timeout reached. Click Resume to continue from where it left off.", "warning");
+      }
       setGenerating(false);
       setProgressStatus("");
       setProgressTopic("");
@@ -412,7 +425,11 @@ export default function AIContentClient() {
                   <LoadingDots />
                 </>
               ) : (
-                activeTab === "notes" ? "Generate Unit Notes" : "Generate Solved Paper"
+                activeTab === "notes"
+                  ? "Generate Unit Notes"
+                  : canResumeGeneration
+                    ? "Resume Generation"
+                    : "Generate Solved Paper"
               )}
             </button>
             {generating && <span className="text-xs text-on-surface-variant">Generation in progress — please wait.</span>}

@@ -7,12 +7,24 @@ import { readSolvedPaperPrompt } from "@/lib/solved-paper-prompt";
 import { formatSearchResults, runWebSearch } from "@/lib/web-search";
 import { checkAndResetQuotas, incrementQuotaCounter } from "@/lib/user-quotas";
 
+export const maxDuration = 300;
+
 const QUESTION_LOOP_DELAY_MS = 7000;
 const QUESTION_MAX_RETRIES = 4;
 const RATE_LIMIT_COOLDOWN_MS = 20000;
 const RETRY_ERROR_DELAY_MS = 4000;
 const HEARTBEAT_INTERVAL_MS = 15000;
 const MIN_SOLUTION_RESPONSE_CHARS = 10;
+const GENERATING_STATUS = "generating";
+const COMPLETED_STATUS = "completed";
+const INITIAL_LAST_PROCESSED_INDEX = -1;
+
+type SolvedPaperCheckpoint = {
+  id: string;
+  markdown: string;
+  status: string;
+  lastProcessedIndex: number;
+};
 
 function toSseData(payload: Record<string, unknown>): Uint8Array {
   return new TextEncoder().encode(`data: ${JSON.stringify(payload)}\n\n`);
@@ -69,6 +81,80 @@ async function recordGeneration(userId: string, todayStr: string): Promise<void>
     });
   } catch (error) {
     console.error("[generate-solved-paper-stream] Failed to record usage:", error);
+  }
+}
+
+function getSolvedPaperCacheKey(course: string, type: string, paperCode: string): string {
+  return `${course}::${type}::${paperCode}`.slice(0, 128);
+}
+
+async function readSolvedPaperCheckpoint(
+  cachePaperCode: string,
+  year: number,
+): Promise<SolvedPaperCheckpoint | null> {
+  const db = adminDatabases();
+  try {
+    const res = await db.listDocuments(DATABASE_ID, COLLECTION.generated_notes_cache, [
+      Query.equal("paper_code", cachePaperCode),
+      Query.equal("unit_number", year),
+      Query.orderDesc("$createdAt"),
+      Query.limit(1),
+    ]);
+    const doc = res.documents[0];
+    if (!doc) return null;
+    return {
+      id: String(doc.$id),
+      markdown: typeof doc.generated_markdown === "string" ? doc.generated_markdown : "",
+      status: typeof doc.status === "string" ? doc.status : "",
+      lastProcessedIndex:
+        typeof doc.last_processed_index === "number"
+          ? doc.last_processed_index
+          : INITIAL_LAST_PROCESSED_INDEX,
+    };
+  } catch (error) {
+    console.error("[generate-solved-paper-stream] Failed to read checkpoint:", error);
+    return null;
+  }
+}
+
+async function upsertSolvedPaperCheckpoint(params: {
+  checkpointId: string | null;
+  cachePaperCode: string;
+  year: number;
+  markdown: string;
+  status: string;
+  lastProcessedIndex: number;
+}): Promise<string | null> {
+  const db = adminDatabases();
+  const payload = {
+    paper_code: params.cachePaperCode,
+    unit_number: params.year,
+    generated_markdown: params.markdown,
+    syllabus_content: "",
+    created_at: new Date().toISOString(),
+    status: params.status,
+    last_processed_index: params.lastProcessedIndex,
+  };
+  try {
+    if (params.checkpointId) {
+      await db.updateDocument(
+        DATABASE_ID,
+        COLLECTION.generated_notes_cache,
+        params.checkpointId,
+        payload,
+      );
+      return params.checkpointId;
+    }
+    const created = await db.createDocument(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      ID.unique(),
+      payload,
+    );
+    return String(created.$id);
+  } catch (error) {
+    console.error("[generate-solved-paper-stream] Failed to persist checkpoint:", error);
+    return params.checkpointId;
   }
 }
 
@@ -165,9 +251,66 @@ export async function GET(request: NextRequest) {
 
         const solvedPaperPromptTemplate = readSolvedPaperPrompt();
         const model = "gemini-3.1-flash-lite-preview";
-        let masterMarkdown = "";
+        const cachePaperCode = getSolvedPaperCacheKey(course, type, paperCode);
+        const checkpoint = await readSolvedPaperCheckpoint(cachePaperCode, year);
+        if (checkpoint?.status === COMPLETED_STATUS && checkpoint.markdown.trim().length > 0) {
+          controller.enqueue(toSseData({
+            event: "done",
+            markdown: checkpoint.markdown.trim(),
+            model: "cache",
+            total: questions.length,
+            cached: true,
+          }));
+          closeStream();
+          return;
+        }
 
-        for (const [index, questionDoc] of questions.entries()) {
+        let masterMarkdown = checkpoint?.markdown ?? "";
+        let lastProcessedIndex =
+          typeof checkpoint?.lastProcessedIndex === "number"
+            ? checkpoint.lastProcessedIndex
+            : INITIAL_LAST_PROCESSED_INDEX;
+        const startIndex = Math.max(0, Math.min(questions.length, lastProcessedIndex + 1));
+        let checkpointId =
+          (await upsertSolvedPaperCheckpoint({
+            checkpointId: checkpoint?.id ?? null,
+            cachePaperCode,
+            year,
+            markdown: masterMarkdown,
+            status: GENERATING_STATUS,
+            lastProcessedIndex: startIndex - 1,
+          })) ?? checkpoint?.id ?? null;
+
+        if (checkpoint?.status === GENERATING_STATUS) {
+          controller.enqueue(toSseData({
+            event: "progress",
+            status: `Resuming generation from question ${startIndex + 1}...`,
+            index: startIndex,
+            total: questions.length,
+          }));
+        }
+        if (startIndex >= questions.length) {
+          checkpointId = await upsertSolvedPaperCheckpoint({
+            checkpointId,
+            cachePaperCode,
+            year,
+            markdown: masterMarkdown,
+            status: COMPLETED_STATUS,
+            lastProcessedIndex: questions.length - 1,
+          });
+          controller.enqueue(toSseData({
+            event: "done",
+            markdown: masterMarkdown.trim(),
+            model: "cache",
+            total: questions.length,
+            cached: true,
+          }));
+          closeStream();
+          return;
+        }
+
+        for (const [offset, questionDoc] of questions.slice(startIndex).entries()) {
+          const index = startIndex + offset;
           const qNo = String(questionDoc.question_no ?? index + 1).trim();
           const qSub = typeof questionDoc.question_subpart === "string" ? questionDoc.question_subpart.trim() : "";
           const qLabel = `Q${qNo}${qSub ? `(${qSub})` : ""}`;
@@ -241,9 +384,27 @@ ${tavilyContext}
           const solvedChunk = aiResponseText || "_No solution generated after retries._";
           if (masterMarkdown) masterMarkdown += "\n\n";
           masterMarkdown += `### ${qLabel}: ${questionContent}\n\n${solvedChunk}\n\n---\n`;
+          lastProcessedIndex = index;
+          checkpointId = await upsertSolvedPaperCheckpoint({
+            checkpointId,
+            cachePaperCode,
+            year,
+            markdown: masterMarkdown,
+            status: GENERATING_STATUS,
+            lastProcessedIndex,
+          });
 
           await sleep(QUESTION_LOOP_DELAY_MS);
         }
+
+        await upsertSolvedPaperCheckpoint({
+          checkpointId,
+          cachePaperCode,
+          year,
+          markdown: masterMarkdown,
+          status: COMPLETED_STATUS,
+          lastProcessedIndex: Math.max(lastProcessedIndex, questions.length - 1),
+        });
 
         controller.enqueue(toSseData({
           event: "done",

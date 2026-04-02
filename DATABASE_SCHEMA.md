@@ -41,6 +41,8 @@
 | `generated_markdown` | String | **Yes** | Cached stitched markdown |
 | `syllabus_content` | String | No | Cached syllabus bullets text for print cover |
 | `created_at` | Datetime | **Yes** | Cache creation timestamp |
+| `status` | String | No | Generation status (`generating` / `completed`) |
+| `last_processed_index` | Integer | No | Last completed chunk index for resume |
 
 ## Table: `User_Quotas`
 
