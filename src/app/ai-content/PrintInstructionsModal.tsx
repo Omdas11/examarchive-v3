@@ -16,7 +16,7 @@ export default function PrintInstructionsModal({
   if (!open) return null;
 
   return (
-    <div className="confirm-modal-backdrop" onClick={onClose} aria-hidden="true">
+    <div className="confirm-modal-backdrop" onClick={onClose}>
       <div
         className="confirm-modal"
         role="dialog"

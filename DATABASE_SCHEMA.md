@@ -39,6 +39,7 @@
 | `paper_code` | String | **Yes** | Paper code |
 | `unit_number` | Integer | **Yes** | Unit number |
 | `generated_markdown` | String | **Yes** | Cached stitched markdown |
+| `syllabus_content` | String | No | Cached syllabus bullets text for print cover |
 | `created_at` | Datetime | **Yes** | Cache creation timestamp |
 
 ## Table: `User_Quotas`

@@ -72,7 +72,12 @@ function ensureTopicMarkdownHeader(topic: string, markdown: string): string {
   return `## ${topic}\n\n${trimmed}`;
 }
 
-async function readCachedNotes(paperCode: string, unitNumber: number): Promise<string | null> {
+type CachedNotes = {
+  markdown: string;
+  syllabusContent: string | null;
+};
+
+async function readCachedNotes(paperCode: string, unitNumber: number): Promise<CachedNotes | null> {
   const db = adminDatabases();
   try {
     const res = await db.listDocuments(DATABASE_ID, COLLECTION.generated_notes_cache, [
@@ -84,14 +89,41 @@ async function readCachedNotes(paperCode: string, unitNumber: number): Promise<s
     const doc = res.documents[0];
     if (!doc) return null;
     const markdown = String(doc.generated_markdown ?? "").trim();
-    return markdown || null;
+    if (!markdown) return null;
+    const syllabusContent = typeof doc.syllabus_content === "string" ? doc.syllabus_content.trim() : "";
+    return { markdown, syllabusContent: syllabusContent || null };
   } catch (error) {
     console.error("[generate-notes-stream] Failed to read cache:", error);
     return null;
   }
 }
 
-async function writeCachedNotes(paperCode: string, unitNumber: number, markdown: string): Promise<void> {
+async function readSyllabusContent(
+  university: string,
+  course: string,
+  type: string,
+  paperCode: string,
+  unitNumber: number,
+): Promise<string> {
+  const db = adminDatabases();
+  const syllabusRes = await db.listDocuments(DATABASE_ID, COLLECTION.syllabus_table, [
+    Query.equal("university", university),
+    Query.equal("course", course),
+    Query.equal("type", type),
+    Query.equal("paper_code", paperCode),
+    Query.equal("unit_number", unitNumber),
+    Query.limit(1),
+  ]);
+  const syllabusDoc = syllabusRes.documents[0];
+  return typeof syllabusDoc?.syllabus_content === "string" ? syllabusDoc.syllabus_content.trim() : "";
+}
+
+async function writeCachedNotes(
+  paperCode: string,
+  unitNumber: number,
+  markdown: string,
+  syllabusContent: string,
+): Promise<void> {
   const db = adminDatabases();
   try {
     // Keep explicit created_at because schema/docs require this field for cache reads and audits.
@@ -99,6 +131,7 @@ async function writeCachedNotes(paperCode: string, unitNumber: number, markdown:
       paper_code: paperCode,
       unit_number: unitNumber,
       generated_markdown: markdown,
+      syllabus_content: syllabusContent,
       created_at: new Date().toISOString(),
     };
     await db.createDocument(DATABASE_ID, COLLECTION.generated_notes_cache, ID.unique(), payload);
@@ -208,16 +241,19 @@ export async function GET(request: NextRequest) {
         controller.close();
       };
       try {
-        const cachedMarkdown = await readCachedNotes(paperCode, unitNumber);
-        if (cachedMarkdown) {
+        const cachedNotes = await readCachedNotes(paperCode, unitNumber);
+        if (cachedNotes) {
           const remaining = isAdminPlus(user.role) ? null : Math.max(0, dailyLimit - usedBefore);
+          const cachedSyllabusContent =
+            cachedNotes.syllabusContent ??
+            (await readSyllabusContent(university, course, type, paperCode, unitNumber));
           controller.enqueue(toSseData({
             event: "done",
-            markdown: cachedMarkdown,
+            markdown: cachedNotes.markdown,
             model: "cache",
             remaining,
             cached: true,
-            syllabus_content: "",
+            syllabus_content: cachedSyllabusContent,
           }));
           closeStream();
           return;
@@ -263,6 +299,9 @@ export async function GET(request: NextRequest) {
         }
 
         const questionsRes = await db.listDocuments(DATABASE_ID, COLLECTION.questions_table, [
+          Query.equal("university", university),
+          Query.equal("course", course),
+          Query.equal("type", type),
           Query.equal("paper_code", paperCode),
           Query.limit(500),
         ]);
@@ -370,7 +409,7 @@ ${formattedQuestions || "No related questions found."}
           await sleep(TOPIC_LOOP_DELAY_MS);
         }
 
-        await writeCachedNotes(paperCode, unitNumber, masterMarkdown);
+        await writeCachedNotes(paperCode, unitNumber, masterMarkdown, syllabusContent);
 
         if (!isAdminPlus(user.role)) {
           await recordGeneration(user.id, todayStr);

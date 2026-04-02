@@ -1,4 +1,4 @@
-import { adminDatabases, COLLECTION, DATABASE_ID, ID, Query } from "@/lib/appwrite";
+import { adminDatabases, COLLECTION, DATABASE_ID, Query } from "@/lib/appwrite";
 
 const DEFAULT_DAY_START = "1970-01-01";
 
@@ -29,11 +29,17 @@ function normalizeDate(value: unknown): string {
 
 async function getQuotaDocument(userId: string) {
   const db = adminDatabases();
-  const res = await db.listDocuments(DATABASE_ID, COLLECTION.user_quotas, [
-    Query.equal("user_id", userId),
-    Query.limit(1),
-  ]);
-  return res.documents[0] ?? null;
+  try {
+    const doc = await db.getDocument(DATABASE_ID, COLLECTION.user_quotas, userId);
+    return doc;
+  } catch {
+    const res = await db.listDocuments(DATABASE_ID, COLLECTION.user_quotas, [
+      Query.equal("user_id", userId),
+      Query.orderDesc("$createdAt"),
+      Query.limit(1),
+    ]);
+    return res.documents[0] ?? null;
+  }
 }
 
 export async function checkAndResetQuotas(userId: string): Promise<UserQuotaRecord> {
@@ -42,12 +48,25 @@ export async function checkAndResetQuotas(userId: string): Promise<UserQuotaReco
   const existing = await getQuotaDocument(userId);
 
   if (!existing) {
-    await db.createDocument(DATABASE_ID, COLLECTION.user_quotas, ID.unique(), {
-      user_id: userId,
-      notes_generated_today: 0,
-      papers_solved_today: 0,
-      last_generation_date: today,
-    });
+    try {
+      // Use deterministic doc id = userId to guarantee one quota record per user.
+      await db.createDocument(DATABASE_ID, COLLECTION.user_quotas, userId, {
+        user_id: userId,
+        notes_generated_today: 0,
+        papers_solved_today: 0,
+        last_generation_date: today,
+      });
+    } catch {
+      // Concurrent create race: allow read path below to settle on existing record.
+    }
+    const settled = await getQuotaDocument(userId);
+    if (settled) {
+      return {
+        notes_generated_today: toInt(settled.notes_generated_today),
+        papers_solved_today: toInt(settled.papers_solved_today),
+        last_generation_date: normalizeDate(settled.last_generation_date),
+      };
+    }
     return {
       notes_generated_today: 0,
       papers_solved_today: 0,
@@ -94,8 +113,24 @@ export async function incrementQuotaCounter(
       papers_solved_today: counter === "papers_solved_today" ? 1 : 0,
       last_generation_date: today,
     };
-    await db.createDocument(DATABASE_ID, COLLECTION.user_quotas, ID.unique(), payload);
-    return payload;
+    try {
+      // Use deterministic doc id = userId to avoid duplicate records during concurrent requests.
+      await db.createDocument(DATABASE_ID, COLLECTION.user_quotas, userId, payload);
+      return payload;
+    } catch {
+      const settled = await getQuotaDocument(userId);
+      if (!settled) return payload;
+      const settledLastGenerationDate = normalizeDate(settled.last_generation_date);
+      const settledNotes = settledLastGenerationDate < today ? 0 : toInt(settled.notes_generated_today);
+      const settledPapers = settledLastGenerationDate < today ? 0 : toInt(settled.papers_solved_today);
+      const nextPayload = {
+        notes_generated_today: counter === "notes_generated_today" ? settledNotes + 1 : settledNotes,
+        papers_solved_today: counter === "papers_solved_today" ? settledPapers + 1 : settledPapers,
+        last_generation_date: today,
+      };
+      await db.updateDocument(DATABASE_ID, COLLECTION.user_quotas, settled.$id, nextPayload);
+      return nextPayload;
+    }
   }
 
   const lastGenerationDate = normalizeDate(existing.last_generation_date);

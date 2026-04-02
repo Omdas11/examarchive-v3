@@ -150,9 +150,10 @@ export default function AIContentClient() {
         if (typeof data.remaining === "number" || data.remaining === null) {
           setRemaining(data.remaining);
         }
-        if (activeTab === "notes") {
+        const isCached = typeof data.cached === "boolean" && data.cached;
+        if (!isCached && activeTab === "notes") {
           setNotesRemaining((prev) => (typeof prev === "number" ? Math.max(0, prev - 1) : prev));
-        } else {
+        } else if (!isCached) {
           setPapersRemaining((prev) => (typeof prev === "number" ? Math.max(0, prev - 1) : prev));
         }
         setGenerating(false);

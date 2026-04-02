@@ -279,6 +279,7 @@ const TARGET_SCHEMA = [
       { key: "paper_code", type: "string", required: true, size: 128 },
       { key: "unit_number", type: "integer", required: true },
       { key: "generated_markdown", type: "string", required: true, size: TEXT_CHUNK_SIZE },
+      { key: "syllabus_content", type: "string", required: false, size: TEXT_CHUNK_SIZE },
       { key: "created_at", type: "datetime", required: true },
     ],
   },

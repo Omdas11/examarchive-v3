@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getServerUser } from "@/lib/auth";
-import { adminDatabases, COLLECTION, DATABASE_ID, Query } from "@/lib/appwrite";
+import { adminDatabases, COLLECTION, DATABASE_ID, ID, Query } from "@/lib/appwrite";
+import { getDailyLimit } from "@/lib/ai-limits";
 import { GeminiServiceError, runGeminiCompletion } from "@/lib/gemini";
 import { readSolvedPaperPrompt } from "@/lib/solved-paper-prompt";
 import { formatSearchResults, runWebSearch } from "@/lib/web-search";
@@ -28,6 +29,31 @@ function normalizeNumber(value: unknown): number | null {
     if (Number.isFinite(parsed)) return parsed;
   }
   return null;
+}
+
+async function getDailyCount(userId: string, todayStr: string): Promise<number> {
+  const db = adminDatabases();
+  try {
+    const res = await db.listDocuments(DATABASE_ID, COLLECTION.ai_usage, [
+      Query.equal("user_id", userId),
+      Query.equal("date", todayStr),
+    ]);
+    return res.total;
+  } catch {
+    return 0;
+  }
+}
+
+async function recordGeneration(userId: string, todayStr: string): Promise<void> {
+  const db = adminDatabases();
+  try {
+    await db.createDocument(DATABASE_ID, COLLECTION.ai_usage, ID.unique(), {
+      user_id: userId,
+      date: todayStr,
+    });
+  } catch (error) {
+    console.error("[generate-solved-paper-stream] Failed to record usage:", error);
+  }
 }
 
 export async function GET(request: NextRequest) {
@@ -61,6 +87,25 @@ export async function GET(request: NextRequest) {
       { error: "Invalid selection. Please choose course, type, paper code, and year." },
       { status: 400 },
     );
+  }
+  if (!Number.isInteger(year) || year < 1900 || year > 2100) {
+    return NextResponse.json(
+      { error: "Invalid year. Please provide a valid year between 1900 and 2100." },
+      { status: 400 },
+    );
+  }
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const dailyLimit = getDailyLimit();
+  let usedBefore = 0;
+  if (!isAdminPlus) {
+    usedBefore = await getDailyCount(user.id, todayStr);
+    if (usedBefore >= dailyLimit) {
+      return NextResponse.json(
+        { error: "Generation quota exceeded.", code: "QUOTA_EXCEEDED", remaining: 0 },
+        { status: 403 },
+      );
+    }
   }
 
   const stream = new ReadableStream<Uint8Array>({
@@ -157,6 +202,7 @@ ${tavilyContext}
           total: questions.length,
         }));
         if (!isAdminPlus) {
+          await recordGeneration(user.id, todayStr);
           await incrementQuotaCounter(user.id, "papers_solved_today");
         }
       } catch (error) {
