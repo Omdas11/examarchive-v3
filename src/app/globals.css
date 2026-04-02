@@ -1296,7 +1296,7 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
     display: block !important;
     margin-top: auto !important;
     position: fixed;
-    bottom: 0;
+    bottom: 6mm;
     left: 0;
     width: 100%;
     text-align: center;

@@ -71,7 +71,7 @@ describe("AI content print/mobile styles", () => {
 
   it("keeps print footer visible and break-safe in print media", () => {
     expect(css).toMatch(
-      /@media print[\s\S]*?\.print-footer\s*\{[\s\S]*?page-break-inside:\s*avoid;[\s\S]*?display:\s*block !important;[\s\S]*?position:\s*fixed;[\s\S]*?bottom:\s*0;[\s\S]*?width:\s*100%;[\s\S]*?\}/
+      /@media print[\s\S]*?\.print-footer\s*\{[\s\S]*?page-break-inside:\s*avoid;[\s\S]*?display:\s*block !important;[\s\S]*?position:\s*fixed;[\s\S]*?bottom:\s*6mm;[\s\S]*?width:\s*100%;[\s\S]*?\}/
     );
   });
 
