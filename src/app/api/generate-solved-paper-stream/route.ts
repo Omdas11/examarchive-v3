@@ -159,7 +159,6 @@ async function upsertSolvedPaperCheckpoint(params: {
     generated_markdown: params.markdown,
     syllabus_content: "",
     created_at: new Date().toISOString(),
-    status: params.status,
     last_processed_index: params.lastProcessedIndex,
   });
   try {
