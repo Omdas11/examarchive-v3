@@ -420,7 +420,7 @@ export async function GET(request: NextRequest) {
         totalQuestions,
         partSize: PART_SIZE,
         totalParts,
-        etaMinutes: totalParts * 5,
+        etaMinutes: Math.ceil((totalQuestions * 16) / 60),
       });
     } catch (error) {
       console.error("[generate-solved-paper-stream] Failed to read question metadata:", error);
@@ -589,6 +589,8 @@ Year: ${year}
 Question Label: ${qLabel}
 Marks: ${marks ?? "N/A"}
 
+CRITICAL LENGTH CONSTRAINT: This question is worth ${marks ?? "N/A"} marks. If it is 1 or 2 marks, provide a highly concise definition or final formula without any long derivations. If it is 4 or more marks, provide a detailed, step-by-step exhaustive derivation and explanation.
+
 Question:
 ${questionContent}
 
@@ -651,8 +653,14 @@ ${tavilyContext}
           }
 
           const solvedChunk = aiResponseText || "_No solution generated after retries._";
+          const displaySubpart = qSub || "-";
+          const questionYear =
+            typeof questionDoc.year === "number"
+              ? questionDoc.year
+              : normalizeNumber(String(questionDoc.year ?? "")) ?? year;
+          const header = `### Q${qNo}(${displaySubpart}) [${questionYear}] [${marks ?? "N/A"} Marks]\n**${questionContent}**\n\n`;
           if (masterMarkdown) masterMarkdown += "\n\n";
-          masterMarkdown += `### ${qLabel}: ${questionContent}\n\n${solvedChunk}\n\n---\n`;
+          masterMarkdown += `${header}${solvedChunk}\n\n---\n`;
           lastProcessedIndex = index;
           checkpointId = await upsertSolvedPaperCheckpoint({
             checkpointId,

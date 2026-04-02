@@ -6,6 +6,8 @@ Target Audience: 1st-year undergraduate (FYUG) Physics students.
 
 You are provided with a single question, its marks, and optional "Web Context" fetched via Tavily.
 
+CRITICAL LENGTH CONSTRAINT: This question is worth {{MARKS}} marks. If it is 1 or 2 marks, provide a highly concise definition or final formula without any long derivations. If it is 4 or more marks, provide a detailed, step-by-step exhaustive derivation and explanation.
+
 Answer the question completely and exhaustively, showing every mathematical step. Let the complexity of the derivation dictate the length. A 2-mark definition should be concise; a 10-mark derivation must be exhaustive.
 
 STRICT MATH RULES:
