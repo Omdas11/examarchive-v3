@@ -139,7 +139,10 @@ export default function AIContentClient() {
     return { totalQuestions, totalParts: computedParts, etaMinutes: computedEta };
   }
 
-  function startGenerationStream(baseParams: URLSearchParams, part: number) {
+  function startGenerationStream(baseParams: URLSearchParams, part: number, resetOnFirstPart: boolean) {
+    if (part === 1 && resetOnFirstPart) {
+      setMarkdown("");
+    }
     setCurrentPart(part);
     const streamParams = new URLSearchParams(baseParams.toString());
     streamParams.set("part", String(part));
@@ -186,7 +189,7 @@ export default function AIContentClient() {
         if (typeof data.totalParts === "number") setTotalParts(data.totalParts);
         setStreamingTextActive(false);
         closeEventSource();
-        startGenerationStream(baseParams, nextPart);
+        startGenerationStream(baseParams, nextPart, false);
         return;
       }
 
@@ -194,7 +197,21 @@ export default function AIContentClient() {
         finished = true;
         setStreamingTextActive(false);
         const incomingMarkdown = typeof data.markdown === "string" ? data.markdown : "";
-        setMarkdown((prev) => (incomingMarkdown.trim().length > 0 ? incomingMarkdown : prev));
+        setMarkdown((prevMarkdown) => {
+          if (incomingMarkdown.trim().length === 0) return prevMarkdown;
+          if (incomingMarkdown === prevMarkdown) return prevMarkdown;
+          const shouldAppendToExisting = activeTab === "papers" && part > 1;
+          if (
+            shouldAppendToExisting &&
+            incomingMarkdown.length >= prevMarkdown.length &&
+            incomingMarkdown.startsWith(prevMarkdown)
+          ) {
+            return incomingMarkdown;
+          }
+          if (shouldAppendToExisting && prevMarkdown.includes(incomingMarkdown)) return prevMarkdown;
+          const separator = prevMarkdown.trim().length > 0 ? "\n\n" : "";
+          return prevMarkdown + separator + incomingMarkdown;
+        });
         setSyllabusContent(typeof data.syllabus_content === "string" ? data.syllabus_content : "");
         setGeneratedAtLabel(new Date().toLocaleString());
         setModel(typeof data.model === "string" ? data.model : "");
@@ -244,6 +261,8 @@ export default function AIContentClient() {
 
   async function generate() {
     if (generating) return;
+    // True when user is explicitly resuming after a timeout prompt; keep existing stitched markdown.
+    const isResumeAttempt = activeTab === "papers" && canResumeGeneration;
     closeEventSource();
     setGenerating(true);
     setError(null);
@@ -257,7 +276,6 @@ export default function AIContentClient() {
     setEtaMinutes(null);
     setStreamingTextActive(false);
     startTimer();
-    setMarkdown("");
     setModel("");
     const params = new URLSearchParams({
       university,
@@ -272,7 +290,7 @@ export default function AIContentClient() {
         setTotalParts(meta.totalParts);
         setEtaMinutes(meta.etaMinutes);
       }
-      startGenerationStream(params, 1);
+      startGenerationStream(params, 1, !isResumeAttempt);
     } catch (streamError) {
       setError(streamError instanceof Error ? streamError.message : "Generation failed.");
       resetProgressState();
