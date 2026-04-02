@@ -10,7 +10,7 @@ import { checkAndResetQuotas, incrementQuotaCounter } from "@/lib/user-quotas";
 export const maxDuration = 300;
 
 const QUESTION_LOOP_DELAY_MS = 7000;
-const PART_SIZE = 15;
+const PART_SIZE = 10;
 const QUESTION_MAX_RETRIES = 4;
 const RETRY_ERROR_DELAY_MS = 4000;
 const HEARTBEAT_INTERVAL_MS = 15000;
@@ -64,6 +64,19 @@ function normalizeNumber(value: unknown): number | null {
     if (Number.isFinite(parsed)) return parsed;
   }
   return null;
+}
+
+function parseQuestionNumber(value: unknown): number {
+  const normalized = normalizeNumber(value);
+  if (normalized !== null) return normalized;
+  if (typeof value === "string") {
+    const match = value.match(/\d+/);
+    if (match) {
+      const parsed = Number(match[0]);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+  }
+  return Number.MAX_SAFE_INTEGER;
 }
 
 async function getDailyCount(userId: string, todayStr: string): Promise<number> {
@@ -282,9 +295,15 @@ export async function GET(request: NextRequest) {
           Query.limit(500),
         ]);
 
-        const allQuestions = questionsRes.documents.filter((doc) =>
-          typeof doc.question_content === "string" && doc.question_content.trim().length > 0,
-        );
+        const allQuestions = questionsRes.documents
+          .filter((doc) => typeof doc.question_content === "string" && doc.question_content.trim().length > 0)
+          .sort((a, b) => {
+            const questionNoCompare = parseQuestionNumber(a.question_no) - parseQuestionNumber(b.question_no);
+            if (questionNoCompare !== 0) return questionNoCompare;
+            const aSub = typeof a.question_subpart === "string" ? a.question_subpart : "";
+            const bSub = typeof b.question_subpart === "string" ? b.question_subpart : "";
+            return aSub.localeCompare(bSub, undefined, { sensitivity: "base", numeric: true });
+          });
 
         if (allQuestions.length === 0) {
           controller.enqueue(toSseData({ event: "error", error: "No questions found for the selected paper/year." }));
@@ -316,7 +335,12 @@ export async function GET(request: NextRequest) {
           return;
         }
 
-        let masterMarkdown = checkpoint?.markdown ?? "";
+        const shouldLoadCheckpointMarkdown =
+          part > 1 || checkpoint?.status === GENERATING_STATUS;
+        let masterMarkdown = shouldLoadCheckpointMarkdown ? checkpoint?.markdown ?? "" : "";
+        if (masterMarkdown && !masterMarkdown.endsWith("\n")) {
+          masterMarkdown += "\n";
+        }
         let lastProcessedIndex =
           typeof checkpoint?.lastProcessedIndex === "number"
             ? checkpoint.lastProcessedIndex

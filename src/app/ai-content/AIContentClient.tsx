@@ -15,7 +15,7 @@ const UNIT_OPTIONS = [1, 2, 3, 4, 5];
 const BACKEND_PAPERS_MAX_DURATION_SECONDS = 300;
 const RESUME_TIMEOUT_BUFFER_SECONDS = 5;
 const TIMEOUT_THRESHOLD_SECONDS = BACKEND_PAPERS_MAX_DURATION_SECONDS - RESUME_TIMEOUT_BUFFER_SECONDS;
-const SOLVED_PAPER_PART_SIZE = 15;
+const SOLVED_PAPER_PART_SIZE = 10;
 
 function LoadingDots() {
   return (
@@ -193,7 +193,8 @@ export default function AIContentClient() {
       if (eventType === "done") {
         finished = true;
         setStreamingTextActive(false);
-        setMarkdown(typeof data.markdown === "string" ? data.markdown : "");
+        const incomingMarkdown = typeof data.markdown === "string" ? data.markdown : "";
+        setMarkdown((prev) => (incomingMarkdown.trim().length > 0 ? incomingMarkdown : prev));
         setSyllabusContent(typeof data.syllabus_content === "string" ? data.syllabus_content : "");
         setGeneratedAtLabel(new Date().toLocaleString());
         setModel(typeof data.model === "string" ? data.model : "");
