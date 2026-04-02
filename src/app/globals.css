@@ -1205,13 +1205,16 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
 
   body,
   html,
-  .main-print-wrapper {
+  #__next > div,
+  .print-root-wrapper,
+  .print-root {
     height: auto !important;
     min-height: auto !important;
     margin-top: 0 !important;
   }
 
-  .main-print-wrapper > :first-child {
+  .print-root-wrapper > :first-child,
+  .print-root > :first-child {
     page-break-before: avoid !important;
     margin-top: 0 !important;
   }
@@ -1307,11 +1310,11 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
     position: fixed;
     left: 0;
     right: 0;
-    bottom: 4mm;
+    bottom: 0;
     text-align: center;
     color: #ccc;
     font-size: 10px;
-    z-index: 2;
+    z-index: 3;
   }
 
   p,

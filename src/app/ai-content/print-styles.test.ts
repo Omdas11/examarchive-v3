@@ -77,7 +77,7 @@ describe("AI content print/mobile styles", () => {
 
   it("adds footer-safe bottom page margin and first-child break guards in print", () => {
     expect(css).toMatch(/@page\s*\{[\s\S]*?margin:\s*20mm 20mm 30mm 20mm;[\s\S]*?\}/);
-    expect(css).toMatch(/@media print[\s\S]*?\.main-print-wrapper > :first-child\s*\{[\s\S]*?page-break-before:\s*avoid !important;[\s\S]*?margin-top:\s*0 !important;[\s\S]*?\}/);
+    expect(css).toMatch(/@media print[\s\S]*?\.print-root-wrapper > :first-child,\s*\.print-root > :first-child\s*\{[\s\S]*?page-break-before:\s*avoid !important;[\s\S]*?margin-top:\s*0 !important;[\s\S]*?\}/);
   });
 
   it("prevents page break between print header and content", () => {
@@ -92,6 +92,6 @@ describe("AI content print/mobile styles", () => {
   it("defines print syllabus and disclaimer styles", () => {
     expect(css).toMatch(/\.print-syllabus-block\s*\{\s*margin-top:\s*0\.75rem;\s*\}/);
     expect(css).toMatch(/\.print-syllabus-list\s*\{[\s\S]*?padding-left:\s*1\.2rem;[\s\S]*?\}/);
-    expect(css).toMatch(/@media print[\s\S]*?\.print-fixed-disclaimer\s*\{[\s\S]*?position:\s*fixed;[\s\S]*?bottom:\s*4mm;[\s\S]*?color:\s*#ccc;[\s\S]*?font-size:\s*10px;[\s\S]*?\}/);
+    expect(css).toMatch(/@media print[\s\S]*?\.print-fixed-disclaimer\s*\{[\s\S]*?position:\s*fixed;[\s\S]*?bottom:\s*0;[\s\S]*?color:\s*#ccc;[\s\S]*?font-size:\s*10px;[\s\S]*?\}/);
   });
 });

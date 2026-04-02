@@ -150,9 +150,9 @@ async function ensureSolvedPaperCacheSchema(): Promise<void> {
       DATABASE_ID,
       COLLECTION.generated_notes_cache,
       "status",
-      32,
-      false,
-      GENERATING_STATUS,
+      50,
+      true,
+      undefined,
     ),
   );
   await ensureAttribute("last_processed_index", () =>
@@ -459,6 +459,34 @@ export async function GET(request: NextRequest) {
 
   await ensureSolvedPaperCacheSchema();
   const cachePaperCode = getSolvedPaperCacheKey(course, type, paperCode);
+
+  if (metaOnly) {
+    try {
+      const db = adminDatabases();
+      const questionsRes = await db.listDocuments(DATABASE_ID, COLLECTION.questions_table, [
+        Query.equal("university", university),
+        Query.equal("course", course),
+        Query.equal("type", type),
+        Query.equal("paper_code", paperCode),
+        Query.equal("year", year),
+        Query.limit(500),
+      ]);
+      const totalQuestions = questionsRes.documents.filter((doc) =>
+        typeof doc.question_content === "string" && doc.question_content.trim().length > 0,
+      ).length;
+      const totalParts = Math.max(1, Math.ceil(totalQuestions / PART_SIZE));
+      return NextResponse.json({
+        totalQuestions,
+        partSize: PART_SIZE,
+        totalParts,
+        etaMinutes: Math.ceil((totalQuestions * 16) / 60),
+      });
+    } catch (error) {
+      console.error("[generate-solved-paper-stream] Failed to read question metadata:", error);
+      return NextResponse.json({ error: "Failed to fetch solved-paper metadata." }, { status: 500 });
+    }
+  }
+
   const completedCache = await readCompletedSolvedPaperCache(cachePaperCode, year);
   if (completedCache) {
     const stream = new ReadableStream<Uint8Array>({
@@ -504,33 +532,6 @@ export async function GET(request: NextRequest) {
         { error: "Generation quota exceeded.", code: "QUOTA_EXCEEDED", remaining: 0 },
         { status: 403 },
       );
-    }
-  }
-
-  if (metaOnly) {
-    try {
-      const db = adminDatabases();
-      const questionsRes = await db.listDocuments(DATABASE_ID, COLLECTION.questions_table, [
-        Query.equal("university", university),
-        Query.equal("course", course),
-        Query.equal("type", type),
-        Query.equal("paper_code", paperCode),
-        Query.equal("year", year),
-        Query.limit(500),
-      ]);
-      const totalQuestions = questionsRes.documents.filter((doc) =>
-        typeof doc.question_content === "string" && doc.question_content.trim().length > 0,
-      ).length;
-      const totalParts = Math.max(1, Math.ceil(totalQuestions / PART_SIZE));
-      return NextResponse.json({
-        totalQuestions,
-        partSize: PART_SIZE,
-        totalParts,
-        etaMinutes: Math.ceil((totalQuestions * 16) / 60),
-      });
-    } catch (error) {
-      console.error("[generate-solved-paper-stream] Failed to read question metadata:", error);
-      return NextResponse.json({ error: "Failed to fetch solved-paper metadata." }, { status: 500 });
     }
   }
 

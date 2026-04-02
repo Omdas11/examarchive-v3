@@ -15,6 +15,8 @@ const RETRY_ERROR_DELAY_MS = 4000;
 const HEARTBEAT_INTERVAL_MS = 15000;
 const UNIT_NOTES_CACHE_TYPE = "unit_notes";
 const COMPLETED_STATUS = "completed";
+const ATTRIBUTE_AVAILABILITY_POLL_INTERVAL_MS = 300;
+const ATTRIBUTE_AVAILABILITY_TIMEOUT_MS = 12000;
 
 function isAdminPlus(role: string): boolean {
   return role === "admin" || role === "founder";
@@ -95,16 +97,54 @@ function getAppwriteErrorCode(error: unknown): number | null {
 
 async function ensureNotesCacheSchema(): Promise<void> {
   const db = adminDatabases();
-  const ensureAttribute = async (create: () => Promise<unknown>) => {
+  const waitForAttributeAvailable = async (key: string): Promise<void> => {
+    const deadline = Date.now() + ATTRIBUTE_AVAILABILITY_TIMEOUT_MS;
+    while (Date.now() < deadline) {
+      try {
+        const attribute = await db.getAttribute(DATABASE_ID, COLLECTION.generated_notes_cache, key);
+        if (attribute.status === "available") return;
+        if (attribute.status === "failed" || attribute.status === "stuck") {
+          throw new Error(
+            `[generate-notes-stream] Attribute ${key} failed to build with status=${attribute.status}: ${attribute.error || "unknown error"}`,
+          );
+        }
+      } catch (error) {
+        const code = getAppwriteErrorCode(error);
+        if (code !== 404) {
+          throw error;
+        }
+      }
+      const remainingMs = deadline - Date.now();
+      if (remainingMs <= 0) break;
+      await sleep(Math.min(ATTRIBUTE_AVAILABILITY_POLL_INTERVAL_MS, remainingMs));
+    }
+    throw new Error(`[generate-notes-stream] Timed out waiting for attribute ${key} to become available.`);
+  };
+
+  const ensureAttribute = async (key: string, create: () => Promise<unknown>) => {
+    try {
+      const attribute = await db.getAttribute(DATABASE_ID, COLLECTION.generated_notes_cache, key);
+      if (attribute.status !== "available") {
+        await waitForAttributeAvailable(key);
+      }
+      return;
+    } catch (error) {
+      const code = getAppwriteErrorCode(error);
+      if (code !== 400 && code !== 404) {
+        throw error;
+      }
+    }
+
     try {
       await create();
     } catch (error) {
       const code = getAppwriteErrorCode(error);
       if (code !== 409) throw error;
     }
+    await waitForAttributeAvailable(key);
   };
 
-  await ensureAttribute(() =>
+  await ensureAttribute("type", () =>
     db.createStringAttribute(
       DATABASE_ID,
       COLLECTION.generated_notes_cache,
@@ -114,17 +154,17 @@ async function ensureNotesCacheSchema(): Promise<void> {
       UNIT_NOTES_CACHE_TYPE,
     ),
   );
-  await ensureAttribute(() =>
+  await ensureAttribute("status", () =>
     db.createStringAttribute(
       DATABASE_ID,
       COLLECTION.generated_notes_cache,
       "status",
       50,
       true,
-      COMPLETED_STATUS,
+      undefined,
     ),
   );
-  await ensureAttribute(() =>
+  await ensureAttribute("year", () =>
     db.createStringAttribute(
       DATABASE_ID,
       COLLECTION.generated_notes_cache,
@@ -134,7 +174,7 @@ async function ensureNotesCacheSchema(): Promise<void> {
       undefined,
     ),
   );
-  await ensureAttribute(() =>
+  await ensureAttribute("part_number", () =>
     db.createIntegerAttribute(
       DATABASE_ID,
       COLLECTION.generated_notes_cache,
@@ -321,6 +361,10 @@ export async function GET(request: NextRequest) {
   await ensureNotesCacheSchema();
   const completedCache = await readCachedNotes(paperCode, unitNumber);
   if (completedCache) {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const dailyLimit = getDailyLimit();
+    const usedBefore = isAdminPlus(user.role) ? 0 : await getDailyCount(user.id, todayStr);
+    const remaining = isAdminPlus(user.role) ? null : Math.max(0, dailyLimit - usedBefore);
     const cachedSyllabusContent =
       completedCache.syllabusContent ??
       (await readSyllabusContent(university, course, type, paperCode, unitNumber));
@@ -331,6 +375,7 @@ export async function GET(request: NextRequest) {
           markdown: completedCache.markdown,
           model: "cache",
           cached: true,
+          remaining,
           syllabus_content: cachedSyllabusContent,
         }));
         controller.close();
