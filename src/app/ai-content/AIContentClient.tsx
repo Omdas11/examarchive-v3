@@ -16,7 +16,6 @@ const BACKEND_PAPERS_MAX_DURATION_SECONDS = 300;
 const RESUME_TIMEOUT_BUFFER_SECONDS = 5;
 const TIMEOUT_THRESHOLD_SECONDS = BACKEND_PAPERS_MAX_DURATION_SECONDS - RESUME_TIMEOUT_BUFFER_SECONDS;
 const SOLVED_PAPER_PART_SIZE = 10;
-const ESTIMATED_MINUTES_PER_PART = 5;
 
 function LoadingDots() {
   return (
@@ -72,13 +71,12 @@ export default function AIContentClient() {
   const progressPercent = progressTotal > 0 ? Math.min(100, Math.round((progressIndex / progressTotal) * 100)) : 0;
   const estimatedMinutesRemaining = useMemo(() => {
     if (activeTab !== "papers") return null;
-    const safeCurrentPart = Math.max(1, currentPart);
-    const fallbackByParts = Math.max(1, totalParts - safeCurrentPart + 1) * ESTIMATED_MINUTES_PER_PART;
-    if (etaMinutes === null) return fallbackByParts;
+    const fallbackByQuestions = Math.max(1, Math.ceil((Math.max(0, progressTotal || 0) * 16) / 60));
+    if (etaMinutes === null) return fallbackByQuestions;
     const elapsedMinutes = elapsedSeconds / 60;
     const remainingMinutes = Math.max(0, etaMinutes - elapsedMinutes);
     return Math.max(1, Math.ceil(remainingMinutes));
-  }, [activeTab, etaMinutes, elapsedSeconds, totalParts, currentPart]);
+  }, [activeTab, etaMinutes, elapsedSeconds, progressTotal]);
 
   function formatElapsedTime(totalSeconds: number): string {
     const minutes = Math.floor(totalSeconds / 60);
@@ -142,10 +140,11 @@ export default function AIContentClient() {
       typeof data.totalParts === "number" && data.totalParts > 0
         ? data.totalParts
         : Math.max(1, Math.ceil(totalQuestions / SOLVED_PAPER_PART_SIZE));
+    const safeTotalQuestions = totalQuestions || 0;
     const computedEta =
       typeof data.etaMinutes === "number" && data.etaMinutes > 0
         ? data.etaMinutes
-        : computedParts * ESTIMATED_MINUTES_PER_PART;
+        : Math.ceil((safeTotalQuestions * 16) / 60);
     return { totalQuestions, totalParts: computedParts, etaMinutes: computedEta };
   }
 

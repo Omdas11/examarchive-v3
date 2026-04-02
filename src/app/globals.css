@@ -1083,7 +1083,7 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
 }
 
 @page {
-  margin: 20mm;
+  margin: 20mm 20mm 30mm 20mm;
   @bottom-right {
     content: "Page " counter(page);
   }
@@ -1092,6 +1092,7 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
 @media print {
   :root {
     --print-watermark-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Ctext x='100' y='100' transform='rotate(-45 100 100)' fill='rgba(0,0,0,0.05)' font-size='22' font-family='sans-serif' font-weight='bold' text-anchor='middle' dominant-baseline='middle'%3EExamArchive%3C/text%3E%3C/svg%3E");
+    --print-footer-color: #888;
   }
 
   html,
@@ -1202,6 +1203,22 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
     overflow: visible !important;
   }
 
+  body,
+  html,
+  #__next > div,
+  .print-root-wrapper,
+  .print-root {
+    height: auto !important;
+    min-height: auto !important;
+    margin-top: 0 !important;
+  }
+
+  .print-root-wrapper > :first-child,
+  .print-root > :first-child {
+    page-break-before: avoid !important;
+    margin-top: 0 !important;
+  }
+
   .print-root {
     max-width: none;
     margin: 0;
@@ -1278,8 +1295,14 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
     break-inside: avoid;
     display: block !important;
     margin-top: auto !important;
-    position: relative;
-    z-index: 1;
+    position: fixed;
+    bottom: 6mm;
+    left: 0;
+    width: 100%;
+    text-align: center;
+    font-size: 10px;
+    color: var(--print-footer-color);
+    z-index: 2;
   }
 
   .print-fixed-disclaimer {
@@ -1287,11 +1310,11 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
     position: fixed;
     left: 0;
     right: 0;
-    bottom: 4mm;
+    bottom: 0;
     text-align: center;
     color: #ccc;
     font-size: 10px;
-    z-index: 2;
+    z-index: 3;
   }
 
   p,

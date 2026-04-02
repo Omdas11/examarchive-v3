@@ -15,7 +15,7 @@ const DATABASE_ID = "examarchive";
 const STANDARD_STRING_SIZE = 512;
 const FILENAME_SIZE = 512;
 const LARGE_STRING_SIZE = 8192;
-const TEXT_CHUNK_SIZE = 65535;
+const TEXT_CHUNK_SIZE = 1000000;
 const REFERRAL_CODE_SIZE = 6;
 const DATABASE_SCHEMA_DOC_PATH = path.resolve(__dirname, "../DATABASE_SCHEMA.md");
 const STATUS_BLOCK_START = "<!-- SCHEMA_SYNC_STATUS_START -->";
@@ -59,9 +59,15 @@ const DEFAULT_DATABASE_SCHEMA_MARKDOWN = `# DATABASE_SCHEMA
 |---|---|---|---|
 | \`id\` | String | **Yes** | Document ID |
 | \`paper_code\` | String | **Yes** | Paper code |
+| \`type\` | String | **Yes** | Cache type (\`solved_paper\` or \`unit_notes\`) |
+| \`year\` | String | No | Solved-paper exam year |
 | \`unit_number\` | Integer | **Yes** | Unit number |
+| \`part_number\` | Integer | No | Current part index for long generations |
 | \`generated_markdown\` | String | **Yes** | Cached stitched markdown |
+| \`syllabus_content\` | String | No | Cached syllabus bullets text for print cover |
 | \`created_at\` | Datetime | **Yes** | Cache creation timestamp |
+| \`status\` | String | **Yes** | Cache status (\`generating\` or \`completed\`) |
+| \`last_processed_index\` | Integer | No | Last processed question index for resume |
 
 ## Table: \`User_Quotas\`
 
@@ -277,11 +283,14 @@ const TARGET_SCHEMA = [
     name: "Generated_Notes_Cache",
     attributes: [
       { key: "paper_code", type: "string", required: true, size: 128 },
+      { key: "type", type: "string", required: true, size: 50 },
+      { key: "year", type: "string", required: false, size: 10 },
       { key: "unit_number", type: "integer", required: true },
+      { key: "part_number", type: "integer", required: false },
       { key: "generated_markdown", type: "string", required: true, size: TEXT_CHUNK_SIZE },
       { key: "syllabus_content", type: "string", required: false, size: TEXT_CHUNK_SIZE },
       { key: "created_at", type: "datetime", required: true },
-      { key: "status", type: "string", required: false, size: 32 },
+      { key: "status", type: "string", required: true, size: 50 },
       { key: "last_processed_index", type: "integer", required: false },
     ],
   },
