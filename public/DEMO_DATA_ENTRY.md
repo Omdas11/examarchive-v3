@@ -20,9 +20,9 @@ paper_name: Mechanics
 
 ## Questions
 
-| question_no | question_subpart | question_content | marks | tags |
-|---|---|---|---|---|
-| 1 | a | Define scalar and vector with examples. | 2 | vector,kinematics |
-| 1 | b | Derive equations of uniformly accelerated motion. | 5 | kinematics,motion |
-| 2 | a | Explain projectile motion and derive range equation. | 10 | projectile,relative-motion |
-| 3 | c | State Newton’s second law and discuss practical implications. | 5 | newton-laws,dynamics |
+| question_no | question_subpart | year | question_content | marks | tags |
+|---|---|---|---|---|---|
+| 1 | a | 2023 | Define scalar and vector with examples. | 2 | vector,kinematics |
+| 1 | b | 2023 | Derive equations of uniformly accelerated motion. | 5 | kinematics,motion |
+| 2 | a | 2022 | Explain projectile motion and derive range equation. | 10 | projectile,relative-motion |
+| 3 | c | 2021 | State Newton’s second law and discuss practical implications. | 5 | newton-laws,dynamics |

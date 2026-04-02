@@ -19,6 +19,7 @@ export interface ParsedSyllabusRow {
 export interface ParsedQuestionRow {
   question_no: string;
   question_subpart: string;
+  year?: number;
   question_content: string;
   marks?: number;
   tags: string[];
@@ -184,7 +185,13 @@ export function parseDemoDataEntryMarkdown(source: string): IngestionParseResult
     for (const { line, row } of rows) {
       const questionNo = (row.question_no || "").trim();
       const questionSubpart = (row.question_subpart || "").trim();
+      const yearRaw = (row.year || "").trim();
+      const year = yearRaw ? Number(yearRaw) : undefined;
       const questionContent = (row.question_content || "").trim();
+      if (yearRaw && (!Number.isInteger(year) || (year ?? 0) < 1900 || (year ?? 0) > 2100)) {
+        errors.push({ line, message: `Invalid year value "${yearRaw}".` });
+        continue;
+      }
       if (!questionNo) {
         errors.push({ line, message: "question_no is required." });
         continue;
@@ -207,6 +214,7 @@ export function parseDemoDataEntryMarkdown(source: string): IngestionParseResult
       questions.push({
         question_no: questionNo,
         question_subpart: questionSubpart,
+        year,
         question_content: questionContent,
         marks,
         tags: parseTags(row.tags || ""),

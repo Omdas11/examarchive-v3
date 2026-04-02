@@ -139,6 +139,9 @@ async function upsertQuestionRows(args: {
       question_content: row.question_content,
       tags: row.tags,
     };
+    if (typeof row.year === "number") {
+      payload.year = row.year;
+    }
     if (typeof row.marks === "number") {
       payload.marks = row.marks;
     }

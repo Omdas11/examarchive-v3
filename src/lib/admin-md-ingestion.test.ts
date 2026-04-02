@@ -18,9 +18,9 @@ paper_name: Mechanics
 
 ## Questions
 
-| question_no | question_subpart | question_content | marks | tags |
-|---|---|---|---|---|
-| 1 | a | Define displacement. | 2 | motion |
+    | question_no | question_subpart | year | question_content | marks | tags |
+    |---|---|---|---|---|---|
+    | 1 | a | 2023 | Define displacement. | 2 | motion |
 `;
 
     const parsed = parseDemoDataEntryMarkdown(markdown);
@@ -30,6 +30,7 @@ paper_name: Mechanics
     expect(parsed.questions).toHaveLength(1);
     expect(parsed.syllabus[0]?.tags).toEqual(["motion", "vector"]);
     expect(parsed.questions[0]?.tags).toEqual(["motion"]);
+    expect(parsed.questions[0]?.year).toBe(2023);
   });
 
   it("reports deterministic line-level errors for invalid rows", () => {
@@ -47,14 +48,16 @@ paper_name: Mechanics
 | x |  | abc | |
 
 ## Questions
-| question_no | question_subpart | question_content | marks | tags |
-|---|---|---|---|---|
-|  | b |  | -1 | |
+    | question_no | question_subpart | year | question_content | marks | tags |
+    |---|---|---|---|---|---|
+    |  | b | 2200 |  | -1 | |
+    |  | c | 2023 | Valid body | 2 | |
 `;
 
     const parsed = parseDemoDataEntryMarkdown(markdown);
     expect(parsed.errors.length).toBeGreaterThan(0);
     expect(parsed.errors.some((err) => err.message.includes("Invalid unit_number"))).toBe(true);
+    expect(parsed.errors.some((err) => err.message.includes("Invalid year value"))).toBe(true);
     expect(parsed.errors.some((err) => err.message.includes("question_no is required"))).toBe(true);
   });
 });

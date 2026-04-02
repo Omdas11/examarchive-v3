@@ -44,7 +44,8 @@ describe("AI content print/mobile styles", () => {
   });
 
   it("applies compact margins and uses a DOM watermark in print", () => {
-    expect(css).toMatch(/@page\s*\{\s*margin:\s*12mm;\s*\}/);
+    expect(css).toMatch(/@page\s*\{[\s\S]*?margin:\s*20mm;[\s\S]*?\}/);
+    expect(css).toMatch(/@page\s*\{[\s\S]*?@bottom-right\s*\{[\s\S]*?content:\s*"Page "\s*counter\(page\);[\s\S]*?\}[\s\S]*?\}/);
     expect(css).toMatch(/@media print[\s\S]*?:root\s*\{[\s\S]*?--print-watermark-image:\s*url\((["'])data:image\/svg\+xml(?:;utf8)?,[\s\S]*?\1\);\s*[\s\S]*?\}/);
     expect(css).toMatch(/@media print[\s\S]*?#printable-exam-notes\s*\{[\s\S]*?padding:\s*0 !important;[\s\S]*?\}/);
     expect(css).toMatch(/@media print[\s\S]*?#printable-exam-notes\s*\{[\s\S]*?background:\s*transparent !important;[\s\S]*?\}/);
@@ -70,7 +71,22 @@ describe("AI content print/mobile styles", () => {
 
   it("keeps print footer visible and break-safe in print media", () => {
     expect(css).toMatch(
-      /@media print[\s\S]*?\.print-footer\s*\{[\s\S]*?page-break-inside:\s*avoid;[\s\S]*?display:\s*block !important;[\s\S]*?margin-top:\s*40px !important;[\s\S]*?\}/
+      /@media print[\s\S]*?\.print-footer\s*\{[\s\S]*?page-break-inside:\s*avoid;[\s\S]*?display:\s*block !important;[\s\S]*?margin-top:\s*auto !important;[\s\S]*?\}/
     );
+  });
+
+  it("prevents page break between print header and content", () => {
+    expect(css).toMatch(
+      /@media print[\s\S]*?\.print-header\s*\{[\s\S]*?page-break-after:\s*avoid !important;[\s\S]*?break-after:\s*avoid !important;[\s\S]*?\}/
+    );
+    expect(css).toMatch(
+      /@media print[\s\S]*?\.print-content\s*\{[\s\S]*?page-break-before:\s*avoid !important;[\s\S]*?break-before:\s*avoid !important;[\s\S]*?\}/
+    );
+  });
+
+  it("defines print syllabus and disclaimer styles", () => {
+    expect(css).toMatch(/\.print-syllabus-block\s*\{\s*margin-top:\s*0\.75rem;\s*\}/);
+    expect(css).toMatch(/\.print-syllabus-list\s*\{[\s\S]*?padding-left:\s*1\.2rem;[\s\S]*?\}/);
+    expect(css).toMatch(/@media print[\s\S]*?\.print-fixed-disclaimer\s*\{[\s\S]*?position:\s*fixed;[\s\S]*?bottom:\s*4mm;[\s\S]*?color:\s*#ccc;[\s\S]*?font-size:\s*10px;[\s\S]*?\}/);
   });
 });

@@ -4,6 +4,8 @@ import { adminDatabases, COLLECTION, DATABASE_ID, ID, Query } from "@/lib/appwri
 import { getDailyLimit } from "@/lib/ai-limits";
 import { GeminiServiceError, runGeminiCompletion } from "@/lib/gemini";
 import { readMasterNotesPrompt } from "@/lib/master-notes-prompt";
+import { checkAndResetQuotas } from "@/lib/user-quotas";
+import { NOTES_DAILY_LIMIT, PAPERS_DAILY_LIMIT } from "@/lib/quota-config";
 
 type GenerateNotesBody = {
   university?: string;
@@ -67,6 +69,7 @@ export async function GET(request: NextRequest) {
   const dailyLimit = getDailyLimit();
   const used = isAdminPlus(user.role) ? 0 : await getDailyCount(user.id, todayStr);
   const remaining = isAdminPlus(user.role) ? null : Math.max(0, dailyLimit - used);
+  const quota = await checkAndResetQuotas(user.id);
 
   const { searchParams } = new URL(request.url);
   const university = (searchParams.get("university") || "Assam University").trim();
@@ -79,26 +82,66 @@ export async function GET(request: NextRequest) {
     if (type) queries.push(Query.equal("type", type));
 
     const db = adminDatabases();
-    const { documents } = await db.listDocuments(DATABASE_ID, COLLECTION.syllabus_table, queries);
-    const paperCodes = Array.from(
-      new Set(
-        documents
-          .map((doc) => (typeof doc.paper_code === "string" ? doc.paper_code.trim() : ""))
-          .filter(Boolean),
-      ),
-    );
+    const [{ documents }, questionDocsRes] = await Promise.all([
+      db.listDocuments(DATABASE_ID, COLLECTION.syllabus_table, queries),
+      db.listDocuments(DATABASE_ID, COLLECTION.questions_table, [
+        Query.equal("university", university),
+        ...(course ? [Query.equal("course", course)] : []),
+        ...(type ? [Query.equal("type", type)] : []),
+        Query.limit(1000),
+      ]),
+    ]);
+    const papersMap = new Map<string, string>();
+    for (const doc of documents) {
+      const code = typeof doc.paper_code === "string" ? doc.paper_code.trim() : "";
+      if (!code) continue;
+      const name = typeof doc.paper_name === "string" ? doc.paper_name.trim() : "";
+      if (!papersMap.has(code)) papersMap.set(code, name || code);
+    }
+    const papers = Array.from(papersMap.entries()).map(([code, name]) => ({ code, name }));
+    const paperCodes = papers.map((paper) => paper.code);
+    const yearsByPaperCode: Record<string, number[]> = {};
+    for (const questionDoc of questionDocsRes.documents) {
+      const code = typeof questionDoc.paper_code === "string" ? questionDoc.paper_code.trim() : "";
+      if (!code) continue;
+      const yearRaw = questionDoc.year;
+      const year =
+        typeof yearRaw === "number"
+          ? yearRaw
+          : typeof yearRaw === "string"
+            ? Number(yearRaw)
+            : NaN;
+      if (!Number.isInteger(year)) continue;
+      if (!yearsByPaperCode[code]) yearsByPaperCode[code] = [];
+      if (!yearsByPaperCode[code].includes(year)) yearsByPaperCode[code].push(year);
+    }
+    for (const code of Object.keys(yearsByPaperCode)) {
+      yearsByPaperCode[code]?.sort((a, b) => b - a);
+    }
 
     return NextResponse.json({
       remaining,
       limit: isAdminPlus(user.role) ? null : dailyLimit,
+      notesRemaining: isAdminPlus(user.role) ? null : Math.max(0, NOTES_DAILY_LIMIT - quota.notes_generated_today),
+      papersRemaining: isAdminPlus(user.role) ? null : Math.max(0, PAPERS_DAILY_LIMIT - quota.papers_solved_today),
+      notesDailyLimit: isAdminPlus(user.role) ? null : NOTES_DAILY_LIMIT,
+      papersDailyLimit: isAdminPlus(user.role) ? null : PAPERS_DAILY_LIMIT,
       paperCodes,
+      papers,
+      yearsByPaperCode,
     });
   } catch (error) {
     console.error("[generate-notes] Failed to load options:", error);
     return NextResponse.json({
       remaining,
       limit: isAdminPlus(user.role) ? null : dailyLimit,
+      notesRemaining: isAdminPlus(user.role) ? null : Math.max(0, NOTES_DAILY_LIMIT - quota.notes_generated_today),
+      papersRemaining: isAdminPlus(user.role) ? null : Math.max(0, PAPERS_DAILY_LIMIT - quota.papers_solved_today),
+      notesDailyLimit: isAdminPlus(user.role) ? null : NOTES_DAILY_LIMIT,
+      papersDailyLimit: isAdminPlus(user.role) ? null : PAPERS_DAILY_LIMIT,
       paperCodes: [],
+      papers: [],
+      yearsByPaperCode: {},
     });
   }
 }
@@ -210,7 +253,7 @@ ${formattedQuestions || "No related questions found."}
     const gemini = await runGeminiCompletion({
       apiKey: geminiApiKey,
       prompt,
-      maxTokens: 3500,
+      maxTokens: 8192,
       temperature: 0.4,
       model: "gemini-3.1-flash-lite-preview",
     });
@@ -223,6 +266,7 @@ ${formattedQuestions || "No related questions found."}
     return NextResponse.json({
       markdown: gemini.content,
       model: gemini.model,
+      syllabusContent: syllabusContent,
       remaining,
     });
   } catch (error) {
