@@ -30,6 +30,16 @@
 | `marks` | Integer | No | Marks |
 | `tags` | String | No | Topic tags |
 
+## Table: `Generated_Notes_Cache`
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `id` | String | **Yes** | Document ID |
+| `paper_code` | String | **Yes** | Paper code |
+| `unit_number` | Integer | **Yes** | Unit number |
+| `generated_markdown` | String | **Yes** | Cached stitched markdown |
+| `created_at` | Datetime | **Yes** | Cache creation timestamp |
+
 ---
 
 <!-- SCHEMA_SYNC_STATUS_START -->

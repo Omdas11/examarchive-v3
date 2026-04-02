@@ -21,6 +21,7 @@ const PROTECTED_PATHS = [
   "/api/devtool",
   "/api/ai",
   "/api/generate-notes",
+  "/api/generate-notes-stream",
 ];
 
 export async function middleware(request: NextRequest) {
