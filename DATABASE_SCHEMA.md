@@ -75,15 +75,15 @@ _This section is updated by `scripts/sync-appwrite-schema.js` when run with `--u
 | `ai_embeddings` | ⚠️ Connected with differences | 0 | collection existed; 0/11 missing attrs created; 8 attr definition mismatch(es) |
 | `pdf_usage` | ✅ Perfectly connected | 0 | collection existed; 0/2 missing attrs created; no mismatches detected |
 | `Syllabus_Table` | ✅ Perfectly connected | 0 | collection existed; 0/9 missing attrs created; no mismatches detected |
-| `Questions_Table` | ✅ Perfectly connected | 1 | collection existed; 1/12 missing attrs created; no mismatches detected |
-| `Generated_Notes_Cache` | ✅ Perfectly connected | 7 | collection created; 6/6 missing attrs created; no mismatches detected |
-| `User_Quotas` | ✅ Perfectly connected | 6 | collection created; 5/5 missing attrs created; no mismatches detected |
+| `Questions_Table` | ✅ Perfectly connected | 0 | collection existed; 0/12 missing attrs created; no mismatches detected |
+| `Generated_Notes_Cache` | ✅ Perfectly connected | 2 | collection existed; 2/8 missing attrs created; no mismatches detected |
+| `User_Quotas` | ✅ Perfectly connected | 0 | collection existed; 0/5 missing attrs created; no mismatches detected |
 
 <!-- SCHEMA_SYNC_STATUS_END -->
 
 ---
 ### Sync Remarks (Auto-Generated)
-**Last Synced:** 2026-04-02T06:10:11.323Z
+**Last Synced:** 2026-04-02T12:56:49.375Z
 **Overall Status:** Partial
 **Connected:**
 - feedback updated successfully.
