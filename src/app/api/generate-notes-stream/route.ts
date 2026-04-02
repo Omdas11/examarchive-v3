@@ -6,8 +6,9 @@ import { GeminiServiceError, runGeminiCompletion } from "@/lib/gemini";
 import { readTopicNotesPrompt } from "@/lib/topic-notes-prompt";
 
 const TOPIC_MAX_ATTEMPTS = 3;
-const RETRY_BACKOFF_MS = 1200;
+const EMPTY_RESPONSE_RETRY_MS = 2000;
 const TOPIC_LOOP_DELAY_MS = 4500;
+const MIN_TOPIC_RESPONSE_CHARS = 50;
 
 function isAdminPlus(role: string): boolean {
   return role === "admin" || role === "founder";
@@ -52,6 +53,14 @@ function cleanGeneratedTopicMarkdown(topic: string, markdown: string): string {
     return trimmed.split("\n").slice(1).join("\n").trim();
   }
   return trimmed;
+}
+
+function stripPromptLeakToFirstHeading(markdown: string): string {
+  const trimmed = markdown.trim();
+  if (!trimmed) return "";
+  const firstHeadingIndex = trimmed.search(/^#{1,2}\s+.+/m);
+  if (firstHeadingIndex < 0) return trimmed;
+  return trimmed.slice(firstHeadingIndex).trim();
 }
 
 function ensureTopicMarkdownHeader(topic: string, markdown: string): string {
@@ -281,7 +290,7 @@ All Questions for this Unit:
 ${formattedQuestions || "No related questions found."}
 `;
 
-          let result: Awaited<ReturnType<typeof runGeminiCompletion>> | null = null;
+          let aiResponseText = "";
           let lastTopicError: GeminiServiceError | null = null;
 
           for (let attempt = 1; attempt <= TOPIC_MAX_ATTEMPTS; attempt++) {
@@ -296,49 +305,58 @@ ${formattedQuestions || "No related questions found."}
                 }));
               }
 
-              result = await runGeminiCompletion({
+              const result = await runGeminiCompletion({
                 apiKey: geminiApiKey,
                 prompt,
                 maxTokens: 8192,
                 temperature: 0.4,
                 model,
               });
-              lastTopicError = null;
-              break;
-            } catch (error) {
-              if (!(error instanceof GeminiServiceError)) throw error;
-              lastTopicError = error;
-              if (attempt < TOPIC_MAX_ATTEMPTS) {
-                await sleep(attempt * RETRY_BACKOFF_MS);
+              const candidate = String(result.content ?? "").trim();
+              if (candidate.length > MIN_TOPIC_RESPONSE_CHARS) {
+                aiResponseText = candidate;
+                lastTopicError = null;
+                break;
               }
-            }
-          }
-
-          if (!result) {
-            const message = lastTopicError?.message || "Unknown generation error";
-            const isEmptyResponse = /empty response/i.test(message);
-            if (isEmptyResponse) {
               controller.enqueue(toSseData({
                 event: "progress",
-                status: `Topic ${index + 1} returned an empty response after retries. Continuing with remaining topics...`,
+                status: `Topic ${index + 1} returned a short/empty response. Retrying...`,
                 topic,
                 index: index + 1,
                 total: subTopics.length,
               }));
-              const fallbackMarkdown = [
-                `## ${topic}`,
-                "",
-                "> ⚠️ This topic could not be generated because the model returned an empty response after multiple retries.",
-                "> Remaining topics were generated normally.",
-              ].join("\n");
-              if (masterMarkdown) masterMarkdown += "\n\n---\n\n";
-              masterMarkdown += fallbackMarkdown;
-              continue;
+            } catch (error) {
+              if (!(error instanceof GeminiServiceError)) throw error;
+              lastTopicError = error;
             }
-            throw lastTopicError;
+            if (attempt < TOPIC_MAX_ATTEMPTS) {
+              await sleep(EMPTY_RESPONSE_RETRY_MS);
+            }
           }
 
-          const cleanedTopicMarkdown = cleanGeneratedTopicMarkdown(topic, result.content);
+          if (!aiResponseText) {
+            if (lastTopicError && !/empty response/i.test(lastTopicError.message)) throw lastTopicError;
+            controller.enqueue(toSseData({
+              event: "progress",
+              status: `Topic ${index + 1} could not be generated after retries. Continuing...`,
+              topic,
+              index: index + 1,
+              total: subTopics.length,
+            }));
+            const fallbackReason = "the model returned insufficient content after multiple retries.";
+            const fallbackMarkdown = [
+              `## ${topic}`,
+              "",
+              `> *Note: ExamArchive could not generate exhaustive notes for this specific sub-topic because ${fallbackReason} Please refer to standard texts for: ${topic}*`,
+            ].join("\n");
+            if (masterMarkdown) masterMarkdown += "\n\n---\n\n";
+            masterMarkdown += fallbackMarkdown;
+            await sleep(TOPIC_LOOP_DELAY_MS);
+            continue;
+          }
+
+          const leakStrippedMarkdown = stripPromptLeakToFirstHeading(aiResponseText);
+          const cleanedTopicMarkdown = cleanGeneratedTopicMarkdown(topic, leakStrippedMarkdown);
           const normalizedTopicMarkdown = ensureTopicMarkdownHeader(topic, cleanedTopicMarkdown);
           if (masterMarkdown) masterMarkdown += "\n\n---\n\n";
           masterMarkdown += normalizedTopicMarkdown;

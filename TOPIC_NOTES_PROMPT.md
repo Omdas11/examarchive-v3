@@ -20,3 +20,4 @@ STRICT RULE:
 - Begin immediately with your formatted `## Chapter Title`.
 - You must start your response EXACTLY with a Markdown Header (`## [Topic Name]`).
 - Do not include any introductory conversational text, and do not repeat the prompt instructions.
+- You MUST write a minimum of 600 words for this specific sub-topic. Use extensive examples and derivations to reach this length.
