@@ -125,7 +125,7 @@ export default function AIContentClient() {
 
   async function fetchSolvedPaperMeta(params: URLSearchParams): Promise<{ totalQuestions: number; totalParts: number; etaMinutes: number }> {
     const res = await fetch(`/api/generate-solved-paper-stream?${params.toString()}&meta=1`, { cache: "no-store" });
-    if (!res.ok) throw new Error("Failed to calculate ETA.");
+    if (!res.ok) throw new Error(`Failed to calculate ETA (status ${res.status}).`);
     const data = await res.json();
     const totalQuestions = typeof data.totalQuestions === "number" ? data.totalQuestions : 0;
     const computedParts =
@@ -174,7 +174,15 @@ export default function AIContentClient() {
       }
 
       if (eventType === "handoff" && data.action === "auto_continue") {
-        const nextPart = typeof data.nextPart === "number" && data.nextPart > part ? data.nextPart : part + 1;
+        const sequentialNextPart = part + 1;
+        let nextPart = sequentialNextPart;
+        if (typeof data.nextPart === "number") {
+          if (data.nextPart > part) {
+            nextPart = data.nextPart;
+          } else {
+            console.warn("[ai-content] Invalid nextPart in auto_continue event. Falling back to sequential chaining.");
+          }
+        }
         if (typeof data.totalParts === "number") setTotalParts(data.totalParts);
         setStreamingTextActive(false);
         closeEventSource();
@@ -516,7 +524,7 @@ export default function AIContentClient() {
               )}
               {activeTab === "papers" && etaMinutes !== null && (
                 <p className="mt-1 text-xs text-on-surface-variant">
-                  Estimated time remaining: ~{Math.max(1, etaMinutes - Math.floor(elapsedSeconds / 60))} minutes.
+                  Estimated time remaining: ~{Math.max(1, totalParts - currentPart + 1) * 5} minutes.
                 </p>
               )}
               <p className="mt-1 text-xs text-on-surface-variant">⏱️ Elapsed Time: {formatElapsedTime(elapsedSeconds)}</p>

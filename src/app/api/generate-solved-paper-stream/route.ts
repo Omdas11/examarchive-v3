@@ -165,12 +165,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
   const { searchParams } = new URL(request.url);
-  const metaOnly = searchParams.get("meta") === "1";
-  const partValue = normalizeNumber(searchParams.get("part"));
-  const part = partValue === null ? 1 : partValue;
-  if (!Number.isInteger(part) || part < 1) {
-    return NextResponse.json({ error: "Invalid part. part must be a positive integer." }, { status: 400 });
+  const metaFlag = (searchParams.get("meta") || "").toLowerCase();
+  const metaOnly = metaFlag === "1" || metaFlag === "true";
+  const partParam = searchParams.get("part");
+  const parsedPart = partParam === null ? 1 : Number(partParam);
+  if (!Number.isInteger(parsedPart) || parsedPart < 1) {
+    return NextResponse.json({ error: "Invalid part parameter. Must be a positive integer." }, { status: 400 });
   }
+  const part = parsedPart;
 
   const isAdminPlus = user.role === "admin" || user.role === "founder";
   const quota = await checkAndResetQuotas(user.id);
@@ -284,6 +286,11 @@ export async function GET(request: NextRequest) {
           return;
         }
         const totalParts = Math.max(1, Math.ceil(allQuestions.length / PART_SIZE));
+        if (part > totalParts) {
+          controller.enqueue(toSseData({ event: "error", error: `Invalid part ${part}. Last available part is ${totalParts}.` }));
+          closeStream();
+          return;
+        }
         const requestedStartIndex = (part - 1) * PART_SIZE;
         const requestedEndIndex = Math.min(requestedStartIndex + PART_SIZE, allQuestions.length);
 
@@ -309,7 +316,10 @@ export async function GET(request: NextRequest) {
             ? checkpoint.lastProcessedIndex
             : INITIAL_LAST_PROCESSED_INDEX;
         const resumeStartIndex = lastProcessedIndex + 1;
-        const startIndex = checkpoint?.status === GENERATING_STATUS ? Math.max(0, resumeStartIndex) : requestedStartIndex;
+        // When resuming an interrupted generation, never go backwards.
+        const startIndex = checkpoint?.status === GENERATING_STATUS
+          ? Math.max(0, resumeStartIndex, requestedStartIndex)
+          : requestedStartIndex;
         const endIndex = Math.min(Math.max(startIndex, requestedEndIndex), allQuestions.length);
         const isLastPart = endIndex >= allQuestions.length;
         let checkpointId =
