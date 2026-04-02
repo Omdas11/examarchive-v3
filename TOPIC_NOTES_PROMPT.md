@@ -28,7 +28,7 @@ STRICT RULE:
 - When proving vector triple products (like the BAC-CAB rule), you must write out the full $x, y, z$ component multiplications manually. Do not use shortcuts.
 - Do not replace mathematical steps with explanatory text like "by symmetry, the terms cancel out." You must explicitly write out the expanded equation showing the positive and negative terms cancelling each other out.
 - You must NEVER write a multi-step mathematical derivation in a single paragraph. Every single step of an equation or proof MUST be written as a block equation using `$$`.
-- You must place a double line break (`\n\n`) before and after every single block equation. Do not chain equations together with text on the same line.
+- You must place a blank line (two consecutive newlines) before and after every single block equation. Do not chain equations together with text on the same line.
 - Only use inline math (`$`) for single variables (like `$x$` or `$\vec{A}$`) or very short, simple expressions mentioned in passing. If an equation has an equals sign (`=`), it should be written on its own line as a block equation.
 - Correct formatting example:
   The scalar product is defined as:
