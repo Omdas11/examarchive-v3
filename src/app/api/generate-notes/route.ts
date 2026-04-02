@@ -227,6 +227,7 @@ ${formattedQuestions || "No related questions found."}
     return NextResponse.json({
       markdown: gemini.content,
       model: gemini.model,
+      syllabusContent: syllabusContent,
       remaining,
     });
   } catch (error) {

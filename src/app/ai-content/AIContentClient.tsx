@@ -39,6 +39,7 @@ export default function AIContentClient() {
   const [paperNameMap, setPaperNameMap] = useState<Record<string, string>>({});
   const [printInstructionsOpen, setPrintInstructionsOpen] = useState(false);
   const [generatedAtLabel, setGeneratedAtLabel] = useState("");
+  const [syllabusContent, setSyllabusContent] = useState("");
   const [progressStatus, setProgressStatus] = useState("");
   const [progressTopic, setProgressTopic] = useState("");
   const [progressIndex, setProgressIndex] = useState(0);
@@ -118,6 +119,7 @@ export default function AIContentClient() {
       if (eventType === "done") {
         finished = true;
         setMarkdown(typeof data.markdown === "string" ? data.markdown : "");
+        setSyllabusContent(typeof data.syllabus_content === "string" ? data.syllabus_content : "");
         setGeneratedAtLabel(new Date().toLocaleString());
         setModel(typeof data.model === "string" ? data.model : "");
         if (typeof data.remaining === "number" || data.remaining === null) {
@@ -196,6 +198,9 @@ export default function AIContentClient() {
             if (current && options.includes(current)) return current;
             return options[0] || current;
           });
+        }
+        if (typeof data.syllabusContent === "string") {
+          setSyllabusContent(data.syllabusContent);
         }
       })
       .catch(() => {})
@@ -347,6 +352,7 @@ export default function AIContentClient() {
       />
       <PrintableNotesDocument
         markdown={markdown}
+        syllabusContent={syllabusContent}
         paperName={selectedPaperName}
         paperCode={paperCode}
         generatedAt={generatedAtLabel}

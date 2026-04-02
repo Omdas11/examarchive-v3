@@ -219,6 +219,7 @@ export async function GET(request: NextRequest) {
             model: "cache",
             remaining,
             cached: true,
+            syllabus_content: "",
           }));
           closeStream();
           return;
@@ -370,7 +371,13 @@ ${formattedQuestions || "No related questions found."}
           await recordGeneration(user.id, todayStr);
         }
         const remaining = isAdminPlus(user.role) ? null : Math.max(0, dailyLimit - (usedBefore + 1));
-        controller.enqueue(toSseData({ event: "done", markdown: masterMarkdown, model, remaining }));
+        controller.enqueue(toSseData({
+          event: "done",
+          markdown: masterMarkdown,
+          model,
+          remaining,
+          syllabus_content: syllabusContent,
+        }));
       } catch (error) {
         if (error instanceof GeminiServiceError) {
           const message =

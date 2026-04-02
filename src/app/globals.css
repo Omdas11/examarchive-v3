@@ -1023,6 +1023,21 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
   font-size: 0.85rem;
   color: #4b5563;
 }
+.print-syllabus-block {
+  margin-top: 0.75rem;
+}
+.print-syllabus-title {
+  margin: 0 0 0.35rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+.print-syllabus-list {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+.print-syllabus-list li + li {
+  margin-top: 0.2rem;
+}
 .print-footer {
   margin-top: auto;
   padding-top: 1rem;
@@ -1030,6 +1045,9 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
   font-size: 0.82rem;
   line-height: 1.45;
   color: #374151;
+}
+.print-fixed-disclaimer {
+  display: none;
 }
 .print-body > * {
   break-inside: auto;
@@ -1050,7 +1068,10 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
 }
 
 @page {
-  margin: 12mm;
+  margin: 20mm;
+  @bottom-right {
+    content: "Page " counter(page);
+  }
 }
 
 @media print {
@@ -1244,6 +1265,18 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
     margin-top: auto !important;
     position: relative;
     z-index: 1;
+  }
+
+  .print-fixed-disclaimer {
+    display: block !important;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 4mm;
+    text-align: center;
+    color: #ccc;
+    font-size: 10px;
+    z-index: 2;
   }
 
   p,

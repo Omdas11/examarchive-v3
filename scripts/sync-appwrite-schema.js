@@ -48,6 +48,7 @@ const DEFAULT_DATABASE_SCHEMA_MARKDOWN = `# DATABASE_SCHEMA
 | \`paper_name\` | String | No | Paper name |
 | \`question_no\` | String | No | Question number |
 | \`question_subpart\` | String | No | Subpart label |
+| \`year\` | Integer | No | Exam year |
 | \`question_content\` | String | **Yes** | Question content |
 | \`marks\` | Integer | No | Marks |
 | \`tags\` | String | No | Topic tags |
@@ -255,6 +256,7 @@ const TARGET_SCHEMA = [
       { key: "paper_name", type: "string", required: false, size: 256 },
       { key: "question_no", type: "string", required: false, size: 32 },
       { key: "question_subpart", type: "string", required: false, size: 32 },
+      { key: "year", type: "integer", required: false },
       { key: "question_content", type: "string", required: true, size: TEXT_CHUNK_SIZE },
       { key: "marks", type: "integer", required: false },
       { key: "tags", type: "string", required: false, size: 128, array: true },

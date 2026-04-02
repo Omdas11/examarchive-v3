@@ -26,6 +26,7 @@
 | `paper_name` | String | No | Paper name |
 | `question_no` | String | No | Question number |
 | `question_subpart` | String | No | Subpart label |
+| `year` | Integer | No | Exam year |
 | `question_content` | String | **Yes** | Question content |
 | `marks` | Integer | No | Marks |
 | `tags` | String | No | Topic tags |
