@@ -77,24 +77,21 @@ _This section is updated by `scripts/sync-appwrite-schema.js` when run with `--u
 | `ai_usage` | ✅ Perfectly connected | 0 | collection existed; 0/2 missing attrs created; no mismatches detected |
 | `ai_embeddings` | ⚠️ Connected with differences | 0 | collection existed; 0/11 missing attrs created; 8 attr definition mismatch(es) |
 | `pdf_usage` | ✅ Perfectly connected | 0 | collection existed; 0/2 missing attrs created; no mismatches detected |
-| `Syllabus_Table` | ✅ Perfectly connected | 0 | collection existed; 0/9 missing attrs created; no mismatches detected |
-| `Questions_Table` | ✅ Perfectly connected | 0 | collection existed; 0/12 missing attrs created; no mismatches detected |
-| `Generated_Notes_Cache` | ✅ Perfectly connected | 2 | collection existed; 2/8 missing attrs created; no mismatches detected |
+| `Syllabus_Table` | ⚠️ Connected with differences | 0 | collection existed; 0/9 missing attrs created; 1 attr definition mismatch(es) |
+| `Questions_Table` | ⚠️ Connected with differences | 0 | collection existed; 0/12 missing attrs created; 1 attr definition mismatch(es) |
+| `Generated_Notes_Cache` | ⚠️ Connected with differences | 3 | collection existed; 3/10 missing attrs created; 3 attr definition mismatch(es) |
 | `User_Quotas` | ✅ Perfectly connected | 0 | collection existed; 0/5 missing attrs created; no mismatches detected |
 
 <!-- SCHEMA_SYNC_STATUS_END -->
 
 ---
 ### Sync Remarks (Auto-Generated)
-**Last Synced:** 2026-04-02T12:56:49.375Z
+**Last Synced:** 2026-04-02T14:48:10.051Z
 **Overall Status:** Partial
 **Connected:**
 - feedback updated successfully.
 - ai_usage updated successfully.
 - pdf_usage updated successfully.
-- Syllabus_Table updated successfully.
-- Questions_Table updated successfully.
-- Generated_Notes_Cache updated successfully.
 - User_Quotas updated successfully.
 **Not Connected / Errors:**
 - papers has 10 mismatch(es).
@@ -105,3 +102,6 @@ _This section is updated by `scripts/sync-appwrite-schema.js` when run with `--u
 - achievements has 4 mismatch(es).
 - site_metrics has 1 mismatch(es).
 - ai_embeddings has 8 mismatch(es).
+- Syllabus_Table has 1 mismatch(es).
+- Questions_Table has 1 mismatch(es).
+- Generated_Notes_Cache has 3 mismatch(es).
