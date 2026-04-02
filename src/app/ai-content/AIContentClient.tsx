@@ -15,6 +15,7 @@ const UNIT_OPTIONS = [1, 2, 3, 4, 5];
 const BACKEND_PAPERS_MAX_DURATION_SECONDS = 300;
 const RESUME_TIMEOUT_BUFFER_SECONDS = 5;
 const TIMEOUT_THRESHOLD_SECONDS = BACKEND_PAPERS_MAX_DURATION_SECONDS - RESUME_TIMEOUT_BUFFER_SECONDS;
+const SOLVED_PAPER_PART_SIZE = 15;
 
 function LoadingDots() {
   return (
@@ -58,6 +59,10 @@ export default function AIContentClient() {
   const [progressTotal, setProgressTotal] = useState(0);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [canResumeGeneration, setCanResumeGeneration] = useState(false);
+  const [etaMinutes, setEtaMinutes] = useState<number | null>(null);
+  const [currentPart, setCurrentPart] = useState(1);
+  const [totalParts, setTotalParts] = useState(1);
+  const [streamingTextActive, setStreamingTextActive] = useState(false);
   const elapsedSecondsRef = useRef(0);
   const eventSourceRef = useRef<EventSource | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -107,33 +112,45 @@ export default function AIContentClient() {
     }
   }
 
-  async function generate() {
-    if (generating) return;
-    closeEventSource();
-    setGenerating(true);
-    setError(null);
-    setProgressStatus("Starting chunked generation...");
+  function resetProgressState() {
+    setGenerating(false);
+    setProgressStatus("");
     setProgressTopic("");
     setProgressIndex(0);
     setProgressTotal(0);
-    setCanResumeGeneration(false);
-    startTimer();
-    setMarkdown("");
-    setModel("");
-    const params = new URLSearchParams({
-      university,
-      course,
-      type,
-      paperCode,
-      ...(activeTab === "notes" ? { unitNumber: String(unitNumber) } : { year: String(selectedYear) }),
-    });
+    setStreamingTextActive(false);
+    stopTimer();
+    closeEventSource();
+  }
+
+  async function fetchSolvedPaperMeta(params: URLSearchParams): Promise<{ totalQuestions: number; totalParts: number; etaMinutes: number }> {
+    const res = await fetch(`/api/generate-solved-paper-stream?${params.toString()}&meta=1`, { cache: "no-store" });
+    if (!res.ok) throw new Error("Failed to calculate ETA.");
+    const data = await res.json();
+    const totalQuestions = typeof data.totalQuestions === "number" ? data.totalQuestions : 0;
+    const computedParts =
+      typeof data.totalParts === "number" && data.totalParts > 0
+        ? data.totalParts
+        : Math.max(1, Math.ceil(totalQuestions / SOLVED_PAPER_PART_SIZE));
+    const computedEta =
+      typeof data.etaMinutes === "number" && data.etaMinutes > 0
+        ? data.etaMinutes
+        : computedParts * 5;
+    return { totalQuestions, totalParts: computedParts, etaMinutes: computedEta };
+  }
+
+  function startGenerationStream(baseParams: URLSearchParams, part: number) {
+    setCurrentPart(part);
+    const streamParams = new URLSearchParams(baseParams.toString());
+    streamParams.set("part", String(part));
     const source = new EventSource(
       activeTab === "notes"
-        ? `/api/generate-notes-stream?${params.toString()}`
-        : `/api/generate-solved-paper-stream?${params.toString()}`,
+        ? `/api/generate-notes-stream?${streamParams.toString()}`
+        : `/api/generate-solved-paper-stream?${streamParams.toString()}`,
     );
     eventSourceRef.current = source;
     let finished = false;
+    setStreamingTextActive(true);
 
     source.onmessage = (event) => {
       let data: Record<string, unknown>;
@@ -151,11 +168,23 @@ export default function AIContentClient() {
         setProgressTopic(topic.length > 0 ? topic : question);
         setProgressIndex(typeof data.index === "number" ? data.index : 0);
         setProgressTotal(typeof data.total === "number" ? data.total : 0);
+        if (typeof data.part === "number") setCurrentPart(data.part);
+        if (typeof data.totalParts === "number") setTotalParts(data.totalParts);
+        return;
+      }
+
+      if (eventType === "handoff" && data.action === "auto_continue") {
+        const nextPart = typeof data.nextPart === "number" && data.nextPart > part ? data.nextPart : part + 1;
+        if (typeof data.totalParts === "number") setTotalParts(data.totalParts);
+        setStreamingTextActive(false);
+        closeEventSource();
+        startGenerationStream(baseParams, nextPart);
         return;
       }
 
       if (eventType === "done") {
         finished = true;
+        setStreamingTextActive(false);
         setMarkdown(typeof data.markdown === "string" ? data.markdown : "");
         setSyllabusContent(typeof data.syllabus_content === "string" ? data.syllabus_content : "");
         setGeneratedAtLabel(new Date().toLocaleString());
@@ -163,19 +192,15 @@ export default function AIContentClient() {
         if (typeof data.remaining === "number" || data.remaining === null) {
           setRemaining(data.remaining);
         }
+        if (typeof data.totalParts === "number") setTotalParts(data.totalParts);
+        if (typeof data.part === "number") setCurrentPart(data.part);
         const isCached = typeof data.cached === "boolean" && data.cached;
         if (!isCached && activeTab === "notes") {
           setNotesRemaining((prev) => (typeof prev === "number" ? Math.max(0, prev - 1) : prev));
         } else if (!isCached) {
           setPapersRemaining((prev) => (typeof prev === "number" ? Math.max(0, prev - 1) : prev));
         }
-        setGenerating(false);
-        setProgressStatus("");
-        setProgressTopic("");
-        setProgressIndex(0);
-        setProgressTotal(0);
-        stopTimer();
-        closeEventSource();
+        resetProgressState();
         return;
       }
 
@@ -188,13 +213,7 @@ export default function AIContentClient() {
           setCanResumeGeneration(true);
           showToast("Server timeout reached. Click Resume to continue from where it left off.", "warning");
         }
-        setGenerating(false);
-        setProgressStatus("");
-        setProgressTopic("");
-        setProgressIndex(0);
-        setProgressTotal(0);
-        stopTimer();
-        closeEventSource();
+        resetProgressState();
       }
     };
 
@@ -210,14 +229,45 @@ export default function AIContentClient() {
         setCanResumeGeneration(true);
         showToast("Server timeout reached. Click Resume to continue from where it left off.", "warning");
       }
-      setGenerating(false);
-      setProgressStatus("");
-      setProgressTopic("");
-      setProgressIndex(0);
-      setProgressTotal(0);
-      stopTimer();
-      closeEventSource();
+      resetProgressState();
     };
+  }
+
+  async function generate() {
+    if (generating) return;
+    closeEventSource();
+    setGenerating(true);
+    setError(null);
+    setProgressStatus("Starting chunked generation...");
+    setProgressTopic("");
+    setProgressIndex(0);
+    setProgressTotal(0);
+    setCanResumeGeneration(false);
+    setCurrentPart(1);
+    setTotalParts(1);
+    setEtaMinutes(null);
+    setStreamingTextActive(false);
+    startTimer();
+    setMarkdown("");
+    setModel("");
+    const params = new URLSearchParams({
+      university,
+      course,
+      type,
+      paperCode,
+      ...(activeTab === "notes" ? { unitNumber: String(unitNumber) } : { year: String(selectedYear) }),
+    });
+    try {
+      if (activeTab === "papers") {
+        const meta = await fetchSolvedPaperMeta(params);
+        setTotalParts(meta.totalParts);
+        setEtaMinutes(meta.etaMinutes);
+      }
+      startGenerationStream(params, 1);
+    } catch (streamError) {
+      setError(streamError instanceof Error ? streamError.message : "Generation failed.");
+      resetProgressState();
+    }
   }
 
   function handleDownloadPdfClick() {
@@ -459,6 +509,16 @@ export default function AIContentClient() {
               <p className="mt-2 text-xs text-on-surface-variant">
                 {progressTotal > 0 ? `Progress: ${progressIndex} / ${progressTotal}` : "Preparing generation chunks..."}
               </p>
+              {activeTab === "papers" && (
+                <p className="mt-1 text-xs text-on-surface-variant">
+                  Part: {currentPart} / {Math.max(1, totalParts)}
+                </p>
+              )}
+              {activeTab === "papers" && etaMinutes !== null && (
+                <p className="mt-1 text-xs text-on-surface-variant">
+                  Estimated time remaining: ~{Math.max(1, etaMinutes - Math.floor(elapsedSeconds / 60))} minutes.
+                </p>
+              )}
               <p className="mt-1 text-xs text-on-surface-variant">⏱️ Elapsed Time: {formatElapsedTime(elapsedSeconds)}</p>
             </div>
           )}
@@ -476,7 +536,7 @@ export default function AIContentClient() {
             For richer client-side export, use <strong>jsPDF + html2canvas</strong> or <strong>react-to-print</strong>.
           </p>
           {model && <p className="mb-2 text-xs text-on-surface-variant">Model: {model}</p>}
-          <div className="print-root markdown-preview rounded-xl border border-outline-variant/30 bg-surface-container-low p-4">
+          <div className={`print-root markdown-preview rounded-xl border border-outline-variant/30 bg-surface-container-low p-4 ${streamingTextActive ? "ai-streaming-text" : ""}`}>
             <MarkdownNotesRenderer
               markdown={markdown}
               emptyFallback={<p className="text-on-surface-variant">No output yet. Generate notes to preview them here.</p>}

@@ -10,6 +10,7 @@ import { checkAndResetQuotas, incrementQuotaCounter } from "@/lib/user-quotas";
 export const maxDuration = 300;
 
 const QUESTION_LOOP_DELAY_MS = 7000;
+const PART_SIZE = 15;
 const QUESTION_MAX_RETRIES = 4;
 const RATE_LIMIT_COOLDOWN_MS = 20000;
 const RETRY_ERROR_DELAY_MS = 4000;
@@ -163,9 +164,17 @@ export async function GET(request: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
+  const { searchParams } = new URL(request.url);
+  const metaOnly = searchParams.get("meta") === "1";
+  const partValue = normalizeNumber(searchParams.get("part"));
+  const part = partValue === null ? 1 : partValue;
+  if (!Number.isInteger(part) || part < 1) {
+    return NextResponse.json({ error: "Invalid part. part must be a positive integer." }, { status: 400 });
+  }
+
   const isAdminPlus = user.role === "admin" || user.role === "founder";
   const quota = await checkAndResetQuotas(user.id);
-  if (!isAdminPlus && quota.papers_solved_today >= 1) {
+  if (!metaOnly && !isAdminPlus && quota.papers_solved_today >= 1) {
     return NextResponse.json(
       { error: "Daily limit reached for Solved Papers (1/day)." },
       { status: 429 },
@@ -177,7 +186,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Gemini is not configured." }, { status: 503 });
   }
 
-  const { searchParams } = new URL(request.url);
   const university = (searchParams.get("university") || "Assam University").trim();
   const course = (searchParams.get("course") || "").trim();
   const type = (searchParams.get("type") || "").trim();
@@ -200,13 +208,40 @@ export async function GET(request: NextRequest) {
   const todayStr = new Date().toISOString().slice(0, 10);
   const dailyLimit = getDailyLimit();
   let usedBefore = 0;
-  if (!isAdminPlus) {
+  if (!metaOnly && !isAdminPlus) {
     usedBefore = await getDailyCount(user.id, todayStr);
     if (usedBefore >= dailyLimit) {
       return NextResponse.json(
         { error: "Generation quota exceeded.", code: "QUOTA_EXCEEDED", remaining: 0 },
         { status: 403 },
       );
+    }
+  }
+
+  if (metaOnly) {
+    try {
+      const db = adminDatabases();
+      const questionsRes = await db.listDocuments(DATABASE_ID, COLLECTION.questions_table, [
+        Query.equal("university", university),
+        Query.equal("course", course),
+        Query.equal("type", type),
+        Query.equal("paper_code", paperCode),
+        Query.equal("year", year),
+        Query.limit(500),
+      ]);
+      const totalQuestions = questionsRes.documents.filter((doc) =>
+        typeof doc.question_content === "string" && doc.question_content.trim().length > 0,
+      ).length;
+      const totalParts = Math.max(1, Math.ceil(totalQuestions / PART_SIZE));
+      return NextResponse.json({
+        totalQuestions,
+        partSize: PART_SIZE,
+        totalParts,
+        etaMinutes: totalParts * 5,
+      });
+    } catch (error) {
+      console.error("[generate-solved-paper-stream] Failed to read question metadata:", error);
+      return NextResponse.json({ error: "Failed to fetch solved-paper metadata." }, { status: 500 });
     }
   }
 
@@ -239,15 +274,18 @@ export async function GET(request: NextRequest) {
           Query.limit(500),
         ]);
 
-        const questions = questionsRes.documents.filter((doc) =>
+        const allQuestions = questionsRes.documents.filter((doc) =>
           typeof doc.question_content === "string" && doc.question_content.trim().length > 0,
         );
 
-        if (questions.length === 0) {
+        if (allQuestions.length === 0) {
           controller.enqueue(toSseData({ event: "error", error: "No questions found for the selected paper/year." }));
           closeStream();
           return;
         }
+        const totalParts = Math.max(1, Math.ceil(allQuestions.length / PART_SIZE));
+        const requestedStartIndex = (part - 1) * PART_SIZE;
+        const requestedEndIndex = Math.min(requestedStartIndex + PART_SIZE, allQuestions.length);
 
         const solvedPaperPromptTemplate = readSolvedPaperPrompt();
         const model = "gemini-3.1-flash-lite-preview";
@@ -258,7 +296,7 @@ export async function GET(request: NextRequest) {
             event: "done",
             markdown: checkpoint.markdown.trim(),
             model: "cache",
-            total: questions.length,
+            total: allQuestions.length,
             cached: true,
           }));
           closeStream();
@@ -270,8 +308,10 @@ export async function GET(request: NextRequest) {
           typeof checkpoint?.lastProcessedIndex === "number"
             ? checkpoint.lastProcessedIndex
             : INITIAL_LAST_PROCESSED_INDEX;
-        const nextIndex = lastProcessedIndex + 1;
-        const startIndex = Math.max(0, nextIndex);
+        const resumeStartIndex = lastProcessedIndex + 1;
+        const startIndex = checkpoint?.status === GENERATING_STATUS ? Math.max(0, resumeStartIndex) : requestedStartIndex;
+        const endIndex = Math.min(Math.max(startIndex, requestedEndIndex), allQuestions.length);
+        const isLastPart = endIndex >= allQuestions.length;
         let checkpointId =
           (await upsertSolvedPaperCheckpoint({
             checkpointId: checkpoint?.id ?? null,
@@ -287,30 +327,30 @@ export async function GET(request: NextRequest) {
             event: "progress",
             status: `Resuming generation from question ${startIndex + 1}...`,
             index: startIndex,
-            total: questions.length,
+            total: allQuestions.length,
           }));
         }
-        if (startIndex >= questions.length) {
+        if (startIndex >= allQuestions.length) {
           checkpointId = await upsertSolvedPaperCheckpoint({
             checkpointId,
             cachePaperCode,
             year,
             markdown: masterMarkdown,
             status: COMPLETED_STATUS,
-            lastProcessedIndex: questions.length - 1,
+            lastProcessedIndex: allQuestions.length - 1,
           });
           controller.enqueue(toSseData({
             event: "done",
             markdown: masterMarkdown.trim(),
             model: "cache",
-            total: questions.length,
+            total: allQuestions.length,
             cached: true,
           }));
           closeStream();
           return;
         }
 
-        for (const [offset, questionDoc] of questions.slice(startIndex).entries()) {
+        for (const [offset, questionDoc] of allQuestions.slice(startIndex, endIndex).entries()) {
           const index = startIndex + offset;
           const qNo = String(questionDoc.question_no ?? index + 1).trim();
           const qSub = typeof questionDoc.question_subpart === "string" ? questionDoc.question_subpart.trim() : "";
@@ -323,10 +363,12 @@ export async function GET(request: NextRequest) {
 
           controller.enqueue(toSseData({
             event: "progress",
-            status: `Searching web and solving ${qLabel} (${index + 1}/${questions.length})...`,
+            status: `Searching web and solving ${qLabel} (${index + 1}/${allQuestions.length})...`,
             index: index + 1,
-            total: questions.length,
+            total: allQuestions.length,
             question: qLabel,
+            part,
+            totalParts,
           }));
 
           const tavilyContext = await fetchTavilyContext(questionContent);
@@ -370,8 +412,10 @@ ${tavilyContext}
                   event: "progress",
                   status: "Rate limit hit. Cooling down for 20 seconds...",
                   index: index + 1,
-                  total: questions.length,
+                  total: allQuestions.length,
                   question: qLabel,
+                  part,
+                  totalParts,
                 }));
                 await sleep(RATE_LIMIT_COOLDOWN_MS);
               } else {
@@ -403,15 +447,30 @@ ${tavilyContext}
           cachePaperCode,
           year,
           markdown: masterMarkdown,
-          status: COMPLETED_STATUS,
+          status: isLastPart ? COMPLETED_STATUS : GENERATING_STATUS,
           lastProcessedIndex,
         });
+
+        if (!isLastPart) {
+          controller.enqueue(toSseData({
+            event: "handoff",
+            action: "auto_continue",
+            nextPart: part + 1,
+            part,
+            totalParts,
+            total: allQuestions.length,
+          }));
+          closeStream();
+          return;
+        }
 
         controller.enqueue(toSseData({
           event: "done",
           markdown: masterMarkdown.trim(),
           model,
-          total: questions.length,
+          total: allQuestions.length,
+          part,
+          totalParts,
         }));
         if (!isAdminPlus) {
           await recordGeneration(user.id, todayStr);
