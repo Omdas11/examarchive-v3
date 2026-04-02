@@ -270,7 +270,8 @@ export async function GET(request: NextRequest) {
           typeof checkpoint?.lastProcessedIndex === "number"
             ? checkpoint.lastProcessedIndex
             : INITIAL_LAST_PROCESSED_INDEX;
-        const startIndex = Math.max(0, Math.min(questions.length, lastProcessedIndex + 1));
+        const nextIndex = lastProcessedIndex + 1;
+        const startIndex = Math.max(0, nextIndex);
         let checkpointId =
           (await upsertSolvedPaperCheckpoint({
             checkpointId: checkpoint?.id ?? null,
@@ -278,7 +279,7 @@ export async function GET(request: NextRequest) {
             year,
             markdown: masterMarkdown,
             status: GENERATING_STATUS,
-            lastProcessedIndex: startIndex - 1,
+            lastProcessedIndex,
           })) ?? checkpoint?.id ?? null;
 
         if (checkpoint?.status === GENERATING_STATUS) {
@@ -403,7 +404,7 @@ ${tavilyContext}
           year,
           markdown: masterMarkdown,
           status: COMPLETED_STATUS,
-          lastProcessedIndex: Math.max(lastProcessedIndex, questions.length - 1),
+          lastProcessedIndex,
         });
 
         controller.enqueue(toSseData({

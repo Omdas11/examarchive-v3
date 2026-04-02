@@ -12,6 +12,9 @@ const COURSE_TYPES: Record<string, string[]> = {
   CBCS: ["DSC", "SEC"],
 };
 const UNIT_OPTIONS = [1, 2, 3, 4, 5];
+const BACKEND_PAPERS_MAX_DURATION_SECONDS = 300;
+const RESUME_TIMEOUT_BUFFER_SECONDS = 5;
+const TIMEOUT_THRESHOLD_SECONDS = BACKEND_PAPERS_MAX_DURATION_SECONDS - RESUME_TIMEOUT_BUFFER_SECONDS;
 
 function LoadingDots() {
   return (
@@ -55,6 +58,7 @@ export default function AIContentClient() {
   const [progressTotal, setProgressTotal] = useState(0);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [canResumeGeneration, setCanResumeGeneration] = useState(false);
+  const elapsedSecondsRef = useRef(0);
   const eventSourceRef = useRef<EventSource | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const selectedPaperName = paperNameMap[paperCode] || paperCode;
@@ -86,8 +90,13 @@ export default function AIContentClient() {
   function startTimer() {
     stopTimer();
     setElapsedSeconds(0);
+    elapsedSecondsRef.current = 0;
     timerRef.current = setInterval(() => {
-      setElapsedSeconds((prev) => prev + 1);
+      setElapsedSeconds((prev) => {
+        const next = prev + 1;
+        elapsedSecondsRef.current = next;
+        return next;
+      });
     }, 1000);
   }
 
@@ -172,7 +181,13 @@ export default function AIContentClient() {
 
       if (eventType === "error") {
         finished = true;
-        setError(typeof data.error === "string" ? data.error : "Generation failed.");
+        const errorMessage = typeof data.error === "string" ? data.error : "Generation failed.";
+        const shouldOfferResume = activeTab === "papers" && /timeout/i.test(errorMessage);
+        setError(errorMessage);
+        if (shouldOfferResume) {
+          setCanResumeGeneration(true);
+          showToast("Server timeout reached. Click Resume to continue from where it left off.", "warning");
+        }
         setGenerating(false);
         setProgressStatus("");
         setProgressTopic("");
@@ -185,7 +200,7 @@ export default function AIContentClient() {
 
     source.onerror = () => {
       if (finished) return;
-      const timeoutError = activeTab === "papers";
+      const timeoutError = activeTab === "papers" && elapsedSecondsRef.current >= TIMEOUT_THRESHOLD_SECONDS;
       setError(
         timeoutError
           ? "Server timeout reached. Click Resume to continue from where it left off."
