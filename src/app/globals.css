@@ -264,10 +264,25 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
   justify-content: center;
 }
 
+.ai-streaming-text {
+  background: linear-gradient(90deg, #333333 0%, #aaaaaa 50%, #333333 100%);
+  background-size: 200% auto;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: ai-streaming-shimmer 1.5s linear infinite;
+}
+
 /* ── Shimmer for skeleton loaders ── */
 @keyframes shimmer {
   0%   { transform: translateX(-100%); }
   100% { transform: translateX(100%); }
+}
+
+@keyframes ai-streaming-shimmer {
+  to {
+    background-position: 200% center;
+  }
 }
 
 /* ── Page fade-in ── */

@@ -37,12 +37,18 @@ function sanitizeUntrustedSnippet(value: string): string {
   return sanitized;
 }
 
-export async function runWebSearch(query: string, maxResults = MAX_SEARCH_RESULTS): Promise<WebSearchResult[]> {
+export async function runWebSearch(
+  query: string,
+  maxResults = MAX_SEARCH_RESULTS,
+  timeoutMs = 12_000,
+): Promise<WebSearchResult[]> {
   const apiKey = process.env.TAVILY_API_KEY?.trim();
   const endpoint = process.env.TAVILY_SEARCH_URL?.trim() || DEFAULT_SEARCH_URL;
   if (!apiKey || !query.trim()) return [];
 
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
     const response = await fetch(endpoint, {
       method: "POST",
       headers: {
@@ -55,8 +61,8 @@ export async function runWebSearch(query: string, maxResults = MAX_SEARCH_RESULT
         include_answer: false,
         include_raw_content: false,
       }),
-      signal: AbortSignal.timeout(12_000),
-    });
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timeoutId));
 
     if (!response.ok) {
       return [];

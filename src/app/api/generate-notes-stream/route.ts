@@ -6,10 +6,13 @@ import { GeminiServiceError, runGeminiCompletion } from "@/lib/gemini";
 import { readTopicNotesPrompt } from "@/lib/topic-notes-prompt";
 import { checkAndResetQuotas, incrementQuotaCounter } from "@/lib/user-quotas";
 
-const TOPIC_MAX_ATTEMPTS = 3;
 const EMPTY_RESPONSE_RETRY_MS = 2000;
-const TOPIC_LOOP_DELAY_MS = 4500;
+const TOPIC_LOOP_DELAY_MS = 7000;
 const MIN_TOPIC_RESPONSE_CHARS = 50;
+const TOPIC_RETRY_MAX = 4;
+const RATE_LIMIT_COOLDOWN_MS = 20000;
+const RETRY_ERROR_DELAY_MS = 4000;
+const HEARTBEAT_INTERVAL_MS = 15000;
 
 function isAdminPlus(role: string): boolean {
   return role === "admin" || role === "founder";
@@ -167,8 +170,19 @@ function toSseData(payload: Record<string, unknown>): Uint8Array {
   return new TextEncoder().encode(`data: ${JSON.stringify(payload)}\n\n`);
 }
 
+function toSseComment(comment: string): Uint8Array {
+  return new TextEncoder().encode(`: ${comment}\n\n`);
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRateLimitError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const status = "status" in error ? (error as { status?: unknown }).status : undefined;
+  const message = "message" in error ? String((error as { message?: unknown }).message ?? "") : "";
+  return status === 429 || message.includes("429");
 }
 
 async function getDailyCount(userId: string, todayStr: string): Promise<number> {
@@ -235,6 +249,14 @@ export async function GET(request: NextRequest) {
   const stream = new ReadableStream<Uint8Array>({
     start: async (controller) => {
       let isClosed = false;
+      const heartbeat = setInterval(() => {
+        if (isClosed) return;
+        try {
+          controller.enqueue(toSseComment("heartbeat"));
+        } catch {
+          clearInterval(heartbeat);
+        }
+      }, HEARTBEAT_INTERVAL_MS);
       const closeStream = () => {
         if (isClosed) return;
         isClosed = true;
@@ -336,14 +358,15 @@ ${formattedQuestions || "No related questions found."}
 `;
 
           let aiResponseText = "";
-          let lastTopicError: GeminiServiceError | null = null;
+          let retries = 0;
+          let hasReceivedShortResponse = false;
 
-          for (let attempt = 1; attempt <= TOPIC_MAX_ATTEMPTS; attempt++) {
+          while (retries < TOPIC_RETRY_MAX) {
             try {
-              if (attempt > 1) {
+              if (retries > 0) {
                 controller.enqueue(toSseData({
                   event: "progress",
-                  status: `Retrying topic ${index + 1} of ${subTopics.length} (attempt ${attempt}/${TOPIC_MAX_ATTEMPTS})...`,
+                  status: `Retrying topic ${index + 1} of ${subTopics.length} (attempt ${retries + 1}/${TOPIC_RETRY_MAX})...`,
                   topic,
                   index: index + 1,
                   total: subTopics.length,
@@ -360,9 +383,9 @@ ${formattedQuestions || "No related questions found."}
               const candidate = String(result.content ?? "").trim();
               if (candidate.length > MIN_TOPIC_RESPONSE_CHARS) {
                 aiResponseText = candidate;
-                lastTopicError = null;
                 break;
               }
+              if (candidate.length > 0) hasReceivedShortResponse = true;
               controller.enqueue(toSseData({
                 event: "progress",
                 status: `Topic ${index + 1} returned a short/empty response. Retrying...`,
@@ -371,16 +394,29 @@ ${formattedQuestions || "No related questions found."}
                 total: subTopics.length,
               }));
             } catch (error) {
-              if (!(error instanceof GeminiServiceError)) throw error;
-              lastTopicError = error;
+              if (isRateLimitError(error)) {
+                controller.enqueue(toSseData({
+                  event: "progress",
+                  status: "Rate limit hit. Cooling down for 20 seconds...",
+                  topic,
+                  index: index + 1,
+                  total: subTopics.length,
+                }));
+                await sleep(RATE_LIMIT_COOLDOWN_MS);
+              } else if (error instanceof GeminiServiceError) {
+                console.error("[generate-notes-stream] Gemini API error:", error);
+                await sleep(RETRY_ERROR_DELAY_MS);
+              } else {
+                throw error;
+              }
             }
-            if (attempt < TOPIC_MAX_ATTEMPTS) {
-              await sleep(EMPTY_RESPONSE_RETRY_MS);
+            retries += 1;
+            if (retries < TOPIC_RETRY_MAX) {
+              await sleep(hasReceivedShortResponse ? EMPTY_RESPONSE_RETRY_MS : RETRY_ERROR_DELAY_MS);
             }
           }
 
           if (!aiResponseText) {
-            if (lastTopicError && !/empty response/i.test(lastTopicError.message)) throw lastTopicError;
             controller.enqueue(toSseData({
               event: "progress",
               status: `Topic ${index + 1} could not be generated after retries. Continuing...`,
@@ -433,6 +469,7 @@ ${formattedQuestions || "No related questions found."}
           controller.enqueue(toSseData({ event: "error", error: "Failed to generate notes." }));
         }
       } finally {
+        clearInterval(heartbeat);
         closeStream();
       }
     },
