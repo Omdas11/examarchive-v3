@@ -25,6 +25,7 @@ const COMPLETED_STATUS = "completed";
 const INITIAL_LAST_PROCESSED_INDEX = -1;
 const ATTRIBUTE_AVAILABILITY_POLL_INTERVAL_MS = 300;
 const ATTRIBUTE_AVAILABILITY_TIMEOUT_MS = 12000;
+const SOLVED_PAPER_CACHE_TYPE = "solved_paper";
 
 type SolvedPaperCheckpoint = {
   id: string;
@@ -167,6 +168,57 @@ async function ensureSolvedPaperCacheSchema(): Promise<void> {
       INITIAL_LAST_PROCESSED_INDEX,
     ),
   );
+  await ensureAttribute("type", () =>
+    db.createStringAttribute(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      "type",
+      50,
+      true,
+      SOLVED_PAPER_CACHE_TYPE,
+    ),
+  );
+  await ensureAttribute("year", () =>
+    db.createStringAttribute(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      "year",
+      10,
+      false,
+      undefined,
+    ),
+  );
+  await ensureAttribute("part_number", () =>
+    db.createIntegerAttribute(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      "part_number",
+      false,
+      1,
+      1000,
+      1,
+    ),
+  );
+
+  try {
+    const markdownAttribute = await db.getAttribute(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      "generated_markdown",
+    );
+    if (
+      markdownAttribute.status === "available" &&
+      "size" in markdownAttribute &&
+      typeof markdownAttribute.size === "number" &&
+      markdownAttribute.size < 1_000_000
+    ) {
+      console.warn(
+        `[generate-solved-paper-stream] generated_markdown size is ${markdownAttribute.size}; recommended minimum is 1000000 for long stitched documents.`,
+      );
+    }
+  } catch (error) {
+    console.warn("[generate-solved-paper-stream] Unable to inspect generated_markdown attribute size:", error);
+  }
 }
 
 async function fetchTavilyContext(query: string): Promise<string> {
@@ -244,7 +296,9 @@ async function readSolvedPaperCheckpoint(
   try {
     const res = await db.listDocuments(DATABASE_ID, COLLECTION.generated_notes_cache, [
       Query.equal("paper_code", cachePaperCode),
+      Query.equal("type", SOLVED_PAPER_CACHE_TYPE),
       Query.equal("unit_number", year),
+      Query.equal("year", String(year)),
       Query.orderDesc("$createdAt"),
       Query.limit(1),
     ]);
@@ -265,6 +319,28 @@ async function readSolvedPaperCheckpoint(
   }
 }
 
+async function readCompletedSolvedPaperCache(cachePaperCode: string, year: number): Promise<string | null> {
+  const db = adminDatabases();
+  try {
+    const res = await db.listDocuments(DATABASE_ID, COLLECTION.generated_notes_cache, [
+      Query.equal("paper_code", cachePaperCode),
+      Query.equal("type", SOLVED_PAPER_CACHE_TYPE),
+      Query.equal("status", COMPLETED_STATUS),
+      Query.equal("unit_number", year),
+      Query.equal("year", String(year)),
+      Query.orderDesc("$createdAt"),
+      Query.limit(1),
+    ]);
+    const doc = res.documents[0];
+    if (!doc) return null;
+    const markdown = typeof doc.generated_markdown === "string" ? doc.generated_markdown.trim() : "";
+    return markdown || null;
+  } catch (error) {
+    console.error("[generate-solved-paper-stream] Failed to read completed cache:", error);
+    return null;
+  }
+}
+
 async function upsertSolvedPaperCheckpoint(params: {
   checkpointId: string | null;
   cachePaperCode: string;
@@ -278,6 +354,9 @@ async function upsertSolvedPaperCheckpoint(params: {
     id: docId,
     paper_code: params.cachePaperCode,
     unit_number: params.year,
+    year: String(params.year),
+    part_number: Math.max(1, Math.floor(params.lastProcessedIndex / PART_SIZE) + 1),
+    type: SOLVED_PAPER_CACHE_TYPE,
     generated_markdown: params.markdown,
     status: params.status,
     last_processed_index: params.lastProcessedIndex,
@@ -311,7 +390,9 @@ async function upsertSolvedPaperCheckpoint(params: {
     try {
       const existing = await db.listDocuments(DATABASE_ID, COLLECTION.generated_notes_cache, [
         Query.equal("paper_code", params.cachePaperCode),
+        Query.equal("type", SOLVED_PAPER_CACHE_TYPE),
         Query.equal("unit_number", params.year),
+        Query.equal("year", String(params.year)),
         Query.orderDesc("$createdAt"),
         Query.limit(1),
       ]);
@@ -355,20 +436,6 @@ export async function GET(request: NextRequest) {
   }
   const part = parsedPart;
 
-  const isAdminPlus = user.role === "admin" || user.role === "founder";
-  const quota = await checkAndResetQuotas(user.id);
-  if (!metaOnly && !isAdminPlus && quota.papers_solved_today >= 1) {
-    return NextResponse.json(
-      { error: "Daily limit reached for Solved Papers (1/day)." },
-      { status: 429 },
-    );
-  }
-
-  const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-  if (!geminiApiKey) {
-    return NextResponse.json({ error: "Gemini is not configured." }, { status: 503 });
-  }
-
   const university = (searchParams.get("university") || "Assam University").trim();
   const course = (searchParams.get("course") || "").trim();
   const type = (searchParams.get("type") || "").trim();
@@ -386,6 +453,45 @@ export async function GET(request: NextRequest) {
       { error: "Invalid year. Please provide a valid year between 1900 and 2100." },
       { status: 400 },
     );
+  }
+
+  const isAdminPlus = user.role === "admin" || user.role === "founder";
+
+  await ensureSolvedPaperCacheSchema();
+  const cachePaperCode = getSolvedPaperCacheKey(course, type, paperCode);
+  const completedCache = await readCompletedSolvedPaperCache(cachePaperCode, year);
+  if (completedCache) {
+    const stream = new ReadableStream<Uint8Array>({
+      start: (controller) => {
+        controller.enqueue(toSseData({
+          event: "done",
+          markdown: completedCache,
+          model: "cache",
+          cached: true,
+        }));
+        controller.close();
+      },
+    });
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+      },
+    });
+  }
+
+  const quota = await checkAndResetQuotas(user.id);
+  if (!metaOnly && !isAdminPlus && quota.papers_solved_today >= 1) {
+    return NextResponse.json(
+      { error: "Daily limit reached for Solved Papers (1/day)." },
+      { status: 429 },
+    );
+  }
+
+  const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+  if (!geminiApiKey) {
+    return NextResponse.json({ error: "Gemini is not configured." }, { status: 503 });
   }
 
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -485,7 +591,6 @@ export async function GET(request: NextRequest) {
         const solvedPaperPromptTemplate = readSolvedPaperPrompt();
         const model = "gemini-3.1-flash-lite-preview";
         const cachePaperCode = getSolvedPaperCacheKey(course, type, paperCode);
-        await ensureSolvedPaperCacheSchema();
         const checkpoint = await readSolvedPaperCheckpoint(cachePaperCode, year);
         if (checkpoint?.status === COMPLETED_STATUS && checkpoint.markdown.trim().length > 0) {
           controller.enqueue(toSseData({

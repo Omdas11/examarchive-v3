@@ -33,16 +33,19 @@
 
 ## Table: `Generated_Notes_Cache`
 
-| Field | Type | Required | Notes |
-|---|---|---|---|
-| `id` | String | **Yes** | Document ID |
-| `paper_code` | String | **Yes** | Paper code |
-| `unit_number` | Integer | **Yes** | Unit number |
-| `generated_markdown` | String | **Yes** | Cached stitched markdown |
-| `syllabus_content` | String | No | Cached syllabus bullets text for print cover |
-| `created_at` | Datetime | **Yes** | Cache creation timestamp |
-| `status` | String | No | Generation status (`generating` / `completed`) |
-| `last_processed_index` | Integer | No | Last completed chunk index for resume |
+| Attribute Name | Type | Size | Required | Description |
+|---|---|---|---|---|
+| `id` | String | - | Yes | Document ID |
+| `paper_code` | String | 128 | Yes | The target course paper code (e.g., PHYDSC101T) |
+| `type` | String | 50 | Yes | Identifies cache type: 'solved_paper' or 'unit_notes' |
+| `year` | String | 10 | No | The year of the question paper (if type is solved_paper) |
+| `unit_number` | Integer | - | Yes | The syllabus unit number (if type is unit_notes) |
+| `part_number` | Integer | - | No | Tracks batching parts to bypass serverless timeouts |
+| `generated_markdown` | String | 1000000 | Yes | The stitched, AI-generated textbook/solution content |
+| `syllabus_content` | String | 1000000 | No | Cached syllabus content for notes print context |
+| `created_at` | Datetime | - | Yes | Cache creation timestamp |
+| `status` | String | 50 | Yes | 'generating' or 'completed' |
+| `last_processed_index` | Integer | - | No | Last processed question index for resume-safe continuation |
 
 ## Table: `User_Quotas`
 

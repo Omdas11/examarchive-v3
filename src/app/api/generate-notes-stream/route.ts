@@ -13,6 +13,8 @@ const TOPIC_RETRY_MAX = 4;
 const RATE_LIMIT_COOLDOWN_MS = 20000;
 const RETRY_ERROR_DELAY_MS = 4000;
 const HEARTBEAT_INTERVAL_MS = 15000;
+const UNIT_NOTES_CACHE_TYPE = "unit_notes";
+const COMPLETED_STATUS = "completed";
 
 function isAdminPlus(role: string): boolean {
   return role === "admin" || role === "founder";
@@ -80,12 +82,99 @@ type CachedNotes = {
   syllabusContent: string | null;
 };
 
+function getAppwriteErrorCode(error: unknown): number | null {
+  if (!error || typeof error !== "object") return null;
+  const raw = "code" in error ? (error as { code?: unknown }).code : null;
+  if (typeof raw === "number" && Number.isFinite(raw)) return raw;
+  if (typeof raw === "string") {
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
+async function ensureNotesCacheSchema(): Promise<void> {
+  const db = adminDatabases();
+  const ensureAttribute = async (create: () => Promise<unknown>) => {
+    try {
+      await create();
+    } catch (error) {
+      const code = getAppwriteErrorCode(error);
+      if (code !== 409) throw error;
+    }
+  };
+
+  await ensureAttribute(() =>
+    db.createStringAttribute(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      "type",
+      50,
+      true,
+      UNIT_NOTES_CACHE_TYPE,
+    ),
+  );
+  await ensureAttribute(() =>
+    db.createStringAttribute(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      "status",
+      50,
+      true,
+      COMPLETED_STATUS,
+    ),
+  );
+  await ensureAttribute(() =>
+    db.createStringAttribute(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      "year",
+      10,
+      false,
+      undefined,
+    ),
+  );
+  await ensureAttribute(() =>
+    db.createIntegerAttribute(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      "part_number",
+      false,
+      1,
+      1000,
+      1,
+    ),
+  );
+
+  try {
+    const markdownAttribute = await db.getAttribute(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      "generated_markdown",
+    );
+    if (
+      markdownAttribute.status === "available" &&
+      "size" in markdownAttribute &&
+      typeof markdownAttribute.size === "number" &&
+      markdownAttribute.size < 1_000_000
+    ) {
+      console.warn(
+        `[generate-notes-stream] generated_markdown size is ${markdownAttribute.size}; recommended minimum is 1000000 for long stitched documents.`,
+      );
+    }
+  } catch (error) {
+    console.warn("[generate-notes-stream] Unable to inspect generated_markdown attribute size:", error);
+  }
+}
+
 async function readCachedNotes(paperCode: string, unitNumber: number): Promise<CachedNotes | null> {
   const db = adminDatabases();
   try {
     const res = await db.listDocuments(DATABASE_ID, COLLECTION.generated_notes_cache, [
       Query.equal("paper_code", paperCode),
       Query.equal("unit_number", unitNumber),
+      Query.equal("type", UNIT_NOTES_CACHE_TYPE),
+      Query.equal("status", COMPLETED_STATUS),
       Query.orderDesc("$createdAt"),
       Query.limit(1),
     ]);
@@ -133,6 +222,8 @@ async function writeCachedNotes(
     const payload = {
       paper_code: paperCode,
       unit_number: unitNumber,
+      type: UNIT_NOTES_CACHE_TYPE,
+      status: COMPLETED_STATUS,
       generated_markdown: markdown,
       syllabus_content: syllabusContent,
       created_at: new Date().toISOString(),
@@ -216,11 +307,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
 
-  const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-  if (!geminiApiKey) {
-    return NextResponse.json({ error: "Gemini is not configured." }, { status: 503 });
-  }
-
   const { searchParams } = new URL(request.url);
   const university = (searchParams.get("university") || "Assam University").trim();
   const course = (searchParams.get("course") || "").trim();
@@ -230,6 +316,33 @@ export async function GET(request: NextRequest) {
 
   if (!course || !type || !paperCode || !Number.isInteger(unitNumber) || unitNumber < 1 || unitNumber > 5) {
     return NextResponse.json({ error: "Invalid selection. Please choose course, type, paper code, and unit 1-5." }, { status: 400 });
+  }
+
+  await ensureNotesCacheSchema();
+  const completedCache = await readCachedNotes(paperCode, unitNumber);
+  if (completedCache) {
+    const cachedSyllabusContent =
+      completedCache.syllabusContent ??
+      (await readSyllabusContent(university, course, type, paperCode, unitNumber));
+    const stream = new ReadableStream<Uint8Array>({
+      start: (controller) => {
+        controller.enqueue(toSseData({
+          event: "done",
+          markdown: completedCache.markdown,
+          model: "cache",
+          cached: true,
+          syllabus_content: cachedSyllabusContent,
+        }));
+        controller.close();
+      },
+    });
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+      },
+    });
   }
 
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -244,6 +357,10 @@ export async function GET(request: NextRequest) {
         { status: 403 },
       );
     }
+  }
+  const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+  if (!geminiApiKey) {
+    return NextResponse.json({ error: "Gemini is not configured." }, { status: 503 });
   }
 
   const stream = new ReadableStream<Uint8Array>({
@@ -263,24 +380,6 @@ export async function GET(request: NextRequest) {
         controller.close();
       };
       try {
-        const cachedNotes = await readCachedNotes(paperCode, unitNumber);
-        if (cachedNotes) {
-          const remaining = isAdminPlus(user.role) ? null : Math.max(0, dailyLimit - usedBefore);
-          const cachedSyllabusContent =
-            cachedNotes.syllabusContent ??
-            (await readSyllabusContent(university, course, type, paperCode, unitNumber));
-          controller.enqueue(toSseData({
-            event: "done",
-            markdown: cachedNotes.markdown,
-            model: "cache",
-            remaining,
-            cached: true,
-            syllabus_content: cachedSyllabusContent,
-          }));
-          closeStream();
-          return;
-        }
-
         const quota = await checkAndResetQuotas(user.id);
         if (!isAdminPlus(user.role) && quota.notes_generated_today >= 1) {
           controller.enqueue(toSseData({ event: "error", error: "Daily limit reached for Unit Notes (1/day)." }));
