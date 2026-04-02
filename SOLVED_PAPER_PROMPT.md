@@ -12,7 +12,7 @@ STRICT MATH RULES:
 - Do not use Levi-Civita, index notation, Einstein summation, or tensor shortcuts.
 - Use explicit Cartesian expansions (`A_x`, `A_y`, `A_z`) when needed.
 - Use block equations `$$` for all multi-step derivations.
-- Keep `\n\n` spacing before and after every block equation.
+- Keep a blank line before and after every block equation.
 
 Output Rules:
 - Do not artificially pad the text with conversational filler.

@@ -62,8 +62,7 @@ export async function runWebSearch(
         include_raw_content: false,
       }),
       signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
+    }).finally(() => clearTimeout(timeoutId));
 
     if (!response.ok) {
       return [];

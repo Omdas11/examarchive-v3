@@ -15,6 +15,7 @@ const QUESTION_MAX_RETRIES = 4;
 const RETRY_ERROR_DELAY_MS = 4000;
 const HEARTBEAT_INTERVAL_MS = 15000;
 const MIN_SOLUTION_RESPONSE_CHARS = 10;
+// Solved-paper streaming runs close to serverless time limits, so web search must fail fast.
 const TAVILY_TIMEOUT_MS = 4000;
 const GENERATING_STATUS = "generating";
 const COMPLETED_STATUS = "completed";
@@ -50,8 +51,8 @@ async function fetchTavilyContext(query: string): Promise<string> {
   try {
     const results = await runWebSearch(query, 5, TAVILY_TIMEOUT_MS);
     return formatSearchResults(results) || "";
-  } catch {
-    console.warn("Tavily search timed out, proceeding without context");
+  } catch (error) {
+    console.warn("Tavily search timed out, proceeding without context", error);
     return "";
   }
 }
@@ -425,7 +426,7 @@ ${tavilyContext}
               if (isRateLimitError(error)) {
                 controller.enqueue(toSseData({
                   event: "progress",
-                  status: "Rate limit hit. Retrying quickly...",
+                  status: "Rate limit hit. Retrying immediately without extra delay...",
                   index: index + 1,
                   total: allQuestions.length,
                   question: qLabel,
