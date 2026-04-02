@@ -23,6 +23,8 @@ const TAVILY_TIMEOUT_MS = 4000;
 const GENERATING_STATUS = "generating";
 const COMPLETED_STATUS = "completed";
 const INITIAL_LAST_PROCESSED_INDEX = -1;
+const ATTRIBUTE_AVAILABILITY_POLL_INTERVAL_MS = 300;
+const ATTRIBUTE_AVAILABILITY_TIMEOUT_MS = 12000;
 
 type SolvedPaperCheckpoint = {
   id: string;
@@ -74,6 +76,97 @@ function getErrorStatusFromMessage(message: string): number | null {
   if (!match) return null;
   const parsed = Number(match[1]);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function getAppwriteErrorCode(error: unknown): number | null {
+  if (!error || typeof error !== "object") return null;
+  const raw = "code" in error ? (error as { code?: unknown }).code : null;
+  if (typeof raw === "number" && Number.isFinite(raw)) return raw;
+  if (typeof raw === "string") {
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
+async function waitForAttributeAvailable(key: string): Promise<void> {
+  const db = adminDatabases();
+  const deadline = Date.now() + ATTRIBUTE_AVAILABILITY_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    try {
+      const attribute = await db.getAttribute(DATABASE_ID, COLLECTION.generated_notes_cache, key);
+      if (attribute.status === "available") return;
+      if (attribute.status === "failed" || attribute.status === "stuck") {
+        throw new Error(
+          `[generate-solved-paper-stream] Attribute ${key} failed to build with status=${attribute.status}: ${attribute.error || "unknown error"}`,
+        );
+      }
+    } catch (error) {
+      const code = getAppwriteErrorCode(error);
+      if (code !== 404) {
+        throw error;
+      }
+    }
+    const remainingMs = deadline - Date.now();
+    if (remainingMs <= 0) break;
+    await sleep(Math.min(ATTRIBUTE_AVAILABILITY_POLL_INTERVAL_MS, remainingMs));
+  }
+  throw new Error(`[generate-solved-paper-stream] Timed out waiting for attribute ${key} to become available.`);
+}
+
+async function ensureSolvedPaperCacheSchema(): Promise<void> {
+  const db = adminDatabases();
+  const ensureAttribute = async (
+    key: string,
+    create: () => Promise<unknown>,
+  ) => {
+    try {
+      const attribute = await db.getAttribute(DATABASE_ID, COLLECTION.generated_notes_cache, key);
+      if (attribute.status !== "available") {
+        await waitForAttributeAvailable(key);
+      }
+      return;
+    } catch (error) {
+      const code = getAppwriteErrorCode(error);
+      if (code !== 400 && code !== 404) {
+        throw error;
+      }
+    }
+
+    try {
+      await create();
+    } catch (error) {
+      const code = getAppwriteErrorCode(error);
+      if (code !== 409) {
+        throw error;
+      }
+    }
+    await waitForAttributeAvailable(key);
+  };
+
+  await ensureAttribute("status", () =>
+    db.createStringAttribute(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      "status",
+      32,
+      false,
+      GENERATING_STATUS,
+    ),
+  );
+  await ensureAttribute("last_processed_index", () =>
+    db.createIntegerAttribute(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      "last_processed_index",
+      false,
+      0,
+      // 10k keeps a practical headroom far above current paper sizes while
+      // staying finite so malformed writes cannot store unbounded values.
+      10000,
+      INITIAL_LAST_PROCESSED_INDEX,
+    ),
+  );
 }
 
 async function fetchTavilyContext(query: string): Promise<string> {
@@ -186,6 +279,8 @@ async function upsertSolvedPaperCheckpoint(params: {
     paper_code: params.cachePaperCode,
     unit_number: params.year,
     generated_markdown: params.markdown,
+    status: params.status,
+    last_processed_index: params.lastProcessedIndex,
     syllabus_content: "",
     created_at: new Date().toISOString(),
   });
@@ -390,6 +485,7 @@ export async function GET(request: NextRequest) {
         const solvedPaperPromptTemplate = readSolvedPaperPrompt();
         const model = "gemini-3.1-flash-lite-preview";
         const cachePaperCode = getSolvedPaperCacheKey(course, type, paperCode);
+        await ensureSolvedPaperCacheSchema();
         const checkpoint = await readSolvedPaperCheckpoint(cachePaperCode, year);
         if (checkpoint?.status === COMPLETED_STATUS && checkpoint.markdown.trim().length > 0) {
           controller.enqueue(toSseData({
