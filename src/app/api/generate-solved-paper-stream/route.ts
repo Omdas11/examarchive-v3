@@ -12,10 +12,10 @@ export const maxDuration = 300;
 const QUESTION_LOOP_DELAY_MS = 7000;
 const PART_SIZE = 15;
 const QUESTION_MAX_RETRIES = 4;
-const RATE_LIMIT_COOLDOWN_MS = 20000;
 const RETRY_ERROR_DELAY_MS = 4000;
 const HEARTBEAT_INTERVAL_MS = 15000;
 const MIN_SOLUTION_RESPONSE_CHARS = 10;
+const TAVILY_TIMEOUT_MS = 4000;
 const GENERATING_STATUS = "generating";
 const COMPLETED_STATUS = "completed";
 const INITIAL_LAST_PROCESSED_INDEX = -1;
@@ -47,8 +47,13 @@ function isRateLimitError(error: unknown): boolean {
 }
 
 async function fetchTavilyContext(query: string): Promise<string> {
-  const results = await runWebSearch(query, 5);
-  return formatSearchResults(results) || "No Tavily context found.";
+  try {
+    const results = await runWebSearch(query, 5, TAVILY_TIMEOUT_MS);
+    return formatSearchResults(results) || "";
+  } catch {
+    console.warn("Tavily search timed out, proceeding without context");
+    return "";
+  }
 }
 
 function normalizeNumber(value: unknown): number | null {
@@ -420,14 +425,13 @@ ${tavilyContext}
               if (isRateLimitError(error)) {
                 controller.enqueue(toSseData({
                   event: "progress",
-                  status: "Rate limit hit. Cooling down for 20 seconds...",
+                  status: "Rate limit hit. Retrying quickly...",
                   index: index + 1,
                   total: allQuestions.length,
                   question: qLabel,
                   part,
                   totalParts,
                 }));
-                await sleep(RATE_LIMIT_COOLDOWN_MS);
               } else {
                 console.error("[generate-solved-paper-stream] Gemini API error:", error);
                 await sleep(RETRY_ERROR_DELAY_MS);
