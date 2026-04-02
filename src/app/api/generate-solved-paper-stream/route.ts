@@ -12,7 +12,10 @@ export const maxDuration = 300;
 const QUESTION_LOOP_DELAY_MS = 7000;
 const PART_SIZE = 10;
 const QUESTION_MAX_RETRIES = 4;
-const RETRY_ERROR_DELAY_MS = 4000;
+// Standard fallback delay for non-rate-limit/non-5xx retryable errors.
+const RETRY_ERROR_DELAY_MS = 5000;
+const RATE_LIMIT_RETRY_DELAY_MS = 20000;
+const SERVER_ERROR_RETRY_DELAY_MS = 15000;
 const HEARTBEAT_INTERVAL_MS = 15000;
 const MIN_SOLUTION_RESPONSE_CHARS = 10;
 // Solved-paper streaming runs close to serverless time limits, so web search must fail fast.
@@ -45,6 +48,32 @@ function isRateLimitError(error: unknown): boolean {
   const status = "status" in error ? (error as { status?: unknown }).status : undefined;
   const message = "message" in error ? String((error as { message?: unknown }).message ?? "") : "";
   return status === 429 || message.includes("429");
+}
+
+/**
+ * Safely extracts an HTTP-like status code from an unknown error object.
+ * Supports numeric and numeric-string `status` fields.
+ */
+function getErrorStatus(error: unknown): number | null {
+  if (!error || typeof error !== "object") return null;
+  const raw = "status" in error ? (error as { status?: unknown }).status : null;
+  if (typeof raw === "number" && Number.isFinite(raw)) return raw;
+  if (typeof raw === "string") {
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
+/**
+ * Fallback parser for extracting valid 4xx/5xx HTTP status codes from error text.
+ * Used when upstream errors omit a structured numeric `status`.
+ */
+function getErrorStatusFromMessage(message: string): number | null {
+  const match = message.match(/\b(4(?:0[0-9]|1[0-9]|2[0-9]|3[01])|5(?:0[0-9]|1[01]))\b/);
+  if (!match) return null;
+  const parsed = Number(match[1]);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 async function fetchTavilyContext(query: string): Promise<string> {
@@ -159,7 +188,6 @@ async function upsertSolvedPaperCheckpoint(params: {
     generated_markdown: params.markdown,
     syllabus_content: "",
     created_at: new Date().toISOString(),
-    last_processed_index: params.lastProcessedIndex,
   });
   try {
     const tryUpdateById = async (docId: string): Promise<boolean> => {
@@ -489,16 +517,35 @@ ${tavilyContext}
                 break;
               }
             } catch (error) {
+              const errorStatus = getErrorStatus(error);
+              const errorMessage =
+                error instanceof Error ? error.message : String(error ?? "");
+              const messageStatus = getErrorStatusFromMessage(errorMessage);
               if (isRateLimitError(error)) {
                 controller.enqueue(toSseData({
                   event: "progress",
-                  status: "Rate limit hit. Retrying immediately without extra delay...",
+                  status: "Rate limit hit. Cooling down before retry...",
                   index: index + 1,
                   total: allQuestions.length,
                   question: qLabel,
                   part,
                   totalParts,
                 }));
+                await sleep(RATE_LIMIT_RETRY_DELAY_MS);
+              } else if (
+                (errorStatus !== null && errorStatus >= 500) ||
+                (messageStatus !== null && messageStatus >= 500)
+              ) {
+                controller.enqueue(toSseData({
+                  event: "progress",
+                  status: "AI server overloaded (5xx). Retrying shortly...",
+                  index: index + 1,
+                  total: allQuestions.length,
+                  question: qLabel,
+                  part,
+                  totalParts,
+                }));
+                await sleep(SERVER_ERROR_RETRY_DELAY_MS);
               } else {
                 console.error("[generate-solved-paper-stream] Gemini API error:", error);
                 await sleep(RETRY_ERROR_DELAY_MS);
