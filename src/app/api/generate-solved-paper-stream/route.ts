@@ -66,7 +66,13 @@ function normalizeNumber(value: unknown): number | null {
   return null;
 }
 
-function parseQuestionNumber(value: unknown): number {
+/**
+ * Extract a sortable question number from mixed input types.
+ * @param value Question number as number/string/unknown from DB row.
+ * Returns Number.MAX_SAFE_INTEGER when no numeric value can be parsed,
+ * so malformed question numbers are pushed to the end of sorted results.
+ */
+function extractQuestionNumber(value: unknown): number {
   const normalized = normalizeNumber(value);
   if (normalized !== null) return normalized;
   if (typeof value === "string") {
@@ -298,10 +304,11 @@ export async function GET(request: NextRequest) {
         const allQuestions = questionsRes.documents
           .filter((doc) => typeof doc.question_content === "string" && doc.question_content.trim().length > 0)
           .sort((a, b) => {
-            const questionNoCompare = parseQuestionNumber(a.question_no) - parseQuestionNumber(b.question_no);
-            if (questionNoCompare !== 0) return questionNoCompare;
+            const questionNumberCompare = extractQuestionNumber(a.question_no) - extractQuestionNumber(b.question_no);
+            if (questionNumberCompare !== 0) return questionNumberCompare;
             const aSub = typeof a.question_subpart === "string" ? a.question_subpart : "";
             const bSub = typeof b.question_subpart === "string" ? b.question_subpart : "";
+            // subparts may contain mixed forms like "2", "2a", "10b", so keep locale numeric compare.
             return aSub.localeCompare(bSub, undefined, { sensitivity: "base", numeric: true });
           });
 
@@ -335,9 +342,11 @@ export async function GET(request: NextRequest) {
           return;
         }
 
-        const shouldLoadCheckpointMarkdown =
+        // Keep already-generated content when continuing chained parts, and also
+        // when part 1 is retrying/resuming an interrupted "generating" checkpoint.
+        const shouldAccumulateCheckpointMarkdown =
           part > 1 || checkpoint?.status === GENERATING_STATUS;
-        let masterMarkdown = shouldLoadCheckpointMarkdown ? checkpoint?.markdown ?? "" : "";
+        let masterMarkdown = shouldAccumulateCheckpointMarkdown ? checkpoint?.markdown ?? "" : "";
         if (masterMarkdown && !masterMarkdown.endsWith("\n")) {
           masterMarkdown += "\n";
         }
