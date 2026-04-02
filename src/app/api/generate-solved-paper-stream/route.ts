@@ -12,6 +12,7 @@ const QUESTION_MAX_RETRIES = 4;
 const RATE_LIMIT_COOLDOWN_MS = 20000;
 const RETRY_ERROR_DELAY_MS = 4000;
 const HEARTBEAT_INTERVAL_MS = 15000;
+const MIN_SOLUTION_RESPONSE_CHARS = 10;
 
 function toSseData(payload: Record<string, unknown>): Uint8Array {
   return new TextEncoder().encode(`data: ${JSON.stringify(payload)}\n\n`);
@@ -128,7 +129,11 @@ export async function GET(request: NextRequest) {
       let isClosed = false;
       const heartbeat = setInterval(() => {
         if (isClosed) return;
-        controller.enqueue(toSseComment("heartbeat"));
+        try {
+          controller.enqueue(toSseComment("heartbeat"));
+        } catch {
+          clearInterval(heartbeat);
+        }
       }, HEARTBEAT_INTERVAL_MS);
       const closeStream = () => {
         if (isClosed) return;
@@ -211,7 +216,7 @@ ${tavilyContext}
                 model,
               });
               const candidate = String(result.content ?? "").trim();
-              if (candidate.length > 10) {
+              if (candidate.length > MIN_SOLUTION_RESPONSE_CHARS) {
                 aiResponseText = candidate;
                 break;
               }

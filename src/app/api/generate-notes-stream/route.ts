@@ -251,7 +251,11 @@ export async function GET(request: NextRequest) {
       let isClosed = false;
       const heartbeat = setInterval(() => {
         if (isClosed) return;
-        controller.enqueue(toSseComment("heartbeat"));
+        try {
+          controller.enqueue(toSseComment("heartbeat"));
+        } catch {
+          clearInterval(heartbeat);
+        }
       }, HEARTBEAT_INTERVAL_MS);
       const closeStream = () => {
         if (isClosed) return;
@@ -355,7 +359,7 @@ ${formattedQuestions || "No related questions found."}
 
           let aiResponseText = "";
           let retries = 0;
-          let sawNonEmptyButShort = false;
+          let hasReceivedShortResponse = false;
 
           while (retries < TOPIC_RETRY_MAX) {
             try {
@@ -381,7 +385,7 @@ ${formattedQuestions || "No related questions found."}
                 aiResponseText = candidate;
                 break;
               }
-              if (candidate.length > 0) sawNonEmptyButShort = true;
+              if (candidate.length > 0) hasReceivedShortResponse = true;
               controller.enqueue(toSseData({
                 event: "progress",
                 status: `Topic ${index + 1} returned a short/empty response. Retrying...`,
@@ -407,7 +411,9 @@ ${formattedQuestions || "No related questions found."}
               }
             }
             retries += 1;
-            if (retries < TOPIC_RETRY_MAX && sawNonEmptyButShort) await sleep(EMPTY_RESPONSE_RETRY_MS);
+            if (retries < TOPIC_RETRY_MAX) {
+              await sleep(hasReceivedShortResponse ? EMPTY_RESPONSE_RETRY_MS : RETRY_ERROR_DELAY_MS);
+            }
           }
 
           if (!aiResponseText) {
