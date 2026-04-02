@@ -41,6 +41,16 @@
 | `generated_markdown` | String | **Yes** | Cached stitched markdown |
 | `created_at` | Datetime | **Yes** | Cache creation timestamp |
 
+## Table: `User_Quotas`
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `id` | String | **Yes** | Document ID |
+| `user_id` | String | **Yes** | User ID |
+| `notes_generated_today` | Integer | **Yes** | Daily unit notes count |
+| `papers_solved_today` | Integer | **Yes** | Daily solved papers count |
+| `last_generation_date` | String | **Yes** | UTC date key (`YYYY-MM-DD`) |
+
 ---
 
 <!-- SCHEMA_SYNC_STATUS_START -->

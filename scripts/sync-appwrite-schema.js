@@ -62,6 +62,16 @@ const DEFAULT_DATABASE_SCHEMA_MARKDOWN = `# DATABASE_SCHEMA
 | \`unit_number\` | Integer | **Yes** | Unit number |
 | \`generated_markdown\` | String | **Yes** | Cached stitched markdown |
 | \`created_at\` | Datetime | **Yes** | Cache creation timestamp |
+
+## Table: \`User_Quotas\`
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| \`id\` | String | **Yes** | Document ID |
+| \`user_id\` | String | **Yes** | User ID |
+| \`notes_generated_today\` | Integer | **Yes** | Daily unit notes count |
+| \`papers_solved_today\` | Integer | **Yes** | Daily solved papers count |
+| \`last_generation_date\` | String | **Yes** | UTC date key (\`YYYY-MM-DD\`) |
 `;
 
 const TARGET_SCHEMA = [
@@ -270,6 +280,16 @@ const TARGET_SCHEMA = [
       { key: "unit_number", type: "integer", required: true },
       { key: "generated_markdown", type: "string", required: true, size: TEXT_CHUNK_SIZE },
       { key: "created_at", type: "datetime", required: true },
+    ],
+  },
+  {
+    id: "User_Quotas",
+    name: "User_Quotas",
+    attributes: [
+      { key: "user_id", type: "string", required: true, size: 64 },
+      { key: "notes_generated_today", type: "integer", required: true },
+      { key: "papers_solved_today", type: "integer", required: true },
+      { key: "last_generation_date", type: "string", required: true, size: 10 },
     ],
   },
 ];

@@ -4,6 +4,7 @@ import { adminDatabases, COLLECTION, DATABASE_ID, ID, Query } from "@/lib/appwri
 import { getDailyLimit } from "@/lib/ai-limits";
 import { GeminiServiceError, runGeminiCompletion } from "@/lib/gemini";
 import { readTopicNotesPrompt } from "@/lib/topic-notes-prompt";
+import { checkAndResetQuotas, incrementQuotaCounter } from "@/lib/user-quotas";
 
 const TOPIC_MAX_ATTEMPTS = 3;
 const EMPTY_RESPONSE_RETRY_MS = 2000;
@@ -209,10 +210,7 @@ export async function GET(request: NextRequest) {
       try {
         const cachedMarkdown = await readCachedNotes(paperCode, unitNumber);
         if (cachedMarkdown) {
-          const remaining = isAdminPlus(user.role) ? null : Math.max(0, dailyLimit - (usedBefore + 1));
-          if (!isAdminPlus(user.role)) {
-            await recordGeneration(user.id, todayStr);
-          }
+          const remaining = isAdminPlus(user.role) ? null : Math.max(0, dailyLimit - usedBefore);
           controller.enqueue(toSseData({
             event: "done",
             markdown: cachedMarkdown,
@@ -221,6 +219,13 @@ export async function GET(request: NextRequest) {
             cached: true,
             syllabus_content: "",
           }));
+          closeStream();
+          return;
+        }
+
+        const quota = await checkAndResetQuotas(user.id);
+        if (!isAdminPlus(user.role) && quota.notes_generated_today >= 1) {
+          controller.enqueue(toSseData({ event: "error", error: "Daily limit reached for Unit Notes (1/day)." }));
           closeStream();
           return;
         }
@@ -369,6 +374,7 @@ ${formattedQuestions || "No related questions found."}
 
         if (!isAdminPlus(user.role)) {
           await recordGeneration(user.id, todayStr);
+          await incrementQuotaCounter(user.id, "notes_generated_today");
         }
         const remaining = isAdminPlus(user.role) ? null : Math.max(0, dailyLimit - (usedBefore + 1));
         controller.enqueue(toSseData({

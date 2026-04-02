@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "katex/dist/katex.min.css";
 import PrintableNotesDocument from "./PrintableNotesDocument";
 import PrintInstructionsModal from "./PrintInstructionsModal";
@@ -23,18 +23,25 @@ function LoadingDots() {
 }
 
 export default function AIContentClient() {
+  const [activeTab, setActiveTab] = useState<"notes" | "papers">("notes");
   const [university] = useState("Assam University");
   const [course, setCourse] = useState("FYUG");
   const [type, setType] = useState("DSC");
   const [paperCode, setPaperCode] = useState("");
   const [unitNumber, setUnitNumber] = useState(1);
+  const [selectedYear, setSelectedYear] = useState<number | "">("");
   const [paperCodeOptions, setPaperCodeOptions] = useState<string[]>([]);
+  const [yearsByPaperCode, setYearsByPaperCode] = useState<Record<string, number[]>>({});
   const [paperCodeLoading, setPaperCodeLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [markdown, setMarkdown] = useState("");
   const [model, setModel] = useState("");
   const [remaining, setRemaining] = useState<number | null>(null);
   const [limit, setLimit] = useState<number | null>(null);
+  const [notesRemaining, setNotesRemaining] = useState<number | null>(null);
+  const [papersRemaining, setPapersRemaining] = useState<number | null>(null);
+  const [notesDailyLimit, setNotesDailyLimit] = useState<number | null>(null);
+  const [papersDailyLimit, setPapersDailyLimit] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [paperNameMap, setPaperNameMap] = useState<Record<string, string>>({});
   const [printInstructionsOpen, setPrintInstructionsOpen] = useState(false);
@@ -48,12 +55,22 @@ export default function AIContentClient() {
   const eventSourceRef = useRef<EventSource | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const selectedPaperName = paperNameMap[paperCode] || paperCode;
+  const availableYears = useMemo(() => yearsByPaperCode[paperCode] || [], [yearsByPaperCode, paperCode]);
   const progressPercent = progressTotal > 0 ? Math.min(100, Math.round((progressIndex / progressTotal) * 100)) : 0;
 
   function formatElapsedTime(totalSeconds: number): string {
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
     return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  }
+
+  function getQuotaSummaryLabel(): string {
+    // Prefer strict per-feature quotas when available; fallback to legacy aggregate quota response.
+    if (notesDailyLimit !== null && papersDailyLimit !== null) {
+      return `Daily Limit: ${notesUsedToday ?? 0}/${notesDailyLimit} Notes | ${papersUsedToday ?? 0}/${papersDailyLimit} Solved Papers`;
+    }
+    if (remaining === null) return "Quota: Unlimited";
+    return `Remaining generations: ${remaining}${typeof limit === "number" ? ` / ${limit}` : ""}`;
   }
 
   function stopTimer() {
@@ -88,14 +105,20 @@ export default function AIContentClient() {
     setProgressIndex(0);
     setProgressTotal(0);
     startTimer();
+    setMarkdown("");
+    setModel("");
     const params = new URLSearchParams({
       university,
       course,
       type,
       paperCode,
-      unitNumber: String(unitNumber),
+      ...(activeTab === "notes" ? { unitNumber: String(unitNumber) } : { year: String(selectedYear) }),
     });
-    const source = new EventSource(`/api/generate-notes-stream?${params.toString()}`);
+    const source = new EventSource(
+      activeTab === "notes"
+        ? `/api/generate-notes-stream?${params.toString()}`
+        : `/api/generate-solved-paper-stream?${params.toString()}`,
+    );
     eventSourceRef.current = source;
     let finished = false;
 
@@ -110,7 +133,9 @@ export default function AIContentClient() {
       const eventType = typeof data.event === "string" ? data.event : "";
       if (eventType === "progress") {
         setProgressStatus(typeof data.status === "string" ? data.status : "Generating...");
-        setProgressTopic(typeof data.topic === "string" ? data.topic : "");
+        const topic = typeof data.topic === "string" ? data.topic : "";
+        const question = typeof data.question === "string" ? data.question : "";
+        setProgressTopic(topic.length > 0 ? topic : question);
         setProgressIndex(typeof data.index === "number" ? data.index : 0);
         setProgressTotal(typeof data.total === "number" ? data.total : 0);
         return;
@@ -124,6 +149,11 @@ export default function AIContentClient() {
         setModel(typeof data.model === "string" ? data.model : "");
         if (typeof data.remaining === "number" || data.remaining === null) {
           setRemaining(data.remaining);
+        }
+        if (activeTab === "notes") {
+          setNotesRemaining((prev) => (typeof prev === "number" ? Math.max(0, prev - 1) : prev));
+        } else {
+          setPapersRemaining((prev) => (typeof prev === "number" ? Math.max(0, prev - 1) : prev));
         }
         setGenerating(false);
         setProgressStatus("");
@@ -178,6 +208,10 @@ export default function AIContentClient() {
       .then((data) => {
         if (typeof data.remaining === "number" || data.remaining === null) setRemaining(data.remaining);
         if (typeof data.limit === "number" || data.limit === null) setLimit(data.limit);
+        if (typeof data.notesRemaining === "number") setNotesRemaining(data.notesRemaining);
+        if (typeof data.papersRemaining === "number") setPapersRemaining(data.papersRemaining);
+        if (typeof data.notesDailyLimit === "number") setNotesDailyLimit(data.notesDailyLimit);
+        if (typeof data.papersDailyLimit === "number") setPapersDailyLimit(data.papersDailyLimit);
         if (Array.isArray(data.paperCodes)) {
           const options = data.paperCodes.filter((item: unknown): item is string => typeof item === "string" && item.trim().length > 0);
           setPaperCodeOptions(options);
@@ -199,6 +233,17 @@ export default function AIContentClient() {
             return options[0] || current;
           });
         }
+        if (data.yearsByPaperCode && typeof data.yearsByPaperCode === "object") {
+          const map: Record<string, number[]> = {};
+          for (const [code, years] of Object.entries(data.yearsByPaperCode as Record<string, unknown>)) {
+            if (Array.isArray(years)) {
+              map[code] = years
+                .map((year) => (typeof year === "number" ? year : Number(year)))
+                .filter((year) => Number.isInteger(year));
+            }
+          }
+          setYearsByPaperCode(map);
+        }
         if (typeof data.syllabusContent === "string") {
           setSyllabusContent(data.syllabusContent);
         }
@@ -206,6 +251,17 @@ export default function AIContentClient() {
       .catch(() => {})
       .finally(() => setPaperCodeLoading(false));
   }, [university, course, type]);
+
+  useEffect(() => {
+    if (availableYears.length === 0) {
+      setSelectedYear("");
+      return;
+    }
+    setSelectedYear((current) => {
+      if (typeof current === "number" && availableYears.includes(current)) return current;
+      return availableYears[0] ?? "";
+    });
+  }, [paperCode, availableYears]);
 
   useEffect(() => {
     const allowed = COURSE_TYPES[course] || COURSE_TYPES.FYUG;
@@ -221,18 +277,48 @@ export default function AIContentClient() {
     };
   }, []);
 
-  const canGenerate = generating ? false : remaining === null || remaining > 0;
+  const canGenerateByLegacyLimit = generating ? false : remaining === null || remaining > 0;
+  const notesQuotaAllowed = notesRemaining === null || notesRemaining > 0;
+  const papersQuotaAllowed = papersRemaining === null || papersRemaining > 0;
+  const notesUsedToday =
+    notesDailyLimit !== null && notesRemaining !== null
+      ? Math.max(0, notesDailyLimit - notesRemaining)
+      : null;
+  const papersUsedToday =
+    papersDailyLimit !== null && papersRemaining !== null
+      ? Math.max(0, papersDailyLimit - papersRemaining)
+      : null;
+  const canGenerate =
+    activeTab === "notes"
+      ? canGenerateByLegacyLimit && notesQuotaAllowed
+      : canGenerateByLegacyLimit && papersQuotaAllowed;
 
   return (
     <div className="relative min-h-screen bg-surface px-4 py-8 text-on-surface">
       <div className="mx-auto flex max-w-5xl flex-col gap-6">
         <header className="rounded-2xl border border-outline-variant/30 bg-surface-container p-6 shadow-lift">
-          <h1 className="text-3xl font-bold">AI Unit Notes Generation</h1>
+          <h1 className="text-3xl font-bold">AI Content Generation</h1>
           <p className="mt-2 text-on-surface-variant">
-            Generate full unit notes from database-backed syllabus and question context.
+            Generate full unit notes or solved papers from database-backed syllabus and question context.
           </p>
           <div className="mt-3 inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-            {remaining === null ? "Quota: Unlimited" : `Remaining generations: ${remaining}${typeof limit === "number" ? ` / ${limit}` : ""}`}
+            {getQuotaSummaryLabel()}
+          </div>
+          <div className="mt-4 inline-flex rounded-xl border border-outline-variant/40 p-1">
+            <button
+              className={`rounded-lg px-3 py-1 text-sm ${activeTab === "notes" ? "bg-primary text-white" : "text-on-surface"}`}
+              onClick={() => setActiveTab("notes")}
+              disabled={generating}
+            >
+              Unit Notes
+            </button>
+            <button
+              className={`rounded-lg px-3 py-1 text-sm ${activeTab === "papers" ? "bg-primary text-white" : "text-on-surface"}`}
+              onClick={() => setActiveTab("papers")}
+              disabled={generating}
+            >
+              Solved Papers
+            </button>
           </div>
         </header>
 
@@ -280,32 +366,52 @@ export default function AIContentClient() {
                 />
               </div>
             </div>
-            <div>
-              <label className="mb-1 block text-sm font-semibold">Unit Number</label>
-              <select
-                className="input-field"
-                value={unitNumber}
-                onChange={(e) => setUnitNumber(Number(e.target.value))}
-                disabled={generating}
-              >
-                {UNIT_OPTIONS.map((unit) => (
-                  <option key={unit} value={unit}>{unit}</option>
-                ))}
-              </select>
-            </div>
+            {activeTab === "notes" ? (
+              <div>
+                <label className="mb-1 block text-sm font-semibold">Unit Number</label>
+                <select
+                  className="input-field"
+                  value={unitNumber}
+                  onChange={(e) => setUnitNumber(Number(e.target.value))}
+                  disabled={generating}
+                >
+                  {UNIT_OPTIONS.map((unit) => (
+                    <option key={unit} value={unit}>{unit}</option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <div>
+                <label className="mb-1 block text-sm font-semibold">Year</label>
+                <select
+                  className="input-field"
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(Number(e.target.value))}
+                  disabled={generating || availableYears.length === 0}
+                >
+                  <option value="">
+                    {availableYears.length > 0 ? "Select year" : "No years available for selected paper"}
+                  </option>
+                  {availableYears.map((year) => (
+                    <option key={year} value={year}>{year}</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
           <div className="mt-4 flex items-center gap-3">
             <button
               onClick={generate}
-              disabled={!paperCode.trim() || !canGenerate}
+              disabled={!paperCode.trim() || !canGenerate || (activeTab === "papers" && selectedYear === "")}
               className="btn-primary inline-flex items-center gap-2 rounded-xl px-5 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
             >
               {generating ? (
                 <>
-                  Generating Unit Notes <LoadingDots />
+                  {activeTab === "notes" ? "Generating Unit Notes " : "Generating Solved Paper "}
+                  <LoadingDots />
                 </>
               ) : (
-                "Generate Unit Notes"
+                activeTab === "notes" ? "Generate Unit Notes" : "Generate Solved Paper"
               )}
             </button>
             {generating && <span className="text-xs text-on-surface-variant">Generation in progress — please wait.</span>}

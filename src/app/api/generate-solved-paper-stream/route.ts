@@ -4,6 +4,7 @@ import { adminDatabases, COLLECTION, DATABASE_ID, Query } from "@/lib/appwrite";
 import { GeminiServiceError, runGeminiCompletion } from "@/lib/gemini";
 import { readSolvedPaperPrompt } from "@/lib/solved-paper-prompt";
 import { formatSearchResults, runWebSearch } from "@/lib/web-search";
+import { checkAndResetQuotas, incrementQuotaCounter } from "@/lib/user-quotas";
 
 const QUESTION_LOOP_DELAY_MS = 4500;
 
@@ -33,6 +34,14 @@ export async function GET(request: NextRequest) {
   const user = await getServerUser();
   if (!user) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
+  }
+  const isAdminPlus = user.role === "admin" || user.role === "founder";
+  const quota = await checkAndResetQuotas(user.id);
+  if (!isAdminPlus && quota.papers_solved_today >= 1) {
+    return NextResponse.json(
+      { error: "Daily limit reached for Solved Papers (1/day)." },
+      { status: 429 },
+    );
   }
 
   const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
@@ -147,6 +156,9 @@ ${tavilyContext}
           model,
           total: questions.length,
         }));
+        if (!isAdminPlus) {
+          await incrementQuotaCounter(user.id, "papers_solved_today");
+        }
       } catch (error) {
         if (error instanceof GeminiServiceError) {
           controller.enqueue(toSseData({ event: "error", error: error.message, status: error.status }));
