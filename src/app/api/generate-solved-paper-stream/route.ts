@@ -26,9 +26,20 @@ const INITIAL_LAST_PROCESSED_INDEX = -1;
 const ATTRIBUTE_AVAILABILITY_POLL_INTERVAL_MS = 300;
 const ATTRIBUTE_AVAILABILITY_TIMEOUT_MS = 12000;
 const SOLVED_PAPER_CACHE_TYPE = "solved_paper";
-const PROVIDER_REQUEST_TIMEOUT_MS = 20_000;
+const PROVIDER_REQUEST_TIMEOUT_MS = 20000;
+const OPENROUTER_APP_URL =
+  process.env.OPENROUTER_APP_URL ||
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  "https://www.examarchive.dev";
+const OPENROUTER_APP_NAME = process.env.OPENROUTER_APP_NAME || "ExamArchive";
 
 type SolvedPaperProvider = "google" | "openrouter" | "groq";
+
+class ProviderRequestError extends Error {
+  constructor(public readonly status: number, message: string) {
+    super(message);
+  }
+}
 
 type SolvedPaperCheckpoint = {
   id: string;
@@ -91,6 +102,32 @@ function getAppwriteErrorCode(error: unknown): number | null {
     if (Number.isFinite(parsed)) return parsed;
   }
   return null;
+}
+
+function parseChatCompletionContent(payload: unknown): string {
+  if (!payload || typeof payload !== "object") return "";
+  const maybeChoices = (payload as { choices?: unknown }).choices;
+  if (!Array.isArray(maybeChoices) || maybeChoices.length === 0) return "";
+  const firstChoice = maybeChoices[0];
+  if (!firstChoice || typeof firstChoice !== "object") return "";
+  const message = (firstChoice as { message?: unknown }).message;
+  if (!message || typeof message !== "object") return "";
+  const content = (message as { content?: unknown }).content;
+  return typeof content === "string" ? content.trim() : "";
+}
+
+function isTimeoutLikeError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const maybeError = error as { name?: unknown; message?: unknown; code?: unknown };
+  const name = typeof maybeError.name === "string" ? maybeError.name : "";
+  const message = typeof maybeError.message === "string" ? maybeError.message : "";
+  return (
+    name === "AbortError" ||
+    name === "TimeoutError" ||
+    // DOMException timeout code used by runtime abort/timeouts in some environments.
+    maybeError.code === 23 ||
+    /timed out|timeout|aborted due to timeout|operation was aborted due to timeout/i.test(message)
+  );
 }
 
 async function waitForAttributeAvailable(key: string): Promise<void> {
@@ -617,7 +654,7 @@ export async function GET(request: NextRequest) {
             : provider === "openrouter"
               ? "google/gemma-3-27b-it:free"
               : "llama3-70b-8192");
-        const genAI = provider === "google" ? new GoogleGenerativeAI(String(geminiApiKey)) : null;
+        const googleClient = provider === "google" ? new GoogleGenerativeAI(String(geminiApiKey)) : null;
         const cachePaperCode = getSolvedPaperCacheKey(course, type, paperCode);
         const checkpoint = await readSolvedPaperCheckpoint(cachePaperCode, year);
         if (checkpoint?.status === COMPLETED_STATUS && checkpoint.markdown.trim().length > 0) {
@@ -737,58 +774,89 @@ ${tavilyContext}
               let candidate = "";
               switch (provider) {
                 case "google": {
-                  const aiModel = genAI!.getGenerativeModel({
-                    model,
-                    systemInstruction: systemPrompt,
-                  });
-                  const result = await aiModel.generateContent(questionText);
-                  candidate = String(result.response.text?.() ?? "").trim();
+                  try {
+                    if (!googleClient) {
+                      throw new ProviderRequestError(503, "Google Gemini is not configured.");
+                    }
+                    const aiModel = googleClient.getGenerativeModel({
+                      model,
+                      systemInstruction: systemPrompt,
+                    });
+                    const result = await aiModel.generateContent(questionText);
+                    candidate = String(result.response.text?.() ?? "").trim();
+                  } catch (error) {
+                    const errorMessage = error instanceof Error ? error.message : String(error ?? "Google request failed");
+                    const status = getErrorStatus(error) ?? getErrorStatusFromMessage(errorMessage) ?? 503;
+                    throw new ProviderRequestError(status, errorMessage);
+                  }
                   break;
                 }
                 case "openrouter": {
-                  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                      Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-                    },
-                    body: JSON.stringify({
-                      model,
-                      messages: [
-                        { role: "system", content: systemPrompt },
-                        { role: "user", content: questionText },
-                      ],
-                    }),
-                    signal: AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MS),
-                  });
-                  if (!response.ok) {
-                    throw { status: response.status, message: `OpenRouter request failed (status ${response.status})` };
+                  let response: Response;
+                  try {
+                    response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${openRouterApiKey}`,
+                        "HTTP-Referer": OPENROUTER_APP_URL,
+                        "X-Title": OPENROUTER_APP_NAME,
+                      },
+                      body: JSON.stringify({
+                        model,
+                        messages: [
+                          { role: "system", content: systemPrompt },
+                          { role: "user", content: questionText },
+                        ],
+                        max_tokens: 8192,
+                        temperature: 0.3,
+                      }),
+                      signal: AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MS),
+                    });
+                  } catch (error) {
+                    if (isTimeoutLikeError(error)) {
+                      throw new ProviderRequestError(503, "OpenRouter request timed out");
+                    }
+                    throw new ProviderRequestError(503, "OpenRouter network request failed");
                   }
-                  const data = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
-                  candidate = String(data.choices?.[0]?.message?.content ?? "").trim();
+                  if (!response.ok) {
+                    throw new ProviderRequestError(response.status, `OpenRouter request failed (status ${response.status})`);
+                  }
+                  const data = await response.json();
+                  candidate = parseChatCompletionContent(data);
                   break;
                 }
                 case "groq": {
-                  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                      Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
-                    },
-                    body: JSON.stringify({
-                      model,
-                      messages: [
-                        { role: "system", content: systemPrompt },
-                        { role: "user", content: questionText },
-                      ],
-                    }),
-                    signal: AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MS),
-                  });
-                  if (!response.ok) {
-                    throw { status: response.status, message: `Groq request failed (status ${response.status})` };
+                  let response: Response;
+                  try {
+                    response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${groqApiKey}`,
+                      },
+                      body: JSON.stringify({
+                        model,
+                        messages: [
+                          { role: "system", content: systemPrompt },
+                          { role: "user", content: questionText },
+                        ],
+                        max_tokens: 8192,
+                        temperature: 0.3,
+                      }),
+                      signal: AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MS),
+                    });
+                  } catch (error) {
+                    if (isTimeoutLikeError(error)) {
+                      throw new ProviderRequestError(503, "Groq request timed out");
+                    }
+                    throw new ProviderRequestError(503, "Groq network request failed");
                   }
-                  const data = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
-                  candidate = String(data.choices?.[0]?.message?.content ?? "").trim();
+                  if (!response.ok) {
+                    throw new ProviderRequestError(response.status, `Groq request failed (status ${response.status})`);
+                  }
+                  const data = await response.json();
+                  candidate = parseChatCompletionContent(data);
                   break;
                 }
               }

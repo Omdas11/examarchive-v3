@@ -405,7 +405,7 @@ export default function AIContentClient() {
 
   useEffect(() => {
     setSelectedModel((current) =>
-      providerModelOptions.includes(current as (typeof providerModelOptions)[number])
+      providerModelOptions.some((providerModel) => providerModel === current)
         ? current
         : providerModelOptions[0],
     );
