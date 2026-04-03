@@ -831,6 +831,13 @@ ${questionContent}
 
 Tavily Web Context:
 ${tavilyContext}
+
+CRITICAL FORMAT CONSTRAINTS:
+1. Do NOT write a document title.
+2. Do NOT repeat syllabus or section roadmap.
+3. Do NOT include introductory filler or meta commentary.
+4. Start directly with the answer to this specific question.
+5. Use concise markdown only for this question (equations/steps where needed).
 `;
 
           let aiResponseText = "";
@@ -952,6 +959,8 @@ ${tavilyContext}
             fileBaseName: `${paperCode}_${year}_solved_${Date.now()}`,
             fileName: `${paperCode}_${year}_solved_paper.pdf`,
             gotenbergUrl: azureGotenbergUrl,
+            paperCode,
+            year,
           });
           pdfUrl = rendered.fileUrl;
           controller.enqueue(toSseData({ log: "PDF rendered and uploaded successfully." }));

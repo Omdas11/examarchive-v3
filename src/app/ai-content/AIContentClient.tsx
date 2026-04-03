@@ -61,6 +61,7 @@ export default function AIContentClient() {
   const [currentPart, setCurrentPart] = useState(1);
   const [totalParts, setTotalParts] = useState(1);
   const [streamingTextActive, setStreamingTextActive] = useState(false);
+  const [showMarkdownPreview, setShowMarkdownPreview] = useState(false);
   const elapsedSecondsRef = useRef(0);
   const eventSourceRef = useRef<EventSource | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -228,6 +229,7 @@ export default function AIContentClient() {
       if (eventType === "done") {
         finished = true;
         setStreamingTextActive(false);
+        setShowMarkdownPreview(true);
         const incomingMarkdown = typeof data.markdown === "string" ? data.markdown : "";
         setMarkdown((prevMarkdown) => {
           if (incomingMarkdown.trim().length === 0) return prevMarkdown;
@@ -333,6 +335,7 @@ export default function AIContentClient() {
     startTimer();
     setUsedModel("");
     setDownloadPdfUrl("");
+    setShowMarkdownPreview(false);
     const params = new URLSearchParams({
       university,
       course,
@@ -539,7 +542,9 @@ export default function AIContentClient() {
             <button
               onClick={generate}
               disabled={!paperCode.trim() || !canGenerate || (activeTab === "papers" && selectedYear === "")}
-              className="btn-primary inline-flex items-center gap-2 rounded-xl px-5 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+              aria-busy={generating}
+              aria-live="polite"
+              className="btn-primary relative inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl px-5 py-3 text-sm font-semibold transition-all duration-300 before:absolute before:inset-0 before:-translate-x-full before:bg-gradient-to-r before:from-transparent before:via-white/30 before:to-transparent before:content-[''] hover:before:animate-[shimmer_1.4s_ease-in-out_infinite] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {generating ? (
                 <>
@@ -590,12 +595,18 @@ export default function AIContentClient() {
             </button>
           </div>
           {usedModel && <p className="mb-2 text-xs text-on-surface-variant">Model: {usedModel}</p>}
-          <div className={`print-root markdown-preview rounded-xl border border-outline-variant/30 bg-surface-container-low p-4 ${streamingTextActive ? "ai-streaming-text" : ""}`}>
-            <MarkdownNotesRenderer
-              markdown={markdown}
-              emptyFallback={<p className="text-on-surface-variant">No output yet. Generate notes to preview them here.</p>}
-            />
-          </div>
+          {showMarkdownPreview ? (
+            <div className={`print-root markdown-preview rounded-xl border border-outline-variant/30 bg-surface-container-low p-4 ${streamingTextActive ? "ai-streaming-text" : ""}`}>
+              <MarkdownNotesRenderer
+                markdown={markdown}
+                emptyFallback={<p className="text-on-surface-variant">No output yet. Generate notes to preview them here.</p>}
+              />
+            </div>
+          ) : (
+            <div className="rounded-xl border border-dashed border-outline-variant/40 bg-surface-container-low p-6 text-center text-sm text-on-surface-variant">
+              Markdown preview will appear after generation finishes.
+            </div>
+          )}
         </section>
         <section className="card border border-outline-variant/30 p-5">
           <LiveLogsConsole logs={logs} />

@@ -709,6 +709,9 @@ ${formattedQuestions || "No related questions found."}
             fileBaseName: `${paperCode}_unit_${unitNumber}_${Date.now()}`,
             fileName: `${paperCode}_unit_${unitNumber}_notes.pdf`,
             gotenbergUrl: azureGotenbergUrl,
+            paperCode,
+            unitNumber,
+            syllabusContent,
           });
           pdfUrl = rendered.fileUrl;
           controller.enqueue(toSseData({ log: "PDF rendered and uploaded successfully." }));

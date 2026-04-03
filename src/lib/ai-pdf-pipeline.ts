@@ -7,12 +7,54 @@ import {
   getAppwriteFileDownloadUrl,
 } from "@/lib/appwrite";
 
-function buildPdfHtml(markdown: string): string {
+function buildPdfHtml(args: {
+  markdown: string;
+  paperCode?: string;
+  unitNumber?: number;
+  year?: number;
+  syllabusContent?: string;
+}): string {
+  const { markdown, paperCode, unitNumber, year, syllabusContent } = args;
   const cleanMarkdown = markdown
     .replace(/\\\$/g, "$")
     .replace(/\\\\\(/g, "\\(")
     .replace(/\\\\\)/g, "\\)");
   const htmlContent = marked.parse(cleanMarkdown);
+  const watermarkSvg = encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300"><text x="50%" y="50%" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700" fill="#800000" fill-opacity="0.04" transform="rotate(-45 150 150)" text-anchor="middle">EXAMARCHIVE</text></svg>`,
+  );
+  const splitSyllabusItems = (input: string): string[] => {
+    const trimmed = input.trim();
+    if (!trimmed) return [];
+    if (/\r?\n/.test(trimmed)) {
+      return trimmed
+        .split(/\r?\n+/)
+        .map((line) => line.replace(/^\s*[-*•]\s*/, "").trim())
+        .filter(Boolean);
+    }
+    if (trimmed.includes(";")) {
+      return trimmed.split(";").map((entry) => entry.trim()).filter(Boolean);
+    }
+    return trimmed
+      .split(/\.\s+(?=[A-Za-z0-9])/)
+      .map((entry) => entry.trim().replace(/\.$/, ""))
+      .filter(Boolean);
+  };
+  const syllabusBullets = splitSyllabusItems(syllabusContent ?? "")
+    .map((item) => `<li>${item.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</li>`)
+    .join("");
+  const coverDetails = [
+    paperCode ? `<p><strong>Paper Code:</strong> ${paperCode}</p>` : "",
+    typeof unitNumber === "number" ? `<p><strong>Unit:</strong> ${unitNumber}</p>` : "",
+    typeof year === "number" ? `<p><strong>Year:</strong> ${year}</p>` : "",
+  ].filter(Boolean).join("");
+  const coverSection = coverDetails || syllabusBullets
+    ? `<section class="cover-page">
+         <h1>ExamArchive Notes Dossier</h1>
+         <div class="cover-meta">${coverDetails}</div>
+         ${syllabusBullets ? `<h2>Syllabus Highlights</h2><ul>${syllabusBullets}</ul>` : ""}
+       </section>`
+    : "";
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -32,31 +74,64 @@ function buildPdfHtml(markdown: string): string {
   </script>
   <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
   <style>
-    body { font-family: "Inter", Arial, sans-serif; line-height: 1.65; color: #1f2937; padding: 0; margin: 0; }
+    body {
+      font-family: "Inter", Arial, sans-serif;
+      line-height: 1.65;
+      color: #2b1a1a;
+      padding: 0;
+      margin: 0;
+      background-image: url("data:image/svg+xml,${watermarkSvg}");
+      background-size: 230px 230px;
+      background-repeat: repeat;
+    }
     main { padding: 0 4mm; }
     @page { margin: 12mm 10mm; }
-    h1, h2, h3 { color: #4f46e5; }
+    h1, h2, h3 { color: #800000; }
     h1, h2, h3 { page-break-after: avoid; }
-    h1 { border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; }
+    h1 { border-bottom: 2px solid #e7d8d8; padding-bottom: 8px; }
+    h2 { border-left: 4px solid #800000; padding-left: 8px; }
     p, li { font-size: 14px; }
     table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 13px; }
-    th, td { border: 1px solid #d1d5db; padding: 8px; text-align: left; }
-    th { background-color: #f3f4f6; }
-    body::after {
-      content: "EXAMARCHIVE";
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%) rotate(-45deg);
-      font-size: 8rem;
-      font-weight: 700;
-      color: rgba(79, 70, 229, 0.05);
-      z-index: -1;
-      pointer-events: none;
+    th, td { border: 1px solid #e7d8d8; padding: 8px; text-align: left; }
+    th { background-color: #fbf4f4; color: #6e1111; }
+    .cover-page {
+      page-break-after: always;
+      min-height: 92vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 0 12mm;
+    }
+    .cover-page h1 {
+      margin: 0 0 16px;
+      border-bottom: none;
+      font-size: 34px;
+      letter-spacing: 0.04em;
+    }
+    .cover-page .cover-meta {
+      margin-bottom: 12px;
+    }
+    .cover-page .cover-meta p {
+      margin: 3px 0;
+      font-size: 15px;
+    }
+    .cover-page h2 {
+      border-left: none;
+      color: #800000;
+      margin-bottom: 8px;
+      padding-left: 0;
+    }
+    .cover-page ul {
+      display: inline-block;
+      text-align: left;
+      margin: 0;
+      padding-left: 18px;
     }
   </style>
 </head>
-<body><main>${htmlContent}</main></body>
+<body><main>${coverSection}${htmlContent}</main></body>
 </html>`;
 }
 
@@ -67,7 +142,7 @@ function buildHeaderHtml(): string {
   body {
     font-family: "Inter", Arial, sans-serif;
     font-size: 10px;
-    color: #6b7280;
+    color: #7a3a3a;
     margin: 0;
     padding: 0 10mm 5px;
     width: 100%;
@@ -77,7 +152,7 @@ function buildHeaderHtml(): string {
     box-sizing: border-box;
   }
 </style></head><body>
-  <span>ExamArchive Study Notes</span>
+  <span>ExamArchive Premium Notes</span>
   <span>Model: Gemini 3.1 Flash Lite</span>
 </body></html>`;
 }
@@ -124,6 +199,10 @@ export async function renderMarkdownPdfToAppwrite(args: {
   fileBaseName: string;
   fileName?: string;
   gotenbergUrl?: string;
+  paperCode?: string;
+  unitNumber?: number;
+  year?: number;
+  syllabusContent?: string;
 }): Promise<{ fileId: string; fileUrl: string }> {
   const effectiveGotenbergUrl = args.gotenbergUrl || process.env.AZURE_GOTENBERG_URL;
   if (!effectiveGotenbergUrl) {
@@ -141,7 +220,13 @@ export async function renderMarkdownPdfToAppwrite(args: {
   }
   const primaryEndpoint = buildGotenbergEndpoint(gotenbergUrl.toString(), "/forms/chromium/convert/html");
   const fallbackEndpoint = buildGotenbergEndpoint(gotenbergUrl.toString(), "/convert/html");
-  const html = buildPdfHtml(args.markdown);
+  const html = buildPdfHtml({
+    markdown: args.markdown,
+    paperCode: args.paperCode,
+    unitNumber: args.unitNumber,
+    year: args.year,
+    syllabusContent: args.syllabusContent,
+  });
   const headerHtml = buildHeaderHtml();
   const footerHtml = buildFooterHtml();
   const buildFormData = () => {
