@@ -42,15 +42,14 @@ export async function renderMarkdownPdfToAppwrite(args: {
   fileName?: string;
   gotenbergUrl?: string;
 }): Promise<{ fileId: string; fileUrl: string }> {
-  const effectiveGotenbergUrl =
-    args.gotenbergUrl ||
-    process.env.AZURE_GOTENBERG_URL;
+  const effectiveGotenbergUrl = args.gotenbergUrl || process.env.AZURE_GOTENBERG_URL;
   if (!effectiveGotenbergUrl) {
     throw new Error("AZURE_GOTENBERG_URL is required.");
   }
+  const normalizedBaseUrl = effectiveGotenbergUrl.trim().replace(/\/+$/, "");
   let gotenbergUrl: URL;
   try {
-    gotenbergUrl = new URL(effectiveGotenbergUrl);
+    gotenbergUrl = new URL(normalizedBaseUrl);
   } catch {
     throw new Error("Invalid AZURE_GOTENBERG_URL.");
   }
@@ -68,7 +67,10 @@ export async function renderMarkdownPdfToAppwrite(args: {
     body: formData,
   });
   if (!response.ok) {
-    throw new Error(`Gotenberg PDF generation failed (status ${response.status})`);
+    const errorText = (await response.text()).trim();
+    throw new Error(
+      `Gotenberg Error (${response.status}): ${errorText || response.statusText || "Unknown error"}`,
+    );
   }
 
   const pdfBuffer = Buffer.from(await response.arrayBuffer());
@@ -82,6 +84,11 @@ export async function renderMarkdownPdfToAppwrite(args: {
     pdfBuffer,
     finalPdfFileName,
   );
-  await storage.createFile(BUCKET_ID, fileId, inputFile);
+  try {
+    await storage.createFile(BUCKET_ID, fileId, inputFile);
+  } catch (error) {
+    const appwriteMessage = error instanceof Error ? error.message : String(error);
+    throw new Error(`Appwrite Error: ${appwriteMessage}`);
+  }
   return { fileId, fileUrl: getAppwriteFileUrl(fileId) };
 }

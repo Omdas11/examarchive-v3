@@ -946,6 +946,7 @@ ${tavilyContext}
         controller.enqueue(toSseData({ log: "AI generation complete. Sending to Azure for PDF rendering..." }));
         let pdfUrl: string | null = null;
         try {
+          controller.enqueue(toSseData({ log: "Sending HTML payload to Azure Gotenberg..." }));
           const rendered = await renderMarkdownPdfToAppwrite({
             markdown: masterMarkdown.trim(),
             fileBaseName: `${paperCode}_${year}_solved_${Date.now()}`,
@@ -953,10 +954,11 @@ ${tavilyContext}
             gotenbergUrl: azureGotenbergUrl,
           });
           pdfUrl = rendered.fileUrl;
-          controller.enqueue(toSseData({ log: "PDF rendered successfully! Uploading to Appwrite Storage..." }));
+          controller.enqueue(toSseData({ log: "PDF rendered and uploaded successfully." }));
         } catch (pdfError) {
           console.error("[generate-solved-paper-stream] PDF Engine Error:", pdfError);
-          controller.enqueue(toSseData({ log: "Error generating PDF on Azure server." }));
+          const pipelineMessage = pdfError instanceof Error ? pdfError.message : String(pdfError);
+          controller.enqueue(toSseData({ log: `Pipeline Error: ${pipelineMessage}` }));
         }
 
         if (typeof user.email === "string" && user.email.trim().length > 0) {
