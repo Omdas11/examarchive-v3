@@ -5,18 +5,17 @@ import { ensureSolvedPaperPromptFile, SOLVED_PAPER_PROMPT_PATH } from "@/lib/sol
 
 type PromptKind = "solved_paper" | "unit_notes";
 
-const NOTES_STREAM_ROUTE = "/api/generate-notes-stream";
-const SOLVED_PAPER_STREAM_ROUTE = "/api/generate-solved-paper-stream";
-
 function determinePromptKind(params?: { routePath?: string; promptType?: PromptKind | string }): PromptKind {
   const promptType = typeof params?.promptType === "string" ? params.promptType.trim().toLowerCase() : "";
   const routePath = typeof params?.routePath === "string" ? params.routePath.trim().toLowerCase() : "";
-  if (promptType === "unit_notes" || routePath === NOTES_STREAM_ROUTE) {
+  if (promptType === "unit_notes" || routePath.endsWith("/api/generate-notes-stream")) {
     return "unit_notes";
   }
-  if (promptType === "solved_paper" || routePath === SOLVED_PAPER_STREAM_ROUTE) {
+  if (promptType === "solved_paper" || routePath.endsWith("/api/generate-solved-paper-stream")) {
     return "solved_paper";
   }
+  // Default to solved-paper to preserve previous behavior for callers that do not
+  // pass route/prompt metadata while still keeping a deterministic fallback.
   return "solved_paper";
 }
 
