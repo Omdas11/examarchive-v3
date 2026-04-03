@@ -670,6 +670,9 @@ export async function GET(request: NextRequest) {
       };
 
       try {
+        controller.enqueue(toSseData({
+          log: `Starting free-tier generation for ${paperCode}...`,
+        }));
         const db = adminDatabases();
         const questionsRes = await db.listDocuments(DATABASE_ID, COLLECTION.questions_table, [
           Query.equal("university", university),
@@ -717,10 +720,16 @@ export async function GET(request: NextRequest) {
             : provider === "openrouter"
               ? "google/gemma-3-27b-it:free"
               : "llama3-70b-8192");
+        controller.enqueue(toSseData({
+          log: `Using provider/model: ${provider}/${model}`,
+        }));
         const googleClient = provider === "google" ? new GoogleGenerativeAI(String(geminiApiKey)) : null;
         const cachePaperCode = getSolvedPaperCacheKey(course, type, paperCode);
         const checkpoint = await readSolvedPaperCheckpoint(cachePaperCode, year);
         if (checkpoint?.status === COMPLETED_STATUS && checkpoint.markdown.trim().length > 0) {
+          controller.enqueue(toSseData({
+            log: "Cache hit: serving completed markdown from Appwrite Storage.",
+          }));
           controller.enqueue(toSseData({
             event: "done",
             markdown: checkpoint.markdown.trim(),
@@ -835,6 +844,9 @@ ${tavilyContext}
           while (retries < QUESTION_MAX_RETRIES) {
             try {
               let candidate = "";
+              controller.enqueue(toSseData({
+                log: `Prompting ${provider}/${model} for Part ${part} (${qLabel})...`,
+              }));
               switch (provider) {
                 case "google": {
                   try {
@@ -959,6 +971,9 @@ ${tavilyContext}
                 await sleep(SERVER_ERROR_RETRY_DELAY_MS);
               } else {
                 console.error(`[generate-solved-paper-stream] ${provider} API error:`, error);
+                controller.enqueue(toSseData({
+                  log: "Model error (404/401/429). Check rate limits or API keys.",
+                }));
                 await sleep(RETRY_ERROR_DELAY_MS);
               }
             }
@@ -983,6 +998,9 @@ ${tavilyContext}
             status: GENERATING_STATUS,
             lastProcessedIndex,
           });
+          controller.enqueue(toSseData({
+            log: "Chunk successfully saved to Appwrite Cache.",
+          }));
 
           await sleep(QUESTION_LOOP_DELAY_MS);
         }

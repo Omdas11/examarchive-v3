@@ -5,6 +5,7 @@ import "katex/dist/katex.min.css";
 import PrintableNotesDocument from "./PrintableNotesDocument";
 import PrintInstructionsModal from "./PrintInstructionsModal";
 import MarkdownNotesRenderer from "./MarkdownNotesRenderer";
+import LiveLogsConsole from "./LiveLogsConsole";
 import { useToast } from "@/components/ToastContext";
 import CustomDropdown, { type CustomDropdownOption } from "@/components/CustomDropdown";
 
@@ -13,7 +14,7 @@ const COURSE_TYPES: Record<string, string[]> = {
   CBCS: ["DSC", "SEC"],
 };
 const UNIT_OPTIONS = [1, 2, 3, 4, 5];
-const PROVIDER_MODELS = {
+const DEFAULT_PROVIDER_MODELS = {
   Google: ["gemini-3.1-flash-lite-preview", "gemini-2.5-flash", "gemini-1.5-flash"],
   OpenRouter: [
     "openai/gpt-oss-120b:free",
@@ -23,9 +24,9 @@ const PROVIDER_MODELS = {
   ],
   Groq: ["gpt-oss-120b", "llama3-70b-8192", "llama3-8b-8192", "mixtral-8x7b-32768"],
 } as const;
-type AIProvider = keyof typeof PROVIDER_MODELS;
+type AIProvider = keyof typeof DEFAULT_PROVIDER_MODELS;
 const DEFAULT_PROVIDER: AIProvider = "Google";
-const DEFAULT_PROVIDER_MODEL = PROVIDER_MODELS[DEFAULT_PROVIDER][0];
+const DEFAULT_PROVIDER_MODEL = DEFAULT_PROVIDER_MODELS[DEFAULT_PROVIDER][0];
 const BACKEND_PAPERS_MAX_DURATION_SECONDS = 300;
 const RESUME_TIMEOUT_BUFFER_SECONDS = 5;
 const TIMEOUT_THRESHOLD_SECONDS = BACKEND_PAPERS_MAX_DURATION_SECONDS - RESUME_TIMEOUT_BUFFER_SECONDS;
@@ -58,6 +59,12 @@ export default function AIContentClient() {
   const [usedModel, setUsedModel] = useState("");
   const [provider, setProvider] = useState<AIProvider>(DEFAULT_PROVIDER);
   const [selectedModel, setSelectedModel] = useState<string>(DEFAULT_PROVIDER_MODEL);
+  const [dynamicModels, setDynamicModels] = useState<Record<AIProvider, string[]>>({
+    Google: [...DEFAULT_PROVIDER_MODELS.Google],
+    OpenRouter: [...DEFAULT_PROVIDER_MODELS.OpenRouter],
+    Groq: [...DEFAULT_PROVIDER_MODELS.Groq],
+  });
+  const [logs, setLogs] = useState<string[]>([]);
   const [remaining, setRemaining] = useState<number | null>(null);
   const [limit, setLimit] = useState<number | null>(null);
   const [notesRemaining, setNotesRemaining] = useState<number | null>(null);
@@ -84,7 +91,7 @@ export default function AIContentClient() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const selectedPaperName = paperNameMap[paperCode] || paperCode;
   const availableYears = useMemo(() => yearsByPaperCode[paperCode] || [], [yearsByPaperCode, paperCode]);
-  const providerModelOptions = useMemo(() => PROVIDER_MODELS[provider], [provider]);
+  const providerModelOptions = useMemo(() => dynamicModels[provider] || DEFAULT_PROVIDER_MODELS[provider], [dynamicModels, provider]);
   const courseOptions: CustomDropdownOption[] = useMemo(
     () => [
       { label: "FYUG", value: "FYUG" },
@@ -224,6 +231,9 @@ export default function AIContentClient() {
         return;
       }
 
+      if (typeof data.log === "string" && data.log.trim().length > 0) {
+        setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ${data.log}`]);
+      }
       const eventType = typeof data.event === "string" ? data.event : "";
       if (eventType === "progress") {
         setProgressStatus(typeof data.status === "string" ? data.status : "Generating...");
@@ -340,6 +350,7 @@ export default function AIContentClient() {
     // True when user is explicitly resuming after a timeout prompt; keep existing stitched markdown.
     const isResumeAttempt = activeTab === "papers" && canResumeGeneration;
     closeEventSource();
+    setLogs([]);
     setGenerating(true);
     setError(null);
     setProgressStatus("Starting chunked generation...");
@@ -384,6 +395,33 @@ export default function AIContentClient() {
     setPrintInstructionsOpen(false);
     window.print();
   }
+
+  useEffect(() => {
+    fetch("/api/models", { cache: "no-store" })
+      .then((res) => {
+        if (!res.ok) return null;
+        return res.json() as Promise<{
+          google?: Array<{ id?: string }>;
+          openrouter?: Array<{ id?: string }>;
+          groq?: Array<{ id?: string }>;
+        }>;
+      })
+      .then((data) => {
+        if (!data) return;
+        const normalize = (list: Array<{ id?: string }> | undefined, fallback: readonly string[]) => {
+          const ids = (list ?? [])
+            .map((item) => String(item?.id ?? "").trim())
+            .filter(Boolean);
+          return ids.length > 0 ? ids : [...fallback];
+        };
+        setDynamicModels({
+          Google: normalize(data.google, DEFAULT_PROVIDER_MODELS.Google),
+          OpenRouter: normalize(data.openrouter, DEFAULT_PROVIDER_MODELS.OpenRouter),
+          Groq: normalize(data.groq, DEFAULT_PROVIDER_MODELS.Groq),
+        });
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     setPaperCodeLoading(true);
@@ -674,6 +712,9 @@ export default function AIContentClient() {
               emptyFallback={<p className="text-on-surface-variant">No output yet. Generate notes to preview them here.</p>}
             />
           </div>
+        </section>
+        <section className="card border border-outline-variant/30 p-5">
+          <LiveLogsConsole logs={logs} />
         </section>
       </div>
       <PrintInstructionsModal
