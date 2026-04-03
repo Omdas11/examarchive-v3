@@ -57,6 +57,7 @@ export async function renderMarkdownPdfToAppwrite(args: {
   if (!/^https?:$/.test(gotenbergUrl.protocol)) {
     throw new Error("AZURE_GOTENBERG_URL must use HTTP or HTTPS.");
   }
+  gotenbergUrl.pathname = "/convert/html";
   const html = buildPdfHtml(args.markdown);
   const formData = new FormData();
   formData.append("files", new Blob([html], { type: "text/html" }), "index.html");

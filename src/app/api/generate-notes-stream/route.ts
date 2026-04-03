@@ -442,9 +442,16 @@ export async function GET(request: NextRequest) {
   const type = (searchParams.get("type") || "").trim();
   const paperCode = (searchParams.get("paperCode") || "").trim();
   const unitNumber = Number(searchParams.get("unitNumber"));
+  const azureGotenbergUrl = process.env.AZURE_GOTENBERG_URL;
 
   if (!course || !type || !paperCode || !Number.isInteger(unitNumber) || unitNumber < 1 || unitNumber > 5) {
     return NextResponse.json({ error: "Invalid selection. Please choose course, type, paper code, and unit 1-5." }, { status: 400 });
+  }
+  if (!azureGotenbergUrl) {
+    return NextResponse.json(
+      { error: "Server misconfiguration: AZURE_GOTENBERG_URL is missing." },
+      { status: 503 },
+    );
   }
 
   await ensureNotesCacheSchema();
@@ -495,7 +502,6 @@ export async function GET(request: NextRequest) {
   }
   const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   if (!geminiApiKey) return NextResponse.json({ error: "Google Gemini is not configured." }, { status: 503 });
-  const azureGotenbergUrl = process.env.AZURE_GOTENBERG_URL;
 
   const stream = new ReadableStream<Uint8Array>({
     start: async (controller) => {
@@ -696,17 +702,6 @@ ${formattedQuestions || "No related questions found."}
         await writeCachedNotes(paperCode, unitNumber, masterMarkdown, syllabusContent);
         controller.enqueue(toSseData({ log: "AI generation complete. Sending to Azure for PDF rendering..." }));
         let pdfUrl: string | null = null;
-        if (!azureGotenbergUrl) {
-          controller.enqueue(toSseData({
-            log: "Server Error: AZURE_GOTENBERG_URL is missing in environment variables.",
-          }));
-          controller.enqueue(toSseData({
-            event: "error",
-            error: "Server misconfiguration: AZURE_GOTENBERG_URL is missing.",
-          }));
-          closeStream();
-          return;
-        }
         try {
           const rendered = await renderMarkdownPdfToAppwrite({
             markdown: masterMarkdown,
