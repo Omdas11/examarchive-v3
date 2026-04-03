@@ -79,14 +79,14 @@ _This section is updated by `scripts/sync-appwrite-schema.js` when run with `--u
 | `pdf_usage` | ✅ Perfectly connected | 0 | collection existed; 0/2 missing attrs created; no mismatches detected |
 | `Syllabus_Table` | ⚠️ Connected with differences | 0 | collection existed; 0/9 missing attrs created; 1 attr definition mismatch(es) |
 | `Questions_Table` | ⚠️ Connected with differences | 0 | collection existed; 0/12 missing attrs created; 1 attr definition mismatch(es) |
-| `Generated_Notes_Cache` | ⚠️ Connected with differences | 3 | collection existed; 3/10 missing attrs created; 3 attr definition mismatch(es) |
+| `Generated_Notes_Cache` | ⚠️ Connected with differences | 0 | collection existed; 0/10 missing attrs created; 3 attr definition mismatch(es) |
 | `User_Quotas` | ✅ Perfectly connected | 0 | collection existed; 0/5 missing attrs created; no mismatches detected |
 
 <!-- SCHEMA_SYNC_STATUS_END -->
 
 ---
 ### Sync Remarks (Auto-Generated)
-**Last Synced:** 2026-04-02T14:48:10.051Z
+**Last Synced:** 2026-04-03T11:37:43.271Z
 **Overall Status:** Partial
 **Connected:**
 - feedback updated successfully.
