@@ -1,22 +1,40 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getServerUser } from "@/lib/auth";
-import { adminDatabases, COLLECTION, DATABASE_ID, ID, Query } from "@/lib/appwrite";
+import { Compression } from "node-appwrite";
+import { InputFile } from "node-appwrite/file";
+import {
+  adminDatabases,
+  adminStorage,
+  COLLECTION,
+  DATABASE_ID,
+  ID,
+  MARKDOWN_CACHE_BUCKET_ID,
+  Query,
+} from "@/lib/appwrite";
 import { getDailyLimit } from "@/lib/ai-limits";
-import { GeminiServiceError, runGeminiCompletion } from "@/lib/gemini";
-import { readTopicNotesPrompt } from "@/lib/topic-notes-prompt";
+import { runGeminiCompletion } from "@/lib/gemini";
+import { readDynamicSystemPrompt } from "@/lib/system-prompt";
 import { checkAndResetQuotas, incrementQuotaCounter } from "@/lib/user-quotas";
+import { sendGenerationMagicLinkEmail } from "@/lib/generation-notifications";
 
 const EMPTY_RESPONSE_RETRY_MS = 2000;
 const TOPIC_LOOP_DELAY_MS = 7000;
 const MIN_TOPIC_RESPONSE_CHARS = 50;
 const TOPIC_RETRY_MAX = 4;
-const RATE_LIMIT_COOLDOWN_MS = 20000;
 const RETRY_ERROR_DELAY_MS = 4000;
 const HEARTBEAT_INTERVAL_MS = 15000;
 const UNIT_NOTES_CACHE_TYPE = "unit_notes";
 const COMPLETED_STATUS = "completed";
 const ATTRIBUTE_AVAILABILITY_POLL_INTERVAL_MS = 300;
 const ATTRIBUTE_AVAILABILITY_TIMEOUT_MS = 12000;
+const PROVIDER_REQUEST_TIMEOUT_MS = 20000;
+const OPENROUTER_APP_URL =
+  process.env.OPENROUTER_APP_URL ||
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  "https://www.examarchive.dev";
+const OPENROUTER_APP_NAME = process.env.OPENROUTER_APP_NAME || "ExamArchive";
+
+type NotesProvider = "google" | "openrouter" | "groq";
 
 function isAdminPlus(role: string): boolean {
   return role === "admin" || role === "founder";
@@ -185,30 +203,44 @@ async function ensureNotesCacheSchema(): Promise<void> {
       1,
     ),
   );
-
-  try {
-    const markdownAttribute = await db.getAttribute(
+  await ensureAttribute("markdown_file_id", () =>
+    db.createStringAttribute(
       DATABASE_ID,
       COLLECTION.generated_notes_cache,
-      "generated_markdown",
-    );
-    if (
-      markdownAttribute.status === "available" &&
-      "size" in markdownAttribute &&
-      typeof markdownAttribute.size === "number" &&
-      markdownAttribute.size < 1_000_000
-    ) {
-      console.warn(
-        `[generate-notes-stream] generated_markdown size is ${markdownAttribute.size}; recommended minimum is 1000000 for long stitched documents.`,
-      );
-    }
+      "markdown_file_id",
+      100,
+      false,
+      undefined,
+    ),
+  );
+}
+
+async function ensureMarkdownCacheBucket(): Promise<void> {
+  const storage = adminStorage();
+  try {
+    await storage.getBucket({ bucketId: MARKDOWN_CACHE_BUCKET_ID });
   } catch (error) {
-    console.warn("[generate-notes-stream] Unable to inspect generated_markdown attribute size:", error);
+    const code = getAppwriteErrorCode(error);
+    if (code !== 404) throw error;
+    await storage.createBucket({
+      bucketId: MARKDOWN_CACHE_BUCKET_ID,
+      name: MARKDOWN_CACHE_BUCKET_ID,
+      permissions: [],
+      fileSecurity: false,
+      enabled: true,
+      maximumFileSize: 20 * 1024 * 1024,
+      allowedFileExtensions: ["md"],
+      compression: Compression.None,
+      encryption: true,
+      antivirus: true,
+      transformations: false,
+    });
   }
 }
 
 async function readCachedNotes(paperCode: string, unitNumber: number): Promise<CachedNotes | null> {
   const db = adminDatabases();
+  const storage = adminStorage();
   try {
     const res = await db.listDocuments(DATABASE_ID, COLLECTION.generated_notes_cache, [
       Query.equal("paper_code", paperCode),
@@ -220,7 +252,10 @@ async function readCachedNotes(paperCode: string, unitNumber: number): Promise<C
     ]);
     const doc = res.documents[0];
     if (!doc) return null;
-    const markdown = String(doc.generated_markdown ?? "").trim();
+    const markdownFileId = typeof doc.markdown_file_id === "string" ? doc.markdown_file_id.trim() : "";
+    if (!markdownFileId) return null;
+    const fileBuffer = await storage.getFileDownload(MARKDOWN_CACHE_BUCKET_ID, markdownFileId);
+    const markdown = Buffer.from(fileBuffer).toString("utf-8").trim();
     if (!markdown) return null;
     const syllabusContent = typeof doc.syllabus_content === "string" ? doc.syllabus_content.trim() : "";
     return { markdown, syllabusContent: syllabusContent || null };
@@ -257,14 +292,21 @@ async function writeCachedNotes(
   syllabusContent: string,
 ): Promise<void> {
   const db = adminDatabases();
+  const storage = adminStorage();
   try {
+    const inputFile = InputFile.fromBuffer(
+      Buffer.from(markdown, "utf-8"),
+      `${paperCode}_${unitNumber}_${Date.now()}.md`,
+    );
+    const uploadResult = await storage.createFile(MARKDOWN_CACHE_BUCKET_ID, ID.unique(), inputFile);
+    const markdownFileId = String(uploadResult.$id);
     // Keep explicit created_at because schema/docs require this field for cache reads and audits.
     const payload = {
       paper_code: paperCode,
       unit_number: unitNumber,
       type: UNIT_NOTES_CACHE_TYPE,
       status: COMPLETED_STATUS,
-      generated_markdown: markdown,
+      markdown_file_id: markdownFileId,
       syllabus_content: syllabusContent,
       created_at: new Date().toISOString(),
     };
@@ -316,6 +358,90 @@ function isRateLimitError(error: unknown): boolean {
   return status === 429 || message.includes("429");
 }
 
+function resolveSafeMaxTokens(model: string): number {
+  const normalized = model.toLowerCase();
+  if (normalized.includes("gpt-oss") || normalized.includes("llama3-8b")) return 3200;
+  return 4000;
+}
+
+async function runRateLimitCountdown(params: {
+  controller: ReadableStreamDefaultController<Uint8Array>;
+  topic: string;
+  index: number;
+  total: number;
+}): Promise<void> {
+  for (let remainingSeconds = 60; remainingSeconds > 5; remainingSeconds -= 5) {
+    params.controller.enqueue(toSseData({
+      event: "progress",
+      status: `Rate limit (TPM) active. Cooling down... resuming in ${remainingSeconds} seconds.`,
+      topic: params.topic,
+      index: params.index,
+      total: params.total,
+    }));
+    params.controller.enqueue(toSseData({
+      log: `Rate limit (TPM) active. Cooling down... resuming in ${remainingSeconds} seconds.`,
+    }));
+    await sleep(5000);
+  }
+  params.controller.enqueue(toSseData({
+    event: "progress",
+    status: "Rate limit (TPM) active. Cooling down... resuming in 5 seconds.",
+    topic: params.topic,
+    index: params.index,
+    total: params.total,
+  }));
+  params.controller.enqueue(toSseData({
+    log: "Rate limit (TPM) active. Cooling down... resuming in 5 seconds.",
+  }));
+  await sleep(5000);
+  params.controller.enqueue(toSseData({
+    log: "Cooldown complete. Retrying chunk...",
+  }));
+}
+
+function getErrorStatus(error: unknown): number | null {
+  if (!error || typeof error !== "object") return null;
+  const raw = "status" in error ? (error as { status?: unknown }).status : null;
+  if (typeof raw === "number" && Number.isFinite(raw)) return raw;
+  if (typeof raw === "string") {
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
+function getErrorStatusFromMessage(message: string): number | null {
+  const match = message.match(/\b(4\d{2}|5\d{2})\b/);
+  if (!match) return null;
+  const parsed = Number(match[1]);
+  return Number.isFinite(parsed) && parsed >= 400 && parsed <= 599 ? parsed : null;
+}
+
+function parseChatCompletionContent(payload: unknown): string {
+  if (!payload || typeof payload !== "object") return "";
+  const maybeChoices = (payload as { choices?: unknown }).choices;
+  if (!Array.isArray(maybeChoices) || maybeChoices.length === 0) return "";
+  const firstChoice = maybeChoices[0];
+  if (!firstChoice || typeof firstChoice !== "object") return "";
+  const message = (firstChoice as { message?: unknown }).message;
+  if (!message || typeof message !== "object") return "";
+  const content = (message as { content?: unknown }).content;
+  return typeof content === "string" ? content.trim() : "";
+}
+
+function isTimeoutLikeError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const maybeError = error as { name?: unknown; message?: unknown; code?: unknown };
+  const name = typeof maybeError.name === "string" ? maybeError.name : "";
+  const message = typeof maybeError.message === "string" ? maybeError.message : "";
+  return (
+    name === "AbortError" ||
+    name === "TimeoutError" ||
+    maybeError.code === 23 ||
+    /timed out|timeout|aborted due to timeout|operation was aborted due to timeout/i.test(message)
+  );
+}
+
 async function getDailyCount(userId: string, todayStr: string): Promise<number> {
   const db = adminDatabases();
   try {
@@ -353,12 +479,22 @@ export async function GET(request: NextRequest) {
   const type = (searchParams.get("type") || "").trim();
   const paperCode = (searchParams.get("paperCode") || "").trim();
   const unitNumber = Number(searchParams.get("unitNumber"));
+  const rawProvider = (searchParams.get("provider") || "google").trim().toLowerCase();
+  const provider: NotesProvider | null =
+    rawProvider === "google" || rawProvider === "openrouter" || rawProvider === "groq"
+      ? rawProvider
+      : null;
+  const requestedModel = (searchParams.get("model") || "").trim();
 
   if (!course || !type || !paperCode || !Number.isInteger(unitNumber) || unitNumber < 1 || unitNumber > 5) {
     return NextResponse.json({ error: "Invalid selection. Please choose course, type, paper code, and unit 1-5." }, { status: 400 });
   }
+  if (!provider) {
+    return NextResponse.json({ error: "Invalid provider. Use Google, OpenRouter, or Groq." }, { status: 400 });
+  }
 
   await ensureNotesCacheSchema();
+  await ensureMarkdownCacheBucket();
   const completedCache = await readCachedNotes(paperCode, unitNumber);
   if (completedCache) {
     const todayStr = new Date().toISOString().slice(0, 10);
@@ -404,8 +540,16 @@ export async function GET(request: NextRequest) {
     }
   }
   const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-  if (!geminiApiKey) {
-    return NextResponse.json({ error: "Gemini is not configured." }, { status: 503 });
+  const openRouterApiKey = process.env.OPENROUTER_API_KEY;
+  const groqApiKey = process.env.GROQ_API_KEY;
+  if (provider === "google" && !geminiApiKey) {
+    return NextResponse.json({ error: "Google Gemini is not configured." }, { status: 503 });
+  }
+  if (provider === "openrouter" && !openRouterApiKey) {
+    return NextResponse.json({ error: "OpenRouter is not configured." }, { status: 503 });
+  }
+  if (provider === "groq" && !groqApiKey) {
+    return NextResponse.json({ error: "Groq is not configured." }, { status: 503 });
   }
 
   const stream = new ReadableStream<Uint8Array>({
@@ -472,9 +616,19 @@ export async function GET(request: NextRequest) {
           Query.limit(500),
         ]);
         const formattedQuestions = formatQuestionsForPrompt(questionsRes.documents, unitNumber);
-        const topicPromptTemplate = readTopicNotesPrompt();
+        const systemPrompt = readDynamicSystemPrompt({
+          routePath: request.nextUrl.pathname,
+          promptType: "unit_notes",
+        });
         let masterMarkdown = "";
-        const model = "gemini-3.1-flash-lite-preview";
+        const model =
+          requestedModel ||
+          (provider === "google"
+            ? "gemini-3.1-flash-lite-preview"
+            : provider === "openrouter"
+              ? "openai/gpt-oss-120b:free"
+              : "gpt-oss-120b");
+        const safeMaxTokens = resolveSafeMaxTokens(model);
 
         for (const [index, topic] of subTopics.entries()) {
           controller.enqueue(toSseData({
@@ -485,9 +639,7 @@ export async function GET(request: NextRequest) {
             total: subTopics.length,
           }));
 
-          const prompt = `${topicPromptTemplate}
-
-University: ${university}
+          const promptBody = `University: ${university}
 Course: ${course}
 Type: ${type}
 Paper Code: ${paperCode}
@@ -517,14 +669,94 @@ ${formattedQuestions || "No related questions found."}
                 }));
               }
 
-              const result = await runGeminiCompletion({
-                apiKey: geminiApiKey,
-                prompt,
-                maxTokens: 8192,
-                temperature: 0.4,
-                model,
-              });
-              const candidate = String(result.content ?? "").trim();
+              let candidate = "";
+              switch (provider) {
+                case "google": {
+                  try {
+                    const result = await runGeminiCompletion({
+                      apiKey: String(geminiApiKey),
+                      prompt: `${systemPrompt}\n\n${promptBody}`,
+                      maxTokens: 8192,
+                      temperature: 0.4,
+                      model,
+                    });
+                    candidate = String(result.content ?? "").trim();
+                  } catch (error) {
+                    const errorMessage = error instanceof Error ? error.message : String(error ?? "Google request failed");
+                    const status = getErrorStatus(error) ?? getErrorStatusFromMessage(errorMessage) ?? 503;
+                    throw new Error(`Google request failed (status ${status}): ${errorMessage}`);
+                  }
+                  break;
+                }
+                case "openrouter": {
+                  let response: Response;
+                  try {
+                    response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${String(openRouterApiKey)}`,
+                        "HTTP-Referer": OPENROUTER_APP_URL,
+                        "X-Title": OPENROUTER_APP_NAME,
+                      },
+                      body: JSON.stringify({
+                        model,
+                        messages: [
+                          { role: "system", content: systemPrompt },
+                          { role: "user", content: promptBody },
+                        ],
+                        max_tokens: safeMaxTokens,
+                        temperature: 0.4,
+                      }),
+                      signal: AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MS),
+                    });
+                  } catch (error) {
+                    if (isTimeoutLikeError(error)) {
+                      throw new Error("OpenRouter request timed out (status 503)");
+                    }
+                    throw new Error("OpenRouter network request failed (status 503)");
+                  }
+                  if (!response.ok) {
+                    throw new Error(`OpenRouter request failed (status ${response.status})`);
+                  }
+                  const data = await response.json();
+                  candidate = parseChatCompletionContent(data);
+                  break;
+                }
+                case "groq": {
+                  let response: Response;
+                  try {
+                    response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${String(groqApiKey)}`,
+                      },
+                      body: JSON.stringify({
+                        model,
+                        messages: [
+                          { role: "system", content: systemPrompt },
+                          { role: "user", content: promptBody },
+                        ],
+                        max_tokens: safeMaxTokens,
+                        temperature: 0.4,
+                      }),
+                      signal: AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MS),
+                    });
+                  } catch (error) {
+                    if (isTimeoutLikeError(error)) {
+                      throw new Error("Groq request timed out (status 503)");
+                    }
+                    throw new Error("Groq network request failed (status 503)");
+                  }
+                  if (!response.ok) {
+                    throw new Error(`Groq request failed (status ${response.status})`);
+                  }
+                  const data = await response.json();
+                  candidate = parseChatCompletionContent(data);
+                  break;
+                }
+              }
               if (candidate.length > MIN_TOPIC_RESPONSE_CHARS) {
                 aiResponseText = candidate;
                 break;
@@ -539,19 +771,25 @@ ${formattedQuestions || "No related questions found."}
               }));
             } catch (error) {
               if (isRateLimitError(error)) {
-                controller.enqueue(toSseData({
-                  event: "progress",
-                  status: "Rate limit hit. Cooling down for 20 seconds...",
+                await runRateLimitCountdown({
+                  controller,
                   topic,
                   index: index + 1,
                   total: subTopics.length,
-                }));
-                await sleep(RATE_LIMIT_COOLDOWN_MS);
-              } else if (error instanceof GeminiServiceError) {
-                console.error("[generate-notes-stream] Gemini API error:", error);
-                await sleep(RETRY_ERROR_DELAY_MS);
+                });
               } else {
-                throw error;
+                const errorStatus = getErrorStatus(error);
+                const messageStatus =
+                  error instanceof Error ? getErrorStatusFromMessage(error.message) : null;
+                if (
+                  (errorStatus !== null && errorStatus >= 500) ||
+                  (messageStatus !== null && messageStatus >= 500)
+                ) {
+                  await sleep(RETRY_ERROR_DELAY_MS);
+                } else {
+                  console.error("[generate-notes-stream] Provider API error:", error);
+                  await sleep(RETRY_ERROR_DELAY_MS);
+                }
               }
             }
             retries += 1;
@@ -590,6 +828,14 @@ ${formattedQuestions || "No related questions found."}
         }
 
         await writeCachedNotes(paperCode, unitNumber, masterMarkdown, syllabusContent);
+        const magicLinkPath = `/ai-content?course=${encodeURIComponent(course)}&type=${encodeURIComponent(type)}&paperCode=${encodeURIComponent(paperCode)}`;
+        if (typeof user.email === "string" && user.email.trim().length > 0) {
+          try {
+            await sendGenerationMagicLinkEmail(user.email, magicLinkPath);
+          } catch (emailError) {
+            console.error("[generate-notes-stream] Failed to send generation magic-link email:", emailError);
+          }
+        }
 
         if (!isAdminPlus(user.role)) {
           await recordGeneration(user.id, todayStr);
@@ -604,14 +850,12 @@ ${formattedQuestions || "No related questions found."}
           syllabus_content: syllabusContent,
         }));
       } catch (error) {
-        if (error instanceof GeminiServiceError) {
-          const message =
-            error.status === 429 ? "AI rate limit reached. Please wait a moment and try again." : error.message;
-          controller.enqueue(toSseData({ event: "error", error: message, status: error.status }));
-        } else {
-          console.error("[generate-notes-stream] Failed:", error);
-          controller.enqueue(toSseData({ event: "error", error: "Failed to generate notes." }));
-        }
+        const errorStatus = getErrorStatus(error);
+        const baseMessage = error instanceof Error ? error.message : "Failed to generate notes.";
+        const message =
+          errorStatus === 429 ? "AI rate limit reached. Please wait a moment and try again." : baseMessage;
+        console.error("[generate-notes-stream] Failed:", error);
+        controller.enqueue(toSseData({ event: "error", error: message, status: errorStatus ?? undefined }));
       } finally {
         clearInterval(heartbeat);
         closeStream();

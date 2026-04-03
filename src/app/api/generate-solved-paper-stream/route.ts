@@ -1,11 +1,22 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getServerUser } from "@/lib/auth";
-import { adminDatabases, COLLECTION, DATABASE_ID, ID, Query } from "@/lib/appwrite";
+import { Compression } from "node-appwrite";
+import { InputFile } from "node-appwrite/file";
+import {
+  adminDatabases,
+  adminStorage,
+  COLLECTION,
+  DATABASE_ID,
+  ID,
+  MARKDOWN_CACHE_BUCKET_ID,
+  Query,
+} from "@/lib/appwrite";
 import { getDailyLimit } from "@/lib/ai-limits";
-import { GeminiServiceError, runGeminiCompletion } from "@/lib/gemini";
-import { readSolvedPaperPrompt } from "@/lib/solved-paper-prompt";
+import { readDynamicSystemPrompt } from "@/lib/system-prompt";
 import { formatSearchResults, runWebSearch } from "@/lib/web-search";
 import { checkAndResetQuotas, incrementQuotaCounter } from "@/lib/user-quotas";
+import { sendGenerationMagicLinkEmail } from "@/lib/generation-notifications";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export const maxDuration = 300;
 
@@ -14,7 +25,6 @@ const PART_SIZE = 10;
 const QUESTION_MAX_RETRIES = 4;
 // Standard fallback delay for non-rate-limit/non-5xx retryable errors.
 const RETRY_ERROR_DELAY_MS = 5000;
-const RATE_LIMIT_RETRY_DELAY_MS = 20000;
 const SERVER_ERROR_RETRY_DELAY_MS = 15000;
 const HEARTBEAT_INTERVAL_MS = 15000;
 const MIN_SOLUTION_RESPONSE_CHARS = 10;
@@ -26,10 +36,25 @@ const INITIAL_LAST_PROCESSED_INDEX = -1;
 const ATTRIBUTE_AVAILABILITY_POLL_INTERVAL_MS = 300;
 const ATTRIBUTE_AVAILABILITY_TIMEOUT_MS = 12000;
 const SOLVED_PAPER_CACHE_TYPE = "solved_paper";
+const PROVIDER_REQUEST_TIMEOUT_MS = 20000;
+const OPENROUTER_APP_URL =
+  process.env.OPENROUTER_APP_URL ||
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  "https://www.examarchive.dev";
+const OPENROUTER_APP_NAME = process.env.OPENROUTER_APP_NAME || "ExamArchive";
+
+type SolvedPaperProvider = "google" | "openrouter" | "groq";
+
+class ProviderRequestError extends Error {
+  constructor(public readonly status: number, message: string) {
+    super(message);
+  }
+}
 
 type SolvedPaperCheckpoint = {
   id: string;
   markdown: string;
+  markdownFileId: string;
   status: string;
   lastProcessedIndex: number;
 };
@@ -51,6 +76,21 @@ function isRateLimitError(error: unknown): boolean {
   const status = "status" in error ? (error as { status?: unknown }).status : undefined;
   const message = "message" in error ? String((error as { message?: unknown }).message ?? "") : "";
   return status === 429 || message.includes("429");
+}
+
+function resolveSafeMaxTokens(model: string): number {
+  const normalized = model.toLowerCase();
+  if (normalized.includes("gpt-oss") || normalized.includes("llama3-8b")) return 3200;
+  return 4000;
+}
+
+function isConstrainedFreeTierModel(model: string): boolean {
+  const normalized = model.toLowerCase();
+  return normalized.includes("gpt-oss") || normalized.includes("llama3-8b");
+}
+
+function resolvePartSizeForModel(model: string): number {
+  return isConstrainedFreeTierModel(model) ? 1 : PART_SIZE;
 }
 
 /**
@@ -90,6 +130,32 @@ function getAppwriteErrorCode(error: unknown): number | null {
   return null;
 }
 
+function parseChatCompletionContent(payload: unknown): string {
+  if (!payload || typeof payload !== "object") return "";
+  const maybeChoices = (payload as { choices?: unknown }).choices;
+  if (!Array.isArray(maybeChoices) || maybeChoices.length === 0) return "";
+  const firstChoice = maybeChoices[0];
+  if (!firstChoice || typeof firstChoice !== "object") return "";
+  const message = (firstChoice as { message?: unknown }).message;
+  if (!message || typeof message !== "object") return "";
+  const content = (message as { content?: unknown }).content;
+  return typeof content === "string" ? content.trim() : "";
+}
+
+function isTimeoutLikeError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const maybeError = error as { name?: unknown; message?: unknown; code?: unknown };
+  const name = typeof maybeError.name === "string" ? maybeError.name : "";
+  const message = typeof maybeError.message === "string" ? maybeError.message : "";
+  return (
+    name === "AbortError" ||
+    name === "TimeoutError" ||
+    // DOMException timeout code used by runtime abort/timeouts in some environments.
+    maybeError.code === 23 ||
+    /timed out|timeout|aborted due to timeout|operation was aborted due to timeout/i.test(message)
+  );
+}
+
 async function waitForAttributeAvailable(key: string): Promise<void> {
   const db = adminDatabases();
   const deadline = Date.now() + ATTRIBUTE_AVAILABILITY_TIMEOUT_MS;
@@ -113,6 +179,47 @@ async function waitForAttributeAvailable(key: string): Promise<void> {
     await sleep(Math.min(ATTRIBUTE_AVAILABILITY_POLL_INTERVAL_MS, remainingMs));
   }
   throw new Error(`[generate-solved-paper-stream] Timed out waiting for attribute ${key} to become available.`);
+}
+
+async function runRateLimitCountdown(params: {
+  controller: ReadableStreamDefaultController<Uint8Array>;
+  index: number;
+  total: number;
+  question: string;
+  part: number;
+  totalParts: number;
+}): Promise<void> {
+  for (let remainingSeconds = 60; remainingSeconds > 5; remainingSeconds -= 5) {
+    params.controller.enqueue(toSseData({
+      event: "progress",
+      status: `Rate limit (TPM) active. Cooling down... resuming in ${remainingSeconds} seconds.`,
+      index: params.index,
+      total: params.total,
+      question: params.question,
+      part: params.part,
+      totalParts: params.totalParts,
+    }));
+    params.controller.enqueue(toSseData({
+      log: `Rate limit (TPM) active. Cooling down... resuming in ${remainingSeconds} seconds.`,
+    }));
+    await sleep(5000);
+  }
+  params.controller.enqueue(toSseData({
+    event: "progress",
+    status: "Rate limit (TPM) active. Cooling down... resuming in 5 seconds.",
+    index: params.index,
+    total: params.total,
+    question: params.question,
+    part: params.part,
+    totalParts: params.totalParts,
+  }));
+  params.controller.enqueue(toSseData({
+    log: "Rate limit (TPM) active. Cooling down... resuming in 5 seconds.",
+  }));
+  await sleep(5000);
+  params.controller.enqueue(toSseData({
+    log: "Cooldown complete. Retrying chunk...",
+  }));
 }
 
 async function ensureSolvedPaperCacheSchema(): Promise<void> {
@@ -199,26 +306,60 @@ async function ensureSolvedPaperCacheSchema(): Promise<void> {
       1,
     ),
   );
-
-  try {
-    const markdownAttribute = await db.getAttribute(
+  await ensureAttribute("markdown_file_id", () =>
+    db.createStringAttribute(
       DATABASE_ID,
       COLLECTION.generated_notes_cache,
-      "generated_markdown",
-    );
-    if (
-      markdownAttribute.status === "available" &&
-      "size" in markdownAttribute &&
-      typeof markdownAttribute.size === "number" &&
-      markdownAttribute.size < 1_000_000
-    ) {
-      console.warn(
-        `[generate-solved-paper-stream] generated_markdown size is ${markdownAttribute.size}; recommended minimum is 1000000 for long stitched documents.`,
-      );
-    }
+      "markdown_file_id",
+      100,
+      false,
+      undefined,
+    ),
+  );
+}
+
+async function ensureMarkdownCacheBucket(): Promise<void> {
+  const storage = adminStorage();
+  try {
+    await storage.getBucket({ bucketId: MARKDOWN_CACHE_BUCKET_ID });
   } catch (error) {
-    console.warn("[generate-solved-paper-stream] Unable to inspect generated_markdown attribute size:", error);
+    const code = getAppwriteErrorCode(error);
+    if (code !== 404) throw error;
+    await storage.createBucket({
+      bucketId: MARKDOWN_CACHE_BUCKET_ID,
+      name: MARKDOWN_CACHE_BUCKET_ID,
+      permissions: [],
+      fileSecurity: false,
+      enabled: true,
+      maximumFileSize: 20 * 1024 * 1024,
+      allowedFileExtensions: ["md"],
+      compression: Compression.None,
+      encryption: true,
+      antivirus: true,
+      transformations: false,
+    });
   }
+}
+
+async function uploadMarkdownToCacheFile(args: {
+  markdown: string;
+  cachePaperCode: string;
+  year: number;
+  partNumber: number;
+}): Promise<string> {
+  const storage = adminStorage();
+  const inputFile = InputFile.fromBuffer(
+    Buffer.from(args.markdown, "utf-8"),
+    `${args.cachePaperCode}_${args.year}_part${args.partNumber}.md`,
+  );
+  const upload = await storage.createFile(MARKDOWN_CACHE_BUCKET_ID, ID.unique(), inputFile);
+  return String(upload.$id);
+}
+
+async function downloadMarkdownFromCacheFile(markdownFileId: string): Promise<string> {
+  const storage = adminStorage();
+  const fileBuffer = await storage.getFileDownload(MARKDOWN_CACHE_BUCKET_ID, markdownFileId);
+  return Buffer.from(fileBuffer).toString("utf-8");
 }
 
 async function fetchTavilyContext(query: string): Promise<string> {
@@ -304,9 +445,12 @@ async function readSolvedPaperCheckpoint(
     ]);
     const doc = res.documents[0];
     if (!doc) return null;
+    const markdownFileId = typeof doc.markdown_file_id === "string" ? doc.markdown_file_id.trim() : "";
+    const markdown = markdownFileId ? await downloadMarkdownFromCacheFile(markdownFileId) : "";
     return {
       id: String(doc.$id),
-      markdown: typeof doc.generated_markdown === "string" ? doc.generated_markdown : "",
+      markdown,
+      markdownFileId,
       status: typeof doc.status === "string" ? doc.status : "",
       lastProcessedIndex:
         typeof doc.last_processed_index === "number"
@@ -333,7 +477,9 @@ async function readCompletedSolvedPaperCache(cachePaperCode: string, year: numbe
     ]);
     const doc = res.documents[0];
     if (!doc) return null;
-    const markdown = typeof doc.generated_markdown === "string" ? doc.generated_markdown.trim() : "";
+    const markdownFileId = typeof doc.markdown_file_id === "string" ? doc.markdown_file_id.trim() : "";
+    if (!markdownFileId) return null;
+    const markdown = (await downloadMarkdownFromCacheFile(markdownFileId)).trim();
     return markdown || null;
   } catch (error) {
     console.error("[generate-solved-paper-stream] Failed to read completed cache:", error);
@@ -350,27 +496,35 @@ async function upsertSolvedPaperCheckpoint(params: {
   lastProcessedIndex: number;
 }): Promise<string | null> {
   const db = adminDatabases();
-  const buildPayload = (docId: string) => ({
+  const resolvedPartNumber = Math.max(1, Math.floor(params.lastProcessedIndex / PART_SIZE) + 1);
+  const buildPayload = (docId: string, markdownFileId: string) => ({
     id: docId,
     paper_code: params.cachePaperCode,
     unit_number: params.year,
     year: String(params.year),
-    part_number: Math.max(1, Math.floor(params.lastProcessedIndex / PART_SIZE) + 1),
+    part_number: resolvedPartNumber,
     type: SOLVED_PAPER_CACHE_TYPE,
-    generated_markdown: params.markdown,
+    markdown_file_id: markdownFileId,
     status: params.status,
     last_processed_index: params.lastProcessedIndex,
     syllabus_content: "",
     created_at: new Date().toISOString(),
   });
   try {
+    const uploadedFileId = await uploadMarkdownToCacheFile({
+      markdown: params.markdown,
+      cachePaperCode: params.cachePaperCode,
+      year: params.year,
+      partNumber: resolvedPartNumber,
+    });
+
     const tryUpdateById = async (docId: string): Promise<boolean> => {
       try {
         await db.updateDocument(
           DATABASE_ID,
           COLLECTION.generated_notes_cache,
           docId,
-          buildPayload(docId),
+          buildPayload(docId, uploadedFileId),
         );
         return true;
       } catch (error) {
@@ -412,7 +566,7 @@ async function upsertSolvedPaperCheckpoint(params: {
       DATABASE_ID,
       COLLECTION.generated_notes_cache,
       createdId,
-      buildPayload(createdId),
+      buildPayload(createdId, uploadedFileId),
     );
     return String(created.$id);
   } catch (error) {
@@ -441,12 +595,21 @@ export async function GET(request: NextRequest) {
   const type = (searchParams.get("type") || "").trim();
   const paperCode = (searchParams.get("paperCode") || "").trim();
   const year = normalizeNumber(searchParams.get("year"));
+  const rawProvider = (searchParams.get("provider") || "google").trim().toLowerCase();
+  const provider: SolvedPaperProvider | null =
+    rawProvider === "google" || rawProvider === "openrouter" || rawProvider === "groq"
+      ? rawProvider
+      : null;
+  const requestedModel = (searchParams.get("model") || "").trim();
 
   if (!course || !type || !paperCode || year === null) {
     return NextResponse.json(
       { error: "Invalid selection. Please choose course, type, paper code, and year." },
       { status: 400 },
     );
+  }
+  if (!provider) {
+    return NextResponse.json({ error: "Invalid provider. Use Google, OpenRouter, or Groq." }, { status: 400 });
   }
   if (!Number.isInteger(year) || year < 1900 || year > 2100) {
     return NextResponse.json(
@@ -458,6 +621,7 @@ export async function GET(request: NextRequest) {
   const isAdminPlus = user.role === "admin" || user.role === "founder";
 
   await ensureSolvedPaperCacheSchema();
+  await ensureMarkdownCacheBucket();
   const cachePaperCode = getSolvedPaperCacheKey(course, type, paperCode);
 
   if (metaOnly) {
@@ -474,10 +638,18 @@ export async function GET(request: NextRequest) {
       const totalQuestions = questionsRes.documents.filter((doc) =>
         typeof doc.question_content === "string" && doc.question_content.trim().length > 0,
       ).length;
-      const totalParts = Math.max(1, Math.ceil(totalQuestions / PART_SIZE));
+      const model =
+        requestedModel ||
+        (provider === "google"
+          ? "gemini-3.1-flash-lite-preview"
+          : provider === "openrouter"
+            ? "google/gemma-3-27b-it:free"
+            : "llama3-70b-8192");
+      const dynamicPartSize = resolvePartSizeForModel(model);
+      const totalParts = Math.max(1, Math.ceil(totalQuestions / dynamicPartSize));
       return NextResponse.json({
         totalQuestions,
-        partSize: PART_SIZE,
+        partSize: dynamicPartSize,
         totalParts,
         etaMinutes: Math.ceil((totalQuestions * 16) / 60),
       });
@@ -518,8 +690,16 @@ export async function GET(request: NextRequest) {
   }
 
   const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-  if (!geminiApiKey) {
-    return NextResponse.json({ error: "Gemini is not configured." }, { status: 503 });
+  const openRouterApiKey = process.env.OPENROUTER_API_KEY;
+  const groqApiKey = process.env.GROQ_API_KEY;
+  if (provider === "google" && !geminiApiKey) {
+    return NextResponse.json({ error: "Google Gemini is not configured." }, { status: 503 });
+  }
+  if (provider === "openrouter" && !openRouterApiKey) {
+    return NextResponse.json({ error: "OpenRouter is not configured." }, { status: 503 });
+  }
+  if (provider === "groq" && !groqApiKey) {
+    return NextResponse.json({ error: "Groq is not configured." }, { status: 503 });
   }
 
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -553,6 +733,9 @@ export async function GET(request: NextRequest) {
       };
 
       try {
+        controller.enqueue(toSseData({
+          log: `Starting free-tier generation for ${paperCode}...`,
+        }));
         const db = adminDatabases();
         const questionsRes = await db.listDocuments(DATABASE_ID, COLLECTION.questions_table, [
           Query.equal("university", university),
@@ -580,20 +763,37 @@ export async function GET(request: NextRequest) {
           closeStream();
           return;
         }
-        const totalParts = Math.max(1, Math.ceil(allQuestions.length / PART_SIZE));
+        const model =
+          requestedModel ||
+          (provider === "google"
+            ? "gemini-3.1-flash-lite-preview"
+            : provider === "openrouter"
+              ? "google/gemma-3-27b-it:free"
+              : "llama3-70b-8192");
+        const dynamicPartSize = resolvePartSizeForModel(model);
+        const totalParts = Math.max(1, Math.ceil(allQuestions.length / dynamicPartSize));
         if (part > totalParts) {
           controller.enqueue(toSseData({ event: "error", error: `Invalid part ${part}. Last available part is ${totalParts}.` }));
           closeStream();
           return;
         }
-        const requestedStartIndex = (part - 1) * PART_SIZE;
-        const requestedEndIndex = Math.min(requestedStartIndex + PART_SIZE, allQuestions.length);
+        const requestedStartIndex = (part - 1) * dynamicPartSize;
+        const requestedEndIndex = Math.min(requestedStartIndex + dynamicPartSize, allQuestions.length);
 
-        const solvedPaperPromptTemplate = readSolvedPaperPrompt();
-        const model = "gemini-3.1-flash-lite-preview";
+        const systemPrompt = readDynamicSystemPrompt({
+          routePath: request.nextUrl.pathname,
+          promptType: "solved_paper",
+        });
+        controller.enqueue(toSseData({
+          log: `Using provider/model: ${provider}/${model}`,
+        }));
+        const googleClient = provider === "google" ? new GoogleGenerativeAI(String(geminiApiKey)) : null;
         const cachePaperCode = getSolvedPaperCacheKey(course, type, paperCode);
         const checkpoint = await readSolvedPaperCheckpoint(cachePaperCode, year);
         if (checkpoint?.status === COMPLETED_STATUS && checkpoint.markdown.trim().length > 0) {
+          controller.enqueue(toSseData({
+            log: "Cache hit: serving completed markdown from Appwrite Storage.",
+          }));
           controller.enqueue(toSseData({
             event: "done",
             markdown: checkpoint.markdown.trim(),
@@ -624,6 +824,8 @@ export async function GET(request: NextRequest) {
           : requestedStartIndex;
         const endIndex = Math.min(Math.max(startIndex, requestedEndIndex), allQuestions.length);
         const isLastPart = endIndex >= allQuestions.length;
+        // NOTE: When validating Groq free-tier TPM behavior, keep each part very small
+        // (ideally 1-2 questions) because prompt context can already be several thousand tokens.
         let checkpointId =
           (await upsertSolvedPaperCheckpoint({
             checkpointId: checkpoint?.id ?? null,
@@ -685,9 +887,8 @@ export async function GET(request: NextRequest) {
 
           const tavilyContext = await fetchTavilyContext(questionContent);
 
-          const prompt = `${solvedPaperPromptTemplate}
+          const questionText = `University: ${university}
 
-University: ${university}
 Course: ${course}
 Type: ${type}
 Paper Code: ${paperCode}
@@ -706,16 +907,101 @@ ${tavilyContext}
 
           let aiResponseText = "";
           let retries = 0;
+          const safeMaxTokens = resolveSafeMaxTokens(model);
           while (retries < QUESTION_MAX_RETRIES) {
             try {
-              const result = await runGeminiCompletion({
-                apiKey: geminiApiKey,
-                prompt,
-                maxTokens: 8192,
-                temperature: 0.3,
-                model,
-              });
-              const candidate = String(result.content ?? "").trim();
+              let candidate = "";
+              controller.enqueue(toSseData({
+                log: `Prompting ${provider}/${model} for Part ${part} (${qLabel})...`,
+              }));
+              switch (provider) {
+                case "google": {
+                  try {
+                    if (!googleClient) {
+                      throw new ProviderRequestError(503, "Google Gemini is not configured.");
+                    }
+                    const aiModel = googleClient.getGenerativeModel({
+                      model,
+                      systemInstruction: systemPrompt,
+                    });
+                    const result = await aiModel.generateContent(questionText);
+                    candidate = String(result.response.text?.() ?? "").trim();
+                  } catch (error) {
+                    const errorMessage = error instanceof Error ? error.message : String(error ?? "Google request failed");
+                    const status = getErrorStatus(error) ?? getErrorStatusFromMessage(errorMessage) ?? 503;
+                    throw new ProviderRequestError(status, errorMessage);
+                  }
+                  break;
+                }
+                case "openrouter": {
+                  let response: Response;
+                  try {
+                    response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${openRouterApiKey}`,
+                        "HTTP-Referer": OPENROUTER_APP_URL,
+                        "X-Title": OPENROUTER_APP_NAME,
+                      },
+                      body: JSON.stringify({
+                        model,
+                        messages: [
+                          { role: "system", content: systemPrompt },
+                          { role: "user", content: questionText },
+                        ],
+                        max_tokens: safeMaxTokens,
+                        temperature: 0.3,
+                      }),
+                      signal: AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MS),
+                    });
+                  } catch (error) {
+                    if (isTimeoutLikeError(error)) {
+                      throw new ProviderRequestError(503, "OpenRouter request timed out");
+                    }
+                    throw new ProviderRequestError(503, "OpenRouter network request failed");
+                  }
+                  if (!response.ok) {
+                    throw new ProviderRequestError(response.status, `OpenRouter request failed (status ${response.status})`);
+                  }
+                  const data = await response.json();
+                  candidate = parseChatCompletionContent(data);
+                  break;
+                }
+                case "groq": {
+                  let response: Response;
+                  try {
+                    response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${groqApiKey}`,
+                      },
+                      body: JSON.stringify({
+                        model,
+                        messages: [
+                          { role: "system", content: systemPrompt },
+                          { role: "user", content: questionText },
+                        ],
+                        max_tokens: safeMaxTokens,
+                        temperature: 0.3,
+                      }),
+                      signal: AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MS),
+                    });
+                  } catch (error) {
+                    if (isTimeoutLikeError(error)) {
+                      throw new ProviderRequestError(503, "Groq request timed out");
+                    }
+                    throw new ProviderRequestError(503, "Groq network request failed");
+                  }
+                  if (!response.ok) {
+                    throw new ProviderRequestError(response.status, `Groq request failed (status ${response.status})`);
+                  }
+                  const data = await response.json();
+                  candidate = parseChatCompletionContent(data);
+                  break;
+                }
+              }
               if (candidate.length > MIN_SOLUTION_RESPONSE_CHARS) {
                 aiResponseText = candidate;
                 break;
@@ -726,16 +1012,14 @@ ${tavilyContext}
                 error instanceof Error ? error.message : String(error ?? "");
               const messageStatus = getErrorStatusFromMessage(errorMessage);
               if (isRateLimitError(error)) {
-                controller.enqueue(toSseData({
-                  event: "progress",
-                  status: "Rate limit hit. Cooling down before retry...",
+                await runRateLimitCountdown({
+                  controller,
                   index: index + 1,
                   total: allQuestions.length,
                   question: qLabel,
                   part,
                   totalParts,
-                }));
-                await sleep(RATE_LIMIT_RETRY_DELAY_MS);
+                });
               } else if (
                 (errorStatus !== null && errorStatus >= 500) ||
                 (messageStatus !== null && messageStatus >= 500)
@@ -751,7 +1035,10 @@ ${tavilyContext}
                 }));
                 await sleep(SERVER_ERROR_RETRY_DELAY_MS);
               } else {
-                console.error("[generate-solved-paper-stream] Gemini API error:", error);
+                console.error(`[generate-solved-paper-stream] ${provider} API error:`, error);
+                controller.enqueue(toSseData({
+                  log: "Model error (404/401/429). Check rate limits or API keys.",
+                }));
                 await sleep(RETRY_ERROR_DELAY_MS);
               }
             }
@@ -776,6 +1063,9 @@ ${tavilyContext}
             status: GENERATING_STATUS,
             lastProcessedIndex,
           });
+          controller.enqueue(toSseData({
+            log: "Chunk successfully saved to Appwrite Cache.",
+          }));
 
           await sleep(QUESTION_LOOP_DELAY_MS);
         }
@@ -802,6 +1092,19 @@ ${tavilyContext}
           return;
         }
 
+        const magicLinkPath =
+          `/ai-content?course=${encodeURIComponent(course)}` +
+          `&type=${encodeURIComponent(type)}` +
+          `&paperCode=${encodeURIComponent(paperCode)}` +
+          `&year=${encodeURIComponent(String(year))}`;
+        if (typeof user.email === "string" && user.email.trim().length > 0) {
+          try {
+            await sendGenerationMagicLinkEmail(user.email, magicLinkPath);
+          } catch (emailError) {
+            console.error("[generate-solved-paper-stream] Failed to send generation magic-link email:", emailError);
+          }
+        }
+
         controller.enqueue(toSseData({
           event: "done",
           markdown: masterMarkdown.trim(),
@@ -815,12 +1118,8 @@ ${tavilyContext}
           await incrementQuotaCounter(user.id, "papers_solved_today");
         }
       } catch (error) {
-        if (error instanceof GeminiServiceError) {
-          controller.enqueue(toSseData({ event: "error", error: error.message, status: error.status }));
-        } else {
-          console.error("[generate-solved-paper-stream] Failed:", error);
-          controller.enqueue(toSseData({ event: "error", error: "Failed to generate solved paper." }));
-        }
+        console.error("[generate-solved-paper-stream] Failed:", error);
+        controller.enqueue(toSseData({ event: "error", error: "Failed to generate solved paper." }));
       } finally {
         clearInterval(heartbeat);
         closeStream();

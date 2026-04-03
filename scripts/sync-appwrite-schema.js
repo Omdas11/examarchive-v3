@@ -17,6 +17,7 @@ const FILENAME_SIZE = 512;
 const LARGE_STRING_SIZE = 8192;
 const TEXT_CHUNK_SIZE = 1000000;
 const REFERRAL_CODE_SIZE = 6;
+const MARKDOWN_FILE_ID_SIZE = 100;
 const DATABASE_SCHEMA_DOC_PATH = path.resolve(__dirname, "../DATABASE_SCHEMA.md");
 const STATUS_BLOCK_START = "<!-- SCHEMA_SYNC_STATUS_START -->";
 const STATUS_BLOCK_END = "<!-- SCHEMA_SYNC_STATUS_END -->";
@@ -63,7 +64,7 @@ const DEFAULT_DATABASE_SCHEMA_MARKDOWN = `# DATABASE_SCHEMA
 | \`year\` | String | No | Solved-paper exam year |
 | \`unit_number\` | Integer | **Yes** | Unit number |
 | \`part_number\` | Integer | No | Current part index for long generations |
-| \`generated_markdown\` | String | **Yes** | Cached stitched markdown |
+| \`markdown_file_id\` | String | **Yes** | Appwrite Storage file ID for cached markdown |
 | \`syllabus_content\` | String | No | Cached syllabus bullets text for print cover |
 | \`created_at\` | Datetime | **Yes** | Cache creation timestamp |
 | \`status\` | String | **Yes** | Cache status (\`generating\` or \`completed\`) |
@@ -287,7 +288,7 @@ const TARGET_SCHEMA = [
       { key: "year", type: "string", required: false, size: 10 },
       { key: "unit_number", type: "integer", required: true },
       { key: "part_number", type: "integer", required: false },
-      { key: "generated_markdown", type: "string", required: true, size: TEXT_CHUNK_SIZE },
+      { key: "markdown_file_id", type: "string", required: true, size: MARKDOWN_FILE_ID_SIZE },
       { key: "syllabus_content", type: "string", required: false, size: TEXT_CHUNK_SIZE },
       { key: "created_at", type: "datetime", required: true },
       { key: "status", type: "string", required: true, size: 50 },

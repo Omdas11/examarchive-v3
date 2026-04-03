@@ -78,6 +78,11 @@ export const AVATARS_BUCKET_ID = process.env.APPWRITE_AVATARS_BUCKET_ID ?? "avat
 /** Storage bucket for syllabus PDFs. */
 export const SYLLABUS_BUCKET_ID = process.env.APPWRITE_SYLLABUS_BUCKET_ID ?? "syllabus-files";
 export const MD_INGESTION_BUCKET_ID = process.env.APPWRITE_MD_INGESTION_BUCKET_ID ?? "examarchive-md-ingestion";
+/** Storage bucket for generated markdown cache payloads. */
+export const MARKDOWN_CACHE_BUCKET_ID =
+  process.env.APPWRITE_MD_CACHE_BUCKET_ID ??
+  process.env.APPWRITE_BUCKET_ID ??
+  "examarchive-md-bucket";
 
 // ── Server-side admin client (uses API key) ─────────────────────────────
 /**

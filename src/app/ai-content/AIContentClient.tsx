@@ -5,13 +5,28 @@ import "katex/dist/katex.min.css";
 import PrintableNotesDocument from "./PrintableNotesDocument";
 import PrintInstructionsModal from "./PrintInstructionsModal";
 import MarkdownNotesRenderer from "./MarkdownNotesRenderer";
+import LiveLogsConsole from "./LiveLogsConsole";
 import { useToast } from "@/components/ToastContext";
+import CustomDropdown, { type CustomDropdownOption } from "@/components/CustomDropdown";
 
 const COURSE_TYPES: Record<string, string[]> = {
   FYUG: ["DSC", "DSM", "SEC", "AEC", "VAC", "IDC"],
   CBCS: ["DSC", "SEC"],
 };
 const UNIT_OPTIONS = [1, 2, 3, 4, 5];
+const DEFAULT_PROVIDER_MODELS = {
+  Google: ["gemini-3.1-flash-lite-preview", "gemini-2.5-flash", "gemini-1.5-flash"],
+  OpenRouter: [
+    "openai/gpt-oss-120b:free",
+    "openai/gpt-oss-20b:free",
+    "google/gemma-3-27b-it:free",
+    "meta-llama/llama-3-8b-instruct:free",
+  ],
+  Groq: ["gpt-oss-120b", "llama3-70b-8192", "llama3-8b-8192", "mixtral-8x7b-32768"],
+} as const;
+type AIProvider = keyof typeof DEFAULT_PROVIDER_MODELS;
+const DEFAULT_PROVIDER: AIProvider = "Google";
+const DEFAULT_PROVIDER_MODEL = DEFAULT_PROVIDER_MODELS[DEFAULT_PROVIDER][0];
 const BACKEND_PAPERS_MAX_DURATION_SECONDS = 300;
 const RESUME_TIMEOUT_BUFFER_SECONDS = 5;
 const TIMEOUT_THRESHOLD_SECONDS = BACKEND_PAPERS_MAX_DURATION_SECONDS - RESUME_TIMEOUT_BUFFER_SECONDS;
@@ -41,7 +56,15 @@ export default function AIContentClient() {
   const [paperCodeLoading, setPaperCodeLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [markdown, setMarkdown] = useState("");
-  const [model, setModel] = useState("");
+  const [usedModel, setUsedModel] = useState("");
+  const [provider, setProvider] = useState<AIProvider>(DEFAULT_PROVIDER);
+  const [selectedModel, setSelectedModel] = useState<string>(DEFAULT_PROVIDER_MODEL);
+  const [dynamicModels, setDynamicModels] = useState<Record<AIProvider, string[]>>({
+    Google: [...DEFAULT_PROVIDER_MODELS.Google],
+    OpenRouter: [...DEFAULT_PROVIDER_MODELS.OpenRouter],
+    Groq: [...DEFAULT_PROVIDER_MODELS.Groq],
+  });
+  const [logs, setLogs] = useState<string[]>([]);
   const [remaining, setRemaining] = useState<number | null>(null);
   const [limit, setLimit] = useState<number | null>(null);
   const [notesRemaining, setNotesRemaining] = useState<number | null>(null);
@@ -68,6 +91,42 @@ export default function AIContentClient() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const selectedPaperName = paperNameMap[paperCode] || paperCode;
   const availableYears = useMemo(() => yearsByPaperCode[paperCode] || [], [yearsByPaperCode, paperCode]);
+  const providerModelOptions = useMemo(() => dynamicModels[provider] || DEFAULT_PROVIDER_MODELS[provider], [dynamicModels, provider]);
+  const courseOptions: CustomDropdownOption[] = useMemo(
+    () => [
+      { label: "FYUG", value: "FYUG" },
+      { label: "CBCS", value: "CBCS" },
+    ],
+    [],
+  );
+  const typeOptions: CustomDropdownOption[] = useMemo(
+    () => (COURSE_TYPES[course] || []).map((entry) => ({ label: entry, value: entry })),
+    [course],
+  );
+  const paperCodeDropdownOptions: CustomDropdownOption[] = useMemo(
+    () => paperCodeOptions.map((code) => ({ label: code, value: code })),
+    [paperCodeOptions],
+  );
+  const unitOptions: CustomDropdownOption[] = useMemo(
+    () => UNIT_OPTIONS.map((unit) => ({ label: String(unit), value: String(unit) })),
+    [],
+  );
+  const yearOptions: CustomDropdownOption[] = useMemo(
+    () => availableYears.map((year) => ({ label: String(year), value: String(year) })),
+    [availableYears],
+  );
+  const providerOptions: CustomDropdownOption[] = useMemo(
+    () => [
+      { label: "Google", value: "Google" },
+      { label: "OpenRouter", value: "OpenRouter" },
+      { label: "Groq", value: "Groq" },
+    ],
+    [],
+  );
+  const modelOptions: CustomDropdownOption[] = useMemo(
+    () => providerModelOptions.map((providerModel) => ({ label: providerModel, value: providerModel })),
+    [providerModelOptions],
+  );
   const progressPercent = progressTotal > 0 ? Math.min(100, Math.round((progressIndex / progressTotal) * 100)) : 0;
   const estimatedMinutesRemaining = useMemo(() => {
     if (activeTab !== "papers") return null;
@@ -172,6 +231,9 @@ export default function AIContentClient() {
         return;
       }
 
+      if (typeof data.log === "string" && data.log.trim().length > 0) {
+        setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ${data.log}`]);
+      }
       const eventType = typeof data.event === "string" ? data.event : "";
       if (eventType === "progress") {
         setProgressStatus(typeof data.status === "string" ? data.status : "Generating...");
@@ -223,13 +285,25 @@ export default function AIContentClient() {
         });
         setSyllabusContent(typeof data.syllabus_content === "string" ? data.syllabus_content : "");
         setGeneratedAtLabel(new Date().toLocaleString());
-        setModel(typeof data.model === "string" ? data.model : "");
+        setUsedModel(typeof data.model === "string" ? data.model : "");
         if (typeof data.remaining === "number" || data.remaining === null) {
           setRemaining(data.remaining);
         }
         if (typeof data.totalParts === "number") setTotalParts(data.totalParts);
         if (typeof data.part === "number") setCurrentPart(data.part);
         const isCached = typeof data.cached === "boolean" && data.cached;
+        if ("Notification" in window && Notification.permission === "granted") {
+          const title = "ExamArchive: Generation Complete!";
+          const body =
+            activeTab === "notes"
+              ? "Your unit notes are ready. Return to ExamArchive to view and render your PDF."
+              : "Your solved paper is ready. Return to ExamArchive to view and render your PDF.";
+          new Notification(title, {
+            body,
+            icon: "/favicon.ico",
+            tag: `examarchive-generation-${activeTab}`,
+          });
+        }
         if (!isCached && activeTab === "notes") {
           setNotesRemaining((prev) => (typeof prev === "number" ? Math.max(0, prev - 1) : prev));
         } else if (!isCached) {
@@ -270,9 +344,13 @@ export default function AIContentClient() {
 
   async function generate() {
     if (generating) return;
+    if ("Notification" in window && Notification.permission !== "granted") {
+      void Notification.requestPermission();
+    }
     // True when user is explicitly resuming after a timeout prompt; keep existing stitched markdown.
     const isResumeAttempt = activeTab === "papers" && canResumeGeneration;
     closeEventSource();
+    setLogs([]);
     setGenerating(true);
     setError(null);
     setProgressStatus("Starting chunked generation...");
@@ -285,13 +363,15 @@ export default function AIContentClient() {
     setEtaMinutes(null);
     setStreamingTextActive(false);
     startTimer();
-    setModel("");
+    setUsedModel("");
     const params = new URLSearchParams({
       university,
       course,
       type,
       paperCode,
-      ...(activeTab === "notes" ? { unitNumber: String(unitNumber) } : { year: String(selectedYear) }),
+      ...(activeTab === "notes"
+        ? { unitNumber: String(unitNumber), provider: provider.toLowerCase(), model: selectedModel }
+        : { year: String(selectedYear), provider: provider.toLowerCase(), model: selectedModel }),
     });
     try {
       if (activeTab === "papers") {
@@ -315,6 +395,33 @@ export default function AIContentClient() {
     setPrintInstructionsOpen(false);
     window.print();
   }
+
+  useEffect(() => {
+    fetch("/api/models", { cache: "no-store" })
+      .then((res) => {
+        if (!res.ok) return null;
+        return res.json() as Promise<{
+          google?: Array<{ id?: string }>;
+          openrouter?: Array<{ id?: string }>;
+          groq?: Array<{ id?: string }>;
+        }>;
+      })
+      .then((data) => {
+        if (!data) return;
+        const normalize = (list: Array<{ id?: string }> | undefined, fallback: readonly string[]) => {
+          const ids = (list ?? [])
+            .map((item) => String(item?.id ?? "").trim())
+            .filter(Boolean);
+          return ids.length > 0 ? ids : [...fallback];
+        };
+        setDynamicModels({
+          Google: normalize(data.google, DEFAULT_PROVIDER_MODELS.Google),
+          OpenRouter: normalize(data.openrouter, DEFAULT_PROVIDER_MODELS.OpenRouter),
+          Groq: normalize(data.groq, DEFAULT_PROVIDER_MODELS.Groq),
+        });
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     setPaperCodeLoading(true);
@@ -386,6 +493,14 @@ export default function AIContentClient() {
   }, [course, type]);
 
   useEffect(() => {
+    setSelectedModel((current) =>
+      providerModelOptions.some((providerModel) => providerModel === current)
+        ? current
+        : providerModelOptions[0],
+    );
+  }, [providerModelOptions]);
+
+  useEffect(() => {
     return () => {
       stopTimer();
       closeEventSource();
@@ -445,33 +560,22 @@ export default function AIContentClient() {
             </div>
             <div>
               <label className="mb-1 block text-sm font-semibold">Course</label>
-              <select className="input-field" value={course} onChange={(e) => setCourse(e.target.value)} disabled={generating}>
-                <option value="FYUG">FYUG</option>
-                <option value="CBCS">CBCS</option>
-              </select>
+              <CustomDropdown options={courseOptions} value={course} onChange={setCourse} disabled={generating} />
             </div>
             <div>
               <label className="mb-1 block text-sm font-semibold">Type</label>
-              <select className="input-field" value={type} onChange={(e) => setType(e.target.value)} disabled={generating}>
-                {(COURSE_TYPES[course] || []).map((t) => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
-              </select>
+              <CustomDropdown options={typeOptions} value={type} onChange={setType} disabled={generating} />
             </div>
             <div>
               <label className="mb-1 block text-sm font-semibold">Paper Code</label>
               <div className="flex gap-2">
-                <select
-                  className="input-field"
+                <CustomDropdown
+                  options={paperCodeDropdownOptions}
                   value={paperCode}
-                  onChange={(e) => setPaperCode(e.target.value)}
+                  onChange={setPaperCode}
+                  placeholder={paperCodeLoading ? "Loading..." : "Select paper code"}
                   disabled={generating || paperCodeLoading || paperCodeOptions.length === 0}
-                >
-                  <option value="">{paperCodeLoading ? "Loading..." : "Select paper code"}</option>
-                  {paperCodeOptions.map((code) => (
-                    <option key={code} value={code}>{code}</option>
-                  ))}
-                </select>
+                />
                 <input
                   className="input-field"
                   value={paperCode}
@@ -482,36 +586,66 @@ export default function AIContentClient() {
               </div>
             </div>
             {activeTab === "notes" ? (
-              <div>
-                <label className="mb-1 block text-sm font-semibold">Unit Number</label>
-                <select
-                  className="input-field"
-                  value={unitNumber}
-                  onChange={(e) => setUnitNumber(Number(e.target.value))}
-                  disabled={generating}
-                >
-                  {UNIT_OPTIONS.map((unit) => (
-                    <option key={unit} value={unit}>{unit}</option>
-                  ))}
-                </select>
-              </div>
+              <>
+                <div>
+                  <label className="mb-1 block text-sm font-semibold">Unit Number</label>
+                  <CustomDropdown
+                    options={unitOptions}
+                    value={String(unitNumber)}
+                    onChange={(nextValue) => setUnitNumber(Number(nextValue))}
+                    disabled={generating}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-semibold">Provider</label>
+                  <CustomDropdown
+                    options={providerOptions}
+                    value={provider}
+                    onChange={(nextValue) => setProvider(nextValue as AIProvider)}
+                    disabled={generating}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-semibold">Model</label>
+                  <CustomDropdown
+                    options={modelOptions}
+                    value={selectedModel}
+                    onChange={setSelectedModel}
+                    disabled={generating}
+                  />
+                </div>
+              </>
             ) : (
-              <div>
-                <label className="mb-1 block text-sm font-semibold">Year</label>
-                <select
-                  className="input-field"
-                  value={selectedYear}
-                  onChange={(e) => setSelectedYear(Number(e.target.value))}
-                  disabled={generating || availableYears.length === 0}
-                >
-                  <option value="">
-                    {availableYears.length > 0 ? "Select year" : "No years available for selected paper"}
-                  </option>
-                  {availableYears.map((year) => (
-                    <option key={year} value={year}>{year}</option>
-                  ))}
-                </select>
-              </div>
+              <>
+                <div>
+                  <label className="mb-1 block text-sm font-semibold">Year</label>
+                  <CustomDropdown
+                    options={yearOptions}
+                    value={selectedYear === "" ? "" : String(selectedYear)}
+                    onChange={(nextValue) => setSelectedYear(Number(nextValue))}
+                    placeholder={availableYears.length > 0 ? "Select year" : "No years available for selected paper"}
+                    disabled={generating || availableYears.length === 0}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-semibold">Provider</label>
+                  <CustomDropdown
+                    options={providerOptions}
+                    value={provider}
+                    onChange={(nextValue) => setProvider(nextValue as AIProvider)}
+                    disabled={generating}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-semibold">Model</label>
+                  <CustomDropdown
+                    options={modelOptions}
+                    value={selectedModel}
+                    onChange={setSelectedModel}
+                    disabled={generating}
+                  />
+                </div>
+              </>
             )}
           </div>
           <div className="mt-4 flex items-center gap-3">
@@ -571,13 +705,16 @@ export default function AIContentClient() {
           <p className="mb-3 text-xs text-on-surface-variant">
             For richer client-side export, use <strong>jsPDF + html2canvas</strong> or <strong>react-to-print</strong>.
           </p>
-          {model && <p className="mb-2 text-xs text-on-surface-variant">Model: {model}</p>}
+          {usedModel && <p className="mb-2 text-xs text-on-surface-variant">Model: {usedModel}</p>}
           <div className={`print-root markdown-preview rounded-xl border border-outline-variant/30 bg-surface-container-low p-4 ${streamingTextActive ? "ai-streaming-text" : ""}`}>
             <MarkdownNotesRenderer
               markdown={markdown}
               emptyFallback={<p className="text-on-surface-variant">No output yet. Generate notes to preview them here.</p>}
             />
           </div>
+        </section>
+        <section className="card border border-outline-variant/30 p-5">
+          <LiveLogsConsole logs={logs} />
         </section>
       </div>
       <PrintInstructionsModal
@@ -591,7 +728,7 @@ export default function AIContentClient() {
         paperName={selectedPaperName}
         paperCode={paperCode}
         generatedAt={generatedAtLabel}
-        model={model || "gemini-3.1-flash-lite-preview"}
+        model={usedModel || selectedModel}
       />
     </div>
   );
