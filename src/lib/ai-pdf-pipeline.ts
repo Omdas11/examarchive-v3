@@ -7,8 +7,6 @@ import {
   getAppwriteFileUrl,
 } from "@/lib/appwrite";
 
-const DEFAULT_GOTENBERG_URL = "http://104.208.116.97:3000/forms/chromium/convert/html";
-
 function buildPdfHtml(markdown: string): string {
   const htmlContent = marked.parse(markdown);
   return `<!DOCTYPE html>
@@ -33,12 +31,27 @@ export async function renderMarkdownPdfToAppwrite(args: {
   fileBaseName: string;
   gotenbergUrl?: string;
 }): Promise<{ fileId: string; fileUrl: string }> {
+  const effectiveGotenbergUrl =
+    args.gotenbergUrl ||
+    process.env.AZURE_GOTENBERG_URL;
+  if (!effectiveGotenbergUrl) {
+    throw new Error("AZURE_GOTENBERG_URL is required.");
+  }
+  let gotenbergUrl: URL;
+  try {
+    gotenbergUrl = new URL(effectiveGotenbergUrl);
+  } catch {
+    throw new Error("Invalid AZURE_GOTENBERG_URL.");
+  }
+  if (!/^https?:$/.test(gotenbergUrl.protocol)) {
+    throw new Error("AZURE_GOTENBERG_URL must use HTTP or HTTPS.");
+  }
   const html = buildPdfHtml(args.markdown);
   const formData = new FormData();
   formData.append("files", new Blob([html], { type: "text/html" }), "index.html");
-  formData.append("waitDelay", "5s");
+  formData.append("waitDelay", process.env.GOTENBERG_WAIT_DELAY || "5s");
 
-  const response = await fetch(args.gotenbergUrl || DEFAULT_GOTENBERG_URL, {
+  const response = await fetch(gotenbergUrl.toString(), {
     method: "POST",
     body: formData,
   });

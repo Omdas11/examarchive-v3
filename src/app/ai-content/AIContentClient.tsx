@@ -12,7 +12,6 @@ const COURSE_TYPES: Record<string, string[]> = {
   CBCS: ["DSC", "SEC"],
 };
 const UNIT_OPTIONS = [1, 2, 3, 4, 5];
-const FIXED_MODEL = "gemini-3.1-flash-lite-preview";
 const BACKEND_PAPERS_MAX_DURATION_SECONDS = 300;
 const RESUME_TIMEOUT_BUFFER_SECONDS = 5;
 const TIMEOUT_THRESHOLD_SECONDS = BACKEND_PAPERS_MAX_DURATION_SECONDS - RESUME_TIMEOUT_BUFFER_SECONDS;
@@ -52,9 +51,6 @@ export default function AIContentClient() {
   const [notesDailyLimit, setNotesDailyLimit] = useState<number | null>(null);
   const [papersDailyLimit, setPapersDailyLimit] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [paperNameMap, setPaperNameMap] = useState<Record<string, string>>({});
-  const [generatedAtLabel, setGeneratedAtLabel] = useState("");
-  const [syllabusContent, setSyllabusContent] = useState("");
   const [progressStatus, setProgressStatus] = useState("");
   const [progressTopic, setProgressTopic] = useState("");
   const [progressIndex, setProgressIndex] = useState(0);
@@ -68,7 +64,6 @@ export default function AIContentClient() {
   const elapsedSecondsRef = useRef(0);
   const eventSourceRef = useRef<EventSource | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const selectedPaperName = paperNameMap[paperCode] || paperCode;
   const availableYears = useMemo(() => yearsByPaperCode[paperCode] || [], [yearsByPaperCode, paperCode]);
   const courseOptions: CustomDropdownOption[] = useMemo(
     () => [
@@ -249,8 +244,6 @@ export default function AIContentClient() {
           const separator = prevMarkdown.trim().length > 0 ? "\n\n" : "";
           return prevMarkdown + separator + incomingMarkdown;
         });
-        setSyllabusContent(typeof data.syllabus_content === "string" ? data.syllabus_content : "");
-        setGeneratedAtLabel(new Date().toLocaleString());
         setUsedModel(typeof data.model === "string" ? data.model : "");
         if (typeof data.pdf_url === "string") setDownloadPdfUrl(data.pdf_url);
         if (typeof data.remaining === "number" || data.remaining === null) {
@@ -356,7 +349,11 @@ export default function AIContentClient() {
 
   function handleDownloadPdfClick() {
     if (!downloadPdfUrl) return;
-    window.open(downloadPdfUrl, "_blank", "noopener,noreferrer");
+    setError(null);
+    const opened = window.open(downloadPdfUrl, "_blank", "noopener,noreferrer");
+    if (!opened) {
+      setError("Popup blocked. Please allow popups for this site and try downloading again.");
+    }
   }
 
   useEffect(() => {
@@ -373,19 +370,12 @@ export default function AIContentClient() {
         if (Array.isArray(data.paperCodes)) {
           const options = data.paperCodes.filter((item: unknown): item is string => typeof item === "string" && item.trim().length > 0);
           setPaperCodeOptions(options);
-          const resolvedMap: Record<string, string> = {};
           if (Array.isArray(data.papers)) {
             for (const paper of data.papers) {
               const code = typeof paper?.code === "string" ? paper.code.trim() : "";
               if (!code) continue;
-              const name = typeof paper?.name === "string" ? paper.name.trim() : "";
-              resolvedMap[code] = name || code;
             }
           }
-          for (const code of options) {
-            if (!resolvedMap[code]) resolvedMap[code] = code;
-          }
-          setPaperNameMap(resolvedMap);
           setPaperCode((current) => {
             if (current && options.includes(current)) return current;
             return options[0] || current;
@@ -401,9 +391,6 @@ export default function AIContentClient() {
             }
           }
           setYearsByPaperCode(map);
-        }
-        if (typeof data.syllabusContent === "string") {
-          setSyllabusContent(data.syllabusContent);
         }
       })
       .catch(() => {})
@@ -594,7 +581,7 @@ export default function AIContentClient() {
               Download PDF
             </button>
           </div>
-          {usedModel && <p className="mb-2 text-xs text-on-surface-variant">Model: {usedModel || FIXED_MODEL}</p>}
+          {usedModel && <p className="mb-2 text-xs text-on-surface-variant">Model: {usedModel}</p>}
           <div className={`print-root markdown-preview rounded-xl border border-outline-variant/30 bg-surface-container-low p-4 ${streamingTextActive ? "ai-streaming-text" : ""}`}>
             <MarkdownNotesRenderer
               markdown={markdown}

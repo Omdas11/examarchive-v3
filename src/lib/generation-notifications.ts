@@ -12,8 +12,13 @@ function getTransporter() {
   const port = Number(process.env.SMTP_PORT || "587");
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
-  if (!host || !user || !pass || !Number.isFinite(port)) {
-    throw new Error("SMTP is not fully configured.");
+  const missing: string[] = [];
+  if (!host) missing.push("SMTP_HOST");
+  if (!user) missing.push("SMTP_USER");
+  if (!pass) missing.push("SMTP_PASS");
+  if (!Number.isFinite(port) || port <= 0) missing.push("SMTP_PORT");
+  if (missing.length > 0) {
+    throw new Error(`SMTP configuration incomplete: missing ${missing.join(", ")}`);
   }
   return nodemailer.createTransport({
     host,
@@ -25,19 +30,35 @@ function getTransporter() {
 
 export async function sendGenerationPdfEmail(args: {
   email: string;
-  downloadPath: string;
+  downloadUrl: string;
   title: string;
 }): Promise<void> {
   const to = args.email.trim();
   if (!to) return;
-  const from = process.env.SMTP_FROM || process.env.SMTP_USER;
+  const from = (process.env.SMTP_FROM || process.env.SMTP_USER || "").trim();
   if (!from) {
-    throw new Error("SMTP_FROM or SMTP_USER must be configured.");
+    throw new Error("SMTP_FROM and SMTP_USER are missing.");
   }
-  const normalizedPath = args.downloadPath.startsWith("/")
-    ? args.downloadPath
-    : `/${args.downloadPath.replace(/^\/+/, "")}`;
-  const downloadUrl = `${getSiteUrl()}${normalizedPath}`;
+  const normalizedUrl = args.downloadUrl.trim();
+  const downloadUrl = /^https?:\/\//i.test(normalizedUrl)
+    ? normalizedUrl
+    : `${getSiteUrl()}/${normalizedUrl.replace(/^\/+/, "")}`;
+  const safeDownloadUrl = downloadUrl.replace(/[&<>"']/g, (ch) => {
+    switch (ch) {
+      case "&":
+        return "&amp;";
+      case "<":
+        return "&lt;";
+      case ">":
+        return "&gt;";
+      case '"':
+        return "&quot;";
+      case "'":
+        return "&#39;";
+      default:
+        return ch;
+    }
+  });
 
   const transporter = getTransporter();
   await transporter.sendMail({
@@ -45,6 +66,6 @@ export async function sendGenerationPdfEmail(args: {
     to,
     subject: `ExamArchive: ${args.title} PDF is ready`,
     text: `Your generated PDF is ready.\n\nDownload: ${downloadUrl}\n`,
-    html: `<p>Your generated PDF is ready.</p><p><a href="${downloadUrl}">Download PDF</a></p>`,
+    html: `<p>Your generated PDF is ready.</p><p><a href="${safeDownloadUrl}">Download PDF</a></p>`,
   });
 }

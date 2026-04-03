@@ -352,10 +352,6 @@ function isRateLimitError(error: unknown): boolean {
   return status === 429 || message.includes("429");
 }
 
-function resolveSafeMaxTokens(): number {
-  return 4000;
-}
-
 async function runRateLimitCountdown(params: {
   controller: ReadableStreamDefaultController<Uint8Array>;
   topic: string;
@@ -570,7 +566,7 @@ export async function GET(request: NextRequest) {
         });
         let masterMarkdown = "";
         const model = GEMINI_MODEL;
-        const safeMaxTokens = resolveSafeMaxTokens();
+        const geminiMaxTokens = 4000;
 
         for (const [index, topic] of subTopics.entries()) {
           controller.enqueue(toSseData({
@@ -616,7 +612,7 @@ ${formattedQuestions || "No related questions found."}
                 const result = await runGeminiCompletion({
                   apiKey: String(geminiApiKey),
                   prompt: `${systemPrompt}\n\n${promptBody}`,
-                  maxTokens: safeMaxTokens,
+                  maxTokens: geminiMaxTokens,
                   temperature: 0.4,
                   model,
                 });
@@ -716,7 +712,7 @@ ${formattedQuestions || "No related questions found."}
             if (pdfUrl) {
               await sendGenerationPdfEmail({
                 email: user.email,
-                downloadPath: pdfUrl,
+                downloadUrl: pdfUrl,
                 title: `Unit Notes (${paperCode} - Unit ${unitNumber})`,
               });
             }

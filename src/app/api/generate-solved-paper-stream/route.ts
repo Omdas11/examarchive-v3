@@ -39,6 +39,12 @@ const ATTRIBUTE_AVAILABILITY_TIMEOUT_MS = 12000;
 const SOLVED_PAPER_CACHE_TYPE = "solved_paper";
 const GEMINI_MODEL = "gemini-3.1-flash-lite-preview";
 
+class GeminiRequestError extends Error {
+  constructor(public readonly status: number, message: string) {
+    super(message);
+  }
+}
+
 type SolvedPaperCheckpoint = {
   id: string;
   markdown: string;
@@ -64,18 +70,6 @@ function isRateLimitError(error: unknown): boolean {
   const status = "status" in error ? (error as { status?: unknown }).status : undefined;
   const message = "message" in error ? String((error as { message?: unknown }).message ?? "") : "";
   return status === 429 || message.includes("429");
-}
-
-function resolveSafeMaxTokens(model: string): number {
-  return 4000;
-}
-
-function isConstrainedFreeTierModel(model: string): boolean {
-  return false;
-}
-
-function resolvePartSizeForModel(model: string): number {
-  return isConstrainedFreeTierModel(model) ? 1 : PART_SIZE;
 }
 
 /**
@@ -554,7 +548,6 @@ export async function GET(request: NextRequest) {
   const type = (searchParams.get("type") || "").trim();
   const paperCode = (searchParams.get("paperCode") || "").trim();
   const year = normalizeNumber(searchParams.get("year"));
-  const requestedModel = GEMINI_MODEL;
 
   if (!course || !type || !paperCode || year === null) {
     return NextResponse.json(
@@ -589,8 +582,7 @@ export async function GET(request: NextRequest) {
       const totalQuestions = questionsRes.documents.filter((doc) =>
         typeof doc.question_content === "string" && doc.question_content.trim().length > 0,
       ).length;
-      const model = requestedModel;
-      const dynamicPartSize = resolvePartSizeForModel(model);
+      const dynamicPartSize = PART_SIZE;
       const totalParts = Math.max(1, Math.ceil(totalQuestions / dynamicPartSize));
       return NextResponse.json({
         totalQuestions,
@@ -698,8 +690,8 @@ export async function GET(request: NextRequest) {
           closeStream();
           return;
         }
-        const model = requestedModel;
-        const dynamicPartSize = resolvePartSizeForModel(model);
+        const model = GEMINI_MODEL;
+        const dynamicPartSize = PART_SIZE;
         const totalParts = Math.max(1, Math.ceil(allQuestions.length / dynamicPartSize));
         if (part > totalParts) {
           controller.enqueue(toSseData({ event: "error", error: `Invalid part ${part}. Last available part is ${totalParts}.` }));
@@ -836,7 +828,6 @@ ${tavilyContext}
 
           let aiResponseText = "";
           let retries = 0;
-          const safeMaxTokens = resolveSafeMaxTokens(model);
           while (retries < QUESTION_MAX_RETRIES) {
             try {
               let candidate = "";
@@ -853,7 +844,7 @@ ${tavilyContext}
               } catch (error) {
                 const errorMessage = error instanceof Error ? error.message : String(error ?? "Google request failed");
                 const status = getErrorStatus(error) ?? getErrorStatusFromMessage(errorMessage) ?? 503;
-                throw new Error(`Google request failed (status ${status}): ${errorMessage}`);
+                throw new GeminiRequestError(status, errorMessage);
               }
               if (candidate.length > MIN_SOLUTION_RESPONSE_CHARS) {
                 aiResponseText = candidate;
@@ -964,7 +955,7 @@ ${tavilyContext}
             if (pdfUrl) {
               await sendGenerationPdfEmail({
                 email: user.email,
-                downloadPath: pdfUrl,
+                downloadUrl: pdfUrl,
                 title: `Solved Paper (${paperCode} ${year})`,
               });
             }
