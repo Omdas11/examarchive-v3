@@ -495,6 +495,7 @@ export async function GET(request: NextRequest) {
   }
   const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   if (!geminiApiKey) return NextResponse.json({ error: "Google Gemini is not configured." }, { status: 503 });
+  const azureGotenbergUrl = process.env.AZURE_GOTENBERG_URL;
 
   const stream = new ReadableStream<Uint8Array>({
     start: async (controller) => {
@@ -695,10 +696,23 @@ ${formattedQuestions || "No related questions found."}
         await writeCachedNotes(paperCode, unitNumber, masterMarkdown, syllabusContent);
         controller.enqueue(toSseData({ log: "AI generation complete. Sending to Azure for PDF rendering..." }));
         let pdfUrl: string | null = null;
+        if (!azureGotenbergUrl) {
+          controller.enqueue(toSseData({
+            log: "Server Error: AZURE_GOTENBERG_URL is missing in environment variables.",
+          }));
+          controller.enqueue(toSseData({
+            event: "error",
+            error: "Server misconfiguration: AZURE_GOTENBERG_URL is missing.",
+          }));
+          closeStream();
+          return;
+        }
         try {
           const rendered = await renderMarkdownPdfToAppwrite({
             markdown: masterMarkdown,
             fileBaseName: `${paperCode}_unit_${unitNumber}_${Date.now()}`,
+            fileName: `${paperCode}_unit_${unitNumber}_notes.pdf`,
+            gotenbergUrl: azureGotenbergUrl,
           });
           pdfUrl = rendered.fileUrl;
           controller.enqueue(toSseData({ log: "PDF rendered successfully! Uploading to Appwrite Storage..." }));

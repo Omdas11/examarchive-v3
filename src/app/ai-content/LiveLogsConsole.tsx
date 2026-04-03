@@ -15,17 +15,25 @@ export default function LiveLogsConsole({ logs }: LiveLogsConsoleProps) {
   }, [logs]);
 
   return (
-    <div className="rounded-xl border border-outline-variant/40 bg-black p-3">
-      <div className="mb-2 text-xs font-semibold text-green-300">Live Diagnostic Console</div>
+    <div className="rounded-2xl border border-outline-variant/30 bg-surface-container p-4 shadow-lift">
+      <div className="mb-3 flex items-center justify-between">
+        <div className="text-sm font-semibold text-on-surface">Live Generation Logs</div>
+        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+          {logs.length} entries
+        </span>
+      </div>
       <div
         ref={containerRef}
-        className="h-64 overflow-y-auto rounded-md border border-green-700/40 bg-black p-2 font-mono text-xs text-green-400"
+        className="h-64 overflow-y-auto rounded-xl border border-outline-variant/30 bg-surface-container-low p-3 font-mono text-xs text-on-surface"
       >
         {logs.length === 0 ? (
-          <div className="text-green-500/80">No logs yet. Start generation to see live stream diagnostics.</div>
+          <div className="text-on-surface-variant">No logs yet. Start generation to see live progress updates.</div>
         ) : (
           logs.map((log, index) => (
-            <div key={index} className="whitespace-pre-wrap break-words">
+            <div
+              key={index}
+              className="mb-2 rounded-lg border border-outline-variant/20 bg-surface px-2.5 py-2 whitespace-pre-wrap break-words last:mb-0"
+            >
               {log}
             </div>
           ))

@@ -26,9 +26,20 @@ function buildPdfHtml(markdown: string): string {
 </html>`;
 }
 
+function buildSafePdfFileName(args: { fileBaseName: string; fileName?: string }): string {
+  const baseFallback = args.fileBaseName.trim() || "generated_document";
+  const candidate = (args.fileName || `${baseFallback}.pdf`).trim();
+  const normalizedCandidate = candidate.replace(/[^a-zA-Z0-9._-]/g, "_");
+  const withoutExtension = normalizedCandidate.replace(/\.pdf$/i, "");
+  const coreName = withoutExtension.replace(/[^a-zA-Z0-9]+/g, "");
+  const safeCore = coreName.length > 0 ? withoutExtension : "generated_document";
+  return `${safeCore}.pdf`;
+}
+
 export async function renderMarkdownPdfToAppwrite(args: {
   markdown: string;
   fileBaseName: string;
+  fileName?: string;
   gotenbergUrl?: string;
 }): Promise<{ fileId: string; fileUrl: string }> {
   const effectiveGotenbergUrl =
@@ -62,9 +73,13 @@ export async function renderMarkdownPdfToAppwrite(args: {
   const pdfBuffer = Buffer.from(await response.arrayBuffer());
   const storage = adminStorage();
   const fileId = ID.unique();
+  const finalPdfFileName = buildSafePdfFileName({
+    fileBaseName: args.fileBaseName,
+    fileName: args.fileName,
+  });
   const inputFile = InputFile.fromBuffer(
     pdfBuffer,
-    `${args.fileBaseName.replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf`,
+    finalPdfFileName,
   );
   await storage.createFile(BUCKET_ID, fileId, inputFile);
   return { fileId, fileUrl: getAppwriteFileUrl(fileId) };
