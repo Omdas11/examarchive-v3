@@ -3,7 +3,7 @@ import { getServerUser } from "@/lib/auth";
 import { adminDatabases, COLLECTION, DATABASE_ID, ID, Query } from "@/lib/appwrite";
 import { getDailyLimit } from "@/lib/ai-limits";
 import { GeminiServiceError, runGeminiCompletion } from "@/lib/gemini";
-import { readTopicNotesPrompt } from "@/lib/topic-notes-prompt";
+import { readDynamicSystemPrompt } from "@/lib/system-prompt";
 import { checkAndResetQuotas, incrementQuotaCounter } from "@/lib/user-quotas";
 
 const EMPTY_RESPONSE_RETRY_MS = 2000;
@@ -472,7 +472,10 @@ export async function GET(request: NextRequest) {
           Query.limit(500),
         ]);
         const formattedQuestions = formatQuestionsForPrompt(questionsRes.documents, unitNumber);
-        const topicPromptTemplate = readTopicNotesPrompt();
+        const systemPrompt = readDynamicSystemPrompt({
+          routePath: request.nextUrl.pathname,
+          promptType: "unit_notes",
+        });
         let masterMarkdown = "";
         const model = "gemini-3.1-flash-lite-preview";
 
@@ -485,7 +488,7 @@ export async function GET(request: NextRequest) {
             total: subTopics.length,
           }));
 
-          const prompt = `${topicPromptTemplate}
+          const prompt = `${systemPrompt}
 
 University: ${university}
 Course: ${course}

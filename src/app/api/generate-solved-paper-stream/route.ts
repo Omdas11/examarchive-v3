@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getServerUser } from "@/lib/auth";
 import { adminDatabases, COLLECTION, DATABASE_ID, ID, Query } from "@/lib/appwrite";
 import { getDailyLimit } from "@/lib/ai-limits";
-import { readSolvedPaperPrompt } from "@/lib/solved-paper-prompt";
+import { readDynamicSystemPrompt } from "@/lib/system-prompt";
 import { formatSearchResults, runWebSearch } from "@/lib/web-search";
 import { checkAndResetQuotas, incrementQuotaCounter } from "@/lib/user-quotas";
 import { GoogleGenerativeAI } from "@google/generative-ai";
@@ -646,7 +646,10 @@ export async function GET(request: NextRequest) {
         const requestedStartIndex = (part - 1) * PART_SIZE;
         const requestedEndIndex = Math.min(requestedStartIndex + PART_SIZE, allQuestions.length);
 
-        const systemPrompt = readSolvedPaperPrompt();
+        const systemPrompt = readDynamicSystemPrompt({
+          routePath: request.nextUrl.pathname,
+          promptType: "solved_paper",
+        });
         const model =
           requestedModel ||
           (provider === "google"
