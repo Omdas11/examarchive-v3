@@ -68,8 +68,9 @@ export async function renderMarkdownPdfToAppwrite(args: {
   });
   if (!response.ok) {
     const errorText = (await response.text()).trim();
+    const safeErrorText = errorText.slice(0, 2000);
     throw new Error(
-      `Gotenberg Error (${response.status}): ${errorText || response.statusText || "Unknown error"}`,
+      `Gotenberg Error (${response.status}): ${safeErrorText || response.statusText || "Unknown error"}`,
     );
   }
 
