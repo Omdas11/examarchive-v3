@@ -12,6 +12,19 @@ const COURSE_TYPES: Record<string, string[]> = {
   CBCS: ["DSC", "SEC"],
 };
 const UNIT_OPTIONS = [1, 2, 3, 4, 5];
+const PROVIDER_MODELS = {
+  Google: ["gemini-3.1-flash-lite-preview", "gemini-2.5-flash", "gemini-1.5-flash"],
+  OpenRouter: [
+    "google/gemma-3-27b-it:free",
+    "google/gemma-3-12b-it:free",
+    "meta-llama/llama-3-8b-instruct:free",
+    "mistralai/mistral-7b-instruct:free",
+  ],
+  Groq: ["llama3-70b-8192", "llama3-8b-8192", "mixtral-8x7b-32768"],
+} as const;
+type SolvedPaperProvider = keyof typeof PROVIDER_MODELS;
+const DEFAULT_PROVIDER: SolvedPaperProvider = "Google";
+const DEFAULT_PROVIDER_MODEL = PROVIDER_MODELS[DEFAULT_PROVIDER][0];
 const BACKEND_PAPERS_MAX_DURATION_SECONDS = 300;
 const RESUME_TIMEOUT_BUFFER_SECONDS = 5;
 const TIMEOUT_THRESHOLD_SECONDS = BACKEND_PAPERS_MAX_DURATION_SECONDS - RESUME_TIMEOUT_BUFFER_SECONDS;
@@ -41,7 +54,9 @@ export default function AIContentClient() {
   const [paperCodeLoading, setPaperCodeLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [markdown, setMarkdown] = useState("");
-  const [model, setModel] = useState("");
+  const [usedModel, setUsedModel] = useState("");
+  const [provider, setProvider] = useState<SolvedPaperProvider>(DEFAULT_PROVIDER);
+  const [selectedModel, setSelectedModel] = useState<string>(DEFAULT_PROVIDER_MODEL);
   const [remaining, setRemaining] = useState<number | null>(null);
   const [limit, setLimit] = useState<number | null>(null);
   const [notesRemaining, setNotesRemaining] = useState<number | null>(null);
@@ -68,6 +83,7 @@ export default function AIContentClient() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const selectedPaperName = paperNameMap[paperCode] || paperCode;
   const availableYears = useMemo(() => yearsByPaperCode[paperCode] || [], [yearsByPaperCode, paperCode]);
+  const providerModelOptions = useMemo(() => PROVIDER_MODELS[provider], [provider]);
   const progressPercent = progressTotal > 0 ? Math.min(100, Math.round((progressIndex / progressTotal) * 100)) : 0;
   const estimatedMinutesRemaining = useMemo(() => {
     if (activeTab !== "papers") return null;
@@ -223,7 +239,7 @@ export default function AIContentClient() {
         });
         setSyllabusContent(typeof data.syllabus_content === "string" ? data.syllabus_content : "");
         setGeneratedAtLabel(new Date().toLocaleString());
-        setModel(typeof data.model === "string" ? data.model : "");
+        setUsedModel(typeof data.model === "string" ? data.model : "");
         if (typeof data.remaining === "number" || data.remaining === null) {
           setRemaining(data.remaining);
         }
@@ -285,13 +301,15 @@ export default function AIContentClient() {
     setEtaMinutes(null);
     setStreamingTextActive(false);
     startTimer();
-    setModel("");
+    setUsedModel("");
     const params = new URLSearchParams({
       university,
       course,
       type,
       paperCode,
-      ...(activeTab === "notes" ? { unitNumber: String(unitNumber) } : { year: String(selectedYear) }),
+      ...(activeTab === "notes"
+        ? { unitNumber: String(unitNumber) }
+        : { year: String(selectedYear), provider: provider.toLowerCase(), model: selectedModel }),
     });
     try {
       if (activeTab === "papers") {
@@ -384,6 +402,14 @@ export default function AIContentClient() {
       setType(allowed[0]);
     }
   }, [course, type]);
+
+  useEffect(() => {
+    setSelectedModel((current) =>
+      providerModelOptions.includes(current as (typeof providerModelOptions)[number])
+        ? current
+        : providerModelOptions[0],
+    );
+  }, [providerModelOptions]);
 
   useEffect(() => {
     return () => {
@@ -496,22 +522,50 @@ export default function AIContentClient() {
                 </select>
               </div>
             ) : (
-              <div>
-                <label className="mb-1 block text-sm font-semibold">Year</label>
-                <select
-                  className="input-field"
-                  value={selectedYear}
-                  onChange={(e) => setSelectedYear(Number(e.target.value))}
-                  disabled={generating || availableYears.length === 0}
-                >
-                  <option value="">
-                    {availableYears.length > 0 ? "Select year" : "No years available for selected paper"}
-                  </option>
-                  {availableYears.map((year) => (
-                    <option key={year} value={year}>{year}</option>
-                  ))}
-                </select>
-              </div>
+              <>
+                <div>
+                  <label className="mb-1 block text-sm font-semibold">Year</label>
+                  <select
+                    className="input-field"
+                    value={selectedYear}
+                    onChange={(e) => setSelectedYear(Number(e.target.value))}
+                    disabled={generating || availableYears.length === 0}
+                  >
+                    <option value="">
+                      {availableYears.length > 0 ? "Select year" : "No years available for selected paper"}
+                    </option>
+                    {availableYears.map((year) => (
+                      <option key={year} value={year}>{year}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-semibold">Provider</label>
+                  <select
+                    className="input-field"
+                    value={provider}
+                    onChange={(e) => setProvider(e.target.value as SolvedPaperProvider)}
+                    disabled={generating}
+                  >
+                    <option value="Google">Google</option>
+                    <option value="OpenRouter">OpenRouter</option>
+                    <option value="Groq">Groq</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-semibold">Model</label>
+                  <select
+                    className="input-field"
+                    value={selectedModel}
+                    onChange={(e) => setSelectedModel(e.target.value)}
+                    disabled={generating}
+                  >
+                    {providerModelOptions.map((providerModel) => (
+                      <option key={providerModel} value={providerModel}>{providerModel}</option>
+                    ))}
+                  </select>
+                </div>
+              </>
             )}
           </div>
           <div className="mt-4 flex items-center gap-3">
@@ -571,7 +625,7 @@ export default function AIContentClient() {
           <p className="mb-3 text-xs text-on-surface-variant">
             For richer client-side export, use <strong>jsPDF + html2canvas</strong> or <strong>react-to-print</strong>.
           </p>
-          {model && <p className="mb-2 text-xs text-on-surface-variant">Model: {model}</p>}
+          {usedModel && <p className="mb-2 text-xs text-on-surface-variant">Model: {usedModel}</p>}
           <div className={`print-root markdown-preview rounded-xl border border-outline-variant/30 bg-surface-container-low p-4 ${streamingTextActive ? "ai-streaming-text" : ""}`}>
             <MarkdownNotesRenderer
               markdown={markdown}
@@ -591,7 +645,7 @@ export default function AIContentClient() {
         paperName={selectedPaperName}
         paperCode={paperCode}
         generatedAt={generatedAtLabel}
-        model={model || "gemini-3.1-flash-lite-preview"}
+        model={usedModel || selectedModel}
       />
     </div>
   );

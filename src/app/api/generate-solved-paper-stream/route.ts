@@ -2,10 +2,10 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getServerUser } from "@/lib/auth";
 import { adminDatabases, COLLECTION, DATABASE_ID, ID, Query } from "@/lib/appwrite";
 import { getDailyLimit } from "@/lib/ai-limits";
-import { GeminiServiceError, runGeminiCompletion } from "@/lib/gemini";
 import { readSolvedPaperPrompt } from "@/lib/solved-paper-prompt";
 import { formatSearchResults, runWebSearch } from "@/lib/web-search";
 import { checkAndResetQuotas, incrementQuotaCounter } from "@/lib/user-quotas";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export const maxDuration = 300;
 
@@ -26,6 +26,9 @@ const INITIAL_LAST_PROCESSED_INDEX = -1;
 const ATTRIBUTE_AVAILABILITY_POLL_INTERVAL_MS = 300;
 const ATTRIBUTE_AVAILABILITY_TIMEOUT_MS = 12000;
 const SOLVED_PAPER_CACHE_TYPE = "solved_paper";
+const PROVIDER_REQUEST_TIMEOUT_MS = 20_000;
+
+type SolvedPaperProvider = "google" | "openrouter" | "groq";
 
 type SolvedPaperCheckpoint = {
   id: string;
@@ -441,12 +444,21 @@ export async function GET(request: NextRequest) {
   const type = (searchParams.get("type") || "").trim();
   const paperCode = (searchParams.get("paperCode") || "").trim();
   const year = normalizeNumber(searchParams.get("year"));
+  const rawProvider = (searchParams.get("provider") || "google").trim().toLowerCase();
+  const provider: SolvedPaperProvider | null =
+    rawProvider === "google" || rawProvider === "openrouter" || rawProvider === "groq"
+      ? rawProvider
+      : null;
+  const requestedModel = (searchParams.get("model") || "").trim();
 
   if (!course || !type || !paperCode || year === null) {
     return NextResponse.json(
       { error: "Invalid selection. Please choose course, type, paper code, and year." },
       { status: 400 },
     );
+  }
+  if (!provider) {
+    return NextResponse.json({ error: "Invalid provider. Use Google, OpenRouter, or Groq." }, { status: 400 });
   }
   if (!Number.isInteger(year) || year < 1900 || year > 2100) {
     return NextResponse.json(
@@ -518,8 +530,16 @@ export async function GET(request: NextRequest) {
   }
 
   const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-  if (!geminiApiKey) {
-    return NextResponse.json({ error: "Gemini is not configured." }, { status: 503 });
+  const openRouterApiKey = process.env.OPENROUTER_API_KEY;
+  const groqApiKey = process.env.GROQ_API_KEY;
+  if (provider === "google" && !geminiApiKey) {
+    return NextResponse.json({ error: "Google Gemini is not configured." }, { status: 503 });
+  }
+  if (provider === "openrouter" && !openRouterApiKey) {
+    return NextResponse.json({ error: "OpenRouter is not configured." }, { status: 503 });
+  }
+  if (provider === "groq" && !groqApiKey) {
+    return NextResponse.json({ error: "Groq is not configured." }, { status: 503 });
   }
 
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -589,8 +609,15 @@ export async function GET(request: NextRequest) {
         const requestedStartIndex = (part - 1) * PART_SIZE;
         const requestedEndIndex = Math.min(requestedStartIndex + PART_SIZE, allQuestions.length);
 
-        const solvedPaperPromptTemplate = readSolvedPaperPrompt();
-        const model = "gemini-3.1-flash-lite-preview";
+        const systemPrompt = readSolvedPaperPrompt();
+        const model =
+          requestedModel ||
+          (provider === "google"
+            ? "gemini-3.1-flash-lite-preview"
+            : provider === "openrouter"
+              ? "google/gemma-3-27b-it:free"
+              : "llama3-70b-8192");
+        const genAI = provider === "google" ? new GoogleGenerativeAI(String(geminiApiKey)) : null;
         const cachePaperCode = getSolvedPaperCacheKey(course, type, paperCode);
         const checkpoint = await readSolvedPaperCheckpoint(cachePaperCode, year);
         if (checkpoint?.status === COMPLETED_STATUS && checkpoint.markdown.trim().length > 0) {
@@ -685,9 +712,8 @@ export async function GET(request: NextRequest) {
 
           const tavilyContext = await fetchTavilyContext(questionContent);
 
-          const prompt = `${solvedPaperPromptTemplate}
+          const questionText = `University: ${university}
 
-University: ${university}
 Course: ${course}
 Type: ${type}
 Paper Code: ${paperCode}
@@ -708,14 +734,64 @@ ${tavilyContext}
           let retries = 0;
           while (retries < QUESTION_MAX_RETRIES) {
             try {
-              const result = await runGeminiCompletion({
-                apiKey: geminiApiKey,
-                prompt,
-                maxTokens: 8192,
-                temperature: 0.3,
-                model,
-              });
-              const candidate = String(result.content ?? "").trim();
+              let candidate = "";
+              switch (provider) {
+                case "google": {
+                  const aiModel = genAI!.getGenerativeModel({
+                    model,
+                    systemInstruction: systemPrompt,
+                  });
+                  const result = await aiModel.generateContent(questionText);
+                  candidate = String(result.response.text?.() ?? "").trim();
+                  break;
+                }
+                case "openrouter": {
+                  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+                    },
+                    body: JSON.stringify({
+                      model,
+                      messages: [
+                        { role: "system", content: systemPrompt },
+                        { role: "user", content: questionText },
+                      ],
+                    }),
+                    signal: AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MS),
+                  });
+                  if (!response.ok) {
+                    throw { status: response.status, message: `OpenRouter request failed (status ${response.status})` };
+                  }
+                  const data = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
+                  candidate = String(data.choices?.[0]?.message?.content ?? "").trim();
+                  break;
+                }
+                case "groq": {
+                  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+                    },
+                    body: JSON.stringify({
+                      model,
+                      messages: [
+                        { role: "system", content: systemPrompt },
+                        { role: "user", content: questionText },
+                      ],
+                    }),
+                    signal: AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MS),
+                  });
+                  if (!response.ok) {
+                    throw { status: response.status, message: `Groq request failed (status ${response.status})` };
+                  }
+                  const data = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
+                  candidate = String(data.choices?.[0]?.message?.content ?? "").trim();
+                  break;
+                }
+              }
               if (candidate.length > MIN_SOLUTION_RESPONSE_CHARS) {
                 aiResponseText = candidate;
                 break;
@@ -751,7 +827,7 @@ ${tavilyContext}
                 }));
                 await sleep(SERVER_ERROR_RETRY_DELAY_MS);
               } else {
-                console.error("[generate-solved-paper-stream] Gemini API error:", error);
+                console.error(`[generate-solved-paper-stream] ${provider} API error:`, error);
                 await sleep(RETRY_ERROR_DELAY_MS);
               }
             }
@@ -815,12 +891,8 @@ ${tavilyContext}
           await incrementQuotaCounter(user.id, "papers_solved_today");
         }
       } catch (error) {
-        if (error instanceof GeminiServiceError) {
-          controller.enqueue(toSseData({ event: "error", error: error.message, status: error.status }));
-        } else {
-          console.error("[generate-solved-paper-stream] Failed:", error);
-          controller.enqueue(toSseData({ event: "error", error: "Failed to generate solved paper." }));
-        }
+        console.error("[generate-solved-paper-stream] Failed:", error);
+        controller.enqueue(toSseData({ event: "error", error: "Failed to generate solved paper." }));
       } finally {
         clearInterval(heartbeat);
         closeStream();
