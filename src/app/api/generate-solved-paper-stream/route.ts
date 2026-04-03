@@ -15,8 +15,9 @@ import { getDailyLimit } from "@/lib/ai-limits";
 import { readDynamicSystemPrompt } from "@/lib/system-prompt";
 import { formatSearchResults, runWebSearch } from "@/lib/web-search";
 import { checkAndResetQuotas, incrementQuotaCounter } from "@/lib/user-quotas";
-import { sendGenerationMagicLinkEmail } from "@/lib/generation-notifications";
+import { sendGenerationPdfEmail } from "@/lib/generation-notifications";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { renderMarkdownPdfToAppwrite } from "@/lib/ai-pdf-pipeline";
 
 export const maxDuration = 300;
 
@@ -36,20 +37,7 @@ const INITIAL_LAST_PROCESSED_INDEX = -1;
 const ATTRIBUTE_AVAILABILITY_POLL_INTERVAL_MS = 300;
 const ATTRIBUTE_AVAILABILITY_TIMEOUT_MS = 12000;
 const SOLVED_PAPER_CACHE_TYPE = "solved_paper";
-const PROVIDER_REQUEST_TIMEOUT_MS = 20000;
-const OPENROUTER_APP_URL =
-  process.env.OPENROUTER_APP_URL ||
-  process.env.NEXT_PUBLIC_SITE_URL ||
-  "https://www.examarchive.dev";
-const OPENROUTER_APP_NAME = process.env.OPENROUTER_APP_NAME || "ExamArchive";
-
-type SolvedPaperProvider = "google" | "openrouter" | "groq";
-
-class ProviderRequestError extends Error {
-  constructor(public readonly status: number, message: string) {
-    super(message);
-  }
-}
+const GEMINI_MODEL = "gemini-3.1-flash-lite-preview";
 
 type SolvedPaperCheckpoint = {
   id: string;
@@ -79,14 +67,11 @@ function isRateLimitError(error: unknown): boolean {
 }
 
 function resolveSafeMaxTokens(model: string): number {
-  const normalized = model.toLowerCase();
-  if (normalized.includes("gpt-oss") || normalized.includes("llama3-8b")) return 3200;
   return 4000;
 }
 
 function isConstrainedFreeTierModel(model: string): boolean {
-  const normalized = model.toLowerCase();
-  return normalized.includes("gpt-oss") || normalized.includes("llama3-8b");
+  return false;
 }
 
 function resolvePartSizeForModel(model: string): number {
@@ -128,32 +113,6 @@ function getAppwriteErrorCode(error: unknown): number | null {
     if (Number.isFinite(parsed)) return parsed;
   }
   return null;
-}
-
-function parseChatCompletionContent(payload: unknown): string {
-  if (!payload || typeof payload !== "object") return "";
-  const maybeChoices = (payload as { choices?: unknown }).choices;
-  if (!Array.isArray(maybeChoices) || maybeChoices.length === 0) return "";
-  const firstChoice = maybeChoices[0];
-  if (!firstChoice || typeof firstChoice !== "object") return "";
-  const message = (firstChoice as { message?: unknown }).message;
-  if (!message || typeof message !== "object") return "";
-  const content = (message as { content?: unknown }).content;
-  return typeof content === "string" ? content.trim() : "";
-}
-
-function isTimeoutLikeError(error: unknown): boolean {
-  if (!error || typeof error !== "object") return false;
-  const maybeError = error as { name?: unknown; message?: unknown; code?: unknown };
-  const name = typeof maybeError.name === "string" ? maybeError.name : "";
-  const message = typeof maybeError.message === "string" ? maybeError.message : "";
-  return (
-    name === "AbortError" ||
-    name === "TimeoutError" ||
-    // DOMException timeout code used by runtime abort/timeouts in some environments.
-    maybeError.code === 23 ||
-    /timed out|timeout|aborted due to timeout|operation was aborted due to timeout/i.test(message)
-  );
 }
 
 async function waitForAttributeAvailable(key: string): Promise<void> {
@@ -595,21 +554,13 @@ export async function GET(request: NextRequest) {
   const type = (searchParams.get("type") || "").trim();
   const paperCode = (searchParams.get("paperCode") || "").trim();
   const year = normalizeNumber(searchParams.get("year"));
-  const rawProvider = (searchParams.get("provider") || "google").trim().toLowerCase();
-  const provider: SolvedPaperProvider | null =
-    rawProvider === "google" || rawProvider === "openrouter" || rawProvider === "groq"
-      ? rawProvider
-      : null;
-  const requestedModel = (searchParams.get("model") || "").trim();
+  const requestedModel = GEMINI_MODEL;
 
   if (!course || !type || !paperCode || year === null) {
     return NextResponse.json(
       { error: "Invalid selection. Please choose course, type, paper code, and year." },
       { status: 400 },
     );
-  }
-  if (!provider) {
-    return NextResponse.json({ error: "Invalid provider. Use Google, OpenRouter, or Groq." }, { status: 400 });
   }
   if (!Number.isInteger(year) || year < 1900 || year > 2100) {
     return NextResponse.json(
@@ -638,13 +589,7 @@ export async function GET(request: NextRequest) {
       const totalQuestions = questionsRes.documents.filter((doc) =>
         typeof doc.question_content === "string" && doc.question_content.trim().length > 0,
       ).length;
-      const model =
-        requestedModel ||
-        (provider === "google"
-          ? "gemini-3.1-flash-lite-preview"
-          : provider === "openrouter"
-            ? "google/gemma-3-27b-it:free"
-            : "llama3-70b-8192");
+      const model = requestedModel;
       const dynamicPartSize = resolvePartSizeForModel(model);
       const totalParts = Math.max(1, Math.ceil(totalQuestions / dynamicPartSize));
       return NextResponse.json({
@@ -690,17 +635,7 @@ export async function GET(request: NextRequest) {
   }
 
   const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-  const openRouterApiKey = process.env.OPENROUTER_API_KEY;
-  const groqApiKey = process.env.GROQ_API_KEY;
-  if (provider === "google" && !geminiApiKey) {
-    return NextResponse.json({ error: "Google Gemini is not configured." }, { status: 503 });
-  }
-  if (provider === "openrouter" && !openRouterApiKey) {
-    return NextResponse.json({ error: "OpenRouter is not configured." }, { status: 503 });
-  }
-  if (provider === "groq" && !groqApiKey) {
-    return NextResponse.json({ error: "Groq is not configured." }, { status: 503 });
-  }
+  if (!geminiApiKey) return NextResponse.json({ error: "Google Gemini is not configured." }, { status: 503 });
 
   const todayStr = new Date().toISOString().slice(0, 10);
   const dailyLimit = getDailyLimit();
@@ -763,13 +698,7 @@ export async function GET(request: NextRequest) {
           closeStream();
           return;
         }
-        const model =
-          requestedModel ||
-          (provider === "google"
-            ? "gemini-3.1-flash-lite-preview"
-            : provider === "openrouter"
-              ? "google/gemma-3-27b-it:free"
-              : "llama3-70b-8192");
+        const model = requestedModel;
         const dynamicPartSize = resolvePartSizeForModel(model);
         const totalParts = Math.max(1, Math.ceil(allQuestions.length / dynamicPartSize));
         if (part > totalParts) {
@@ -785,9 +714,9 @@ export async function GET(request: NextRequest) {
           promptType: "solved_paper",
         });
         controller.enqueue(toSseData({
-          log: `Using provider/model: ${provider}/${model}`,
+          log: `Using provider/model: google/${model}`,
         }));
-        const googleClient = provider === "google" ? new GoogleGenerativeAI(String(geminiApiKey)) : null;
+        const googleClient = new GoogleGenerativeAI(String(geminiApiKey));
         const cachePaperCode = getSolvedPaperCacheKey(course, type, paperCode);
         const checkpoint = await readSolvedPaperCheckpoint(cachePaperCode, year);
         if (checkpoint?.status === COMPLETED_STATUS && checkpoint.markdown.trim().length > 0) {
@@ -912,95 +841,19 @@ ${tavilyContext}
             try {
               let candidate = "";
               controller.enqueue(toSseData({
-                log: `Prompting ${provider}/${model} for Part ${part} (${qLabel})...`,
+                log: `Prompting google/${model} for Part ${part} (${qLabel})...`,
               }));
-              switch (provider) {
-                case "google": {
-                  try {
-                    if (!googleClient) {
-                      throw new ProviderRequestError(503, "Google Gemini is not configured.");
-                    }
-                    const aiModel = googleClient.getGenerativeModel({
-                      model,
-                      systemInstruction: systemPrompt,
-                    });
-                    const result = await aiModel.generateContent(questionText);
-                    candidate = String(result.response.text?.() ?? "").trim();
-                  } catch (error) {
-                    const errorMessage = error instanceof Error ? error.message : String(error ?? "Google request failed");
-                    const status = getErrorStatus(error) ?? getErrorStatusFromMessage(errorMessage) ?? 503;
-                    throw new ProviderRequestError(status, errorMessage);
-                  }
-                  break;
-                }
-                case "openrouter": {
-                  let response: Response;
-                  try {
-                    response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-                      method: "POST",
-                      headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${openRouterApiKey}`,
-                        "HTTP-Referer": OPENROUTER_APP_URL,
-                        "X-Title": OPENROUTER_APP_NAME,
-                      },
-                      body: JSON.stringify({
-                        model,
-                        messages: [
-                          { role: "system", content: systemPrompt },
-                          { role: "user", content: questionText },
-                        ],
-                        max_tokens: safeMaxTokens,
-                        temperature: 0.3,
-                      }),
-                      signal: AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MS),
-                    });
-                  } catch (error) {
-                    if (isTimeoutLikeError(error)) {
-                      throw new ProviderRequestError(503, "OpenRouter request timed out");
-                    }
-                    throw new ProviderRequestError(503, "OpenRouter network request failed");
-                  }
-                  if (!response.ok) {
-                    throw new ProviderRequestError(response.status, `OpenRouter request failed (status ${response.status})`);
-                  }
-                  const data = await response.json();
-                  candidate = parseChatCompletionContent(data);
-                  break;
-                }
-                case "groq": {
-                  let response: Response;
-                  try {
-                    response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-                      method: "POST",
-                      headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${groqApiKey}`,
-                      },
-                      body: JSON.stringify({
-                        model,
-                        messages: [
-                          { role: "system", content: systemPrompt },
-                          { role: "user", content: questionText },
-                        ],
-                        max_tokens: safeMaxTokens,
-                        temperature: 0.3,
-                      }),
-                      signal: AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MS),
-                    });
-                  } catch (error) {
-                    if (isTimeoutLikeError(error)) {
-                      throw new ProviderRequestError(503, "Groq request timed out");
-                    }
-                    throw new ProviderRequestError(503, "Groq network request failed");
-                  }
-                  if (!response.ok) {
-                    throw new ProviderRequestError(response.status, `Groq request failed (status ${response.status})`);
-                  }
-                  const data = await response.json();
-                  candidate = parseChatCompletionContent(data);
-                  break;
-                }
+              try {
+                const aiModel = googleClient.getGenerativeModel({
+                  model,
+                  systemInstruction: systemPrompt,
+                });
+                const result = await aiModel.generateContent(questionText);
+                candidate = String(result.response.text?.() ?? "").trim();
+              } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : String(error ?? "Google request failed");
+                const status = getErrorStatus(error) ?? getErrorStatusFromMessage(errorMessage) ?? 503;
+                throw new Error(`Google request failed (status ${status}): ${errorMessage}`);
               }
               if (candidate.length > MIN_SOLUTION_RESPONSE_CHARS) {
                 aiResponseText = candidate;
@@ -1035,9 +888,9 @@ ${tavilyContext}
                 }));
                 await sleep(SERVER_ERROR_RETRY_DELAY_MS);
               } else {
-                console.error(`[generate-solved-paper-stream] ${provider} API error:`, error);
+                console.error("[generate-solved-paper-stream] Gemini API error:", error);
                 controller.enqueue(toSseData({
-                  log: "Model error (404/401/429). Check rate limits or API keys.",
+                  log: "Model error (404/401/429). Check Gemini API key or rate limits.",
                 }));
                 await sleep(RETRY_ERROR_DELAY_MS);
               }
@@ -1092,16 +945,31 @@ ${tavilyContext}
           return;
         }
 
-        const magicLinkPath =
-          `/ai-content?course=${encodeURIComponent(course)}` +
-          `&type=${encodeURIComponent(type)}` +
-          `&paperCode=${encodeURIComponent(paperCode)}` +
-          `&year=${encodeURIComponent(String(year))}`;
+        controller.enqueue(toSseData({ log: "AI generation complete. Sending to Azure for PDF rendering..." }));
+        let pdfUrl: string | null = null;
+        try {
+          const rendered = await renderMarkdownPdfToAppwrite({
+            markdown: masterMarkdown.trim(),
+            fileBaseName: `${paperCode}_${year}_solved_${Date.now()}`,
+          });
+          pdfUrl = rendered.fileUrl;
+          controller.enqueue(toSseData({ log: "PDF rendered successfully! Uploading to Appwrite Storage..." }));
+        } catch (pdfError) {
+          console.error("[generate-solved-paper-stream] PDF Engine Error:", pdfError);
+          controller.enqueue(toSseData({ log: "Error generating PDF on Azure server." }));
+        }
+
         if (typeof user.email === "string" && user.email.trim().length > 0) {
           try {
-            await sendGenerationMagicLinkEmail(user.email, magicLinkPath);
+            if (pdfUrl) {
+              await sendGenerationPdfEmail({
+                email: user.email,
+                downloadPath: pdfUrl,
+                title: `Solved Paper (${paperCode} ${year})`,
+              });
+            }
           } catch (emailError) {
-            console.error("[generate-solved-paper-stream] Failed to send generation magic-link email:", emailError);
+            console.error("[generate-solved-paper-stream] Failed to send generation email:", emailError);
           }
         }
 
@@ -1112,6 +980,7 @@ ${tavilyContext}
           total: allQuestions.length,
           part,
           totalParts,
+          pdf_url: pdfUrl,
         }));
         if (!isAdminPlus) {
           await recordGeneration(user.id, todayStr);

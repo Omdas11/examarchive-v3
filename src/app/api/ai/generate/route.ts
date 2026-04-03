@@ -7,7 +7,6 @@ import {
   Query,
   ID,
 } from "@/lib/appwrite";
-import { AIServiceError, getOpenRouterModelPool, runOpenRouterCompletionWithFallback } from "@/lib/openrouter";
 import { runGeminiCompletion, GeminiServiceError } from "@/lib/gemini";
 import { buildRagContext, type CoursePrefsPayload } from "@/lib/pdf-rag";
 import {
@@ -69,9 +68,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
 
-  const openRouterApiKey = process.env.OPENROUTER_API_KEY;
   const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-  if (!openRouterApiKey && !geminiApiKey) {
+  if (!geminiApiKey) {
     return NextResponse.json({ error: "AI generation is not configured." }, { status: 503 });
   }
 
@@ -133,14 +131,8 @@ export async function POST(request: NextRequest) {
     }
 
     const effectiveModel = adminRequestedModel ?? globalModelOverride ?? undefined;
-    const preferredOpenRouterModel = stripPrefix(effectiveModel, "openrouter:");
     const preferredGeminiModel = stripPrefix(effectiveModel, "gemini:");
 
-    const modelPool = openRouterApiKey ? await getOpenRouterModelPool(openRouterApiKey) : [];
-    if (openRouterApiKey && modelPool.length === 0) {
-      console.error("[AI generate] No free OpenRouter models resolved. Check OPENROUTER_MODEL_ALLOWLIST and pricing.");
-    }
-    const availablePool = modelPool || [];
     const inputPaperContext = (body.paperContext ?? "").slice(0, 2000);
     const referenceLabel = sanitizeReferenceLabel(body.referenceLabel);
     const ragContext = await buildRagContext({
@@ -195,34 +187,15 @@ Additional requirements:
     let content: string | null = null;
     let usedModel = "";
 
-    const prefersOpenRouter = Boolean(preferredOpenRouterModel);
-    const shouldUseGemini = geminiApiKey && !prefersOpenRouter;
-
-    if (shouldUseGemini) {
-      const gemini = await runGeminiCompletion({
-        apiKey: geminiApiKey,
-        prompt,
-        maxTokens: Math.min(MAX_COMPLETION_TOKENS, noteTargets.maxTokens),
-        temperature: 0.6,
-        model: preferredGeminiModel,
-      });
-      content = gemini.content;
-      usedModel = `gemini:${gemini.model}`;
-    } else {
-      if (!openRouterApiKey || availablePool.length === 0) {
-        throw new AIServiceError("SERVICE_UNAVAILABLE", 503, "Service temporarily unavailable. Please try again shortly.");
-      }
-      const { content: generatedContent, model } = await runOpenRouterCompletionWithFallback({
-        apiKey: openRouterApiKey,
-        messages: [{ role: "user", content: prompt }],
-        maxTokens: Math.min(MAX_COMPLETION_TOKENS, noteTargets.maxTokens),
-        temperature: 0.6,
-        modelPool: availablePool,
-        preferredModel: preferredOpenRouterModel,
-      });
-      content = generatedContent;
-      usedModel = model;
-    }
+    const gemini = await runGeminiCompletion({
+      apiKey: geminiApiKey,
+      prompt,
+      maxTokens: Math.min(MAX_COMPLETION_TOKENS, noteTargets.maxTokens),
+      temperature: 0.6,
+      model: preferredGeminiModel,
+    });
+    content = gemini.content;
+    usedModel = `gemini:${gemini.model}`;
 
     // Record this generation for rate-limiting
     if (!isAdminPlus(user.role)) {
@@ -245,9 +218,6 @@ Additional requirements:
       remaining,
     });
   } catch (err) {
-    if (err instanceof AIServiceError) {
-      return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
-    }
     if (err instanceof GeminiServiceError) {
       return NextResponse.json({ error: err.message, code: "SERVICE_UNAVAILABLE" }, { status: err.status });
     }
@@ -263,14 +233,8 @@ export async function GET() {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
 
-  const modelPool = await getOpenRouterModelPool(process.env.OPENROUTER_API_KEY);
-  if (modelPool.length === 0) {
-    console.error("[AI generate] No free OpenRouter models resolved in GET. Check OPENROUTER_MODEL_ALLOWLIST and pricing.");
-    return NextResponse.json(
-      { error: "AI generation is temporarily unavailable. Please try again shortly." },
-      { status: 503 },
-    );
-  }
+  const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+  if (!geminiApiKey) return NextResponse.json({ error: "AI generation is temporarily unavailable. Please try again shortly." }, { status: 503 });
 
   if (isAdminPlus(user.role)) {
     return NextResponse.json({

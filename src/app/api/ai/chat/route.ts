@@ -1,6 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getServerUser } from "@/lib/auth";
-import { AIServiceError, getOpenRouterModelPool, runOpenRouterCompletionWithFallback } from "@/lib/openrouter";
 import { runGeminiCompletion, GeminiServiceError } from "@/lib/gemini";
 import { buildRagContext } from "@/lib/pdf-rag";
 
@@ -49,9 +48,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Login required to use the AI assistant." }, { status: 401 });
   }
 
-  const openRouterApiKey = process.env.OPENROUTER_API_KEY;
   const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-  if (!openRouterApiKey && !geminiApiKey) {
+  if (!geminiApiKey) {
     return NextResponse.json({ error: "AI assistant is not configured." }, { status: 503 });
   }
 
@@ -122,52 +120,27 @@ Additional UX rules:
     }
 
     const effectiveModel = adminRequestedModel ?? globalModelOverride ?? undefined;
-    const preferredOpenRouterModel = stripPrefix(effectiveModel, "openrouter:");
     const preferredGeminiModel = stripPrefix(effectiveModel, "gemini:");
 
     let reply = "";
     let usedModel = "";
 
-    const prefersOpenRouter = Boolean(preferredOpenRouterModel);
-    const shouldUseGemini = geminiApiKey && !prefersOpenRouter;
-
-    if (shouldUseGemini) {
-      const gemini = await runGeminiCompletion({
-        apiKey: geminiApiKey,
-        prompt: messages.map((m) => `${m.role.toUpperCase()}: ${m.content}`).join("\n\n"),
-        contents: messages.map((m) => ({
-          role: m.role === "assistant" ? "model" : "user",
-          parts: [{ text: m.content }],
-        })),
-        maxTokens: 512,
-        temperature: 0.7,
-        model: preferredGeminiModel,
-      });
-      reply = gemini.content;
-      usedModel = `gemini:${gemini.model}`;
-    } else {
-      const modelPool = openRouterApiKey ? await getOpenRouterModelPool(openRouterApiKey) : [];
-      if (!openRouterApiKey || modelPool.length === 0) {
-        throw new AIServiceError("SERVICE_UNAVAILABLE", 503, "Service temporarily unavailable. Please try again shortly.");
-      }
-
-      const result = await runOpenRouterCompletionWithFallback({
-        apiKey: openRouterApiKey,
-        messages,
-        maxTokens: 512,
-        temperature: 0.7,
-        modelPool,
-        preferredModel: preferredOpenRouterModel,
-      });
-      reply = result.content;
-      usedModel = result.model;
-    }
+    const gemini = await runGeminiCompletion({
+      apiKey: geminiApiKey,
+      prompt: messages.map((m) => `${m.role.toUpperCase()}: ${m.content}`).join("\n\n"),
+      contents: messages.map((m) => ({
+        role: m.role === "assistant" ? "model" : "user",
+        parts: [{ text: m.content }],
+      })),
+      maxTokens: 512,
+      temperature: 0.7,
+      model: preferredGeminiModel,
+    });
+    reply = gemini.content;
+    usedModel = `gemini:${gemini.model}`;
 
     return NextResponse.json({ reply, model: usedModel, sources: ragContext.sources });
   } catch (err) {
-    if (err instanceof AIServiceError) {
-      return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
-    }
     if (err instanceof GeminiServiceError) {
       return NextResponse.json({ error: err.message, code: "SERVICE_UNAVAILABLE" }, { status: err.status });
     }
