@@ -15,6 +15,7 @@ import { getDailyLimit } from "@/lib/ai-limits";
 import { readDynamicSystemPrompt } from "@/lib/system-prompt";
 import { formatSearchResults, runWebSearch } from "@/lib/web-search";
 import { checkAndResetQuotas, incrementQuotaCounter } from "@/lib/user-quotas";
+import { sendGenerationMagicLinkEmail } from "@/lib/generation-notifications";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export const maxDuration = 300;
@@ -1006,6 +1007,19 @@ ${tavilyContext}
           }));
           closeStream();
           return;
+        }
+
+        const magicLinkPath =
+          `/ai-content?course=${encodeURIComponent(course)}` +
+          `&type=${encodeURIComponent(type)}` +
+          `&paperCode=${encodeURIComponent(paperCode)}` +
+          `&year=${encodeURIComponent(String(year))}`;
+        if (typeof user.email === "string" && user.email.trim().length > 0) {
+          try {
+            await sendGenerationMagicLinkEmail(user.email, magicLinkPath);
+          } catch (emailError) {
+            console.error("[generate-solved-paper-stream] Failed to send generation magic-link email:", emailError);
+          }
         }
 
         controller.enqueue(toSseData({

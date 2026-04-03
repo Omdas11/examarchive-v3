@@ -6,6 +6,7 @@ import PrintableNotesDocument from "./PrintableNotesDocument";
 import PrintInstructionsModal from "./PrintInstructionsModal";
 import MarkdownNotesRenderer from "./MarkdownNotesRenderer";
 import { useToast } from "@/components/ToastContext";
+import CustomDropdown, { type CustomDropdownOption } from "@/components/CustomDropdown";
 
 const COURSE_TYPES: Record<string, string[]> = {
   FYUG: ["DSC", "DSM", "SEC", "AEC", "VAC", "IDC"],
@@ -15,15 +16,15 @@ const UNIT_OPTIONS = [1, 2, 3, 4, 5];
 const PROVIDER_MODELS = {
   Google: ["gemini-3.1-flash-lite-preview", "gemini-2.5-flash", "gemini-1.5-flash"],
   OpenRouter: [
+    "openai/gpt-oss-120b:free",
+    "openai/gpt-oss-20b:free",
     "google/gemma-3-27b-it:free",
-    "google/gemma-3-12b-it:free",
     "meta-llama/llama-3-8b-instruct:free",
-    "mistralai/mistral-7b-instruct:free",
   ],
-  Groq: ["llama3-70b-8192", "llama3-8b-8192", "mixtral-8x7b-32768"],
+  Groq: ["gpt-oss-120b", "llama3-70b-8192", "llama3-8b-8192", "mixtral-8x7b-32768"],
 } as const;
-type SolvedPaperProvider = keyof typeof PROVIDER_MODELS;
-const DEFAULT_PROVIDER: SolvedPaperProvider = "Google";
+type AIProvider = keyof typeof PROVIDER_MODELS;
+const DEFAULT_PROVIDER: AIProvider = "Google";
 const DEFAULT_PROVIDER_MODEL = PROVIDER_MODELS[DEFAULT_PROVIDER][0];
 const BACKEND_PAPERS_MAX_DURATION_SECONDS = 300;
 const RESUME_TIMEOUT_BUFFER_SECONDS = 5;
@@ -55,7 +56,7 @@ export default function AIContentClient() {
   const [generating, setGenerating] = useState(false);
   const [markdown, setMarkdown] = useState("");
   const [usedModel, setUsedModel] = useState("");
-  const [provider, setProvider] = useState<SolvedPaperProvider>(DEFAULT_PROVIDER);
+  const [provider, setProvider] = useState<AIProvider>(DEFAULT_PROVIDER);
   const [selectedModel, setSelectedModel] = useState<string>(DEFAULT_PROVIDER_MODEL);
   const [remaining, setRemaining] = useState<number | null>(null);
   const [limit, setLimit] = useState<number | null>(null);
@@ -84,6 +85,41 @@ export default function AIContentClient() {
   const selectedPaperName = paperNameMap[paperCode] || paperCode;
   const availableYears = useMemo(() => yearsByPaperCode[paperCode] || [], [yearsByPaperCode, paperCode]);
   const providerModelOptions = useMemo(() => PROVIDER_MODELS[provider], [provider]);
+  const courseOptions: CustomDropdownOption[] = useMemo(
+    () => [
+      { label: "FYUG", value: "FYUG" },
+      { label: "CBCS", value: "CBCS" },
+    ],
+    [],
+  );
+  const typeOptions: CustomDropdownOption[] = useMemo(
+    () => (COURSE_TYPES[course] || []).map((entry) => ({ label: entry, value: entry })),
+    [course],
+  );
+  const paperCodeDropdownOptions: CustomDropdownOption[] = useMemo(
+    () => paperCodeOptions.map((code) => ({ label: code, value: code })),
+    [paperCodeOptions],
+  );
+  const unitOptions: CustomDropdownOption[] = useMemo(
+    () => UNIT_OPTIONS.map((unit) => ({ label: String(unit), value: String(unit) })),
+    [],
+  );
+  const yearOptions: CustomDropdownOption[] = useMemo(
+    () => availableYears.map((year) => ({ label: String(year), value: String(year) })),
+    [availableYears],
+  );
+  const providerOptions: CustomDropdownOption[] = useMemo(
+    () => [
+      { label: "Google", value: "Google" },
+      { label: "OpenRouter", value: "OpenRouter" },
+      { label: "Groq", value: "Groq" },
+    ],
+    [],
+  );
+  const modelOptions: CustomDropdownOption[] = useMemo(
+    () => providerModelOptions.map((providerModel) => ({ label: providerModel, value: providerModel })),
+    [providerModelOptions],
+  );
   const progressPercent = progressTotal > 0 ? Math.min(100, Math.round((progressIndex / progressTotal) * 100)) : 0;
   const estimatedMinutesRemaining = useMemo(() => {
     if (activeTab !== "papers") return null;
@@ -246,6 +282,18 @@ export default function AIContentClient() {
         if (typeof data.totalParts === "number") setTotalParts(data.totalParts);
         if (typeof data.part === "number") setCurrentPart(data.part);
         const isCached = typeof data.cached === "boolean" && data.cached;
+        if ("Notification" in window && Notification.permission === "granted") {
+          const title = "ExamArchive: Generation Complete!";
+          const body =
+            activeTab === "notes"
+              ? "Your unit notes are ready. Return to ExamArchive to view and render your PDF."
+              : "Your solved paper is ready. Return to ExamArchive to view and render your PDF.";
+          new Notification(title, {
+            body,
+            icon: "/favicon.ico",
+            tag: `examarchive-generation-${activeTab}`,
+          });
+        }
         if (!isCached && activeTab === "notes") {
           setNotesRemaining((prev) => (typeof prev === "number" ? Math.max(0, prev - 1) : prev));
         } else if (!isCached) {
@@ -286,6 +334,9 @@ export default function AIContentClient() {
 
   async function generate() {
     if (generating) return;
+    if ("Notification" in window && Notification.permission !== "granted") {
+      void Notification.requestPermission();
+    }
     // True when user is explicitly resuming after a timeout prompt; keep existing stitched markdown.
     const isResumeAttempt = activeTab === "papers" && canResumeGeneration;
     closeEventSource();
@@ -308,7 +359,7 @@ export default function AIContentClient() {
       type,
       paperCode,
       ...(activeTab === "notes"
-        ? { unitNumber: String(unitNumber) }
+        ? { unitNumber: String(unitNumber), provider: provider.toLowerCase(), model: selectedModel }
         : { year: String(selectedYear), provider: provider.toLowerCase(), model: selectedModel }),
     });
     try {
@@ -471,33 +522,22 @@ export default function AIContentClient() {
             </div>
             <div>
               <label className="mb-1 block text-sm font-semibold">Course</label>
-              <select className="input-field" value={course} onChange={(e) => setCourse(e.target.value)} disabled={generating}>
-                <option value="FYUG">FYUG</option>
-                <option value="CBCS">CBCS</option>
-              </select>
+              <CustomDropdown options={courseOptions} value={course} onChange={setCourse} disabled={generating} />
             </div>
             <div>
               <label className="mb-1 block text-sm font-semibold">Type</label>
-              <select className="input-field" value={type} onChange={(e) => setType(e.target.value)} disabled={generating}>
-                {(COURSE_TYPES[course] || []).map((t) => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
-              </select>
+              <CustomDropdown options={typeOptions} value={type} onChange={setType} disabled={generating} />
             </div>
             <div>
               <label className="mb-1 block text-sm font-semibold">Paper Code</label>
               <div className="flex gap-2">
-                <select
-                  className="input-field"
+                <CustomDropdown
+                  options={paperCodeDropdownOptions}
                   value={paperCode}
-                  onChange={(e) => setPaperCode(e.target.value)}
+                  onChange={setPaperCode}
+                  placeholder={paperCodeLoading ? "Loading..." : "Select paper code"}
                   disabled={generating || paperCodeLoading || paperCodeOptions.length === 0}
-                >
-                  <option value="">{paperCodeLoading ? "Loading..." : "Select paper code"}</option>
-                  {paperCodeOptions.map((code) => (
-                    <option key={code} value={code}>{code}</option>
-                  ))}
-                </select>
+                />
                 <input
                   className="input-field"
                   value={paperCode}
@@ -508,62 +548,64 @@ export default function AIContentClient() {
               </div>
             </div>
             {activeTab === "notes" ? (
-              <div>
-                <label className="mb-1 block text-sm font-semibold">Unit Number</label>
-                <select
-                  className="input-field"
-                  value={unitNumber}
-                  onChange={(e) => setUnitNumber(Number(e.target.value))}
-                  disabled={generating}
-                >
-                  {UNIT_OPTIONS.map((unit) => (
-                    <option key={unit} value={unit}>{unit}</option>
-                  ))}
-                </select>
-              </div>
+              <>
+                <div>
+                  <label className="mb-1 block text-sm font-semibold">Unit Number</label>
+                  <CustomDropdown
+                    options={unitOptions}
+                    value={String(unitNumber)}
+                    onChange={(nextValue) => setUnitNumber(Number(nextValue))}
+                    disabled={generating}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-semibold">Provider</label>
+                  <CustomDropdown
+                    options={providerOptions}
+                    value={provider}
+                    onChange={(nextValue) => setProvider(nextValue as AIProvider)}
+                    disabled={generating}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-semibold">Model</label>
+                  <CustomDropdown
+                    options={modelOptions}
+                    value={selectedModel}
+                    onChange={setSelectedModel}
+                    disabled={generating}
+                  />
+                </div>
+              </>
             ) : (
               <>
                 <div>
                   <label className="mb-1 block text-sm font-semibold">Year</label>
-                  <select
-                    className="input-field"
-                    value={selectedYear}
-                    onChange={(e) => setSelectedYear(Number(e.target.value))}
+                  <CustomDropdown
+                    options={yearOptions}
+                    value={selectedYear === "" ? "" : String(selectedYear)}
+                    onChange={(nextValue) => setSelectedYear(Number(nextValue))}
+                    placeholder={availableYears.length > 0 ? "Select year" : "No years available for selected paper"}
                     disabled={generating || availableYears.length === 0}
-                  >
-                    <option value="">
-                      {availableYears.length > 0 ? "Select year" : "No years available for selected paper"}
-                    </option>
-                    {availableYears.map((year) => (
-                      <option key={year} value={year}>{year}</option>
-                    ))}
-                  </select>
+                  />
                 </div>
                 <div>
                   <label className="mb-1 block text-sm font-semibold">Provider</label>
-                  <select
-                    className="input-field"
+                  <CustomDropdown
+                    options={providerOptions}
                     value={provider}
-                    onChange={(e) => setProvider(e.target.value as SolvedPaperProvider)}
+                    onChange={(nextValue) => setProvider(nextValue as AIProvider)}
                     disabled={generating}
-                  >
-                    <option value="Google">Google</option>
-                    <option value="OpenRouter">OpenRouter</option>
-                    <option value="Groq">Groq</option>
-                  </select>
+                  />
                 </div>
                 <div>
                   <label className="mb-1 block text-sm font-semibold">Model</label>
-                  <select
-                    className="input-field"
+                  <CustomDropdown
+                    options={modelOptions}
                     value={selectedModel}
-                    onChange={(e) => setSelectedModel(e.target.value)}
+                    onChange={setSelectedModel}
                     disabled={generating}
-                  >
-                    {providerModelOptions.map((providerModel) => (
-                      <option key={providerModel} value={providerModel}>{providerModel}</option>
-                    ))}
-                  </select>
+                  />
                 </div>
               </>
             )}
