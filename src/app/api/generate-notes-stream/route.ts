@@ -21,7 +21,7 @@ const EMPTY_RESPONSE_RETRY_MS = 2000;
 const TOPIC_LOOP_DELAY_MS = 7000;
 const MIN_TOPIC_RESPONSE_CHARS = 50;
 const TOPIC_RETRY_MAX = 4;
-const RATE_LIMIT_COOLDOWN_MS = 20000;
+const RATE_LIMIT_COOLDOWN_MS = 61000;
 const RETRY_ERROR_DELAY_MS = 4000;
 const HEARTBEAT_INTERVAL_MS = 15000;
 const UNIT_NOTES_CACHE_TYPE = "unit_notes";
@@ -359,6 +359,12 @@ function isRateLimitError(error: unknown): boolean {
   return status === 429 || message.includes("429");
 }
 
+function resolveSafeMaxTokens(model: string): number {
+  const normalized = model.toLowerCase();
+  if (normalized.includes("gpt-oss") || normalized.includes("llama3-8b")) return 2000;
+  return 4000;
+}
+
 function getErrorStatus(error: unknown): number | null {
   if (!error || typeof error !== "object") return null;
   const raw = "status" in error ? (error as { status?: unknown }).status : null;
@@ -588,6 +594,7 @@ export async function GET(request: NextRequest) {
             : provider === "openrouter"
               ? "openai/gpt-oss-120b:free"
               : "gpt-oss-120b");
+        const safeMaxTokens = resolveSafeMaxTokens(model);
 
         for (const [index, topic] of subTopics.entries()) {
           controller.enqueue(toSseData({
@@ -664,7 +671,7 @@ ${formattedQuestions || "No related questions found."}
                           { role: "system", content: systemPrompt },
                           { role: "user", content: promptBody },
                         ],
-                        max_tokens: 8192,
+                        max_tokens: safeMaxTokens,
                         temperature: 0.4,
                       }),
                       signal: AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MS),
@@ -697,7 +704,7 @@ ${formattedQuestions || "No related questions found."}
                           { role: "system", content: systemPrompt },
                           { role: "user", content: promptBody },
                         ],
-                        max_tokens: 8192,
+                        max_tokens: safeMaxTokens,
                         temperature: 0.4,
                       }),
                       signal: AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MS),
@@ -732,7 +739,7 @@ ${formattedQuestions || "No related questions found."}
               if (isRateLimitError(error)) {
                 controller.enqueue(toSseData({
                   event: "progress",
-                  status: "Rate limit hit. Cooling down for 20 seconds...",
+                  status: "Rate limit (TPM) reached. Pausing generation for 61 seconds to let the API cool down...",
                   topic,
                   index: index + 1,
                   total: subTopics.length,

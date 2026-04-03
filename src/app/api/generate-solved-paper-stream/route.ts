@@ -25,7 +25,7 @@ const PART_SIZE = 10;
 const QUESTION_MAX_RETRIES = 4;
 // Standard fallback delay for non-rate-limit/non-5xx retryable errors.
 const RETRY_ERROR_DELAY_MS = 5000;
-const RATE_LIMIT_RETRY_DELAY_MS = 20000;
+const RATE_LIMIT_RETRY_DELAY_MS = 61000;
 const SERVER_ERROR_RETRY_DELAY_MS = 15000;
 const HEARTBEAT_INTERVAL_MS = 15000;
 const MIN_SOLUTION_RESPONSE_CHARS = 10;
@@ -77,6 +77,12 @@ function isRateLimitError(error: unknown): boolean {
   const status = "status" in error ? (error as { status?: unknown }).status : undefined;
   const message = "message" in error ? String((error as { message?: unknown }).message ?? "") : "";
   return status === 429 || message.includes("429");
+}
+
+function resolveSafeMaxTokens(model: string): number {
+  const normalized = model.toLowerCase();
+  if (normalized.includes("gpt-oss") || normalized.includes("llama3-8b")) return 2000;
+  return 4000;
 }
 
 /**
@@ -760,6 +766,8 @@ export async function GET(request: NextRequest) {
           : requestedStartIndex;
         const endIndex = Math.min(Math.max(startIndex, requestedEndIndex), allQuestions.length);
         const isLastPart = endIndex >= allQuestions.length;
+        // NOTE: When validating Groq free-tier TPM behavior, keep each part very small
+        // (ideally 1-2 questions) because prompt context can already be several thousand tokens.
         let checkpointId =
           (await upsertSolvedPaperCheckpoint({
             checkpointId: checkpoint?.id ?? null,
@@ -841,6 +849,7 @@ ${tavilyContext}
 
           let aiResponseText = "";
           let retries = 0;
+          const safeMaxTokens = resolveSafeMaxTokens(model);
           while (retries < QUESTION_MAX_RETRIES) {
             try {
               let candidate = "";
@@ -883,7 +892,7 @@ ${tavilyContext}
                           { role: "system", content: systemPrompt },
                           { role: "user", content: questionText },
                         ],
-                        max_tokens: 8192,
+                        max_tokens: safeMaxTokens,
                         temperature: 0.3,
                       }),
                       signal: AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MS),
@@ -916,7 +925,7 @@ ${tavilyContext}
                           { role: "system", content: systemPrompt },
                           { role: "user", content: questionText },
                         ],
-                        max_tokens: 8192,
+                        max_tokens: safeMaxTokens,
                         temperature: 0.3,
                       }),
                       signal: AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MS),
@@ -947,12 +956,15 @@ ${tavilyContext}
               if (isRateLimitError(error)) {
                 controller.enqueue(toSseData({
                   event: "progress",
-                  status: "Rate limit hit. Cooling down before retry...",
+                  status: "Rate limit (TPM) reached. Pausing generation for 61 seconds to let the API cool down...",
                   index: index + 1,
                   total: allQuestions.length,
                   question: qLabel,
                   part,
                   totalParts,
+                }));
+                controller.enqueue(toSseData({
+                  log: "Rate limit (TPM) reached. Pausing generation for 61 seconds to let the API cool down...",
                 }));
                 await sleep(RATE_LIMIT_RETRY_DELAY_MS);
               } else if (
