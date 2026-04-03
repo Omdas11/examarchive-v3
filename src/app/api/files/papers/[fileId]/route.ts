@@ -38,13 +38,16 @@ export async function GET(
 
   try {
     const storage = adminStorage();
-    const fileBuffer = await storage.getFileView(BUCKET_ID, fileId);
+    const shouldDownload = request.nextUrl.searchParams.get("download") === "1";
+    const fileBuffer = shouldDownload
+      ? await storage.getFileDownload(BUCKET_ID, fileId)
+      : await storage.getFileView(BUCKET_ID, fileId);
 
     return new NextResponse(fileBuffer, {
       headers: {
         "Content-Type": "application/pdf",
         "Cache-Control": "private, max-age=3600",
-        "Content-Disposition": "inline",
+        "Content-Disposition": shouldDownload ? 'attachment; filename="examarchive.pdf"' : "inline",
       },
     });
   } catch (err: unknown) {
