@@ -21,7 +21,6 @@ const EMPTY_RESPONSE_RETRY_MS = 2000;
 const TOPIC_LOOP_DELAY_MS = 7000;
 const MIN_TOPIC_RESPONSE_CHARS = 50;
 const TOPIC_RETRY_MAX = 4;
-const RATE_LIMIT_COOLDOWN_MS = 61000;
 const RETRY_ERROR_DELAY_MS = 4000;
 const HEARTBEAT_INTERVAL_MS = 15000;
 const UNIT_NOTES_CACHE_TYPE = "unit_notes";
@@ -361,8 +360,43 @@ function isRateLimitError(error: unknown): boolean {
 
 function resolveSafeMaxTokens(model: string): number {
   const normalized = model.toLowerCase();
-  if (normalized.includes("gpt-oss") || normalized.includes("llama3-8b")) return 2000;
+  if (normalized.includes("gpt-oss") || normalized.includes("llama3-8b")) return 3200;
   return 4000;
+}
+
+async function runRateLimitCountdown(params: {
+  controller: ReadableStreamDefaultController<Uint8Array>;
+  topic: string;
+  index: number;
+  total: number;
+}): Promise<void> {
+  for (let remainingSeconds = 60; remainingSeconds > 5; remainingSeconds -= 5) {
+    params.controller.enqueue(toSseData({
+      event: "progress",
+      status: `Rate limit (TPM) active. Cooling down... resuming in ${remainingSeconds} seconds.`,
+      topic: params.topic,
+      index: params.index,
+      total: params.total,
+    }));
+    params.controller.enqueue(toSseData({
+      log: `Rate limit (TPM) active. Cooling down... resuming in ${remainingSeconds} seconds.`,
+    }));
+    await sleep(5000);
+  }
+  params.controller.enqueue(toSseData({
+    event: "progress",
+    status: "Rate limit (TPM) active. Cooling down... resuming in 5 seconds.",
+    topic: params.topic,
+    index: params.index,
+    total: params.total,
+  }));
+  params.controller.enqueue(toSseData({
+    log: "Rate limit (TPM) active. Cooling down... resuming in 5 seconds.",
+  }));
+  await sleep(5000);
+  params.controller.enqueue(toSseData({
+    log: "Cooldown complete. Retrying chunk...",
+  }));
 }
 
 function getErrorStatus(error: unknown): number | null {
@@ -737,14 +771,12 @@ ${formattedQuestions || "No related questions found."}
               }));
             } catch (error) {
               if (isRateLimitError(error)) {
-                controller.enqueue(toSseData({
-                  event: "progress",
-                  status: "Rate limit (TPM) reached. Pausing generation for 61 seconds to let the API cool down...",
+                await runRateLimitCountdown({
+                  controller,
                   topic,
                   index: index + 1,
                   total: subTopics.length,
-                }));
-                await sleep(RATE_LIMIT_COOLDOWN_MS);
+                });
               } else {
                 const errorStatus = getErrorStatus(error);
                 const messageStatus =

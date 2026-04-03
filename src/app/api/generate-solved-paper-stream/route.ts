@@ -25,7 +25,6 @@ const PART_SIZE = 10;
 const QUESTION_MAX_RETRIES = 4;
 // Standard fallback delay for non-rate-limit/non-5xx retryable errors.
 const RETRY_ERROR_DELAY_MS = 5000;
-const RATE_LIMIT_RETRY_DELAY_MS = 61000;
 const SERVER_ERROR_RETRY_DELAY_MS = 15000;
 const HEARTBEAT_INTERVAL_MS = 15000;
 const MIN_SOLUTION_RESPONSE_CHARS = 10;
@@ -81,8 +80,17 @@ function isRateLimitError(error: unknown): boolean {
 
 function resolveSafeMaxTokens(model: string): number {
   const normalized = model.toLowerCase();
-  if (normalized.includes("gpt-oss") || normalized.includes("llama3-8b")) return 2000;
+  if (normalized.includes("gpt-oss") || normalized.includes("llama3-8b")) return 3200;
   return 4000;
+}
+
+function isConstrainedFreeTierModel(model: string): boolean {
+  const normalized = model.toLowerCase();
+  return normalized.includes("gpt-oss") || normalized.includes("llama3-8b");
+}
+
+function resolvePartSizeForModel(model: string): number {
+  return isConstrainedFreeTierModel(model) ? 1 : PART_SIZE;
 }
 
 /**
@@ -171,6 +179,47 @@ async function waitForAttributeAvailable(key: string): Promise<void> {
     await sleep(Math.min(ATTRIBUTE_AVAILABILITY_POLL_INTERVAL_MS, remainingMs));
   }
   throw new Error(`[generate-solved-paper-stream] Timed out waiting for attribute ${key} to become available.`);
+}
+
+async function runRateLimitCountdown(params: {
+  controller: ReadableStreamDefaultController<Uint8Array>;
+  index: number;
+  total: number;
+  question: string;
+  part: number;
+  totalParts: number;
+}): Promise<void> {
+  for (let remainingSeconds = 60; remainingSeconds > 5; remainingSeconds -= 5) {
+    params.controller.enqueue(toSseData({
+      event: "progress",
+      status: `Rate limit (TPM) active. Cooling down... resuming in ${remainingSeconds} seconds.`,
+      index: params.index,
+      total: params.total,
+      question: params.question,
+      part: params.part,
+      totalParts: params.totalParts,
+    }));
+    params.controller.enqueue(toSseData({
+      log: `Rate limit (TPM) active. Cooling down... resuming in ${remainingSeconds} seconds.`,
+    }));
+    await sleep(5000);
+  }
+  params.controller.enqueue(toSseData({
+    event: "progress",
+    status: "Rate limit (TPM) active. Cooling down... resuming in 5 seconds.",
+    index: params.index,
+    total: params.total,
+    question: params.question,
+    part: params.part,
+    totalParts: params.totalParts,
+  }));
+  params.controller.enqueue(toSseData({
+    log: "Rate limit (TPM) active. Cooling down... resuming in 5 seconds.",
+  }));
+  await sleep(5000);
+  params.controller.enqueue(toSseData({
+    log: "Cooldown complete. Retrying chunk...",
+  }));
 }
 
 async function ensureSolvedPaperCacheSchema(): Promise<void> {
@@ -589,10 +638,18 @@ export async function GET(request: NextRequest) {
       const totalQuestions = questionsRes.documents.filter((doc) =>
         typeof doc.question_content === "string" && doc.question_content.trim().length > 0,
       ).length;
-      const totalParts = Math.max(1, Math.ceil(totalQuestions / PART_SIZE));
+      const model =
+        requestedModel ||
+        (provider === "google"
+          ? "gemini-3.1-flash-lite-preview"
+          : provider === "openrouter"
+            ? "google/gemma-3-27b-it:free"
+            : "llama3-70b-8192");
+      const dynamicPartSize = resolvePartSizeForModel(model);
+      const totalParts = Math.max(1, Math.ceil(totalQuestions / dynamicPartSize));
       return NextResponse.json({
         totalQuestions,
-        partSize: PART_SIZE,
+        partSize: dynamicPartSize,
         totalParts,
         etaMinutes: Math.ceil((totalQuestions * 16) / 60),
       });
@@ -706,19 +763,6 @@ export async function GET(request: NextRequest) {
           closeStream();
           return;
         }
-        const totalParts = Math.max(1, Math.ceil(allQuestions.length / PART_SIZE));
-        if (part > totalParts) {
-          controller.enqueue(toSseData({ event: "error", error: `Invalid part ${part}. Last available part is ${totalParts}.` }));
-          closeStream();
-          return;
-        }
-        const requestedStartIndex = (part - 1) * PART_SIZE;
-        const requestedEndIndex = Math.min(requestedStartIndex + PART_SIZE, allQuestions.length);
-
-        const systemPrompt = readDynamicSystemPrompt({
-          routePath: request.nextUrl.pathname,
-          promptType: "solved_paper",
-        });
         const model =
           requestedModel ||
           (provider === "google"
@@ -726,6 +770,20 @@ export async function GET(request: NextRequest) {
             : provider === "openrouter"
               ? "google/gemma-3-27b-it:free"
               : "llama3-70b-8192");
+        const dynamicPartSize = resolvePartSizeForModel(model);
+        const totalParts = Math.max(1, Math.ceil(allQuestions.length / dynamicPartSize));
+        if (part > totalParts) {
+          controller.enqueue(toSseData({ event: "error", error: `Invalid part ${part}. Last available part is ${totalParts}.` }));
+          closeStream();
+          return;
+        }
+        const requestedStartIndex = (part - 1) * dynamicPartSize;
+        const requestedEndIndex = Math.min(requestedStartIndex + dynamicPartSize, allQuestions.length);
+
+        const systemPrompt = readDynamicSystemPrompt({
+          routePath: request.nextUrl.pathname,
+          promptType: "solved_paper",
+        });
         controller.enqueue(toSseData({
           log: `Using provider/model: ${provider}/${model}`,
         }));
@@ -954,19 +1012,14 @@ ${tavilyContext}
                 error instanceof Error ? error.message : String(error ?? "");
               const messageStatus = getErrorStatusFromMessage(errorMessage);
               if (isRateLimitError(error)) {
-                controller.enqueue(toSseData({
-                  event: "progress",
-                  status: "Rate limit (TPM) reached. Pausing generation for 61 seconds to let the API cool down...",
+                await runRateLimitCountdown({
+                  controller,
                   index: index + 1,
                   total: allQuestions.length,
                   question: qLabel,
                   part,
                   totalParts,
-                }));
-                controller.enqueue(toSseData({
-                  log: "Rate limit (TPM) reached. Pausing generation for 61 seconds to let the API cool down...",
-                }));
-                await sleep(RATE_LIMIT_RETRY_DELAY_MS);
+                });
               } else if (
                 (errorStatus !== null && errorStatus >= 500) ||
                 (messageStatus !== null && messageStatus >= 500)
