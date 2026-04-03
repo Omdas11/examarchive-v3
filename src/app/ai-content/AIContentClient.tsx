@@ -283,6 +283,14 @@ export default function AIContentClient() {
           showToast("Server timeout reached. Click Resume to continue from where it left off.", "warning");
         }
         resetProgressState();
+        return;
+      }
+
+      if (data.action === "error") {
+        finished = true;
+        setError(typeof data.error === "string" ? data.error : "Generation failed.");
+        resetProgressState();
+        return;
       }
     };
 

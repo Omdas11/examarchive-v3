@@ -36,6 +36,10 @@ function buildSafePdfFileName(args: { fileBaseName: string; fileName?: string })
   return `${safeCore}.pdf`;
 }
 
+function buildGotenbergEndpoint(baseUrl: string, endpointPath: string): string {
+  return new URL(endpointPath, baseUrl).toString();
+}
+
 export async function renderMarkdownPdfToAppwrite(args: {
   markdown: string;
   fileBaseName: string;
@@ -56,21 +60,33 @@ export async function renderMarkdownPdfToAppwrite(args: {
   if (!/^https?:$/.test(gotenbergUrl.protocol)) {
     throw new Error("AZURE_GOTENBERG_URL must use HTTP or HTTPS.");
   }
-  gotenbergUrl.pathname = "/convert/html";
+  const primaryEndpoint = buildGotenbergEndpoint(gotenbergUrl.toString(), "/convert/html");
+  const fallbackEndpoint = buildGotenbergEndpoint(gotenbergUrl.toString(), "/forms/chromium/convert/html");
   const html = buildPdfHtml(args.markdown);
-  const formData = new FormData();
-  formData.append("files", new Blob([html], { type: "text/html" }), "index.html");
-  formData.append("waitDelay", process.env.GOTENBERG_WAIT_DELAY || "5s");
+  const buildFormData = () => {
+    const formData = new FormData();
+    formData.append("files", new Blob([html], { type: "text/html" }), "index.html");
+    formData.append("waitDelay", process.env.GOTENBERG_WAIT_DELAY || "5s");
+    return formData;
+  };
 
-  const response = await fetch(gotenbergUrl.toString(), {
+  let gotenbergEndpoint = primaryEndpoint;
+  let response = await fetch(gotenbergEndpoint, {
     method: "POST",
-    body: formData,
+    body: buildFormData(),
   });
+  if (response.status === 404) {
+    console.warn(`[ai-pdf-pipeline] Primary Gotenberg endpoint returned 404 (${primaryEndpoint}). Retrying fallback endpoint.`);
+    gotenbergEndpoint = fallbackEndpoint;
+    response = await fetch(gotenbergEndpoint, {
+      method: "POST",
+      body: buildFormData(),
+    });
+  }
   if (!response.ok) {
-    const errorText = (await response.text()).trim();
-    const safeErrorText = errorText.slice(0, 2000);
+    const errorText = (await response.text()).trim().slice(0, 2000);
     throw new Error(
-      `Gotenberg Error (${response.status}): ${safeErrorText || response.statusText || "Unknown error"}`,
+      `Gotenberg Error (${response.status}) at ${gotenbergEndpoint}: ${errorText || response.statusText || "Unknown error"}`,
     );
   }
 

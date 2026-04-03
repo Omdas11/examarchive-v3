@@ -290,7 +290,7 @@ async function writeCachedNotes(
   try {
     const inputFile = InputFile.fromBuffer(
       Buffer.from(markdown, "utf-8"),
-      `${paperCode}_${unitNumber}_${Date.now()}.md`,
+      `${paperCode}_Unit_${unitNumber}_cache.md`,
     );
     const uploadResult = await storage.createFile(MARKDOWN_CACHE_BUCKET_ID, ID.unique(), inputFile);
     const markdownFileId = String(uploadResult.$id);
