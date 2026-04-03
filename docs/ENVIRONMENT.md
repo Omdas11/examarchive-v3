@@ -40,6 +40,7 @@ APPWRITE_API_KEY=your-appwrite-api-key
 APPWRITE_BUCKET_ID=papers
 APPWRITE_AVATARS_BUCKET_ID=avatars
 APPWRITE_SYLLABUS_BUCKET_ID=syllabus-files
+APPWRITE_MD_CACHE_BUCKET_ID=examarchive-md-bucket
 ```
 
 ### AI Services (Server-Only)

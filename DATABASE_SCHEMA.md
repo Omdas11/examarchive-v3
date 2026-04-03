@@ -41,7 +41,7 @@
 | `year` | String | 10 | No | The year of the question paper (if type is solved_paper) |
 | `unit_number` | Integer | - | Yes | The syllabus unit number (if type is unit_notes) |
 | `part_number` | Integer | - | No | Tracks batching parts to bypass serverless timeouts |
-| `generated_markdown` | String | 1000000 | Yes | The stitched, AI-generated textbook/solution content |
+| `markdown_file_id` | String | 100 | Yes | Appwrite Storage file ID for stitched AI-generated markdown |
 | `syllabus_content` | String | 1000000 | No | Cached syllabus content for notes print context |
 | `created_at` | Datetime | - | Yes | Cache creation timestamp |
 | `status` | String | 50 | Yes | 'generating' or 'completed' |

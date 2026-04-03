@@ -1,6 +1,16 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getServerUser } from "@/lib/auth";
-import { adminDatabases, COLLECTION, DATABASE_ID, ID, Query } from "@/lib/appwrite";
+import { Compression } from "node-appwrite";
+import { InputFile } from "node-appwrite/file";
+import {
+  adminDatabases,
+  adminStorage,
+  COLLECTION,
+  DATABASE_ID,
+  ID,
+  MARKDOWN_CACHE_BUCKET_ID,
+  Query,
+} from "@/lib/appwrite";
 import { getDailyLimit } from "@/lib/ai-limits";
 import { readDynamicSystemPrompt } from "@/lib/system-prompt";
 import { formatSearchResults, runWebSearch } from "@/lib/web-search";
@@ -44,6 +54,7 @@ class ProviderRequestError extends Error {
 type SolvedPaperCheckpoint = {
   id: string;
   markdown: string;
+  markdownFileId: string;
   status: string;
   lastProcessedIndex: number;
 };
@@ -239,26 +250,60 @@ async function ensureSolvedPaperCacheSchema(): Promise<void> {
       1,
     ),
   );
-
-  try {
-    const markdownAttribute = await db.getAttribute(
+  await ensureAttribute("markdown_file_id", () =>
+    db.createStringAttribute(
       DATABASE_ID,
       COLLECTION.generated_notes_cache,
-      "generated_markdown",
-    );
-    if (
-      markdownAttribute.status === "available" &&
-      "size" in markdownAttribute &&
-      typeof markdownAttribute.size === "number" &&
-      markdownAttribute.size < 1_000_000
-    ) {
-      console.warn(
-        `[generate-solved-paper-stream] generated_markdown size is ${markdownAttribute.size}; recommended minimum is 1000000 for long stitched documents.`,
-      );
-    }
+      "markdown_file_id",
+      100,
+      false,
+      undefined,
+    ),
+  );
+}
+
+async function ensureMarkdownCacheBucket(): Promise<void> {
+  const storage = adminStorage();
+  try {
+    await storage.getBucket({ bucketId: MARKDOWN_CACHE_BUCKET_ID });
   } catch (error) {
-    console.warn("[generate-solved-paper-stream] Unable to inspect generated_markdown attribute size:", error);
+    const code = getAppwriteErrorCode(error);
+    if (code !== 404) throw error;
+    await storage.createBucket({
+      bucketId: MARKDOWN_CACHE_BUCKET_ID,
+      name: MARKDOWN_CACHE_BUCKET_ID,
+      permissions: [],
+      fileSecurity: false,
+      enabled: true,
+      maximumFileSize: 20 * 1024 * 1024,
+      allowedFileExtensions: ["md"],
+      compression: Compression.None,
+      encryption: true,
+      antivirus: true,
+      transformations: false,
+    });
   }
+}
+
+async function uploadMarkdownToCacheFile(args: {
+  markdown: string;
+  cachePaperCode: string;
+  year: number;
+  partNumber: number;
+}): Promise<string> {
+  const storage = adminStorage();
+  const inputFile = InputFile.fromBuffer(
+    Buffer.from(args.markdown, "utf-8"),
+    `${args.cachePaperCode}_${args.year}_part${args.partNumber}.md`,
+  );
+  const upload = await storage.createFile(MARKDOWN_CACHE_BUCKET_ID, ID.unique(), inputFile);
+  return String(upload.$id);
+}
+
+async function downloadMarkdownFromCacheFile(markdownFileId: string): Promise<string> {
+  const storage = adminStorage();
+  const fileBuffer = await storage.getFileDownload(MARKDOWN_CACHE_BUCKET_ID, markdownFileId);
+  return Buffer.from(fileBuffer).toString("utf-8");
 }
 
 async function fetchTavilyContext(query: string): Promise<string> {
@@ -344,9 +389,12 @@ async function readSolvedPaperCheckpoint(
     ]);
     const doc = res.documents[0];
     if (!doc) return null;
+    const markdownFileId = typeof doc.markdown_file_id === "string" ? doc.markdown_file_id.trim() : "";
+    const markdown = markdownFileId ? await downloadMarkdownFromCacheFile(markdownFileId) : "";
     return {
       id: String(doc.$id),
-      markdown: typeof doc.generated_markdown === "string" ? doc.generated_markdown : "",
+      markdown,
+      markdownFileId,
       status: typeof doc.status === "string" ? doc.status : "",
       lastProcessedIndex:
         typeof doc.last_processed_index === "number"
@@ -373,7 +421,9 @@ async function readCompletedSolvedPaperCache(cachePaperCode: string, year: numbe
     ]);
     const doc = res.documents[0];
     if (!doc) return null;
-    const markdown = typeof doc.generated_markdown === "string" ? doc.generated_markdown.trim() : "";
+    const markdownFileId = typeof doc.markdown_file_id === "string" ? doc.markdown_file_id.trim() : "";
+    if (!markdownFileId) return null;
+    const markdown = (await downloadMarkdownFromCacheFile(markdownFileId)).trim();
     return markdown || null;
   } catch (error) {
     console.error("[generate-solved-paper-stream] Failed to read completed cache:", error);
@@ -390,27 +440,35 @@ async function upsertSolvedPaperCheckpoint(params: {
   lastProcessedIndex: number;
 }): Promise<string | null> {
   const db = adminDatabases();
-  const buildPayload = (docId: string) => ({
+  const resolvedPartNumber = Math.max(1, Math.floor(params.lastProcessedIndex / PART_SIZE) + 1);
+  const buildPayload = (docId: string, markdownFileId: string) => ({
     id: docId,
     paper_code: params.cachePaperCode,
     unit_number: params.year,
     year: String(params.year),
-    part_number: Math.max(1, Math.floor(params.lastProcessedIndex / PART_SIZE) + 1),
+    part_number: resolvedPartNumber,
     type: SOLVED_PAPER_CACHE_TYPE,
-    generated_markdown: params.markdown,
+    markdown_file_id: markdownFileId,
     status: params.status,
     last_processed_index: params.lastProcessedIndex,
     syllabus_content: "",
     created_at: new Date().toISOString(),
   });
   try {
+    const uploadedFileId = await uploadMarkdownToCacheFile({
+      markdown: params.markdown,
+      cachePaperCode: params.cachePaperCode,
+      year: params.year,
+      partNumber: resolvedPartNumber,
+    });
+
     const tryUpdateById = async (docId: string): Promise<boolean> => {
       try {
         await db.updateDocument(
           DATABASE_ID,
           COLLECTION.generated_notes_cache,
           docId,
-          buildPayload(docId),
+          buildPayload(docId, uploadedFileId),
         );
         return true;
       } catch (error) {
@@ -452,7 +510,7 @@ async function upsertSolvedPaperCheckpoint(params: {
       DATABASE_ID,
       COLLECTION.generated_notes_cache,
       createdId,
-      buildPayload(createdId),
+      buildPayload(createdId, uploadedFileId),
     );
     return String(created.$id);
   } catch (error) {
@@ -507,6 +565,7 @@ export async function GET(request: NextRequest) {
   const isAdminPlus = user.role === "admin" || user.role === "founder";
 
   await ensureSolvedPaperCacheSchema();
+  await ensureMarkdownCacheBucket();
   const cachePaperCode = getSolvedPaperCacheKey(course, type, paperCode);
 
   if (metaOnly) {

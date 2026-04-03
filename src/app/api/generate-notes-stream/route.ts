@@ -1,6 +1,16 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getServerUser } from "@/lib/auth";
-import { adminDatabases, COLLECTION, DATABASE_ID, ID, Query } from "@/lib/appwrite";
+import { Compression } from "node-appwrite";
+import { InputFile } from "node-appwrite/file";
+import {
+  adminDatabases,
+  adminStorage,
+  COLLECTION,
+  DATABASE_ID,
+  ID,
+  MARKDOWN_CACHE_BUCKET_ID,
+  Query,
+} from "@/lib/appwrite";
 import { getDailyLimit } from "@/lib/ai-limits";
 import { GeminiServiceError, runGeminiCompletion } from "@/lib/gemini";
 import { readDynamicSystemPrompt } from "@/lib/system-prompt";
@@ -185,30 +195,44 @@ async function ensureNotesCacheSchema(): Promise<void> {
       1,
     ),
   );
-
-  try {
-    const markdownAttribute = await db.getAttribute(
+  await ensureAttribute("markdown_file_id", () =>
+    db.createStringAttribute(
       DATABASE_ID,
       COLLECTION.generated_notes_cache,
-      "generated_markdown",
-    );
-    if (
-      markdownAttribute.status === "available" &&
-      "size" in markdownAttribute &&
-      typeof markdownAttribute.size === "number" &&
-      markdownAttribute.size < 1_000_000
-    ) {
-      console.warn(
-        `[generate-notes-stream] generated_markdown size is ${markdownAttribute.size}; recommended minimum is 1000000 for long stitched documents.`,
-      );
-    }
+      "markdown_file_id",
+      100,
+      false,
+      undefined,
+    ),
+  );
+}
+
+async function ensureMarkdownCacheBucket(): Promise<void> {
+  const storage = adminStorage();
+  try {
+    await storage.getBucket({ bucketId: MARKDOWN_CACHE_BUCKET_ID });
   } catch (error) {
-    console.warn("[generate-notes-stream] Unable to inspect generated_markdown attribute size:", error);
+    const code = getAppwriteErrorCode(error);
+    if (code !== 404) throw error;
+    await storage.createBucket({
+      bucketId: MARKDOWN_CACHE_BUCKET_ID,
+      name: MARKDOWN_CACHE_BUCKET_ID,
+      permissions: [],
+      fileSecurity: false,
+      enabled: true,
+      maximumFileSize: 20 * 1024 * 1024,
+      allowedFileExtensions: ["md"],
+      compression: Compression.None,
+      encryption: true,
+      antivirus: true,
+      transformations: false,
+    });
   }
 }
 
 async function readCachedNotes(paperCode: string, unitNumber: number): Promise<CachedNotes | null> {
   const db = adminDatabases();
+  const storage = adminStorage();
   try {
     const res = await db.listDocuments(DATABASE_ID, COLLECTION.generated_notes_cache, [
       Query.equal("paper_code", paperCode),
@@ -220,7 +244,10 @@ async function readCachedNotes(paperCode: string, unitNumber: number): Promise<C
     ]);
     const doc = res.documents[0];
     if (!doc) return null;
-    const markdown = String(doc.generated_markdown ?? "").trim();
+    const markdownFileId = typeof doc.markdown_file_id === "string" ? doc.markdown_file_id.trim() : "";
+    if (!markdownFileId) return null;
+    const fileBuffer = await storage.getFileDownload(MARKDOWN_CACHE_BUCKET_ID, markdownFileId);
+    const markdown = Buffer.from(fileBuffer).toString("utf-8").trim();
     if (!markdown) return null;
     const syllabusContent = typeof doc.syllabus_content === "string" ? doc.syllabus_content.trim() : "";
     return { markdown, syllabusContent: syllabusContent || null };
@@ -257,14 +284,21 @@ async function writeCachedNotes(
   syllabusContent: string,
 ): Promise<void> {
   const db = adminDatabases();
+  const storage = adminStorage();
   try {
+    const inputFile = InputFile.fromBuffer(
+      Buffer.from(markdown, "utf-8"),
+      `${paperCode}_${unitNumber}_${Date.now()}.md`,
+    );
+    const uploadResult = await storage.createFile(MARKDOWN_CACHE_BUCKET_ID, ID.unique(), inputFile);
+    const markdownFileId = String(uploadResult.$id);
     // Keep explicit created_at because schema/docs require this field for cache reads and audits.
     const payload = {
       paper_code: paperCode,
       unit_number: unitNumber,
       type: UNIT_NOTES_CACHE_TYPE,
       status: COMPLETED_STATUS,
-      generated_markdown: markdown,
+      markdown_file_id: markdownFileId,
       syllabus_content: syllabusContent,
       created_at: new Date().toISOString(),
     };
@@ -359,6 +393,7 @@ export async function GET(request: NextRequest) {
   }
 
   await ensureNotesCacheSchema();
+  await ensureMarkdownCacheBucket();
   const completedCache = await readCachedNotes(paperCode, unitNumber);
   if (completedCache) {
     const todayStr = new Date().toISOString().slice(0, 10);
