@@ -8,6 +8,7 @@ import {
   ID,
 } from "@/lib/appwrite";
 import { runGeminiCompletion, GeminiServiceError } from "@/lib/gemini";
+import { normalizeGeminiModelOverride } from "@/lib/gemini-model";
 import { buildRagContext, type CoursePrefsPayload } from "@/lib/pdf-rag";
 import {
   getNoteLengthOptions,
@@ -121,17 +122,23 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const stripPrefix = (value: string | undefined, prefix: string): string | undefined => {
-      if (!value) return undefined;
-      return value.startsWith(prefix) ? value.replace(new RegExp(`^${prefix}`), "") : value;
-    };
+    const normalizedAdminOverride = adminRequestedModel
+      ? normalizeGeminiModelOverride(adminRequestedModel)
+      : {};
+    if (normalizedAdminOverride.error) {
+      return NextResponse.json({ error: normalizedAdminOverride.error }, { status: 400 });
+    }
+    const normalizedGlobalOverride = globalModelOverride
+      ? normalizeGeminiModelOverride(globalModelOverride)
+      : {};
+    const preferredGeminiModel = normalizedAdminOverride.model
+      ?? normalizedGlobalOverride.model
+      ?? undefined;
+
     // Admin can set a global override that applies to all users until the server restarts
     if (adminRequestedModel && adminRequestedGlobal) {
       globalModelOverride = adminRequestedModel;
     }
-
-    const effectiveModel = adminRequestedModel ?? globalModelOverride ?? undefined;
-    const preferredGeminiModel = stripPrefix(effectiveModel, "gemini:");
 
     const inputPaperContext = (body.paperContext ?? "").slice(0, 2000);
     const referenceLabel = sanitizeReferenceLabel(body.referenceLabel);

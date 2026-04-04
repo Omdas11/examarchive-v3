@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import type SMTPTransport from "nodemailer/lib/smtp-transport";
 
 function getSiteUrl(): string {
   return (
@@ -7,25 +8,41 @@ function getSiteUrl(): string {
   ).replace(/\/+$/, "");
 }
 
-function getTransporter() {
-  const host = process.env.SMTP_HOST;
-  const port = Number(process.env.SMTP_PORT || "587");
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  const missing: string[] = [];
-  if (!host) missing.push("SMTP_HOST");
-  if (!user) missing.push("SMTP_USER");
-  if (!pass) missing.push("SMTP_PASS");
-  if (!Number.isFinite(port) || port <= 0) missing.push("SMTP_PORT");
-  if (missing.length > 0) {
-    throw new Error(`SMTP configuration incomplete: missing ${missing.join(", ")}`);
-  }
-  return nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465,
-    auth: { user, pass },
+let cachedTransporter: nodemailer.Transporter<SMTPTransport.SentMessageInfo> | null = null;
+let transporterInitPromise: Promise<nodemailer.Transporter<SMTPTransport.SentMessageInfo>> | null = null;
+
+async function getTransporter() {
+  if (cachedTransporter) return cachedTransporter;
+  if (transporterInitPromise) return transporterInitPromise;
+
+  transporterInitPromise = (async () => {
+    const host = process.env.SMTP_HOST;
+    const port = Number(process.env.SMTP_PORT || "587");
+    const user = process.env.SMTP_USER;
+    const pass = process.env.SMTP_PASS;
+    const missing: string[] = [];
+    if (!host) missing.push("SMTP_HOST");
+    if (!user) missing.push("SMTP_USER");
+    if (!pass) missing.push("SMTP_PASS");
+    if (!Number.isFinite(port) || port <= 0) missing.push("SMTP_PORT");
+    if (missing.length > 0) {
+      throw new Error(`SMTP configuration incomplete: missing ${missing.join(", ")}`);
+    }
+    cachedTransporter = nodemailer.createTransport({
+      host,
+      port,
+      secure: port === 465,
+      auth: { user, pass },
+    });
+    return cachedTransporter;
+  })().catch((error) => {
+    cachedTransporter = null;
+    throw error;
+  }).finally(() => {
+    transporterInitPromise = null;
   });
+
+  return transporterInitPromise;
 }
 
 export async function sendGenerationPdfEmail(args: {
@@ -60,7 +77,7 @@ export async function sendGenerationPdfEmail(args: {
     }
   });
 
-  const transporter = getTransporter();
+  const transporter = await getTransporter();
   await transporter.sendMail({
     from,
     to,

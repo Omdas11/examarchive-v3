@@ -1,5 +1,6 @@
 import { InputFile } from "node-appwrite/file";
 import { marked } from "marked";
+import sanitizeHtml from "sanitize-html";
 import {
   adminStorage,
   BUCKET_ID,
@@ -7,7 +8,65 @@ import {
   getAppwriteFileDownloadUrl,
 } from "@/lib/appwrite";
 
-function buildPdfHtml(args: {
+function escapeHtml(text: string): string {
+  return text.replace(/[&<>"'`]/g, (ch) => {
+    switch (ch) {
+      case "&":
+        return "&amp;";
+      case "<":
+        return "&lt;";
+      case ">":
+        return "&gt;";
+      case "\"":
+        return "&quot;";
+      case "'":
+        return "&#039;";
+      case "`":
+        return "&#96;";
+      default:
+        return ch;
+    }
+  });
+}
+
+function sanitizeGeneratedHtml(input: string): string {
+  return sanitizeHtml(input, {
+    allowedTags: sanitizeHtml.defaults.allowedTags.concat([
+      "h1",
+      "h2",
+      "img",
+      "span",
+      "math",
+      "semantics",
+      "mrow",
+      "mi",
+      "mo",
+      "mn",
+      "msup",
+      "mfrac",
+      "msqrt",
+      "mspace",
+      "mstyle",
+      "mtable",
+      "mtr",
+      "mtd",
+      "annotation",
+    ]),
+    allowedAttributes: {
+      ...sanitizeHtml.defaults.allowedAttributes,
+      a: ["href", "name", "target", "rel"],
+      img: ["src", "alt", "width", "height"],
+      span: ["class", "style"],
+      math: ["xmlns", "display"],
+      annotation: ["encoding"],
+    },
+    allowedSchemes: ["http", "https", "mailto"],
+    allowedSchemesAppliedToAttributes: ["href", "src"],
+    allowProtocolRelative: false,
+  });
+}
+
+export function buildPdfHtml(args: {
   markdown: string;
   paperCode?: string;
   unitNumber?: number;
@@ -19,7 +78,11 @@ function buildPdfHtml(args: {
     .replace(/\\\$/g, "$")
     .replace(/\\\\\(/g, "\\(")
     .replace(/\\\\\)/g, "\\)");
-  const htmlContent = marked.parse(cleanMarkdown);
+  const parsedHtml = marked.parse(cleanMarkdown);
+  // marked.parse can be configured to be async; guard non-string outputs defensively.
+  const htmlContent = sanitizeGeneratedHtml(
+    typeof parsedHtml === "string" ? parsedHtml : "",
+  );
   const watermarkSvg = encodeURIComponent(
     `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300"><text x="50%" y="50%" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700" fill="#800000" fill-opacity="0.08" transform="rotate(-45 150 150)" text-anchor="middle">EXAMARCHIVE</text></svg>`,
   );
@@ -41,10 +104,10 @@ function buildPdfHtml(args: {
       .filter(Boolean);
   };
   const syllabusBullets = splitSyllabusItems(syllabusContent ?? "")
-    .map((item) => `<li>${item.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</li>`)
+    .map((item) => `<li>${escapeHtml(item)}</li>`)
     .join("");
   const coverDetails = [
-    paperCode ? `<p><strong>Paper Code:</strong> ${paperCode}</p>` : "",
+    paperCode ? `<p><strong>Paper Code:</strong> ${escapeHtml(paperCode)}</p>` : "",
     typeof unitNumber === "number" ? `<p><strong>Unit:</strong> ${unitNumber}</p>` : "",
     typeof year === "number" ? `<p><strong>Year:</strong> ${year}</p>` : "",
   ].filter(Boolean).join("");
@@ -205,7 +268,7 @@ function buildFooterHtml(): string {
 </body></html>`;
 }
 
-function buildSafePdfFileName(args: { fileBaseName: string; fileName?: string }): string {
+export function buildSafePdfFileName(args: { fileBaseName: string; fileName?: string }): string {
   const baseFallback = args.fileBaseName.trim() || "generated_document";
   const candidate = (args.fileName || `${baseFallback}.pdf`).trim();
   const normalizedCandidate = candidate.replace(/[^a-zA-Z0-9._-]/g, "_");

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getServerUser } from "@/lib/auth";
 import { runGeminiCompletion, GeminiServiceError } from "@/lib/gemini";
+import { normalizeGeminiModelOverride } from "@/lib/gemini-model";
 import { buildRagContext } from "@/lib/pdf-rag";
 
 // ── System prompt — describes the assistant role and site structure ──────────
@@ -110,17 +111,22 @@ Additional UX rules:
       { role: "user", content: `${userMessage}\n\nUI hint: ${uiHint}${contextBlock}` },
     ];
 
-    const stripPrefix = (value: string | undefined, prefix: string): string | undefined => {
-      if (!value) return undefined;
-      return value.startsWith(prefix) ? value.replace(new RegExp(`^${prefix}`), "") : value;
-    };
+    const normalizedAdminOverride = adminRequestedModel
+      ? normalizeGeminiModelOverride(adminRequestedModel)
+      : {};
+    if (normalizedAdminOverride.error) {
+      return NextResponse.json({ error: normalizedAdminOverride.error }, { status: 400 });
+    }
+    const normalizedGlobalOverride = globalModelOverride
+      ? normalizeGeminiModelOverride(globalModelOverride)
+      : {};
+    const preferredGeminiModel = normalizedAdminOverride.model
+      ?? normalizedGlobalOverride.model
+      ?? undefined;
 
     if (adminRequestedModel && adminRequestedGlobal) {
       globalModelOverride = adminRequestedModel;
     }
-
-    const effectiveModel = adminRequestedModel ?? globalModelOverride ?? undefined;
-    const preferredGeminiModel = stripPrefix(effectiveModel, "gemini:");
 
     let reply = "";
     let usedModel = "";
