@@ -111,11 +111,10 @@ export async function GET(request: NextRequest) {
       if (normalizedStatus !== "success") continue;
 
       const directCode = normalizePaperCode(
-        readFirstString(ingestionDoc, ["source_label", "sourceLabel", "paper_code", "paperCode", "course_code"]),
+        readFirstString(ingestionDoc, ["paper_code", "paperCode", "course_code"]),
       );
       if (directCode) {
         ingestedPaperCodes.add(directCode);
-        continue;
       }
 
       const digest = typeof ingestionDoc.digest === "string" ? ingestionDoc.digest : "";
@@ -125,6 +124,8 @@ export async function GET(request: NextRequest) {
         const digestCode = normalizePaperCode(
           readFirstString(parsed, ["source_label", "sourceLabel", "paperCode", "paper_code", "course_code"]),
         );
+        // Keep digest parsing even when directCode exists so legacy logs without direct paper fields still contribute.
+        // ingestedPaperCodes is a Set, so duplicate values remain deduplicated.
         if (digestCode) ingestedPaperCodes.add(digestCode);
       } catch {
         // Ignore malformed legacy digest payloads; valid paper codes from other ingestion logs still populate options.

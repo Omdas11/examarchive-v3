@@ -454,6 +454,9 @@ export default function AIContentClient() {
           });
         } else {
           setAvailablePapers([]);
+          setPaperCode("");
+          setYearsByPaperCode({});
+          setSelectedYear("");
         }
         if (data.yearsByPaperCode && typeof data.yearsByPaperCode === "object") {
           const map: Record<string, number[]> = {};
@@ -469,6 +472,9 @@ export default function AIContentClient() {
       })
       .catch(() => {
         setAvailablePapers([]);
+        setPaperCode("");
+        setYearsByPaperCode({});
+        setSelectedYear("");
       })
       .finally(() => setPaperCodeLoading(false));
   }, [university, course, type]);
