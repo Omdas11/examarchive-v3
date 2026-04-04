@@ -81,8 +81,7 @@ export const MD_INGESTION_BUCKET_ID = process.env.APPWRITE_MD_INGESTION_BUCKET_I
 /** Storage bucket for generated markdown cache payloads. */
 export const MARKDOWN_CACHE_BUCKET_ID =
   process.env.APPWRITE_MD_CACHE_BUCKET_ID ??
-  process.env.APPWRITE_BUCKET_ID ??
-  "examarchive-md-bucket";
+  "generated-md-cache";
 
 // ── Server-side admin client (uses API key) ─────────────────────────────
 /**

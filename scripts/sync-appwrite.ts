@@ -36,6 +36,11 @@ type LiveCollection = {
   name: string;
 };
 
+type LiveBucket = {
+  $id: string;
+  name: string;
+};
+
 type LiveAttribute = {
   key: string;
   type: string;
@@ -51,6 +56,7 @@ const REQUIRED_BUCKETS: BucketSpec[] = [
   { id: "examarchive-md-ingestion", name: "examarchive-md-ingestion" },
   { id: "syllabus-files", name: "syllabus-files" },
   { id: "avatars", name: "avatars" },
+  { id: "generated-md-cache", name: "generated-md-cache" },
 ];
 
 const TARGET_DATABASE_ID = "examarchive";
@@ -266,6 +272,7 @@ async function fetchLiveAttributes(databases: Databases, collectionId: string): 
 
 function buildSchemaStatusTableFromDiff(input: {
   syncedAt: string;
+  liveBuckets: LiveBucket[];
   expectedSchemas: ExpectedCollectionSchema[];
   liveCollections: LiveCollection[];
   perCollection: Array<{
@@ -275,9 +282,22 @@ function buildSchemaStatusTableFromDiff(input: {
     notes: string;
   }>;
 }): string {
-  const { syncedAt, perCollection } = input;
+  const { syncedAt, liveBuckets, perCollection } = input;
   let statusTable = "## Schema Sync Status (Auto-generated)\n\n";
   statusTable += `_Last synced: ${syncedAt}_\n\n`;
+  statusTable += "### Storage Buckets\n";
+  statusTable += "| Bucket | Status | ID |\n";
+  statusTable += "|---|---|---|\n";
+  if (liveBuckets.length === 0) {
+    statusTable += "| N/A | ⚠️ Connected with differences | N/A |\n";
+  } else {
+    liveBuckets.forEach((bucket) => {
+      const safeName = escapeMarkdownTableCell(bucket.name);
+      const safeId = escapeMarkdownTableCell(bucket.$id);
+      statusTable += `| \`${safeName}\` | ✅ Connected | ${safeId} |\n`;
+    });
+  }
+  statusTable += "\n### Database Collections\n";
   statusTable += "| Collection | Status | Created in run | Notes |\n";
   statusTable += "|---|---|---:|---|\n";
 
@@ -346,6 +366,8 @@ async function syncInfrastructure() {
 
   const databaseResult = await ensureDatabase(databases, TARGET_DATABASE_ID, TARGET_DATABASE_NAME);
   const requiredCollectionResult = await ensureCollection(databases, TARGET_DATABASE_ID, REQUIRED_COLLECTION_ID);
+  const liveBucketsResponse = await storage.listBuckets();
+  const liveBuckets = liveBucketsResponse.buckets.map((bucket) => ({ $id: bucket.$id, name: bucket.name }));
   const docPath = path.resolve(__dirname, "../docs/DATABASE_SCHEMA.md");
   const docContent = fs.existsSync(docPath) ? fs.readFileSync(docPath, "utf8") : "";
   const expectedSchemas = parseExpectedCollectionsFromDoc(docContent);
@@ -429,6 +451,7 @@ async function syncInfrastructure() {
 
   const statusTable = buildSchemaStatusTableFromDiff({
     syncedAt,
+    liveBuckets,
     expectedSchemas,
     liveCollections,
     perCollection: perCollectionRows,
