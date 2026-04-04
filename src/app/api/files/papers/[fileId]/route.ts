@@ -8,6 +8,12 @@ import { AppwriteException } from "node-appwrite";
 
 export const dynamic = "force-dynamic";
 
+function sanitizeDownloadFilename(name: string): string {
+  const trimmed = name.trim();
+  const safe = trimmed.replace(/[\r\n"]/g, "").replace(/[\/\\:*?<>|]/g, "_");
+  return safe.length > 0 ? safe : "examarchive.pdf";
+}
+
 /**
  * GET /api/files/papers/[fileId]
  *
@@ -39,6 +45,11 @@ export async function GET(
   try {
     const storage = adminStorage();
     const shouldDownload = request.nextUrl.searchParams.get("download") === "1";
+    const fileMeta = shouldDownload ? await storage.getFile(BUCKET_ID, fileId) : null;
+    const resolvedFileName = shouldDownload
+      ? sanitizeDownloadFilename(fileMeta?.name || "examarchive.pdf")
+      : null;
+    const encodedFileName = resolvedFileName ? encodeURIComponent(resolvedFileName) : null;
     const fileBuffer = shouldDownload
       ? await storage.getFileDownload(BUCKET_ID, fileId)
       : await storage.getFileView(BUCKET_ID, fileId);
@@ -47,7 +58,9 @@ export async function GET(
       headers: {
         "Content-Type": "application/pdf",
         "Cache-Control": "private, max-age=3600",
-        "Content-Disposition": shouldDownload ? 'attachment; filename="examarchive.pdf"' : "inline",
+        "Content-Disposition": shouldDownload
+          ? `attachment; filename="${resolvedFileName}"; filename*=UTF-8''${encodedFileName}`
+          : "inline",
       },
     });
   } catch (err: unknown) {

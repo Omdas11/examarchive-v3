@@ -479,7 +479,6 @@ export default function AIContentClient() {
 
   useEffect(() => {
     return () => {
-      stopTimer();
       closeEventSource();
     };
   }, []);
