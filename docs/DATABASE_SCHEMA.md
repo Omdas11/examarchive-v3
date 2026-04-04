@@ -290,20 +290,29 @@ Use this checklist to wipe counters and storage before relaunch:
 <!-- SCHEMA_SYNC_STATUS_START -->
 ## Schema Sync Status (Auto-generated)
 
-_This section is updated by `scripts/sync-appwrite-schema.js` when run with `--update-schema-md`._
+_Last synced: 2026-04-04T07:43:38.379Z_
 
-| Collection | Status | Created in run | Notes |
-|---|---|---:|---|
-| `papers` | ⚠️ Connected with differences | 0 | collection existed; 0/21 missing attrs created; 10 attr definition mismatch(es) |
-| `syllabus` | ⚠️ Connected with differences | 0 | collection existed; 0/13 missing attrs created; 9 attr definition mismatch(es) |
-| `users` | ⚠️ Connected with differences | 0 | collection existed; 0/19 missing attrs created; 11 attr definition mismatch(es) |
-| `uploads` | ⚠️ Connected with differences | 0 | collection existed; 0/4 missing attrs created; 4 attr definition mismatch(es) |
-| `activity_logs` | ⚠️ Connected with differences | 0 | collection existed; 0/8 missing attrs created; 5 attr definition mismatch(es) |
-| `achievements` | ⚠️ Connected with differences | 0 | collection existed; 0/5 missing attrs created; 4 attr definition mismatch(es) |
-| `site_metrics` | ⚠️ Connected with differences | 0 | collection existed; 0/2 missing attrs created; 1 attr definition mismatch(es) |
-| `feedback` | ✅ Perfectly connected | 1 | collection existed; 1/4 missing attrs created; no mismatches detected |
-| `ai_usage` | ✅ Perfectly connected | 0 | collection existed; 0/2 missing attrs created; no mismatches detected |
-| `ai_embeddings` | ⚠️ Connected with differences | 0 | collection existed; 0/11 missing attrs created; 8 attr definition mismatch(es) |
-| `pdf_usage` | ✅ Perfectly connected | 3 | collection created; 2/2 missing attrs created; no mismatches detected |
+| Collection | Status | ID |
+|---|---|---|
+| `users` | ✅ Connected | users |
+| `papers` | ✅ Connected | papers |
+| `syllabus` | ✅ Connected | syllabus |
+| `activity_logs` | ✅ Connected | activity_logs |
+| `uploads` | ✅ Connected | uploads |
+| `achievements` | ✅ Connected | achievements |
+| `site_metrics` | ✅ Connected | site_metrics |
+| `ai_usage` | ✅ Connected | ai_usage |
+| `ai_embeddings` | ✅ Connected | ai_embeddings |
+| `feedback` | ✅ Connected | feedback |
+| `pdf_usage` | ✅ Connected | pdf_usage |
+| `ai_ingestions` | ✅ Connected | ai_ingestions |
+| `ai_syllabus_maps` | ✅ Connected | ai_syllabus_maps |
+| `ai_flashcards` | ✅ Connected | ai_flashcards |
+| `ai_admin_reports` | ✅ Connected | ai_admin_reports |
+| `syllabus_registry` | ✅ Connected | syllabus_registry |
+| `Syllabus_Table` | ✅ Connected | Syllabus_Table |
+| `Questions_Table` | ✅ Connected | Questions_Table |
+| `Generated_Notes_Cache` | ✅ Connected | Generated_Notes_Cache |
+| `User_Quotas` | ✅ Connected | User_Quotas |
 
 <!-- SCHEMA_SYNC_STATUS_END -->
