@@ -105,7 +105,9 @@ export async function GET(request: NextRequest) {
         const parsed = JSON.parse(digest) as { paperCode?: unknown };
         const paperCodeFromDigest = typeof parsed.paperCode === "string" ? parsed.paperCode.trim() : "";
         if (paperCodeFromDigest) ingestedPaperCodes.add(paperCodeFromDigest);
-      } catch {}
+      } catch {
+        // Ignore malformed legacy digest payloads; valid paper codes from other ingestion logs still populate options.
+      }
     }
     const papersMap = new Map<string, string>();
     for (const doc of documents) {
