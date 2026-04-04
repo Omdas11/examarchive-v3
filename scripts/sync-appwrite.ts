@@ -17,6 +17,33 @@ type SyncResourceResult = {
   status: "created" | "exists";
 };
 
+type ExpectedAttribute = {
+  name: string;
+  typeRaw: string;
+  required: boolean;
+  baseType: string;
+  isArray: boolean;
+  stringLength?: number;
+};
+
+type ExpectedCollectionSchema = {
+  name: string;
+  attributes: ExpectedAttribute[];
+};
+
+type LiveCollection = {
+  $id: string;
+  name: string;
+};
+
+type LiveAttribute = {
+  key: string;
+  type: string;
+  required: boolean;
+  array?: boolean;
+  size?: number;
+};
+
 const SCHEMA_STATUS_START_TAG = "<!-- SCHEMA_SYNC_STATUS_START -->";
 const SCHEMA_STATUS_END_TAG = "<!-- SCHEMA_SYNC_STATUS_END -->";
 const REQUIRED_BUCKETS: BucketSpec[] = [
@@ -130,21 +157,129 @@ function escapeMarkdownTableCell(value: string): string {
   return value.replace(/\\/g, "\\\\").replace(/\|/g, "\\|").replace(/`/g, "\\`");
 }
 
-function buildSchemaStatusTable(collections: Array<{ id: string; name: string }>, syncedAt: string): string {
+function parseExpectedBaseType(typeRaw: string): string {
+  const normalized = typeRaw.toLowerCase().trim();
+  if (normalized.includes("datetime")) return "datetime";
+  if (normalized.includes("boolean")) return "boolean";
+  if (normalized.includes("integer")) return "integer";
+  if (normalized.includes("float") || normalized.includes("double") || normalized.includes("number")) return "double";
+  if (normalized.includes("string")) return "string";
+  if (normalized.includes("array")) return "string";
+  return normalized;
+}
+
+function parseExpectedStringLength(typeRaw: string): number | undefined {
+  const match = typeRaw.match(/string\s*(?:\(|\[)\s*(\d+)\s*(?:\)|\])/i);
+  if (!match) {
+    return undefined;
+  }
+  const parsed = Number(match[1]);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function parseExpectedCollectionsFromDoc(docContent: string): ExpectedCollectionSchema[] {
+  const collectionMatches = [...docContent.matchAll(/## Collection: `([^`]+)`\s*([\s\S]*?)(?=\n## Collection: `|$)/g)];
+  const parsed: ExpectedCollectionSchema[] = [];
+
+  for (const match of collectionMatches) {
+    const collectionName = match[1].trim();
+    const sectionContent = match[2] ?? "";
+    const tableMatch = sectionContent.match(/\|[^\n]*\|\n\|[-:\s|]+\|\n(?:\|[^\n]*\|\n?)*/);
+    const tableContent = tableMatch?.[0] ?? "";
+
+    const attributes: ExpectedAttribute[] = [];
+    const rows = tableContent.split("\n").filter(Boolean).slice(2);
+
+    for (const row of rows) {
+      const attrMatch = row.match(/^\|\s*`?([^`|]+?)`?\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|/);
+      if (!attrMatch) {
+        continue;
+      }
+
+      const name = attrMatch[1].trim();
+      const typeRaw = attrMatch[2].trim();
+      const requiredRaw = attrMatch[3].replace(/\*/g, "").trim().toLowerCase();
+      const isArray = /array|\[\]/i.test(typeRaw);
+      attributes.push({
+        name,
+        typeRaw,
+        required: requiredRaw === "yes" || requiredRaw === "true",
+        baseType: parseExpectedBaseType(typeRaw),
+        isArray,
+        stringLength: parseExpectedStringLength(typeRaw),
+      });
+    }
+
+    parsed.push({
+      name: collectionName,
+      attributes,
+    });
+  }
+
+  return parsed;
+}
+
+function normalizeLiveBaseType(type: string): string {
+  const normalized = type.toLowerCase().trim();
+  if (normalized === "float" || normalized === "double" || normalized === "number") return "double";
+  return normalized;
+}
+
+function attributeTypeMatches(expected: ExpectedAttribute, live: LiveAttribute): boolean {
+  const liveBaseType = normalizeLiveBaseType(live.type);
+  if (expected.baseType !== liveBaseType) {
+    return false;
+  }
+
+  const liveIsArray = Boolean(live.array);
+  if (expected.isArray !== liveIsArray) {
+    return false;
+  }
+
+  if (expected.baseType === "string" && typeof expected.stringLength === "number" && typeof live.size === "number") {
+    return expected.stringLength === live.size;
+  }
+
+  return true;
+}
+
+async function fetchLiveCollections(databases: Databases): Promise<LiveCollection[]> {
+  const response = await databases.listCollections(TARGET_DATABASE_ID);
+  return response.collections.map((collection) => ({ $id: collection.$id, name: collection.name }));
+}
+
+async function fetchLiveAttributes(databases: Databases, collectionId: string): Promise<LiveAttribute[]> {
+  const response = await databases.listAttributes(TARGET_DATABASE_ID, collectionId);
+  return (response.attributes as LiveAttribute[]).filter((attribute) => Boolean(attribute.key));
+}
+
+function buildSchemaStatusTableFromDiff(input: {
+  syncedAt: string;
+  expectedSchemas: ExpectedCollectionSchema[];
+  liveCollections: LiveCollection[];
+  perCollection: Array<{
+    collectionName: string;
+    status: string;
+    createdInRun: number;
+    notes: string;
+  }>;
+}): string {
+  const { syncedAt, perCollection } = input;
   let statusTable = "## Schema Sync Status (Auto-generated)\n\n";
   statusTable += `_Last synced: ${syncedAt}_\n\n`;
-  statusTable += "| Collection | Status | ID |\n";
-  statusTable += "|---|---|---|\n";
+  statusTable += "| Collection | Status | Created in run | Notes |\n";
+  statusTable += "|---|---|---:|---|\n";
 
-  if (collections.length === 0) {
-    statusTable += "| N/A | ⚠️ No collections found | N/A |\n";
+  if (perCollection.length === 0) {
+    statusTable += "| N/A | ⚠️ Connected with differences | 0 | No collection schema sections parsed from Markdown |\n";
     return statusTable;
   }
 
-  collections.forEach((collection) => {
-    const safeName = escapeMarkdownTableCell(collection.name);
-    const safeId = escapeMarkdownTableCell(collection.id);
-    statusTable += `| \`${safeName}\` | ✅ Connected | ${safeId} |\n`;
+  perCollection.forEach((row) => {
+    const safeName = escapeMarkdownTableCell(row.collectionName);
+    const safeStatus = escapeMarkdownTableCell(row.status);
+    const safeNotes = escapeMarkdownTableCell(row.notes);
+    statusTable += `| \`${safeName}\` | ${safeStatus} | ${row.createdInRun} | ${safeNotes} |\n`;
   });
 
   return statusTable;
@@ -200,8 +335,90 @@ async function syncInfrastructure() {
 
   const databaseResult = await ensureDatabase(databases, TARGET_DATABASE_ID, TARGET_DATABASE_NAME);
   const requiredCollectionResult = await ensureCollection(databases, TARGET_DATABASE_ID, REQUIRED_COLLECTION_ID);
-  const allCollections = await listCollections(databases, TARGET_DATABASE_ID);
-  const statusTable = buildSchemaStatusTable(allCollections, syncedAt);
+  const docPath = path.resolve(__dirname, "../docs/DATABASE_SCHEMA.md");
+  const docContent = fs.existsSync(docPath) ? fs.readFileSync(docPath, "utf8") : "";
+  const expectedSchemas = parseExpectedCollectionsFromDoc(docContent);
+  const liveCollections = await fetchLiveCollections(databases);
+
+  const perCollectionRows: Array<{ collectionName: string; status: string; createdInRun: number; notes: string }> = [];
+
+  for (const expectedCollection of expectedSchemas) {
+    const liveCollection = liveCollections.find(
+      (collection) => collection.name === expectedCollection.name || collection.$id === expectedCollection.name,
+    );
+
+    if (!liveCollection) {
+      perCollectionRows.push({
+        collectionName: expectedCollection.name,
+        status: "⚠️ Connected with differences",
+        createdInRun: 0,
+        notes: "collection not found in Appwrite; 0 missing attrs created; 0 attr definition mismatch(es)",
+      });
+      continue;
+    }
+
+    const liveAttributes = await fetchLiveAttributes(databases, liveCollection.$id);
+    const liveAttrByKey = new Map(liveAttributes.map((attribute) => [attribute.key, attribute]));
+    const expectedComparableAttributes = expectedCollection.attributes.filter((attribute) => !attribute.name.startsWith("$"));
+
+    let missingAttrs = 0;
+    let mismatches = 0;
+    const missingNames: string[] = [];
+    const mismatchNames: string[] = [];
+
+    for (const expectedAttribute of expectedComparableAttributes) {
+      const liveAttribute = liveAttrByKey.get(expectedAttribute.name);
+      if (!liveAttribute) {
+        missingAttrs += 1;
+        missingNames.push(expectedAttribute.name);
+        continue;
+      }
+
+      const requiredMismatch = expectedAttribute.required !== Boolean(liveAttribute.required);
+      const typeMismatch = !attributeTypeMatches(expectedAttribute, liveAttribute);
+      if (requiredMismatch || typeMismatch) {
+        mismatches += 1;
+        mismatchNames.push(expectedAttribute.name);
+      }
+    }
+
+    const status =
+      missingAttrs === 0 && mismatches === 0 ? "✅ Perfectly connected" : "⚠️ Connected with differences";
+
+    const missingSummary = missingNames.length > 0 ? `; missing: ${missingNames.join(", ")}` : "";
+    const mismatchSummary = mismatchNames.length > 0 ? `; mismatch: ${mismatchNames.join(", ")}` : "";
+    const notes = `collection existed; 0 missing attrs created; ${mismatches} attr definition mismatch(es); ${missingAttrs} missing expected attr(s)${missingSummary}${mismatchSummary}`;
+
+    perCollectionRows.push({
+      collectionName: expectedCollection.name,
+      status,
+      createdInRun: 0,
+      notes,
+    });
+  }
+
+  for (const liveCollection of liveCollections) {
+    const documented = expectedSchemas.some(
+      (schema) => schema.name === liveCollection.name || schema.name === liveCollection.$id,
+    );
+    if (documented) {
+      continue;
+    }
+
+    perCollectionRows.push({
+      collectionName: liveCollection.name,
+      status: "⚠️ Connected with differences",
+      createdInRun: 0,
+      notes: "undocumented live collection; exists in Appwrite but missing from DATABASE_SCHEMA.md",
+    });
+  }
+
+  const statusTable = buildSchemaStatusTableFromDiff({
+    syncedAt,
+    expectedSchemas,
+    liveCollections,
+    perCollection: perCollectionRows,
+  });
   injectSchemaStatusIntoDatabaseDoc(statusTable);
   deleteLegacySchemaDoc();
 
