@@ -378,6 +378,7 @@ export default function AIContentClient() {
       : `${activePdfUrl}${activePdfUrl.includes("?") ? "&" : "?"}download=1`;
     const anchor = document.createElement("a");
     anchor.href = downloadUrl;
+    anchor.download = "";
     anchor.rel = "noopener noreferrer";
     document.body.appendChild(anchor);
     anchor.click();

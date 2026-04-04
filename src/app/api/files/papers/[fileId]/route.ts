@@ -49,6 +49,7 @@ export async function GET(
     const resolvedFileName = shouldDownload
       ? sanitizeDownloadFilename(fileMeta?.name || "examarchive.pdf")
       : null;
+    const fallbackHeaderFileName = resolvedFileName ? resolvedFileName.replace(/"/g, '\\"') : null;
     const encodedFileName = resolvedFileName ? encodeURIComponent(resolvedFileName) : null;
     const fileBuffer = shouldDownload
       ? await storage.getFileDownload(BUCKET_ID, fileId)
@@ -59,7 +60,7 @@ export async function GET(
         "Content-Type": "application/pdf",
         "Cache-Control": "private, max-age=3600",
         "Content-Disposition": shouldDownload
-          ? `attachment; filename="${resolvedFileName}"; filename*=UTF-8''${encodedFileName}`
+          ? `attachment; filename="${fallbackHeaderFileName}"; filename*=UTF-8''${encodedFileName}`
           : "inline",
       },
     });
