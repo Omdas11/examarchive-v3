@@ -838,6 +838,8 @@ CRITICAL FORMAT CONSTRAINTS:
 3. Do NOT include introductory filler or meta commentary.
 4. Start directly with the answer to this specific question.
 5. Use concise markdown only for this question (equations/steps where needed).
+6. Do NOT write "Unit", paper code, or course title as headings.
+7. Do NOT use numeric prefixes in major headings (e.g. avoid "1. Definition").
 `;
 
           let aiResponseText = "";

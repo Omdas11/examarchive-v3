@@ -62,6 +62,7 @@ export default function AIContentClient() {
   const [totalParts, setTotalParts] = useState(1);
   const [streamingTextActive, setStreamingTextActive] = useState(false);
   const [showMarkdownPreview, setShowMarkdownPreview] = useState(false);
+  const [showLogs, setShowLogs] = useState(false);
   const elapsedSecondsRef = useRef(0);
   const eventSourceRef = useRef<EventSource | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -230,6 +231,7 @@ export default function AIContentClient() {
         finished = true;
         setStreamingTextActive(false);
         setShowMarkdownPreview(true);
+        setShowLogs(false);
         const incomingMarkdown = typeof data.markdown === "string" ? data.markdown : "";
         setMarkdown((prevMarkdown) => {
           if (incomingMarkdown.trim().length === 0) return prevMarkdown;
@@ -336,6 +338,7 @@ export default function AIContentClient() {
     setUsedModel("");
     setDownloadPdfUrl("");
     setShowMarkdownPreview(false);
+    setShowLogs(true);
     const params = new URLSearchParams({
       university,
       course,
@@ -590,12 +593,22 @@ export default function AIContentClient() {
         <section className="card border border-outline-variant/30 p-5">
           <div className="mb-3 flex items-center justify-between gap-3">
             <h2 className="text-xl font-semibold">Generated Markdown</h2>
-            <button onClick={handleDownloadPdfClick} disabled={!downloadPdfUrl} className="btn">
-              Download PDF
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowMarkdownPreview((prev) => !prev)}
+                className="btn"
+                disabled={!markdown.trim()}
+                aria-label={showMarkdownPreview ? "Hide markdown preview" : "Show markdown preview"}
+              >
+                {showMarkdownPreview ? "Hide Preview" : "Preview Markdown"}
+              </button>
+              <button onClick={handleDownloadPdfClick} disabled={!downloadPdfUrl} className="btn">
+                Download PDF
+              </button>
+            </div>
           </div>
           {usedModel && <p className="mb-2 text-xs text-on-surface-variant">Model: {usedModel}</p>}
-          {showMarkdownPreview ? (
+          {showMarkdownPreview && !generating ? (
             <div className={`print-root markdown-preview rounded-xl border border-outline-variant/30 bg-surface-container-low p-4 ${streamingTextActive ? "ai-streaming-text" : ""}`}>
               <MarkdownNotesRenderer
                 markdown={markdown}
@@ -609,7 +622,21 @@ export default function AIContentClient() {
           )}
         </section>
         <section className="card border border-outline-variant/30 p-5">
-          <LiveLogsConsole logs={logs} />
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 className="text-xl font-semibold">Generation Logs</h2>
+            <button
+              className="btn"
+              onClick={() => setShowLogs((prev) => !prev)}
+              aria-label={showLogs ? "Hide generation logs" : "Show generation logs"}
+            >
+              {showLogs ? "Hide Logs" : "Show Logs"}
+            </button>
+          </div>
+          {showLogs ? (
+            <LiveLogsConsole logs={logs} />
+          ) : (
+            <p className="text-sm text-on-surface-variant">Logs are hidden. Use “Show Logs” to inspect stream output.</p>
+          )}
         </section>
       </div>
     </div>

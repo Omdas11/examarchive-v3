@@ -21,7 +21,7 @@ function buildPdfHtml(args: {
     .replace(/\\\\\)/g, "\\)");
   const htmlContent = marked.parse(cleanMarkdown);
   const watermarkSvg = encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300"><text x="50%" y="50%" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700" fill="#800000" fill-opacity="0.04" transform="rotate(-45 150 150)" text-anchor="middle">EXAMARCHIVE</text></svg>`,
+    `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300"><text x="50%" y="50%" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700" fill="#800000" fill-opacity="0.08" transform="rotate(-45 150 150)" text-anchor="middle">EXAMARCHIVE</text></svg>`,
   );
   const splitSyllabusItems = (input: string): string[] => {
     const trimmed = input.trim();
@@ -55,6 +55,11 @@ function buildPdfHtml(args: {
          ${syllabusBullets ? `<h2>Syllabus Highlights</h2><ul>${syllabusBullets}</ul>` : ""}
        </section>`
     : "";
+  const thankYouHtml = `<section class="thank-you-card">
+      <h2>Thank You for learning with ExamArchive</h2>
+      <p>Your PDF was generated successfully.</p>
+      <p><a href="https://www.examarchive.dev" target="_blank" rel="noopener noreferrer">Visit ExamArchive homepage</a></p>
+    </section>`;
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -129,9 +134,32 @@ function buildPdfHtml(args: {
       margin: 0;
       padding-left: 18px;
     }
+    .thank-you-card {
+      page-break-before: always;
+      min-height: 70vh;
+      border: 1px solid #e7d8d8;
+      border-radius: 14px;
+      background: #fff8f8;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 16mm 10mm;
+    }
+    .thank-you-card h2 {
+      border-left: none;
+      padding-left: 0;
+      margin-bottom: 6px;
+    }
+    .thank-you-card a {
+      color: #800000;
+      font-weight: 700;
+      text-decoration: underline;
+    }
   </style>
 </head>
-<body><main>${coverSection}${htmlContent}</main></body>
+<body><main>${coverSection}${htmlContent}${thankYouHtml}</main></body>
 </html>`;
 }
 
@@ -158,25 +186,22 @@ function buildHeaderHtml(): string {
 }
 
 function buildFooterHtml(): string {
-  const dateStr = new Date().toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
   return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8" />
 <style>
   body {
     font-family: "Inter", Arial, sans-serif;
-    font-size: 10px;
-    color: #6b7280;
+    font-size: 11px;
+    color: #800000;
     margin: 0;
     padding: 5px 10mm 0;
     width: 100%;
     display: flex;
-    justify-content: space-between;
-    border-top: 1px solid #e5e7eb;
+    justify-content: flex-end;
     box-sizing: border-box;
   }
 </style></head><body>
-  <span>Generated on ${dateStr}</span>
-  <span>Page <span class="pageNumber"></span> of <span class="totalPages"></span></span>
+  <span><span class="pageNumber"></span> / <span class="totalPages"></span></span>
 </body></html>`;
 }
 

@@ -596,6 +596,11 @@ ${topic}
 
 All Questions for this Unit:
 ${formattedQuestions || "No related questions found."}
+
+CRITICAL FORMAT CONSTRAINTS:
+1. Do NOT write "Unit ${unitNumber}" or repeat the paper code as heading text.
+2. Do NOT use numeric prefixes for main headings (e.g. avoid "1. Heading").
+3. Start directly with a ## or ### heading for this sub-topic.
 `;
 
           let aiResponseText = "";
