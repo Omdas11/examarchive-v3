@@ -1,7 +1,8 @@
 import { Client, Databases, Storage, Permission, Role } from "node-appwrite";
-import * as dotenv from "dotenv";
+import path from "node:path";
+import { loadEnvConfig } from "@next/env";
 
-dotenv.config({ path: ".env.local" });
+loadEnvConfig(path.resolve(__dirname, ".."));
 
 const client = new Client()
   .setEndpoint(process.env.APPWRITE_ENDPOINT!)
