@@ -138,14 +138,17 @@ export async function GET(request: NextRequest) {
       const name = typeof doc.paper_name === "string" ? doc.paper_name.trim() : "";
       if (!papersMap.has(code)) papersMap.set(code, name || code);
     }
-    const paperCodes = Array.from(ingestedPaperCodes)
+    const paperCodesFromIngestions = Array.from(ingestedPaperCodes)
       .filter((code) => papersMap.has(code))
       .sort((a, b) => a.localeCompare(b));
+    const paperCodes = (paperCodesFromIngestions.length > 0
+      ? paperCodesFromIngestions
+      : Array.from(papersMap.keys()).sort((a, b) => a.localeCompare(b)));
     const papers = paperCodes.map((code) => ({ code, name: papersMap.get(code) || code }));
     const yearsByPaperCode: Record<string, number[]> = {};
     for (const questionDoc of questionDocsRes.documents) {
       const code = typeof questionDoc.paper_code === "string" ? questionDoc.paper_code.trim() : "";
-      if (!code || !ingestedPaperCodes.has(code)) continue;
+      if (!code || !paperCodes.includes(code)) continue;
       const yearRaw = questionDoc.year;
       const year =
         typeof yearRaw === "number"

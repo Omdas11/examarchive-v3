@@ -67,7 +67,16 @@ export default function IngestMdClient() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Upload/ingestion failed.");
+        const fallbackErrors = Array.isArray(data.errors)
+          ? data.errors
+              .map((entry: unknown) =>
+                typeof entry === "object" && entry !== null && "message" in entry
+                  ? String((entry as { message?: unknown }).message ?? "")
+                  : "",
+              )
+              .filter(Boolean)
+          : [];
+        setError(data.error ?? fallbackErrors.join("; ") || "Upload/ingestion failed.");
       } else {
         setLastResult(
           `${String(data.status).toUpperCase()} · Added ${data.added}, Updated ${data.updated}, Rows ${data.rowsAffected}`,
