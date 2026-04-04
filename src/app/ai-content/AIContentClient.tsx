@@ -2,8 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import "katex/dist/katex.min.css";
-import PrintableNotesDocument from "./PrintableNotesDocument";
-import PrintInstructionsModal from "./PrintInstructionsModal";
 import MarkdownNotesRenderer from "./MarkdownNotesRenderer";
 import LiveLogsConsole from "./LiveLogsConsole";
 import { useToast } from "@/components/ToastContext";
@@ -14,19 +12,6 @@ const COURSE_TYPES: Record<string, string[]> = {
   CBCS: ["DSC", "SEC"],
 };
 const UNIT_OPTIONS = [1, 2, 3, 4, 5];
-const DEFAULT_PROVIDER_MODELS = {
-  Google: ["gemini-3.1-flash-lite-preview", "gemini-2.5-flash", "gemini-1.5-flash"],
-  OpenRouter: [
-    "openai/gpt-oss-120b:free",
-    "openai/gpt-oss-20b:free",
-    "google/gemma-3-27b-it:free",
-    "meta-llama/llama-3-8b-instruct:free",
-  ],
-  Groq: ["gpt-oss-120b", "llama3-70b-8192", "llama3-8b-8192", "mixtral-8x7b-32768"],
-} as const;
-type AIProvider = keyof typeof DEFAULT_PROVIDER_MODELS;
-const DEFAULT_PROVIDER: AIProvider = "Google";
-const DEFAULT_PROVIDER_MODEL = DEFAULT_PROVIDER_MODELS[DEFAULT_PROVIDER][0];
 const BACKEND_PAPERS_MAX_DURATION_SECONDS = 300;
 const RESUME_TIMEOUT_BUFFER_SECONDS = 5;
 const TIMEOUT_THRESHOLD_SECONDS = BACKEND_PAPERS_MAX_DURATION_SECONDS - RESUME_TIMEOUT_BUFFER_SECONDS;
@@ -57,13 +42,7 @@ export default function AIContentClient() {
   const [generating, setGenerating] = useState(false);
   const [markdown, setMarkdown] = useState("");
   const [usedModel, setUsedModel] = useState("");
-  const [provider, setProvider] = useState<AIProvider>(DEFAULT_PROVIDER);
-  const [selectedModel, setSelectedModel] = useState<string>(DEFAULT_PROVIDER_MODEL);
-  const [dynamicModels, setDynamicModels] = useState<Record<AIProvider, string[]>>({
-    Google: [...DEFAULT_PROVIDER_MODELS.Google],
-    OpenRouter: [...DEFAULT_PROVIDER_MODELS.OpenRouter],
-    Groq: [...DEFAULT_PROVIDER_MODELS.Groq],
-  });
+  const [downloadPdfUrl, setDownloadPdfUrl] = useState("");
   const [logs, setLogs] = useState<string[]>([]);
   const [remaining, setRemaining] = useState<number | null>(null);
   const [limit, setLimit] = useState<number | null>(null);
@@ -72,10 +51,6 @@ export default function AIContentClient() {
   const [notesDailyLimit, setNotesDailyLimit] = useState<number | null>(null);
   const [papersDailyLimit, setPapersDailyLimit] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [paperNameMap, setPaperNameMap] = useState<Record<string, string>>({});
-  const [printInstructionsOpen, setPrintInstructionsOpen] = useState(false);
-  const [generatedAtLabel, setGeneratedAtLabel] = useState("");
-  const [syllabusContent, setSyllabusContent] = useState("");
   const [progressStatus, setProgressStatus] = useState("");
   const [progressTopic, setProgressTopic] = useState("");
   const [progressIndex, setProgressIndex] = useState(0);
@@ -86,12 +61,12 @@ export default function AIContentClient() {
   const [currentPart, setCurrentPart] = useState(1);
   const [totalParts, setTotalParts] = useState(1);
   const [streamingTextActive, setStreamingTextActive] = useState(false);
+  const [showMarkdownPreview, setShowMarkdownPreview] = useState(false);
+  const [showLogs, setShowLogs] = useState(false);
   const elapsedSecondsRef = useRef(0);
   const eventSourceRef = useRef<EventSource | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const selectedPaperName = paperNameMap[paperCode] || paperCode;
   const availableYears = useMemo(() => yearsByPaperCode[paperCode] || [], [yearsByPaperCode, paperCode]);
-  const providerModelOptions = useMemo(() => dynamicModels[provider] || DEFAULT_PROVIDER_MODELS[provider], [dynamicModels, provider]);
   const courseOptions: CustomDropdownOption[] = useMemo(
     () => [
       { label: "FYUG", value: "FYUG" },
@@ -114,18 +89,6 @@ export default function AIContentClient() {
   const yearOptions: CustomDropdownOption[] = useMemo(
     () => availableYears.map((year) => ({ label: String(year), value: String(year) })),
     [availableYears],
-  );
-  const providerOptions: CustomDropdownOption[] = useMemo(
-    () => [
-      { label: "Google", value: "Google" },
-      { label: "OpenRouter", value: "OpenRouter" },
-      { label: "Groq", value: "Groq" },
-    ],
-    [],
-  );
-  const modelOptions: CustomDropdownOption[] = useMemo(
-    () => providerModelOptions.map((providerModel) => ({ label: providerModel, value: providerModel })),
-    [providerModelOptions],
   );
   const progressPercent = progressTotal > 0 ? Math.min(100, Math.round((progressIndex / progressTotal) * 100)) : 0;
   const estimatedMinutesRemaining = useMemo(() => {
@@ -267,6 +230,8 @@ export default function AIContentClient() {
       if (eventType === "done") {
         finished = true;
         setStreamingTextActive(false);
+        setShowMarkdownPreview(true);
+        setShowLogs(false);
         const incomingMarkdown = typeof data.markdown === "string" ? data.markdown : "";
         setMarkdown((prevMarkdown) => {
           if (incomingMarkdown.trim().length === 0) return prevMarkdown;
@@ -283,9 +248,8 @@ export default function AIContentClient() {
           const separator = prevMarkdown.trim().length > 0 ? "\n\n" : "";
           return prevMarkdown + separator + incomingMarkdown;
         });
-        setSyllabusContent(typeof data.syllabus_content === "string" ? data.syllabus_content : "");
-        setGeneratedAtLabel(new Date().toLocaleString());
         setUsedModel(typeof data.model === "string" ? data.model : "");
+        if (typeof data.pdf_url === "string") setDownloadPdfUrl(data.pdf_url);
         if (typeof data.remaining === "number" || data.remaining === null) {
           setRemaining(data.remaining);
         }
@@ -323,6 +287,14 @@ export default function AIContentClient() {
           showToast("Server timeout reached. Click Resume to continue from where it left off.", "warning");
         }
         resetProgressState();
+        return;
+      }
+
+      if (data.action === "error") {
+        finished = true;
+        setError(typeof data.error === "string" ? data.error : "Generation failed.");
+        resetProgressState();
+        return;
       }
     };
 
@@ -364,14 +336,17 @@ export default function AIContentClient() {
     setStreamingTextActive(false);
     startTimer();
     setUsedModel("");
+    setDownloadPdfUrl("");
+    setShowMarkdownPreview(false);
+    setShowLogs(true);
     const params = new URLSearchParams({
       university,
       course,
       type,
       paperCode,
       ...(activeTab === "notes"
-        ? { unitNumber: String(unitNumber), provider: provider.toLowerCase(), model: selectedModel }
-        : { year: String(selectedYear), provider: provider.toLowerCase(), model: selectedModel }),
+        ? { unitNumber: String(unitNumber) }
+        : { year: String(selectedYear) }),
     });
     try {
       if (activeTab === "papers") {
@@ -387,41 +362,13 @@ export default function AIContentClient() {
   }
 
   function handleDownloadPdfClick() {
-    if (!markdown) return;
-    setPrintInstructionsOpen(true);
+    if (!downloadPdfUrl) return;
+    setError(null);
+    const opened = window.open(downloadPdfUrl, "_blank", "noopener,noreferrer");
+    if (!opened) {
+      setError("Popup blocked. Please allow popups for this site and try downloading again.");
+    }
   }
-
-  function proceedToPrint() {
-    setPrintInstructionsOpen(false);
-    window.print();
-  }
-
-  useEffect(() => {
-    fetch("/api/models", { cache: "no-store" })
-      .then((res) => {
-        if (!res.ok) return null;
-        return res.json() as Promise<{
-          google?: Array<{ id?: string }>;
-          openrouter?: Array<{ id?: string }>;
-          groq?: Array<{ id?: string }>;
-        }>;
-      })
-      .then((data) => {
-        if (!data) return;
-        const normalize = (list: Array<{ id?: string }> | undefined, fallback: readonly string[]) => {
-          const ids = (list ?? [])
-            .map((item) => String(item?.id ?? "").trim())
-            .filter(Boolean);
-          return ids.length > 0 ? ids : [...fallback];
-        };
-        setDynamicModels({
-          Google: normalize(data.google, DEFAULT_PROVIDER_MODELS.Google),
-          OpenRouter: normalize(data.openrouter, DEFAULT_PROVIDER_MODELS.OpenRouter),
-          Groq: normalize(data.groq, DEFAULT_PROVIDER_MODELS.Groq),
-        });
-      })
-      .catch(() => {});
-  }, []);
 
   useEffect(() => {
     setPaperCodeLoading(true);
@@ -437,19 +384,12 @@ export default function AIContentClient() {
         if (Array.isArray(data.paperCodes)) {
           const options = data.paperCodes.filter((item: unknown): item is string => typeof item === "string" && item.trim().length > 0);
           setPaperCodeOptions(options);
-          const resolvedMap: Record<string, string> = {};
           if (Array.isArray(data.papers)) {
             for (const paper of data.papers) {
               const code = typeof paper?.code === "string" ? paper.code.trim() : "";
               if (!code) continue;
-              const name = typeof paper?.name === "string" ? paper.name.trim() : "";
-              resolvedMap[code] = name || code;
             }
           }
-          for (const code of options) {
-            if (!resolvedMap[code]) resolvedMap[code] = code;
-          }
-          setPaperNameMap(resolvedMap);
           setPaperCode((current) => {
             if (current && options.includes(current)) return current;
             return options[0] || current;
@@ -465,9 +405,6 @@ export default function AIContentClient() {
             }
           }
           setYearsByPaperCode(map);
-        }
-        if (typeof data.syllabusContent === "string") {
-          setSyllabusContent(data.syllabusContent);
         }
       })
       .catch(() => {})
@@ -491,14 +428,6 @@ export default function AIContentClient() {
       setType(allowed[0]);
     }
   }, [course, type]);
-
-  useEffect(() => {
-    setSelectedModel((current) =>
-      providerModelOptions.some((providerModel) => providerModel === current)
-        ? current
-        : providerModelOptions[0],
-    );
-  }, [providerModelOptions]);
 
   useEffect(() => {
     return () => {
@@ -596,24 +525,6 @@ export default function AIContentClient() {
                     disabled={generating}
                   />
                 </div>
-                <div>
-                  <label className="mb-1 block text-sm font-semibold">Provider</label>
-                  <CustomDropdown
-                    options={providerOptions}
-                    value={provider}
-                    onChange={(nextValue) => setProvider(nextValue as AIProvider)}
-                    disabled={generating}
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-semibold">Model</label>
-                  <CustomDropdown
-                    options={modelOptions}
-                    value={selectedModel}
-                    onChange={setSelectedModel}
-                    disabled={generating}
-                  />
-                </div>
               </>
             ) : (
               <>
@@ -627,24 +538,6 @@ export default function AIContentClient() {
                     disabled={generating || availableYears.length === 0}
                   />
                 </div>
-                <div>
-                  <label className="mb-1 block text-sm font-semibold">Provider</label>
-                  <CustomDropdown
-                    options={providerOptions}
-                    value={provider}
-                    onChange={(nextValue) => setProvider(nextValue as AIProvider)}
-                    disabled={generating}
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-semibold">Model</label>
-                  <CustomDropdown
-                    options={modelOptions}
-                    value={selectedModel}
-                    onChange={setSelectedModel}
-                    disabled={generating}
-                  />
-                </div>
               </>
             )}
           </div>
@@ -652,7 +545,9 @@ export default function AIContentClient() {
             <button
               onClick={generate}
               disabled={!paperCode.trim() || !canGenerate || (activeTab === "papers" && selectedYear === "")}
-              className="btn-primary inline-flex items-center gap-2 rounded-xl px-5 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+              aria-busy={generating}
+              aria-live="polite"
+              className="btn-primary relative inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl px-5 py-3 text-sm font-semibold transition-all duration-300 before:absolute before:inset-0 before:-translate-x-full before:bg-gradient-to-r before:from-transparent before:via-white/30 before:to-transparent before:content-[''] hover:before:animate-[shimmer_1.4s_ease-in-out_infinite] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {generating ? (
                 <>
@@ -698,38 +593,52 @@ export default function AIContentClient() {
         <section className="card border border-outline-variant/30 p-5">
           <div className="mb-3 flex items-center justify-between gap-3">
             <h2 className="text-xl font-semibold">Generated Markdown</h2>
-            <button onClick={handleDownloadPdfClick} disabled={!markdown} className="btn">
-              Download PDF
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowMarkdownPreview((prev) => !prev)}
+                className="btn"
+                disabled={!markdown.trim()}
+                aria-label={showMarkdownPreview ? "Hide markdown preview" : "Show markdown preview"}
+              >
+                {showMarkdownPreview ? "Hide Preview" : "Preview Markdown"}
+              </button>
+              <button onClick={handleDownloadPdfClick} disabled={!downloadPdfUrl} className="btn">
+                Download PDF
+              </button>
+            </div>
           </div>
-          <p className="mb-3 text-xs text-on-surface-variant">
-            For richer client-side export, use <strong>jsPDF + html2canvas</strong> or <strong>react-to-print</strong>.
-          </p>
           {usedModel && <p className="mb-2 text-xs text-on-surface-variant">Model: {usedModel}</p>}
-          <div className={`print-root markdown-preview rounded-xl border border-outline-variant/30 bg-surface-container-low p-4 ${streamingTextActive ? "ai-streaming-text" : ""}`}>
-            <MarkdownNotesRenderer
-              markdown={markdown}
-              emptyFallback={<p className="text-on-surface-variant">No output yet. Generate notes to preview them here.</p>}
-            />
-          </div>
+          {showMarkdownPreview && !generating ? (
+            <div className={`print-root markdown-preview rounded-xl border border-outline-variant/30 bg-surface-container-low p-4 ${streamingTextActive ? "ai-streaming-text" : ""}`}>
+              <MarkdownNotesRenderer
+                markdown={markdown}
+                emptyFallback={<p className="text-on-surface-variant">No output yet. Generate notes to preview them here.</p>}
+              />
+            </div>
+          ) : (
+            <div className="rounded-xl border border-dashed border-outline-variant/40 bg-surface-container-low p-6 text-center text-sm text-on-surface-variant">
+              Markdown preview will appear after generation finishes.
+            </div>
+          )}
         </section>
         <section className="card border border-outline-variant/30 p-5">
-          <LiveLogsConsole logs={logs} />
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 className="text-xl font-semibold">Generation Logs</h2>
+            <button
+              className="btn"
+              onClick={() => setShowLogs((prev) => !prev)}
+              aria-label={showLogs ? "Hide generation logs" : "Show generation logs"}
+            >
+              {showLogs ? "Hide Logs" : "Show Logs"}
+            </button>
+          </div>
+          {showLogs ? (
+            <LiveLogsConsole logs={logs} />
+          ) : (
+            <p className="text-sm text-on-surface-variant">Logs are hidden. Use “Show Logs” to inspect stream output.</p>
+          )}
         </section>
       </div>
-      <PrintInstructionsModal
-        open={printInstructionsOpen}
-        onClose={() => setPrintInstructionsOpen(false)}
-        onProceed={proceedToPrint}
-      />
-      <PrintableNotesDocument
-        markdown={markdown}
-        syllabusContent={syllabusContent}
-        paperName={selectedPaperName}
-        paperCode={paperCode}
-        generatedAt={generatedAtLabel}
-        model={usedModel || selectedModel}
-      />
     </div>
   );
 }

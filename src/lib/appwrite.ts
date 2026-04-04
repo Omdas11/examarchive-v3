@@ -212,6 +212,13 @@ export function getAppwriteFileUrl(fileId: string): string {
 }
 
 /**
+ * Build the download URL for a paper PDF stored in Appwrite.
+ */
+export function getAppwriteFileDownloadUrl(fileId: string): string {
+  return `/api/files/papers/${fileId}?download=1`;
+}
+
+/**
  * Delete a file from Appwrite storage by its file ID.
  */
 export async function deleteFileFromAppwrite(fileId: string): Promise<void> {

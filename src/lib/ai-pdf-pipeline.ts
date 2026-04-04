@@ -1,0 +1,373 @@
+import { InputFile } from "node-appwrite/file";
+import { marked } from "marked";
+import sanitizeHtml from "sanitize-html";
+import {
+  adminStorage,
+  BUCKET_ID,
+  ID,
+  getAppwriteFileDownloadUrl,
+} from "@/lib/appwrite";
+
+function escapeHtml(text: string): string {
+  return text.replace(/[&<>"'`]/g, (ch) => {
+    switch (ch) {
+      case "&":
+        return "&amp;";
+      case "<":
+        return "&lt;";
+      case ">":
+        return "&gt;";
+      case "\"":
+        return "&quot;";
+      case "'":
+        return "&#039;";
+      case "`":
+        return "&#96;";
+      default:
+        return ch;
+    }
+  });
+}
+
+function sanitizeGeneratedHtml(input: string): string {
+  return sanitizeHtml(input, {
+    allowedTags: sanitizeHtml.defaults.allowedTags.concat([
+      "h1",
+      "h2",
+      "img",
+      "span",
+      "math",
+      "semantics",
+      "mrow",
+      "mi",
+      "mo",
+      "mn",
+      "msup",
+      "mfrac",
+      "msqrt",
+      "mspace",
+      "mstyle",
+      "mtable",
+      "mtr",
+      "mtd",
+      "annotation",
+    ]),
+    allowedAttributes: {
+      ...sanitizeHtml.defaults.allowedAttributes,
+      a: ["href", "name", "target", "rel"],
+      img: ["src", "alt", "width", "height"],
+      span: ["class", "style"],
+      math: ["xmlns", "display"],
+      annotation: ["encoding"],
+    },
+    allowedSchemes: ["http", "https", "mailto"],
+    allowedSchemesAppliedToAttributes: ["href", "src"],
+    allowProtocolRelative: false,
+  });
+}
+
+export function buildPdfHtml(args: {
+  markdown: string;
+  paperCode?: string;
+  unitNumber?: number;
+  year?: number;
+  syllabusContent?: string;
+}): string {
+  const { markdown, paperCode, unitNumber, year, syllabusContent } = args;
+  const cleanMarkdown = markdown
+    .replace(/\\\$/g, "$")
+    .replace(/\\\\\(/g, "\\(")
+    .replace(/\\\\\)/g, "\\)");
+  const parsedHtml = marked.parse(cleanMarkdown);
+  // marked.parse can be configured to be async; guard non-string outputs defensively.
+  const htmlContent = sanitizeGeneratedHtml(
+    typeof parsedHtml === "string" ? parsedHtml : "",
+  );
+  const watermarkSvg = encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300"><text x="50%" y="50%" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700" fill="#800000" fill-opacity="0.08" transform="rotate(-45 150 150)" text-anchor="middle">EXAMARCHIVE</text></svg>`,
+  );
+  const splitSyllabusItems = (input: string): string[] => {
+    const trimmed = input.trim();
+    if (!trimmed) return [];
+    if (/\r?\n/.test(trimmed)) {
+      return trimmed
+        .split(/\r?\n+/)
+        .map((line) => line.replace(/^\s*[-*•]\s*/, "").trim())
+        .filter(Boolean);
+    }
+    if (trimmed.includes(";")) {
+      return trimmed.split(";").map((entry) => entry.trim()).filter(Boolean);
+    }
+    return trimmed
+      .split(/\.\s+(?=[A-Za-z0-9])/)
+      .map((entry) => entry.trim().replace(/\.$/, ""))
+      .filter(Boolean);
+  };
+  const syllabusBullets = splitSyllabusItems(syllabusContent ?? "")
+    .map((item) => `<li>${escapeHtml(item)}</li>`)
+    .join("");
+  const coverDetails = [
+    paperCode ? `<p><strong>Paper Code:</strong> ${escapeHtml(paperCode)}</p>` : "",
+    typeof unitNumber === "number" ? `<p><strong>Unit:</strong> ${unitNumber}</p>` : "",
+    typeof year === "number" ? `<p><strong>Year:</strong> ${year}</p>` : "",
+  ].filter(Boolean).join("");
+  const coverSection = coverDetails || syllabusBullets
+    ? `<section class="cover-page">
+         <h1>ExamArchive Notes Dossier</h1>
+         <div class="cover-meta">${coverDetails}</div>
+         ${syllabusBullets ? `<h2>Syllabus Highlights</h2><ul>${syllabusBullets}</ul>` : ""}
+       </section>`
+    : "";
+  const thankYouHtml = `<section class="thank-you-card">
+      <h2>Thank You for learning with ExamArchive</h2>
+      <p>Your PDF was generated successfully.</p>
+      <p><a href="https://www.examarchive.dev" target="_blank" rel="noopener noreferrer">Visit ExamArchive homepage</a></p>
+    </section>`;
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [["$", "$"], ["\\\\(", "\\\\)"]],
+        displayMath: [["$$", "$$"], ["\\\\[", "\\\\]"]],
+      },
+      svg: { fontCache: "global" },
+    };
+  </script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+  <style>
+    body {
+      font-family: "Inter", Arial, sans-serif;
+      line-height: 1.65;
+      color: #2b1a1a;
+      padding: 0;
+      margin: 0;
+      background-image: url("data:image/svg+xml,${watermarkSvg}");
+      background-size: 230px 230px;
+      background-repeat: repeat;
+    }
+    main { padding: 0 4mm; }
+    @page { margin: 12mm 10mm; }
+    h1, h2, h3 { color: #800000; }
+    h1, h2, h3 { page-break-after: avoid; }
+    h1 { border-bottom: 2px solid #e7d8d8; padding-bottom: 8px; }
+    h2 { border-left: 4px solid #800000; padding-left: 8px; }
+    p, li { font-size: 14px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 13px; }
+    th, td { border: 1px solid #e7d8d8; padding: 8px; text-align: left; }
+    th { background-color: #fbf4f4; color: #6e1111; }
+    .cover-page {
+      page-break-after: always;
+      min-height: 92vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 0 12mm;
+    }
+    .cover-page h1 {
+      margin: 0 0 16px;
+      border-bottom: none;
+      font-size: 34px;
+      letter-spacing: 0.04em;
+    }
+    .cover-page .cover-meta {
+      margin-bottom: 12px;
+    }
+    .cover-page .cover-meta p {
+      margin: 3px 0;
+      font-size: 15px;
+    }
+    .cover-page h2 {
+      border-left: none;
+      color: #800000;
+      margin-bottom: 8px;
+      padding-left: 0;
+    }
+    .cover-page ul {
+      display: inline-block;
+      text-align: left;
+      margin: 0;
+      padding-left: 18px;
+    }
+    .thank-you-card {
+      page-break-before: always;
+      min-height: 70vh;
+      border: 1px solid #e7d8d8;
+      border-radius: 14px;
+      background: #fff8f8;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 16mm 10mm;
+    }
+    .thank-you-card h2 {
+      border-left: none;
+      padding-left: 0;
+      margin-bottom: 6px;
+    }
+    .thank-you-card a {
+      color: #800000;
+      font-weight: 700;
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body><main>${coverSection}${htmlContent}${thankYouHtml}</main></body>
+</html>`;
+}
+
+function buildHeaderHtml(): string {
+  return `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8" />
+<style>
+  body {
+    font-family: "Inter", Arial, sans-serif;
+    font-size: 10px;
+    color: #7a3a3a;
+    margin: 0;
+    padding: 0 10mm 5px;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px solid #e5e7eb;
+    box-sizing: border-box;
+  }
+</style></head><body>
+  <span>ExamArchive Premium Notes</span>
+  <span>Model: Gemini 3.1 Flash Lite</span>
+</body></html>`;
+}
+
+function buildFooterHtml(): string {
+  return `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8" />
+<style>
+  body {
+    font-family: "Inter", Arial, sans-serif;
+    font-size: 11px;
+    color: #800000;
+    margin: 0;
+    padding: 5px 10mm 0;
+    width: 100%;
+    display: flex;
+    justify-content: flex-end;
+    box-sizing: border-box;
+  }
+</style></head><body>
+  <span><span class="pageNumber"></span> / <span class="totalPages"></span></span>
+</body></html>`;
+}
+
+export function buildSafePdfFileName(args: { fileBaseName: string; fileName?: string }): string {
+  const baseFallback = args.fileBaseName.trim() || "generated_document";
+  const candidate = (args.fileName || `${baseFallback}.pdf`).trim();
+  const normalizedCandidate = candidate.replace(/[^a-zA-Z0-9._-]/g, "_");
+  const withoutExtension = normalizedCandidate.replace(/\.pdf$/i, "");
+  const coreName = withoutExtension.replace(/[^a-zA-Z0-9]+/g, "");
+  const safeCore = coreName.length > 0 ? withoutExtension : "generated_document";
+  return `${safeCore}.pdf`;
+}
+
+function buildGotenbergEndpoint(baseUrl: string, endpointPath: string): string {
+  return new URL(endpointPath, baseUrl).toString();
+}
+
+export async function renderMarkdownPdfToAppwrite(args: {
+  markdown: string;
+  fileBaseName: string;
+  fileName?: string;
+  gotenbergUrl?: string;
+  paperCode?: string;
+  unitNumber?: number;
+  year?: number;
+  syllabusContent?: string;
+}): Promise<{ fileId: string; fileUrl: string }> {
+  const effectiveGotenbergUrl = args.gotenbergUrl || process.env.AZURE_GOTENBERG_URL;
+  if (!effectiveGotenbergUrl) {
+    throw new Error("AZURE_GOTENBERG_URL is required.");
+  }
+  const normalizedBaseUrl = effectiveGotenbergUrl.trim().replace(/\/+$/, "");
+  let gotenbergUrl: URL;
+  try {
+    gotenbergUrl = new URL(normalizedBaseUrl);
+  } catch {
+    throw new Error("Invalid AZURE_GOTENBERG_URL.");
+  }
+  if (!/^https?:$/.test(gotenbergUrl.protocol)) {
+    throw new Error("AZURE_GOTENBERG_URL must use HTTP or HTTPS.");
+  }
+  const primaryEndpoint = buildGotenbergEndpoint(gotenbergUrl.toString(), "/forms/chromium/convert/html");
+  const fallbackEndpoint = buildGotenbergEndpoint(gotenbergUrl.toString(), "/convert/html");
+  const html = buildPdfHtml({
+    markdown: args.markdown,
+    paperCode: args.paperCode,
+    unitNumber: args.unitNumber,
+    year: args.year,
+    syllabusContent: args.syllabusContent,
+  });
+  const headerHtml = buildHeaderHtml();
+  const footerHtml = buildFooterHtml();
+  const buildFormData = () => {
+    const formData = new FormData();
+    formData.append("files", new Blob([html], { type: "text/html" }), "index.html");
+    formData.append("files", new Blob([headerHtml], { type: "text/html" }), "header.html");
+    formData.append("files", new Blob([footerHtml], { type: "text/html" }), "footer.html");
+    formData.append("marginTop", "1.2");
+    formData.append("marginBottom", "1.2");
+    formData.append("marginLeft", "1");
+    formData.append("marginRight", "1");
+    formData.append("displayHeaderFooter", "true");
+    formData.append("printBackground", "true");
+    formData.append("waitDelay", process.env.GOTENBERG_WAIT_DELAY || "5s");
+    return formData;
+  };
+
+  let gotenbergEndpoint = primaryEndpoint;
+  let response = await fetch(gotenbergEndpoint, {
+    method: "POST",
+    body: buildFormData(),
+  });
+  if (response.status === 404) {
+    console.warn(`[ai-pdf-pipeline] Primary Gotenberg endpoint returned 404 (${primaryEndpoint}). Retrying fallback endpoint.`);
+    gotenbergEndpoint = fallbackEndpoint;
+    response = await fetch(gotenbergEndpoint, {
+      method: "POST",
+      body: buildFormData(),
+    });
+  }
+  if (!response.ok) {
+    const errorText = (await response.text()).trim().slice(0, 2000);
+    throw new Error(
+      `Gotenberg Error (${response.status}) at ${gotenbergEndpoint}: ${errorText || response.statusText || "Unknown error"}`,
+    );
+  }
+
+  const pdfBuffer = Buffer.from(await response.arrayBuffer());
+  const storage = adminStorage();
+  const fileId = ID.unique();
+  const finalPdfFileName = buildSafePdfFileName({
+    fileBaseName: args.fileBaseName,
+    fileName: args.fileName,
+  });
+  const inputFile = InputFile.fromBuffer(
+    pdfBuffer,
+    finalPdfFileName,
+  );
+  try {
+    await storage.createFile(BUCKET_ID, fileId, inputFile);
+  } catch (error) {
+    const appwriteMessage = error instanceof Error ? error.message : String(error);
+    throw new Error(`Appwrite Error: ${appwriteMessage}`);
+  }
+  return { fileId, fileUrl: getAppwriteFileDownloadUrl(fileId) };
+}
