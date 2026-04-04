@@ -478,7 +478,7 @@ export default function AIContentClient() {
     activeTab === "notes"
       ? canGenerateByLegacyLimit && notesQuotaAllowed
       : canGenerateByLegacyLimit && papersQuotaAllowed;
-  const canStartGeneration = !paperCode.trim() || !canGenerate || (activeTab === "papers" && selectedYear === "");
+  const isGenerationDisabled = !paperCode.trim() || !canGenerate || (activeTab === "papers" && selectedYear === "");
   const isNotesGenerationFinished = activeTab === "notes" && !generating && Boolean(downloadPdfUrl);
 
   return (
@@ -584,7 +584,7 @@ export default function AIContentClient() {
                 {!generating && !isNotesGenerationFinished && (
                   <button
                     onClick={handleGenerateClick}
-                    disabled={canStartGeneration}
+                    disabled={isGenerationDisabled}
                     aria-busy={generating}
                     aria-live="polite"
                     className="btn-primary relative inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl px-5 py-3 text-sm font-semibold transition-all duration-300 before:absolute before:inset-0 before:-translate-x-full before:bg-gradient-to-r before:from-transparent before:via-white/30 before:to-transparent before:content-[''] hover:before:animate-[shimmer_1.4s_ease-in-out_infinite] disabled:cursor-not-allowed disabled:opacity-60"
@@ -596,7 +596,7 @@ export default function AIContentClient() {
                 {generating && (
                   <div className="space-y-2">
                     <button
-                      disabled={true}
+                      disabled
                       aria-busy="true"
                       aria-live="polite"
                       className="btn-primary inline-flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold animate-pulse"
@@ -629,7 +629,7 @@ export default function AIContentClient() {
               <div className="flex items-center gap-3">
                 <button
                   onClick={handleGenerateClick}
-                  disabled={canStartGeneration}
+                  disabled={isGenerationDisabled}
                   aria-busy={generating}
                   aria-live="polite"
                   className="btn-primary relative inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl px-5 py-3 text-sm font-semibold transition-all duration-300 before:absolute before:inset-0 before:-translate-x-full before:bg-gradient-to-r before:from-transparent before:via-white/30 before:to-transparent before:content-[''] hover:before:animate-[shimmer_1.4s_ease-in-out_infinite] disabled:cursor-not-allowed disabled:opacity-60"
