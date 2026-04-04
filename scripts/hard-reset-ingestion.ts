@@ -15,8 +15,22 @@ const DB_ID = "examarchive";
 const COL_ID = "ai_ingestions";
 const BUCKET_ID = "examarchive-md-ingestion";
 
+type AppwriteLikeError = {
+  code?: number;
+  type?: string;
+  response?: {
+    code?: number;
+    type?: string;
+  };
+};
+
+function isAppwriteLikeError(value: unknown): value is AppwriteLikeError {
+  return typeof value === "object" && value !== null;
+}
+
 function isNotFoundError(error: unknown): boolean {
-  const maybeError = error as { code?: number; response?: { code?: number; type?: string }; type?: string; message?: string };
+  if (!isAppwriteLikeError(error)) return false;
+  const maybeError = error;
   const code = maybeError?.code ?? maybeError?.response?.code;
   const type = maybeError?.type ?? maybeError?.response?.type;
   return code === 404 || type === "not_found" || type === "collection_not_found" || type === "bucket_not_found";
@@ -37,7 +51,7 @@ async function hardReset() {
     console.log(`Collection ${COL_ID} not found, proceeding...`);
   }
 
-  await sleep(2000);
+  await sleep(2000); // Wait for Appwrite to propagate collection deletion before recreation.
 
   const newCol = await databases.createCollection(
     DB_ID,
@@ -47,7 +61,7 @@ async function hardReset() {
     false,
   );
   console.log(`✅ Recreated collection: ${newCol.$id}`);
-  await sleep(2000);
+  await sleep(2000); // Wait for Appwrite to propagate collection creation before adding attributes.
 
   await databases.createStringAttribute(DB_ID, COL_ID, "paper_code", 255, true);
   await databases.createStringAttribute(DB_ID, COL_ID, "file_id", 255, true);
@@ -61,7 +75,7 @@ async function hardReset() {
     console.log(`Bucket ${BUCKET_ID} not found, proceeding...`);
   }
 
-  await sleep(2000);
+  await sleep(2000); // Wait for Appwrite to propagate bucket deletion before recreation.
 
   const newBucket = await storage.createBucket(
     BUCKET_ID,
