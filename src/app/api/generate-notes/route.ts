@@ -107,6 +107,9 @@ export async function GET(request: NextRequest) {
     };
     const normalizePaperCode = (value: string) => value.replace(/\.md$/i, "").trim();
     for (const ingestionDoc of ingestionRes.documents) {
+      const normalizedStatus = readFirstString(ingestionDoc, ["status", "ingestion_status", "ingestionStatus"]).toLowerCase();
+      if (normalizedStatus !== "success") continue;
+
       const directCode = normalizePaperCode(
         readFirstString(ingestionDoc, ["paper_code", "paperCode", "course_code"]),
       );
@@ -137,8 +140,7 @@ export async function GET(request: NextRequest) {
       const name = typeof doc.paper_name === "string" ? doc.paper_name.trim() : "";
       if (!papersMap.has(code)) papersMap.set(code, name || code);
     }
-    const paperCodesFromIngestions = Array.from(ingestedPaperCodes).sort((a, b) => a.localeCompare(b));
-    const paperCodes = paperCodesFromIngestions;
+    const paperCodes = Array.from(ingestedPaperCodes).sort((a, b) => a.localeCompare(b));
     const paperCodesSet = new Set(paperCodes);
     const papers = paperCodes.map((code) => ({ code, name: papersMap.get(code) || code }));
     const yearsByPaperCode: Record<string, number[]> = {};
