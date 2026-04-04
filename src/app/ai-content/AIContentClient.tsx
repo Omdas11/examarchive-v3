@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import "katex/dist/katex.min.css";
 import MarkdownNotesRenderer from "./MarkdownNotesRenderer";
 import LiveLogsConsole from "./LiveLogsConsole";
@@ -366,7 +366,8 @@ export default function AIContentClient() {
     }
   }
 
-  function handleDownloadPdfClick() {
+  function handleDownloadPdfClick(event?: MouseEvent<HTMLButtonElement>) {
+    event?.preventDefault();
     if (!downloadPdfUrl) return;
     setError(null);
     const anchor = document.createElement("a");
@@ -376,6 +377,24 @@ export default function AIContentClient() {
     document.body.appendChild(anchor);
     anchor.click();
     document.body.removeChild(anchor);
+  }
+
+  function handlePreviewPdfClick(event: MouseEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    if (!downloadPdfUrl) return;
+    setError(null);
+    const previewUrl = downloadPdfUrl.replace(/\?download=1$/, "");
+    window.open(previewUrl, "_blank", "noopener,noreferrer");
+  }
+
+  function handleGenerateClick(event: MouseEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    void generate();
+  }
+
+  function handleAbortClick(event: MouseEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    abortGeneration();
   }
 
   useEffect(() => {
@@ -459,6 +478,8 @@ export default function AIContentClient() {
     activeTab === "notes"
       ? canGenerateByLegacyLimit && notesQuotaAllowed
       : canGenerateByLegacyLimit && papersQuotaAllowed;
+  const canStartGeneration = !paperCode.trim() || !canGenerate || (activeTab === "papers" && selectedYear === "");
+  const isNotesGenerationFinished = activeTab === "notes" && !generating && Boolean(downloadPdfUrl);
 
   return (
     <div className="relative min-h-screen bg-surface px-4 py-8 text-on-surface">
@@ -474,15 +495,23 @@ export default function AIContentClient() {
           <div className="mt-4 inline-flex rounded-xl border border-outline-variant/40 p-1">
             <button
               className={`rounded-lg px-3 py-1 text-sm ${activeTab === "notes" ? "bg-primary text-white" : "text-on-surface"}`}
-              onClick={() => setActiveTab("notes")}
+              onClick={(event) => {
+                event.preventDefault();
+                setActiveTab("notes");
+              }}
               disabled={generating}
+              type="button"
             >
               Unit Notes
             </button>
             <button
               className={`rounded-lg px-3 py-1 text-sm ${activeTab === "papers" ? "bg-primary text-white" : "text-on-surface"}`}
-              onClick={() => setActiveTab("papers")}
+              onClick={(event) => {
+                event.preventDefault();
+                setActiveTab("papers");
+              }}
               disabled={generating}
+              type="button"
             >
               Solved Papers
             </button>
@@ -549,37 +578,85 @@ export default function AIContentClient() {
               </>
             )}
           </div>
-          <div className="mt-4 flex items-center gap-3">
-            <button
-              onClick={generate}
-              disabled={!paperCode.trim() || !canGenerate || (activeTab === "papers" && selectedYear === "")}
-              aria-busy={generating}
-              aria-live="polite"
-              className="btn-primary relative inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl px-5 py-3 text-sm font-semibold transition-all duration-300 before:absolute before:inset-0 before:-translate-x-full before:bg-gradient-to-r before:from-transparent before:via-white/30 before:to-transparent before:content-[''] hover:before:animate-[shimmer_1.4s_ease-in-out_infinite] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {generating ? (
-                <>
-                  {activeTab === "notes" ? "Generating Unit Notes " : "Generating Solved Paper "}
-                  <LoadingDots />
-                </>
-              ) : (
-                activeTab === "notes"
-                  ? "Generate Unit Notes"
-                  : canResumeGeneration
-                    ? "Resume Generation"
-                    : "Generate Solved Paper"
-              )}
-            </button>
-            {generating && (
-              <button
-                onClick={abortGeneration}
-                className="btn rounded-xl px-4 py-3 text-sm font-semibold"
-                type="button"
-              >
-                Abort Generation
-              </button>
+          <div className="mt-4">
+            {activeTab === "notes" ? (
+              <div className="space-y-3">
+                {!generating && !isNotesGenerationFinished && (
+                  <button
+                    onClick={handleGenerateClick}
+                    disabled={canStartGeneration}
+                    aria-busy={generating}
+                    aria-live="polite"
+                    className="btn-primary relative inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl px-5 py-3 text-sm font-semibold transition-all duration-300 before:absolute before:inset-0 before:-translate-x-full before:bg-gradient-to-r before:from-transparent before:via-white/30 before:to-transparent before:content-[''] hover:before:animate-[shimmer_1.4s_ease-in-out_infinite] disabled:cursor-not-allowed disabled:opacity-60"
+                    type="button"
+                  >
+                    Generate Unit Notes
+                  </button>
+                )}
+                {generating && (
+                  <div className="space-y-2">
+                    <button
+                      disabled={true}
+                      aria-busy="true"
+                      aria-live="polite"
+                      className="btn-primary inline-flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold animate-pulse"
+                      type="button"
+                    >
+                      Generating...
+                      <LoadingDots />
+                    </button>
+                    <button
+                      onClick={handleAbortClick}
+                      className="w-full rounded-xl bg-red-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-700"
+                      type="button"
+                    >
+                      Abort Generation
+                    </button>
+                  </div>
+                )}
+                {!generating && isNotesGenerationFinished && (
+                  <div className="flex gap-3">
+                    <button onClick={handlePreviewPdfClick} className="btn w-full" type="button">
+                      Preview
+                    </button>
+                    <button onClick={handleDownloadPdfClick} className="btn w-full" type="button">
+                      Download
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleGenerateClick}
+                  disabled={canStartGeneration}
+                  aria-busy={generating}
+                  aria-live="polite"
+                  className="btn-primary relative inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl px-5 py-3 text-sm font-semibold transition-all duration-300 before:absolute before:inset-0 before:-translate-x-full before:bg-gradient-to-r before:from-transparent before:via-white/30 before:to-transparent before:content-[''] hover:before:animate-[shimmer_1.4s_ease-in-out_infinite] disabled:cursor-not-allowed disabled:opacity-60"
+                  type="button"
+                >
+                  {generating ? (
+                    <>
+                      Generating Solved Paper <LoadingDots />
+                    </>
+                  ) : canResumeGeneration ? (
+                    "Resume Generation"
+                  ) : (
+                    "Generate Solved Paper"
+                  )}
+                </button>
+                {generating && (
+                  <button
+                    onClick={handleAbortClick}
+                    className="btn rounded-xl px-4 py-3 text-sm font-semibold"
+                    type="button"
+                  >
+                    Abort Generation
+                  </button>
+                )}
+                {generating && <span className="text-xs text-on-surface-variant">Generation in progress — please wait.</span>}
+              </div>
             )}
-            {generating && <span className="text-xs text-on-surface-variant">Generation in progress — please wait.</span>}
           </div>
           {generating && (
             <div className="mt-4 rounded-xl border border-outline-variant/30 bg-surface-container-low p-3">
@@ -607,21 +684,16 @@ export default function AIContentClient() {
           {error && <p className="mt-3 text-sm text-error">⚠ {error}</p>}
         </section>
 
-        <section className="card border border-outline-variant/30 p-5">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <h2 className="text-xl font-semibold">Generated PDF</h2>
-            <button onClick={handleDownloadPdfClick} disabled={!downloadPdfUrl} className="btn">
-              Download PDF
-            </button>
-          </div>
-          {usedModel && <p className="mb-2 text-xs text-on-surface-variant">Model: {usedModel}</p>}
-          <div className={`print-root markdown-preview rounded-xl border border-outline-variant/30 bg-surface-container-low p-4 ${streamingTextActive ? "ai-streaming-text" : ""}`}>
-            <MarkdownNotesRenderer
-              markdown={markdown}
-              emptyFallback={<p className="text-on-surface-variant">No output yet. Generate content to prepare your PDF.</p>}
-            />
-          </div>
-        </section>
+        {markdown && (
+          <section className="card border border-outline-variant/30 p-5">
+            {usedModel && <p className="mb-2 text-xs text-on-surface-variant">Model: {usedModel}</p>}
+            <div
+              className={`print-root markdown-preview rounded-xl border border-outline-variant/30 bg-surface-container-low p-4 ${streamingTextActive ? "ai-streaming-text" : ""}`}
+            >
+              <MarkdownNotesRenderer markdown={markdown} />
+            </div>
+          </section>
+        )}
         <section className="card border border-outline-variant/30 p-5">
           <div className="mb-3 flex items-center justify-between gap-3">
             <h2 className="text-xl font-semibold">Generation Logs</h2>
@@ -629,6 +701,7 @@ export default function AIContentClient() {
               className="btn"
               onClick={() => setShowLogs((prev) => !prev)}
               aria-label={showLogs ? "Hide generation logs" : "Show generation logs"}
+              type="button"
             >
               {showLogs ? "Hide Logs" : "Show Logs"}
             </button>
