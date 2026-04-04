@@ -290,29 +290,29 @@ Use this checklist to wipe counters and storage before relaunch:
 <!-- SCHEMA_SYNC_STATUS_START -->
 ## Schema Sync Status (Auto-generated)
 
-_Last synced: 2026-04-04T07:43:38.379Z_
+_Last synced: 2026-04-04T10:34:56.482Z_
 
-| Collection | Status | ID |
-|---|---|---|
-| `users` | ✅ Connected | users |
-| `papers` | ✅ Connected | papers |
-| `syllabus` | ✅ Connected | syllabus |
-| `activity_logs` | ✅ Connected | activity_logs |
-| `uploads` | ✅ Connected | uploads |
-| `achievements` | ✅ Connected | achievements |
-| `site_metrics` | ✅ Connected | site_metrics |
-| `ai_usage` | ✅ Connected | ai_usage |
-| `ai_embeddings` | ✅ Connected | ai_embeddings |
-| `feedback` | ✅ Connected | feedback |
-| `pdf_usage` | ✅ Connected | pdf_usage |
-| `ai_ingestions` | ✅ Connected | ai_ingestions |
-| `ai_syllabus_maps` | ✅ Connected | ai_syllabus_maps |
-| `ai_flashcards` | ✅ Connected | ai_flashcards |
-| `ai_admin_reports` | ✅ Connected | ai_admin_reports |
-| `syllabus_registry` | ✅ Connected | syllabus_registry |
-| `Syllabus_Table` | ✅ Connected | Syllabus_Table |
-| `Questions_Table` | ✅ Connected | Questions_Table |
-| `Generated_Notes_Cache` | ✅ Connected | Generated_Notes_Cache |
-| `User_Quotas` | ✅ Connected | User_Quotas |
+| Collection | Status | Created in run | Notes |
+|---|---|---:|---|
+| `papers` | ⚠️ Connected with differences | 0 | collection existed; 0 missing attrs created; 5 attr definition mismatch(es); 0 missing expected attr(s); mismatch: semester, department, exam_type, file_url, uploaded_by |
+| `syllabus` | ✅ Perfectly connected | 0 | collection existed; 0 missing attrs created; 0 attr definition mismatch(es); 0 missing expected attr(s) |
+| `users` | ⚠️ Connected with differences | 0 | collection existed; 0 missing attrs created; 6 attr definition mismatch(es); 0 missing expected attr(s); mismatch: email, role, primary_role, secondary_role, tertiary_role, tier |
+| `uploads` | ✅ Perfectly connected | 0 | collection existed; 0 missing attrs created; 0 attr definition mismatch(es); 0 missing expected attr(s) |
+| `activity_logs` | ✅ Perfectly connected | 0 | collection existed; 0 missing attrs created; 0 attr definition mismatch(es); 0 missing expected attr(s) |
+| `achievements` | ✅ Perfectly connected | 0 | collection existed; 0 missing attrs created; 0 attr definition mismatch(es); 0 missing expected attr(s) |
+| `site_metrics` | ⚠️ Connected with differences | 0 | collection existed; 0 missing attrs created; 1 attr definition mismatch(es); 0 missing expected attr(s); mismatch: visitor_count |
+| `feedback` | ✅ Perfectly connected | 0 | collection existed; 0 missing attrs created; 0 attr definition mismatch(es); 0 missing expected attr(s) |
+| `ai_usage` | ✅ Perfectly connected | 0 | collection existed; 0 missing attrs created; 0 attr definition mismatch(es); 0 missing expected attr(s) |
+| `ai_embeddings` | ⚠️ Connected with differences | 0 | collection existed; 0 missing attrs created; 2 attr definition mismatch(es); 0 missing expected attr(s); mismatch: course_code, embedding |
+| `pdf_usage` | ✅ Perfectly connected | 0 | collection existed; 0 missing attrs created; 0 attr definition mismatch(es); 0 missing expected attr(s) |
+| `ai_ingestions` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from DATABASE_SCHEMA.md |
+| `ai_syllabus_maps` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from DATABASE_SCHEMA.md |
+| `ai_flashcards` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from DATABASE_SCHEMA.md |
+| `ai_admin_reports` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from DATABASE_SCHEMA.md |
+| `syllabus_registry` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from DATABASE_SCHEMA.md |
+| `Syllabus_Table` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from DATABASE_SCHEMA.md |
+| `Questions_Table` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from DATABASE_SCHEMA.md |
+| `Generated_Notes_Cache` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from DATABASE_SCHEMA.md |
+| `User_Quotas` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from DATABASE_SCHEMA.md |
 
 <!-- SCHEMA_SYNC_STATUS_END -->
