@@ -433,8 +433,6 @@ export default function AIContentClient() {
     setPaperCodeLoading(true);
     const params = new URLSearchParams({
       university,
-      course,
-      type,
     });
     fetch(`/api/generate-notes?${params.toString()}`)
       .then((res) => res.json())
@@ -477,7 +475,7 @@ export default function AIContentClient() {
         setSelectedYear("");
       })
       .finally(() => setPaperCodeLoading(false));
-  }, [university, course, type]);
+  }, [university]);
 
   useEffect(() => {
     if (availableYears.length === 0) {
@@ -575,22 +573,13 @@ export default function AIContentClient() {
             </div>
             <div>
               <label className="mb-1 block text-sm font-semibold">Paper Code</label>
-              <div className="flex gap-2">
-                <CustomDropdown
-                  options={paperCodeDropdownOptions}
-                  value={paperCode}
-                  onChange={setPaperCode}
-                  placeholder={paperCodeLoading ? "Loading..." : "Select paper code"}
-                  disabled={generating || paperCodeLoading || availablePapers.length === 0}
-                />
-                <input
-                  className="input-field"
-                  value={paperCode}
-                  onChange={(e) => setPaperCode(e.target.value)}
-                  placeholder="Or type paper code"
-                  disabled={generating}
-                />
-              </div>
+              <CustomDropdown
+                options={paperCodeDropdownOptions}
+                value={paperCode}
+                onChange={setPaperCode}
+                placeholder={paperCodeLoading ? "Loading..." : "Select paper code"}
+                disabled={generating || paperCodeLoading || availablePapers.length === 0}
+              />
             </div>
             {activeTab === "notes" ? (
               <>
