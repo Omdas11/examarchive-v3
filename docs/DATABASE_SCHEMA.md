@@ -304,7 +304,7 @@ Use this checklist to wipe counters and storage before relaunch:
 <!-- SCHEMA_SYNC_STATUS_START -->
 ## Schema Sync Status (Auto-generated)
 
-_Last synced: 2026-04-04T11:27:37.792Z_
+_Last synced: 2026-04-04T16:51:34.073Z_
 
 ### Storage Buckets
 | Bucket | Status | ID |
@@ -329,7 +329,7 @@ _Last synced: 2026-04-04T11:27:37.792Z_
 | `ai_usage` | ✅ Perfectly connected | 0 | collection existed; 0 missing attrs created; 0 attr definition mismatch(es); 0 missing expected attr(s) |
 | `ai_embeddings` | ⚠️ Connected with differences | 0 | collection existed; 0 missing attrs created; 2 attr definition mismatch(es); 0 missing expected attr(s); mismatch: course_code, embedding |
 | `pdf_usage` | ✅ Perfectly connected | 0 | collection existed; 0 missing attrs created; 0 attr definition mismatch(es); 0 missing expected attr(s) |
-| `ai_ingestions` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from DATABASE_SCHEMA.md |
+| `ai_ingestions` | ⚠️ Connected with differences | 0 | collection existed; 0 missing attrs created; 1 attr definition mismatch(es); 1 missing expected attr(s); missing: paper_code; mismatch: file_id |
 | `ai_syllabus_maps` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from DATABASE_SCHEMA.md |
 | `ai_flashcards` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from DATABASE_SCHEMA.md |
 | `ai_admin_reports` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from DATABASE_SCHEMA.md |
