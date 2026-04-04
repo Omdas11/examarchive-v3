@@ -19,7 +19,7 @@ type IngestionAttribute =
     | { key: string; type: 'integer'; required: boolean };
 
 const INGESTION_ATTRIBUTES: IngestionAttribute[] = [
-    { key: 'paper_code', type: 'string', size: 255, required: false },
+    { key: 'paper_code', type: 'string', size: 256, required: false },
     { key: 'source_label', type: 'string', size: 256, required: false },
     { key: 'file_id', type: 'string', size: 64, required: false },
     { key: 'file_url', type: 'string', size: 2048, required: false },
@@ -39,7 +39,7 @@ function isNotFoundError(error: unknown): boolean {
     const code = maybeError?.code ?? maybeError?.response?.code;
     const type = maybeError?.type ?? maybeError?.response?.type ?? '';
     const message = String(maybeError?.message ?? '');
-    return code === 404 || /not found/i.test(message) || /_not_found$/i.test(type);
+    return code === 404 || /not found/i.test(message) || /_not_found$/.test(type);
 }
 
 async function createIngestionAttribute(attribute: IngestionAttribute) {
