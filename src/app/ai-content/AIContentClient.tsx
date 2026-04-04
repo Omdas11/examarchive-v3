@@ -42,7 +42,8 @@ export default function AIContentClient() {
   const [generating, setGenerating] = useState(false);
   const [markdown, setMarkdown] = useState("");
   const [usedModel, setUsedModel] = useState("");
-  const [downloadPdfUrl, setDownloadPdfUrl] = useState("");
+  const [notesPdfResult, setNotesPdfResult] = useState<{ key: string; url: string } | null>(null);
+  const [papersPdfResult, setPapersPdfResult] = useState<{ key: string; url: string } | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
   const [remaining, setRemaining] = useState<number | null>(null);
   const [limit, setLimit] = useState<number | null>(null);
@@ -90,6 +91,18 @@ export default function AIContentClient() {
     [availableYears],
   );
   const progressPercent = progressTotal > 0 ? Math.min(100, Math.round((progressIndex / progressTotal) * 100)) : 0;
+  const notesSelectionKey = useMemo(
+    () => [university, course, type, paperCode.trim(), String(unitNumber)].join("|"),
+    [university, course, type, paperCode, unitNumber],
+  );
+  const papersSelectionKey = useMemo(
+    () => [university, course, type, paperCode.trim(), String(selectedYear)].join("|"),
+    [university, course, type, paperCode, selectedYear],
+  );
+  const activePdfUrl =
+    activeTab === "notes"
+      ? (notesPdfResult?.key === notesSelectionKey ? notesPdfResult.url : "")
+      : (papersPdfResult?.key === papersSelectionKey ? papersPdfResult.url : "");
   const estimatedMinutesRemaining = useMemo(() => {
     if (activeTab !== "papers") return null;
     const fallbackByQuestions = Math.max(1, Math.ceil((Math.max(0, progressTotal || 0) * 16) / 60));
@@ -255,7 +268,13 @@ export default function AIContentClient() {
           return prevMarkdown + separator + incomingMarkdown;
         });
         setUsedModel(typeof data.model === "string" ? data.model : "");
-        if (typeof data.pdf_url === "string") setDownloadPdfUrl(data.pdf_url);
+        if (typeof data.pdf_url === "string" && data.pdf_url.trim().length > 0) {
+          if (activeTab === "notes") {
+            setNotesPdfResult({ key: notesSelectionKey, url: data.pdf_url });
+          } else {
+            setPapersPdfResult({ key: papersSelectionKey, url: data.pdf_url });
+          }
+        }
         if (typeof data.remaining === "number" || data.remaining === null) {
           setRemaining(data.remaining);
         }
@@ -342,7 +361,11 @@ export default function AIContentClient() {
     setStreamingTextActive(false);
     startTimer();
     setUsedModel("");
-    setDownloadPdfUrl("");
+    if (activeTab === "notes") {
+      setNotesPdfResult(null);
+    } else {
+      setPapersPdfResult(null);
+    }
     setShowLogs(true);
     const params = new URLSearchParams({
       university,
@@ -368,10 +391,10 @@ export default function AIContentClient() {
 
   function handleDownloadPdfClick(event?: MouseEvent<HTMLButtonElement>) {
     event?.preventDefault();
-    if (!downloadPdfUrl) return;
+    if (!activePdfUrl) return;
     setError(null);
     const anchor = document.createElement("a");
-    anchor.href = downloadPdfUrl;
+    anchor.href = activePdfUrl;
     anchor.download = "";
     anchor.rel = "noopener noreferrer";
     document.body.appendChild(anchor);
@@ -381,9 +404,9 @@ export default function AIContentClient() {
 
   function handlePreviewPdfClick(event: MouseEvent<HTMLButtonElement>) {
     event.preventDefault();
-    if (!downloadPdfUrl) return;
+    if (!activePdfUrl) return;
     setError(null);
-    const previewUrl = downloadPdfUrl.replace(/\?download=1$/, "");
+    const previewUrl = activePdfUrl.replace(/\?download=1$/, "");
     window.open(previewUrl, "_blank", "noopener,noreferrer");
   }
 
@@ -479,7 +502,8 @@ export default function AIContentClient() {
       ? canGenerateByLegacyLimit && notesQuotaAllowed
       : canGenerateByLegacyLimit && papersQuotaAllowed;
   const isGenerationDisabled = !paperCode.trim() || !canGenerate || (activeTab === "papers" && selectedYear === "");
-  const isNotesGenerationFinished = activeTab === "notes" && !generating && Boolean(downloadPdfUrl);
+  const isNotesGenerationFinished = activeTab === "notes" && !generating && Boolean(activePdfUrl);
+  const isPapersGenerationFinished = activeTab === "papers" && !generating && Boolean(activePdfUrl);
 
   return (
     <div className="relative min-h-screen bg-surface px-4 py-8 text-on-surface">
@@ -615,46 +639,79 @@ export default function AIContentClient() {
                   </div>
                 )}
                 {!generating && isNotesGenerationFinished && (
-                  <div className="flex gap-3">
-                    <button onClick={handlePreviewPdfClick} className="btn w-full" type="button">
-                      Preview
-                    </button>
-                    <button onClick={handleDownloadPdfClick} className="btn w-full" type="button">
-                      Download
+                  <div className="space-y-2">
+                    <div className="flex gap-3">
+                      <button onClick={handlePreviewPdfClick} className="btn w-full" type="button">
+                        Preview
+                      </button>
+                      <button onClick={handleDownloadPdfClick} className="btn w-full" type="button">
+                        Download
+                      </button>
+                    </div>
+                    <button
+                      onClick={handleGenerateClick}
+                      disabled={isGenerationDisabled}
+                      className="btn-primary w-full rounded-xl px-5 py-3 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+                      type="button"
+                    >
+                      Generate Again
                     </button>
                   </div>
                 )}
               </div>
             ) : (
               <div className="flex items-center gap-3">
-                <button
-                  onClick={handleGenerateClick}
-                  disabled={isGenerationDisabled}
-                  aria-busy={generating}
-                  aria-live="polite"
-                  className="btn-primary relative inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl px-5 py-3 text-sm font-semibold transition-all duration-300 before:absolute before:inset-0 before:-translate-x-full before:bg-gradient-to-r before:from-transparent before:via-white/30 before:to-transparent before:content-[''] hover:before:animate-[shimmer_1.4s_ease-in-out_infinite] disabled:cursor-not-allowed disabled:opacity-60"
-                  type="button"
-                >
-                  {generating ? (
-                    <>
-                      Generating Solved Paper <LoadingDots />
-                    </>
-                  ) : canResumeGeneration ? (
-                    "Resume Generation"
-                  ) : (
-                    "Generate Solved Paper"
-                  )}
-                </button>
-                {generating && (
-                  <button
-                    onClick={handleAbortClick}
-                    className="btn rounded-xl px-4 py-3 text-sm font-semibold"
-                    type="button"
-                  >
-                    Abort Generation
-                  </button>
+                {isPapersGenerationFinished && !generating ? (
+                  <div className="w-full space-y-2">
+                    <div className="flex gap-3">
+                      <button onClick={handlePreviewPdfClick} className="btn w-full" type="button">
+                        Preview
+                      </button>
+                      <button onClick={handleDownloadPdfClick} className="btn w-full" type="button">
+                        Download
+                      </button>
+                    </div>
+                    <button
+                      onClick={handleGenerateClick}
+                      disabled={isGenerationDisabled}
+                      className="btn-primary w-full rounded-xl px-5 py-3 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+                      type="button"
+                    >
+                      {canResumeGeneration ? "Resume Generation" : "Generate Solved Paper"}
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <button
+                      onClick={handleGenerateClick}
+                      disabled={isGenerationDisabled}
+                      aria-busy={generating}
+                      aria-live="polite"
+                      className="btn-primary relative inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl px-5 py-3 text-sm font-semibold transition-all duration-300 before:absolute before:inset-0 before:-translate-x-full before:bg-gradient-to-r before:from-transparent before:via-white/30 before:to-transparent before:content-[''] hover:before:animate-[shimmer_1.4s_ease-in-out_infinite] disabled:cursor-not-allowed disabled:opacity-60"
+                      type="button"
+                    >
+                      {generating ? (
+                        <>
+                          Generating Solved Paper <LoadingDots />
+                        </>
+                      ) : canResumeGeneration ? (
+                        "Resume Generation"
+                      ) : (
+                        "Generate Solved Paper"
+                      )}
+                    </button>
+                    {generating && (
+                      <button
+                        onClick={handleAbortClick}
+                        className="btn rounded-xl px-4 py-3 text-sm font-semibold"
+                        type="button"
+                      >
+                        Abort Generation
+                      </button>
+                    )}
+                    {generating && <span className="text-xs text-on-surface-variant">Generation in progress — please wait.</span>}
+                  </>
                 )}
-                {generating && <span className="text-xs text-on-surface-variant">Generation in progress — please wait.</span>}
               </div>
             )}
           </div>
