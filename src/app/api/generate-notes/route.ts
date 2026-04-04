@@ -91,20 +91,50 @@ export async function GET(request: NextRequest) {
         Query.limit(1000),
       ]),
       db.listDocuments(DATABASE_ID, COLLECTION.ai_ingestions, [
-        Query.equal("status", "success"),
-        Query.select(["digest"]),
         Query.limit(1000),
-        Query.orderDesc("$createdAt"),
       ]),
     ]);
     const ingestedPaperCodes = new Set<string>();
     for (const ingestionDoc of ingestionRes.documents) {
+      const statusCandidate =
+        typeof ingestionDoc.status === "string"
+          ? ingestionDoc.status
+          : typeof ingestionDoc.ingestion_status === "string"
+            ? ingestionDoc.ingestion_status
+            : typeof ingestionDoc.ingestionStatus === "string"
+              ? ingestionDoc.ingestionStatus
+              : "";
+      const normalizedStatus = statusCandidate.trim().toLowerCase();
+      if (normalizedStatus !== "success") continue;
+
+      const directCodeCandidate =
+        typeof ingestionDoc.paper_code === "string"
+          ? ingestionDoc.paper_code
+          : typeof ingestionDoc.paperCode === "string"
+            ? ingestionDoc.paperCode
+            : typeof ingestionDoc.course_code === "string"
+              ? ingestionDoc.course_code
+              : "";
+      const directCode = directCodeCandidate.trim();
+      if (directCode) {
+        ingestedPaperCodes.add(directCode);
+        continue;
+      }
+
       const digest = typeof ingestionDoc.digest === "string" ? ingestionDoc.digest : "";
       if (!digest) continue;
       try {
-        const parsed = JSON.parse(digest) as { paperCode?: unknown };
-        const paperCodeFromDigest = typeof parsed.paperCode === "string" ? parsed.paperCode.trim() : "";
-        if (paperCodeFromDigest) ingestedPaperCodes.add(paperCodeFromDigest);
+        const parsed = JSON.parse(digest) as { paperCode?: unknown; paper_code?: unknown; course_code?: unknown };
+        const digestCodeCandidate =
+          typeof parsed.paperCode === "string"
+            ? parsed.paperCode
+            : typeof parsed.paper_code === "string"
+              ? parsed.paper_code
+              : typeof parsed.course_code === "string"
+                ? parsed.course_code
+                : "";
+        const digestCode = digestCodeCandidate.trim();
+        if (digestCode) ingestedPaperCodes.add(digestCode);
       } catch {
         // Ignore malformed legacy digest payloads; valid paper codes from other ingestion logs still populate options.
       }
