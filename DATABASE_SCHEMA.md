@@ -100,7 +100,7 @@ _This section is updated by `scripts/sync-appwrite-schema.js` when run with `--u
 
 ---
 ### Sync Remarks (Auto-Generated)
-**Last Synced:** 2026-04-03T11:37:43.271Z
+**Last Synced:** 2026-04-04T17:55:15.599Z
 **Overall Status:** Partial
 **Connected:**
 - feedback updated successfully.
