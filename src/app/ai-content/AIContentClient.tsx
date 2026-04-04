@@ -475,7 +475,7 @@ export default function AIContentClient() {
         setSelectedYear("");
       })
       .finally(() => setPaperCodeLoading(false));
-  }, [university]);
+  }, [university, course, type]);
 
   useEffect(() => {
     if (availableYears.length === 0) {

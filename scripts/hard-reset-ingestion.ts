@@ -16,9 +16,10 @@ const COL_ID = "ai_ingestions";
 const BUCKET_ID = "examarchive-md-ingestion";
 
 function isNotFoundError(error: unknown): boolean {
-  const maybeError = error as { code?: number; response?: { code?: number }; message?: string };
+  const maybeError = error as { code?: number; response?: { code?: number; type?: string }; type?: string; message?: string };
   const code = maybeError?.code ?? maybeError?.response?.code;
-  return code === 404 || /not found/i.test(String(maybeError?.message ?? ""));
+  const type = maybeError?.type ?? maybeError?.response?.type;
+  return code === 404 || type === "not_found" || type === "collection_not_found" || type === "bucket_not_found";
 }
 
 function sleep(ms: number): Promise<void> {
@@ -73,5 +74,5 @@ async function hardReset() {
 
 hardReset().catch((error) => {
   console.error("❌ Hard reset failed:", error);
-  process.exitCode = 1;
+  process.exit(1);
 });
