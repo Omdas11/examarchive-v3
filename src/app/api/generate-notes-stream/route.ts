@@ -284,13 +284,15 @@ async function writeCachedNotes(
   unitNumber: number,
   markdown: string,
   syllabusContent: string,
+  log?: (message: string) => void,
 ): Promise<void> {
   const db = adminDatabases();
   const storage = adminStorage();
   try {
+    const mdFileName = `${paperCode}_Unit_${unitNumber}_Cache.md`;
     const inputFile = InputFile.fromBuffer(
       Buffer.from(markdown, "utf-8"),
-      `${paperCode}_Unit_${unitNumber}_cache.md`,
+      mdFileName,
     );
     const uploadResult = await storage.createFile(MARKDOWN_CACHE_BUCKET_ID, ID.unique(), inputFile);
     const markdownFileId = String(uploadResult.$id);
@@ -305,8 +307,10 @@ async function writeCachedNotes(
       created_at: new Date().toISOString(),
     };
     await db.createDocument(DATABASE_ID, COLLECTION.generated_notes_cache, ID.unique(), payload);
+    log?.("Markdown cache saved successfully.");
   } catch (error) {
     console.error("[generate-notes-stream] Failed to write cache:", error);
+    log?.("Warning: Could not save markdown cache.");
   }
 }
 
@@ -704,15 +708,18 @@ CRITICAL FORMAT CONSTRAINTS:
           await sleep(TOPIC_LOOP_DELAY_MS);
         }
 
-        await writeCachedNotes(paperCode, unitNumber, masterMarkdown, syllabusContent);
+        await writeCachedNotes(paperCode, unitNumber, masterMarkdown, syllabusContent, (message) =>
+          controller.enqueue(toSseData({ log: message })),
+        );
         controller.enqueue(toSseData({ log: "AI generation complete. Sending to Azure for PDF rendering..." }));
         let pdfUrl: string | null = null;
         try {
           controller.enqueue(toSseData({ log: "Sending HTML payload to Azure Gotenberg..." }));
+          const dynamicPdfName = `${paperCode}_Unit_${unitNumber}_Notes.pdf`;
           const rendered = await renderMarkdownPdfToAppwrite({
             markdown: masterMarkdown,
             fileBaseName: `${paperCode}_unit_${unitNumber}_${Date.now()}`,
-            fileName: `${paperCode}_unit_${unitNumber}_notes.pdf`,
+            fileName: dynamicPdfName,
             gotenbergUrl: azureGotenbergUrl,
             paperCode,
             unitNumber,
