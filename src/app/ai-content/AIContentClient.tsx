@@ -36,7 +36,7 @@ export default function AIContentClient() {
   const [paperCode, setPaperCode] = useState("");
   const [unitNumber, setUnitNumber] = useState(1);
   const [selectedYear, setSelectedYear] = useState<number | "">("");
-  const [paperCodeOptions, setPaperCodeOptions] = useState<string[]>([]);
+  const [availablePapers, setAvailablePapers] = useState<string[]>([]);
   const [yearsByPaperCode, setYearsByPaperCode] = useState<Record<string, number[]>>({});
   const [paperCodeLoading, setPaperCodeLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -78,8 +78,8 @@ export default function AIContentClient() {
     [course],
   );
   const paperCodeDropdownOptions: CustomDropdownOption[] = useMemo(
-    () => paperCodeOptions.map((code) => ({ label: code, value: code })),
-    [paperCodeOptions],
+    () => availablePapers.map((code) => ({ label: code, value: code })),
+    [availablePapers],
   );
   const unitOptions: CustomDropdownOption[] = useMemo(
     () => UNIT_OPTIONS.map((unit) => ({ label: String(unit), value: String(unit) })),
@@ -442,13 +442,7 @@ export default function AIContentClient() {
         if (typeof data.papersDailyLimit === "number") setPapersDailyLimit(data.papersDailyLimit);
         if (Array.isArray(data.paperCodes)) {
           const options = data.paperCodes.filter((item: unknown): item is string => typeof item === "string" && item.trim().length > 0);
-          setPaperCodeOptions(options);
-          if (Array.isArray(data.papers)) {
-            for (const paper of data.papers) {
-              const code = typeof paper?.code === "string" ? paper.code.trim() : "";
-              if (!code) continue;
-            }
-          }
+          setAvailablePapers(options);
           setPaperCode((current) => {
             if (current && options.includes(current)) return current;
             return options[0] || current;
@@ -572,7 +566,7 @@ export default function AIContentClient() {
                   value={paperCode}
                   onChange={setPaperCode}
                   placeholder={paperCodeLoading ? "Loading..." : "Select paper code"}
-                  disabled={generating || paperCodeLoading || paperCodeOptions.length === 0}
+                  disabled={generating || paperCodeLoading || availablePapers.length === 0}
                 />
                 <input
                   className="input-field"
