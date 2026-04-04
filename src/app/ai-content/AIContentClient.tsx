@@ -36,7 +36,7 @@ export default function AIContentClient() {
   const [paperCode, setPaperCode] = useState("");
   const [unitNumber, setUnitNumber] = useState(1);
   const [selectedYear, setSelectedYear] = useState<number | "">("");
-  const [paperCodeOptions, setPaperCodeOptions] = useState<string[]>([]);
+  const [availablePapers, setAvailablePapers] = useState<string[]>([]);
   const [yearsByPaperCode, setYearsByPaperCode] = useState<Record<string, number[]>>({});
   const [paperCodeLoading, setPaperCodeLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -65,7 +65,6 @@ export default function AIContentClient() {
   const [showLogs, setShowLogs] = useState(false);
   const elapsedSecondsRef = useRef(0);
   const eventSourceRef = useRef<EventSource | null>(null);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const availableYears = useMemo(() => yearsByPaperCode[paperCode] || [], [yearsByPaperCode, paperCode]);
   const courseOptions: CustomDropdownOption[] = useMemo(
     () => [
@@ -79,8 +78,8 @@ export default function AIContentClient() {
     [course],
   );
   const paperCodeDropdownOptions: CustomDropdownOption[] = useMemo(
-    () => paperCodeOptions.map((code) => ({ label: code, value: code })),
-    [paperCodeOptions],
+    () => availablePapers.map((code) => ({ label: code, value: code })),
+    [availablePapers],
   );
   const unitOptions: CustomDropdownOption[] = useMemo(
     () => UNIT_OPTIONS.map((unit) => ({ label: String(unit), value: String(unit) })),
@@ -127,26 +126,6 @@ export default function AIContentClient() {
     return `Remaining generations: ${remaining}${typeof limit === "number" ? ` / ${limit}` : ""}`;
   }
 
-  function stopTimer() {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-  }
-
-  function startTimer() {
-    stopTimer();
-    setElapsedSeconds(0);
-    elapsedSecondsRef.current = 0;
-    timerRef.current = setInterval(() => {
-      setElapsedSeconds((prev) => {
-        const next = prev + 1;
-        elapsedSecondsRef.current = next;
-        return next;
-      });
-    }, 1000);
-  }
-
   function closeEventSource() {
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
@@ -169,7 +148,6 @@ export default function AIContentClient() {
     setProgressIndex(0);
     setProgressTotal(0);
     setStreamingTextActive(false);
-    stopTimer();
     closeEventSource();
   }
 
@@ -359,7 +337,8 @@ export default function AIContentClient() {
     setTotalParts(1);
     setEtaMinutes(null);
     setStreamingTextActive(false);
-    startTimer();
+    setElapsedSeconds(0);
+    elapsedSecondsRef.current = 0;
     setUsedModel("");
     if (activeTab === "notes") {
       setNotesPdfResult(null);
@@ -391,10 +370,21 @@ export default function AIContentClient() {
 
   function handleDownloadPdfClick(event?: MouseEvent<HTMLButtonElement>) {
     event?.preventDefault();
+    event?.stopPropagation();
     if (!activePdfUrl) return;
     setError(null);
+    let downloadUrl = activePdfUrl;
+    try {
+      const parsed = new URL(activePdfUrl, window.location.origin);
+      if (parsed.searchParams.get("download") !== "1") {
+        parsed.searchParams.set("download", "1");
+      }
+      downloadUrl = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+    } catch {
+      downloadUrl = `${activePdfUrl}${activePdfUrl.includes("?") ? "&" : "?"}download=1`;
+    }
     const anchor = document.createElement("a");
-    anchor.href = activePdfUrl;
+    anchor.href = downloadUrl;
     anchor.download = "";
     anchor.rel = "noopener noreferrer";
     document.body.appendChild(anchor);
@@ -404,6 +394,7 @@ export default function AIContentClient() {
 
   function handlePreviewPdfClick(event: MouseEvent<HTMLButtonElement>) {
     event.preventDefault();
+    event.stopPropagation();
     if (!activePdfUrl) return;
     setError(null);
     const previewUrl = activePdfUrl.replace(/\?download=1$/, "");
@@ -412,17 +403,40 @@ export default function AIContentClient() {
 
   function handleGenerateClick(event: MouseEvent<HTMLButtonElement>) {
     event.preventDefault();
+    event.stopPropagation();
     void generate();
   }
 
   function handleAbortClick(event: MouseEvent<HTMLButtonElement>) {
     event.preventDefault();
+    event.stopPropagation();
     abortGeneration();
   }
 
   useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | undefined;
+    if (generating) {
+      interval = setInterval(() => {
+        setElapsedSeconds((prev) => {
+          const next = prev + 1;
+          elapsedSecondsRef.current = next;
+          return next;
+        });
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [generating]);
+
+  useEffect(() => {
     setPaperCodeLoading(true);
-    fetch(`/api/generate-notes?university=${encodeURIComponent(university)}&course=${encodeURIComponent(course)}&type=${encodeURIComponent(type)}`)
+    const params = new URLSearchParams({
+      university,
+      course,
+      type,
+    });
+    fetch(`/api/generate-notes?${params.toString()}`)
       .then((res) => res.json())
       .then((data) => {
         if (typeof data.remaining === "number" || data.remaining === null) setRemaining(data.remaining);
@@ -433,17 +447,16 @@ export default function AIContentClient() {
         if (typeof data.papersDailyLimit === "number") setPapersDailyLimit(data.papersDailyLimit);
         if (Array.isArray(data.paperCodes)) {
           const options = data.paperCodes.filter((item: unknown): item is string => typeof item === "string" && item.trim().length > 0);
-          setPaperCodeOptions(options);
-          if (Array.isArray(data.papers)) {
-            for (const paper of data.papers) {
-              const code = typeof paper?.code === "string" ? paper.code.trim() : "";
-              if (!code) continue;
-            }
-          }
+          setAvailablePapers(options);
           setPaperCode((current) => {
             if (current && options.includes(current)) return current;
             return options[0] || current;
           });
+        } else {
+          setAvailablePapers([]);
+          setPaperCode("");
+          setYearsByPaperCode({});
+          setSelectedYear("");
         }
         if (data.yearsByPaperCode && typeof data.yearsByPaperCode === "object") {
           const map: Record<string, number[]> = {};
@@ -457,7 +470,12 @@ export default function AIContentClient() {
           setYearsByPaperCode(map);
         }
       })
-      .catch(() => {})
+      .catch(() => {
+        setAvailablePapers([]);
+        setPaperCode("");
+        setYearsByPaperCode({});
+        setSelectedYear("");
+      })
       .finally(() => setPaperCodeLoading(false));
   }, [university, course, type]);
 
@@ -481,7 +499,6 @@ export default function AIContentClient() {
 
   useEffect(() => {
     return () => {
-      stopTimer();
       closeEventSource();
     };
   }, []);
@@ -564,7 +581,7 @@ export default function AIContentClient() {
                   value={paperCode}
                   onChange={setPaperCode}
                   placeholder={paperCodeLoading ? "Loading..." : "Select paper code"}
-                  disabled={generating || paperCodeLoading || paperCodeOptions.length === 0}
+                  disabled={generating || paperCodeLoading || availablePapers.length === 0}
                 />
                 <input
                   className="input-field"

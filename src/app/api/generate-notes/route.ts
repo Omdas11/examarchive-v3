@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
     if (type) queries.push(Query.equal("type", type));
 
     const db = adminDatabases();
-    const [{ documents }, questionDocsRes] = await Promise.all([
+    const [{ documents }, questionDocsRes, ingestionRes] = await Promise.all([
       db.listDocuments(DATABASE_ID, COLLECTION.syllabus_table, queries),
       db.listDocuments(DATABASE_ID, COLLECTION.questions_table, [
         Query.equal("university", university),
@@ -90,7 +90,47 @@ export async function GET(request: NextRequest) {
         ...(type ? [Query.equal("type", type)] : []),
         Query.limit(1000),
       ]),
+      db.listDocuments(DATABASE_ID, COLLECTION.ai_ingestions, [
+        Query.limit(1000),
+      ]),
     ]);
+    const ingestedPaperCodes = new Set<string>();
+    const readFirstString = (value: Record<string, unknown>, keys: string[]) => {
+      for (const key of keys) {
+        const candidate = value[key];
+        if (typeof candidate === "string") {
+          const trimmed = candidate.trim();
+          if (trimmed) return trimmed;
+        }
+      }
+      return "";
+    };
+    const normalizePaperCode = (value: string) => value.replace(/\.md$/i, "").trim();
+    for (const ingestionDoc of ingestionRes.documents) {
+      const normalizedStatus = readFirstString(ingestionDoc, ["status", "ingestion_status", "ingestionStatus"]).toLowerCase();
+      if (normalizedStatus !== "success") continue;
+
+      const directCode = normalizePaperCode(
+        readFirstString(ingestionDoc, ["paper_code", "paperCode", "course_code"]),
+      );
+      if (directCode) {
+        ingestedPaperCodes.add(directCode);
+      }
+
+      const digest = typeof ingestionDoc.digest === "string" ? ingestionDoc.digest : "";
+      if (!digest) continue;
+      try {
+        const parsed = JSON.parse(digest) as Record<string, unknown>;
+        const digestCode = normalizePaperCode(
+          readFirstString(parsed, ["source_label", "sourceLabel", "paperCode", "paper_code", "course_code"]),
+        );
+        // Keep digest parsing even when directCode exists so legacy logs without direct paper fields still contribute.
+        // ingestedPaperCodes is a Set, so duplicate values remain deduplicated.
+        if (digestCode) ingestedPaperCodes.add(digestCode);
+      } catch {
+        // Ignore malformed legacy digest payloads; valid paper codes from other ingestion logs still populate options.
+      }
+    }
     const papersMap = new Map<string, string>();
     for (const doc of documents) {
       const code = typeof doc.paper_code === "string" ? doc.paper_code.trim() : "";
@@ -98,12 +138,14 @@ export async function GET(request: NextRequest) {
       const name = typeof doc.paper_name === "string" ? doc.paper_name.trim() : "";
       if (!papersMap.has(code)) papersMap.set(code, name || code);
     }
-    const papers = Array.from(papersMap.entries()).map(([code, name]) => ({ code, name }));
-    const paperCodes = papers.map((paper) => paper.code);
+    const paperCodes = Array.from(ingestedPaperCodes)
+      .filter((code) => papersMap.has(code))
+      .sort((a, b) => a.localeCompare(b));
+    const papers = paperCodes.map((code) => ({ code, name: papersMap.get(code) || code }));
     const yearsByPaperCode: Record<string, number[]> = {};
     for (const questionDoc of questionDocsRes.documents) {
       const code = typeof questionDoc.paper_code === "string" ? questionDoc.paper_code.trim() : "";
-      if (!code) continue;
+      if (!code || !ingestedPaperCodes.has(code)) continue;
       const yearRaw = questionDoc.year;
       const year =
         typeof yearRaw === "number"
