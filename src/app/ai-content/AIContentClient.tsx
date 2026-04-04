@@ -416,10 +416,12 @@ export default function AIContentClient() {
           return next;
         });
       }, 1000);
-    } else {
+    } else if (interval) {
       clearInterval(interval);
     }
-    return () => clearInterval(interval);
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   }, [generating]);
 
   useEffect(() => {
