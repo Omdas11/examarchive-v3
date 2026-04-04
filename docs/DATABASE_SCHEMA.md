@@ -290,8 +290,18 @@ Use this checklist to wipe counters and storage before relaunch:
 <!-- SCHEMA_SYNC_STATUS_START -->
 ## Schema Sync Status (Auto-generated)
 
-_Last synced: 2026-04-04T10:34:56.482Z_
+_Last synced: 2026-04-04T11:27:37.792Z_
 
+### Storage Buckets
+| Bucket | Status | ID |
+|---|---|---|
+| `papers` | ✅ Connected | papers |
+| `avatars` | ✅ Connected | avatars |
+| `syllabus-files` | ✅ Connected | syllabus-files |
+| `examarchive-md-ingestion` | ✅ Connected | examarchive-md-ingestion |
+| `generated-md-cache` | ✅ Connected | generated-md-cache |
+
+### Database Collections
 | Collection | Status | Created in run | Notes |
 |---|---|---:|---|
 | `papers` | ⚠️ Connected with differences | 0 | collection existed; 0 missing attrs created; 5 attr definition mismatch(es); 0 missing expected attr(s); mismatch: semester, department, exam_type, file_url, uploaded_by |
