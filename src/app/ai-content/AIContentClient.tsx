@@ -143,6 +143,7 @@ export default function AIContentClient() {
 
   function abortGeneration() {
     if (!generating) return;
+    closeEventSource();
     setError("Generation aborted.");
     setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] Generation aborted by user.`]);
     resetProgressState();
@@ -617,7 +618,7 @@ export default function AIContentClient() {
           <div className={`print-root markdown-preview rounded-xl border border-outline-variant/30 bg-surface-container-low p-4 ${streamingTextActive ? "ai-streaming-text" : ""}`}>
             <MarkdownNotesRenderer
               markdown={markdown}
-              emptyFallback={<p className="text-on-surface-variant">No output yet. Generate notes to prepare your PDF.</p>}
+              emptyFallback={<p className="text-on-surface-variant">No output yet. Generate notes to preview here.</p>}
             />
           </div>
         </section>
