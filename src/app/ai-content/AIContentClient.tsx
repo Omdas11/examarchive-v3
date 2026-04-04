@@ -431,7 +431,12 @@ export default function AIContentClient() {
 
   useEffect(() => {
     setPaperCodeLoading(true);
-    fetch(`/api/generate-notes?university=${encodeURIComponent(university)}`)
+    const params = new URLSearchParams({
+      university,
+      course,
+      type,
+    });
+    fetch(`/api/generate-notes?${params.toString()}`)
       .then((res) => res.json())
       .then((data) => {
         if (typeof data.remaining === "number" || data.remaining === null) setRemaining(data.remaining);
@@ -447,6 +452,8 @@ export default function AIContentClient() {
             if (current && options.includes(current)) return current;
             return options[0] || current;
           });
+        } else {
+          setAvailablePapers([]);
         }
         if (data.yearsByPaperCode && typeof data.yearsByPaperCode === "object") {
           const map: Record<string, number[]> = {};
@@ -460,9 +467,11 @@ export default function AIContentClient() {
           setYearsByPaperCode(map);
         }
       })
-      .catch(() => {})
+      .catch(() => {
+        setAvailablePapers([]);
+      })
       .finally(() => setPaperCodeLoading(false));
-  }, [university]);
+  }, [university, course, type]);
 
   useEffect(() => {
     if (availableYears.length === 0) {
