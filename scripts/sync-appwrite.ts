@@ -191,14 +191,17 @@ function parseExpectedCollectionsFromDoc(docContent: string): ExpectedCollection
     const rows = tableContent.split("\n").filter(Boolean).slice(2);
 
     for (const row of rows) {
-      const attrMatch = row.match(/^\|\s*`?([^`|]+?)`?\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|/);
-      if (!attrMatch) {
+      const cells = row
+        .split("|")
+        .slice(1, -1)
+        .map((cell) => cell.trim());
+      if (cells.length < 3) {
         continue;
       }
 
-      const name = attrMatch[1].trim();
-      const typeRaw = attrMatch[2].trim();
-      const requiredRaw = attrMatch[3].replace(/\*/g, "").trim().toLowerCase();
+      const name = cells[0].replace(/^`|`$/g, "").trim();
+      const typeRaw = cells[1].trim();
+      const requiredRaw = cells[2].replace(/\*/g, "").trim().toLowerCase();
       const isArray = /array|\[\]/i.test(typeRaw);
       attributes.push({
         name,
@@ -250,7 +253,15 @@ async function fetchLiveCollections(databases: Databases): Promise<LiveCollectio
 
 async function fetchLiveAttributes(databases: Databases, collectionId: string): Promise<LiveAttribute[]> {
   const response = await databases.listAttributes(TARGET_DATABASE_ID, collectionId);
-  return (response.attributes as LiveAttribute[]).filter((attribute) => Boolean(attribute.key));
+  return response.attributes
+    .map((attribute): LiveAttribute => ({
+      key: attribute.key,
+      type: attribute.type,
+      required: Boolean(attribute.required),
+      array: Boolean(attribute.array),
+      size: "size" in attribute && typeof attribute.size === "number" ? attribute.size : undefined,
+    }))
+    .filter((attribute) => Boolean(attribute.key));
 }
 
 function buildSchemaStatusTableFromDiff(input: {
@@ -359,6 +370,8 @@ async function syncInfrastructure() {
 
     const liveAttributes = await fetchLiveAttributes(databases, liveCollection.$id);
     const liveAttrByKey = new Map(liveAttributes.map((attribute) => [attribute.key, attribute]));
+    // Appwrite system-managed attributes (e.g. $createdAt, $updatedAt) are omitted from live listAttributes
+    // and should not be treated as user-schema drift.
     const expectedComparableAttributes = expectedCollection.attributes.filter((attribute) => !attribute.name.startsWith("$"));
 
     let missingAttrs = 0;
@@ -387,7 +400,8 @@ async function syncInfrastructure() {
 
     const missingSummary = missingNames.length > 0 ? `; missing: ${missingNames.join(", ")}` : "";
     const mismatchSummary = mismatchNames.length > 0 ? `; mismatch: ${mismatchNames.join(", ")}` : "";
-    const notes = `collection existed; 0 missing attrs created; ${mismatches} attr definition mismatch(es); ${missingAttrs} missing expected attr(s)${missingSummary}${mismatchSummary}`;
+    const missingAttrsCreated = 0;
+    const notes = `collection existed; ${missingAttrsCreated} missing attrs created; ${mismatches} attr definition mismatch(es); ${missingAttrs} missing expected attr(s)${missingSummary}${mismatchSummary}`;
 
     perCollectionRows.push({
       collectionName: expectedCollection.name,
