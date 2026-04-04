@@ -441,8 +441,7 @@ export default function AIContentClient() {
         if (typeof data.notesDailyLimit === "number") setNotesDailyLimit(data.notesDailyLimit);
         if (typeof data.papersDailyLimit === "number") setPapersDailyLimit(data.papersDailyLimit);
         if (Array.isArray(data.paperCodes)) {
-          const options = data.paperCodes as string[];
-          console.log("[ai-content] raw Appwrite paper codes:", options);
+          const options = data.paperCodes.filter((item: unknown): item is string => typeof item === "string" && item.trim().length > 0);
           setPaperCodeOptions(options);
           if (Array.isArray(data.papers)) {
             for (const paper of data.papers) {
