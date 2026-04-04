@@ -148,11 +148,11 @@ function renderSchemaMarkdown(params: {
     "## Databases",
     dbLine,
     "",
-    `### Required Collection in ${TARGET_DATABASE_ID}`,
+    `### Required Collection in ${TARGET_DATABASE_NAME}`,
     requiredCollectionLine,
     "",
-    `### Collections within ${TARGET_DATABASE_ID}`,
-    allCollectionLines || "- No collections found.",
+    `### Collections within ${TARGET_DATABASE_NAME} (${TARGET_DATABASE_ID})`,
+    allCollectionLines.length > 0 ? allCollectionLines : "- No collections found.",
     "",
   ].join("\n");
 }
