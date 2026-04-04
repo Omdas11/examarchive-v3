@@ -92,7 +92,7 @@ describe("sync-appwrite-ai", () => {
       const result = await syncCollection(databases, collection);
 
       expect(databases.createCollection).toHaveBeenCalledWith("examarchive", "ai_ingestions", "ai_ingestions");
-      expect(createAttribute).toHaveBeenCalledTimes(1);
+      expect(createAttribute).toHaveBeenCalledTimes(2);
       expect(waitForAttributeAvailability).toHaveBeenCalledWith(
         databases,
         "examarchive",
@@ -115,7 +115,7 @@ describe("sync-appwrite-ai", () => {
         createCollection: jest.fn(),
         listAttributes: jest
           .fn()
-          .mockResolvedValue({ attributes: [{ key: "source_label" }, { key: "status" }] }),
+          .mockResolvedValue({ attributes: [{ key: "paper_code" }, { key: "source_label" }, { key: "status" }] }),
       };
       const collection = {
         id: "ai_ingestions",

@@ -76,7 +76,7 @@ export default function IngestMdClient() {
               )
               .filter(Boolean)
           : [];
-        setError(data.error ?? fallbackErrors.join("; ") || "Upload/ingestion failed.");
+        setError(data.error ?? (fallbackErrors.join("; ") || "Upload/ingestion failed."));
       } else {
         setLastResult(
           `${String(data.status).toUpperCase()} · Added ${data.added}, Updated ${data.updated}, Rows ${data.rowsAffected}`,
