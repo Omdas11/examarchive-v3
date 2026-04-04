@@ -10,17 +10,6 @@ type BucketSpec = {
   name: string;
 };
 
-type CollectionSpec = {
-  id: string;
-  name: string;
-};
-
-type DatabaseSpec = {
-  id: string;
-  name: string;
-  collections: CollectionSpec[];
-};
-
 type SyncResourceResult = {
   kind: "bucket" | "database" | "collection";
   name: string;
@@ -35,11 +24,9 @@ const REQUIRED_BUCKETS: BucketSpec[] = [
   { id: "avatars", name: "avatars" },
 ];
 
-const TARGET_DATABASE: DatabaseSpec = {
-  id: "ExamArchiveDB",
-  name: "ExamArchiveDB",
-  collections: [{ id: "NotesCache", name: "NotesCache" }],
-};
+const TARGET_DATABASE_ID = "examarchive";
+const TARGET_DATABASE_NAME = "ExamArchive";
+const REQUIRED_COLLECTION_ID = "Generated_Notes_Cache";
 
 function loadAppwriteEnv() {
   loadEnvConfig(path.resolve(__dirname, ".."));
@@ -96,49 +83,51 @@ async function ensureBucket(storage: Storage, bucket: BucketSpec): Promise<SyncR
   return { kind: "bucket", name: bucket.name, id: created.$id, status: "created" };
 }
 
-async function ensureDatabase(databases: Databases, database: DatabaseSpec): Promise<SyncResourceResult> {
+async function ensureDatabase(databases: Databases, databaseId: string, databaseName: string): Promise<SyncResourceResult> {
   try {
-    const existing = await databases.get(database.id);
-    console.log(`[exists] database ${database.name} (${existing.$id})`);
-    return { kind: "database", name: database.name, id: existing.$id, status: "exists" };
+    const existing = await databases.get(databaseId);
+    console.log(`[exists] database ${databaseName} (${existing.$id})`);
+    return { kind: "database", name: databaseName, id: existing.$id, status: "exists" };
   } catch (error) {
     if (!isNotFoundError(error)) {
       throw error;
     }
   }
 
-  const created = await databases.create(database.id, database.name);
-  console.log(`[create] database ${database.name} (${created.$id})`);
-  return { kind: "database", name: database.name, id: created.$id, status: "created" };
+  const created = await databases.create(databaseId, databaseName);
+  console.log(`[create] database ${databaseName} (${created.$id})`);
+  return { kind: "database", name: databaseName, id: created.$id, status: "created" };
 }
 
-async function ensureCollection(
-  databases: Databases,
-  databaseId: string,
-  collection: CollectionSpec,
-): Promise<SyncResourceResult> {
+async function ensureCollection(databases: Databases, databaseId: string, collectionId: string): Promise<SyncResourceResult> {
   try {
-    const existing = await databases.getCollection(databaseId, collection.id);
-    console.log(`[exists] collection ${collection.name} (${existing.$id})`);
-    return { kind: "collection", name: collection.name, id: existing.$id, status: "exists" };
+    const existing = await databases.getCollection(databaseId, collectionId);
+    console.log(`[exists] collection ${collectionId} (${existing.$id})`);
+    return { kind: "collection", name: collectionId, id: existing.$id, status: "exists" };
   } catch (error) {
     if (!isNotFoundError(error)) {
       throw error;
     }
   }
 
-  const created = await databases.createCollection(databaseId, collection.id, collection.name);
-  console.log(`[create] collection ${collection.name} (${created.$id})`);
-  return { kind: "collection", name: collection.name, id: created.$id, status: "created" };
+  const created = await databases.createCollection(databaseId, collectionId, collectionId);
+  console.log(`[create] collection ${collectionId} (${created.$id})`);
+  return { kind: "collection", name: collectionId, id: created.$id, status: "created" };
+}
+
+async function listCollections(databases: Databases, databaseId: string): Promise<Array<{ id: string; name: string }>> {
+  const response = await databases.listCollections(databaseId);
+  return response.collections.map((collection) => ({ id: collection.$id, name: collection.name }));
 }
 
 function renderSchemaMarkdown(params: {
   syncedAt: string;
   buckets: SyncResourceResult[];
   database: SyncResourceResult;
-  collections: SyncResourceResult[];
+  requiredCollection: SyncResourceResult;
+  allCollections: Array<{ id: string; name: string }>;
 }): string {
-  const { syncedAt, buckets, database, collections } = params;
+  const { syncedAt, buckets, database, requiredCollection, allCollections } = params;
 
   const bucketLines = buckets
     .map((item) => `- ${item.status === "created" ? "✅ Created" : "⚡ Exists"}: **${item.name}** (ID: ${item.id})`)
@@ -146,9 +135,8 @@ function renderSchemaMarkdown(params: {
 
   const dbLine = `- ${database.status === "created" ? "✅ Created" : "⚡ Exists"}: **${database.name}** (ID: ${database.id})`;
 
-  const collectionLines = collections
-    .map((item) => `- ${item.status === "created" ? "✅ Created" : "⚡ Exists"}: **${item.name}** (ID: ${item.id})`)
-    .join("\n");
+  const requiredCollectionLine = `- ${requiredCollection.status === "created" ? "✅ Created" : "⚡ Exists"}: **${requiredCollection.name}** (ID: ${requiredCollection.id})`;
+  const allCollectionLines = allCollections.map((item) => `- 📄 **${item.name}** (ID: ${item.id})`).join("\n");
 
   return [
     "# Appwrite Infrastructure Sync",
@@ -160,8 +148,11 @@ function renderSchemaMarkdown(params: {
     "## Databases",
     dbLine,
     "",
-    `### Collections in ${TARGET_DATABASE.name}`,
-    collectionLines || "- (none)",
+    `### Required Collection in ${TARGET_DATABASE_ID}`,
+    requiredCollectionLine,
+    "",
+    `### Collections within ${TARGET_DATABASE_ID}`,
+    allCollectionLines || "- No collections found.",
     "",
   ].join("\n");
 }
@@ -181,23 +172,21 @@ async function syncInfrastructure() {
     bucketResults.push(await ensureBucket(storage, bucket));
   }
 
-  const databaseResult = await ensureDatabase(databases, TARGET_DATABASE);
-
-  const collectionResults: SyncResourceResult[] = [];
-  for (const collection of TARGET_DATABASE.collections) {
-    collectionResults.push(await ensureCollection(databases, TARGET_DATABASE.id, collection));
-  }
+  const databaseResult = await ensureDatabase(databases, TARGET_DATABASE_ID, TARGET_DATABASE_NAME);
+  const requiredCollectionResult = await ensureCollection(databases, TARGET_DATABASE_ID, REQUIRED_COLLECTION_ID);
+  const allCollections = await listCollections(databases, TARGET_DATABASE_ID);
 
   const schemaMarkdown = renderSchemaMarkdown({
     syncedAt,
     buckets: bucketResults,
     database: databaseResult,
-    collections: collectionResults,
+    requiredCollection: requiredCollectionResult,
+    allCollections,
   });
 
   writeSchemaFile(schemaMarkdown);
 
-  const createdCount = [...bucketResults, databaseResult, ...collectionResults].filter((item) => item.status === "created").length;
+  const createdCount = [...bucketResults, databaseResult, requiredCollectionResult].filter((item) => item.status === "created").length;
   console.log(`Appwrite infrastructure sync complete. created=${createdCount}`);
 }
 
