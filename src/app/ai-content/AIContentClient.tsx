@@ -618,7 +618,7 @@ export default function AIContentClient() {
           <div className={`print-root markdown-preview rounded-xl border border-outline-variant/30 bg-surface-container-low p-4 ${streamingTextActive ? "ai-streaming-text" : ""}`}>
             <MarkdownNotesRenderer
               markdown={markdown}
-              emptyFallback={<p className="text-on-surface-variant">No output yet. Generate notes to preview here.</p>}
+              emptyFallback={<p className="text-on-surface-variant">No output yet. Generate content to prepare your PDF.</p>}
             />
           </div>
         </section>
