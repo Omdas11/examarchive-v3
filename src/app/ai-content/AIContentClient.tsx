@@ -368,14 +368,21 @@ export default function AIContentClient() {
     }
   }
 
-  function handleDownloadPdfClick(event: MouseEvent<HTMLButtonElement>) {
-    event.preventDefault();
-    event.stopPropagation();
+  function handleDownloadPdfClick(event?: MouseEvent<HTMLButtonElement>) {
+    event?.preventDefault();
+    event?.stopPropagation();
     if (!activePdfUrl) return;
     setError(null);
-    const downloadUrl = activePdfUrl.includes("download=1")
-      ? activePdfUrl
-      : `${activePdfUrl}${activePdfUrl.includes("?") ? "&" : "?"}download=1`;
+    let downloadUrl = activePdfUrl;
+    try {
+      const parsed = new URL(activePdfUrl, window.location.origin);
+      if (parsed.searchParams.get("download") !== "1") {
+        parsed.searchParams.set("download", "1");
+      }
+      downloadUrl = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+    } catch {
+      downloadUrl = `${activePdfUrl}${activePdfUrl.includes("?") ? "&" : "?"}download=1`;
+    }
     const anchor = document.createElement("a");
     anchor.href = downloadUrl;
     anchor.download = "";
@@ -416,8 +423,6 @@ export default function AIContentClient() {
           return next;
         });
       }, 1000);
-    } else if (interval) {
-      clearInterval(interval);
     }
     return () => {
       if (interval) clearInterval(interval);
