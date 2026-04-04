@@ -304,7 +304,7 @@ Use this checklist to wipe counters and storage before relaunch:
 <!-- SCHEMA_SYNC_STATUS_START -->
 ## Schema Sync Status (Auto-generated)
 
-_Last synced: 2026-04-04T17:44:37.721Z_
+_Last synced: 2026-04-04T17:53:01.917Z_
 
 ### Storage Buckets
 | Bucket | Status | ID |
@@ -312,8 +312,8 @@ _Last synced: 2026-04-04T17:44:37.721Z_
 | `papers` | ✅ Connected | papers |
 | `avatars` | ✅ Connected | avatars |
 | `syllabus-files` | ✅ Connected | syllabus-files |
-| `examarchive-md-ingestion` | ✅ Connected | examarchive-md-ingestion |
 | `generated-md-cache` | ✅ Connected | generated-md-cache |
+| `examarchive-md-ingestion` | ✅ Connected | examarchive-md-ingestion |
 
 ### Database Collections
 | Collection | Status | Created in run | Notes |
@@ -329,7 +329,7 @@ _Last synced: 2026-04-04T17:44:37.721Z_
 | `ai_usage` | ✅ Perfectly connected | 0 | collection existed; 0 missing attrs created; 0 attr definition mismatch(es); 0 missing expected attr(s) |
 | `ai_embeddings` | ⚠️ Connected with differences | 0 | collection existed; 0 missing attrs created; 2 attr definition mismatch(es); 0 missing expected attr(s); mismatch: course_code, embedding |
 | `pdf_usage` | ✅ Perfectly connected | 0 | collection existed; 0 missing attrs created; 0 attr definition mismatch(es); 0 missing expected attr(s) |
-| `ai_ingestions` | ⚠️ Connected with differences | 0 | collection existed; 0 missing attrs created; 1 attr definition mismatch(es); 1 missing expected attr(s); missing: paper_code; mismatch: file_id |
+| `ai_ingestions` | ⚠️ Connected with differences | 0 | collection not found in Appwrite; 0 missing attrs created; 0 attr definition mismatch(es) |
 | `ai_syllabus_maps` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from DATABASE_SCHEMA.md |
 | `ai_flashcards` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from DATABASE_SCHEMA.md |
 | `ai_admin_reports` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from DATABASE_SCHEMA.md |
