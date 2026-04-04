@@ -575,22 +575,13 @@ export default function AIContentClient() {
             </div>
             <div>
               <label className="mb-1 block text-sm font-semibold">Paper Code</label>
-              <div className="flex gap-2">
-                <CustomDropdown
-                  options={paperCodeDropdownOptions}
-                  value={paperCode}
-                  onChange={setPaperCode}
-                  placeholder={paperCodeLoading ? "Loading..." : "Select paper code"}
-                  disabled={generating || paperCodeLoading || availablePapers.length === 0}
-                />
-                <input
-                  className="input-field"
-                  value={paperCode}
-                  onChange={(e) => setPaperCode(e.target.value)}
-                  placeholder="Or type paper code"
-                  disabled={generating}
-                />
-              </div>
+              <CustomDropdown
+                options={paperCodeDropdownOptions}
+                value={paperCode}
+                onChange={setPaperCode}
+                placeholder={paperCodeLoading ? "Loading..." : "Select paper code"}
+                disabled={generating || paperCodeLoading || availablePapers.length === 0}
+              />
             </div>
             {activeTab === "notes" ? (
               <>

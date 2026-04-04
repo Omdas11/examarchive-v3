@@ -234,6 +234,19 @@ Tracks PDF generation usage events for `/api/ai/pdf` throttling.
 
 ---
 
+## Collection: `ai_ingestions`
+
+Stores markdown ingestion records for AI content options.
+
+| Field        | Type   | Required | Notes |
+|--------------|--------|----------|-------|
+| `paper_code` | String | **Yes**  | Strict ingestion paper code |
+| `file_id`    | String | **Yes**  | Appwrite Storage file ID for ingested markdown |
+
+**Collection settings:** `documentSecurity = false`, permissions include `read("any")`.
+
+---
+
 ## Referral tracking (implemented)
 
 - Signup accepts optional `referral_code` on the login/signup form.
@@ -267,6 +280,7 @@ Recommended index:
 | `papers`         | Exam question paper PDFs        | 20 MB         | `read("users")` — authenticated only |
 | `syllabus-files` | Syllabus PDFs                   | 20 MB         | `read("users")` — authenticated only |
 | `avatars`        | User avatar images              | 5 MB          | `read("users")`  |
+| `examarchive-md-ingestion` | Markdown ingestion cache | - | `read("any")` |
 
 All files are served via Next.js proxy routes that verify the user's session:
 - Papers: `/api/files/papers/[fileId]`
