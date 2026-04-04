@@ -69,11 +69,8 @@ export default function IngestMdClient() {
       if (!res.ok) {
         const fallbackErrors = Array.isArray(data.errors)
           ? data.errors
-              .map((entry: unknown) =>
-                typeof entry === "object" && entry !== null && "message" in entry
-                  ? String((entry as { message?: unknown }).message ?? "")
-                  : "",
-              )
+              .filter((entry: unknown) => typeof entry === "object" && entry !== null && "message" in entry)
+              .map((entry: unknown) => String((entry as { message?: unknown }).message ?? ""))
               .filter(Boolean)
           : [];
         setError(data.error ?? (fallbackErrors.join("; ") || "Upload/ingestion failed."));

@@ -218,10 +218,13 @@ export async function GET(request: NextRequest) {
         id: doc.$id,
         timestamp: doc.$createdAt,
         fileName: doc.source_label ?? "",
-        paperCode:
-          (typeof doc.paper_code === "string" && doc.paper_code.trim().length > 0
-            ? doc.paper_code.trim()
-            : digest.paperCode) ?? "",
+        paperCode: (() => {
+          if (typeof doc.paper_code === "string") {
+            const trimmedCode = doc.paper_code.trim();
+            if (trimmedCode.length > 0) return trimmedCode;
+          }
+          return digest.paperCode ?? "";
+        })(),
         status: String(doc.status ?? "failed").toLowerCase(),
         rowsAffected: Number(digest.rowsAffected ?? doc.characters_ingested ?? 0),
         errors: Array.isArray(digest.errors) ? digest.errors : [],

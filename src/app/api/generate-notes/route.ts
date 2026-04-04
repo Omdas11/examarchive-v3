@@ -144,11 +144,12 @@ export async function GET(request: NextRequest) {
     const paperCodes = (paperCodesFromIngestions.length > 0
       ? paperCodesFromIngestions
       : Array.from(papersMap.keys()).sort((a, b) => a.localeCompare(b)));
+    const paperCodesSet = new Set(paperCodes);
     const papers = paperCodes.map((code) => ({ code, name: papersMap.get(code) || code }));
     const yearsByPaperCode: Record<string, number[]> = {};
     for (const questionDoc of questionDocsRes.documents) {
       const code = typeof questionDoc.paper_code === "string" ? questionDoc.paper_code.trim() : "";
-      if (!code || !paperCodes.includes(code)) continue;
+      if (!code || !paperCodesSet.has(code)) continue;
       const yearRaw = questionDoc.year;
       const year =
         typeof yearRaw === "number"
