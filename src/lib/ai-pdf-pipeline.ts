@@ -118,11 +118,7 @@ export function buildPdfHtml(args: {
          ${syllabusBullets ? `<h2>Syllabus Highlights</h2><ul>${syllabusBullets}</ul>` : ""}
        </section>`
     : "";
-  const thankYouHtml = `<section class="thank-you-card">
-      <h2>Thank You for learning with ExamArchive</h2>
-      <p>Your PDF was generated successfully.</p>
-      <p><a href="https://www.examarchive.dev" target="_blank" rel="noopener noreferrer">Visit ExamArchive homepage</a></p>
-    </section>`;
+  const thankYouHtml = `<p class="thank-you-inline">Thank you for learning with ExamArchive. Your PDF was generated successfully. <a href="https://www.examarchive.dev" target="_blank" rel="noopener noreferrer">Visit ExamArchive homepage</a>.</p>`;
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -197,25 +193,14 @@ export function buildPdfHtml(args: {
       margin: 0;
       padding-left: 18px;
     }
-    .thank-you-card {
-      page-break-before: always;
-      min-height: 70vh;
-      border: 1px solid #e7d8d8;
-      border-radius: 14px;
-      background: #fff8f8;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      padding: 16mm 10mm;
+    .thank-you-inline {
+      margin-top: 18px;
+      padding-top: 10px;
+      border-top: 1px solid #e7d8d8;
+      font-size: 13px;
+      color: #6e1111;
     }
-    .thank-you-card h2 {
-      border-left: none;
-      padding-left: 0;
-      margin-bottom: 6px;
-    }
-    .thank-you-card a {
+    .thank-you-inline a {
       color: #800000;
       font-weight: 700;
       text-decoration: underline;

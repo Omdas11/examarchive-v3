@@ -61,7 +61,6 @@ export default function AIContentClient() {
   const [currentPart, setCurrentPart] = useState(1);
   const [totalParts, setTotalParts] = useState(1);
   const [streamingTextActive, setStreamingTextActive] = useState(false);
-  const [showMarkdownPreview, setShowMarkdownPreview] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
   const elapsedSecondsRef = useRef(0);
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -140,6 +139,13 @@ export default function AIContentClient() {
       eventSourceRef.current.close();
       eventSourceRef.current = null;
     }
+  }
+
+  function abortGeneration() {
+    if (!generating) return;
+    setError("Generation aborted.");
+    setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] Generation aborted by user.`]);
+    resetProgressState();
   }
 
   function resetProgressState() {
@@ -230,7 +236,6 @@ export default function AIContentClient() {
       if (eventType === "done") {
         finished = true;
         setStreamingTextActive(false);
-        setShowMarkdownPreview(true);
         setShowLogs(false);
         const incomingMarkdown = typeof data.markdown === "string" ? data.markdown : "";
         setMarkdown((prevMarkdown) => {
@@ -337,7 +342,6 @@ export default function AIContentClient() {
     startTimer();
     setUsedModel("");
     setDownloadPdfUrl("");
-    setShowMarkdownPreview(false);
     setShowLogs(true);
     const params = new URLSearchParams({
       university,
@@ -364,10 +368,13 @@ export default function AIContentClient() {
   function handleDownloadPdfClick() {
     if (!downloadPdfUrl) return;
     setError(null);
-    const opened = window.open(downloadPdfUrl, "_blank", "noopener,noreferrer");
-    if (!opened) {
-      setError("Popup blocked. Please allow popups for this site and try downloading again.");
-    }
+    const anchor = document.createElement("a");
+    anchor.href = downloadPdfUrl;
+    anchor.download = "";
+    anchor.rel = "noopener noreferrer";
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
   }
 
   useEffect(() => {
@@ -562,6 +569,15 @@ export default function AIContentClient() {
                     : "Generate Solved Paper"
               )}
             </button>
+            {generating && (
+              <button
+                onClick={abortGeneration}
+                className="btn rounded-xl px-4 py-3 text-sm font-semibold"
+                type="button"
+              >
+                Abort Generation
+              </button>
+            )}
             {generating && <span className="text-xs text-on-surface-variant">Generation in progress — please wait.</span>}
           </div>
           {generating && (
@@ -592,34 +608,18 @@ export default function AIContentClient() {
 
         <section className="card border border-outline-variant/30 p-5">
           <div className="mb-3 flex items-center justify-between gap-3">
-            <h2 className="text-xl font-semibold">Generated Markdown</h2>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowMarkdownPreview((prev) => !prev)}
-                className="btn"
-                disabled={!markdown.trim()}
-                aria-label={showMarkdownPreview ? "Hide markdown preview" : "Show markdown preview"}
-              >
-                {showMarkdownPreview ? "Hide Preview" : "Preview Markdown"}
-              </button>
-              <button onClick={handleDownloadPdfClick} disabled={!downloadPdfUrl} className="btn">
-                Download PDF
-              </button>
-            </div>
+            <h2 className="text-xl font-semibold">Generated PDF</h2>
+            <button onClick={handleDownloadPdfClick} disabled={!downloadPdfUrl} className="btn">
+              Download PDF
+            </button>
           </div>
           {usedModel && <p className="mb-2 text-xs text-on-surface-variant">Model: {usedModel}</p>}
-          {showMarkdownPreview && !generating ? (
-            <div className={`print-root markdown-preview rounded-xl border border-outline-variant/30 bg-surface-container-low p-4 ${streamingTextActive ? "ai-streaming-text" : ""}`}>
-              <MarkdownNotesRenderer
-                markdown={markdown}
-                emptyFallback={<p className="text-on-surface-variant">No output yet. Generate notes to preview them here.</p>}
-              />
-            </div>
-          ) : (
-            <div className="rounded-xl border border-dashed border-outline-variant/40 bg-surface-container-low p-6 text-center text-sm text-on-surface-variant">
-              Markdown preview will appear after generation finishes.
-            </div>
-          )}
+          <div className={`print-root markdown-preview rounded-xl border border-outline-variant/30 bg-surface-container-low p-4 ${streamingTextActive ? "ai-streaming-text" : ""}`}>
+            <MarkdownNotesRenderer
+              markdown={markdown}
+              emptyFallback={<p className="text-on-surface-variant">No output yet. Generate notes to prepare your PDF.</p>}
+            />
+          </div>
         </section>
         <section className="card border border-outline-variant/30 p-5">
           <div className="mb-3 flex items-center justify-between gap-3">
