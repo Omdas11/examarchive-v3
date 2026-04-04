@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
     if (type) queries.push(Query.equal("type", type));
 
     const db = adminDatabases();
-    const [{ documents }, questionDocsRes] = await Promise.all([
+    const [{ documents }, questionDocsRes, ingestionRes] = await Promise.all([
       db.listDocuments(DATABASE_ID, COLLECTION.syllabus_table, queries),
       db.listDocuments(DATABASE_ID, COLLECTION.questions_table, [
         Query.equal("university", university),
@@ -90,7 +90,23 @@ export async function GET(request: NextRequest) {
         ...(type ? [Query.equal("type", type)] : []),
         Query.limit(1000),
       ]),
+      db.listDocuments(DATABASE_ID, COLLECTION.ai_ingestions, [
+        Query.equal("status", "success"),
+        Query.select(["digest"]),
+        Query.limit(1000),
+        Query.orderDesc("$createdAt"),
+      ]),
     ]);
+    const ingestedPaperCodes = new Set<string>();
+    for (const ingestionDoc of ingestionRes.documents) {
+      const digest = typeof ingestionDoc.digest === "string" ? ingestionDoc.digest : "";
+      if (!digest) continue;
+      try {
+        const parsed = JSON.parse(digest) as { paperCode?: unknown };
+        const paperCodeFromDigest = typeof parsed.paperCode === "string" ? parsed.paperCode.trim() : "";
+        if (paperCodeFromDigest) ingestedPaperCodes.add(paperCodeFromDigest);
+      } catch {}
+    }
     const papersMap = new Map<string, string>();
     for (const doc of documents) {
       const code = typeof doc.paper_code === "string" ? doc.paper_code.trim() : "";
@@ -98,12 +114,14 @@ export async function GET(request: NextRequest) {
       const name = typeof doc.paper_name === "string" ? doc.paper_name.trim() : "";
       if (!papersMap.has(code)) papersMap.set(code, name || code);
     }
-    const papers = Array.from(papersMap.entries()).map(([code, name]) => ({ code, name }));
-    const paperCodes = papers.map((paper) => paper.code);
+    const paperCodes = Array.from(ingestedPaperCodes)
+      .filter((code) => papersMap.has(code))
+      .sort((a, b) => a.localeCompare(b));
+    const papers = paperCodes.map((code) => ({ code, name: papersMap.get(code) || code }));
     const yearsByPaperCode: Record<string, number[]> = {};
     for (const questionDoc of questionDocsRes.documents) {
       const code = typeof questionDoc.paper_code === "string" ? questionDoc.paper_code.trim() : "";
-      if (!code) continue;
+      if (!code || !ingestedPaperCodes.has(code)) continue;
       const yearRaw = questionDoc.year;
       const year =
         typeof yearRaw === "number"
