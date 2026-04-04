@@ -42,4 +42,4 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "docs: auto-update Appwrite schema live status"
-          file_pattern: docs/DATABASE_SCHEMA.md docs/APPWRITE_SCHEMA.md
+          file_pattern: docs/
