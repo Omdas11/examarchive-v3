@@ -126,6 +126,10 @@ function escapeRegex(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function escapeMarkdownTableCell(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/\|/g, "\\|").replace(/`/g, "\\`");
+}
+
 function buildSchemaStatusTable(collections: Array<{ id: string; name: string }>, syncedAt: string): string {
   let statusTable = "## Schema Sync Status (Auto-generated)\n\n";
   statusTable += `_Last synced: ${syncedAt}_\n\n`;
@@ -138,7 +142,9 @@ function buildSchemaStatusTable(collections: Array<{ id: string; name: string }>
   }
 
   collections.forEach((collection) => {
-    statusTable += `| \`${collection.name}\` | ✅ Connected | ${collection.id} |\n`;
+    const safeName = escapeMarkdownTableCell(collection.name);
+    const safeId = escapeMarkdownTableCell(collection.id);
+    statusTable += `| \`${safeName}\` | ✅ Connected | ${safeId} |\n`;
   });
 
   return statusTable;
@@ -151,11 +157,23 @@ function injectSchemaStatusIntoDatabaseDoc(statusTable: string) {
     return;
   }
 
-  const regex = new RegExp(`${escapeRegex(SCHEMA_STATUS_START_TAG)}[\\s\\S]*?${escapeRegex(SCHEMA_STATUS_END_TAG)}`, "g");
+  const pattern = `${escapeRegex(SCHEMA_STATUS_START_TAG)}[\\s\\S]*?${escapeRegex(SCHEMA_STATUS_END_TAG)}`;
+  const regex = new RegExp(pattern);
+  const globalRegex = new RegExp(pattern, "g");
   const newBlock = `${SCHEMA_STATUS_START_TAG}\n${statusTable}\n${SCHEMA_STATUS_END_TAG}`;
   const existingContent = fs.readFileSync(docPath, "utf8");
-  const hasTags = regex.test(existingContent);
-  const nextContent = hasTags ? existingContent.replace(regex, newBlock) : `${existingContent}\n\n${newBlock}`;
+  const hasTags = existingContent.includes(SCHEMA_STATUS_START_TAG) && existingContent.includes(SCHEMA_STATUS_END_TAG);
+  let nextContent = `${existingContent}\n\n${newBlock}`;
+
+  if (hasTags) {
+    const tagBlockMatches = existingContent.match(globalRegex) ?? [];
+    if (tagBlockMatches.length !== 1) {
+      throw new Error(
+        `Expected exactly one schema status tag block in docs/DATABASE_SCHEMA.md, found ${tagBlockMatches.length}.`,
+      );
+    }
+    nextContent = existingContent.replace(regex, newBlock);
+  }
 
   fs.writeFileSync(docPath, nextContent, "utf8");
   console.log("Successfully injected live status into docs/DATABASE_SCHEMA.md");
