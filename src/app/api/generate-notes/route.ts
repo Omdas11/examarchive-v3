@@ -126,7 +126,9 @@ export async function GET(request: NextRequest) {
         );
         // Keep digest parsing even when directCode exists so legacy logs without direct paper fields still contribute.
         // ingestedPaperCodes is a Set, so duplicate values remain deduplicated.
-        if (digestCode) ingestedPaperCodes.add(digestCode);
+        if (digestCode) {
+          ingestedPaperCodes.add(digestCode);
+        }
       } catch {
         // Ignore malformed legacy digest payloads; valid paper codes from other ingestion logs still populate options.
       }
@@ -138,14 +140,13 @@ export async function GET(request: NextRequest) {
       const name = typeof doc.paper_name === "string" ? doc.paper_name.trim() : "";
       if (!papersMap.has(code)) papersMap.set(code, name || code);
     }
-    const paperCodes = Array.from(ingestedPaperCodes)
-      .filter((code) => papersMap.has(code))
-      .sort((a, b) => a.localeCompare(b));
+    const paperCodes = Array.from(ingestedPaperCodes).sort((a, b) => a.localeCompare(b));
+    const paperCodesSet = new Set(paperCodes);
     const papers = paperCodes.map((code) => ({ code, name: papersMap.get(code) || code }));
     const yearsByPaperCode: Record<string, number[]> = {};
     for (const questionDoc of questionDocsRes.documents) {
       const code = typeof questionDoc.paper_code === "string" ? questionDoc.paper_code.trim() : "";
-      if (!code || !ingestedPaperCodes.has(code)) continue;
+      if (!code || !paperCodesSet.has(code)) continue;
       const yearRaw = questionDoc.year;
       const year =
         typeof yearRaw === "number"

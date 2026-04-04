@@ -27,6 +27,7 @@ const AI_COLLECTIONS = [
     id: "ai_ingestions",
     name: "ai_ingestions",
     attributes: [
+      { key: "paper_code", type: "string", required: false, size: 256 },
       { key: "source_label", type: "string", required: false, size: 256 },
       { key: "file_id", type: "string", required: false, size: 64 },
       { key: "file_url", type: "string", required: false, size: 2048 },

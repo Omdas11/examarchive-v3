@@ -167,6 +167,7 @@ async function createIngestionLog(payload: {
   try {
     const db = adminDatabases();
     await db.createDocument(DATABASE_ID, COLLECTION.ai_ingestions, ID.unique(), {
+      paper_code: payload.paperCode ?? "",
       source_label: payload.fileName,
       file_id: payload.fileId ?? "",
       file_url: payload.fileId ? `/api/admin/ingest-md?fileId=${encodeURIComponent(payload.fileId)}` : "",
@@ -217,7 +218,13 @@ export async function GET(request: NextRequest) {
         id: doc.$id,
         timestamp: doc.$createdAt,
         fileName: doc.source_label ?? "",
-        paperCode: digest.paperCode ?? "",
+        paperCode: (() => {
+          if (typeof doc.paper_code === "string") {
+            const trimmedCode = doc.paper_code.trim();
+            if (trimmedCode.length > 0) return trimmedCode;
+          }
+          return digest.paperCode ?? "";
+        })(),
         status: String(doc.status ?? "failed").toLowerCase(),
         rowsAffected: Number(digest.rowsAffected ?? doc.characters_ingested ?? 0),
         errors: Array.isArray(digest.errors) ? digest.errors : [],
@@ -235,98 +242,113 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const form = await request.formData();
-  const file = form.get("file");
-  if (!(file instanceof File)) {
-    return NextResponse.json({ error: "file is required" }, { status: 400 });
-  }
-  if (!file.name.toLowerCase().endsWith(".md")) {
-    return NextResponse.json({ error: "Only .md files are supported." }, { status: 400 });
-  }
+  let logFileName = "unknown.md";
+  let logFileId: string | undefined;
+  try {
+    const form = await request.formData();
+    const file = form.get("file");
+    if (!(file instanceof File)) {
+      return NextResponse.json({ error: "file is required" }, { status: 400 });
+    }
+    if (!file.name.toLowerCase().endsWith(".md")) {
+      return NextResponse.json({ error: "Only .md files are supported." }, { status: 400 });
+    }
 
-  await ensureMdIngestionBucket();
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const fileId = ID.unique();
-  await adminStorage().createFile(
-    MD_INGESTION_BUCKET_ID,
-    fileId,
-    InputFile.fromBuffer(buffer, file.name),
-  );
+    logFileName = file.name;
+    await ensureMdIngestionBucket();
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const fileId = ID.unique();
+    logFileId = fileId;
+    await adminStorage().createFile(
+      MD_INGESTION_BUCKET_ID,
+      fileId,
+      InputFile.fromBuffer(buffer, file.name),
+    );
 
-  const source = buffer.toString("utf8");
-  const parsed = parseDemoDataEntryMarkdown(source);
+    const source = buffer.toString("utf8");
+    const parsed = parseDemoDataEntryMarkdown(source);
 
-  if (!parsed.frontmatter) {
+    if (!parsed.frontmatter) {
+      await createIngestionLog({
+        fileName: file.name,
+        fileId,
+        status: "failed",
+        rowsAffected: 0,
+        errors: parsed.errors,
+      });
+      return NextResponse.json(
+        { status: "failed", fileId, fileName: file.name, added: 0, updated: 0, errors: parsed.errors },
+        { status: 400 },
+      );
+    }
+
+    const frontmatter = parsed.frontmatter;
+    let syllabusResult = { added: 0, updated: 0 };
+    let questionResult = { added: 0, updated: 0 };
+    const dbErrors = [...parsed.errors];
+
+    try {
+      syllabusResult = await upsertSyllabusRows({
+        university: frontmatter.university,
+        course: frontmatter.course,
+        type: frontmatter.type,
+        paperCode: frontmatter.paper_code,
+        rows: parsed.syllabus,
+      });
+    } catch (error) {
+      dbErrors.push({ line: 0, message: `Syllabus upsert failed: ${normalizeError(error)}` });
+    }
+
+    try {
+      questionResult = await upsertQuestionRows({
+        university: frontmatter.university,
+        course: frontmatter.course,
+        type: frontmatter.type,
+        paperCode: frontmatter.paper_code,
+        paperName: frontmatter.paper_name,
+        rows: parsed.questions,
+      });
+    } catch (error) {
+      dbErrors.push({ line: 0, message: `Question upsert failed: ${normalizeError(error)}` });
+    }
+
+    const added = syllabusResult.added + questionResult.added;
+    const updated = syllabusResult.updated + questionResult.updated;
+    const rowsAffected = added + updated;
+    const status: "success" | "partial" | "failed" =
+      dbErrors.length === 0 ? "success" : rowsAffected > 0 ? "partial" : "failed";
+
     await createIngestionLog({
       fileName: file.name,
       fileId,
+      paperCode: frontmatter.paper_code,
+      status,
+      rowsAffected,
+      errors: dbErrors,
+    });
+
+    return NextResponse.json({
+      status,
+      fileId,
+      fileName: file.name,
+      paperCode: frontmatter.paper_code,
+      added,
+      updated,
+      rowsAffected,
+      details: {
+        syllabus: syllabusResult,
+        questions: questionResult,
+      },
+      errors: dbErrors,
+    });
+  } catch (error) {
+    await createIngestionLog({
+      fileName: logFileName,
+      fileId: logFileId,
       status: "failed",
       rowsAffected: 0,
-      errors: parsed.errors,
+      errors: [{ line: 0, message: normalizeError(error) }],
     });
-    return NextResponse.json(
-      { status: "failed", fileId, fileName: file.name, added: 0, updated: 0, errors: parsed.errors },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: normalizeError(error) }, { status: 500 });
   }
-
-  const frontmatter = parsed.frontmatter;
-  let syllabusResult = { added: 0, updated: 0 };
-  let questionResult = { added: 0, updated: 0 };
-  const dbErrors = [...parsed.errors];
-
-  try {
-    syllabusResult = await upsertSyllabusRows({
-      university: frontmatter.university,
-      course: frontmatter.course,
-      type: frontmatter.type,
-      paperCode: frontmatter.paper_code,
-      rows: parsed.syllabus,
-    });
-  } catch (error) {
-    dbErrors.push({ line: 0, message: `Syllabus upsert failed: ${normalizeError(error)}` });
-  }
-
-  try {
-    questionResult = await upsertQuestionRows({
-      university: frontmatter.university,
-      course: frontmatter.course,
-      type: frontmatter.type,
-      paperCode: frontmatter.paper_code,
-      paperName: frontmatter.paper_name,
-      rows: parsed.questions,
-    });
-  } catch (error) {
-    dbErrors.push({ line: 0, message: `Question upsert failed: ${normalizeError(error)}` });
-  }
-
-  const added = syllabusResult.added + questionResult.added;
-  const updated = syllabusResult.updated + questionResult.updated;
-  const rowsAffected = added + updated;
-  const status: "success" | "partial" | "failed" =
-    dbErrors.length === 0 ? "success" : rowsAffected > 0 ? "partial" : "failed";
-
-  await createIngestionLog({
-    fileName: file.name,
-    fileId,
-    paperCode: frontmatter.paper_code,
-    status,
-    rowsAffected,
-    errors: dbErrors,
-  });
-
-  return NextResponse.json({
-    status,
-    fileId,
-    fileName: file.name,
-    paperCode: frontmatter.paper_code,
-    added,
-    updated,
-    rowsAffected,
-    details: {
-      syllabus: syllabusResult,
-      questions: questionResult,
-    },
-    errors: dbErrors,
-  });
 }

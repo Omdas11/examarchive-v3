@@ -83,6 +83,7 @@ describe("sync-appwrite-ai", () => {
         id: "ai_ingestions",
         name: "ai_ingestions",
         attributes: [
+          { key: "paper_code", type: "string", required: false, size: 256 },
           { key: "source_label", type: "string", required: false, size: 256 },
           { key: "status", type: "string", required: false, size: 32 },
         ],
@@ -91,7 +92,7 @@ describe("sync-appwrite-ai", () => {
       const result = await syncCollection(databases, collection);
 
       expect(databases.createCollection).toHaveBeenCalledWith("examarchive", "ai_ingestions", "ai_ingestions");
-      expect(createAttribute).toHaveBeenCalledTimes(1);
+      expect(createAttribute).toHaveBeenCalledTimes(2);
       expect(waitForAttributeAvailability).toHaveBeenCalledWith(
         databases,
         "examarchive",
@@ -101,8 +102,8 @@ describe("sync-appwrite-ai", () => {
       expect(result).toEqual({
         collectionId: "ai_ingestions",
         createdCollection: true,
-        createdAttributes: 1,
-        totalTargetAttributes: 2,
+        createdAttributes: 2,
+        totalTargetAttributes: 3,
         connected: false,
         attributeLimitExceeded: false,
       });
@@ -114,12 +115,13 @@ describe("sync-appwrite-ai", () => {
         createCollection: jest.fn(),
         listAttributes: jest
           .fn()
-          .mockResolvedValue({ attributes: [{ key: "source_label" }, { key: "status" }] }),
+          .mockResolvedValue({ attributes: [{ key: "paper_code" }, { key: "source_label" }, { key: "status" }] }),
       };
       const collection = {
         id: "ai_ingestions",
         name: "ai_ingestions",
         attributes: [
+          { key: "paper_code", type: "string", required: false, size: 256 },
           { key: "source_label", type: "string", required: false, size: 256 },
           { key: "status", type: "string", required: false, size: 32 },
         ],
