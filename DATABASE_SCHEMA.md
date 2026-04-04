@@ -70,8 +70,6 @@
 |---|---|
 | Access | `read("any")` |
 | Purpose | Markdown ingestion cache |
-| Max file size | 2 MB |
-| Allowed file extensions | `md` |
 
 ---
 

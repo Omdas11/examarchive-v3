@@ -47,6 +47,7 @@ async function hardReset() {
     false,
   );
   console.log(`✅ Recreated collection: ${newCol.$id}`);
+  await sleep(2000);
 
   await databases.createStringAttribute(DB_ID, COL_ID, "paper_code", 255, true);
   await databases.createStringAttribute(DB_ID, COL_ID, "file_id", 255, true);
