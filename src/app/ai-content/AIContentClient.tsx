@@ -65,7 +65,6 @@ export default function AIContentClient() {
   const [showLogs, setShowLogs] = useState(false);
   const elapsedSecondsRef = useRef(0);
   const eventSourceRef = useRef<EventSource | null>(null);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const availableYears = useMemo(() => yearsByPaperCode[paperCode] || [], [yearsByPaperCode, paperCode]);
   const courseOptions: CustomDropdownOption[] = useMemo(
     () => [
@@ -127,26 +126,6 @@ export default function AIContentClient() {
     return `Remaining generations: ${remaining}${typeof limit === "number" ? ` / ${limit}` : ""}`;
   }
 
-  function stopTimer() {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-  }
-
-  function startTimer() {
-    stopTimer();
-    setElapsedSeconds(0);
-    elapsedSecondsRef.current = 0;
-    timerRef.current = setInterval(() => {
-      setElapsedSeconds((prev) => {
-        const next = prev + 1;
-        elapsedSecondsRef.current = next;
-        return next;
-      });
-    }, 1000);
-  }
-
   function closeEventSource() {
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
@@ -169,7 +148,6 @@ export default function AIContentClient() {
     setProgressIndex(0);
     setProgressTotal(0);
     setStreamingTextActive(false);
-    stopTimer();
     closeEventSource();
   }
 
@@ -359,7 +337,8 @@ export default function AIContentClient() {
     setTotalParts(1);
     setEtaMinutes(null);
     setStreamingTextActive(false);
-    startTimer();
+    setElapsedSeconds(0);
+    elapsedSecondsRef.current = 0;
     setUsedModel("");
     if (activeTab === "notes") {
       setNotesPdfResult(null);
@@ -389,13 +368,13 @@ export default function AIContentClient() {
     }
   }
 
-  function handleDownloadPdfClick(event?: MouseEvent<HTMLButtonElement>) {
-    event?.preventDefault();
+  function handleDownloadPdfClick(event: MouseEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    event.stopPropagation();
     if (!activePdfUrl) return;
     setError(null);
     const anchor = document.createElement("a");
     anchor.href = activePdfUrl;
-    anchor.download = "";
     anchor.rel = "noopener noreferrer";
     document.body.appendChild(anchor);
     anchor.click();
@@ -404,6 +383,7 @@ export default function AIContentClient() {
 
   function handlePreviewPdfClick(event: MouseEvent<HTMLButtonElement>) {
     event.preventDefault();
+    event.stopPropagation();
     if (!activePdfUrl) return;
     setError(null);
     const previewUrl = activePdfUrl.replace(/\?download=1$/, "");
@@ -412,13 +392,31 @@ export default function AIContentClient() {
 
   function handleGenerateClick(event: MouseEvent<HTMLButtonElement>) {
     event.preventDefault();
+    event.stopPropagation();
     void generate();
   }
 
   function handleAbortClick(event: MouseEvent<HTMLButtonElement>) {
     event.preventDefault();
+    event.stopPropagation();
     abortGeneration();
   }
+
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | undefined;
+    if (generating) {
+      interval = setInterval(() => {
+        setElapsedSeconds((prev) => {
+          const next = prev + 1;
+          elapsedSecondsRef.current = next;
+          return next;
+        });
+      }, 1000);
+    } else {
+      clearInterval(interval);
+    }
+    return () => clearInterval(interval);
+  }, [generating]);
 
   useEffect(() => {
     setPaperCodeLoading(true);
