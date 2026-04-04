@@ -242,6 +242,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  let logFileName = "unknown.md";
+  let logFileId: string | undefined;
   try {
     const form = await request.formData();
     const file = form.get("file");
@@ -252,9 +254,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Only .md files are supported." }, { status: 400 });
     }
 
+    logFileName = file.name;
     await ensureMdIngestionBucket();
     const buffer = Buffer.from(await file.arrayBuffer());
     const fileId = ID.unique();
+    logFileId = fileId;
     await adminStorage().createFile(
       MD_INGESTION_BUCKET_ID,
       fileId,
@@ -338,6 +342,13 @@ export async function POST(request: NextRequest) {
       errors: dbErrors,
     });
   } catch (error) {
+    await createIngestionLog({
+      fileName: logFileName,
+      fileId: logFileId,
+      status: "failed",
+      rowsAffected: 0,
+      errors: [{ line: 0, message: normalizeError(error) }],
+    });
     return NextResponse.json({ error: normalizeError(error) }, { status: 500 });
   }
 }
