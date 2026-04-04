@@ -17,6 +17,8 @@ type SyncResourceResult = {
   status: "created" | "exists";
 };
 
+const SCHEMA_STATUS_START_TAG = "<!-- SCHEMA_SYNC_STATUS_START -->";
+const SCHEMA_STATUS_END_TAG = "<!-- SCHEMA_SYNC_STATUS_END -->";
 const REQUIRED_BUCKETS: BucketSpec[] = [
   { id: "papers", name: "papers" },
   { id: "examarchive-md-ingestion", name: "examarchive-md-ingestion" },
@@ -120,47 +122,53 @@ async function listCollections(databases: Databases, databaseId: string): Promis
   return response.collections.map((collection) => ({ id: collection.$id, name: collection.name }));
 }
 
-function renderSchemaMarkdown(params: {
-  syncedAt: string;
-  buckets: SyncResourceResult[];
-  database: SyncResourceResult;
-  requiredCollection: SyncResourceResult;
-  allCollections: Array<{ id: string; name: string }>;
-}): string {
-  const { syncedAt, buckets, database, requiredCollection, allCollections } = params;
-
-  const bucketLines = buckets
-    .map((item) => `- ${item.status === "created" ? "✅ Created" : "⚡ Exists"}: **${item.name}** (ID: ${item.id})`)
-    .join("\n");
-
-  const dbLine = `- ${database.status === "created" ? "✅ Created" : "⚡ Exists"}: **${database.name}** (ID: ${database.id})`;
-
-  const requiredCollectionLine = `- ${requiredCollection.status === "created" ? "✅ Created" : "⚡ Exists"}: **${requiredCollection.name}** (ID: ${requiredCollection.id})`;
-  const allCollectionLines = allCollections.map((item) => `- 📄 **${item.name}** (ID: ${item.id})`).join("\n");
-
-  return [
-    "# Appwrite Infrastructure Sync",
-    `Last Synced: ${syncedAt}`,
-    "",
-    "## Storage Buckets",
-    bucketLines || "- (none)",
-    "",
-    "## Databases",
-    dbLine,
-    "",
-    `### Required Collection in ${TARGET_DATABASE_NAME}`,
-    requiredCollectionLine,
-    "",
-    `### Collections within ${TARGET_DATABASE_NAME} (${TARGET_DATABASE_ID})`,
-    allCollectionLines.length > 0 ? allCollectionLines : "- No collections found.",
-    "",
-  ].join("\n");
+function escapeRegex(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function writeSchemaFile(markdown: string) {
-  const outPath = path.resolve(__dirname, "../docs/APPWRITE_SCHEMA.md");
-  fs.writeFileSync(outPath, markdown, "utf8");
-  console.log(`Wrote schema documentation to ${outPath}`);
+function buildSchemaStatusTable(collections: Array<{ id: string; name: string }>, syncedAt: string): string {
+  let statusTable = "## Schema Sync Status (Auto-generated)\n\n";
+  statusTable += `_Last synced: ${syncedAt}_\n\n`;
+  statusTable += "| Collection | Status | ID |\n";
+  statusTable += "|---|---|---|\n";
+
+  if (collections.length === 0) {
+    statusTable += "| N/A | ⚠️ No collections found | N/A |\n";
+    return statusTable;
+  }
+
+  collections.forEach((collection) => {
+    statusTable += `| \`${collection.name}\` | ✅ Connected | ${collection.id} |\n`;
+  });
+
+  return statusTable;
+}
+
+function injectSchemaStatusIntoDatabaseDoc(statusTable: string) {
+  const docPath = path.resolve(__dirname, "../docs/DATABASE_SCHEMA.md");
+  if (!fs.existsSync(docPath)) {
+    console.error("docs/DATABASE_SCHEMA.md not found!");
+    return;
+  }
+
+  const regex = new RegExp(`${escapeRegex(SCHEMA_STATUS_START_TAG)}[\\s\\S]*?${escapeRegex(SCHEMA_STATUS_END_TAG)}`, "g");
+  const newBlock = `${SCHEMA_STATUS_START_TAG}\n${statusTable}\n${SCHEMA_STATUS_END_TAG}`;
+  const existingContent = fs.readFileSync(docPath, "utf8");
+  const hasTags = regex.test(existingContent);
+  const nextContent = hasTags ? existingContent.replace(regex, newBlock) : `${existingContent}\n\n${newBlock}`;
+
+  fs.writeFileSync(docPath, nextContent, "utf8");
+  console.log("Successfully injected live status into docs/DATABASE_SCHEMA.md");
+}
+
+function deleteLegacySchemaDoc() {
+  const oldDocPath = path.resolve(__dirname, "../docs/APPWRITE_SCHEMA.md");
+  if (!fs.existsSync(oldDocPath)) {
+    return;
+  }
+
+  fs.unlinkSync(oldDocPath);
+  console.log("Deleted deprecated docs/APPWRITE_SCHEMA.md");
 }
 
 async function syncInfrastructure() {
@@ -175,16 +183,9 @@ async function syncInfrastructure() {
   const databaseResult = await ensureDatabase(databases, TARGET_DATABASE_ID, TARGET_DATABASE_NAME);
   const requiredCollectionResult = await ensureCollection(databases, TARGET_DATABASE_ID, REQUIRED_COLLECTION_ID);
   const allCollections = await listCollections(databases, TARGET_DATABASE_ID);
-
-  const schemaMarkdown = renderSchemaMarkdown({
-    syncedAt,
-    buckets: bucketResults,
-    database: databaseResult,
-    requiredCollection: requiredCollectionResult,
-    allCollections,
-  });
-
-  writeSchemaFile(schemaMarkdown);
+  const statusTable = buildSchemaStatusTable(allCollections, syncedAt);
+  injectSchemaStatusIntoDatabaseDoc(statusTable);
+  deleteLegacySchemaDoc();
 
   const createdCount = [...bucketResults, databaseResult, requiredCollectionResult].filter((item) => item.status === "created").length;
   console.log(`Appwrite infrastructure sync complete. created=${createdCount}`);
