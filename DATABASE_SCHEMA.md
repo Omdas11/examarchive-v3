@@ -57,19 +57,21 @@
 | `papers_solved_today` | Integer | **Yes** | Daily solved papers count |
 | `last_generation_date` | String | **Yes** | UTC date key (`YYYY-MM-DD`) |
 
-## Table: `ai_ingestions`
+## Collection: `ai_ingestions`
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `paper_code` | String (255) | **Yes** | Strict ingestion paper code |
 | `file_id` | String (255) | **Yes** | Appwrite Storage file ID for ingested markdown |
 
-## Bucket: `examarchive-md-ingestion`
+## Storage Bucket: `examarchive-md-ingestion`
 
 | Field | Value |
 |---|---|
 | Access | `read("any")` |
 | Purpose | Markdown ingestion cache |
+| Max file size | 2 MB |
+| Allowed file extensions | `md` |
 
 ---
 

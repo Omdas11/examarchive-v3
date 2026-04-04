@@ -433,6 +433,8 @@ export default function AIContentClient() {
     setPaperCodeLoading(true);
     const params = new URLSearchParams({
       university,
+      course,
+      type,
     });
     fetch(`/api/generate-notes?${params.toString()}`)
       .then((res) => res.json())
