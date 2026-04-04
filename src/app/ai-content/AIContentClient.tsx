@@ -431,7 +431,7 @@ export default function AIContentClient() {
 
   useEffect(() => {
     setPaperCodeLoading(true);
-    fetch(`/api/generate-notes?university=${encodeURIComponent(university)}&course=${encodeURIComponent(course)}&type=${encodeURIComponent(type)}`)
+    fetch(`/api/generate-notes?university=${encodeURIComponent(university)}`)
       .then((res) => res.json())
       .then((data) => {
         if (typeof data.remaining === "number" || data.remaining === null) setRemaining(data.remaining);
@@ -441,7 +441,8 @@ export default function AIContentClient() {
         if (typeof data.notesDailyLimit === "number") setNotesDailyLimit(data.notesDailyLimit);
         if (typeof data.papersDailyLimit === "number") setPapersDailyLimit(data.papersDailyLimit);
         if (Array.isArray(data.paperCodes)) {
-          const options = data.paperCodes.filter((item: unknown): item is string => typeof item === "string" && item.trim().length > 0);
+          const options = data.paperCodes as string[];
+          console.log("[ai-content] raw Appwrite paper codes:", options);
           setPaperCodeOptions(options);
           if (Array.isArray(data.papers)) {
             for (const paper of data.papers) {
@@ -468,7 +469,7 @@ export default function AIContentClient() {
       })
       .catch(() => {})
       .finally(() => setPaperCodeLoading(false));
-  }, [university, course, type]);
+  }, [university]);
 
   useEffect(() => {
     if (availableYears.length === 0) {
