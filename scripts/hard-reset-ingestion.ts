@@ -1,6 +1,7 @@
 import { Client, Databases, Storage } from 'node-appwrite';
-import * as dotenv from 'dotenv';
-dotenv.config({ path: '.env.local' });
+import path from 'node:path';
+import { loadEnvConfig } from '@next/env';
+loadEnvConfig(path.resolve(__dirname, '..'));
 
 const client = new Client()
     .setEndpoint(process.env.APPWRITE_ENDPOINT!)
