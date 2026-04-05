@@ -49,10 +49,19 @@ function normalizeTags(raw: unknown): string[] {
   return [];
 }
 
+const ABBREV_DOT_RE = /(?:\d+(?:st|nd|rd|th)|\b(?:vs|etc|i\.e|e\.g|cf|al|dr|prof|mr|mrs|ms|st|nd))\./gi;
+const ABBREV_PLACEHOLDER = "\x00";
+
 function splitSyllabusIntoSubTopics(syllabusContent: string): string[] {
-  return syllabusContent
+  const protected_ = syllabusContent.replace(
+    ABBREV_DOT_RE,
+    (m) => m.slice(0, -1) + ABBREV_PLACEHOLDER,
+  );
+  return protected_
     .split(/(?<=[.;])\s+/)
-    .map((part) => part.replace(/\s+/g, " ").trim())
+    .map((part) =>
+      part.replace(/\x00/g, ".").replace(/\s+/g, " ").trim(),
+    )
     .filter(Boolean);
 }
 

@@ -19,12 +19,22 @@ export default function PrintableNotesDocument({
   generatedAt,
   model,
 }: PrintableNotesDocumentProps) {
+  const ABBREV_DOT_RE = /(?:\d+(?:st|nd|rd|th)|\b(?:vs|etc|i\.e|e\.g|cf|al|dr|prof|mr|mrs|ms|st|nd))\./gi;
+  const ABBREV_PLACEHOLDER = "\x00";
   const syllabusItems = syllabusContent
     .split(/\r?\n|;/)
     .map((item) => item.trim())
     .filter(Boolean)
-    .flatMap((item) => item.split(/(?<=\.)\s+(?=[A-Z0-9])/))
-    .map((item) => item.trim())
+    .flatMap((item) => {
+      const protected_ = item.replace(
+        ABBREV_DOT_RE,
+        (m) => m.slice(0, -1) + ABBREV_PLACEHOLDER,
+      );
+      return protected_
+        .split(/\.\s+(?=[A-Z0-9])/)
+        .map((p) => p.replace(/\x00/g, ".").trim())
+        .filter(Boolean);
+    })
     .filter(Boolean);
 
   return (
