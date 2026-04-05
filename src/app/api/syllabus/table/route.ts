@@ -3,6 +3,7 @@ import { adminDatabases, COLLECTION, DATABASE_ID, Query, ID } from "@/lib/appwri
 import { getServerUser } from "@/lib/auth";
 import {
   buildPaperMarkdown,
+  derivePaperNameFromContent,
   extractSubjectCode,
   toSyllabusTableRow,
   type SyllabusTablePaperSummary,
@@ -23,6 +24,9 @@ function isAdminPlus(role: string): boolean {
 }
 
 function safeFilenameToken(input: string, fallback: string): string {
+  // Sanitize user-controlled tokens before using them in Content-Disposition.
+  // Allow only uppercase A-Z, digits, underscore, and hyphen to prevent header
+  // injection and keep browser filename handling deterministic.
   const token = input
     .toUpperCase()
     .replace(/[^A-Z0-9_-]+/g, "_")
@@ -57,17 +61,14 @@ async function recordPdfGeneration(userId: string, todayStr: string): Promise<vo
 }
 
 function derivePaperNameFromRows(paperCode: string, rows: SyllabusTableRow[]): string {
-  // Delimiter choice is intentionally conservative (period/semicolon/newline)
-  // so we avoid clipping common acronym/comma patterns in syllabus text.
   const derivedPaperName = rows
     .map((row) => row.syllabus_content.trim())
-    .find((content) => content.length > 0)
-    ?.split(/[.;\n]/)[0]
-    ?.trim();
+    .find((content) => content.length > 0);
   if (!derivedPaperName) return paperCode;
-  return derivedPaperName.length > MAX_PAPER_NAME_LENGTH
-    ? `${derivedPaperName.slice(0, MAX_PAPER_NAME_LENGTH - ELLIPSIS_LENGTH)}...`
-    : derivedPaperName;
+  const name = derivePaperNameFromContent(derivedPaperName, paperCode);
+  return name.length > MAX_PAPER_NAME_LENGTH
+    ? `${name.slice(0, MAX_PAPER_NAME_LENGTH - ELLIPSIS_LENGTH)}...`
+    : name;
 }
 
 export async function GET(request: NextRequest) {
@@ -133,6 +134,9 @@ export async function GET(request: NextRequest) {
       cursorAfter = page.documents[page.documents.length - 1]?.$id ?? null;
       if (!cursorAfter) break;
       pageCount += 1;
+    }
+    if (pageCount >= SYLLABUS_TABLE_MAX_PAGES) {
+      console.warn("[syllabus-table] Hit pagination cap while listing Syllabus_Table rows.");
     }
 
     if (normalizedPaperCode) {

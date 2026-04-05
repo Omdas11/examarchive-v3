@@ -114,6 +114,7 @@ export async function generatePDF(
         req.continue();
         return;
       }
+      console.warn(`[pdf-generator] Blocked external request: type=${type} url=${url}`);
       req.abort();
     });
 

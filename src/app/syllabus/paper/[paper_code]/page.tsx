@@ -12,7 +12,11 @@ import type { Syllabus } from "@/types";
 import { toSyllabus } from "@/types";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
-import { extractSubjectCode, toSyllabusTableRow } from "@/lib/syllabus-table";
+import {
+  derivePaperNameFromContent,
+  extractSubjectCode,
+  toSyllabusTableRow,
+} from "@/lib/syllabus-table";
 
 interface PageProps {
   params: Promise<{ paper_code: string }>;
@@ -60,7 +64,7 @@ async function getUploadedSyllabusPdfs(paperCode: string): Promise<Syllabus[]> {
   );
   const derivedPaperName =
     typeof syllabusSeed.documents[0]?.syllabus_content === "string"
-      ? syllabusSeed.documents[0].syllabus_content.split(/[.;\n]/)[0]?.trim()
+      ? derivePaperNameFromContent(syllabusSeed.documents[0].syllabus_content, "")
       : "";
 
   const questionSeed = await db.listDocuments(

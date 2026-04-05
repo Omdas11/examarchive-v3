@@ -1,6 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { adminDatabases, COLLECTION, DATABASE_ID, Query } from "@/lib/appwrite";
-import { extractSubjectCode, toSyllabusTableRow } from "@/lib/syllabus-table";
+import {
+  derivePaperNameFromContent,
+  extractSubjectCode,
+  toSyllabusTableRow,
+} from "@/lib/syllabus-table";
 
 type RegistryLikeEntry = {
   paper_code: string;
@@ -12,11 +16,6 @@ type RegistryLikeEntry = {
   university: string;
   category: string;
 };
-
-function derivePaperNameFromContent(content: string, fallback: string): string {
-  const firstLine = content.split(/[.;\n]/)[0]?.trim();
-  return firstLine && firstLine.length > 0 ? firstLine : fallback;
-}
 
 async function listRegistryLikeEntries(): Promise<RegistryLikeEntry[]> {
   const db = adminDatabases();
@@ -38,6 +37,9 @@ async function listRegistryLikeEntries(): Promise<RegistryLikeEntry[]> {
     cursorAfter = page.documents[page.documents.length - 1]?.$id ?? null;
     if (!cursorAfter) break;
     pages += 1;
+  }
+  if (pages >= MAX_PAGES) {
+    console.warn("[syllabus-registry-api] Hit pagination cap while reading Syllabus_Table.");
   }
 
   const grouped = new Map<string, ReturnType<typeof toSyllabusTableRow>[]>();

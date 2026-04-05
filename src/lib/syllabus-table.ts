@@ -23,6 +23,8 @@ export interface SyllabusTablePaperSummary {
   lectures: number;
 }
 
+export const PAPER_NAME_SPLIT_RE = /[.;\n]/;
+
 export function extractSubjectCode(paperCode: string): string {
   const upper = paperCode.trim().toUpperCase();
   if (!upper) return "GEN";
@@ -87,4 +89,9 @@ export function buildPaperMarkdown(args: {
     }
   }
   return lines.join("\n").trim();
+}
+
+export function derivePaperNameFromContent(content: string, fallback: string): string {
+  const firstLine = content.split(PAPER_NAME_SPLIT_RE)[0]?.trim();
+  return firstLine && firstLine.length > 0 ? firstLine : fallback;
 }
