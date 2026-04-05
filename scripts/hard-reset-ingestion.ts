@@ -75,10 +75,8 @@ async function truncateCollection(collectionId: string) {
       hitIterationLimit = false;
       break;
     }
-    for (const doc of list.documents) {
-      await databases.deleteDocument(DB_ID, collectionId, doc.$id);
-      deleted += 1;
-    }
+    await Promise.all(list.documents.map((doc) => databases.deleteDocument(DB_ID, collectionId, doc.$id)));
+    deleted += list.documents.length;
     if (list.documents.length < LIST_PAGE_LIMIT) {
       hitIterationLimit = false;
       break;
@@ -115,10 +113,8 @@ async function truncateBucket(bucketId: string) {
       hitIterationLimit = false;
       break;
     }
-    for (const file of list.files) {
-      await storage.deleteFile(bucketId, file.$id);
-      deleted += 1;
-    }
+    await Promise.all(list.files.map((file) => storage.deleteFile(bucketId, file.$id)));
+    deleted += list.files.length;
     if (list.files.length < LIST_PAGE_LIMIT) {
       hitIterationLimit = false;
       break;

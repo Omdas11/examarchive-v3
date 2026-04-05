@@ -6,7 +6,6 @@ import { GeminiServiceError, runGeminiCompletion } from "@/lib/gemini";
 import { readMasterNotesPrompt } from "@/lib/master-notes-prompt";
 import { checkAndResetQuotas } from "@/lib/user-quotas";
 import { NOTES_DAILY_LIMIT, PAPERS_DAILY_LIMIT } from "@/lib/quota-config";
-import type { Models } from "node-appwrite";
 
 type GenerateNotesBody = {
   university?: string;
@@ -84,7 +83,7 @@ export async function GET(request: NextRequest) {
 
     const db = adminDatabases();
     const OPTION_MAX_PAGES = 20;
-    type OptionDoc = Models.Document & Record<string, unknown>;
+    type OptionDoc = Record<string, unknown> & { $id: string };
 
     async function listAllOptionDocs(
       collectionId: string,
@@ -116,7 +115,7 @@ export async function GET(request: NextRequest) {
       return allDocuments;
     }
 
-    const [syllabusDocs, questionDocs, ingestionDocs] = await Promise.all([
+    const [syllabusDocs, questionDocs] = await Promise.all([
       listAllOptionDocs(COLLECTION.syllabus_table, queries, 500, "syllabus"),
       listAllOptionDocs(
         COLLECTION.questions_table,
@@ -128,53 +127,7 @@ export async function GET(request: NextRequest) {
         1000,
         "questions",
       ),
-      listAllOptionDocs(COLLECTION.ai_ingestions, [], 1000, "ingestions"),
     ]);
-    const ingestedPaperCodes = new Set<string>();
-    const readFirstString = (value: Record<string, unknown>, keys: string[]) => {
-      for (const key of keys) {
-        const candidate = value[key];
-        if (typeof candidate === "string") {
-          const trimmed = candidate.trim();
-          if (trimmed) return trimmed;
-        }
-      }
-      return "";
-    };
-    const normalizePaperCode = (value: unknown) =>
-      (typeof value === "string" ? value : "")
-        .replace(/^.*[\\/]/, "")
-        .replace(/\.md$/i, "")
-        .trim();
-    for (const ingestionDoc of ingestionDocs) {
-      const normalizedStatus = readFirstString(ingestionDoc, ["status", "ingestion_status", "ingestionStatus"]).toLowerCase();
-      // Intentionally accept any non-failure ingestion status so legacy pipelines still backfill options.
-      // Only explicit failure states are excluded.
-      if (normalizedStatus === "failed" || normalizedStatus === "error") continue;
-
-      const directCode = normalizePaperCode(
-        readFirstString(ingestionDoc, ["paper_code", "paperCode", "course_code", "source_label", "sourceLabel"]),
-      );
-      if (directCode) {
-        ingestedPaperCodes.add(directCode);
-      }
-
-      const digest = typeof ingestionDoc.digest === "string" ? ingestionDoc.digest : "";
-      if (!digest) continue;
-      try {
-        const parsed = JSON.parse(digest) as Record<string, unknown>;
-        const digestCode = normalizePaperCode(
-          readFirstString(parsed, ["source_label", "sourceLabel", "paperCode", "paper_code", "course_code"]),
-        );
-        // Keep digest parsing even when directCode exists so legacy logs without direct paper fields still contribute.
-        // ingestedPaperCodes is a Set, so duplicate values remain deduplicated.
-        if (digestCode) {
-          ingestedPaperCodes.add(digestCode);
-        }
-      } catch {
-        // Ignore malformed legacy digest payloads; valid paper codes from other ingestion logs still populate options.
-      }
-    }
     const papersMap = new Map<string, string>();
     const storePaperName = (code: string, nameCandidate: unknown) => {
       const name = typeof nameCandidate === "string" ? nameCandidate.trim() : "";
@@ -210,12 +163,8 @@ export async function GET(request: NextRequest) {
       questionPaperCodes.add(code);
       storePaperName(code, questionDoc.paper_name);
     }
-    const notesIngestedCodes = Array.from(ingestedPaperCodes).filter((code) => syllabusPaperCodes.has(code));
-    const notesPaperCodes = [...new Set([...notesIngestedCodes, ...Array.from(syllabusPaperCodes)])]
-      .sort((a, b) => a.localeCompare(b));
-    const papersIngestedCodes = Array.from(ingestedPaperCodes).filter((code) => questionPaperCodes.has(code));
-    const papersPaperCodes = [...new Set([...papersIngestedCodes, ...Array.from(questionPaperCodes)])]
-      .sort((a, b) => a.localeCompare(b));
+    const notesPaperCodes = Array.from(syllabusPaperCodes).sort((a, b) => a.localeCompare(b));
+    const papersPaperCodes = Array.from(questionPaperCodes).sort((a, b) => a.localeCompare(b));
     const paperCodes = [...new Set([...notesPaperCodes, ...papersPaperCodes])].sort((a, b) => a.localeCompare(b));
     const paperCodesSet = new Set(paperCodes);
     const papers = paperCodes.map((code) => ({ code, name: papersMap.get(code) || code }));
