@@ -445,13 +445,13 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const university = (searchParams.get("university") || "Assam University").trim();
   const course = (searchParams.get("course") || "").trim();
-  const stream = (searchParams.get("stream") || "").trim();
+  const streamName = (searchParams.get("stream") || "").trim();
   const type = (searchParams.get("type") || "").trim();
   const paperCode = (searchParams.get("paperCode") || "").trim();
   const unitNumber = Number(searchParams.get("unitNumber"));
   const azureGotenbergUrl = process.env.AZURE_GOTENBERG_URL;
 
-  if (!course || !stream || !type || !paperCode || !Number.isInteger(unitNumber) || unitNumber < 1 || unitNumber > 5) {
+  if (!course || !streamName || !type || !paperCode || !Number.isInteger(unitNumber) || unitNumber < 1 || unitNumber > 5) {
     return NextResponse.json({ error: "Invalid selection. Please choose course, stream, type, paper code, and unit 1-5." }, { status: 400 });
   }
   if (!azureGotenbergUrl) {
@@ -471,7 +471,7 @@ export async function GET(request: NextRequest) {
     const remaining = isAdminPlus(user.role) ? null : Math.max(0, dailyLimit - usedBefore);
     const cachedSyllabusContent =
       completedCache.syllabusContent ??
-      (await readSyllabusContent(university, course, stream, type, paperCode, unitNumber));
+      (await readSyllabusContent(university, course, streamName, type, paperCode, unitNumber));
     const stream = new ReadableStream<Uint8Array>({
       start: (controller) => {
         controller.enqueue(toSseData({
@@ -538,7 +538,7 @@ export async function GET(request: NextRequest) {
         const syllabusRes = await db.listDocuments(DATABASE_ID, COLLECTION.syllabus_table, [
           Query.equal("university", university),
           Query.equal("course", course),
-          Query.equal("stream", stream),
+          Query.equal("stream", streamName),
           Query.equal("type", type),
           Query.equal("paper_code", paperCode),
           Query.equal("unit_number", unitNumber),
@@ -570,7 +570,7 @@ export async function GET(request: NextRequest) {
         const questionsRes = await db.listDocuments(DATABASE_ID, COLLECTION.questions_table, [
           Query.equal("university", university),
           Query.equal("course", course),
-          Query.equal("stream", stream),
+          Query.equal("stream", streamName),
           Query.equal("type", type),
           Query.equal("paper_code", paperCode),
           Query.limit(500),
@@ -595,7 +595,7 @@ export async function GET(request: NextRequest) {
 
           const promptBody = `University: ${university}
 Course: ${course}
-Stream: ${stream}
+Stream: ${streamName}
 Type: ${type}
 Paper Code: ${paperCode}
 Unit Number: ${unitNumber}

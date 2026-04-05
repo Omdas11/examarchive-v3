@@ -643,12 +643,12 @@ export default function AIContentClient() {
               <CustomDropdown options={courseOptions} value={course} onChange={setCourse} disabled={generating} />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-semibold">Type</label>
-              <CustomDropdown options={typeOptions} value={type} onChange={setType} disabled={generating} />
-            </div>
-            <div>
               <label className="mb-1 block text-sm font-semibold">Stream</label>
               <CustomDropdown options={streamOptions} value={stream} onChange={setStream} disabled={generating} />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-semibold">Type</label>
+              <CustomDropdown options={typeOptions} value={type} onChange={setType} disabled={generating} />
             </div>
             <div>
               <label className="mb-1 block text-sm font-semibold">Paper Code</label>

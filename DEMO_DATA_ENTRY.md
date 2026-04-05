@@ -1,6 +1,7 @@
 ---
 university: Assam University
-course: Commerce
+course: FYUG
+stream: Science
 type: DSC
 paper_code: PHYDSC101T
 paper_name: Mechanics
@@ -10,7 +11,11 @@ paper_name: Mechanics
 >
 > Use this exact structure. Do not rename headers or columns.
 >
-> **Note:** The `course` field should use broad stream/category names. Accepted values are: `Arts`, `Science`, `Commerce`, `FYUG`, or `CBCS`. Do **not** use specific degree names like `B.Com`, `B.Sc`, or `B.A`.
+> **Note:** Use `course` for program structure only: `FYUG` or `CBCS`.
+>
+> Use `stream` for broad subject streams: `Arts`, `Science`, `Commerce` (and future streams as needed).
+>
+> Do **not** use specific degree names like `B.Com`, `B.Sc`, or `B.A` in `course`.
 
 ## Syllabus
 
