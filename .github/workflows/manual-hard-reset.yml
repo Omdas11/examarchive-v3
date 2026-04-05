@@ -1,0 +1,38 @@
+name: Manual AI Ingestion Hard Reset
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "RESET" to confirm you want to wipe and recreate the ingestion database'
+        required: true
+        type: string
+
+jobs:
+  reset-database:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check confirmation
+        if: ${{ github.event.inputs.confirm != 'RESET' }}
+        run: |
+          echo "Confirmation failed. You must type 'RESET'."
+          exit 1
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Hard Reset Script
+        env:
+          APPWRITE_ENDPOINT: ${{ secrets.APPWRITE_ENDPOINT }}
+          APPWRITE_PROJECT_ID: ${{ secrets.APPWRITE_PROJECT_ID }}
+          APPWRITE_API_KEY: ${{ secrets.APPWRITE_API_KEY }}
+        run: npx tsx scripts/hard-reset-ingestion.ts
