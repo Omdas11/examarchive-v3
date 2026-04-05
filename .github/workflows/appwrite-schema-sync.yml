@@ -42,6 +42,7 @@ jobs:
         run: npm run sync:appwrite-schema:status
 
       - name: Commit updated DATABASE_SCHEMA.md status
+        shell: bash
         run: |
           if git diff --quiet -- DATABASE_SCHEMA.md MASTER_NOTES_PROMPT.md; then
             echo "No schema status changes to commit."
@@ -52,19 +53,31 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add DATABASE_SCHEMA.md MASTER_NOTES_PROMPT.md
           git commit -m "chore: update auto-generated schema sync status"
+          git fetch origin main
+          if ! git rebase origin/main; then
+            echo "Initial rebase failed; aborting to avoid pushing conflicted history."
+            git rebase --abort || true
+            exit 1
+          fi
+
           for attempt in 1 2 3; do
+            if git push origin HEAD:main; then
+              echo "Push succeeded on attempt ${attempt}."
+              exit 0
+            fi
+
+            echo "Push failed on attempt ${attempt}; refreshing against origin/main."
             git fetch origin main
             if ! git rebase origin/main; then
               echo "Rebase failed on attempt ${attempt}; aborting to avoid pushing conflicted history."
               git rebase --abort || true
               exit 1
             fi
-            if git push origin HEAD:main; then
-              echo "Push succeeded on attempt ${attempt}."
-              exit 0
-            fi
-            echo "Push failed on attempt ${attempt}; retrying..."
-            sleep $((2 ** attempt))
+            case "$attempt" in
+              1) sleep 2 ;;
+              2) sleep 4 ;;
+              *) sleep 8 ;;
+            esac
           done
 
           echo "Push failed after 3 attempts."
