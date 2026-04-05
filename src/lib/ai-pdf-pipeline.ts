@@ -84,16 +84,18 @@ function renderLatexToMathMl(markdown: string): string {
       displayMode,
       output: "mathml",
     });
+  // Expected regex shape for replaceWithLeading:
+  // 1st capture group = leading context ("" or non-backslash char), 2nd = LaTeX expression body.
   const replaceWithLeading = (source: string, pattern: RegExp, displayMode: boolean) =>
     source.replace(pattern, (_match, leading: string, expression: string) =>
       `${leading}${renderExpression(expression, displayMode)}`);
   let output = markdown;
-  output = replaceWithLeading(output, /(^|[^\\])\$\$([\s\S]+?)\$\$/g, true);
+  output = replaceWithLeading(output, /(^|[^\\])\$\$([\s\S]+?)\$\$/gm, true);
   output = output.replace(/\\\[([\s\S]+?)\\\]/g, (_match, expression: string) =>
     renderExpression(expression, true));
   output = output.replace(/\\\(([\s\S]+?)\\\)/g, (_match, expression: string) =>
     renderExpression(expression, false));
-  output = replaceWithLeading(output, /(^|[^\\])\$([^\n$]+?)\$/g, false);
+  output = replaceWithLeading(output, /(^|[^\\])\$([^\n$]+?)\$/gm, false);
   return output;
 }
 
