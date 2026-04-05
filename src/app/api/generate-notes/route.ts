@@ -291,6 +291,10 @@ export async function POST(request: NextRequest) {
     }
 
     const questionsRes = await db.listDocuments(DATABASE_ID, COLLECTION.questions_table, [
+      Query.equal("university", university),
+      Query.equal("course", course),
+      Query.equal("stream", stream),
+      Query.equal("type", type),
       Query.equal("paper_code", paperCode),
       Query.limit(500),
     ]);

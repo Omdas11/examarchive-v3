@@ -207,6 +207,46 @@ async function ensureNotesCacheSchema(): Promise<void> {
       undefined,
     ),
   );
+  await ensureAttribute("university", () =>
+    db.createStringAttribute(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      "university",
+      256,
+      false,
+      undefined,
+    ),
+  );
+  await ensureAttribute("course", () =>
+    db.createStringAttribute(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      "course",
+      64,
+      false,
+      undefined,
+    ),
+  );
+  await ensureAttribute("stream", () =>
+    db.createStringAttribute(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      "stream",
+      64,
+      false,
+      undefined,
+    ),
+  );
+  await ensureAttribute("selection_type", () =>
+    db.createStringAttribute(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      "selection_type",
+      32,
+      false,
+      undefined,
+    ),
+  );
 }
 
 async function ensureMarkdownCacheBucket(): Promise<void> {
@@ -232,11 +272,22 @@ async function ensureMarkdownCacheBucket(): Promise<void> {
   }
 }
 
-async function readCachedNotes(paperCode: string, unitNumber: number): Promise<CachedNotes | null> {
+async function readCachedNotes(
+  university: string,
+  course: string,
+  stream: string,
+  selectionType: string,
+  paperCode: string,
+  unitNumber: number,
+): Promise<CachedNotes | null> {
   const db = adminDatabases();
   const storage = adminStorage();
   try {
     const res = await db.listDocuments(DATABASE_ID, COLLECTION.generated_notes_cache, [
+      Query.equal("university", university),
+      Query.equal("course", course),
+      Query.equal("stream", stream),
+      Query.equal("selection_type", selectionType),
       Query.equal("paper_code", paperCode),
       Query.equal("unit_number", unitNumber),
       Query.equal("type", UNIT_NOTES_CACHE_TYPE),
@@ -282,6 +333,10 @@ async function readSyllabusContent(
 }
 
 async function writeCachedNotes(
+  university: string,
+  course: string,
+  stream: string,
+  selectionType: string,
   paperCode: string,
   unitNumber: number,
   markdown: string,
@@ -300,6 +355,10 @@ async function writeCachedNotes(
     const markdownFileId = String(uploadResult.$id);
     // Keep explicit created_at because schema/docs require this field for cache reads and audits.
     const payload = {
+      university,
+      course,
+      stream,
+      selection_type: selectionType,
       paper_code: paperCode,
       unit_number: unitNumber,
       type: UNIT_NOTES_CACHE_TYPE,
@@ -463,7 +522,7 @@ export async function GET(request: NextRequest) {
 
   await ensureNotesCacheSchema();
   await ensureMarkdownCacheBucket();
-  const completedCache = await readCachedNotes(paperCode, unitNumber);
+  const completedCache = await readCachedNotes(university, course, streamName, type, paperCode, unitNumber);
   if (completedCache) {
     const todayStr = new Date().toISOString().slice(0, 10);
     const dailyLimit = getDailyLimit();
@@ -714,7 +773,7 @@ CRITICAL FORMAT CONSTRAINTS:
           await sleep(TOPIC_LOOP_DELAY_MS);
         }
 
-        await writeCachedNotes(paperCode, unitNumber, masterMarkdown, syllabusContent, (message) =>
+        await writeCachedNotes(university, course, streamName, type, paperCode, unitNumber, masterMarkdown, syllabusContent, (message) =>
           controller.enqueue(toSseData({ log: message })),
         );
         controller.enqueue(toSseData({ log: "AI generation complete. Sending to Azure for PDF rendering..." }));
