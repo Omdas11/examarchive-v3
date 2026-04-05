@@ -74,6 +74,7 @@ This pipeline is driven by data ingested from `DEMO_DATA_ENTRY.md` into:
 
 1. **Paper-code and year/unit option load** (`GET /api/generate-notes`)
    - Reads `Syllabus_Table` and `Questions_Table` scoped by `university + course + type`.
+   - Uses cursor-based pagination on `Syllabus_Table`, `Questions_Table`, and `ai_ingestions` to avoid truncating dropdown data on larger datasets.
    - Builds paper-code dropdown options from non-failure ingestion logs (`ai_ingestions`) with field fallbacks (`paper_code`, digest fields, `source_label`), then constrains them to table-backed data.
    - Returns:
      - `paperCodes`
@@ -91,6 +92,7 @@ This pipeline is driven by data ingested from `DEMO_DATA_ENTRY.md` into:
    - Fetches syllabus from `Syllabus_Table`.
    - Fetches related questions from `Questions_Table` (same selection scope) and includes them in prompt context.
    - If syllabus row is missing, route returns: `No syllabus data found for this unit.`
+   - In UI, if a selected paper has no `unitsByPaperCode` entries, Unit dropdown is disabled and notes generation is blocked to prevent invalid unit requests.
 
 3. **Solved Paper generation** (`GET /api/generate-solved-paper-stream`)
    - Uses selected `university + course + type + paperCode + year`.

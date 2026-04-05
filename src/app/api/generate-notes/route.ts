@@ -6,6 +6,7 @@ import { GeminiServiceError, runGeminiCompletion } from "@/lib/gemini";
 import { readMasterNotesPrompt } from "@/lib/master-notes-prompt";
 import { checkAndResetQuotas } from "@/lib/user-quotas";
 import { NOTES_DAILY_LIMIT, PAPERS_DAILY_LIMIT } from "@/lib/quota-config";
+import type { Models } from "node-appwrite";
 
 type GenerateNotesBody = {
   university?: string;
@@ -77,22 +78,57 @@ export async function GET(request: NextRequest) {
   const type = (searchParams.get("type") || "").trim();
 
   try {
-    const queries = [Query.equal("university", university), Query.limit(500)];
+    const queries = [Query.equal("university", university)];
     if (course) queries.push(Query.equal("course", course));
     if (type) queries.push(Query.equal("type", type));
 
     const db = adminDatabases();
-    const [{ documents }, questionDocsRes, ingestionRes] = await Promise.all([
-      db.listDocuments(DATABASE_ID, COLLECTION.syllabus_table, queries),
-      db.listDocuments(DATABASE_ID, COLLECTION.questions_table, [
-        Query.equal("university", university),
-        ...(course ? [Query.equal("course", course)] : []),
-        ...(type ? [Query.equal("type", type)] : []),
-        Query.limit(1000),
-      ]),
-      db.listDocuments(DATABASE_ID, COLLECTION.ai_ingestions, [
-        Query.limit(1000),
-      ]),
+    const OPTION_MAX_PAGES = 20;
+    type OptionDoc = Models.Document & Record<string, unknown>;
+
+    async function listAllOptionDocs(
+      collectionId: string,
+      baseQueries: string[],
+      pageSize: number,
+      label: string,
+    ): Promise<OptionDoc[]> {
+      const allDocuments: OptionDoc[] = [];
+      let cursorAfter = "";
+
+      for (let page = 0; page < OPTION_MAX_PAGES; page++) {
+        const pageQueries = [
+          ...baseQueries,
+          Query.limit(pageSize),
+          ...(cursorAfter ? [Query.cursorAfter(cursorAfter)] : []),
+        ];
+        const res = await db.listDocuments(DATABASE_ID, collectionId, pageQueries);
+        const currentPageDocuments = (res.documents || []) as OptionDoc[];
+        allDocuments.push(...currentPageDocuments);
+
+        if (currentPageDocuments.length < pageSize) return allDocuments;
+        const lastDoc = currentPageDocuments[currentPageDocuments.length - 1];
+        const nextCursor = typeof lastDoc.$id === "string" ? lastDoc.$id : "";
+        if (!nextCursor) return allDocuments;
+        cursorAfter = nextCursor;
+      }
+
+      console.warn(`[generate-notes] ${label} option query reached page cap (${OPTION_MAX_PAGES})`);
+      return allDocuments;
+    }
+
+    const [syllabusDocs, questionDocs, ingestionDocs] = await Promise.all([
+      listAllOptionDocs(COLLECTION.syllabus_table, queries, 500, "syllabus"),
+      listAllOptionDocs(
+        COLLECTION.questions_table,
+        [
+          Query.equal("university", university),
+          ...(course ? [Query.equal("course", course)] : []),
+          ...(type ? [Query.equal("type", type)] : []),
+        ],
+        1000,
+        "questions",
+      ),
+      listAllOptionDocs(COLLECTION.ai_ingestions, [], 1000, "ingestions"),
     ]);
     const ingestedPaperCodes = new Set<string>();
     const readFirstString = (value: Record<string, unknown>, keys: string[]) => {
@@ -110,7 +146,7 @@ export async function GET(request: NextRequest) {
         .replace(/^.*[\\/]/, "")
         .replace(/\.md$/i, "")
         .trim();
-    for (const ingestionDoc of ingestionRes.documents) {
+    for (const ingestionDoc of ingestionDocs) {
       const normalizedStatus = readFirstString(ingestionDoc, ["status", "ingestion_status", "ingestionStatus"]).toLowerCase();
       // Intentionally accept any non-failure ingestion status so legacy pipelines still backfill options.
       // Only explicit failure states are excluded.
@@ -146,7 +182,7 @@ export async function GET(request: NextRequest) {
     };
     const syllabusPaperCodes = new Set<string>();
     const unitsByPaperCode: Record<string, number[]> = {};
-    for (const doc of documents) {
+    for (const doc of syllabusDocs) {
       const code = typeof doc.paper_code === "string" ? doc.paper_code.trim() : "";
       if (!code) continue;
       storePaperName(code, doc.paper_name);
@@ -168,7 +204,7 @@ export async function GET(request: NextRequest) {
     }
 
     const questionPaperCodes = new Set<string>();
-    for (const questionDoc of questionDocsRes.documents) {
+    for (const questionDoc of questionDocs) {
       const code = typeof questionDoc.paper_code === "string" ? questionDoc.paper_code.trim() : "";
       if (!code) continue;
       questionPaperCodes.add(code);
@@ -184,7 +220,7 @@ export async function GET(request: NextRequest) {
     const paperCodesSet = new Set(paperCodes);
     const papers = paperCodes.map((code) => ({ code, name: papersMap.get(code) || code }));
     const yearsByPaperCode: Record<string, number[]> = {};
-    for (const questionDoc of questionDocsRes.documents) {
+    for (const questionDoc of questionDocs) {
       const code = typeof questionDoc.paper_code === "string" ? questionDoc.paper_code.trim() : "";
       if (!code || !paperCodesSet.has(code)) continue;
       const yearRaw = questionDoc.year;

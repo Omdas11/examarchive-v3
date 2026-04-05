@@ -67,10 +67,11 @@ export default function AIContentClient() {
   const [showLogs, setShowLogs] = useState(false);
   const elapsedSecondsRef = useRef(0);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const hasPaperCode = paperCode.trim().length > 0;
   const availableUnits = useMemo(() => {
     const units = unitsByPaperCode[paperCode];
-    return Array.isArray(units) && units.length > 0 ? units : UNIT_OPTIONS;
-  }, [unitsByPaperCode, paperCode]);
+    return Array.isArray(units) && units.length > 0 ? units : (hasPaperCode ? [] : UNIT_OPTIONS);
+  }, [unitsByPaperCode, paperCode, hasPaperCode]);
   const availableYears = useMemo(() => yearsByPaperCode[paperCode] || [], [yearsByPaperCode, paperCode]);
   const courseOptions: CustomDropdownOption[] = useMemo(
     () => [
@@ -514,12 +515,12 @@ export default function AIContentClient() {
   useEffect(() => {
     const defaultUnit = UNIT_OPTIONS[0] ?? 1;
     if (availableUnits.length === 0) {
-      setUnitNumber(defaultUnit);
+      if (!hasPaperCode) setUnitNumber(defaultUnit);
       return;
     }
     const fallbackUnit = availableUnits[0] ?? defaultUnit;
     setUnitNumber((current) => (availableUnits.includes(current) ? current : fallbackUnit));
-  }, [paperCode, availableUnits]);
+  }, [availableUnits, hasPaperCode]);
 
   useEffect(() => {
     if (availableYears.length === 0) {
@@ -560,7 +561,12 @@ export default function AIContentClient() {
     activeTab === "notes"
       ? canGenerateByLegacyLimit && notesQuotaAllowed
       : canGenerateByLegacyLimit && papersQuotaAllowed;
-  const isGenerationDisabled = !paperCode.trim() || !canGenerate || (activeTab === "papers" && selectedYear === "");
+  const hasAvailableUnitsForPaper = availableUnits.length > 0;
+  const isGenerationDisabled =
+    !hasPaperCode ||
+    !canGenerate ||
+    (activeTab === "papers" && selectedYear === "") ||
+    (activeTab === "notes" && !hasAvailableUnitsForPaper);
   const isNotesGenerationFinished = activeTab === "notes" && !generating && Boolean(activePdfUrl);
   const isPapersGenerationFinished = activeTab === "papers" && !generating && Boolean(activePdfUrl);
 
@@ -633,8 +639,12 @@ export default function AIContentClient() {
                     options={unitOptions}
                     value={String(unitNumber)}
                     onChange={(nextValue) => setUnitNumber(Number(nextValue))}
-                    disabled={generating}
+                    placeholder="Select unit"
+                    disabled={generating || !hasAvailableUnitsForPaper}
                   />
+                  {paperCode && !hasAvailableUnitsForPaper ? (
+                    <p className="mt-2 text-sm text-red-600">No syllabus units found for this paper code.</p>
+                  ) : null}
                 </div>
               </>
             ) : (
