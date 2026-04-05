@@ -545,14 +545,15 @@ export async function GET(request: NextRequest) {
 
   const university = (searchParams.get("university") || "Assam University").trim();
   const course = (searchParams.get("course") || "").trim();
+  const stream = (searchParams.get("stream") || "").trim();
   const type = (searchParams.get("type") || "").trim();
   const paperCode = (searchParams.get("paperCode") || "").trim();
   const year = normalizeNumber(searchParams.get("year"));
   const azureGotenbergUrl = process.env.AZURE_GOTENBERG_URL;
 
-  if (!course || !type || !paperCode || year === null) {
+  if (!course || !stream || !type || !paperCode || year === null) {
     return NextResponse.json(
-      { error: "Invalid selection. Please choose course, type, paper code, and year." },
+      { error: "Invalid selection. Please choose course, stream, type, paper code, and year." },
       { status: 400 },
     );
   }
@@ -581,6 +582,7 @@ export async function GET(request: NextRequest) {
       const questionsRes = await db.listDocuments(DATABASE_ID, COLLECTION.questions_table, [
         Query.equal("university", university),
         Query.equal("course", course),
+        Query.equal("stream", stream),
         Query.equal("type", type),
         Query.equal("paper_code", paperCode),
         Query.equal("year", year),
@@ -674,6 +676,7 @@ export async function GET(request: NextRequest) {
         const questionsRes = await db.listDocuments(DATABASE_ID, COLLECTION.questions_table, [
           Query.equal("university", university),
           Query.equal("course", course),
+          Query.equal("stream", stream),
           Query.equal("type", type),
           Query.equal("paper_code", paperCode),
           Query.equal("year", year),
@@ -818,6 +821,7 @@ export async function GET(request: NextRequest) {
           const questionText = `University: ${university}
 
 Course: ${course}
+Stream: ${stream}
 Type: ${type}
 Paper Code: ${paperCode}
 Year: ${year}

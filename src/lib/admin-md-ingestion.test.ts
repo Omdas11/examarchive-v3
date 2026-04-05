@@ -5,6 +5,7 @@ describe("parseDemoDataEntryMarkdown", () => {
     const markdown = `---
 university: Assam University
 course: FYUG
+stream: Science
 type: DSC
 paper_code: PHYDSC101T
 paper_name: Mechanics
@@ -37,6 +38,7 @@ paper_name: Mechanics
     const markdown = `---
 university: Assam University
 course: FYUG
+stream: Science
 type: DSC
 paper_code: PHYDSC101T
 paper_name: Mechanics

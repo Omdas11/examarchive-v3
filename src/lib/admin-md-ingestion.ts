@@ -3,6 +3,7 @@ import matter from "gray-matter";
 export interface IngestionFrontmatter {
   university: string;
   course: string;
+  stream: string;
   type: string;
   paper_code: string;
   paper_name: string;
@@ -102,6 +103,7 @@ function parseFrontmatter(data: Record<string, unknown>, errors: IngestionParseE
   const frontmatter: IngestionFrontmatter = {
     university: get("university"),
     course: get("course"),
+    stream: get("stream"),
     type: get("type"),
     paper_code: get("paper_code"),
     paper_name: get("paper_name"),
