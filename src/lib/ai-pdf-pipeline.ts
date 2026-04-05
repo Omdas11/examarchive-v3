@@ -86,7 +86,7 @@ export function buildPdfHtml(args: {
   const watermarkSvg = encodeURIComponent(
     `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300"><text x="50%" y="50%" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700" fill="#800000" fill-opacity="0.08" transform="rotate(-45 150 150)" text-anchor="middle">EXAMARCHIVE</text></svg>`,
   );
-  const ABBREV_DOT_RE = /\b(vs|etc|i\.e|e\.g|cf|al|dr|prof|mr|mrs|ms|st|nd)\./gi;
+  const ABBREV_DOT_RE = /(?:\d+(?:st|nd|rd|th)|\b(?:vs|etc|i\.e|e\.g|cf|al|dr|prof|mr|mrs|ms|st|nd))\./gi;
   const ABBREV_PLACEHOLDER = "\x00";
   const splitSyllabusItems = (input: string): string[] => {
     const trimmed = input.trim();

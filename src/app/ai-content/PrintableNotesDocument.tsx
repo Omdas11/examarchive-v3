@@ -19,7 +19,7 @@ export default function PrintableNotesDocument({
   generatedAt,
   model,
 }: PrintableNotesDocumentProps) {
-  const ABBREV_DOT_RE = /\b(vs|etc|i\.e|e\.g|cf|al|dr|prof|mr|mrs|ms|st|nd)\./gi;
+  const ABBREV_DOT_RE = /(?:\d+(?:st|nd|rd|th)|\b(?:vs|etc|i\.e|e\.g|cf|al|dr|prof|mr|mrs|ms|st|nd))\./gi;
   const ABBREV_PLACEHOLDER = "\x00";
   const syllabusItems = syllabusContent
     .split(/\r?\n|;/)

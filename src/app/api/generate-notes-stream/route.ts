@@ -49,7 +49,7 @@ function normalizeTags(raw: unknown): string[] {
   return [];
 }
 
-const ABBREV_DOT_RE = /\b(vs|etc|i\.e|e\.g|cf|al|dr|prof|mr|mrs|ms|st|nd)\./gi;
+const ABBREV_DOT_RE = /(?:\d+(?:st|nd|rd|th)|\b(?:vs|etc|i\.e|e\.g|cf|al|dr|prof|mr|mrs|ms|st|nd))\./gi;
 const ABBREV_PLACEHOLDER = "\x00";
 
 function splitSyllabusIntoSubTopics(syllabusContent: string): string[] {
