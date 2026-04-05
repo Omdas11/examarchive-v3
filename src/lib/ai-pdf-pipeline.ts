@@ -103,6 +103,8 @@ function renderLatexToMathMl(markdown: string): string {
     let delimiterSize = 1;
 
     while (i < source.length) {
+      // Inline `$...$` must stay on a single line. If newline appears before a closing
+      // inline delimiter, treat it as plain text and restart scanning after the newline.
       if (mode === "inline" && source[i] === "\n") {
         output += source.slice(openingIndex, i + 1);
         mode = null;
@@ -114,7 +116,8 @@ function renderLatexToMathMl(markdown: string): string {
         i += 1;
         continue;
       }
-      const isDisplayDelimiter = source[i + 1] === "$" && !isEscaped(source, i + 1);
+      const isDisplayDelimiter =
+        i + 1 < source.length && source[i + 1] === "$" && !isEscaped(source, i + 1);
       const currentDelimiterSize = isDisplayDelimiter ? 2 : 1;
       const currentMode: "inline" | "display" = isDisplayDelimiter ? "display" : "inline";
 
@@ -170,7 +173,7 @@ export function buildPdfHtml(args: {
   syllabusContent?: string;
 }): string {
   const { markdown, paperCode, unitNumber, year, syllabusContent } = args;
-  const ESCAPED_DOLLAR_PLACEHOLDER = "\uE000";
+  const ESCAPED_DOLLAR_PLACEHOLDER = "__EXAMARCHIVE_ESCAPED_DOLLAR_PLACEHOLDER__";
   const cleanMarkdown = markdown
     .replace(/\\\$/g, ESCAPED_DOLLAR_PLACEHOLDER)
     .replace(/\\\\\(/g, "\\(")
