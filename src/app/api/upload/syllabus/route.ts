@@ -132,6 +132,8 @@ export async function POST(request: NextRequest) {
         department,
         semester,
         programme,
+        course_code: isDeptSyllabus ? "" : (paper_code ?? ""),
+        course_name: subject,
         year: yearNum,
         uploader_id: user.id,
         approval_status: "pending",

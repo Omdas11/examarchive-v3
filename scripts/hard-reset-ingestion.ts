@@ -165,12 +165,22 @@ async function recreateMdIngestionBucket() {
   console.log(`[hard-reset-ingestion] recreated bucket ${recreated.$id}`);
 }
 
+async function deleteLegacySyllabusRegistryCollection() {
+  try {
+    await databases.deleteCollection(DB_ID, SYLLABUS_REGISTRY_COL_ID);
+    console.log(`[hard-reset-ingestion] deleted legacy collection ${SYLLABUS_REGISTRY_COL_ID}`);
+  } catch (error) {
+    if (!isNotFoundError(error)) throw error;
+    console.log(`[hard-reset-ingestion] legacy collection ${SYLLABUS_REGISTRY_COL_ID} already absent`);
+  }
+}
+
 async function hardReset() {
   console.log("☢️ INITIATING FULL AI INGESTION PIPELINE RESET ☢️");
 
   await truncateCollection(SYLLABUS_TABLE_COL_ID);
   await truncateCollection(QUESTIONS_TABLE_COL_ID);
-  await truncateCollection(SYLLABUS_REGISTRY_COL_ID);
+  await deleteLegacySyllabusRegistryCollection();
 
   await recreateIngestionCollection();
   await recreateMdIngestionBucket();
@@ -178,8 +188,7 @@ async function hardReset() {
   console.log("🎉 RESET COMPLETE.");
   console.log("Next steps:");
   console.log("1) Re-ingest markdown files in DEMO_DATA_ENTRY.md format.");
-  console.log("2) Rebuild syllabus registry from docs/SYLLABUS_REGISTRY.md if needed.");
-  console.log("3) Validate AI Content tabs: units should work when syllabus exists, solved papers only when question-year rows exist.");
+  console.log("2) Validate AI Content tabs: units should work when syllabus exists, solved papers only when question-year rows exist.");
 }
 
 hardReset().catch((error) => {

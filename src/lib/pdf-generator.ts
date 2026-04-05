@@ -72,7 +72,7 @@ export function sanitizeHtmlLikeContent(input: string): string {
       math: ["xmlns", "display"],
       annotation: ["encoding"],
     },
-    allowedSchemes: ["http", "https", "mailto"],
+    allowedSchemes: ["mailto", "data"],
     allowedSchemesAppliedToAttributes: ["href", "src"],
     allowProtocolRelative: false,
   });
@@ -102,6 +102,21 @@ export async function generatePDF(
     });
 
     const page = await browser.newPage();
+    await page.setRequestInterception(true);
+    page.on("request", (req) => {
+      const type = req.resourceType();
+      const url = req.url();
+      if (type === "document") {
+        req.continue();
+        return;
+      }
+      if (url.startsWith("data:")) {
+        req.continue();
+        return;
+      }
+      console.warn(`[pdf-generator] Blocked external request: type=${type} url=${url}`);
+      req.abort();
+    });
 
     // Keep header area empty; footer handles pagination and attribution.
     const headerTemplate = `<div></div>`;
@@ -311,7 +326,7 @@ export async function generatePDF(
 </html>
     `;
 
-    await page.setContent(styledHTML, { waitUntil: "networkidle0" });
+    await page.setContent(styledHTML, { waitUntil: "domcontentloaded" });
 
     // Estimate pages before generating to avoid closing the page prematurely
     const estimatedPages = await estimatePageCount(page);

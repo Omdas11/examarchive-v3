@@ -1,19 +1,21 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import SyllabusCatalogClient from "./SyllabusCatalogClient";
 
-const registryPayload = {
-  entries: [
+const tablePayload = {
+  papers: [
     {
-      paper_code: "PHY101",
-      paper_name: "Physics I",
-      semester: 1,
-      subject: "Physics",
-      credits: 3,
-      programme: "FYUGP",
+      paperCode: "PHY101",
+      paperName: "Physics I",
+      subjectCode: "PHY",
+      units: 3,
+      lectures: 12,
+      course: "FYUG",
+      stream: "Science",
+      type: "DSC",
       university: "Test University",
-      category: "DSC",
     },
   ],
+  subjects: [{ subjectCode: "PHY", papers: 1, units: 3 }],
 };
 
 describe("SyllabusCatalogClient", () => {
@@ -27,12 +29,12 @@ describe("SyllabusCatalogClient", () => {
   it("renders registry entries from backend in the library tab", async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
-      json: async () => registryPayload,
+      json: async () => tablePayload,
     }) as unknown as typeof fetch;
 
     render(<SyllabusCatalogClient syllabi={[]} />);
 
-    fireEvent.click(screen.getByText("Paper Syllabus Library"));
+    fireEvent.click(screen.getByText("Syllabus from Syllabus_Table"));
 
     await waitFor(() => {
       expect(screen.getByText("Physics I")).toBeInTheDocument();
@@ -49,11 +51,11 @@ describe("SyllabusCatalogClient", () => {
 
     render(<SyllabusCatalogClient syllabi={[]} />);
 
-    fireEvent.click(screen.getByText("Paper Syllabus Library"));
+    fireEvent.click(screen.getByText("Syllabus from Syllabus_Table"));
 
     await waitFor(() => {
       expect(
-        screen.getByText(/unable to load the syllabus registry/i),
+        screen.getByText(/unable to load syllabus library/i),
       ).toBeInTheDocument();
     });
   });
