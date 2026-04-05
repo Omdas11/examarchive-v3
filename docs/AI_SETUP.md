@@ -81,10 +81,10 @@ This pipeline is driven by data ingested from `DEMO_DATA_ENTRY.md` into:
      - `papersPaperCodes` (paper codes that exist in `Questions_Table`; shown in **Solved Papers** tab)
      - `unitsByPaperCode` (from `Syllabus_Table.unit_number`)
      - `yearsByPaperCode` (from `Questions_Table.year`)
-   - Safety fallback:
-     - **Unit Notes** falls back to `Syllabus_Table` codes.
-     - **Solved Papers** falls back to `Questions_Table` codes.
-   - This avoids showing paper codes that were ingested but have no matching syllabus/question rows for the selected tab.
+   - Inclusion behavior:
+     - Start from non-failure `ai_ingestions` discovery.
+     - Merge in all table-backed scoped codes for each tab (`Syllabus_Table` for Notes, `Questions_Table` for Solved Papers).
+   - This keeps ingestion-discovered options while ensuring table-present codes are never hidden when ingestion logs are partial.
 
 2. **Unit Notes generation** (`GET /api/generate-notes-stream`)
    - Uses selected `university + course + type + paperCode + unitNumber`.

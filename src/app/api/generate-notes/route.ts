@@ -175,10 +175,10 @@ export async function GET(request: NextRequest) {
       storePaperName(code, questionDoc.paper_name);
     }
     const notesIngestedCodes = Array.from(ingestedPaperCodes).filter((code) => syllabusPaperCodes.has(code));
-    const notesPaperCodes = [...(notesIngestedCodes.length > 0 ? notesIngestedCodes : Array.from(syllabusPaperCodes))]
+    const notesPaperCodes = [...new Set([...notesIngestedCodes, ...Array.from(syllabusPaperCodes)])]
       .sort((a, b) => a.localeCompare(b));
     const papersIngestedCodes = Array.from(ingestedPaperCodes).filter((code) => questionPaperCodes.has(code));
-    const papersPaperCodes = [...(papersIngestedCodes.length > 0 ? papersIngestedCodes : Array.from(questionPaperCodes))]
+    const papersPaperCodes = [...new Set([...papersIngestedCodes, ...Array.from(questionPaperCodes)])]
       .sort((a, b) => a.localeCompare(b));
     const paperCodes = [...new Set([...notesPaperCodes, ...papersPaperCodes])].sort((a, b) => a.localeCompare(b));
     const paperCodesSet = new Set(paperCodes);
