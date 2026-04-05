@@ -173,7 +173,7 @@ export async function GET(request: NextRequest) {
     const scopedPaperCodes = new Set([...syllabusPaperCodes, ...questionPaperCodes]);
     const ingestedScopedCodes = Array.from(ingestedPaperCodes).filter((code) => scopedPaperCodes.has(code));
     const paperCodeSource = ingestedScopedCodes.length > 0 ? ingestedScopedCodes : Array.from(scopedPaperCodes);
-    const paperCodes = paperCodeSource.sort((a, b) => a.localeCompare(b));
+    const paperCodes = [...paperCodeSource].sort((a, b) => a.localeCompare(b));
     const paperCodesSet = new Set(paperCodes);
     const papers = paperCodes.map((code) => ({ code, name: papersMap.get(code) || code }));
     const yearsByPaperCode: Record<string, number[]> = {};
