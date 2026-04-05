@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { adminDatabases, COLLECTION, DATABASE_ID, Query } from "@/lib/appwrite";
+import { adminDatabases, COLLECTION, DATABASE_ID, Query, ID } from "@/lib/appwrite";
+import { getServerUser } from "@/lib/auth";
 import {
   buildPaperMarkdown,
   extractSubjectCode,
@@ -15,6 +16,45 @@ const SYLLABUS_TABLE_PAGE_SIZE = 500;
 const SYLLABUS_TABLE_MAX_PAGES = 20;
 const MAX_PAPER_NAME_LENGTH = 80;
 const ELLIPSIS_LENGTH = 3;
+const SYLLABUS_PDF_DAILY_LIMIT = 5;
+
+function isAdminPlus(role: string): boolean {
+  return role === "admin" || role === "founder";
+}
+
+function safeFilenameToken(input: string, fallback: string): string {
+  const token = input
+    .toUpperCase()
+    .replace(/[^A-Z0-9_-]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 64);
+  return token || fallback;
+}
+
+async function getDailyPdfCount(userId: string, todayStr: string): Promise<number> {
+  const db = adminDatabases();
+  try {
+    const res = await db.listDocuments(DATABASE_ID, COLLECTION.pdf_usage, [
+      Query.equal("user_id", userId),
+      Query.equal("date", todayStr),
+    ]);
+    return res.total;
+  } catch {
+    return 0;
+  }
+}
+
+async function recordPdfGeneration(userId: string, todayStr: string): Promise<void> {
+  const db = adminDatabases();
+  try {
+    await db.createDocument(DATABASE_ID, COLLECTION.pdf_usage, ID.unique(), {
+      user_id: userId,
+      date: todayStr,
+    });
+  } catch (error) {
+    console.error("[syllabus-table] Failed to record PDF usage:", error);
+  }
+}
 
 function derivePaperNameFromRows(paperCode: string, rows: SyllabusTableRow[]): string {
   // Delimiter choice is intentionally conservative (period/semicolon/newline)
@@ -41,6 +81,28 @@ export async function GET(request: NextRequest) {
   const type = (searchParams.get("type") || "").trim();
 
   try {
+    const user = await getServerUser();
+    const isPdfMode = mode === "pdf";
+    if (isPdfMode && !user) {
+      return NextResponse.json({ error: "Login required." }, { status: 401 });
+    }
+    const todayStr = new Date().toISOString().slice(0, 10);
+    let usedBefore = 0;
+    if (isPdfMode && user && !isAdminPlus(user.role)) {
+      usedBefore = await getDailyPdfCount(user.id, todayStr);
+      if (usedBefore >= SYLLABUS_PDF_DAILY_LIMIT) {
+        return NextResponse.json(
+          {
+            error: "Daily syllabus PDF limit reached. Please try again tomorrow.",
+            code: "PDF_DAILY_LIMIT_REACHED",
+            limit: SYLLABUS_PDF_DAILY_LIMIT,
+            remaining: 0,
+          },
+          { status: 429 },
+        );
+      }
+    }
+
     const db = adminDatabases();
     const normalizedPaperCode = paperCode.toUpperCase();
     const filterQueries = [
@@ -100,11 +162,15 @@ export async function GET(request: NextRequest) {
           title: `${normalizedPaperCode} Syllabus`,
           meta: { topic: `${normalizedPaperCode} Syllabus` },
         });
+        if (user && !isAdminPlus(user.role)) {
+          await recordPdfGeneration(user.id, todayStr);
+        }
+        const downloadToken = safeFilenameToken(normalizedPaperCode, "SYLLABUS");
         return new NextResponse(buffer as unknown as BodyInit, {
           status: 200,
           headers: {
             "Content-Type": "application/pdf",
-            "Content-Disposition": `attachment; filename="${normalizedPaperCode}_syllabus.pdf"`,
+            "Content-Disposition": `attachment; filename="${downloadToken}_syllabus.pdf"`,
             "Content-Length": buffer.length.toString(),
           },
         });
@@ -165,11 +231,15 @@ export async function GET(request: NextRequest) {
         title: `${subjectCode} Departmental Syllabus`,
         meta: { topic: `${subjectCode} Departmental Syllabus` },
       });
+      if (user && !isAdminPlus(user.role)) {
+        await recordPdfGeneration(user.id, todayStr);
+      }
+      const downloadToken = safeFilenameToken(subjectCode, "DEPARTMENT");
       return new NextResponse(buffer as unknown as BodyInit, {
         status: 200,
         headers: {
           "Content-Type": "application/pdf",
-          "Content-Disposition": `attachment; filename="${subjectCode}_departmental_syllabus.pdf"`,
+          "Content-Disposition": `attachment; filename="${downloadToken}_departmental_syllabus.pdf"`,
           "Content-Length": buffer.length.toString(),
         },
       });

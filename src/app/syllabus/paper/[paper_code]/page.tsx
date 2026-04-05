@@ -53,16 +53,26 @@ async function getUploadedSyllabusPdfs(paperCode: string): Promise<Syllabus[]> {
     return byCourseCode.documents.map(toSyllabus).filter((s) => !s.is_hidden);
   }
 
+  const syllabusSeed = await db.listDocuments(
+    DATABASE_ID,
+    COLLECTION.syllabus_table,
+    [Query.equal("paper_code", paperCode), Query.limit(1)],
+  );
+  const derivedPaperName =
+    typeof syllabusSeed.documents[0]?.syllabus_content === "string"
+      ? syllabusSeed.documents[0].syllabus_content.split(/[.;\n]/)[0]?.trim()
+      : "";
+
   const questionSeed = await db.listDocuments(
     DATABASE_ID,
     COLLECTION.questions_table,
     [Query.equal("paper_code", paperCode), Query.limit(1)],
   );
-  const paperName =
+  const questionPaperName =
     typeof questionSeed.documents[0]?.paper_name === "string"
       ? questionSeed.documents[0].paper_name.trim()
       : "";
-  if (!paperName) return [];
+  const paperName = questionPaperName || derivedPaperName || paperCode;
 
   const bySubject = await db.listDocuments(
     DATABASE_ID,
