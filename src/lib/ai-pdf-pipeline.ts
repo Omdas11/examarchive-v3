@@ -1,4 +1,5 @@
 import { InputFile } from "node-appwrite/file";
+import katex from "katex";
 import { marked } from "marked";
 import sanitizeHtml from "sanitize-html";
 import {
@@ -43,10 +44,20 @@ function sanitizeGeneratedHtml(input: string): string {
       "mo",
       "mn",
       "msup",
+      "msub",
+      "msubsup",
       "mfrac",
       "msqrt",
+      "mroot",
+      "munder",
+      "mover",
+      "munderover",
       "mspace",
       "mstyle",
+      "mtext",
+      "mphantom",
+      "mpadded",
+      "menclose",
       "mtable",
       "mtr",
       "mtd",
@@ -66,6 +77,94 @@ function sanitizeGeneratedHtml(input: string): string {
   });
 }
 
+function renderLatexToMathMl(markdown: string): string {
+  const renderExpression = (expression: string, displayMode: boolean) =>
+    katex.renderToString(expression.trim(), {
+      throwOnError: false,
+      displayMode,
+      output: "mathml",
+    });
+
+  const isEscaped = (source: string, index: number): boolean => {
+    let backslashCount = 0;
+    for (let i = index - 1; i >= 0 && source[i] === "\\"; i -= 1) {
+      backslashCount += 1;
+    }
+    return backslashCount % 2 === 1;
+  };
+
+  const renderDollarDelimitedMath = (source: string): string => {
+    let output = "";
+    let cursor = 0;
+    let i = 0;
+    let mode: "inline" | "display" | null = null;
+    let openingIndex = -1;
+    let contentStart = -1;
+    let delimiterSize = 1;
+
+    while (i < source.length) {
+      // Inline `$...$` must stay on a single line. If newline appears before a closing
+      // inline delimiter, treat it as plain text and restart scanning after the newline.
+      if (mode === "inline" && source[i] === "\n") {
+        output += source.slice(openingIndex, i + 1);
+        mode = null;
+        i += 1;
+        cursor = i;
+        continue;
+      }
+      if (source[i] !== "$" || isEscaped(source, i)) {
+        i += 1;
+        continue;
+      }
+      const isDisplayDelimiter =
+        i + 1 < source.length && source[i + 1] === "$" && !isEscaped(source, i + 1);
+      const currentDelimiterSize = isDisplayDelimiter ? 2 : 1;
+      const currentMode: "inline" | "display" = isDisplayDelimiter ? "display" : "inline";
+
+      if (mode === null) {
+        output += source.slice(cursor, i);
+        mode = currentMode;
+        delimiterSize = currentDelimiterSize;
+        openingIndex = i;
+        contentStart = i + currentDelimiterSize;
+        i += currentDelimiterSize;
+        cursor = i;
+        continue;
+      }
+
+      if (mode !== currentMode || currentDelimiterSize !== delimiterSize) {
+        i += 1;
+        continue;
+      }
+
+      const expression = source.slice(contentStart, i);
+      output += renderExpression(expression, mode === "display");
+      i += delimiterSize;
+      cursor = i;
+      mode = null;
+      openingIndex = -1;
+      contentStart = -1;
+      delimiterSize = 1;
+    }
+
+    if (mode !== null && openingIndex >= 0) {
+      output += source.slice(openingIndex);
+      return output;
+    }
+
+    output += source.slice(cursor);
+    return output;
+  };
+
+  let output = markdown;
+  output = output.replace(/\\\[([\s\S]+?)\\\]/g, (_match, expression: string) =>
+    renderExpression(expression, true));
+  output = output.replace(/\\\(([\s\S]+?)\\\)/g, (_match, expression: string) =>
+    renderExpression(expression, false));
+  output = renderDollarDelimitedMath(output);
+  return output;
+}
+
 export function buildPdfHtml(args: {
   markdown: string;
   paperCode?: string;
@@ -74,11 +173,14 @@ export function buildPdfHtml(args: {
   syllabusContent?: string;
 }): string {
   const { markdown, paperCode, unitNumber, year, syllabusContent } = args;
+  const ESCAPED_DOLLAR_PLACEHOLDER = "__EXAMARCHIVE_ESCAPED_DOLLAR_PLACEHOLDER__";
   const cleanMarkdown = markdown
-    .replace(/\\\$/g, "$")
+    .replace(/\\\$/g, ESCAPED_DOLLAR_PLACEHOLDER)
     .replace(/\\\\\(/g, "\\(")
     .replace(/\\\\\)/g, "\\)");
-  const parsedHtml = marked.parse(cleanMarkdown);
+  const markdownWithRenderedMath = renderLatexToMathMl(cleanMarkdown)
+    .replaceAll(ESCAPED_DOLLAR_PLACEHOLDER, "$");
+  const parsedHtml = marked.parse(markdownWithRenderedMath);
   // marked.parse can be configured to be async; guard non-string outputs defensively.
   const htmlContent = sanitizeGeneratedHtml(
     typeof parsedHtml === "string" ? parsedHtml : "",

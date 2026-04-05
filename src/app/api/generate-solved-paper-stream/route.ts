@@ -7,6 +7,7 @@ import {
   adminStorage,
   COLLECTION,
   DATABASE_ID,
+  getAppwriteFileDownloadUrl,
   ID,
   MARKDOWN_CACHE_BUCKET_ID,
   Query,
@@ -49,6 +50,7 @@ type SolvedPaperCheckpoint = {
   id: string;
   markdown: string;
   markdownFileId: string;
+  pdfFileId: string;
   status: string;
   lastProcessedIndex: number;
 };
@@ -269,6 +271,16 @@ async function ensureSolvedPaperCacheSchema(): Promise<void> {
       undefined,
     ),
   );
+  await ensureAttribute("pdf_file_id", () =>
+    db.createStringAttribute(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      "pdf_file_id",
+      100,
+      false,
+      undefined,
+    ),
+  );
 }
 
 async function ensureMarkdownCacheBucket(): Promise<void> {
@@ -404,6 +416,7 @@ async function readSolvedPaperCheckpoint(
       id: String(doc.$id),
       markdown,
       markdownFileId,
+      pdfFileId: typeof doc.pdf_file_id === "string" ? doc.pdf_file_id.trim() : "",
       status: typeof doc.status === "string" ? doc.status : "",
       lastProcessedIndex:
         typeof doc.last_processed_index === "number"
@@ -416,7 +429,10 @@ async function readSolvedPaperCheckpoint(
   }
 }
 
-async function readCompletedSolvedPaperCache(cachePaperCode: string, year: number): Promise<string | null> {
+async function readCompletedSolvedPaperCache(
+  cachePaperCode: string,
+  year: number,
+): Promise<{ id: string; markdown: string; pdfFileId: string } | null> {
   const db = adminDatabases();
   try {
     const res = await db.listDocuments(DATABASE_ID, COLLECTION.generated_notes_cache, [
@@ -433,7 +449,12 @@ async function readCompletedSolvedPaperCache(cachePaperCode: string, year: numbe
     const markdownFileId = typeof doc.markdown_file_id === "string" ? doc.markdown_file_id.trim() : "";
     if (!markdownFileId) return null;
     const markdown = (await downloadMarkdownFromCacheFile(markdownFileId)).trim();
-    return markdown || null;
+    if (!markdown) return null;
+    return {
+      id: String(doc.$id),
+      markdown,
+      pdfFileId: typeof doc.pdf_file_id === "string" ? doc.pdf_file_id.trim() : "",
+    };
   } catch (error) {
     console.error("[generate-solved-paper-stream] Failed to read completed cache:", error);
     return null;
@@ -528,6 +549,20 @@ async function upsertSolvedPaperCheckpoint(params: {
   }
 }
 
+async function updateSolvedPaperCheckpointPdfFileId(checkpointId: string, pdfFileId: string): Promise<void> {
+  const db = adminDatabases();
+  try {
+    await db.updateDocument(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      checkpointId,
+      { pdf_file_id: pdfFileId },
+    );
+  } catch (error) {
+    console.error("[generate-solved-paper-stream] Failed to persist cached PDF file id:", error);
+  }
+}
+
 export async function GET(request: NextRequest) {
   const user = await getServerUser();
   if (!user) {
@@ -608,12 +643,37 @@ export async function GET(request: NextRequest) {
   const completedCache = await readCompletedSolvedPaperCache(cachePaperCode, year);
   if (completedCache) {
     const stream = new ReadableStream<Uint8Array>({
-      start: (controller) => {
+      start: async (controller) => {
+        let pdfUrl = completedCache.pdfFileId ? getAppwriteFileDownloadUrl(completedCache.pdfFileId) : "";
+        if (!pdfUrl) {
+          try {
+            controller.enqueue(toSseData({ log: "Cache hit: generating PDF from cached markdown..." }));
+            const rendered = await renderMarkdownPdfToAppwrite({
+              markdown: completedCache.markdown,
+              fileBaseName: `${paperCode}_${year}_solved_cache`,
+              fileName: `${paperCode}_${year}_solved_paper.pdf`,
+              gotenbergUrl: azureGotenbergUrl,
+              paperCode,
+              year,
+            });
+            pdfUrl = rendered.fileUrl;
+            await updateSolvedPaperCheckpointPdfFileId(completedCache.id, rendered.fileId);
+            controller.enqueue(toSseData({ log: "PDF rendered successfully from cached content." }));
+          } catch (pdfError) {
+            const pipelineMessage = pdfError instanceof Error ? pdfError.message : String(pdfError);
+            controller.enqueue(toSseData({ event: "error", error: `PDF generation failed: ${pipelineMessage}` }));
+            controller.close();
+            return;
+          }
+        } else {
+          controller.enqueue(toSseData({ log: "Cache hit: reusing previously rendered PDF." }));
+        }
         controller.enqueue(toSseData({
           event: "done",
-          markdown: completedCache,
+          markdown: completedCache.markdown,
           model: "cache",
           cached: true,
+          pdf_url: pdfUrl || null,
         }));
         controller.close();
       },
@@ -722,15 +782,39 @@ export async function GET(request: NextRequest) {
         const cachePaperCode = getSolvedPaperCacheKey(course, type, paperCode);
         const checkpoint = await readSolvedPaperCheckpoint(cachePaperCode, year);
         if (checkpoint?.status === COMPLETED_STATUS && checkpoint.markdown.trim().length > 0) {
-          controller.enqueue(toSseData({
-            log: "Cache hit: serving completed markdown from Appwrite Storage.",
-          }));
+          let pdfUrl = checkpoint.pdfFileId ? getAppwriteFileDownloadUrl(checkpoint.pdfFileId) : "";
+          if (!pdfUrl) {
+            controller.enqueue(toSseData({
+              log: "Cache hit: generating PDF from completed cached markdown.",
+            }));
+            try {
+              const rendered = await renderMarkdownPdfToAppwrite({
+                markdown: checkpoint.markdown.trim(),
+                fileBaseName: `${paperCode}_${year}_solved_cache`,
+                fileName: `${paperCode}_${year}_solved_paper.pdf`,
+                gotenbergUrl: azureGotenbergUrl,
+                paperCode,
+                year,
+              });
+              pdfUrl = rendered.fileUrl;
+              await updateSolvedPaperCheckpointPdfFileId(checkpoint.id, rendered.fileId);
+              controller.enqueue(toSseData({ log: "PDF rendered successfully from cached content." }));
+            } catch (pdfError) {
+              const pipelineMessage = pdfError instanceof Error ? pdfError.message : String(pdfError);
+              controller.enqueue(toSseData({ event: "error", error: `PDF generation failed: ${pipelineMessage}` }));
+              closeStream();
+              return;
+            }
+          } else {
+            controller.enqueue(toSseData({ log: "Cache hit: reusing previously rendered PDF." }));
+          }
           controller.enqueue(toSseData({
             event: "done",
             markdown: checkpoint.markdown.trim(),
             model: "cache",
             total: allQuestions.length,
             cached: true,
+            pdf_url: pdfUrl || null,
           }));
           closeStream();
           return;
@@ -784,12 +868,39 @@ export async function GET(request: NextRequest) {
             status: COMPLETED_STATUS,
             lastProcessedIndex: allQuestions.length - 1,
           });
+          let pdfUrl = checkpoint?.pdfFileId ? getAppwriteFileDownloadUrl(checkpoint.pdfFileId) : "";
+          if (!pdfUrl) {
+            try {
+              controller.enqueue(toSseData({ log: "All questions processed. Generating PDF from cached markdown..." }));
+              const rendered = await renderMarkdownPdfToAppwrite({
+                markdown: masterMarkdown.trim(),
+                fileBaseName: `${paperCode}_${year}_solved_cache`,
+                fileName: `${paperCode}_${year}_solved_paper.pdf`,
+                gotenbergUrl: azureGotenbergUrl,
+                paperCode,
+                year,
+              });
+              pdfUrl = rendered.fileUrl;
+              if (checkpointId) {
+                await updateSolvedPaperCheckpointPdfFileId(checkpointId, rendered.fileId);
+              }
+              controller.enqueue(toSseData({ log: "PDF rendered successfully." }));
+            } catch (pdfError) {
+              const pipelineMessage = pdfError instanceof Error ? pdfError.message : String(pdfError);
+              controller.enqueue(toSseData({ event: "error", error: `PDF generation failed: ${pipelineMessage}` }));
+              closeStream();
+              return;
+            }
+          } else {
+            controller.enqueue(toSseData({ log: "All questions processed. Reusing cached PDF." }));
+          }
           controller.enqueue(toSseData({
             event: "done",
             markdown: masterMarkdown.trim(),
             model: "cache",
             total: allQuestions.length,
             cached: true,
+            pdf_url: pdfUrl || null,
           }));
           closeStream();
           return;
@@ -973,7 +1084,9 @@ CRITICAL FORMAT CONSTRAINTS:
         } catch (pdfError) {
           console.error("[generate-solved-paper-stream] PDF Engine Error:", pdfError);
           const pipelineMessage = pdfError instanceof Error ? pdfError.message : String(pdfError);
-          controller.enqueue(toSseData({ log: `Pipeline Error: ${pipelineMessage}` }));
+          controller.enqueue(toSseData({ event: "error", error: `PDF generation failed: ${pipelineMessage}` }));
+          closeStream();
+          return;
         }
 
         if (typeof user.email === "string" && user.email.trim().length > 0) {
