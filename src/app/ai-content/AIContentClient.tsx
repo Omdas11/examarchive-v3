@@ -8,6 +8,9 @@ import { useToast } from "@/components/ToastContext";
 import CustomDropdown, { type CustomDropdownOption } from "@/components/CustomDropdown";
 
 const COURSE_TYPES: Record<string, string[]> = {
+  Arts: ["DSC", "DSM", "SEC", "AEC", "VAC", "IDC"],
+  Science: ["DSC", "DSM", "SEC", "AEC", "VAC", "IDC"],
+  Commerce: ["DSC", "DSM", "SEC", "AEC", "VAC", "IDC"],
   FYUG: ["DSC", "DSM", "SEC", "AEC", "VAC", "IDC"],
   CBCS: ["DSC", "SEC"],
 };
@@ -75,6 +78,9 @@ export default function AIContentClient() {
   const availableYears = useMemo(() => yearsByPaperCode[paperCode] || [], [yearsByPaperCode, paperCode]);
   const courseOptions: CustomDropdownOption[] = useMemo(
     () => [
+      { label: "Arts", value: "Arts" },
+      { label: "Science", value: "Science" },
+      { label: "Commerce", value: "Commerce" },
       { label: "FYUG", value: "FYUG" },
       { label: "CBCS", value: "CBCS" },
     ],

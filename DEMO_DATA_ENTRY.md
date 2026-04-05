@@ -1,6 +1,6 @@
 ---
 university: Assam University
-course: FYUG
+course: Commerce
 type: DSC
 paper_code: PHYDSC101T
 paper_name: Mechanics
@@ -9,6 +9,8 @@ paper_name: Mechanics
 > **File Naming Convention: The file must be named exactly as the Paper Code. Example: `PHYDSC101T.md`.**
 >
 > Use this exact structure. Do not rename headers or columns.
+>
+> **Note:** The `course` field should use broad stream/category names. Accepted values are: `Arts`, `Science`, `Commerce`, `FYUG`, or `CBCS`. Do **not** use specific degree names like `B.Com`, `B.Sc`, or `B.A`.
 
 ## Syllabus
 
