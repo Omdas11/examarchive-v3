@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { getServerUser } from "@/lib/auth";
 import {
   adminDatabases,
@@ -8,18 +8,11 @@ import {
   COLLECTION,
   Query,
 } from "@/lib/appwrite";
-import { toSyllabus, toPaper } from "@/types";
-import type { Syllabus, Paper } from "@/types";
-import { groupBySemester } from "@/data/syllabus-registry";
-import type { SyllabusUnit, SyllabusRegistryEntry } from "@/data/syllabus-registry";
-import { loadSyllabusRegistry, findRegistryEntry, type SyllabusRegistryRecord } from "@/lib/syllabus-registry";
-import { toRoman } from "@/lib/utils";
-import { serializeJsonLd } from "@/lib/json-ld";
+import type { Syllabus } from "@/types";
+import { toSyllabus } from "@/types";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
-
-const SITE_URL = "https://www.examarchive.dev";
-const OG_IMAGE_URL = `${SITE_URL}/branding/logo.png`;
+import { toSyllabusTableRow } from "@/lib/syllabus-table";
 
 interface PageProps {
   params: Promise<{ paper_code: string }>;
@@ -27,208 +20,52 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { paper_code } = await params;
-  const code = decodeURIComponent(paper_code);
-  const entry = await findRegistryEntry(code);
+  const code = decodeURIComponent(paper_code).toUpperCase();
   return {
-    title: entry ? `${entry.paper_code} – ${entry.paper_name}` : `Syllabus: ${code}`,
-    description: entry
-      ? `Syllabus details for ${entry.paper_name} (${entry.paper_code}), Semester ${entry.semester}, ${entry.university}.`
-      : `Syllabus details for paper code ${code}.`,
-    openGraph: {
-      type: "article",
-      url: `${SITE_URL}/syllabus/paper/${encodeURIComponent(code)}`,
-      title: entry
-        ? `${entry.paper_code} – ${entry.paper_name} | ExamArchive`
-        : `Syllabus ${code} | ExamArchive`,
-      description: entry
-        ? `Syllabus details for ${entry.paper_name} (${entry.paper_code}), Semester ${entry.semester}, ${entry.university}.`
-        : `Syllabus details for paper code ${code}.`,
-      images: [
-        {
-          url: OG_IMAGE_URL,
-          width: 1200,
-          height: 630,
-          alt: "ExamArchive syllabus page",
-        },
-      ],
-    },
-    twitter: {
-      card: "summary_large_image",
-      title: entry
-        ? `${entry.paper_code} – ${entry.paper_name} | ExamArchive`
-        : `Syllabus ${code} | ExamArchive`,
-      description: entry
-        ? `Syllabus details for ${entry.paper_name} (${entry.paper_code}), Semester ${entry.semester}, ${entry.university}.`
-        : `Syllabus details for paper code ${code}.`,
-      images: [OG_IMAGE_URL],
-    },
+    title: `${code} Syllabus`,
+    description: `Syllabus details sourced from Syllabus_Table for ${code}.`,
   };
 }
 
-/** Fetch any uploaded PDFs for this paper code from the database. */
-async function fetchSyllabusPdfs(paperCode: string): Promise<Syllabus[]> {
-  // Look up the canonical paper name from the registry to match the `subject`
-  // field written by the syllabus upload route. The `syllabus` collection does
-  // not have a `course_code` field — it stores the paper name in `subject`.
-  const entry = await findRegistryEntry(paperCode);
-  if (!entry) return [];
-
-  try {
-    const db = adminDatabases();
-    const { documents } = await db.listDocuments(
-      DATABASE_ID,
-      COLLECTION.syllabus,
-      [
-        Query.equal("approval_status", "approved"),
-        Query.equal("subject", entry.paper_name),
-        Query.orderDesc("$createdAt"),
-      ],
-    );
-    return documents.map(toSyllabus);
-  } catch {
-    return [];
-  }
-}
-
-/** Fetch approved exam papers for this paper code from the database. */
-async function fetchExamPapers(paperCode: string): Promise<Paper[]> {
-  try {
-    const db = adminDatabases();
-    const { documents } = await db.listDocuments(
-      DATABASE_ID,
-      COLLECTION.papers,
-      [
-        Query.equal("approved", true),
-        Query.equal("course_code", paperCode),
-        Query.orderDesc("$createdAt"),
-        Query.limit(20),
-      ],
-    );
-    return documents.map(toPaper);
-  } catch {
-    return [];
-  }
-}
-
-/** Render a single metadata row. */
-function MetaRow({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="flex gap-3 py-2" style={{ borderBottom: "1px solid var(--color-border)" }}>
-      <span className="w-36 shrink-0 text-xs font-medium" style={{ color: "var(--color-text-muted)" }}>
-        {label}
-      </span>
-      <span className="text-sm">{value}</span>
-    </div>
+async function getPaperRows(paperCode: string) {
+  const db = adminDatabases();
+  const { documents } = await db.listDocuments(
+    DATABASE_ID,
+    COLLECTION.syllabus_table,
+    [Query.equal("paper_code", paperCode), Query.limit(200)],
   );
+  return documents
+    .map((doc) => toSyllabusTableRow(doc as Record<string, unknown>))
+    .sort((a, b) => a.unit_number - b.unit_number);
 }
 
-/** Render all units and their topics for a paper. */
-function UnitsSection({ units }: { units: SyllabusUnit[] }) {
-  return (
-    <div className="card p-5">
-      <h2 className="text-sm font-semibold mb-4">Syllabus Units &amp; Topics</h2>
-      <div className="space-y-5">
-        {units.map((u) => (
-          <div key={u.unit}>
-            {/* Unit heading */}
-            <div className="flex items-baseline gap-3 mb-2">
-              <span
-                className="inline-flex items-center justify-center h-6 w-6 rounded-full text-[11px] font-bold shrink-0"
-                style={{ background: "var(--color-accent-soft)", color: "var(--color-primary)" }}
-              >
-                {u.unit}
-              </span>
-              <div className="flex flex-1 items-baseline justify-between gap-2 flex-wrap">
-                <h3 className="text-sm font-semibold">
-                  Unit {u.unit}: {u.name}
-                </h3>
-                {u.lectures != null && (
-                  <span
-                    className="text-[11px] shrink-0"
-                    style={{ color: "var(--color-text-muted)" }}
-                  >
-                    ({u.lectures} Lectures)
-                  </span>
-                )}
-              </div>
-            </div>
-            {/* Topics list */}
-            <ul className="ml-9 space-y-1">
-              {u.topics.map((topic, ti) => (
-                <li
-                  key={ti}
-                  className="flex gap-2 text-sm leading-relaxed"
-                  style={{ color: "var(--color-text-muted)" }}
-                >
-                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: "var(--color-primary)" }} />
-                  <span>{topic}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </div>
-    </div>
+async function getUploadedSyllabusPdfs(paperCode: string): Promise<Syllabus[]> {
+  const db = adminDatabases();
+  const { documents } = await db.listDocuments(
+    DATABASE_ID,
+    COLLECTION.syllabus,
+    [Query.equal("approval_status", "approved"), Query.equal("course_code", paperCode), Query.limit(50)],
   );
+  return documents.map(toSyllabus).filter((s) => !s.is_hidden);
 }
 
-import { PAPER_TYPE_COLORS } from "@/components/PaperCard";
-
-/** Category badge colour mapping. */
-const CATEGORY_COLORS = PAPER_TYPE_COLORS;
-
-export default async function SyllabusDetailPage({ params }: PageProps) {
+export default async function SyllabusPaperPage({ params }: PageProps) {
+  const { paper_code } = await params;
+  const code = decodeURIComponent(paper_code).toUpperCase();
   const user = await getServerUser();
   const userName = user ? (user.name || user.username || "Scholar") : "";
   const userInitials = userName ? userName.slice(0, 2).toUpperCase() : "";
-  const { paper_code } = await params;
-  const code = decodeURIComponent(paper_code).toUpperCase();
 
-  const entry = (await findRegistryEntry(code)) as SyllabusRegistryRecord | undefined;
+  const [rows, uploadedPdfs] = await Promise.all([
+    getPaperRows(code),
+    getUploadedSyllabusPdfs(code),
+  ]);
 
-  if (!entry) {
+  if (rows.length === 0) {
     notFound();
   }
 
-  const [pdfs, examPapers] = await Promise.all([
-    fetchSyllabusPdfs(entry.paper_code),
-    fetchExamPapers(entry.paper_code),
-  ]);
-
-  // Related papers: same subject + programme + university, different code
-  const registryEntries = await loadSyllabusRegistry();
-  const relatedEntries = registryEntries.filter(
-    (e) =>
-      e.subject === entry.subject &&
-      e.programme === entry.programme &&
-      e.university === entry.university &&
-      e.paper_code !== entry.paper_code,
-  );
-  const relatedBySem = groupBySemester(
-    relatedEntries.map((r) => ({
-      ...(r as unknown as SyllabusRegistryEntry),
-      semester: r.semester ?? 0,
-      credits: r.credits ?? 0,
-    })),
-  );
-
-  const catColors = entry.category
-    ? CATEGORY_COLORS[entry.category] ?? { bg: "var(--color-border)", text: "var(--color-text-muted)" }
-    : null;
-  const syllabusJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "Course",
-    name: entry.paper_name,
-    courseCode: entry.paper_code,
-    description: `Syllabus details for ${entry.paper_name} (${entry.paper_code}), Semester ${entry.semester}, ${entry.university}.`,
-    provider: {
-      "@type": "CollegeOrUniversity",
-      name: entry.university,
-    },
-    educationalLevel: "Undergraduate",
-    inLanguage: "en",
-    url: `${SITE_URL}/syllabus/paper/${encodeURIComponent(entry.paper_code)}`,
-  };
+  const first = rows[0];
 
   return (
     <MainLayout
@@ -236,7 +73,7 @@ export default async function SyllabusDetailPage({ params }: PageProps) {
       breadcrumbs={[
         { label: "Home", href: "/" },
         { label: "Syllabus", href: "/syllabus" },
-        { label: entry.paper_code },
+        { label: code },
       ]}
       showSearch={false}
       sidebarItems={APP_SIDEBAR_ITEMS}
@@ -245,298 +82,97 @@ export default async function SyllabusDetailPage({ params }: PageProps) {
       userName={userName}
       userInitials={userInitials}
     >
-    <script type="application/ld+json">
-      {serializeJsonLd(syllabusJsonLd)}
-    </script>
-    <section className="mx-auto px-4 py-10" style={{ maxWidth: "var(--max-w)" }}>
-      {/* Back link */}
-      <Link
-        href="/syllabus"
-        className="inline-flex items-center gap-1.5 text-sm mb-6 hover:opacity-70 transition-opacity"
-        style={{ color: "var(--color-text-muted)" }}
-      >
-        <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-        Back to Syllabus
-      </Link>
-
-      {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <div className="flex flex-wrap items-center gap-2 mb-2">
-            <span
-              className="inline-block rounded-full px-2.5 py-0.5 text-[11px] font-semibold font-mono"
-              style={{ background: "var(--color-accent-soft)", color: "var(--color-primary)" }}
-            >
-              {entry.paper_code}
-            </span>
-            {catColors && entry.category && (
-              <span
-                className="inline-block rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
-                style={{ background: catColors.bg, color: catColors.text }}
-              >
-                {entry.category}
-              </span>
-            )}
-            <span
-              className="inline-block rounded-full px-2.5 py-0.5 text-[11px]"
-              style={{ background: "var(--color-border)", color: "var(--color-text-muted)" }}
-            >
-              {entry.programme}
-            </span>
-            <span
-              className="inline-block rounded-full px-2.5 py-0.5 text-[11px]"
-              style={{ background: "var(--color-border)", color: "var(--color-text-muted)" }}
-            >
-               Semester {entry.semester ? toRoman(entry.semester) : "—"}
-            </span>
-          </div>
-          <h1 className="text-2xl font-bold leading-snug">{entry.paper_name}</h1>
-          <p className="mt-1 text-sm" style={{ color: "var(--color-text-muted)" }}>
-            {entry.university}
+      <section className="mx-auto w-full max-w-5xl px-4 pb-16 pt-8">
+        <div className="rounded-3xl border border-outline-variant/40 bg-surface p-6 shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+            Syllabus_Table Source
           </p>
-        </div>
-      </div>
+          <h1 className="mt-2 text-3xl font-black text-on-surface">{code}</h1>
+          <p className="mt-2 text-sm text-on-surface-variant">
+            {first.university} · {first.course} · {first.stream} · {first.type}
+          </p>
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-3">
-        {/* ── Left column ──────────────────────────────────────────────── */}
-        <div className="lg:col-span-2 space-y-6">
-
-          {/* Paper details */}
-          <div className="card p-5">
-            <h2 className="text-sm font-semibold mb-3">Paper Details</h2>
-            <MetaRow label="Paper Code" value={entry.paper_code} />
-            <MetaRow label="Paper Name" value={entry.paper_name} />
-            <MetaRow label="Subject" value={entry.subject} />
-            <MetaRow label="Semester" value={entry.semester ? `${toRoman(entry.semester)} (Semester ${entry.semester})` : "—"} />
-            <MetaRow label="Credits" value={entry.credits ?? "—"} />
-            {entry.contact_hours != null && (
-              <MetaRow label="Contact Hours" value={`${entry.contact_hours} hrs`} />
-            )}
-            {entry.full_marks != null && (
-              <MetaRow label="Full Marks" value={entry.full_marks} />
-            )}
-            {entry.category && (
-              <MetaRow label="Category" value={entry.category} />
-            )}
-            <MetaRow label="Programme" value={entry.programme} />
-            <MetaRow label="University" value={entry.university} />
-          </div>
-
-          {/* Course objective */}
-          {entry.course_objective && (
-            <div className="card p-5">
-              <h2 className="text-sm font-semibold mb-2">Course Objective</h2>
-              <p className="text-sm leading-relaxed" style={{ color: "var(--color-text-muted)" }}>
-                {entry.course_objective}
-              </p>
-            </div>
-          )}
-
-          {/* Units & Topics */}
-          {Array.isArray(entry.units) && entry.units.length > 0 && (
-            <UnitsSection units={entry.units} />
-          )}
-
-          {/* Learning outcomes */}
-          {entry.learning_outcomes && (
-            <div className="card p-5">
-              <h2 className="text-sm font-semibold mb-2">Expected Learning Outcomes</h2>
-              <p className="text-sm leading-relaxed italic" style={{ color: "var(--color-text-muted)" }}>
-                {entry.learning_outcomes}
-              </p>
-            </div>
-          )}
-
-          {/* Reference books */}
-          {Array.isArray(entry.reference_books) && entry.reference_books.length > 0 && (
-            <div className="card p-5">
-              <h2 className="text-sm font-semibold mb-3">Reference Books</h2>
-              <ol className="space-y-1.5 list-none">
-                {entry.reference_books.map((book, i) => (
-                  <li key={i} className="flex gap-2 text-sm" style={{ color: "var(--color-text-muted)" }}>
-                    <span className="shrink-0 font-medium" style={{ color: "var(--color-primary)" }}>
-                      {String(i + 1).padStart(2, "0")}.
-                    </span>
-                    <span>{book}</span>
-                  </li>
-                ))}
-              </ol>
-            </div>
-          )}
-
-          {/* Uploaded PDFs */}
-          {pdfs.length > 0 && (
-            <div className="card p-5">
-              <h2 className="text-sm font-semibold mb-3">Uploaded Syllabus PDFs</h2>
-              <div className="space-y-3">
-                {pdfs.map((s) => (
-                  <div
-                    key={s.id}
-                    className="flex items-center justify-between gap-3 py-2"
-                    style={{ borderBottom: "1px solid var(--color-border)" }}
-                  >
-                    <div>
-                      <p className="text-sm font-medium">{s.subject || s.course_name || "Syllabus PDF"}</p>
-                      <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
-                        {s.year ? `${s.year} · ` : ""}
-                        {s.university}
-                      </p>
-                    </div>
-                    {s.file_url && (
-                      <a
-                        href={s.file_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="btn text-xs shrink-0"
-                      >
-                        View PDF
-                      </a>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {pdfs.length === 0 && (
-            <div
-              className="rounded-lg p-4 text-sm"
-              style={{
-                background: "var(--color-accent-soft)",
-                color: "var(--color-text-muted)",
-                border: "1px solid var(--color-border)",
-              }}
+          <div className="mt-5 flex flex-wrap gap-2">
+            <a
+              href={`/api/syllabus/table?paperCode=${encodeURIComponent(code)}&mode=pdf`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-2xl bg-primary px-4 py-2 text-sm font-semibold text-on-primary"
             >
-              No uploaded syllabus PDFs for this paper yet.{" "}
-              <a href="/upload?type=syllabus" style={{ color: "var(--color-primary)" }}>
-                Upload one
-              </a>
-              .
-            </div>
-          )}
-
-          {/* Past Exam Papers */}
-          <div className="card p-5">
-            <h2 className="text-sm font-semibold mb-3">Past Question Papers</h2>
-            {examPapers.length > 0 ? (
-              <div className="space-y-2">
-                {examPapers.map((p) => (
-                  <Link
-                    key={p.id}
-                    href={`/paper/${p.id}`}
-                    className="flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 transition-all hover:shadow-sm"
-                    style={{
-                      border: "1px solid var(--color-border)",
-                      background: "var(--color-surface)",
-                      textDecoration: "none",
-                      color: "inherit",
-                    }}
-                  >
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium leading-snug">
-                        {p.year ? `${p.year}` : "Unknown Year"}
-                        {p.exam_type ? ` · ${p.exam_type}` : ""}
-                      </p>
-                      <p className="text-xs mt-0.5" style={{ color: "var(--color-text-muted)" }}>
-                        {[p.institution, p.programme].filter(Boolean).join(" · ")}
-                      </p>
-                    </div>
-                    <span className="text-xs font-medium shrink-0" style={{ color: "var(--color-primary)" }}>
-                      View PDF →
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            ) : (
-              <div
-                className="rounded-lg px-4 py-4 text-sm text-center"
-                style={{ background: "var(--color-accent-soft)" }}
-              >
-                <p style={{ color: "var(--color-text-muted)" }}>
-                  No question papers yet.{" "}
-                  <a href="/upload" style={{ color: "var(--color-primary)" }}>Upload one</a>.
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* ── Right column ─────────────────────────────────────────────── */}
-        <div className="space-y-4">
-          {/* Quick stats */}
-          <div className="card p-4 grid grid-cols-2 gap-3">
-            <div className="text-center">
-              <p className="text-xl font-bold" style={{ color: "var(--color-primary)" }}>
-                {entry.credits}
-              </p>
-              <p className="text-[11px]" style={{ color: "var(--color-text-muted)" }}>Credits</p>
-            </div>
-            <div className="text-center">
-              <p className="text-xl font-bold" style={{ color: "var(--color-primary)" }}>
-                {Array.isArray(entry.units) ? entry.units.length : "—"}
-              </p>
-              <p className="text-[11px]" style={{ color: "var(--color-text-muted)" }}>Units</p>
-            </div>
-            {entry.contact_hours != null && (
-              <div className="text-center col-span-2">
-                <p className="text-xl font-bold" style={{ color: "var(--color-primary)" }}>
-                  {entry.contact_hours}
-                </p>
-                <p className="text-[11px]" style={{ color: "var(--color-text-muted)" }}>Contact Hours</p>
-              </div>
-            )}
-          </div>
-
-          {/* Related papers */}
-          <div className="card p-5">
-            <h2 className="text-sm font-semibold mb-3">
-              Related Papers
-            </h2>
-            {relatedBySem.size === 0 ? (
-              <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
-                No other papers found for this subject.
-              </p>
-            ) : (
-              Array.from(relatedBySem.entries()).map(([sem, items]) => (
-                <div key={sem} className="mb-3">
-                  <p
-                    className="text-[11px] font-semibold mb-1.5 uppercase"
-                    style={{ color: "var(--color-text-muted)" }}
-                  >
-                    Semester {toRoman(sem)}
-                  </p>
-                  <ul className="space-y-1">
-                    {items.map((rel: SyllabusRegistryEntry) => (
-                      <li key={rel.paper_code}>
-                        <Link
-                          href={`/syllabus/paper/${encodeURIComponent(rel.paper_code)}`}
-                          className="flex flex-col gap-0.5 text-xs hover:opacity-70 transition-opacity"
-                        >
-                          <span className="font-mono font-semibold" style={{ color: "var(--color-primary)" }}>
-                            {rel.paper_code}
-                          </span>
-                          <span style={{ color: "var(--color-text-muted)" }}>{rel.paper_name}</span>
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))
-            )}
-          </div>
-
-          {/* Upload CTA */}
-          <div className="card p-4 text-center">
-            <p className="text-sm font-medium mb-2">Have the syllabus PDF?</p>
-            <a href="/upload?type=syllabus" className="btn-primary text-sm w-full block text-center">
-              Upload Syllabus PDF
+              Download MD PDF (single paper)
+            </a>
+            <a
+              href={`/api/syllabus/table?subjectCode=${encodeURIComponent(code.slice(0, 3))}&mode=pdf`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-2xl bg-surface-container px-4 py-2 text-sm font-semibold text-on-surface ring-1 ring-outline-variant/40"
+            >
+              Download Departmental PDF
             </a>
           </div>
         </div>
-      </div>
-    </section>
+
+        <div className="mt-6 grid gap-6 lg:grid-cols-3">
+          <div className="space-y-4 lg:col-span-2">
+            {rows.map((row) => (
+              <article
+                key={row.id}
+                className="rounded-2xl border border-outline-variant/40 bg-surface p-4"
+              >
+                <h2 className="text-lg font-semibold text-on-surface">Unit {row.unit_number}</h2>
+                {typeof row.lectures === "number" && (
+                  <p className="mt-1 text-xs text-on-surface-variant">Lectures: {row.lectures}</p>
+                )}
+                <p className="mt-3 whitespace-pre-wrap text-sm text-on-surface-variant">
+                  {row.syllabus_content}
+                </p>
+                {row.tags.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {row.tags.map((tag) => (
+                      <span
+                        key={`${row.id}-${tag}`}
+                        className="rounded-full bg-surface-container px-2.5 py-1 text-[11px] font-semibold text-on-surface-variant"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </article>
+            ))}
+          </div>
+
+          <aside className="space-y-4">
+            <div className="rounded-2xl border border-outline-variant/40 bg-surface p-4">
+              <h3 className="text-sm font-semibold text-on-surface">Uploaded syllabus PDFs</h3>
+              {uploadedPdfs.length === 0 ? (
+                <p className="mt-2 text-xs text-on-surface-variant">No approved uploads yet.</p>
+              ) : (
+                <div className="mt-3 space-y-2">
+                  {uploadedPdfs.map((pdf) => (
+                    <a
+                      key={pdf.id}
+                      href={pdf.file_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block rounded-xl bg-surface-container px-3 py-2 text-xs font-semibold text-on-surface"
+                    >
+                      Direct uploaded PDF
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
+            <Link
+              href="/syllabus"
+              className="inline-flex items-center gap-2 rounded-xl bg-surface-container px-3 py-2 text-xs font-semibold text-on-surface"
+            >
+              Back to catalog
+            </Link>
+          </aside>
+        </div>
+      </section>
     </MainLayout>
   );
 }
+

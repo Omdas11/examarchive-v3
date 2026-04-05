@@ -5,8 +5,7 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import type { Syllabus } from "@/types";
 import { getMentorInitials } from "@/data/featured-curriculum";
-import { PaperLibrary } from "./SyllabusClient";
-import type { SyllabusRegistryRecord } from "@/lib/syllabus-registry";
+import type { SyllabusTablePaperSummary } from "@/lib/syllabus-table";
 
 const DEPARTMENT_FILTERS = ["All Departments", "Science", "Arts"];
 
@@ -160,32 +159,36 @@ function FeaturedCard({
 export default function SyllabusCatalogClient({ syllabi }: { syllabi: Syllabus[] }) {
   const [activeTab, setActiveTab] = useState<"pdfs" | "library">("pdfs");
   const [activeFilter, setActiveFilter] = useState(DEPARTMENT_FILTERS[0]);
-  const [registryEntries, setRegistryEntries] = useState<SyllabusRegistryRecord[]>([]);
-  const [registryLoading, setRegistryLoading] = useState(true);
-  const [registryError, setRegistryError] = useState<string | null>(null);
+  const [libraryPapers, setLibraryPapers] = useState<SyllabusTablePaperSummary[]>([]);
+  const [librarySubjects, setLibrarySubjects] = useState<
+    Array<{ subjectCode: string; papers: number; units: number }>
+  >([]);
+  const [libraryLoading, setLibraryLoading] = useState(true);
+  const [libraryError, setLibraryError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    async function loadRegistry() {
-      setRegistryLoading(true);
+    async function loadLibrary() {
+      setLibraryLoading(true);
       try {
-        const res = await fetch("/api/syllabus/registry");
+        const res = await fetch("/api/syllabus/table");
         if (!res.ok) throw new Error(`Failed with status ${res.status}: ${res.statusText}`);
         const data = await res.json();
         if (!cancelled) {
-          setRegistryEntries(Array.isArray(data.entries) ? data.entries : []);
-          setRegistryError(null);
+          setLibraryPapers(Array.isArray(data.papers) ? data.papers : []);
+          setLibrarySubjects(Array.isArray(data.subjects) ? data.subjects : []);
+          setLibraryError(null);
         }
       } catch (err) {
         if (!cancelled) {
-          console.error("[syllabus] registry fetch failed", err);
-          setRegistryError("Unable to load the syllabus registry right now. Please try again shortly.");
+          console.error("[syllabus] table fetch failed", err);
+          setLibraryError("Unable to load syllabus library right now. Please try again shortly.");
         }
       } finally {
-        if (!cancelled) setRegistryLoading(false);
+        if (!cancelled) setLibraryLoading(false);
       }
     }
-    loadRegistry();
+    loadLibrary();
     return () => {
       cancelled = true;
     };
@@ -207,13 +210,8 @@ export default function SyllabusCatalogClient({ syllabi }: { syllabi: Syllabus[]
   }, [syllabi]);
 
   const availableCodes = useMemo(
-    () =>
-      new Set(
-        registryEntries
-          .map((e) => (e.paper_code || "").toUpperCase())
-          .filter(Boolean),
-      ),
-    [registryEntries],
+    () => new Set(libraryPapers.map((e) => (e.paperCode || "").toUpperCase()).filter(Boolean)),
+    [libraryPapers],
   );
 
   const filteredAvailable = useMemo(() => {
@@ -251,7 +249,7 @@ export default function SyllabusCatalogClient({ syllabi }: { syllabi: Syllabus[]
               )}
               onClick={() => setActiveTab("library")}
             >
-              Paper Syllabus Library
+              Syllabus from Syllabus_Table
             </button>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -286,17 +284,63 @@ export default function SyllabusCatalogClient({ syllabi }: { syllabi: Syllabus[]
           </div>
         ) : (
           <div className="rounded-3xl bg-surface p-4 shadow-sm shadow-primary/5 ring-1 ring-surface-container-high/40">
-            {registryLoading ? (
+            {libraryLoading ? (
               <div className="flex items-center gap-3 rounded-2xl bg-surface-container-low p-4 text-sm text-on-surface-variant">
                 <span className="material-symbols-outlined animate-spin text-primary">progress_activity</span>
-                Loading syllabus library…
+                Loading syllabus library from Syllabus_Table…
               </div>
-            ) : registryError ? (
+            ) : libraryError ? (
               <div className="rounded-2xl bg-error-container px-4 py-3 text-sm text-on-error">
-                {registryError}
+                {libraryError}
               </div>
             ) : (
-              <PaperLibrary entries={registryEntries} />
+              <div className="space-y-4">
+                {librarySubjects.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {librarySubjects.map((subject) => (
+                      <a
+                        key={subject.subjectCode}
+                        href={`/api/syllabus/table?subjectCode=${encodeURIComponent(subject.subjectCode)}&mode=pdf`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary"
+                      >
+                        {subject.subjectCode} Dept PDF ({subject.papers})
+                      </a>
+                    ))}
+                  </div>
+                )}
+                <div className="grid gap-3 md:grid-cols-2">
+                  {libraryPapers.map((paper) => (
+                    <article
+                      key={paper.paperCode}
+                      className="rounded-2xl border border-outline-variant/40 bg-surface-container-low p-4"
+                    >
+                      <p className="text-sm font-semibold text-on-surface">{paper.paperCode}</p>
+                      <p className="mt-1 text-xs text-on-surface-variant">{paper.paperName}</p>
+                      <p className="mt-2 text-[11px] text-on-surface-variant">
+                        {paper.university} · {paper.course} · {paper.stream} · {paper.type}
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <Link
+                          href={`/syllabus/paper/${encodeURIComponent(paper.paperCode)}`}
+                          className="rounded-xl bg-primary px-3 py-1.5 text-xs font-semibold text-on-primary"
+                        >
+                          Open Details
+                        </Link>
+                        <a
+                          href={`/api/syllabus/table?paperCode=${encodeURIComponent(paper.paperCode)}&mode=pdf`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="rounded-xl bg-surface px-3 py-1.5 text-xs font-semibold text-on-surface ring-1 ring-outline-variant/40"
+                        >
+                          Download MD PDF
+                        </a>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         )}
