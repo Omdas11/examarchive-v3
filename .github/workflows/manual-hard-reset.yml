@@ -11,6 +11,8 @@ on:
 jobs:
   reset-database:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Check confirmation
         if: ${{ github.event.inputs.confirm != 'RESET' }}
