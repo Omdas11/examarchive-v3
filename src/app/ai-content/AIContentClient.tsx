@@ -255,14 +255,20 @@ export default function AIContentClient() {
       }
 
       if (eventType === "done") {
+        const incomingPdfUrl = typeof data.pdf_url === "string" ? data.pdf_url.trim() : "";
+        if (!incomingPdfUrl) {
+          finished = true;
+          setShowLogs(true);
+          setError("PDF generation failed. Please try again.");
+          resetProgressState();
+          return;
+        }
         finished = true;
         setShowLogs(false);
-        if (typeof data.pdf_url === "string" && data.pdf_url.trim().length > 0) {
-          if (activeTab === "notes") {
-            setNotesPdfResult({ key: notesSelectionKey, url: data.pdf_url });
-          } else {
-            setPapersPdfResult({ key: papersSelectionKey, url: data.pdf_url });
-          }
+        if (activeTab === "notes") {
+          setNotesPdfResult({ key: notesSelectionKey, url: incomingPdfUrl });
+        } else {
+          setPapersPdfResult({ key: papersSelectionKey, url: incomingPdfUrl });
         }
         if (typeof data.remaining === "number" || data.remaining === null) {
           setRemaining(data.remaining);
