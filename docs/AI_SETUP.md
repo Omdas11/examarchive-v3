@@ -85,7 +85,10 @@ This pipeline is driven by data ingested from `DEMO_DATA_ENTRY.md` into:
    - Inclusion behavior:
      - Start from non-failure `ai_ingestions` discovery.
      - Merge in all table-backed scoped codes for each tab (`Syllabus_Table` for Notes, `Questions_Table` for Solved Papers).
-   - This keeps ingestion-discovered options while ensuring table-present codes are never hidden when ingestion logs are partial.
+    - This keeps ingestion-discovered options while ensuring table-present codes are never hidden when ingestion logs are partial.
+   - Solved Papers tab options are intentionally permissive in UI:
+     - If a paper exists in `Syllabus_Table` but has no `Questions_Table` rows yet, the paper code still appears in Solved Papers.
+     - Year selector and Solved Paper generate action are disabled until question-year rows exist for that code.
 
 2. **Unit Notes generation** (`GET /api/generate-notes-stream`)
    - Uses selected `university + course + type + paperCode + unitNumber`.
@@ -103,6 +106,27 @@ To avoid pipeline breakage:
 - Keep `course`, `type`, `paper_code`, and `year` (for solved papers) consistent between ingested markdown and UI selections.
 - Ensure ingestion status is not terminal failure (`failed`/`error`) when relying on ingestion-driven paper-code options.
 - If `ai_ingestions` has a code but corresponding `Syllabus_Table`/`Questions_Table` rows are missing, the code is intentionally hidden for that tab until table rows exist.
+
+#### Full reset / re-bootstrap (harsh recovery)
+
+If data drift is severe and you need to rebuild from scratch, use:
+
+```bash
+npx tsx scripts/hard-reset-ingestion.ts
+```
+
+Optional:
+- Set `APPWRITE_PROPAGATION_DELAY_MS` before running if your Appwrite environment needs a longer settle delay between delete/recreate operations.
+
+What this reset does:
+- Truncates `Syllabus_Table`, `Questions_Table`, and `syllabus_registry`
+- Recreates `ai_ingestions` collection with ingestion attributes
+- Recreates and clears `examarchive-md-ingestion` bucket
+
+After reset:
+1. Re-ingest markdown files strictly following `DEMO_DATA_ENTRY.md`
+2. Ensure each file uses paper-code linking (`paper_code`) across syllabus + questions
+3. Re-sync syllabus registry if required for browse/search flows
 
 ---
 

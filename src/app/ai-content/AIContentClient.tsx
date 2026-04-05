@@ -84,9 +84,13 @@ export default function AIContentClient() {
     () => (COURSE_TYPES[course] || []).map((entry) => ({ label: entry, value: entry })),
     [course],
   );
+  const mergedPaperCodesForSolvedTab = useMemo(
+    () => [...new Set([...notesPaperCodes, ...papersPaperCodes])].sort((a, b) => a.localeCompare(b)),
+    [notesPaperCodes, papersPaperCodes],
+  );
   const visiblePaperCodes = useMemo(
-    () => (activeTab === "notes" ? notesPaperCodes : papersPaperCodes),
-    [activeTab, notesPaperCodes, papersPaperCodes],
+    () => (activeTab === "notes" ? notesPaperCodes : mergedPaperCodesForSolvedTab),
+    [activeTab, notesPaperCodes, mergedPaperCodesForSolvedTab],
   );
   const paperCodeDropdownOptions: CustomDropdownOption[] = useMemo(
     () => visiblePaperCodes.map((code) => ({ label: code, value: code })),
@@ -562,6 +566,7 @@ export default function AIContentClient() {
       ? canGenerateByLegacyLimit && notesQuotaAllowed
       : canGenerateByLegacyLimit && papersQuotaAllowed;
   const hasAvailableUnitsForPaper = availableUnits.length > 0;
+  const hasAvailableYearsForPaper = availableYears.length > 0;
   const isGenerationDisabled =
     !hasPaperCode ||
     !canGenerate ||
@@ -721,6 +726,11 @@ export default function AIContentClient() {
               </div>
             ) : (
               <div className="flex items-center gap-3">
+                {!hasAvailableYearsForPaper && hasPaperCode ? (
+                  <div className="w-full rounded-xl border border-outline-variant/40 bg-surface-container px-4 py-3 text-sm text-on-surface-variant opacity-70">
+                    Solved paper generation is unavailable for this paper code because no questions are ingested yet.
+                  </div>
+                ) : null}
                 {isPapersGenerationFinished && !generating ? (
                   <div className="w-full space-y-2">
                     <div className="flex gap-3">
