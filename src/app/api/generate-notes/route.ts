@@ -10,6 +10,7 @@ import { NOTES_DAILY_LIMIT, PAPERS_DAILY_LIMIT } from "@/lib/quota-config";
 type GenerateNotesBody = {
   university?: string;
   course?: string;
+  stream?: string;
   type?: string;
   paperCode?: string;
   unitNumber?: number;
@@ -74,11 +75,13 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const university = (searchParams.get("university") || "Assam University").trim();
   const course = (searchParams.get("course") || "").trim();
+  const stream = (searchParams.get("stream") || "").trim();
   const type = (searchParams.get("type") || "").trim();
 
   try {
     const queries = [Query.equal("university", university)];
     if (course) queries.push(Query.equal("course", course));
+    if (stream) queries.push(Query.equal("stream", stream));
     if (type) queries.push(Query.equal("type", type));
 
     const db = adminDatabases();
@@ -122,6 +125,7 @@ export async function GET(request: NextRequest) {
         [
           Query.equal("university", university),
           ...(course ? [Query.equal("course", course)] : []),
+          ...(stream ? [Query.equal("stream", stream)] : []),
           ...(type ? [Query.equal("type", type)] : []),
         ],
         1000,
@@ -240,12 +244,13 @@ export async function POST(request: NextRequest) {
 
   const university = (body.university || "Assam University").trim();
   const course = (body.course || "").trim();
+  const stream = (body.stream || "").trim();
   const type = (body.type || "").trim();
   const paperCode = (body.paperCode || "").trim();
   const unitNumber = Number(body.unitNumber);
 
-  if (!course || !type || !paperCode || !Number.isInteger(unitNumber) || unitNumber < 1 || unitNumber > 5) {
-    return NextResponse.json({ error: "Invalid selection. Please choose course, type, paper code, and unit 1-5." }, { status: 400 });
+  if (!course || !stream || !type || !paperCode || !Number.isInteger(unitNumber) || unitNumber < 1 || unitNumber > 5) {
+    return NextResponse.json({ error: "Invalid selection. Please choose course, stream, type, paper code, and unit 1-5." }, { status: 400 });
   }
 
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -267,6 +272,7 @@ export async function POST(request: NextRequest) {
     const syllabusRes = await db.listDocuments(DATABASE_ID, COLLECTION.syllabus_table, [
       Query.equal("university", university),
       Query.equal("course", course),
+      Query.equal("stream", stream),
       Query.equal("type", type),
       Query.equal("paper_code", paperCode),
       Query.equal("unit_number", unitNumber),
@@ -285,6 +291,10 @@ export async function POST(request: NextRequest) {
     }
 
     const questionsRes = await db.listDocuments(DATABASE_ID, COLLECTION.questions_table, [
+      Query.equal("university", university),
+      Query.equal("course", course),
+      Query.equal("stream", stream),
+      Query.equal("type", type),
       Query.equal("paper_code", paperCode),
       Query.limit(500),
     ]);
@@ -312,6 +322,7 @@ export async function POST(request: NextRequest) {
 
 University: ${university}
 Course: ${course}
+Stream: ${stream}
 Type: ${type}
 Paper Code: ${paperCode}
 Unit Number: ${unitNumber}

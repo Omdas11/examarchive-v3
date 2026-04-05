@@ -30,6 +30,7 @@ const DEFAULT_DATABASE_SCHEMA_MARKDOWN = `# DATABASE_SCHEMA
 | \`id\` | String | **Yes** | Document ID |
 | \`university\` | String | **Yes** | University name |
 | \`course\` | String | **Yes** | Course name (FYUG/CBCS) |
+| \`stream\` | String | **Yes** | Stream name (Arts/Science/Commerce) |
 | \`type\` | String | **Yes** | Paper type (DSC/DSM/SEC/AEC/VAC/IDC) |
 | \`paper_code\` | String | **Yes** | Paper code |
 | \`unit_number\` | Integer | **Yes** | Unit number |
@@ -44,6 +45,7 @@ const DEFAULT_DATABASE_SCHEMA_MARKDOWN = `# DATABASE_SCHEMA
 | \`id\` | String | **Yes** | Document ID |
 | \`university\` | String | **Yes** | University name |
 | \`course\` | String | **Yes** | Course name (FYUG/CBCS) |
+| \`stream\` | String | **Yes** | Stream name (Arts/Science/Commerce) |
 | \`type\` | String | **Yes** | Paper type |
 | \`paper_code\` | String | **Yes** | Paper code |
 | \`paper_name\` | String | No | Paper name |
@@ -254,6 +256,7 @@ const TARGET_SCHEMA = [
     attributes: [
       { key: "university", type: "string", required: true, size: 256 },
       { key: "course", type: "string", required: true, size: 64 },
+      { key: "stream", type: "string", required: true, size: 64 },
       { key: "type", type: "string", required: true, size: 32 },
       { key: "paper_code", type: "string", required: true, size: 128 },
       { key: "unit_number", type: "integer", required: true },
@@ -268,6 +271,7 @@ const TARGET_SCHEMA = [
     attributes: [
       { key: "university", type: "string", required: true, size: 256 },
       { key: "course", type: "string", required: true, size: 64 },
+      { key: "stream", type: "string", required: true, size: 64 },
       { key: "type", type: "string", required: true, size: 32 },
       { key: "paper_code", type: "string", required: true, size: 128 },
       { key: "paper_name", type: "string", required: false, size: 256 },

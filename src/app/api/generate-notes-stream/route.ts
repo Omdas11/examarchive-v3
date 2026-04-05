@@ -207,6 +207,46 @@ async function ensureNotesCacheSchema(): Promise<void> {
       undefined,
     ),
   );
+  await ensureAttribute("university", () =>
+    db.createStringAttribute(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      "university",
+      256,
+      false,
+      undefined,
+    ),
+  );
+  await ensureAttribute("course", () =>
+    db.createStringAttribute(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      "course",
+      64,
+      false,
+      undefined,
+    ),
+  );
+  await ensureAttribute("stream", () =>
+    db.createStringAttribute(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      "stream",
+      64,
+      false,
+      undefined,
+    ),
+  );
+  await ensureAttribute("selection_type", () =>
+    db.createStringAttribute(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      "selection_type",
+      32,
+      false,
+      undefined,
+    ),
+  );
 }
 
 async function ensureMarkdownCacheBucket(): Promise<void> {
@@ -232,11 +272,22 @@ async function ensureMarkdownCacheBucket(): Promise<void> {
   }
 }
 
-async function readCachedNotes(paperCode: string, unitNumber: number): Promise<CachedNotes | null> {
+async function readCachedNotes(
+  university: string,
+  course: string,
+  stream: string,
+  selectionType: string,
+  paperCode: string,
+  unitNumber: number,
+): Promise<CachedNotes | null> {
   const db = adminDatabases();
   const storage = adminStorage();
   try {
     const res = await db.listDocuments(DATABASE_ID, COLLECTION.generated_notes_cache, [
+      Query.equal("university", university),
+      Query.equal("course", course),
+      Query.equal("stream", stream),
+      Query.equal("selection_type", selectionType),
       Query.equal("paper_code", paperCode),
       Query.equal("unit_number", unitNumber),
       Query.equal("type", UNIT_NOTES_CACHE_TYPE),
@@ -262,6 +313,7 @@ async function readCachedNotes(paperCode: string, unitNumber: number): Promise<C
 async function readSyllabusContent(
   university: string,
   course: string,
+  stream: string,
   type: string,
   paperCode: string,
   unitNumber: number,
@@ -270,6 +322,7 @@ async function readSyllabusContent(
   const syllabusRes = await db.listDocuments(DATABASE_ID, COLLECTION.syllabus_table, [
     Query.equal("university", university),
     Query.equal("course", course),
+    Query.equal("stream", stream),
     Query.equal("type", type),
     Query.equal("paper_code", paperCode),
     Query.equal("unit_number", unitNumber),
@@ -280,6 +333,10 @@ async function readSyllabusContent(
 }
 
 async function writeCachedNotes(
+  university: string,
+  course: string,
+  stream: string,
+  selectionType: string,
   paperCode: string,
   unitNumber: number,
   markdown: string,
@@ -298,6 +355,10 @@ async function writeCachedNotes(
     const markdownFileId = String(uploadResult.$id);
     // Keep explicit created_at because schema/docs require this field for cache reads and audits.
     const payload = {
+      university,
+      course,
+      stream,
+      selection_type: selectionType,
       paper_code: paperCode,
       unit_number: unitNumber,
       type: UNIT_NOTES_CACHE_TYPE,
@@ -443,13 +504,14 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const university = (searchParams.get("university") || "Assam University").trim();
   const course = (searchParams.get("course") || "").trim();
+  const streamName = (searchParams.get("stream") || "").trim();
   const type = (searchParams.get("type") || "").trim();
   const paperCode = (searchParams.get("paperCode") || "").trim();
   const unitNumber = Number(searchParams.get("unitNumber"));
   const azureGotenbergUrl = process.env.AZURE_GOTENBERG_URL;
 
-  if (!course || !type || !paperCode || !Number.isInteger(unitNumber) || unitNumber < 1 || unitNumber > 5) {
-    return NextResponse.json({ error: "Invalid selection. Please choose course, type, paper code, and unit 1-5." }, { status: 400 });
+  if (!course || !streamName || !type || !paperCode || !Number.isInteger(unitNumber) || unitNumber < 1 || unitNumber > 5) {
+    return NextResponse.json({ error: "Invalid selection. Please choose course, stream, type, paper code, and unit 1-5." }, { status: 400 });
   }
   if (!azureGotenbergUrl) {
     return NextResponse.json(
@@ -460,7 +522,7 @@ export async function GET(request: NextRequest) {
 
   await ensureNotesCacheSchema();
   await ensureMarkdownCacheBucket();
-  const completedCache = await readCachedNotes(paperCode, unitNumber);
+  const completedCache = await readCachedNotes(university, course, streamName, type, paperCode, unitNumber);
   if (completedCache) {
     const todayStr = new Date().toISOString().slice(0, 10);
     const dailyLimit = getDailyLimit();
@@ -468,7 +530,7 @@ export async function GET(request: NextRequest) {
     const remaining = isAdminPlus(user.role) ? null : Math.max(0, dailyLimit - usedBefore);
     const cachedSyllabusContent =
       completedCache.syllabusContent ??
-      (await readSyllabusContent(university, course, type, paperCode, unitNumber));
+      (await readSyllabusContent(university, course, streamName, type, paperCode, unitNumber));
     const stream = new ReadableStream<Uint8Array>({
       start: (controller) => {
         controller.enqueue(toSseData({
@@ -535,6 +597,7 @@ export async function GET(request: NextRequest) {
         const syllabusRes = await db.listDocuments(DATABASE_ID, COLLECTION.syllabus_table, [
           Query.equal("university", university),
           Query.equal("course", course),
+          Query.equal("stream", streamName),
           Query.equal("type", type),
           Query.equal("paper_code", paperCode),
           Query.equal("unit_number", unitNumber),
@@ -566,6 +629,7 @@ export async function GET(request: NextRequest) {
         const questionsRes = await db.listDocuments(DATABASE_ID, COLLECTION.questions_table, [
           Query.equal("university", university),
           Query.equal("course", course),
+          Query.equal("stream", streamName),
           Query.equal("type", type),
           Query.equal("paper_code", paperCode),
           Query.limit(500),
@@ -590,6 +654,7 @@ export async function GET(request: NextRequest) {
 
           const promptBody = `University: ${university}
 Course: ${course}
+Stream: ${streamName}
 Type: ${type}
 Paper Code: ${paperCode}
 Unit Number: ${unitNumber}
@@ -708,7 +773,7 @@ CRITICAL FORMAT CONSTRAINTS:
           await sleep(TOPIC_LOOP_DELAY_MS);
         }
 
-        await writeCachedNotes(paperCode, unitNumber, masterMarkdown, syllabusContent, (message) =>
+        await writeCachedNotes(university, course, streamName, type, paperCode, unitNumber, masterMarkdown, syllabusContent, (message) =>
           controller.enqueue(toSseData({ log: message })),
         );
         controller.enqueue(toSseData({ log: "AI generation complete. Sending to Azure for PDF rendering..." }));

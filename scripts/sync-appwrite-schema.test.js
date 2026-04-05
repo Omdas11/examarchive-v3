@@ -3,6 +3,7 @@ const {
   getAppwriteDefaultValue,
   getMissingAttributes,
   renderSchemaStatusSection,
+  TARGET_SCHEMA,
   upsertSchemaStatusBlock,
   waitForAttributeAvailability,
 } = require("./sync-appwrite-schema");
@@ -137,5 +138,14 @@ describe("sync-appwrite-schema helpers", () => {
     const replaced = upsertSchemaStatusBlock(inserted, "## Status B");
     expect(replaced).toContain("## Status B");
     expect(replaced).not.toContain("## Status A");
+  });
+
+  test("TARGET_SCHEMA includes stream attribute in ingestion tables", () => {
+    const syllabus = TARGET_SCHEMA.find((collection) => collection.id === "Syllabus_Table");
+    const questions = TARGET_SCHEMA.find((collection) => collection.id === "Questions_Table");
+    expect(syllabus).toBeDefined();
+    expect(questions).toBeDefined();
+    expect(syllabus.attributes.some((attribute) => attribute.key === "stream")).toBe(true);
+    expect(questions.attributes.some((attribute) => attribute.key === "stream")).toBe(true);
   });
 });

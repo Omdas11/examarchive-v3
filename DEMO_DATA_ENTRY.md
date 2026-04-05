@@ -1,6 +1,7 @@
 ---
 university: Assam University
 course: FYUG
+stream: Science
 type: DSC
 paper_code: PHYDSC101T
 paper_name: Mechanics
@@ -9,6 +10,12 @@ paper_name: Mechanics
 > **File Naming Convention: The file must be named exactly as the Paper Code. Example: `PHYDSC101T.md`.**
 >
 > Use this exact structure. Do not rename headers or columns.
+>
+> **Note:** Use `course` for program structure only: `FYUG` or `CBCS`.
+>
+> Use `stream` for broad subject streams: `Arts`, `Science`, `Commerce` (and future streams as needed).
+>
+> Do **not** use specific degree names like `B.Com`, `B.Sc`, or `B.A` in `course`.
 
 ## Syllabus
 

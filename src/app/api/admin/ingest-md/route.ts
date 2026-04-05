@@ -53,6 +53,7 @@ async function ensureMdIngestionBucket() {
 async function upsertSyllabusRows(args: {
   university: string;
   course: string;
+  stream: string;
   type: string;
   paperCode: string;
   rows: ReturnType<typeof parseDemoDataEntryMarkdown>["syllabus"];
@@ -64,6 +65,7 @@ async function upsertSyllabusRows(args: {
     const existing = await db.listDocuments(DATABASE_ID, COLLECTION.syllabus_table, [
       Query.equal("university", args.university),
       Query.equal("course", args.course),
+      Query.equal("stream", args.stream),
       Query.equal("type", args.type),
       Query.equal("paper_code", args.paperCode),
       Query.equal("unit_number", row.unit_number),
@@ -77,6 +79,7 @@ async function upsertSyllabusRows(args: {
       id: rowId,
       university: args.university,
       course: args.course,
+      stream: args.stream,
       type: args.type,
       paper_code: args.paperCode,
       unit_number: row.unit_number,
@@ -100,6 +103,7 @@ async function upsertSyllabusRows(args: {
 async function upsertQuestionRows(args: {
   university: string;
   course: string;
+  stream: string;
   type: string;
   paperCode: string;
   paperName: string;
@@ -112,6 +116,7 @@ async function upsertQuestionRows(args: {
     const existingByQuestionNo = await db.listDocuments(DATABASE_ID, COLLECTION.questions_table, [
       Query.equal("university", args.university),
       Query.equal("course", args.course),
+      Query.equal("stream", args.stream),
       Query.equal("type", args.type),
       Query.equal("paper_code", args.paperCode),
       Query.equal("question_no", row.question_no),
@@ -131,6 +136,7 @@ async function upsertQuestionRows(args: {
       id: rowId,
       university: args.university,
       course: args.course,
+      stream: args.stream,
       type: args.type,
       paper_code: args.paperCode,
       paper_name: args.paperName,
@@ -291,6 +297,7 @@ export async function POST(request: NextRequest) {
       syllabusResult = await upsertSyllabusRows({
         university: frontmatter.university,
         course: frontmatter.course,
+        stream: frontmatter.stream,
         type: frontmatter.type,
         paperCode: frontmatter.paper_code,
         rows: parsed.syllabus,
@@ -303,6 +310,7 @@ export async function POST(request: NextRequest) {
       questionResult = await upsertQuestionRows({
         university: frontmatter.university,
         course: frontmatter.course,
+        stream: frontmatter.stream,
         type: frontmatter.type,
         paperCode: frontmatter.paper_code,
         paperName: frontmatter.paper_name,

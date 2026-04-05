@@ -5,6 +5,7 @@ describe("parseDemoDataEntryMarkdown", () => {
     const markdown = `---
 university: Assam University
 course: FYUG
+stream: Science
 type: DSC
 paper_code: PHYDSC101T
 paper_name: Mechanics
@@ -26,6 +27,7 @@ paper_name: Mechanics
     const parsed = parseDemoDataEntryMarkdown(markdown);
     expect(parsed.errors).toEqual([]);
     expect(parsed.frontmatter?.paper_code).toBe("PHYDSC101T");
+    expect(parsed.frontmatter?.stream).toBe("Science");
     expect(parsed.syllabus).toHaveLength(1);
     expect(parsed.questions).toHaveLength(1);
     expect(parsed.syllabus[0]?.tags).toEqual(["motion", "vector"]);
@@ -37,6 +39,7 @@ paper_name: Mechanics
     const markdown = `---
 university: Assam University
 course: FYUG
+stream: Science
 type: DSC
 paper_code: PHYDSC101T
 paper_name: Mechanics

@@ -14,6 +14,11 @@ const COURSE_TYPES: Record<string, string[]> = {
   "B.Sc": ["DSC", "DSM", "SEC", "AEC", "VAC", "IDC"],
   "B.A": ["DSC", "DSM", "SEC", "AEC", "VAC", "IDC"],
 };
+const STREAM_TYPES: Record<string, string[]> = {
+  Arts: ["DSC", "DSM", "SEC", "AEC", "VAC", "IDC"],
+  Science: ["DSC", "DSM", "SEC", "AEC", "VAC", "IDC"],
+  Commerce: ["DSC", "DSM", "SEC", "AEC", "VAC", "IDC"],
+};
 const UNIT_OPTIONS = [1, 2, 3, 4, 5];
 const BACKEND_PAPERS_MAX_DURATION_SECONDS = 300;
 const RESUME_TIMEOUT_BUFFER_SECONDS = 5;
@@ -35,6 +40,7 @@ export default function AIContentClient() {
   const [activeTab, setActiveTab] = useState<"notes" | "papers">("notes");
   const [university] = useState("Assam University");
   const [course, setCourse] = useState("FYUG");
+  const [stream, setStream] = useState("Arts");
   const [type, setType] = useState("DSC");
   const [paperCode, setPaperCode] = useState("");
   const [unitNumber, setUnitNumber] = useState(1);
@@ -86,9 +92,19 @@ export default function AIContentClient() {
     ],
     [],
   );
+  const streamOptions: CustomDropdownOption[] = useMemo(
+    () => Object.keys(STREAM_TYPES).map((entry) => ({ label: entry, value: entry })),
+    [],
+  );
   const typeOptions: CustomDropdownOption[] = useMemo(
-    () => (COURSE_TYPES[course] || []).map((entry) => ({ label: entry, value: entry })),
-    [course],
+    () => {
+      const allowedByCourse = COURSE_TYPES[course] || COURSE_TYPES.FYUG;
+      const allowedByStream = STREAM_TYPES[stream] || STREAM_TYPES.Arts;
+      return allowedByCourse
+        .filter((entry) => allowedByStream.includes(entry))
+        .map((entry) => ({ label: entry, value: entry }));
+    },
+    [course, stream],
   );
   const mergedPaperCodesForSolvedTab = useMemo(
     () => [...new Set([...notesPaperCodes, ...papersPaperCodes])].sort((a, b) => a.localeCompare(b)),
@@ -112,12 +128,12 @@ export default function AIContentClient() {
   );
   const progressPercent = progressTotal > 0 ? Math.min(100, Math.round((progressIndex / progressTotal) * 100)) : 0;
   const notesSelectionKey = useMemo(
-    () => [university, course, type, paperCode.trim(), String(unitNumber)].join("|"),
-    [university, course, type, paperCode, unitNumber],
+    () => [university, course, stream, type, paperCode.trim(), String(unitNumber)].join("|"),
+    [university, course, stream, type, paperCode, unitNumber],
   );
   const papersSelectionKey = useMemo(
-    () => [university, course, type, paperCode.trim(), String(selectedYear)].join("|"),
-    [university, course, type, paperCode, selectedYear],
+    () => [university, course, stream, type, paperCode.trim(), String(selectedYear)].join("|"),
+    [university, course, stream, type, paperCode, selectedYear],
   );
   const activePdfUrl =
     activeTab === "notes"
@@ -370,6 +386,7 @@ export default function AIContentClient() {
     const params = new URLSearchParams({
       university,
       course,
+      stream,
       type,
       paperCode,
       ...(activeTab === "notes"
@@ -455,6 +472,7 @@ export default function AIContentClient() {
     const params = new URLSearchParams({
       university,
       course,
+      stream,
       type,
     });
     fetch(`/api/generate-notes?${params.toString()}`)
@@ -512,7 +530,7 @@ export default function AIContentClient() {
         setSelectedYear("");
       })
       .finally(() => setPaperCodeLoading(false));
-  }, [university, course, type]);
+  }, [university, course, stream, type]);
 
   useEffect(() => {
     const fallbackCode = visiblePaperCodes[0] || "";
@@ -544,11 +562,13 @@ export default function AIContentClient() {
   }, [paperCode, availableYears]);
 
   useEffect(() => {
-    const allowed = COURSE_TYPES[course] || COURSE_TYPES.FYUG;
+    const allowedByCourse = COURSE_TYPES[course] || COURSE_TYPES.FYUG;
+    const allowedByStream = STREAM_TYPES[stream] || STREAM_TYPES.Arts;
+    const allowed = allowedByCourse.filter((entry) => allowedByStream.includes(entry));
     if (!allowed.includes(type)) {
       setType(allowed[0]);
     }
-  }, [course, type]);
+  }, [course, stream, type]);
 
   useEffect(() => {
     return () => {
@@ -627,6 +647,10 @@ export default function AIContentClient() {
             <div>
               <label className="mb-1 block text-sm font-semibold">Course</label>
               <CustomDropdown options={courseOptions} value={course} onChange={setCourse} disabled={generating} />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-semibold">Stream</label>
+              <CustomDropdown options={streamOptions} value={stream} onChange={setStream} disabled={generating} />
             </div>
             <div>
               <label className="mb-1 block text-sm font-semibold">Type</label>
