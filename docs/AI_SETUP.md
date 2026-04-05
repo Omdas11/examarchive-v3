@@ -128,6 +128,21 @@ After reset:
 2. Ensure each file uses paper-code linking (`paper_code`) across syllabus + questions
 3. Re-sync syllabus registry if required for browse/search flows
 
+#### Mobile / Manual Trigger (GitHub Actions)
+
+If you are away from your computer or fully on mobile, you can trigger the database hard-reset directly from GitHub without needing a terminal:
+
+1. Open the **GitHub App** or navigate to your repository in a mobile browser.
+2. Go to the **Actions** tab.
+3. Select the **Manual AI Ingestion Hard Reset** workflow from the list on the left.
+4. Tap the **Run workflow** button (top-right of the workflow run list).
+5. In the confirmation input, type exactly `RESET` (all caps).
+6. Tap **Run workflow** to start the process.
+
+You can tap on the running workflow to watch live logs and confirm that the Appwrite collections and bucket were successfully deleted and recreated.
+
+> **Prerequisites:** Ensure `APPWRITE_ENDPOINT`, `APPWRITE_PROJECT_ID`, and `APPWRITE_API_KEY` are saved as GitHub Repository Secrets (Settings → Secrets and variables → Actions) before triggering the workflow.
+
 ---
 
 ## Usage Limits
