@@ -26,9 +26,10 @@ export interface SyllabusTablePaperSummary {
 export function extractSubjectCode(paperCode: string): string {
   const upper = paperCode.trim().toUpperCase();
   if (!upper) return "GEN";
-  const alphaPrefix = upper.match(/^[A-Z]+/)?.[0] ?? upper;
+  const alphaPrefix = upper.match(/[A-Z]+/)?.[0] ?? "";
   if (alphaPrefix.length >= 3) return alphaPrefix.slice(0, 3);
-  return upper.slice(0, 3) || "GEN";
+  if (alphaPrefix.length > 0) return alphaPrefix;
+  return "GEN";
 }
 
 export function toSyllabusTableRow(doc: Record<string, unknown>): SyllabusTableRow {
@@ -41,7 +42,7 @@ export function toSyllabusTableRow(doc: Record<string, unknown>): SyllabusTableR
     course: String(doc.course ?? ""),
     stream: String(doc.stream ?? ""),
     type: String(doc.type ?? ""),
-    paper_code: String(doc.paper_code ?? "").toUpperCase(),
+    paper_code: String(doc.paper_code ?? ""),
     unit_number: Number(doc.unit_number ?? 0),
     syllabus_content: String(doc.syllabus_content ?? ""),
     lectures:

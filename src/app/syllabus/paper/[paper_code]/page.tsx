@@ -18,6 +18,9 @@ interface PageProps {
   params: Promise<{ paper_code: string }>;
 }
 
+const UNKNOWN_YEAR_LABEL = "Unknown year";
+const UNKNOWN_UNIVERSITY_LABEL = "Unknown university";
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { paper_code } = await params;
   const code = decodeURIComponent(paper_code).toUpperCase();
@@ -177,7 +180,7 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
                       rel="noopener noreferrer"
                       className="block rounded-xl bg-surface-container px-3 py-2 text-xs font-semibold text-on-surface"
                     >
-                      {pdf.year ?? "Unknown year"} · {pdf.university ?? "Unknown university"} PDF
+                      {pdf.year ?? UNKNOWN_YEAR_LABEL} · {pdf.university ?? UNKNOWN_UNIVERSITY_LABEL} PDF
                     </a>
                   ))}
                 </div>

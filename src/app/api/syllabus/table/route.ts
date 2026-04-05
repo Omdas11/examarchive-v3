@@ -11,8 +11,12 @@ import { generatePDF, markdownToHTML } from "@/lib/pdf-generator";
 
 const MAX_PAGES_SINGLE_PAPER = 20;
 const MAX_PAGES_DEPARTMENTAL = 40;
+const SYLLABUS_TABLE_PAGE_SIZE = 500;
+const SYLLABUS_TABLE_MAX_PAGES = 20;
+const MAX_PAPER_NAME_LENGTH = 80;
+const ELLIPSIS_LENGTH = 3;
 
-function normalizePaperName(paperCode: string, rows: SyllabusTableRow[]): string {
+function derivePaperNameFromRows(paperCode: string, rows: SyllabusTableRow[]): string {
   // Delimiter choice is intentionally conservative (period/semicolon/newline)
   // so we avoid clipping common acronym/comma patterns in syllabus text.
   const derivedPaperName = rows
@@ -21,8 +25,8 @@ function normalizePaperName(paperCode: string, rows: SyllabusTableRow[]): string
     ?.split(/[.;\n]/)[0]
     ?.trim();
   if (!derivedPaperName) return paperCode;
-  return derivedPaperName.length > 80
-    ? `${derivedPaperName.slice(0, 77)}...`
+  return derivedPaperName.length > MAX_PAPER_NAME_LENGTH
+    ? `${derivedPaperName.slice(0, MAX_PAPER_NAME_LENGTH - ELLIPSIS_LENGTH)}...`
     : derivedPaperName;
 }
 
@@ -39,16 +43,35 @@ export async function GET(request: NextRequest) {
   try {
     const db = adminDatabases();
     const normalizedPaperCode = paperCode.toUpperCase();
-    const baseQueries = [
+    const filterQueries = [
       university ? Query.equal("university", university) : null,
       course ? Query.equal("course", course) : null,
       stream ? Query.equal("stream", stream) : null,
       type ? Query.equal("type", type) : null,
       normalizedPaperCode ? Query.equal("paper_code", normalizedPaperCode) : null,
-      Query.limit(5000),
     ].filter(Boolean) as string[];
-    const rowsRes = await db.listDocuments(DATABASE_ID, COLLECTION.syllabus_table, baseQueries);
-    const rows = rowsRes.documents.map((doc) => toSyllabusTableRow(doc as Record<string, unknown>));
+    const rows: SyllabusTableRow[] = [];
+    let cursorAfter: string | null = null;
+    let pageCount = 0;
+    while (pageCount < SYLLABUS_TABLE_MAX_PAGES) {
+      const pageQueries = [
+        ...filterQueries,
+        Query.orderAsc("$id"),
+        Query.limit(SYLLABUS_TABLE_PAGE_SIZE),
+        cursorAfter ? Query.cursorAfter(cursorAfter) : null,
+      ].filter(Boolean) as string[];
+      const page = await db.listDocuments(DATABASE_ID, COLLECTION.syllabus_table, pageQueries);
+      rows.push(
+        ...page.documents.map((doc) => {
+          const row = toSyllabusTableRow(doc as Record<string, unknown>);
+          return { ...row, paper_code: row.paper_code.toUpperCase() };
+        }),
+      );
+      if (page.documents.length < SYLLABUS_TABLE_PAGE_SIZE) break;
+      cursorAfter = page.documents[page.documents.length - 1]?.$id ?? null;
+      if (!cursorAfter) break;
+      pageCount += 1;
+    }
 
     if (normalizedPaperCode) {
       const paperRows = rows
@@ -58,7 +81,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: "No syllabus rows found for this paper." }, { status: 404 });
       }
 
-      const paperName = normalizePaperName(normalizedPaperCode, paperRows);
+      const paperName = derivePaperNameFromRows(normalizedPaperCode, paperRows);
       const markdown = buildPaperMarkdown({
         paperCode: normalizedPaperCode,
         paperName,
@@ -116,7 +139,7 @@ export async function GET(request: NextRequest) {
       const mergedSections: string[] = [];
       for (const code of orderedCodes) {
         const paperRows = groupedByPaper.get(code) ?? [];
-        const paperName = normalizePaperName(code, paperRows);
+        const paperName = derivePaperNameFromRows(code, paperRows);
         const md = buildPaperMarkdown({
           paperCode: code,
           paperName,
@@ -162,7 +185,7 @@ export async function GET(request: NextRequest) {
     const papers: SyllabusTablePaperSummary[] = Array.from(grouped.entries())
       .map(([code, paperRows]) => ({
         paperCode: code,
-        paperName: normalizePaperName(code, paperRows),
+        paperName: derivePaperNameFromRows(code, paperRows),
         subjectCode: extractSubjectCode(code),
         university: paperRows[0]?.university ?? "",
         course: paperRows[0]?.course ?? "",
