@@ -140,13 +140,40 @@ export async function GET(request: NextRequest) {
       }
     }
     const papersMap = new Map<string, string>();
+    const syllabusPaperCodes = new Set<string>();
+    const unitsByPaperCode: Record<string, number[]> = {};
     for (const doc of documents) {
       const code = typeof doc.paper_code === "string" ? doc.paper_code.trim() : "";
       if (!code) continue;
       const name = typeof doc.paper_name === "string" ? doc.paper_name.trim() : "";
       if (!papersMap.has(code)) papersMap.set(code, name || code);
+      syllabusPaperCodes.add(code);
+
+      const unitRaw = doc.unit_number;
+      const unit =
+        typeof unitRaw === "number"
+          ? unitRaw
+          : typeof unitRaw === "string"
+            ? Number(unitRaw)
+            : NaN;
+      if (!Number.isInteger(unit) || unit < 1) continue;
+      if (!unitsByPaperCode[code]) unitsByPaperCode[code] = [];
+      if (!unitsByPaperCode[code].includes(unit)) unitsByPaperCode[code].push(unit);
     }
-    const paperCodes = Array.from(ingestedPaperCodes).sort((a, b) => a.localeCompare(b));
+    for (const code of Object.keys(unitsByPaperCode)) {
+      unitsByPaperCode[code].sort((a, b) => a - b);
+    }
+
+    const questionPaperCodes = new Set<string>();
+    for (const questionDoc of questionDocsRes.documents) {
+      const code = typeof questionDoc.paper_code === "string" ? questionDoc.paper_code.trim() : "";
+      if (!code) continue;
+      questionPaperCodes.add(code);
+    }
+    const scopedPaperCodes = new Set([...syllabusPaperCodes, ...questionPaperCodes]);
+    const ingestedScopedCodes = Array.from(ingestedPaperCodes).filter((code) => scopedPaperCodes.has(code));
+    const paperCodeSource = ingestedScopedCodes.length > 0 ? ingestedScopedCodes : Array.from(scopedPaperCodes);
+    const paperCodes = paperCodeSource.sort((a, b) => a.localeCompare(b));
     const paperCodesSet = new Set(paperCodes);
     const papers = paperCodes.map((code) => ({ code, name: papersMap.get(code) || code }));
     const yearsByPaperCode: Record<string, number[]> = {};
@@ -177,6 +204,7 @@ export async function GET(request: NextRequest) {
       papersDailyLimit: isAdminPlus(user.role) ? null : PAPERS_DAILY_LIMIT,
       paperCodes,
       papers,
+      unitsByPaperCode,
       yearsByPaperCode,
     });
   } catch (error) {
@@ -190,6 +218,7 @@ export async function GET(request: NextRequest) {
       papersDailyLimit: isAdminPlus(user.role) ? null : PAPERS_DAILY_LIMIT,
       paperCodes: [],
       papers: [],
+      unitsByPaperCode: {},
       yearsByPaperCode: {},
     });
   }

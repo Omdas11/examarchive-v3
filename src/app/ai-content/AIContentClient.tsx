@@ -37,6 +37,7 @@ export default function AIContentClient() {
   const [unitNumber, setUnitNumber] = useState(1);
   const [selectedYear, setSelectedYear] = useState<number | "">("");
   const [availablePapers, setAvailablePapers] = useState<string[]>([]);
+  const [unitsByPaperCode, setUnitsByPaperCode] = useState<Record<string, number[]>>({});
   const [yearsByPaperCode, setYearsByPaperCode] = useState<Record<string, number[]>>({});
   const [paperCodeLoading, setPaperCodeLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -65,6 +66,10 @@ export default function AIContentClient() {
   const [showLogs, setShowLogs] = useState(false);
   const elapsedSecondsRef = useRef(0);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const availableUnits = useMemo(() => {
+    const units = unitsByPaperCode[paperCode];
+    return Array.isArray(units) && units.length > 0 ? units : UNIT_OPTIONS;
+  }, [unitsByPaperCode, paperCode]);
   const availableYears = useMemo(() => yearsByPaperCode[paperCode] || [], [yearsByPaperCode, paperCode]);
   const courseOptions: CustomDropdownOption[] = useMemo(
     () => [
@@ -82,8 +87,8 @@ export default function AIContentClient() {
     [availablePapers],
   );
   const unitOptions: CustomDropdownOption[] = useMemo(
-    () => UNIT_OPTIONS.map((unit) => ({ label: String(unit), value: String(unit) })),
-    [],
+    () => availableUnits.map((unit) => ({ label: String(unit), value: String(unit) })),
+    [availableUnits],
   );
   const yearOptions: CustomDropdownOption[] = useMemo(
     () => availableYears.map((year) => ({ label: String(year), value: String(year) })),
@@ -454,9 +459,23 @@ export default function AIContentClient() {
           });
         } else {
           setAvailablePapers([]);
+          setUnitsByPaperCode({});
           setPaperCode("");
           setYearsByPaperCode({});
           setSelectedYear("");
+        }
+        if (data.unitsByPaperCode && typeof data.unitsByPaperCode === "object") {
+          const map: Record<string, number[]> = {};
+          for (const [code, units] of Object.entries(data.unitsByPaperCode as Record<string, unknown>)) {
+            if (Array.isArray(units)) {
+              map[code] = units
+                .map((unit) => (typeof unit === "number" ? unit : Number(unit)))
+                .filter((unit) => Number.isInteger(unit) && unit > 0);
+            }
+          }
+          setUnitsByPaperCode(map);
+        } else {
+          setUnitsByPaperCode({});
         }
         if (data.yearsByPaperCode && typeof data.yearsByPaperCode === "object") {
           const map: Record<string, number[]> = {};
@@ -472,12 +491,23 @@ export default function AIContentClient() {
       })
       .catch(() => {
         setAvailablePapers([]);
+        setUnitsByPaperCode({});
         setPaperCode("");
         setYearsByPaperCode({});
         setSelectedYear("");
       })
       .finally(() => setPaperCodeLoading(false));
   }, [university, course, type]);
+
+  useEffect(() => {
+    const defaultUnit = UNIT_OPTIONS[0] ?? 1;
+    if (availableUnits.length === 0) {
+      setUnitNumber(defaultUnit);
+      return;
+    }
+    const fallbackUnit = availableUnits[0] ?? defaultUnit;
+    setUnitNumber((current) => (availableUnits.includes(current) ? current : fallbackUnit));
+  }, [paperCode, availableUnits]);
 
   useEffect(() => {
     if (availableYears.length === 0) {

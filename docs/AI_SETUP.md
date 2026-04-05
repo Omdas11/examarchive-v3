@@ -65,6 +65,37 @@ OPENAI_API_KEY=your-openai-api-key
 - Auto-fallback tries Gemini first, then OpenRouter free allowlist; admin/founder can set a `gemini:` or `openrouter:` override (optional “apply to everyone” toggle)
 - Generated PDFs include a low-opacity, 45° tiled **ExamArchive** watermark on every page
 
+#### AI Content data fetch pipeline (Unit Notes + Solved Papers)
+
+This pipeline is driven by data ingested from `DEMO_DATA_ENTRY.md` into:
+- `Syllabus_Table` (unit-wise syllabus rows)
+- `Questions_Table` (question rows, optional `year`)
+- `ai_ingestions` (ingestion logs used for dropdown option discovery)
+
+1. **Paper-code and year/unit option load** (`GET /api/generate-notes`)
+   - Reads `Syllabus_Table` and `Questions_Table` scoped by `university + course + type`.
+   - Builds paper-code dropdown options from successful/non-failure ingestion logs (`ai_ingestions`) with field fallbacks (`paper_code`, digest fields, `source_label`).
+   - Returns:
+     - `paperCodes`
+     - `unitsByPaperCode` (from `Syllabus_Table.unit_number`)
+     - `yearsByPaperCode` (from `Questions_Table.year`)
+   - Safety fallback: if ingestion logs are stale/missing, paper codes fall back to scoped table data (`Syllabus_Table`/`Questions_Table`) so generation can still proceed.
+
+2. **Unit Notes generation** (`GET /api/generate-notes-stream`)
+   - Uses selected `university + course + type + paperCode + unitNumber`.
+   - Fetches syllabus from `Syllabus_Table`.
+   - Fetches related questions from `Questions_Table` (same selection scope) and includes them in prompt context.
+   - If syllabus row is missing, route returns: `No syllabus data found for this unit.`
+
+3. **Solved Paper generation** (`GET /api/generate-solved-paper-stream`)
+   - Uses selected `university + course + type + paperCode + year`.
+   - Fetches questions from `Questions_Table`.
+   - If no rows match, route returns: `No questions found for the selected paper/year.`
+
+To avoid pipeline breakage:
+- Keep `course`, `type`, `paper_code`, and `year` (for solved papers) consistent between ingested markdown and UI selections.
+- Ensure ingestion status is not terminal failure (`failed`/`error`) when relying on ingestion-driven paper-code options.
+
 ---
 
 ## Usage Limits
