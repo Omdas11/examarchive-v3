@@ -36,7 +36,8 @@ export default function AIContentClient() {
   const [paperCode, setPaperCode] = useState("");
   const [unitNumber, setUnitNumber] = useState(1);
   const [selectedYear, setSelectedYear] = useState<number | "">("");
-  const [availablePapers, setAvailablePapers] = useState<string[]>([]);
+  const [notesPaperCodes, setNotesPaperCodes] = useState<string[]>([]);
+  const [papersPaperCodes, setPapersPaperCodes] = useState<string[]>([]);
   const [unitsByPaperCode, setUnitsByPaperCode] = useState<Record<string, number[]>>({});
   const [yearsByPaperCode, setYearsByPaperCode] = useState<Record<string, number[]>>({});
   const [paperCodeLoading, setPaperCodeLoading] = useState(false);
@@ -82,9 +83,13 @@ export default function AIContentClient() {
     () => (COURSE_TYPES[course] || []).map((entry) => ({ label: entry, value: entry })),
     [course],
   );
+  const visiblePaperCodes = useMemo(
+    () => (activeTab === "notes" ? notesPaperCodes : papersPaperCodes),
+    [activeTab, notesPaperCodes, papersPaperCodes],
+  );
   const paperCodeDropdownOptions: CustomDropdownOption[] = useMemo(
-    () => availablePapers.map((code) => ({ label: code, value: code })),
-    [availablePapers],
+    () => visiblePaperCodes.map((code) => ({ label: code, value: code })),
+    [visiblePaperCodes],
   );
   const unitOptions: CustomDropdownOption[] = useMemo(
     () => availableUnits.map((unit) => ({ label: String(unit), value: String(unit) })),
@@ -450,19 +455,17 @@ export default function AIContentClient() {
         if (typeof data.papersRemaining === "number") setPapersRemaining(data.papersRemaining);
         if (typeof data.notesDailyLimit === "number") setNotesDailyLimit(data.notesDailyLimit);
         if (typeof data.papersDailyLimit === "number") setPapersDailyLimit(data.papersDailyLimit);
-        if (Array.isArray(data.paperCodes)) {
-          const options = data.paperCodes.filter((item: unknown): item is string => typeof item === "string" && item.trim().length > 0);
-          setAvailablePapers(options);
-          setPaperCode((current) => {
-            if (current && options.includes(current)) return current;
-            return options[0] || current;
-          });
+        if (Array.isArray(data.notesPaperCodes)) {
+          const options = data.notesPaperCodes.filter((item: unknown): item is string => typeof item === "string" && item.trim().length > 0);
+          setNotesPaperCodes(options);
         } else {
-          setAvailablePapers([]);
-          setUnitsByPaperCode({});
-          setPaperCode("");
-          setYearsByPaperCode({});
-          setSelectedYear("");
+          setNotesPaperCodes([]);
+        }
+        if (Array.isArray(data.papersPaperCodes)) {
+          const options = data.papersPaperCodes.filter((item: unknown): item is string => typeof item === "string" && item.trim().length > 0);
+          setPapersPaperCodes(options);
+        } else {
+          setPapersPaperCodes([]);
         }
         if (data.unitsByPaperCode && typeof data.unitsByPaperCode === "object") {
           const map: Record<string, number[]> = {};
@@ -490,7 +493,8 @@ export default function AIContentClient() {
         }
       })
       .catch(() => {
-        setAvailablePapers([]);
+        setNotesPaperCodes([]);
+        setPapersPaperCodes([]);
         setUnitsByPaperCode({});
         setPaperCode("");
         setYearsByPaperCode({});
@@ -498,6 +502,14 @@ export default function AIContentClient() {
       })
       .finally(() => setPaperCodeLoading(false));
   }, [university, course, type]);
+
+  useEffect(() => {
+    const fallbackCode = visiblePaperCodes[0] || "";
+    setPaperCode((current) => {
+      if (current && visiblePaperCodes.includes(current)) return current;
+      return fallbackCode;
+    });
+  }, [visiblePaperCodes]);
 
   useEffect(() => {
     const defaultUnit = UNIT_OPTIONS[0] ?? 1;
@@ -610,7 +622,7 @@ export default function AIContentClient() {
                 value={paperCode}
                 onChange={setPaperCode}
                 placeholder={paperCodeLoading ? "Loading..." : "Select paper code"}
-                disabled={generating || paperCodeLoading || availablePapers.length === 0}
+                disabled={generating || paperCodeLoading || visiblePaperCodes.length === 0}
               />
             </div>
             {activeTab === "notes" ? (

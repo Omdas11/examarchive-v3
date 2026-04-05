@@ -140,13 +140,16 @@ export async function GET(request: NextRequest) {
       }
     }
     const papersMap = new Map<string, string>();
+    const storePaperName = (code: string, nameCandidate: unknown) => {
+      const name = typeof nameCandidate === "string" ? nameCandidate.trim() : "";
+      if (name && !papersMap.has(code)) papersMap.set(code, name);
+    };
     const syllabusPaperCodes = new Set<string>();
     const unitsByPaperCode: Record<string, number[]> = {};
     for (const doc of documents) {
       const code = typeof doc.paper_code === "string" ? doc.paper_code.trim() : "";
       if (!code) continue;
-      const name = typeof doc.paper_name === "string" ? doc.paper_name.trim() : "";
-      if (!papersMap.has(code)) papersMap.set(code, name || code);
+      storePaperName(code, doc.paper_name);
       syllabusPaperCodes.add(code);
 
       const unitRaw = doc.unit_number;
@@ -169,11 +172,15 @@ export async function GET(request: NextRequest) {
       const code = typeof questionDoc.paper_code === "string" ? questionDoc.paper_code.trim() : "";
       if (!code) continue;
       questionPaperCodes.add(code);
+      storePaperName(code, questionDoc.paper_name);
     }
-    const scopedPaperCodes = new Set([...syllabusPaperCodes, ...questionPaperCodes]);
-    const ingestedScopedCodes = Array.from(ingestedPaperCodes).filter((code) => scopedPaperCodes.has(code));
-    const paperCodeSource = ingestedScopedCodes.length > 0 ? ingestedScopedCodes : Array.from(scopedPaperCodes);
-    const paperCodes = [...paperCodeSource].sort((a, b) => a.localeCompare(b));
+    const notesIngestedCodes = Array.from(ingestedPaperCodes).filter((code) => syllabusPaperCodes.has(code));
+    const notesPaperCodes = [...(notesIngestedCodes.length > 0 ? notesIngestedCodes : Array.from(syllabusPaperCodes))]
+      .sort((a, b) => a.localeCompare(b));
+    const papersIngestedCodes = Array.from(ingestedPaperCodes).filter((code) => questionPaperCodes.has(code));
+    const papersPaperCodes = [...(papersIngestedCodes.length > 0 ? papersIngestedCodes : Array.from(questionPaperCodes))]
+      .sort((a, b) => a.localeCompare(b));
+    const paperCodes = [...new Set([...notesPaperCodes, ...papersPaperCodes])].sort((a, b) => a.localeCompare(b));
     const paperCodesSet = new Set(paperCodes);
     const papers = paperCodes.map((code) => ({ code, name: papersMap.get(code) || code }));
     const yearsByPaperCode: Record<string, number[]> = {};
@@ -203,6 +210,8 @@ export async function GET(request: NextRequest) {
       notesDailyLimit: isAdminPlus(user.role) ? null : NOTES_DAILY_LIMIT,
       papersDailyLimit: isAdminPlus(user.role) ? null : PAPERS_DAILY_LIMIT,
       paperCodes,
+      notesPaperCodes,
+      papersPaperCodes,
       papers,
       unitsByPaperCode,
       yearsByPaperCode,
@@ -217,6 +226,8 @@ export async function GET(request: NextRequest) {
       notesDailyLimit: isAdminPlus(user.role) ? null : NOTES_DAILY_LIMIT,
       papersDailyLimit: isAdminPlus(user.role) ? null : PAPERS_DAILY_LIMIT,
       paperCodes: [],
+      notesPaperCodes: [],
+      papersPaperCodes: [],
       papers: [],
       unitsByPaperCode: {},
       yearsByPaperCode: {},

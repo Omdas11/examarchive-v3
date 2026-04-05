@@ -74,12 +74,17 @@ This pipeline is driven by data ingested from `DEMO_DATA_ENTRY.md` into:
 
 1. **Paper-code and year/unit option load** (`GET /api/generate-notes`)
    - Reads `Syllabus_Table` and `Questions_Table` scoped by `university + course + type`.
-   - Builds paper-code dropdown options from successful/non-failure ingestion logs (`ai_ingestions`) with field fallbacks (`paper_code`, digest fields, `source_label`).
+   - Builds paper-code dropdown options from non-failure ingestion logs (`ai_ingestions`) with field fallbacks (`paper_code`, digest fields, `source_label`), then constrains them to table-backed data.
    - Returns:
      - `paperCodes`
+     - `notesPaperCodes` (paper codes that exist in `Syllabus_Table`; shown in **Unit Notes** tab)
+     - `papersPaperCodes` (paper codes that exist in `Questions_Table`; shown in **Solved Papers** tab)
      - `unitsByPaperCode` (from `Syllabus_Table.unit_number`)
      - `yearsByPaperCode` (from `Questions_Table.year`)
-   - Safety fallback: if ingestion logs are stale/missing, paper codes fall back to scoped table data (`Syllabus_Table`/`Questions_Table`) so generation can still proceed.
+   - Safety fallback:
+     - **Unit Notes** falls back to `Syllabus_Table` codes.
+     - **Solved Papers** falls back to `Questions_Table` codes.
+   - This avoids showing paper codes that were ingested but have no matching syllabus/question rows for the selected tab.
 
 2. **Unit Notes generation** (`GET /api/generate-notes-stream`)
    - Uses selected `university + course + type + paperCode + unitNumber`.
@@ -95,6 +100,7 @@ This pipeline is driven by data ingested from `DEMO_DATA_ENTRY.md` into:
 To avoid pipeline breakage:
 - Keep `course`, `type`, `paper_code`, and `year` (for solved papers) consistent between ingested markdown and UI selections.
 - Ensure ingestion status is not terminal failure (`failed`/`error`) when relying on ingestion-driven paper-code options.
+- If `ai_ingestions` has a code but corresponding `Syllabus_Table`/`Questions_Table` rows are missing, the code is intentionally hidden for that tab until table rows exist.
 
 ---
 
