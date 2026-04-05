@@ -105,13 +105,19 @@ export async function GET(request: NextRequest) {
       }
       return "";
     };
-    const normalizePaperCode = (value: string) => value.replace(/\.md$/i, "").trim();
+    const normalizePaperCode = (value: unknown) =>
+      (typeof value === "string" ? value : "")
+        .replace(/^.*[\\/]/, "")
+        .replace(/\.md$/i, "")
+        .trim();
     for (const ingestionDoc of ingestionRes.documents) {
       const normalizedStatus = readFirstString(ingestionDoc, ["status", "ingestion_status", "ingestionStatus"]).toLowerCase();
-      if (normalizedStatus !== "success") continue;
+      // Intentionally accept any non-failure ingestion status so legacy pipelines still backfill options.
+      // Only explicit failure states are excluded.
+      if (normalizedStatus === "failed" || normalizedStatus === "error") continue;
 
       const directCode = normalizePaperCode(
-        readFirstString(ingestionDoc, ["paper_code", "paperCode", "course_code"]),
+        readFirstString(ingestionDoc, ["paper_code", "paperCode", "course_code", "source_label", "sourceLabel"]),
       );
       if (directCode) {
         ingestedPaperCodes.add(directCode);
