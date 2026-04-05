@@ -608,12 +608,30 @@ export async function GET(request: NextRequest) {
   const completedCache = await readCompletedSolvedPaperCache(cachePaperCode, year);
   if (completedCache) {
     const stream = new ReadableStream<Uint8Array>({
-      start: (controller) => {
+      start: async (controller) => {
+        let pdfUrl: string | null = null;
+        try {
+          controller.enqueue(toSseData({ log: "Cache hit: generating PDF from cached markdown..." }));
+          const rendered = await renderMarkdownPdfToAppwrite({
+            markdown: completedCache,
+            fileBaseName: `${paperCode}_${year}_solved_${Date.now()}`,
+            fileName: `${paperCode}_${year}_solved_paper.pdf`,
+            gotenbergUrl: azureGotenbergUrl,
+            paperCode,
+            year,
+          });
+          pdfUrl = rendered.fileUrl;
+          controller.enqueue(toSseData({ log: "PDF rendered successfully from cached content." }));
+        } catch (pdfError) {
+          const pipelineMessage = pdfError instanceof Error ? pdfError.message : String(pdfError);
+          controller.enqueue(toSseData({ log: `PDF generation error: ${pipelineMessage}` }));
+        }
         controller.enqueue(toSseData({
           event: "done",
           markdown: completedCache,
           model: "cache",
           cached: true,
+          pdf_url: pdfUrl,
         }));
         controller.close();
       },
@@ -723,14 +741,31 @@ export async function GET(request: NextRequest) {
         const checkpoint = await readSolvedPaperCheckpoint(cachePaperCode, year);
         if (checkpoint?.status === COMPLETED_STATUS && checkpoint.markdown.trim().length > 0) {
           controller.enqueue(toSseData({
-            log: "Cache hit: serving completed markdown from Appwrite Storage.",
+            log: "Cache hit: generating PDF from completed cached markdown.",
           }));
+          let pdfUrl: string | null = null;
+          try {
+            const rendered = await renderMarkdownPdfToAppwrite({
+              markdown: checkpoint.markdown.trim(),
+              fileBaseName: `${paperCode}_${year}_solved_${Date.now()}`,
+              fileName: `${paperCode}_${year}_solved_paper.pdf`,
+              gotenbergUrl: azureGotenbergUrl,
+              paperCode,
+              year,
+            });
+            pdfUrl = rendered.fileUrl;
+            controller.enqueue(toSseData({ log: "PDF rendered successfully from cached content." }));
+          } catch (pdfError) {
+            const pipelineMessage = pdfError instanceof Error ? pdfError.message : String(pdfError);
+            controller.enqueue(toSseData({ log: `PDF generation error: ${pipelineMessage}` }));
+          }
           controller.enqueue(toSseData({
             event: "done",
             markdown: checkpoint.markdown.trim(),
             model: "cache",
             total: allQuestions.length,
             cached: true,
+            pdf_url: pdfUrl,
           }));
           closeStream();
           return;
@@ -784,12 +819,30 @@ export async function GET(request: NextRequest) {
             status: COMPLETED_STATUS,
             lastProcessedIndex: allQuestions.length - 1,
           });
+          let pdfUrl: string | null = null;
+          try {
+            controller.enqueue(toSseData({ log: "All questions processed. Generating PDF from cached markdown..." }));
+            const rendered = await renderMarkdownPdfToAppwrite({
+              markdown: masterMarkdown.trim(),
+              fileBaseName: `${paperCode}_${year}_solved_${Date.now()}`,
+              fileName: `${paperCode}_${year}_solved_paper.pdf`,
+              gotenbergUrl: azureGotenbergUrl,
+              paperCode,
+              year,
+            });
+            pdfUrl = rendered.fileUrl;
+            controller.enqueue(toSseData({ log: "PDF rendered successfully." }));
+          } catch (pdfError) {
+            const pipelineMessage = pdfError instanceof Error ? pdfError.message : String(pdfError);
+            controller.enqueue(toSseData({ log: `PDF generation error: ${pipelineMessage}` }));
+          }
           controller.enqueue(toSseData({
             event: "done",
             markdown: masterMarkdown.trim(),
             model: "cache",
             total: allQuestions.length,
             cached: true,
+            pdf_url: pdfUrl,
           }));
           closeStream();
           return;

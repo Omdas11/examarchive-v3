@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import "katex/dist/katex.min.css";
-import MarkdownNotesRenderer from "./MarkdownNotesRenderer";
 import LiveLogsConsole from "./LiveLogsConsole";
 import { useToast } from "@/components/ToastContext";
 import CustomDropdown, { type CustomDropdownOption } from "@/components/CustomDropdown";
@@ -51,8 +50,6 @@ export default function AIContentClient() {
   const [yearsByPaperCode, setYearsByPaperCode] = useState<Record<string, number[]>>({});
   const [paperCodeLoading, setPaperCodeLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
-  const [markdown, setMarkdown] = useState("");
-  const [usedModel, setUsedModel] = useState("");
   const [notesPdfResult, setNotesPdfResult] = useState<{ key: string; url: string } | null>(null);
   const [papersPdfResult, setPapersPdfResult] = useState<{ key: string; url: string } | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
@@ -72,7 +69,6 @@ export default function AIContentClient() {
   const [etaMinutes, setEtaMinutes] = useState<number | null>(null);
   const [currentPart, setCurrentPart] = useState(1);
   const [totalParts, setTotalParts] = useState(1);
-  const [streamingTextActive, setStreamingTextActive] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
   const elapsedSecondsRef = useRef(0);
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -184,7 +180,8 @@ export default function AIContentClient() {
     setProgressTopic("");
     setProgressIndex(0);
     setProgressTotal(0);
-    setStreamingTextActive(false);
+    setElapsedSeconds(0);
+    elapsedSecondsRef.current = 0;
     closeEventSource();
   }
 
@@ -205,10 +202,7 @@ export default function AIContentClient() {
     return { totalQuestions, totalParts: computedParts, etaMinutes: computedEta };
   }
 
-  function startGenerationStream(baseParams: URLSearchParams, part: number, resetOnFirstPart: boolean) {
-    if (part === 1 && resetOnFirstPart) {
-      setMarkdown("");
-    }
+  function startGenerationStream(baseParams: URLSearchParams, part: number) {
     setCurrentPart(part);
     const streamParams = new URLSearchParams(baseParams.toString());
     streamParams.set("part", String(part));
@@ -219,7 +213,6 @@ export default function AIContentClient() {
     );
     eventSourceRef.current = source;
     let finished = false;
-    setStreamingTextActive(true);
 
     source.onmessage = (event) => {
       let data: Record<string, unknown>;
@@ -256,33 +249,14 @@ export default function AIContentClient() {
           }
         }
         if (typeof data.totalParts === "number") setTotalParts(data.totalParts);
-        setStreamingTextActive(false);
         closeEventSource();
-        startGenerationStream(baseParams, nextPart, false);
+        startGenerationStream(baseParams, nextPart);
         return;
       }
 
       if (eventType === "done") {
         finished = true;
-        setStreamingTextActive(false);
         setShowLogs(false);
-        const incomingMarkdown = typeof data.markdown === "string" ? data.markdown : "";
-        setMarkdown((prevMarkdown) => {
-          if (incomingMarkdown.trim().length === 0) return prevMarkdown;
-          if (incomingMarkdown === prevMarkdown) return prevMarkdown;
-          const shouldAppendToExisting = activeTab === "papers" && part > 1;
-          if (
-            shouldAppendToExisting &&
-            incomingMarkdown.length >= prevMarkdown.length &&
-            incomingMarkdown.startsWith(prevMarkdown)
-          ) {
-            return incomingMarkdown;
-          }
-          if (shouldAppendToExisting && prevMarkdown.includes(incomingMarkdown)) return prevMarkdown;
-          const separator = prevMarkdown.trim().length > 0 ? "\n\n" : "";
-          return prevMarkdown + separator + incomingMarkdown;
-        });
-        setUsedModel(typeof data.model === "string" ? data.model : "");
         if (typeof data.pdf_url === "string" && data.pdf_url.trim().length > 0) {
           if (activeTab === "notes") {
             setNotesPdfResult({ key: notesSelectionKey, url: data.pdf_url });
@@ -359,8 +333,6 @@ export default function AIContentClient() {
     if ("Notification" in window && Notification.permission !== "granted") {
       void Notification.requestPermission();
     }
-    // True when user is explicitly resuming after a timeout prompt; keep existing stitched markdown.
-    const isResumeAttempt = activeTab === "papers" && canResumeGeneration;
     closeEventSource();
     setLogs([]);
     setGenerating(true);
@@ -373,10 +345,8 @@ export default function AIContentClient() {
     setCurrentPart(1);
     setTotalParts(1);
     setEtaMinutes(null);
-    setStreamingTextActive(false);
     setElapsedSeconds(0);
     elapsedSecondsRef.current = 0;
-    setUsedModel("");
     if (activeTab === "notes") {
       setNotesPdfResult(null);
     } else {
@@ -399,7 +369,7 @@ export default function AIContentClient() {
         setTotalParts(meta.totalParts);
         setEtaMinutes(meta.etaMinutes);
       }
-      startGenerationStream(params, 1, !isResumeAttempt);
+      startGenerationStream(params, 1);
     } catch (streamError) {
       setError(streamError instanceof Error ? streamError.message : "Generation failed.");
       resetProgressState();
@@ -743,14 +713,6 @@ export default function AIContentClient() {
                         Download
                       </button>
                     </div>
-                    <button
-                      onClick={handleGenerateClick}
-                      disabled={isGenerationDisabled}
-                      className="btn-primary w-full rounded-xl px-5 py-3 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
-                      type="button"
-                    >
-                      Generate Again
-                    </button>
                   </div>
                 )}
               </div>
@@ -771,14 +733,6 @@ export default function AIContentClient() {
                         Download
                       </button>
                     </div>
-                    <button
-                      onClick={handleGenerateClick}
-                      disabled={isGenerationDisabled}
-                      className="btn-primary w-full rounded-xl px-5 py-3 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
-                      type="button"
-                    >
-                      {canResumeGeneration ? "Resume Generation" : "Generate Solved Paper"}
-                    </button>
                   </div>
                 ) : (
                   <>
@@ -841,16 +795,6 @@ export default function AIContentClient() {
           {error && <p className="mt-3 text-sm text-error">⚠ {error}</p>}
         </section>
 
-        {markdown && (
-          <section className="card border border-outline-variant/30 p-5">
-            {usedModel && <p className="mb-2 text-xs text-on-surface-variant">Model: {usedModel}</p>}
-            <div
-              className={`print-root markdown-preview rounded-xl border border-outline-variant/30 bg-surface-container-low p-4 ${streamingTextActive ? "ai-streaming-text" : ""}`}
-            >
-              <MarkdownNotesRenderer markdown={markdown} />
-            </div>
-          </section>
-        )}
         <section className="card border border-outline-variant/30 p-5">
           <div className="mb-3 flex items-center justify-between gap-3">
             <h2 className="text-xl font-semibold">Generation Logs</h2>
