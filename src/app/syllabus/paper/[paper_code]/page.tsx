@@ -177,7 +177,7 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
                       rel="noopener noreferrer"
                       className="block rounded-xl bg-surface-container px-3 py-2 text-xs font-semibold text-on-surface"
                     >
-                      {pdf.year ?? "Unknown year"} · {pdf.university || "Unknown university"} PDF
+                      {pdf.year ?? "Unknown year"} · {pdf.university ?? "Unknown university"} PDF
                     </a>
                   ))}
                 </div>

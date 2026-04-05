@@ -303,7 +303,7 @@ export default function SyllabusCatalogClient({ syllabi }: { syllabi: Syllabus[]
                         href={`/api/syllabus/table?subjectCode=${encodeURIComponent(subject.subjectCode)}&mode=pdf`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        aria-label={`Download departmental syllabus PDF for ${subject.subjectCode} containing ${subject.papers} papers`}
+                        aria-label={`Download departmental syllabus PDF for ${subject.subjectCode} containing ${subject.papers} papers and ${subject.units} units`}
                         className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary"
                       >
                         {subject.subjectCode} Dept PDF ({subject.papers})

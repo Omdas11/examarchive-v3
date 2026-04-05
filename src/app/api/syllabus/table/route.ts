@@ -13,6 +13,8 @@ const MAX_PAGES_SINGLE_PAPER = 20;
 const MAX_PAGES_DEPARTMENTAL = 40;
 
 function normalizePaperName(paperCode: string, rows: SyllabusTableRow[]): string {
+  // Delimiter choice is intentionally conservative (period/semicolon/newline)
+  // so we avoid clipping common acronym/comma patterns in syllabus text.
   const derivedPaperName = rows
     .map((row) => row.syllabus_content.trim())
     .find((content) => content.length > 0)
