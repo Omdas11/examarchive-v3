@@ -54,13 +54,17 @@ jobs:
           git commit -m "chore: update auto-generated schema sync status"
           for attempt in 1 2 3; do
             git fetch origin main
-            git rebase origin/main
+            if ! git rebase origin/main; then
+              echo "Rebase failed on attempt ${attempt}; aborting to avoid pushing conflicted history."
+              git rebase --abort || true
+              exit 1
+            fi
             if git push origin HEAD:main; then
               echo "Push succeeded on attempt ${attempt}."
               exit 0
             fi
             echo "Push failed on attempt ${attempt}; retrying..."
-            sleep 2
+            sleep $((2 ** attempt))
           done
 
           echo "Push failed after 3 attempts."
