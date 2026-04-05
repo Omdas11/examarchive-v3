@@ -77,74 +77,99 @@ export async function GET(request: NextRequest) {
   const type = (searchParams.get("type") || "").trim();
 
   try {
-    const queries = [Query.equal("university", university), Query.limit(500)];
+    const queries = [Query.equal("university", university)];
     if (course) queries.push(Query.equal("course", course));
     if (type) queries.push(Query.equal("type", type));
 
     const db = adminDatabases();
-    const [{ documents }, questionDocsRes, ingestionRes] = await Promise.all([
-      db.listDocuments(DATABASE_ID, COLLECTION.syllabus_table, queries),
-      db.listDocuments(DATABASE_ID, COLLECTION.questions_table, [
-        Query.equal("university", university),
-        ...(course ? [Query.equal("course", course)] : []),
-        ...(type ? [Query.equal("type", type)] : []),
-        Query.limit(1000),
-      ]),
-      db.listDocuments(DATABASE_ID, COLLECTION.ai_ingestions, [
-        Query.limit(1000),
-      ]),
-    ]);
-    const ingestedPaperCodes = new Set<string>();
-    const readFirstString = (value: Record<string, unknown>, keys: string[]) => {
-      for (const key of keys) {
-        const candidate = value[key];
-        if (typeof candidate === "string") {
-          const trimmed = candidate.trim();
-          if (trimmed) return trimmed;
-        }
-      }
-      return "";
-    };
-    const normalizePaperCode = (value: string) => value.replace(/\.md$/i, "").trim();
-    for (const ingestionDoc of ingestionRes.documents) {
-      const normalizedStatus = readFirstString(ingestionDoc, ["status", "ingestion_status", "ingestionStatus"]).toLowerCase();
-      if (normalizedStatus !== "success") continue;
+    const OPTION_MAX_PAGES = 20;
+    type OptionDoc = Record<string, unknown> & { $id: string };
 
-      const directCode = normalizePaperCode(
-        readFirstString(ingestionDoc, ["paper_code", "paperCode", "course_code"]),
-      );
-      if (directCode) {
-        ingestedPaperCodes.add(directCode);
+    async function listAllOptionDocs(
+      collectionId: string,
+      baseQueries: string[],
+      pageSize: number,
+      label: string,
+    ): Promise<OptionDoc[]> {
+      const allDocuments: OptionDoc[] = [];
+      let cursorAfter = "";
+
+      for (let page = 0; page < OPTION_MAX_PAGES; page++) {
+        const pageQueries = [
+          ...baseQueries,
+          Query.limit(pageSize),
+          ...(cursorAfter ? [Query.cursorAfter(cursorAfter)] : []),
+        ];
+        const res = await db.listDocuments(DATABASE_ID, collectionId, pageQueries);
+        const currentPageDocuments = (res.documents || []) as OptionDoc[];
+        allDocuments.push(...currentPageDocuments);
+
+        if (currentPageDocuments.length < pageSize) return allDocuments;
+        const lastDoc = currentPageDocuments[currentPageDocuments.length - 1];
+        const nextCursor = typeof lastDoc.$id === "string" ? lastDoc.$id : "";
+        if (!nextCursor) return allDocuments;
+        cursorAfter = nextCursor;
       }
 
-      const digest = typeof ingestionDoc.digest === "string" ? ingestionDoc.digest : "";
-      if (!digest) continue;
-      try {
-        const parsed = JSON.parse(digest) as Record<string, unknown>;
-        const digestCode = normalizePaperCode(
-          readFirstString(parsed, ["source_label", "sourceLabel", "paperCode", "paper_code", "course_code"]),
-        );
-        // Keep digest parsing even when directCode exists so legacy logs without direct paper fields still contribute.
-        // ingestedPaperCodes is a Set, so duplicate values remain deduplicated.
-        if (digestCode) {
-          ingestedPaperCodes.add(digestCode);
-        }
-      } catch {
-        // Ignore malformed legacy digest payloads; valid paper codes from other ingestion logs still populate options.
-      }
+      console.warn(`[generate-notes] ${label} option query reached page cap (${OPTION_MAX_PAGES})`);
+      return allDocuments;
     }
+
+    const [syllabusDocs, questionDocs] = await Promise.all([
+      listAllOptionDocs(COLLECTION.syllabus_table, queries, 500, "syllabus"),
+      listAllOptionDocs(
+        COLLECTION.questions_table,
+        [
+          Query.equal("university", university),
+          ...(course ? [Query.equal("course", course)] : []),
+          ...(type ? [Query.equal("type", type)] : []),
+        ],
+        1000,
+        "questions",
+      ),
+    ]);
     const papersMap = new Map<string, string>();
-    for (const doc of documents) {
+    const storePaperName = (code: string, nameCandidate: unknown) => {
+      const name = typeof nameCandidate === "string" ? nameCandidate.trim() : "";
+      if (name && !papersMap.has(code)) papersMap.set(code, name);
+    };
+    const syllabusPaperCodes = new Set<string>();
+    const unitsByPaperCode: Record<string, number[]> = {};
+    for (const doc of syllabusDocs) {
       const code = typeof doc.paper_code === "string" ? doc.paper_code.trim() : "";
       if (!code) continue;
-      const name = typeof doc.paper_name === "string" ? doc.paper_name.trim() : "";
-      if (!papersMap.has(code)) papersMap.set(code, name || code);
+      storePaperName(code, doc.paper_name);
+      syllabusPaperCodes.add(code);
+
+      const unitRaw = doc.unit_number;
+      const unit =
+        typeof unitRaw === "number"
+          ? unitRaw
+          : typeof unitRaw === "string"
+            ? Number(unitRaw)
+            : NaN;
+      if (!Number.isInteger(unit) || unit < 1) continue;
+      if (!unitsByPaperCode[code]) unitsByPaperCode[code] = [];
+      if (!unitsByPaperCode[code].includes(unit)) unitsByPaperCode[code].push(unit);
     }
-    const paperCodes = Array.from(ingestedPaperCodes).sort((a, b) => a.localeCompare(b));
+    for (const code of Object.keys(unitsByPaperCode)) {
+      unitsByPaperCode[code].sort((a, b) => a - b);
+    }
+
+    const questionPaperCodes = new Set<string>();
+    for (const questionDoc of questionDocs) {
+      const code = typeof questionDoc.paper_code === "string" ? questionDoc.paper_code.trim() : "";
+      if (!code) continue;
+      questionPaperCodes.add(code);
+      storePaperName(code, questionDoc.paper_name);
+    }
+    const notesPaperCodes = Array.from(syllabusPaperCodes).sort((a, b) => a.localeCompare(b));
+    const papersPaperCodes = Array.from(questionPaperCodes).sort((a, b) => a.localeCompare(b));
+    const paperCodes = [...new Set([...notesPaperCodes, ...papersPaperCodes])].sort((a, b) => a.localeCompare(b));
     const paperCodesSet = new Set(paperCodes);
     const papers = paperCodes.map((code) => ({ code, name: papersMap.get(code) || code }));
     const yearsByPaperCode: Record<string, number[]> = {};
-    for (const questionDoc of questionDocsRes.documents) {
+    for (const questionDoc of questionDocs) {
       const code = typeof questionDoc.paper_code === "string" ? questionDoc.paper_code.trim() : "";
       if (!code || !paperCodesSet.has(code)) continue;
       const yearRaw = questionDoc.year;
@@ -170,7 +195,10 @@ export async function GET(request: NextRequest) {
       notesDailyLimit: isAdminPlus(user.role) ? null : NOTES_DAILY_LIMIT,
       papersDailyLimit: isAdminPlus(user.role) ? null : PAPERS_DAILY_LIMIT,
       paperCodes,
+      notesPaperCodes,
+      papersPaperCodes,
       papers,
+      unitsByPaperCode,
       yearsByPaperCode,
     });
   } catch (error) {
@@ -183,7 +211,10 @@ export async function GET(request: NextRequest) {
       notesDailyLimit: isAdminPlus(user.role) ? null : NOTES_DAILY_LIMIT,
       papersDailyLimit: isAdminPlus(user.role) ? null : PAPERS_DAILY_LIMIT,
       paperCodes: [],
+      notesPaperCodes: [],
+      papersPaperCodes: [],
       papers: [],
+      unitsByPaperCode: {},
       yearsByPaperCode: {},
     });
   }

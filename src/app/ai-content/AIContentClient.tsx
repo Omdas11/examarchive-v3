@@ -36,7 +36,9 @@ export default function AIContentClient() {
   const [paperCode, setPaperCode] = useState("");
   const [unitNumber, setUnitNumber] = useState(1);
   const [selectedYear, setSelectedYear] = useState<number | "">("");
-  const [availablePapers, setAvailablePapers] = useState<string[]>([]);
+  const [notesPaperCodes, setNotesPaperCodes] = useState<string[]>([]);
+  const [papersPaperCodes, setPapersPaperCodes] = useState<string[]>([]);
+  const [unitsByPaperCode, setUnitsByPaperCode] = useState<Record<string, number[]>>({});
   const [yearsByPaperCode, setYearsByPaperCode] = useState<Record<string, number[]>>({});
   const [paperCodeLoading, setPaperCodeLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -65,6 +67,11 @@ export default function AIContentClient() {
   const [showLogs, setShowLogs] = useState(false);
   const elapsedSecondsRef = useRef(0);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const hasPaperCode = paperCode.trim().length > 0;
+  const availableUnits = useMemo(() => {
+    const units = unitsByPaperCode[paperCode];
+    return Array.isArray(units) && units.length > 0 ? units : (hasPaperCode ? [] : UNIT_OPTIONS);
+  }, [unitsByPaperCode, paperCode, hasPaperCode]);
   const availableYears = useMemo(() => yearsByPaperCode[paperCode] || [], [yearsByPaperCode, paperCode]);
   const courseOptions: CustomDropdownOption[] = useMemo(
     () => [
@@ -77,13 +84,21 @@ export default function AIContentClient() {
     () => (COURSE_TYPES[course] || []).map((entry) => ({ label: entry, value: entry })),
     [course],
   );
+  const mergedPaperCodesForSolvedTab = useMemo(
+    () => [...new Set([...notesPaperCodes, ...papersPaperCodes])].sort((a, b) => a.localeCompare(b)),
+    [notesPaperCodes, papersPaperCodes],
+  );
+  const visiblePaperCodes = useMemo(
+    () => (activeTab === "notes" ? notesPaperCodes : mergedPaperCodesForSolvedTab),
+    [activeTab, notesPaperCodes, mergedPaperCodesForSolvedTab],
+  );
   const paperCodeDropdownOptions: CustomDropdownOption[] = useMemo(
-    () => availablePapers.map((code) => ({ label: code, value: code })),
-    [availablePapers],
+    () => visiblePaperCodes.map((code) => ({ label: code, value: code })),
+    [visiblePaperCodes],
   );
   const unitOptions: CustomDropdownOption[] = useMemo(
-    () => UNIT_OPTIONS.map((unit) => ({ label: String(unit), value: String(unit) })),
-    [],
+    () => availableUnits.map((unit) => ({ label: String(unit), value: String(unit) })),
+    [availableUnits],
   );
   const yearOptions: CustomDropdownOption[] = useMemo(
     () => availableYears.map((year) => ({ label: String(year), value: String(year) })),
@@ -445,18 +460,30 @@ export default function AIContentClient() {
         if (typeof data.papersRemaining === "number") setPapersRemaining(data.papersRemaining);
         if (typeof data.notesDailyLimit === "number") setNotesDailyLimit(data.notesDailyLimit);
         if (typeof data.papersDailyLimit === "number") setPapersDailyLimit(data.papersDailyLimit);
-        if (Array.isArray(data.paperCodes)) {
-          const options = data.paperCodes.filter((item: unknown): item is string => typeof item === "string" && item.trim().length > 0);
-          setAvailablePapers(options);
-          setPaperCode((current) => {
-            if (current && options.includes(current)) return current;
-            return options[0] || current;
-          });
+        if (Array.isArray(data.notesPaperCodes)) {
+          const options = data.notesPaperCodes.filter((item: unknown): item is string => typeof item === "string" && item.trim().length > 0);
+          setNotesPaperCodes(options);
         } else {
-          setAvailablePapers([]);
-          setPaperCode("");
-          setYearsByPaperCode({});
-          setSelectedYear("");
+          setNotesPaperCodes([]);
+        }
+        if (Array.isArray(data.papersPaperCodes)) {
+          const options = data.papersPaperCodes.filter((item: unknown): item is string => typeof item === "string" && item.trim().length > 0);
+          setPapersPaperCodes(options);
+        } else {
+          setPapersPaperCodes([]);
+        }
+        if (data.unitsByPaperCode && typeof data.unitsByPaperCode === "object") {
+          const map: Record<string, number[]> = {};
+          for (const [code, units] of Object.entries(data.unitsByPaperCode as Record<string, unknown>)) {
+            if (Array.isArray(units)) {
+              map[code] = units
+                .map((unit) => (typeof unit === "number" ? unit : Number(unit)))
+                .filter((unit) => Number.isInteger(unit) && unit > 0);
+            }
+          }
+          setUnitsByPaperCode(map);
+        } else {
+          setUnitsByPaperCode({});
         }
         if (data.yearsByPaperCode && typeof data.yearsByPaperCode === "object") {
           const map: Record<string, number[]> = {};
@@ -471,13 +498,33 @@ export default function AIContentClient() {
         }
       })
       .catch(() => {
-        setAvailablePapers([]);
+        setNotesPaperCodes([]);
+        setPapersPaperCodes([]);
+        setUnitsByPaperCode({});
         setPaperCode("");
         setYearsByPaperCode({});
         setSelectedYear("");
       })
       .finally(() => setPaperCodeLoading(false));
   }, [university, course, type]);
+
+  useEffect(() => {
+    const fallbackCode = visiblePaperCodes[0] || "";
+    setPaperCode((current) => {
+      if (current && visiblePaperCodes.includes(current)) return current;
+      return fallbackCode;
+    });
+  }, [visiblePaperCodes]);
+
+  useEffect(() => {
+    const defaultUnit = UNIT_OPTIONS[0] ?? 1;
+    if (availableUnits.length === 0) {
+      if (!hasPaperCode) setUnitNumber(defaultUnit);
+      return;
+    }
+    const fallbackUnit = availableUnits[0] ?? defaultUnit;
+    setUnitNumber((current) => (availableUnits.includes(current) ? current : fallbackUnit));
+  }, [availableUnits, hasPaperCode]);
 
   useEffect(() => {
     if (availableYears.length === 0) {
@@ -518,7 +565,13 @@ export default function AIContentClient() {
     activeTab === "notes"
       ? canGenerateByLegacyLimit && notesQuotaAllowed
       : canGenerateByLegacyLimit && papersQuotaAllowed;
-  const isGenerationDisabled = !paperCode.trim() || !canGenerate || (activeTab === "papers" && selectedYear === "");
+  const hasAvailableUnitsForPaper = availableUnits.length > 0;
+  const hasAvailableYearsForPaper = availableYears.length > 0;
+  const isGenerationDisabled =
+    !hasPaperCode ||
+    !canGenerate ||
+    (activeTab === "papers" && selectedYear === "") ||
+    (activeTab === "notes" && !hasAvailableUnitsForPaper);
   const isNotesGenerationFinished = activeTab === "notes" && !generating && Boolean(activePdfUrl);
   const isPapersGenerationFinished = activeTab === "papers" && !generating && Boolean(activePdfUrl);
 
@@ -580,7 +633,7 @@ export default function AIContentClient() {
                 value={paperCode}
                 onChange={setPaperCode}
                 placeholder={paperCodeLoading ? "Loading..." : "Select paper code"}
-                disabled={generating || paperCodeLoading || availablePapers.length === 0}
+                disabled={generating || paperCodeLoading || visiblePaperCodes.length === 0}
               />
             </div>
             {activeTab === "notes" ? (
@@ -591,8 +644,12 @@ export default function AIContentClient() {
                     options={unitOptions}
                     value={String(unitNumber)}
                     onChange={(nextValue) => setUnitNumber(Number(nextValue))}
-                    disabled={generating}
+                    placeholder="Select unit"
+                    disabled={generating || !hasAvailableUnitsForPaper}
                   />
+                  {paperCode && !hasAvailableUnitsForPaper ? (
+                    <p className="mt-2 text-sm text-red-600">No syllabus units found for this paper code.</p>
+                  ) : null}
                 </div>
               </>
             ) : (
@@ -669,6 +726,11 @@ export default function AIContentClient() {
               </div>
             ) : (
               <div className="flex items-center gap-3">
+                {!hasAvailableYearsForPaper && hasPaperCode ? (
+                  <div className="w-full rounded-xl border border-outline-variant/40 bg-surface-container px-4 py-3 text-sm text-on-surface-variant opacity-70">
+                    Solved paper generation is unavailable for this paper code because no questions are ingested yet.
+                  </div>
+                ) : null}
                 {isPapersGenerationFinished && !generating ? (
                   <div className="w-full space-y-2">
                     <div className="flex gap-3">

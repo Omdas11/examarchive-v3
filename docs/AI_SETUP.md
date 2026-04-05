@@ -65,6 +65,69 @@ OPENAI_API_KEY=your-openai-api-key
 - Auto-fallback tries Gemini first, then OpenRouter free allowlist; admin/founder can set a `gemini:` or `openrouter:` override (optional “apply to everyone” toggle)
 - Generated PDFs include a low-opacity, 45° tiled **ExamArchive** watermark on every page
 
+#### AI Content data fetch pipeline (Unit Notes + Solved Papers)
+
+This pipeline is driven by data ingested from `DEMO_DATA_ENTRY.md` into:
+- `Syllabus_Table` (unit-wise syllabus rows)
+- `Questions_Table` (question rows, optional `year`)
+- `ai_ingestions` (ingestion logs used for dropdown option discovery)
+
+1. **Paper-code and year/unit option load** (`GET /api/generate-notes`)
+   - Reads `Syllabus_Table` and `Questions_Table` scoped by `university + course + type`.
+   - Uses cursor-based pagination on `Syllabus_Table`, `Questions_Table`, and `ai_ingestions` to avoid truncating dropdown data on larger datasets.
+   - Builds paper-code dropdown options from non-failure ingestion logs (`ai_ingestions`) with field fallbacks (`paper_code`, digest fields, `source_label`), then constrains them to table-backed data.
+   - Returns:
+     - `paperCodes`
+     - `notesPaperCodes` (paper codes that exist in `Syllabus_Table`; shown in **Unit Notes** tab)
+     - `papersPaperCodes` (paper codes that exist in `Questions_Table`; shown in **Solved Papers** tab)
+     - `unitsByPaperCode` (from `Syllabus_Table.unit_number`)
+     - `yearsByPaperCode` (from `Questions_Table.year`)
+   - Inclusion behavior:
+     - Start from non-failure `ai_ingestions` discovery.
+     - Merge in all table-backed scoped codes for each tab (`Syllabus_Table` for Notes, `Questions_Table` for Solved Papers).
+    - This keeps ingestion-discovered options while ensuring table-present codes are never hidden when ingestion logs are partial.
+   - Solved Papers tab options are intentionally permissive in UI:
+     - If a paper exists in `Syllabus_Table` but has no `Questions_Table` rows yet, the paper code still appears in Solved Papers.
+     - Year selector and Solved Paper generate action are disabled until question-year rows exist for that code.
+
+2. **Unit Notes generation** (`GET /api/generate-notes-stream`)
+   - Uses selected `university + course + type + paperCode + unitNumber`.
+   - Fetches syllabus from `Syllabus_Table`.
+   - Fetches related questions from `Questions_Table` (same selection scope) and includes them in prompt context.
+   - If syllabus row is missing, route returns: `No syllabus data found for this unit.`
+   - In UI, if a selected paper has no `unitsByPaperCode` entries, Unit dropdown is disabled and notes generation is blocked to prevent invalid unit requests.
+
+3. **Solved Paper generation** (`GET /api/generate-solved-paper-stream`)
+   - Uses selected `university + course + type + paperCode + year`.
+   - Fetches questions from `Questions_Table`.
+   - If no rows match, route returns: `No questions found for the selected paper/year.`
+
+To avoid pipeline breakage:
+- Keep `course`, `type`, `paper_code`, and `year` (for solved papers) consistent between ingested markdown and UI selections.
+- Ensure ingestion status is not terminal failure (`failed`/`error`) when relying on ingestion-driven paper-code options.
+- If `ai_ingestions` has a code but corresponding `Syllabus_Table`/`Questions_Table` rows are missing, the code is intentionally hidden for that tab until table rows exist.
+
+#### Full reset / re-bootstrap (harsh recovery)
+
+If data drift is severe and you need to rebuild from scratch, use:
+
+```bash
+npx tsx scripts/hard-reset-ingestion.ts
+```
+
+Optional:
+- Set `APPWRITE_PROPAGATION_DELAY_MS` before running if your Appwrite environment needs a longer settle delay between delete/recreate operations.
+
+What this reset does:
+- Truncates `Syllabus_Table`, `Questions_Table`, and `syllabus_registry`
+- Recreates `ai_ingestions` collection with ingestion attributes
+- Recreates and clears `examarchive-md-ingestion` bucket
+
+After reset:
+1. Re-ingest markdown files strictly following `DEMO_DATA_ENTRY.md`
+2. Ensure each file uses paper-code linking (`paper_code`) across syllabus + questions
+3. Re-sync syllabus registry if required for browse/search flows
+
 ---
 
 ## Usage Limits
