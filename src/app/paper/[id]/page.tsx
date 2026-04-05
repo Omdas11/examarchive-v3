@@ -11,8 +11,7 @@ import type { Paper } from "@/types";
 import { toPaper } from "@/types";
 import { toRoman } from "@/lib/utils";
 import { buildPaperJsonLd, serializeJsonLd } from "@/lib/json-ld";
-import type { SyllabusUnit } from "@/data/syllabus-registry";
-import { findRegistryEntry, type SyllabusRegistryRecord } from "@/lib/syllabus-registry";
+import { findByPaperCode, type SyllabusRegistryEntry, type SyllabusUnit } from "@/data/syllabus-registry";
 import { PAPER_TYPE_COLORS } from "@/components/PaperCard";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
@@ -114,8 +113,8 @@ export default async function PaperPage({ params }: PaperPageProps) {
 
   // Look up structured syllabus data from the registry by course_code.
   const courseCode = paper.course_code;
-  const syllabusEntry: SyllabusRegistryRecord | undefined = courseCode
-    ? await findRegistryEntry(courseCode)
+  const syllabusEntry: SyllabusRegistryEntry | undefined = courseCode
+    ? findByPaperCode(courseCode)
     : undefined;
 
   // Fetch all approved papers with the same paper_code for multi-year view.
@@ -303,6 +302,13 @@ export default async function PaperPage({ params }: PaperPageProps) {
               )}
             </div>
 
+            {/* Course objective */}
+            {syllabusEntry.course_objective && (
+              <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+                {syllabusEntry.course_objective}
+              </p>
+            )}
+
             {/* Units summary */}
             {Array.isArray(syllabusEntry.units) && syllabusEntry.units.length > 0 && (
               <div className="space-y-2">
@@ -324,6 +330,15 @@ export default async function PaperPage({ params }: PaperPageProps) {
                         <p className="text-[11px] mt-0.5" style={{ color: "var(--color-text-muted)" }}>
                           {unit.lectures} lectures
                         </p>
+                      )}
+                      {Array.isArray(unit.topics) && unit.topics.length > 0 && (
+                        <ul className="mt-1 space-y-0.5 list-disc list-inside">
+                          {unit.topics.map((topic, ti) => (
+                            <li key={ti} className="text-[11px]" style={{ color: "var(--color-text-muted)" }}>
+                              {topic}
+                            </li>
+                          ))}
+                        </ul>
                       )}
                     </div>
                   </div>

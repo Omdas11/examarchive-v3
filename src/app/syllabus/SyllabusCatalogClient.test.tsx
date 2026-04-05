@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import SyllabusCatalogClient from "./SyllabusCatalogClient";
 
 const tablePayload = {
@@ -26,7 +26,7 @@ describe("SyllabusCatalogClient", () => {
     jest.resetAllMocks();
   });
 
-  it("renders registry entries from backend in the library tab", async () => {
+  it("renders papers from Syllabus_Table grouped by subject", async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       json: async () => tablePayload,
@@ -34,24 +34,22 @@ describe("SyllabusCatalogClient", () => {
 
     render(<SyllabusCatalogClient syllabi={[]} />);
 
-    fireEvent.click(screen.getByText("Syllabus from Syllabus_Table"));
-
     await waitFor(() => {
+      expect(screen.getAllByText("PHY").length).toBeGreaterThan(0);
       expect(screen.getByText("Physics I")).toBeInTheDocument();
       expect(screen.getByText("PHY101")).toBeInTheDocument();
     });
   });
 
-  it("shows an error state when registry fetch fails", async () => {
+  it("shows an error state when syllabus table fetch fails", async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: false,
       status: 500,
+      statusText: "Internal Server Error",
       json: async () => ({}),
     }) as unknown as typeof fetch;
 
     render(<SyllabusCatalogClient syllabi={[]} />);
-
-    fireEvent.click(screen.getByText("Syllabus from Syllabus_Table"));
 
     await waitFor(() => {
       expect(
