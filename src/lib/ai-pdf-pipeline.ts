@@ -1,4 +1,5 @@
 import { InputFile } from "node-appwrite/file";
+import katex from "katex";
 import { marked } from "marked";
 import sanitizeHtml from "sanitize-html";
 import {
@@ -43,10 +44,20 @@ function sanitizeGeneratedHtml(input: string): string {
       "mo",
       "mn",
       "msup",
+      "msub",
+      "msubsup",
       "mfrac",
       "msqrt",
+      "mroot",
+      "munder",
+      "mover",
+      "munderover",
       "mspace",
       "mstyle",
+      "mtext",
+      "mphantom",
+      "mpadded",
+      "menclose",
       "mtable",
       "mtr",
       "mtd",
@@ -66,6 +77,26 @@ function sanitizeGeneratedHtml(input: string): string {
   });
 }
 
+function renderLatexToMathMl(markdown: string): string {
+  const renderExpression = (expression: string, displayMode: boolean) =>
+    katex.renderToString(expression.trim(), {
+      throwOnError: false,
+      displayMode,
+      output: "mathml",
+    });
+  const replaceWithLeading = (source: string, pattern: RegExp, displayMode: boolean) =>
+    source.replace(pattern, (_match, leading: string, expression: string) =>
+      `${leading}${renderExpression(expression, displayMode)}`);
+  let output = markdown;
+  output = replaceWithLeading(output, /(^|[^\\])\$\$([\s\S]+?)\$\$/g, true);
+  output = output.replace(/\\\[([\s\S]+?)\\\]/g, (_match, expression: string) =>
+    renderExpression(expression, true));
+  output = output.replace(/\\\(([\s\S]+?)\\\)/g, (_match, expression: string) =>
+    renderExpression(expression, false));
+  output = replaceWithLeading(output, /(^|[^\\])\$([^\n$]+?)\$/g, false);
+  return output;
+}
+
 export function buildPdfHtml(args: {
   markdown: string;
   paperCode?: string;
@@ -78,7 +109,8 @@ export function buildPdfHtml(args: {
     .replace(/\\\$/g, "$")
     .replace(/\\\\\(/g, "\\(")
     .replace(/\\\\\)/g, "\\)");
-  const parsedHtml = marked.parse(cleanMarkdown);
+  const markdownWithRenderedMath = renderLatexToMathMl(cleanMarkdown);
+  const parsedHtml = marked.parse(markdownWithRenderedMath);
   // marked.parse can be configured to be async; guard non-string outputs defensively.
   const htmlContent = sanitizeGeneratedHtml(
     typeof parsedHtml === "string" ? parsedHtml : "",

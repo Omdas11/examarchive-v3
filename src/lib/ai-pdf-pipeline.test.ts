@@ -48,4 +48,16 @@ describe("ai-pdf-pipeline", () => {
     expect(buildSafePdfFileName({ fileBaseName: "abc", fileName: "x.pdf" })).toBe("x.pdf");
     expect(buildSafePdfFileName({ fileBaseName: "!!!", fileName: "???" })).toBe("generated_document.pdf");
   });
+
+  it("renders latex expressions into mathml for PDF output", () => {
+    const html = buildPdfHtml({
+      markdown: "Inline: $C_i = VC + AFC$ and block:\n\n$$x = y + z$$",
+    });
+    const mainContent = html.slice(html.indexOf("<main>"), html.indexOf("</main>"));
+
+    expect(mainContent).toContain("<math");
+    expect(mainContent).toContain("<mrow>");
+    expect(mainContent).not.toContain("$C_i = VC + AFC$");
+    expect(mainContent).not.toContain("$$x = y + z$$");
+  });
 });
