@@ -12,7 +12,7 @@ import type { Syllabus } from "@/types";
 import { toSyllabus } from "@/types";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
-import { toSyllabusTableRow } from "@/lib/syllabus-table";
+import { extractSubjectCode, toSyllabusTableRow } from "@/lib/syllabus-table";
 
 interface PageProps {
   params: Promise<{ paper_code: string }>;
@@ -41,12 +41,32 @@ async function getPaperRows(paperCode: string) {
 
 async function getUploadedSyllabusPdfs(paperCode: string): Promise<Syllabus[]> {
   const db = adminDatabases();
-  const { documents } = await db.listDocuments(
+  const byCourseCode = await db.listDocuments(
     DATABASE_ID,
     COLLECTION.syllabus,
     [Query.equal("approval_status", "approved"), Query.equal("course_code", paperCode), Query.limit(50)],
   );
-  return documents.map(toSyllabus).filter((s) => !s.is_hidden);
+  if (byCourseCode.documents.length > 0) {
+    return byCourseCode.documents.map(toSyllabus).filter((s) => !s.is_hidden);
+  }
+
+  const questionSeed = await db.listDocuments(
+    DATABASE_ID,
+    COLLECTION.questions_table,
+    [Query.equal("paper_code", paperCode), Query.limit(1)],
+  );
+  const paperName =
+    typeof questionSeed.documents[0]?.paper_name === "string"
+      ? questionSeed.documents[0].paper_name.trim()
+      : "";
+  if (!paperName) return [];
+
+  const bySubject = await db.listDocuments(
+    DATABASE_ID,
+    COLLECTION.syllabus,
+    [Query.equal("approval_status", "approved"), Query.equal("subject", paperName), Query.limit(50)],
+  );
+  return bySubject.documents.map(toSyllabus).filter((s) => !s.is_hidden);
 }
 
 export default async function SyllabusPaperPage({ params }: PageProps) {
@@ -102,7 +122,7 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
               Download MD PDF (single paper)
             </a>
             <a
-              href={`/api/syllabus/table?subjectCode=${encodeURIComponent(code.slice(0, 3))}&mode=pdf`}
+              href={`/api/syllabus/table?subjectCode=${encodeURIComponent(extractSubjectCode(code))}&mode=pdf`}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 rounded-2xl bg-surface-container px-4 py-2 text-sm font-semibold text-on-surface ring-1 ring-outline-variant/40"
@@ -157,7 +177,7 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
                       rel="noopener noreferrer"
                       className="block rounded-xl bg-surface-container px-3 py-2 text-xs font-semibold text-on-surface"
                     >
-                      Direct uploaded PDF
+                      {pdf.year ?? "Unknown year"} · {pdf.university || "Unknown university"} PDF
                     </a>
                   ))}
                 </div>
@@ -175,4 +195,3 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
     </MainLayout>
   );
 }
-

@@ -87,4 +87,3 @@ export function buildPaperMarkdown(args: {
   }
   return lines.join("\n").trim();
 }
-

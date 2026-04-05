@@ -9,19 +9,24 @@ import {
 } from "@/lib/syllabus-table";
 import { generatePDF, markdownToHTML } from "@/lib/pdf-generator";
 
+const MAX_PAGES_SINGLE_PAPER = 20;
+const MAX_PAGES_DEPARTMENTAL = 40;
+
 function normalizePaperName(paperCode: string, rows: SyllabusTableRow[]): string {
-  const topic = rows
+  const derivedPaperName = rows
     .map((row) => row.syllabus_content.trim())
     .find((content) => content.length > 0)
     ?.split(/[.;\n]/)[0]
     ?.trim();
-  if (!topic) return paperCode;
-  return topic.length > 80 ? `${topic.slice(0, 77)}...` : topic;
+  if (!derivedPaperName) return paperCode;
+  return derivedPaperName.length > 80
+    ? `${derivedPaperName.slice(0, 77)}...`
+    : derivedPaperName;
 }
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const paperCode = (searchParams.get("paperCode") || "").trim().toUpperCase();
+  const paperCode = (searchParams.get("paperCode") || "").trim();
   const subjectCode = (searchParams.get("subjectCode") || "").trim().toUpperCase();
   const mode = (searchParams.get("mode") || "").trim().toLowerCase();
   const university = (searchParams.get("university") || "").trim();
@@ -31,28 +36,29 @@ export async function GET(request: NextRequest) {
 
   try {
     const db = adminDatabases();
+    const normalizedPaperCode = paperCode.toUpperCase();
     const baseQueries = [
       university ? Query.equal("university", university) : null,
       course ? Query.equal("course", course) : null,
       stream ? Query.equal("stream", stream) : null,
       type ? Query.equal("type", type) : null,
-      paperCode ? Query.equal("paper_code", paperCode) : null,
+      normalizedPaperCode ? Query.equal("paper_code", normalizedPaperCode) : null,
       Query.limit(5000),
     ].filter(Boolean) as string[];
     const rowsRes = await db.listDocuments(DATABASE_ID, COLLECTION.syllabus_table, baseQueries);
     const rows = rowsRes.documents.map((doc) => toSyllabusTableRow(doc as Record<string, unknown>));
 
-    if (paperCode) {
+    if (normalizedPaperCode) {
       const paperRows = rows
-        .filter((row) => row.paper_code === paperCode)
+        .filter((row) => row.paper_code === normalizedPaperCode)
         .sort((a, b) => a.unit_number - b.unit_number);
       if (paperRows.length === 0) {
         return NextResponse.json({ error: "No syllabus rows found for this paper." }, { status: 404 });
       }
 
-      const paperName = normalizePaperName(paperCode, paperRows);
+      const paperName = normalizePaperName(normalizedPaperCode, paperRows);
       const markdown = buildPaperMarkdown({
-        paperCode,
+        paperCode: normalizedPaperCode,
         paperName,
         rows: paperRows,
         university: paperRows[0]?.university,
@@ -65,15 +71,15 @@ export async function GET(request: NextRequest) {
         const html = markdownToHTML(markdown);
         const { buffer } = await generatePDF({
           html,
-          maxPages: 20,
-          title: `${paperCode} Syllabus`,
-          meta: { topic: `${paperCode} Syllabus` },
+          maxPages: MAX_PAGES_SINGLE_PAPER,
+          title: `${normalizedPaperCode} Syllabus`,
+          meta: { topic: `${normalizedPaperCode} Syllabus` },
         });
         return new NextResponse(buffer as unknown as BodyInit, {
           status: 200,
           headers: {
             "Content-Type": "application/pdf",
-            "Content-Disposition": `attachment; filename="${paperCode}_syllabus.pdf"`,
+            "Content-Disposition": `attachment; filename="${normalizedPaperCode}_syllabus.pdf"`,
             "Content-Length": buffer.length.toString(),
           },
         });
@@ -81,7 +87,7 @@ export async function GET(request: NextRequest) {
 
       return NextResponse.json({
         paper: {
-          paperCode,
+          paperCode: normalizedPaperCode,
           paperName,
           subjectCode: extractSubjectCode(paperCode),
           university: paperRows[0]?.university ?? "",
@@ -130,7 +136,7 @@ export async function GET(request: NextRequest) {
       const html = markdownToHTML(mergedMarkdown);
       const { buffer } = await generatePDF({
         html,
-        maxPages: 40,
+        maxPages: MAX_PAGES_DEPARTMENTAL,
         title: `${subjectCode} Departmental Syllabus`,
         meta: { topic: `${subjectCode} Departmental Syllabus` },
       });
