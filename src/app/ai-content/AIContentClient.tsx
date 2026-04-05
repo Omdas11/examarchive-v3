@@ -10,6 +10,9 @@ import CustomDropdown, { type CustomDropdownOption } from "@/components/CustomDr
 const COURSE_TYPES: Record<string, string[]> = {
   FYUG: ["DSC", "DSM", "SEC", "AEC", "VAC", "IDC"],
   CBCS: ["DSC", "SEC"],
+  "B.Com": ["DSC", "DSM", "SEC", "AEC", "VAC", "IDC"],
+  "B.Sc": ["DSC", "DSM", "SEC", "AEC", "VAC", "IDC"],
+  "B.A": ["DSC", "DSM", "SEC", "AEC", "VAC", "IDC"],
 };
 const UNIT_OPTIONS = [1, 2, 3, 4, 5];
 const BACKEND_PAPERS_MAX_DURATION_SECONDS = 300;
@@ -77,6 +80,9 @@ export default function AIContentClient() {
     () => [
       { label: "FYUG", value: "FYUG" },
       { label: "CBCS", value: "CBCS" },
+      { label: "B.Com", value: "B.Com" },
+      { label: "B.Sc", value: "B.Sc" },
+      { label: "B.A", value: "B.A" },
     ],
     [],
   );
