@@ -304,7 +304,7 @@ Use this checklist to wipe counters and storage before relaunch:
 <!-- SCHEMA_SYNC_STATUS_START -->
 ## Schema Sync Status (Auto-generated)
 
-_Last synced: 2026-04-05T06:21:43.869Z_
+_Last synced: 2026-04-05T07:46:52.876Z_
 
 ### Storage Buckets
 | Bucket | Status | ID |
@@ -313,7 +313,7 @@ _Last synced: 2026-04-05T06:21:43.869Z_
 | `avatars` | ✅ Connected | avatars |
 | `syllabus-files` | ✅ Connected | syllabus-files |
 | `generated-md-cache` | ✅ Connected | generated-md-cache |
-| `examarchive-md-ingestion` | ✅ Connected | examarchive-md-ingestion |
+| `MD Ingestion Cache` | ✅ Connected | examarchive-md-ingestion |
 
 ### Database Collections
 | Collection | Status | Created in run | Notes |
