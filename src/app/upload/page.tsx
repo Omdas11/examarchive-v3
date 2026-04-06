@@ -91,12 +91,16 @@ export default async function UploadPage({
         <p className="mt-1 text-sm text-on-surface-variant">
           Share question papers and syllabi with the community. All uploads are reviewed before publishing.
         </p>
+        <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-surface-container px-3 py-1 text-xs font-semibold text-on-surface-variant">
+          <span className="material-symbols-outlined text-sm">info</span>
+          On mobile, choose the upload type first, then fill the form below.
+        </div>
 
         {/* Upload type selector */}
         <div className="mt-6 grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           <a
             href="/upload?type=paper"
-            className="card p-4"
+            className="card p-4 transition-all hover:shadow-sm"
             style={uploadType === "paper" ? { borderColor: "var(--color-primary)" } : undefined}
           >
             <div className="flex items-center gap-3">
@@ -119,7 +123,7 @@ export default async function UploadPage({
 
           <a
             href="/upload?type=syllabus"
-            className="card p-4"
+            className="card p-4 transition-all hover:shadow-sm"
             style={uploadType === "syllabus" ? { borderColor: "var(--color-primary)" } : undefined}
           >
             <div className="flex items-center gap-3">
@@ -142,7 +146,7 @@ export default async function UploadPage({
 
           <a
             href="/upload?type=dept_syllabus"
-            className="card p-4"
+            className="card p-4 transition-all hover:shadow-sm"
             style={uploadType === "dept_syllabus" ? { borderColor: "var(--color-primary)" } : undefined}
           >
             <div className="flex items-center gap-3">
@@ -177,7 +181,7 @@ export default async function UploadPage({
         </div>
 
         {/* Upload form */}
-        <div className="card mt-6 p-6">
+        <div className="card mt-6 p-4 sm:p-6">
           {uploadType === "syllabus" ? (
             <SyllabusUploadForm />
           ) : uploadType === "dept_syllabus" ? (

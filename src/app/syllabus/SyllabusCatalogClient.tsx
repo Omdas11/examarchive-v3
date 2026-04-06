@@ -4,188 +4,262 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import type { Syllabus } from "@/types";
-import { getMentorInitials } from "@/data/featured-curriculum";
 import type { SyllabusTablePaperSummary } from "@/lib/syllabus-table";
 
-const DEPARTMENT_FILTERS = ["All Departments", "Science", "Arts"];
+/** Map of uploaded-syllabus PDFs keyed by paper code (upper-case). */
+type PdfsByCode = Map<string, Syllabus[]>;
 
-const CARD_META: Record<
-  string,
-  { icon: string; accent: string; badge?: string; year?: string; university?: string; verified?: boolean }
-> = {};
+/** Returns the display name for a paper's subject, falling back to subjectCode. */
+function getSubjectDisplay(paper: Pick<SyllabusTablePaperSummary, "subject" | "subjectCode">): string {
+  return paper.subject || paper.subjectCode;
+}
 
-function MentorGroup({ mentors }: { mentors: string[] }) {
-  const initials = mentors.map(getMentorInitials).filter(Boolean);
-  const visible = initials.slice(0, 2);
-  const remaining = Math.max(0, initials.length - visible.length);
+function SyllabusRow({
+  paper,
+  uploadedPdfs,
+  serialNo,
+  years,
+}: {
+  paper: SyllabusTablePaperSummary;
+  uploadedPdfs: PdfsByCode;
+  serialNo: number;
+  years: number[];
+}) {
+  const pdfs = uploadedPdfs.get(paper.paperCode.toUpperCase()) ?? [];
+  const yearsByValue = paper.questionPapers.reduce<Map<number, Array<{ paperId: string; examType?: string }>>>((acc, qp) => {
+    const list = acc.get(qp.year) ?? [];
+    list.push({ paperId: qp.paperId, examType: qp.examType });
+    acc.set(qp.year, list);
+    return acc;
+  }, new Map());
+  return (
+    <tr className="border-b border-outline-variant/30 last:border-0 hover:bg-surface-container-low/60 transition-colors">
+      <td className="py-3 pl-4 pr-2 align-top text-sm text-on-surface-variant">{serialNo}</td>
+      <td className="py-3 pl-2 pr-2 align-top">
+        <Link
+          href={`/syllabus/paper/${encodeURIComponent(paper.paperCode)}`}
+          className="font-mono text-xs font-semibold text-primary hover:underline"
+        >
+          {paper.paperCode}
+        </Link>
+      </td>
+      <td className="py-3 px-2 align-top min-w-[240px]">
+        <p className="text-sm font-medium text-on-surface leading-snug">{paper.paperName || paper.paperCode}</p>
+        <p className="mt-0.5 text-[11px] text-on-surface-variant">
+          {[paper.university, paper.course, paper.type].filter(Boolean).join(" · ")}
+        </p>
+      </td>
+      <td className="py-3 px-2 align-middle text-center text-sm text-on-surface-variant">
+        {typeof paper.credits === "number" ? paper.credits : "—"}
+      </td>
+      <td className="py-3 px-2 align-middle text-center">
+        <span className="rounded-full bg-surface-container px-2 py-0.5 text-xs text-on-surface-variant">
+          {paper.lectures || "—"}
+        </span>
+      </td>
+      {years.map((year) => {
+        const items = yearsByValue.get(year) ?? [];
+        if (items.length === 0) {
+          return (
+            <td key={`${paper.paperCode}-${year}`} className="py-3 px-1 text-center text-xs text-on-surface-variant">
+              —
+            </td>
+          );
+        }
+        return (
+          <td key={`${paper.paperCode}-${year}`} className="py-3 px-1 text-center">
+            <div className="flex flex-col items-center gap-1">
+              {items.map((item) => (
+                <Link
+                  key={`${year}-${item.paperId}-${item.examType ?? ""}`}
+                  href={`/paper/${item.paperId}`}
+                  className="rounded-md bg-surface-container px-2 py-0.5 text-[11px] font-semibold text-primary hover:underline"
+                  title={item.examType ? `${year} · ${item.examType}` : String(year)}
+                >
+                  {item.examType ? item.examType.slice(0, 3).toUpperCase() : "PDF"}
+                </Link>
+              ))}
+            </div>
+          </td>
+        );
+      })}
+      <td className="py-3 pl-2 pr-4 align-middle">
+        <div className="flex flex-wrap items-center gap-1.5 justify-end">
+          <Link
+            href={`/syllabus/paper/${encodeURIComponent(paper.paperCode)}`}
+            className="rounded-lg bg-primary px-2.5 py-1 text-[11px] font-semibold text-on-primary whitespace-nowrap"
+          >
+            View Syllabus
+          </Link>
+          <a
+            href={`/api/syllabus/table?paperCode=${encodeURIComponent(paper.paperCode)}&mode=pdf`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-lg bg-surface-container-high px-2.5 py-1 text-[11px] font-semibold text-on-surface whitespace-nowrap ring-1 ring-outline-variant/40"
+          >
+            Syllabus PDF (MD)
+          </a>
+          {pdfs.map((pdf) => (
+            <a
+              key={pdf.id}
+              href={pdf.file_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-lg bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 whitespace-nowrap ring-1 ring-emerald-200"
+            >
+              Uploaded PDF {pdf.year ? `(${pdf.year})` : ""}
+            </a>
+          ))}
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+function SubjectSection({
+  subjectName,
+  subjectCodes,
+  stats,
+  preferSubjectNamePdf,
+  papers,
+  uploadedPdfs,
+  defaultOpen,
+}: {
+  subjectName: string;
+  subjectCodes: string[];
+  stats: { papers: number; units: number };
+  preferSubjectNamePdf: boolean;
+  papers: SyllabusTablePaperSummary[];
+  uploadedPdfs: PdfsByCode;
+  defaultOpen: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  const years = useMemo(() => {
+    const set = new Set<number>();
+    for (const p of papers) {
+      for (const qp of p.questionPapers) {
+        set.add(qp.year);
+      }
+    }
+    return Array.from(set).sort((a, b) => a - b);
+  }, [papers]);
+
+  const deptPdfHref = useMemo(() => {
+    if (preferSubjectNamePdf && subjectName.trim().length > 0) {
+      return `/api/syllabus/table?subjectName=${encodeURIComponent(subjectName)}&mode=pdf`;
+    }
+    const fallbackCode = subjectCodes[0] ?? "";
+    return `/api/syllabus/table?subjectCode=${encodeURIComponent(fallbackCode)}&mode=pdf`;
+  }, [preferSubjectNamePdf, subjectName, subjectCodes]);
 
   return (
-    <div className="flex items-center gap-2">
-      <div className="flex -space-x-2">
-        {visible.map((m, idx) => {
-          const tone =
-            idx === 0
-              ? "bg-primary text-primary-foreground"
-              : idx === 1
-                ? "bg-amber-500 text-white"
-                : "bg-surface-container text-on-surface";
-          return (
-            <span
-              key={`${m}-${idx}`}
-              className={cn(
-                "flex h-9 w-9 items-center justify-center rounded-full text-[11px] font-semibold ring-4 ring-surface shadow-sm",
-                tone,
-              )}
-            >
-              {m}
-            </span>
-          );
-        })}
-      </div>
-      {remaining > 0 && (
-        <span className="rounded-full bg-surface-container px-2 py-0.5 text-xs font-semibold text-on-surface-variant">+{remaining}</span>
+    <div className="rounded-2xl border border-outline-variant/40 bg-surface overflow-hidden">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left"
+      >
+        <div className="flex items-center gap-3">
+          <span className="material-symbols-outlined text-xl text-primary">
+            {open ? "expand_less" : "expand_more"}
+          </span>
+          <span className="text-base font-semibold text-on-surface">{subjectName}</span>
+          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+            {stats.papers} {stats.papers === 1 ? "paper" : "papers"}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <a
+            href={deptPdfHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="hidden sm:inline-flex items-center gap-1.5 rounded-xl bg-surface-container px-3 py-1.5 text-xs font-semibold text-on-surface ring-1 ring-outline-variant/40 hover:bg-surface-container-high"
+          >
+            <span className="material-symbols-outlined text-sm">download</span>
+            Dept PDF
+          </a>
+        </div>
+      </button>
+      {open && (
+        <div className="border-t border-outline-variant/30 overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-surface-container-low">
+                <th className="py-2 pl-4 pr-2 text-left text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant">Sl. No.</th>
+                <th className="py-2 pl-4 pr-2 text-left text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant">Code</th>
+                <th className="py-2 px-2 text-left text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant">Paper Name</th>
+                <th className="py-2 px-2 text-center text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant">Credit</th>
+                <th className="py-2 px-2 text-center text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant">Lecture</th>
+                {years.map((year) => (
+                  <th
+                    key={`year-head-${year}`}
+                    className="py-2 px-1 text-center text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant"
+                  >
+                    {year}
+                  </th>
+                ))}
+                <th className="py-2 pl-2 pr-4 text-right text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant">Actions</th>
+              </tr>
+              <tr className="bg-surface-container-low/70">
+                <th className="py-1 pl-4 pr-2" />
+                <th className="py-1 pl-4 pr-2" />
+                <th className="py-1 px-2" />
+                <th className="py-1 px-2" />
+                <th className="py-1 px-2" />
+                {years.length > 0 ? (
+                  <th
+                    className="py-1 px-2 text-center text-[10px] font-semibold uppercase tracking-wide text-on-surface-variant"
+                    colSpan={years.length}
+                  >
+                    Question Paper
+                  </th>
+                ) : null}
+                <th className="py-1 pl-2 pr-4" />
+              </tr>
+            </thead>
+            <tbody>
+              {papers.map((paper, idx) => (
+                <SyllabusRow
+                  key={paper.paperCode}
+                  serialNo={idx + 1}
+                  paper={paper}
+                  uploadedPdfs={uploadedPdfs}
+                  years={years}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );
 }
 
-type SyllabusCard = {
-  code?: string | null;
-  title: string;
-  credits?: number | null;
-  units?: number | null;
-  mentors?: string[];
-  registryCode?: string | null;
-  fileUrl?: string | null;
-  year?: number | null;
-  university?: string | null;
-};
-
-function FeaturedCard({
-  code,
-  title,
-  credits,
-  units,
-  mentors = [],
-  registryCode,
-  fileUrl,
-  year,
-  university,
-  availableCodes,
-}: SyllabusCard & { availableCodes: Set<string> }) {
-  const meta = code ? CARD_META[code] ?? { icon: "description", accent: "bg-surface-container text-primary" } : { icon: "description", accent: "bg-surface-container text-primary" };
-  const candidateCode = registryCode ?? code ?? undefined;
-  const hasRegistry = candidateCode ? availableCodes.has(candidateCode.toUpperCase()) : false;
-  const href = fileUrl ?? (hasRegistry && candidateCode ? `/syllabus/paper/${candidateCode}` : undefined);
-
-  return (
-    <article className="rounded-[32px] border border-surface-container-high/30 bg-gradient-to-b from-surface to-surface-container-low shadow-xl shadow-primary/10 ring-1 ring-primary/5">
-      <div className="grid grid-cols-[auto_1fr] gap-4 p-6 md:p-7">
-        <div
-          className={cn(
-            "flex h-16 w-16 items-center justify-center rounded-2xl text-3xl shadow-[0_10px_24px_-12px_rgba(0,0,0,0.25)]",
-            meta.accent,
-          )}
-          aria-hidden="true"
-        >
-          <span className="material-symbols-outlined text-3xl">{meta.icon}</span>
-        </div>
-        <div className="space-y-3">
-          <div className="flex items-start justify-between gap-3">
-            <h3 className="text-2xl font-semibold text-on-surface">{title}</h3>
-            {meta.badge && (
-              <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold tracking-wide text-amber-700 shadow-inner">
-                {meta.badge}
-              </span>
-            )}
-          </div>
-
-          <p className="flex items-center gap-2 text-base font-medium text-on-surface-variant">
-            <span className="material-symbols-outlined text-lg">apartment</span>
-            {university || meta.university || "Assam University"}
-            <span className="text-on-surface-variant/60">•</span>
-            <span>{year ?? meta.year ?? "2024-25"}</span>
-          </p>
-
-          {meta.verified && (
-            <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-              <span className="material-symbols-outlined text-sm">verified</span>
-              Verified by Faculty
-            </div>
-          )}
-
-          {(credits ?? units) && (
-            <div className="flex items-center gap-6 text-sm text-on-surface-variant">
-              {credits != null && (
-                <div className="flex items-center gap-1">
-                   <span className="material-symbols-outlined text-base">star</span>
-                   <span className="font-semibold text-on-surface">{credits ?? "—"}</span>
-                   <span className="text-xs text-on-surface-variant/70">Credits</span>
-                 </div>
-               )}
-               {units != null && (
-                 <div className="flex items-center gap-1">
-                   <span className="material-symbols-outlined text-base">grid_view</span>
-                   <span className="font-semibold text-on-surface">{units ?? "—"}</span>
-                   <span className="text-xs text-on-surface-variant/70">Units</span>
-                 </div>
-               )}
-             </div>
-           )}
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between border-t border-outline-variant/40 px-6 py-5 md:px-7">
-        <MentorGroup mentors={mentors} />
-        {href ? (
-          <Link
-            href={href}
-            className="inline-flex items-center gap-2 rounded-2xl bg-primary px-7 py-3 text-base font-semibold text-on-primary shadow-lg shadow-primary/30 transition hover:translate-y-[-1px] hover:shadow-primary/40"
-          >
-            Open PDF
-            <span className="material-symbols-outlined text-base">open_in_new</span>
-          </Link>
-        ) : (
-          <span className="inline-flex items-center gap-2 rounded-2xl bg-surface-container px-7 py-3 text-base font-semibold text-on-surface-variant">
-            Open PDF
-            <span className="material-symbols-outlined text-base">lock</span>
-          </span>
-        )}
-      </div>
-    </article>
-  );
-}
-
 export default function SyllabusCatalogClient({ syllabi }: { syllabi: Syllabus[] }) {
-  const [activeTab, setActiveTab] = useState<"pdfs" | "library">("pdfs");
-  const [activeFilter, setActiveFilter] = useState(DEPARTMENT_FILTERS[0]);
-  const [libraryPapers, setLibraryPapers] = useState<SyllabusTablePaperSummary[]>([]);
-  const [librarySubjects, setLibrarySubjects] = useState<
-    Array<{ subjectCode: string; papers: number; units: number }>
-  >([]);
-  const [libraryLoading, setLibraryLoading] = useState(true);
-  const [libraryError, setLibraryError] = useState<string | null>(null);
+  const [activeSubject, setActiveSubject] = useState<string>("All");
+  const [papers, setPapers] = useState<SyllabusTablePaperSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     async function loadLibrary() {
-      setLibraryLoading(true);
+      setLoading(true);
       try {
         const res = await fetch("/api/syllabus/table");
         if (!res.ok) throw new Error(`Failed with status ${res.status}: ${res.statusText}`);
         const data = await res.json();
         if (!cancelled) {
-          setLibraryPapers(Array.isArray(data.papers) ? data.papers : []);
-          setLibrarySubjects(Array.isArray(data.subjects) ? data.subjects : []);
-          setLibraryError(null);
+          setPapers(Array.isArray(data.papers) ? data.papers : []);
+          setError(null);
         }
       } catch (err) {
         if (!cancelled) {
           console.error("[syllabus] table fetch failed", err);
-          setLibraryError("Unable to load syllabus library right now. Please try again shortly.");
+          setError("Unable to load syllabus library right now. Please try again shortly.");
         }
       } finally {
-        if (!cancelled) setLibraryLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
     loadLibrary();
@@ -194,155 +268,156 @@ export default function SyllabusCatalogClient({ syllabi }: { syllabi: Syllabus[]
     };
   }, []);
 
-  const normalizedAvailable: SyllabusCard[] = useMemo(() => {
-    const base = syllabi.map((s) => ({
-      code: s.course_code ?? s.course_name ?? s.subject,
-      title: s.subject || s.course_name || "Syllabus",
-      credits: null,
-      units: null,
-      mentors: [],
-      registryCode: s.course_code,
-      fileUrl: s.file_url,
-      year: s.year,
-      university: s.university,
-    }));
-    return base;
+  /** Map uploaded PDFs by paper code (upper-case) for O(1) lookup. */
+  const uploadedPdfs: PdfsByCode = useMemo(() => {
+    const map = new Map<string, Syllabus[]>();
+    for (const s of syllabi) {
+      const key = (s.course_code ?? "").toUpperCase();
+      if (!key) continue;
+      const list = map.get(key) ?? [];
+      list.push(s);
+      map.set(key, list);
+    }
+    return map;
   }, [syllabi]);
 
-  const availableCodes = useMemo(
-    () => new Set(libraryPapers.map((e) => (e.paperCode || "").toUpperCase()).filter(Boolean)),
-    [libraryPapers],
-  );
+  /** Subject filter options, including "All". */
+  const subjectGroups = useMemo(() => {
+    const groups = new Map<string, { papers: SyllabusTablePaperSummary[]; subjectCodes: string[]; units: number; hasStoredSubject: boolean }>();
+    for (const paper of papers) {
+      const subjectName = getSubjectDisplay(paper);
+      const current = groups.get(subjectName) ?? { papers: [], subjectCodes: [], units: 0, hasStoredSubject: false };
+      current.papers.push(paper);
+      if (!current.subjectCodes.includes(paper.subjectCode)) {
+        current.subjectCodes.push(paper.subjectCode);
+      }
+      current.units += paper.units;
+      if (paper.subject.trim().length > 0) {
+        current.hasStoredSubject = true;
+      }
+      groups.set(subjectName, current);
+    }
+    return groups;
+  }, [papers]);
 
-  const filteredAvailable = useMemo(() => {
-    if (activeFilter === "All Departments") return normalizedAvailable;
-    const matcher = activeFilter.toLowerCase();
-    return normalizedAvailable.filter((p) => (p.title ?? "").toLowerCase().includes(matcher) || (p.code ?? "").toLowerCase().includes(matcher));
-  }, [activeFilter, normalizedAvailable]);
+  /** Subject filter options, including "All". */
+  const subjectFilters = useMemo(() => ["All", ...Array.from(subjectGroups.keys())], [subjectGroups]);
+
+  /** Papers visible under current subject filter. */
+  const filteredPapers = useMemo(() => {
+    if (activeSubject === "All") return papers;
+    return papers.filter((p) => getSubjectDisplay(p) === activeSubject);
+  }, [papers, activeSubject]);
+
+  /** Group visible papers by subject name (or code if no name). */
+  const groupedBySubject = useMemo(() => {
+    const map = new Map<string, SyllabusTablePaperSummary[]>();
+    for (const p of filteredPapers) {
+      const key = getSubjectDisplay(p);
+      const list = map.get(key) ?? [];
+      list.push(p);
+      map.set(key, list);
+    }
+    return map;
+  }, [filteredPapers]);
+
+  const visibleSubjects = useMemo(() => {
+    const all = Array.from(subjectGroups.keys()).sort((a, b) => a.localeCompare(b));
+    if (activeSubject === "All") return all;
+    return all.filter((name) => name === activeSubject);
+  }, [subjectGroups, activeSubject]);
 
   return (
     <section className="mx-auto w-full max-w-5xl px-4 pb-16 pt-8">
-      <div className="space-y-8 rounded-[36px] bg-gradient-to-b from-surface to-surface-container-lowest p-5 shadow-inner shadow-primary/5 ring-1 ring-primary/5">
-        <header className="space-y-5 rounded-[28px] bg-surface p-6 shadow-sm shadow-primary/10 ring-1 ring-surface-container-high/40">
-          <h1 className="text-4xl font-black leading-tight text-on-surface">Syllabus Catalog</h1>
-          <p className="max-w-2xl text-base text-on-surface-variant">
-            Access verified curriculum and exam structures for your department.
-          </p>
-          <div className="grid grid-cols-2 gap-2 rounded-2xl bg-surface-container-low p-2 text-sm font-semibold shadow-inner ring-1 ring-surface-container-high/40">
-            <button
-              className={cn(
-                "rounded-xl px-3 py-3 transition",
-                activeTab === "pdfs"
-                  ? "bg-primary text-on-primary shadow-lg shadow-primary/30"
-                  : "text-on-surface-variant hover:bg-surface",
-              )}
-              onClick={() => setActiveTab("pdfs")}
-            >
-              Available Syllabus PDFs
-            </button>
-            <button
-              className={cn(
-                "rounded-xl px-3 py-3 transition",
-                activeTab === "library"
-                  ? "bg-primary text-on-primary shadow-lg shadow-primary/30"
-                  : "text-on-surface-variant hover:bg-surface",
-              )}
-              onClick={() => setActiveTab("library")}
-            >
-              Syllabus from Syllabus_Table
-            </button>
+      <div className="space-y-6 rounded-[36px] bg-gradient-to-b from-surface to-surface-container-lowest p-5 shadow-inner shadow-primary/5 ring-1 ring-primary/5">
+
+        {/* ── Header ── */}
+        <header className="rounded-[28px] bg-surface p-6 shadow-sm shadow-primary/10 ring-1 ring-surface-container-high/40 space-y-4">
+          <div>
+            <h1 className="text-4xl font-black leading-tight text-on-surface">Syllabus Catalog</h1>
+            <p className="mt-2 max-w-2xl text-base text-on-surface-variant">
+              Browse curriculum by subject. Each table shows syllabus details and available question papers by year.
+            </p>
           </div>
-          <div className="flex flex-wrap gap-3">
-            {DEPARTMENT_FILTERS.map((filter) => (
-              <button
-                key={filter}
-                onClick={() => setActiveFilter(filter)}
-                className={cn(
-                  "rounded-full px-5 py-2.5 text-sm font-semibold transition shadow-sm ring-1 ring-transparent",
-                  activeFilter === filter
-                    ? "bg-primary text-on-primary shadow-md shadow-primary/30"
-                    : "bg-surface-container text-on-surface hover:bg-surface-container-high",
-                )}
-              >
-                {filter}
-              </button>
-            ))}
-          </div>
+
+          {/* Subject filter chips */}
+          {!loading && !error && subjectFilters.length > 1 && (
+            <div className="flex flex-wrap gap-2">
+              {subjectFilters.map((sub) => (
+                <button
+                  key={sub}
+                  onClick={() => setActiveSubject(sub)}
+                  className={cn(
+                    "rounded-full px-4 py-1.5 text-sm font-semibold transition shadow-sm",
+                    activeSubject === sub
+                      ? "bg-primary text-on-primary shadow-md shadow-primary/30"
+                      : "bg-surface-container text-on-surface hover:bg-surface-container-high",
+                  )}
+                >
+                  {sub}
+                </button>
+              ))}
+            </div>
+          )}
         </header>
 
-        {activeTab === "pdfs" ? (
-          <div className="space-y-6">
-            {filteredAvailable.length === 0 ? (
-              <div className="rounded-3xl border border-outline-variant/40 bg-surface p-6 text-center text-sm text-on-surface-variant">
-                No approved syllabus PDFs are available yet. Upload a syllabus to get started.
-              </div>
-            ) : (
-              filteredAvailable.map((paper, idx) => (
-                <FeaturedCard key={paper.code ?? idx} {...paper} availableCodes={availableCodes} />
-              ))
-            )}
+        {/* ── Uploaded original PDFs banner ── */}
+        {syllabi.length > 0 && (
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+            <p className="text-sm font-semibold text-emerald-800 mb-2">
+              <span className="material-symbols-outlined align-middle text-base mr-1">picture_as_pdf</span>
+              Uploaded Original Syllabi ({syllabi.length})
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {syllabi.map((s) => (
+                <a
+                  key={s.id}
+                  href={s.file_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-white px-3 py-1.5 text-xs font-semibold text-emerald-700 shadow-sm ring-1 ring-emerald-200 hover:bg-emerald-50"
+                >
+                  <span className="material-symbols-outlined text-sm">picture_as_pdf</span>
+                  {s.subject || s.course_name || s.course_code || "Syllabus"}
+                  {s.year ? ` (${s.year})` : ""}
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Main content ── */}
+        {loading ? (
+          <div className="flex items-center gap-3 rounded-2xl bg-surface-container-low p-5 text-sm text-on-surface-variant">
+            <span className="material-symbols-outlined animate-spin text-primary">progress_activity</span>
+            Loading syllabus library…
+          </div>
+        ) : error ? (
+          <div className="rounded-2xl bg-error-container px-4 py-3 text-sm text-on-error">
+            {error}
+          </div>
+        ) : filteredPapers.length === 0 ? (
+          <div className="rounded-3xl border border-outline-variant/40 bg-surface p-6 text-center text-sm text-on-surface-variant">
+            No syllabus entries found. Check back after papers have been ingested.
           </div>
         ) : (
-          <div className="rounded-3xl bg-surface p-4 shadow-sm shadow-primary/5 ring-1 ring-surface-container-high/40">
-            {libraryLoading ? (
-              <div className="flex items-center gap-3 rounded-2xl bg-surface-container-low p-4 text-sm text-on-surface-variant">
-                <span className="material-symbols-outlined animate-spin text-primary">progress_activity</span>
-                Loading syllabus library from Syllabus_Table…
-              </div>
-            ) : libraryError ? (
-              <div className="rounded-2xl bg-error-container px-4 py-3 text-sm text-on-error">
-                {libraryError}
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {librarySubjects.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {librarySubjects.map((subject) => (
-                      <a
-                        key={subject.subjectCode}
-                        href={`/api/syllabus/table?subjectCode=${encodeURIComponent(subject.subjectCode)}&mode=pdf`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label={`Download departmental syllabus PDF for ${subject.subjectCode} containing ${subject.papers} papers and ${subject.units} units`}
-                        className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary"
-                      >
-                        {subject.subjectCode} Dept PDF ({subject.papers})
-                      </a>
-                    ))}
-                  </div>
-                )}
-                <div className="grid gap-3 md:grid-cols-2">
-                  {libraryPapers.map((paper) => (
-                    <article
-                      key={paper.paperCode}
-                      className="rounded-2xl border border-outline-variant/40 bg-surface-container-low p-4"
-                    >
-                      <p className="text-sm font-semibold text-on-surface">{paper.paperCode}</p>
-                      <p className="mt-1 text-xs text-on-surface-variant">{paper.paperName}</p>
-                      <p className="mt-2 text-[11px] text-on-surface-variant">
-                        {paper.university} · {paper.course} · {paper.stream} · {paper.type}
-                      </p>
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <Link
-                          href={`/syllabus/paper/${encodeURIComponent(paper.paperCode)}`}
-                          className="rounded-xl bg-primary px-3 py-1.5 text-xs font-semibold text-on-primary"
-                        >
-                          Open Details
-                        </Link>
-                        <a
-                          href={`/api/syllabus/table?paperCode=${encodeURIComponent(paper.paperCode)}&mode=pdf`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="rounded-xl bg-surface px-3 py-1.5 text-xs font-semibold text-on-surface ring-1 ring-outline-variant/40"
-                        >
-                          Download MD PDF
-                        </a>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              </div>
-            )}
+          <div className="space-y-3">
+            {visibleSubjects.map((subject, idx) => {
+              const subjectPapers = groupedBySubject.get(subject) ?? [];
+              const group = subjectGroups.get(subject);
+              return (
+                <SubjectSection
+                  key={subject}
+                  subjectName={subject}
+                  subjectCodes={group?.subjectCodes ?? []}
+                  stats={{ papers: group?.papers.length ?? 0, units: group?.units ?? 0 }}
+                  preferSubjectNamePdf={Boolean(group?.hasStoredSubject)}
+                  papers={subjectPapers}
+                  uploadedPdfs={uploadedPdfs}
+                  defaultOpen={idx === 0}
+                />
+              );
+            })}
           </div>
         )}
       </div>

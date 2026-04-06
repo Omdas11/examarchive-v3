@@ -10,11 +10,14 @@ import {
   type SyllabusTableRow,
 } from "@/lib/syllabus-table";
 import { generatePDF, markdownToHTML } from "@/lib/pdf-generator";
+import { findByPaperCode } from "@/data/syllabus-registry";
 
 const MAX_PAGES_SINGLE_PAPER = 20;
 const MAX_PAGES_DEPARTMENTAL = 40;
 const SYLLABUS_TABLE_PAGE_SIZE = 500;
 const SYLLABUS_TABLE_MAX_PAGES = 20;
+const QUESTIONS_TABLE_PAGE_SIZE = 500;
+const QUESTIONS_TABLE_MAX_PAGES = 20;
 const MAX_PAPER_NAME_LENGTH = 80;
 const ELLIPSIS_LENGTH = 3;
 const SYLLABUS_PDF_DAILY_LIMIT = 5;
@@ -75,6 +78,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const paperCode = (searchParams.get("paperCode") || "").trim();
   const subjectCode = (searchParams.get("subjectCode") || "").trim().toUpperCase();
+  const subjectName = (searchParams.get("subjectName") || "").trim();
   const mode = (searchParams.get("mode") || "").trim().toLowerCase();
   const university = (searchParams.get("university") || "").trim();
   const course = (searchParams.get("course") || "").trim();
@@ -195,10 +199,15 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    if (subjectCode && mode === "pdf") {
+    if ((subjectCode || subjectName) && mode === "pdf") {
       const groupedByPaper = new Map<string, SyllabusTableRow[]>();
       for (const row of rows) {
-        if (!row.paper_code.startsWith(subjectCode)) continue;
+        const rowSubject = row.subject.trim().toLowerCase();
+        if (subjectName) {
+          if (!rowSubject || rowSubject !== subjectName.toLowerCase()) continue;
+        } else if (subjectCode && !row.paper_code.startsWith(subjectCode)) {
+          continue;
+        }
         if (!groupedByPaper.has(row.paper_code)) groupedByPaper.set(row.paper_code, []);
         groupedByPaper.get(row.paper_code)!.push(row);
       }
@@ -221,8 +230,9 @@ export async function GET(request: NextRequest) {
         });
         mergedSections.push(md);
       }
+      const heading = subjectName || subjectCode;
       const mergedMarkdown = [
-        `# ${subjectCode} Departmental Syllabus`,
+        `# ${heading} Departmental Syllabus`,
         "",
         `Compiled from ${orderedCodes.length} paper syllabi.`,
         "",
@@ -232,13 +242,13 @@ export async function GET(request: NextRequest) {
       const { buffer } = await generatePDF({
         html,
         maxPages: MAX_PAGES_DEPARTMENTAL,
-        title: `${subjectCode} Departmental Syllabus`,
-        meta: { topic: `${subjectCode} Departmental Syllabus` },
+        title: `${heading} Departmental Syllabus`,
+        meta: { topic: `${heading} Departmental Syllabus` },
       });
       if (user && !isAdminPlus(user.role)) {
         await recordPdfGeneration(user.id, todayStr);
       }
-      const downloadToken = safeFilenameToken(subjectCode, "DEPARTMENT");
+      const downloadToken = safeFilenameToken(heading, "DEPARTMENT");
       return new NextResponse(buffer as unknown as BodyInit, {
         status: 200,
         headers: {
@@ -256,35 +266,89 @@ export async function GET(request: NextRequest) {
       grouped.get(row.paper_code)!.push(row);
     }
 
+    // Build question-paper year map from approved papers collection.
+    const questionDocs: Array<Record<string, unknown>> = [];
+    let papersCursorAfter: string | null = null;
+    let papersPageCount = 0;
+    while (papersPageCount < QUESTIONS_TABLE_MAX_PAGES) {
+      const questionQueries = [
+        Query.equal("approved", true),
+        Query.orderAsc("$id"),
+        Query.limit(QUESTIONS_TABLE_PAGE_SIZE),
+        papersCursorAfter ? Query.cursorAfter(papersCursorAfter) : null,
+      ].filter(Boolean) as string[];
+      const page = await db.listDocuments(DATABASE_ID, COLLECTION.papers, questionQueries);
+      questionDocs.push(...(page.documents as Array<Record<string, unknown>>));
+      if (page.documents.length < QUESTIONS_TABLE_PAGE_SIZE) break;
+      papersCursorAfter = page.documents[page.documents.length - 1]?.$id ?? null;
+      if (!papersCursorAfter) break;
+      papersPageCount += 1;
+    }
+    if (papersPageCount >= QUESTIONS_TABLE_MAX_PAGES) {
+      console.warn("[syllabus-table] Hit pagination cap while listing approved papers.");
+    }
+
+    const questionYearsByCode = questionDocs.reduce<Map<string, Map<string, { paperId: string; year: number; examType?: string }>>>((acc, doc) => {
+      const code = String(doc.course_code ?? "").trim().toUpperCase();
+      const yearRaw = Number(doc.year ?? 0);
+      if (!code || !Number.isInteger(yearRaw) || yearRaw < 1900 || yearRaw > 2100) return acc;
+      const paperId = String(doc.$id ?? doc.id ?? "");
+      const examType = String(doc.exam_type ?? "").trim();
+      const byYear = acc.get(code) ?? new Map<string, { paperId: string; year: number; examType?: string }>();
+      const yearKey = `${yearRaw}:${examType.toLowerCase()}`;
+      if (!byYear.has(yearKey) && paperId) {
+        byYear.set(yearKey, { paperId, year: yearRaw, examType: examType || undefined });
+      }
+      acc.set(code, byYear);
+      return acc;
+    }, new Map());
+
     const papers: SyllabusTablePaperSummary[] = Array.from(grouped.entries())
-      .map(([code, paperRows]) => ({
-        paperCode: code,
-        paperName: derivePaperNameFromRows(code, paperRows),
-        subjectCode: extractSubjectCode(code),
-        university: paperRows[0]?.university ?? "",
-        course: paperRows[0]?.course ?? "",
-        stream: paperRows[0]?.stream ?? "",
-        type: paperRows[0]?.type ?? "",
-        units: new Set(paperRows.map((row) => row.unit_number)).size,
-        lectures: paperRows.reduce(
-          (sum, row) => sum + (typeof row.lectures === "number" ? row.lectures : 0),
-          0,
-        ),
-      }))
+      .map(([code, paperRows]) => {
+        const derivedSubjectCode = extractSubjectCode(code);
+        const storedSubject = paperRows.find((r) => r.subject)?.subject ?? "";
+        const registry = findByPaperCode(code);
+        const questionPapers = Array.from(questionYearsByCode.get(code)?.values() ?? []).sort((a, b) =>
+          a.year === b.year
+            ? (a.examType ?? "").localeCompare(b.examType ?? "")
+            : a.year - b.year,
+        );
+        return {
+          paperCode: code,
+          paperName: derivePaperNameFromRows(code, paperRows),
+          subject: storedSubject,
+          subjectCode: derivedSubjectCode,
+          credits: registry?.credits,
+          university: paperRows[0]?.university ?? "",
+          course: paperRows[0]?.course ?? "",
+          stream: paperRows[0]?.stream ?? "",
+          type: paperRows[0]?.type ?? "",
+          units: new Set(paperRows.map((row) => row.unit_number)).size,
+          lectures: paperRows.reduce(
+            (sum, row) => sum + (typeof row.lectures === "number" ? row.lectures : 0),
+            0,
+          ),
+          questionPapers,
+        };
+      })
       .sort((a, b) => a.paperCode.localeCompare(b.paperCode));
+
+    // Keep subject groups keyed by subjectCode to ensure Dept PDF prefix filter stays correct.
     const subjectStats = Array.from(
-      papers.reduce<Map<string, { subjectCode: string; papers: number; units: number }>>((acc, paper) => {
-        const current = acc.get(paper.subjectCode) ?? {
+      papers.reduce<Map<string, { subjectCode: string; subjectName: string; papers: number; units: number }>>((acc, paper) => {
+        const key = paper.subjectCode;
+        const current = acc.get(key) ?? {
           subjectCode: paper.subjectCode,
+          subjectName: paper.subject || paper.subjectCode,
           papers: 0,
           units: 0,
         };
         current.papers += 1;
         current.units += paper.units;
-        acc.set(paper.subjectCode, current);
+        acc.set(key, current);
         return acc;
       }, new Map()).values(),
-    ).sort((a, b) => a.subjectCode.localeCompare(b.subjectCode));
+    ).sort((a, b) => a.subjectName.localeCompare(b.subjectName));
 
     return NextResponse.json({ papers, subjects: subjectStats });
   } catch (err: unknown) {

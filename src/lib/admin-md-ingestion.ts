@@ -7,6 +7,7 @@ export interface IngestionFrontmatter {
   type: string;
   paper_code: string;
   paper_name: string;
+  subject: string;
 }
 
 export interface ParsedSyllabusRow {
@@ -107,6 +108,7 @@ function parseFrontmatter(data: Record<string, unknown>, errors: IngestionParseE
     type: get("type"),
     paper_code: get("paper_code"),
     paper_name: get("paper_name"),
+    subject: get("subject"),
   };
 
   (Object.keys(frontmatter) as Array<keyof IngestionFrontmatter>).forEach((key) => {

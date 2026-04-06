@@ -16,8 +16,8 @@
     "sync:appwrite-schema:status": "node scripts/sync-appwrite-schema.js --update-schema-md",
     "watch:md-sync": "node scripts/watch-md-sync.js",
     "sync:appwrite-ai": "node scripts/sync-appwrite-ai.js",
-    "sync:appwrite-syllabus-registry": "node scripts/sync-appwrite-syllabus-registry.js",
     "generate-limits": "node scripts/generate-model-limits.js",
+    "soft-reset:data": "tsx scripts/soft-reset-data.ts",
     "appwrite:sync": "tsx scripts/sync-appwrite.ts"
   },
   "dependencies": {
