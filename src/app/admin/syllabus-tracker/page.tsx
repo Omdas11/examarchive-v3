@@ -30,7 +30,13 @@ export default async function SyllabusTrackerPage() {
   // Syllabus_Table now has paper_name (after schema sync) + paper_code.
   // Questions_Table also has paper_name as a fallback.
   // We combine both to determine upload status and populate names.
-  const db = adminDatabases();
+  let db: ReturnType<typeof adminDatabases> | null = null;
+  try {
+    db = adminDatabases();
+  } catch {
+    // In local/dev environments without Appwrite env vars, render baseline UI with empty upload state.
+    db = null;
+  }
   const uploadedMap: Record<string, string | null> = {};
 
   async function paginateDistinct(
@@ -49,6 +55,7 @@ export default async function SyllabusTrackerPage() {
       ];
       if (cursor) queries.push(Query.cursorAfter(cursor));
 
+      if (!db) return;
       const { documents } = await db.listDocuments(DATABASE_ID, collection, queries);
       for (const doc of documents as unknown as Array<{ paper_code?: string; paper_name?: string }>) {
         const code = doc.paper_code;
@@ -82,6 +89,7 @@ export default async function SyllabusTrackerPage() {
 
   const userName = user.name || user.username || "Admin";
   const userInitials = userName.slice(0, 2).toUpperCase();
+  const userRole = user.role;
 
   return (
     <MainLayout
@@ -93,7 +101,7 @@ export default async function SyllabusTrackerPage() {
       ]}
       showSearch={false}
       sidebarItems={APP_SIDEBAR_ITEMS}
-      userRole={user.role}
+      userRole={userRole}
       isLoggedIn={true}
       userName={userName}
       userInitials={userInitials}
@@ -102,12 +110,13 @@ export default async function SyllabusTrackerPage() {
         <div className="mb-6">
           <h1 className="text-2xl font-bold">Syllabus Upload Tracker</h1>
           <p className="mt-1 text-sm text-on-surface-variant">
-            Tracks the 14 curriculum tables (13 departments + common papers) across 8 semesters.
-            Green cells indicate an uploaded syllabus; grey cells are pending.
+            Tracks the Haflong FYUG baseline as 13 departmental tables plus a master tracking table.
+            Uploaded papers are auto-detected, and each paper cell includes a checkbox for manual tracking.
           </p>
         </div>
         <SyllabusTrackerClient
           tables={curriculumData.tables}
+          slotOrder={curriculumData.metadata.slotOrder}
           uploadedMap={uploadedMap}
           totalExpected={curriculumData.metadata.totalExpected}
         />

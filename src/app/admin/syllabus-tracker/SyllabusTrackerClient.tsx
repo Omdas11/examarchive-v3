@@ -1,133 +1,142 @@
 "use client";
 
 import { useSearchParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-export interface CurriculumPaper {
-  code: string;
+type SlotKey = "dsc1" | "dsc2" | "dsc3" | "dsc4" | "dsm1" | "dsm2" | "idc" | "sec" | "vac" | "aec";
+
+interface SlotEntry {
+  code: string | null;
   name: string | null;
-  semester: number;
-  type: string;
-  variant: "T" | "P" | string;
-  credits: number;
-  elective?: string;
+  label: string;
 }
 
-export interface CurriculumTable {
+interface CurriculumRow {
+  sr: number;
+  semester: number;
+  total: number | null;
+  slots: Record<SlotKey, SlotEntry>;
+}
+
+interface CurriculumTable {
   id: string;
   label: string;
-  papers: CurriculumPaper[];
+  rows: CurriculumRow[];
+}
+
+interface SlotOrderItem {
+  key: SlotKey;
+  label: string;
 }
 
 interface Props {
   tables: CurriculumTable[];
-  /** Map of paper_code → paper_name (or null) from Syllabus_Table. */
+  slotOrder: SlotOrderItem[];
   uploadedMap: Record<string, string | null>;
   totalExpected: number;
 }
 
-const SEMESTERS = [1, 2, 3, 4, 5, 6, 7, 8] as const;
+const CHECKED_STORAGE_KEY = "syllabus-tracker-checked-v1";
 
-const TYPE_COLORS: Record<string, string> = {
-  DSC: "bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700",
-  DSM: "bg-purple-50 dark:bg-purple-900/30 border-purple-200 dark:border-purple-700",
-  IDC: "bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-700",
-  SEC: "bg-teal-50 dark:bg-teal-900/30 border-teal-200 dark:border-teal-700",
-  AEC: "bg-pink-50 dark:bg-pink-900/30 border-pink-200 dark:border-pink-700",
-  VAC: "bg-orange-50 dark:bg-orange-900/30 border-orange-200 dark:border-orange-700",
+const SLOT_BG: Record<SlotKey, string> = {
+  dsc1: "bg-blue-50 dark:bg-blue-900/25",
+  dsc2: "bg-blue-50 dark:bg-blue-900/25",
+  dsc3: "bg-blue-50 dark:bg-blue-900/25",
+  dsc4: "bg-blue-50 dark:bg-blue-900/25",
+  dsm1: "bg-purple-50 dark:bg-purple-900/25",
+  dsm2: "bg-purple-50 dark:bg-purple-900/25",
+  idc: "bg-orange-50 dark:bg-orange-900/25",
+  sec: "bg-amber-50 dark:bg-amber-900/25",
+  vac: "bg-green-50 dark:bg-green-900/25",
+  aec: "bg-red-50 dark:bg-red-900/25",
 };
 
-const TYPE_BADGE: Record<string, string> = {
-  DSC: "bg-blue-100 text-blue-800",
-  DSM: "bg-purple-100 text-purple-800",
-  IDC: "bg-amber-100 text-amber-800",
-  SEC: "bg-teal-100 text-teal-800",
-  AEC: "bg-pink-100 text-pink-800",
-  VAC: "bg-orange-100 text-orange-800",
-};
+function getIsUploaded(code: string | null, uploadedMap: Record<string, string | null>): boolean {
+  return Boolean(code && code in uploadedMap);
+}
 
 function PaperCell({
-  paper,
-  isUploaded,
-  name,
-  isHighlighted,
-  cellRef,
+  code,
+  label,
+  uploaded,
+  checked,
+  onToggle,
+  highlighted,
+  refEl,
+  bgClass,
 }: {
-  paper: CurriculumPaper;
-  isUploaded: boolean;
-  name: string | null;
-  isHighlighted: boolean;
-  cellRef?: React.Ref<HTMLDivElement>;
+  code: string | null;
+  label: string;
+  uploaded: boolean;
+  checked: boolean;
+  onToggle: () => void;
+  highlighted: boolean;
+  refEl?: React.Ref<HTMLTableCellElement>;
+  bgClass: string;
 }) {
-  const baseClass = isUploaded
-    ? "border border-green-300 bg-green-50 dark:bg-green-900/30 dark:border-green-700"
-    : "border border-outline-variant/30 bg-surface-container-low";
-  const highlightRing = isHighlighted
-    ? "ring-2 ring-primary ring-offset-1 motion-safe:animate-pulse"
-    : "";
+  if (!code) {
+    return <td className="border border-outline-variant/30 bg-surface-container-low p-2 text-center text-on-surface-variant">—</td>;
+  }
 
+  const ring = highlighted ? "ring-2 ring-primary ring-inset motion-safe:animate-pulse" : "";
   return (
-    <div
-      ref={cellRef}
-      className={`rounded-lg p-2 text-xs transition-all ${baseClass} ${highlightRing} ${TYPE_COLORS[paper.type] ?? ""}`}
-      title={name ?? paper.code}
+    <td
+      ref={refEl}
+      className={`border border-outline-variant/30 p-1.5 align-top ${bgClass} ${ring}`}
+      title={`${label}: ${code}`}
     >
-      <div className="flex items-start justify-between gap-1">
-        <span className="font-mono font-semibold leading-tight break-all">{paper.code}</span>
-        <span
-          className={`shrink-0 rounded px-1 py-0.5 text-[10px] font-semibold leading-none ${
-            TYPE_BADGE[paper.type] ?? "bg-gray-100 text-gray-700"
-          }`}
-        >
-          {paper.type}
-        </span>
-      </div>
-      {name ? (
-        <p className="mt-1 leading-tight text-on-surface line-clamp-2">{name}</p>
-      ) : (
-        <p className="mt-1 leading-tight text-on-surface-variant/60 italic">—</p>
-      )}
-      <div className="mt-1 flex items-center gap-1">
-        <span
-          className={`inline-block size-2 rounded-full ${isUploaded ? "bg-green-500" : "bg-gray-300"}`}
+      <div className="flex items-start gap-2">
+        <input
+          type="checkbox"
+          aria-label={`Check ${code}`}
+          checked={checked}
+          onChange={onToggle}
+          className="mt-0.5 h-4 w-4 rounded border-outline-variant"
         />
-        <span className={isUploaded ? "text-green-700 dark:text-green-400" : "text-on-surface-variant/60"}>
-          {isUploaded ? "Uploaded" : "Pending"}
-        </span>
-        <span className="ml-auto text-on-surface-variant/50">
-          {paper.variant === "P" ? "Lab" : `${paper.credits}cr`}
-        </span>
+        <div className="min-w-0">
+          <p className="font-mono text-[11px] font-semibold leading-tight break-all">{code}</p>
+          <p className={`text-[10px] ${uploaded ? "text-green-700 dark:text-green-400" : "text-on-surface-variant"}`}>
+            {uploaded ? "Uploaded" : "Pending"}
+          </p>
+        </div>
       </div>
-    </div>
+    </td>
   );
 }
 
-export default function SyllabusTrackerClient({ tables, uploadedMap, totalExpected }: Props) {
+export default function SyllabusTrackerClient({ tables, slotOrder, uploadedMap, totalExpected }: Props) {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const highlightCode = searchParams.get("highlight")?.toUpperCase() ?? null;
-  const highlightRef = useRef<HTMLDivElement | null>(null);
-  const [activeTab, setActiveTab] = useState<string>(tables[0]?.id ?? "");
+  const highlightCode = (searchParams.get("highlight") || "").toUpperCase() || null;
 
-  // Switch to the tab containing the highlighted paper and scroll to it.
+  const [checkedMap, setCheckedMap] = useState<Record<string, boolean>>({});
+  const highlightRef = useRef<HTMLTableCellElement | null>(null);
+
   useEffect(() => {
-    if (!highlightCode) return;
-    for (const table of tables) {
-      if (table.papers.some((p) => p.code === highlightCode)) {
-        setActiveTab(table.id);
-        break;
-      }
+    try {
+      const raw = window.localStorage.getItem(CHECKED_STORAGE_KEY);
+      if (raw) setCheckedMap(JSON.parse(raw) as Record<string, boolean>);
+    } catch {
+      // ignore parse/storage errors
     }
-  }, [highlightCode, tables]);
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(CHECKED_STORAGE_KEY, JSON.stringify(checkedMap));
+    } catch {
+      // ignore storage errors
+    }
+  }, [checkedMap]);
 
   useEffect(() => {
     if (highlightCode && highlightRef.current) {
-      const id = setTimeout(() => {
+      const id = window.setTimeout(() => {
         highlightRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-      }, 300);
+      }, 250);
       return () => clearTimeout(id);
     }
-  }, [highlightCode, activeTab]);
+  }, [highlightCode, checkedMap]);
 
   const clearHighlight = useCallback(() => {
     const url = new URL(window.location.href);
@@ -135,174 +144,196 @@ export default function SyllabusTrackerClient({ tables, uploadedMap, totalExpect
     router.replace(url.pathname + url.search);
   }, [router]);
 
-  const uploadedCount = Object.keys(uploadedMap).length;
-  const activeTable = tables.find((t) => t.id === activeTab);
-
-  // Group papers in the active table by semester
-  const bySemester: Record<number, CurriculumPaper[]> = {};
-  if (activeTable) {
-    for (const paper of activeTable.papers) {
-      if (!bySemester[paper.semester]) bySemester[paper.semester] = [];
-      bySemester[paper.semester].push(paper);
+  const allCodes = useMemo(() => {
+    const codes: string[] = [];
+    for (const table of tables) {
+      for (const row of table.rows) {
+        for (const slot of slotOrder) {
+          const code = row.slots[slot.key]?.code;
+          if (code) codes.push(code);
+        }
+      }
     }
-  }
+    return Array.from(new Set(codes));
+  }, [tables, slotOrder]);
 
-  const tableUploadedCount = activeTable
-    ? activeTable.papers.filter((p) => p.code in uploadedMap).length
-    : 0;
-  const tableTotal = activeTable?.papers.length ?? 0;
+  const uploadedCount = useMemo(
+    () => allCodes.filter((code) => code in uploadedMap).length,
+    [allCodes, uploadedMap],
+  );
+
+  const checkedCount = useMemo(
+    () => allCodes.filter((code) => checkedMap[code]).length,
+    [allCodes, checkedMap],
+  );
+
+  const masterRows = useMemo(() => {
+    const semesters = [1, 2, 3, 4, 5, 6, 7, 8];
+    return semesters.map((semester) => {
+      const semesterCodes = allCodes.filter((code) => {
+        for (const table of tables) {
+          for (const row of table.rows) {
+            if (row.semester !== semester) continue;
+            for (const slot of slotOrder) {
+              if (row.slots[slot.key]?.code === code) return true;
+            }
+          }
+        }
+        return false;
+      });
+      const checked = semesterCodes.filter((c) => checkedMap[c]).length;
+      const uploaded = semesterCodes.filter((c) => c in uploadedMap).length;
+      return { semester, total: semesterCodes.length, checked, uploaded };
+    });
+  }, [allCodes, tables, slotOrder, checkedMap, uploadedMap]);
+  const masterByDepartment = useMemo(
+    () =>
+      tables.map((table) => {
+        const bySemester = [1, 2, 3, 4, 5, 6, 7, 8].map((semester) => {
+          const codes = table.rows
+            .filter((r) => r.semester === semester)
+            .flatMap((r) => slotOrder.map((s) => r.slots[s.key]?.code).filter(Boolean) as string[]);
+          const checked = codes.length > 0 && codes.every((c) => checkedMap[c]);
+          return { semester, total: codes.length, checked };
+        });
+        return { id: table.id, label: table.label, bySemester };
+      }),
+    [tables, slotOrder, checkedMap],
+  );
+
+  function toggleCode(code: string) {
+    setCheckedMap((prev) => ({ ...prev, [code]: !prev[code] }));
+  }
 
   return (
     <div className="space-y-6">
-      {/* ── Global progress bar ─────────────────────────────────── */}
       <div className="rounded-xl border border-outline-variant/30 bg-surface p-4 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold">
-              Overall Progress —{" "}
-              <span className="text-primary">
-                {uploadedCount} / {totalExpected}
-              </span>{" "}
-              papers uploaded
-            </p>
-            <p className="mt-0.5 text-xs text-on-surface-variant">
-              {Math.round((uploadedCount / totalExpected) * 100)}% complete across all departments
-            </p>
-          </div>
-          <a
-            href="/admin/ingest-md"
-            className="btn text-sm"
-          >
-            ↑ Ingest Syllabus
-          </a>
-        </div>
-        <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-surface-container-low">
-          <div
-            className="h-full rounded-full bg-primary transition-all duration-500"
-            style={{ width: `${Math.min(100, (uploadedCount / totalExpected) * 100)}%` }}
-          />
+        <p className="text-sm font-semibold">
+          Uploaded: <span className="text-primary">{uploadedCount}/{totalExpected}</span> · Checked:{" "}
+          <span className="text-primary">{checkedCount}/{totalExpected}</span>
+        </p>
+        <div className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-surface-container-low">
+          <div className="h-full bg-primary" style={{ width: `${Math.min(100, (uploadedCount / totalExpected) * 100)}%` }} />
         </div>
       </div>
 
-      {/* ── Highlight banner ─────────────────────────────────────── */}
       {highlightCode && (
         <div className="flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm">
           <span className="text-primary">✦</span>
           <span>
-            Showing <strong className="font-mono">{highlightCode}</strong> — scroll down to see the
-            highlighted cell.
+            Highlighting <strong className="font-mono">{highlightCode}</strong>
           </span>
-          <button
-            onClick={clearHighlight}
-            className="ml-auto text-xs text-on-surface-variant hover:text-on-surface"
-          >
+          <button onClick={clearHighlight} className="ml-auto text-xs text-on-surface-variant hover:text-on-surface">
             Clear
           </button>
         </div>
       )}
 
-      {/* ── Department / table tabs ───────────────────────────────── */}
-      <div className="rounded-xl border border-outline-variant/30 bg-surface shadow-sm">
-        {/* Tab bar */}
-        <div className="flex flex-wrap gap-1 border-b border-outline-variant/30 p-3">
-          {tables.map((table) => {
-            const uploaded = table.papers.filter((p) => p.code in uploadedMap).length;
-            const pct = table.papers.length > 0 ? Math.round((uploaded / table.papers.length) * 100) : 0;
-            const isActive = activeTab === table.id;
-            return (
-              <button
-                key={table.id}
-                onClick={() => setActiveTab(table.id)}
-                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                  isActive
-                    ? "bg-primary text-on-primary"
-                    : "bg-surface-container-low text-on-surface hover:bg-surface-container"
-                }`}
-              >
-                {table.id}
-                <span
-                  className={`ml-1.5 text-xs ${isActive ? "text-on-primary/70" : "text-on-surface-variant"}`}
-                >
-                  {pct}%
-                </span>
-              </button>
-            );
-          })}
+      <section className="rounded-xl border border-outline-variant/30 bg-surface shadow-sm">
+        <div className="border-b border-outline-variant/30 px-4 py-3">
+          <h2 className="text-base font-semibold">Master Table (Auto summary from individual checks)</h2>
         </div>
-
-        {/* Active table content */}
-        {activeTable && (
-          <div className="p-4">
-            <div className="mb-4 flex flex-wrap items-center gap-3">
-              <h2 className="text-lg font-bold">{activeTable.label}</h2>
-              <span className="rounded-full bg-surface-container px-2.5 py-0.5 text-xs text-on-surface-variant">
-                {tableUploadedCount} / {tableTotal} uploaded
-              </span>
-            </div>
-
-            {/* Semester sections */}
-            <div className="space-y-6">
-              {SEMESTERS.map((sem) => {
-                const papers = bySemester[sem];
-                if (!papers || papers.length === 0) return null;
-                const semUploaded = papers.filter((p) => p.code in uploadedMap).length;
-                return (
-                  <div key={sem}>
-                    <div className="mb-2 flex items-center gap-2">
-                      <h3 className="text-sm font-semibold text-on-surface-variant">
-                        Semester {sem}
-                      </h3>
-                      <span className="h-px flex-1 bg-outline-variant/30" />
-                      <span className="text-xs text-on-surface-variant">
-                        {semUploaded}/{papers.length}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-                      {papers.map((paper) => {
-                        const isUploaded = paper.code in uploadedMap;
-                        const name = uploadedMap[paper.code] ?? paper.name;
-                        const isHighlighted = paper.code === highlightCode;
-                        return (
-                          <PaperCell
-                            key={paper.code}
-                            paper={paper}
-                            isUploaded={isUploaded}
-                            name={name}
-                            isHighlighted={isHighlighted}
-                            cellRef={isHighlighted ? highlightRef : undefined}
-                          />
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* ── Legend ───────────────────────────────────────────────── */}
-      <div className="flex flex-wrap gap-3 text-xs text-on-surface-variant">
-        <div className="flex items-center gap-1.5">
-          <span className="inline-block size-2.5 rounded-full bg-green-500" /> Uploaded
+        <div className="overflow-x-auto p-4">
+          <table className="min-w-[1100px] w-full text-left text-xs">
+            <thead>
+              <tr className="bg-surface-container-low">
+                <th className="border border-outline-variant/30 px-2 py-2">Department</th>
+                {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => (
+                  <th key={s} className="border border-outline-variant/30 px-2 py-2 text-center">
+                    Sem {s}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {masterByDepartment.map((dept) => (
+                <tr key={dept.id}>
+                  <td className="border border-outline-variant/30 px-2 py-2 font-semibold">{dept.id}</td>
+                  {dept.bySemester.map((s) => (
+                    <td key={`${dept.id}-${s.semester}`} className="border border-outline-variant/30 px-2 py-2 text-center">
+                      {s.total === 0 ? (
+                        <span className="text-on-surface-variant">—</span>
+                      ) : (
+                        <label className="inline-flex items-center gap-1.5">
+                          <input type="checkbox" checked={s.checked} readOnly className="h-4 w-4" />
+                          <span className="text-[10px] text-on-surface-variant">{s.total}</span>
+                        </label>
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+              <tr className="bg-surface-container-low/60">
+                <td className="border border-outline-variant/30 px-2 py-2 font-semibold">Overall</td>
+                {masterRows.map((r) => (
+                  <td key={`overall-${r.semester}`} className="border border-outline-variant/30 px-2 py-2 text-center">
+                    <span className="text-[10px]">
+                      {r.checked}/{r.total}
+                    </span>
+                  </td>
+                ))}
+              </tr>
+            </tbody>
+          </table>
         </div>
-        <div className="flex items-center gap-1.5">
-          <span className="inline-block size-2.5 rounded-full bg-gray-300" /> Pending
-        </div>
-        {Object.entries(TYPE_BADGE).map(([type, cls]) => (
-          <div key={type} className="flex items-center gap-1">
-            <span className={`rounded px-1 py-0.5 text-[10px] font-semibold ${cls}`}>{type}</span>
-            <span>
-              {type === "DSC" && "Core"}
-              {type === "DSM" && "Minor"}
-              {type === "IDC" && "Interdisciplinary"}
-              {type === "SEC" && "Skill Enh."}
-              {type === "AEC" && "Ability Enh."}
-              {type === "VAC" && "Value Added"}
-            </span>
-          </div>
-        ))}
+      </section>
+
+      <div className="space-y-6">
+        {tables.map((table) => {
+          const tableCodes = table.rows.flatMap((row) => slotOrder.map((s) => row.slots[s.key]?.code).filter(Boolean) as string[]);
+          const checked = tableCodes.filter((c) => checkedMap[c]).length;
+          return (
+            <section key={table.id} className="rounded-xl border border-outline-variant/30 bg-surface shadow-sm">
+              <div className="flex items-center justify-between border-b border-outline-variant/30 px-4 py-3">
+                <h3 className="text-base font-semibold">{table.label} Department ({table.id})</h3>
+                <span className="text-xs text-on-surface-variant">{checked}/{tableCodes.length} checked</span>
+              </div>
+              <div className="p-4 overflow-x-auto">
+                <table className="min-w-[1400px] w-full text-left text-xs">
+                  <thead>
+                    <tr className="bg-surface-container-low">
+                      <th className="border border-outline-variant/30 px-2 py-2">Sr</th>
+                      <th className="border border-outline-variant/30 px-2 py-2">Semester</th>
+                      {slotOrder.map((slot) => (
+                        <th key={slot.key} className="border border-outline-variant/30 px-2 py-2">{slot.label}</th>
+                      ))}
+                      <th className="border border-outline-variant/30 px-2 py-2">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {table.rows.map((row) => (
+                      <tr key={`${table.id}-${row.semester}`}>
+                        <td className="border border-outline-variant/30 px-2 py-2">{row.sr}</td>
+                        <td className="border border-outline-variant/30 px-2 py-2 font-semibold">Semester {row.semester}</td>
+                        {slotOrder.map((slot) => {
+                          const entry = row.slots[slot.key];
+                          const code = entry?.code ?? null;
+                          const uploaded = getIsUploaded(code, uploadedMap);
+                          const isChecked = Boolean(code && checkedMap[code]);
+                          const highlighted = Boolean(code && highlightCode && code === highlightCode);
+                          return (
+                            <PaperCell
+                              key={`${table.id}-${row.semester}-${slot.key}`}
+                              code={code}
+                              label={slot.label}
+                              uploaded={uploaded}
+                              checked={isChecked}
+                              onToggle={() => code && toggleCode(code)}
+                              highlighted={highlighted}
+                              refEl={highlighted ? highlightRef : undefined}
+                              bgClass={SLOT_BG[slot.key]}
+                            />
+                          );
+                        })}
+                        <td className="border border-outline-variant/30 px-2 py-2 text-center font-semibold">{row.total ?? "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          );
+        })}
       </div>
     </div>
   );
