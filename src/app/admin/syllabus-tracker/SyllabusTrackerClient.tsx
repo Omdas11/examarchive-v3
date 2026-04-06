@@ -4,6 +4,11 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type SlotKey = "dsc1" | "dsc2" | "dsc3" | "dsc4" | "dsm1" | "dsm2" | "idc" | "sec" | "vac" | "aec";
+const SLOT_KEYS = new Set<SlotKey>(["dsc1", "dsc2", "dsc3", "dsc4", "dsm1", "dsm2", "idc", "sec", "vac", "aec"]);
+
+function isSlotKey(value: string): value is SlotKey {
+  return SLOT_KEYS.has(value as SlotKey);
+}
 
 interface SlotEntry {
   code: string | null;
@@ -25,7 +30,7 @@ interface CurriculumTable {
 }
 
 interface SlotOrderItem {
-  key: SlotKey;
+  key: string;
   label: string;
 }
 
@@ -111,6 +116,10 @@ export default function SyllabusTrackerClient({ tables, slotOrder, uploadedMap, 
 
   const [checkedMap, setCheckedMap] = useState<Record<string, boolean>>({});
   const highlightRef = useRef<HTMLTableCellElement | null>(null);
+  const normalizedSlotOrder = useMemo(
+    () => slotOrder.filter((slot): slot is { key: SlotKey; label: string } => isSlotKey(slot.key)),
+    [slotOrder],
+  );
 
   useEffect(() => {
     try {
@@ -148,14 +157,14 @@ export default function SyllabusTrackerClient({ tables, slotOrder, uploadedMap, 
     const codes: string[] = [];
     for (const table of tables) {
       for (const row of table.rows) {
-        for (const slot of slotOrder) {
+        for (const slot of normalizedSlotOrder) {
           const code = row.slots[slot.key]?.code;
           if (code) codes.push(code);
         }
       }
     }
     return Array.from(new Set(codes));
-  }, [tables, slotOrder]);
+  }, [tables, normalizedSlotOrder]);
 
   const uploadedCount = useMemo(
     () => allCodes.filter((code) => code in uploadedMap).length,
@@ -174,7 +183,7 @@ export default function SyllabusTrackerClient({ tables, slotOrder, uploadedMap, 
         for (const table of tables) {
           for (const row of table.rows) {
             if (row.semester !== semester) continue;
-            for (const slot of slotOrder) {
+            for (const slot of normalizedSlotOrder) {
               if (row.slots[slot.key]?.code === code) return true;
             }
           }
@@ -185,20 +194,22 @@ export default function SyllabusTrackerClient({ tables, slotOrder, uploadedMap, 
       const uploaded = semesterCodes.filter((c) => c in uploadedMap).length;
       return { semester, total: semesterCodes.length, checked, uploaded };
     });
-  }, [allCodes, tables, slotOrder, checkedMap, uploadedMap]);
+  }, [allCodes, tables, normalizedSlotOrder, checkedMap, uploadedMap]);
   const masterByDepartment = useMemo(
     () =>
       tables.map((table) => {
         const bySemester = [1, 2, 3, 4, 5, 6, 7, 8].map((semester) => {
           const codes = table.rows
             .filter((r) => r.semester === semester)
-            .flatMap((r) => slotOrder.map((s) => r.slots[s.key]?.code).filter(Boolean) as string[]);
+            .flatMap((r) =>
+              normalizedSlotOrder.map((s) => r.slots[s.key]?.code).filter(Boolean) as string[],
+            );
           const checked = codes.length > 0 && codes.every((c) => checkedMap[c]);
           return { semester, total: codes.length, checked };
         });
         return { id: table.id, label: table.label, bySemester };
       }),
-    [tables, slotOrder, checkedMap],
+    [tables, normalizedSlotOrder, checkedMap],
   );
 
   function toggleCode(code: string) {
@@ -280,7 +291,9 @@ export default function SyllabusTrackerClient({ tables, slotOrder, uploadedMap, 
 
       <div className="space-y-6">
         {tables.map((table) => {
-          const tableCodes = table.rows.flatMap((row) => slotOrder.map((s) => row.slots[s.key]?.code).filter(Boolean) as string[]);
+          const tableCodes = table.rows.flatMap((row) =>
+            normalizedSlotOrder.map((s) => row.slots[s.key]?.code).filter(Boolean) as string[],
+          );
           const checked = tableCodes.filter((c) => checkedMap[c]).length;
           return (
             <section key={table.id} className="rounded-xl border border-outline-variant/30 bg-surface shadow-sm">
@@ -294,7 +307,7 @@ export default function SyllabusTrackerClient({ tables, slotOrder, uploadedMap, 
                     <tr className="bg-surface-container-low">
                       <th className="border border-outline-variant/30 px-2 py-2">Sr</th>
                       <th className="border border-outline-variant/30 px-2 py-2">Semester</th>
-                      {slotOrder.map((slot) => (
+                      {normalizedSlotOrder.map((slot) => (
                         <th key={slot.key} className="border border-outline-variant/30 px-2 py-2">{slot.label}</th>
                       ))}
                       <th className="border border-outline-variant/30 px-2 py-2">Total</th>
@@ -305,7 +318,7 @@ export default function SyllabusTrackerClient({ tables, slotOrder, uploadedMap, 
                       <tr key={`${table.id}-${row.semester}`}>
                         <td className="border border-outline-variant/30 px-2 py-2">{row.sr}</td>
                         <td className="border border-outline-variant/30 px-2 py-2 font-semibold">Semester {row.semester}</td>
-                        {slotOrder.map((slot) => {
+                        {normalizedSlotOrder.map((slot) => {
                           const entry = row.slots[slot.key];
                           const code = entry?.code ?? null;
                           const uploaded = getIsUploaded(code, uploadedMap);
