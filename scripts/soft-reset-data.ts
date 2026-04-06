@@ -10,7 +10,9 @@
  *   npx tsx scripts/soft-reset-data.ts --include-ingestions
  *
  * Environment variables required:
- *   APPWRITE_ENDPOINT, APPWRITE_PROJECT_ID, APPWRITE_API_KEY
+ *   APPWRITE_API_KEY and either:
+ *   - APPWRITE_ENDPOINT + APPWRITE_PROJECT_ID
+ *   - NEXT_PUBLIC_APPWRITE_ENDPOINT + NEXT_PUBLIC_APPWRITE_PROJECT_ID
  */
 
 import { Client, Databases, Query } from "node-appwrite";
@@ -19,10 +21,25 @@ import { loadEnvConfig } from "@next/env";
 
 loadEnvConfig(path.resolve(__dirname, ".."));
 
+function loadAppwriteEnv(): { endpoint: string; projectId: string; apiKey: string } {
+  const endpoint = process.env.APPWRITE_ENDPOINT || process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT || "";
+  const projectId = process.env.APPWRITE_PROJECT_ID || process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID || "";
+  const apiKey = process.env.APPWRITE_API_KEY || "";
+  const missing: string[] = [];
+  if (!endpoint) missing.push("APPWRITE_ENDPOINT or NEXT_PUBLIC_APPWRITE_ENDPOINT");
+  if (!projectId) missing.push("APPWRITE_PROJECT_ID or NEXT_PUBLIC_APPWRITE_PROJECT_ID");
+  if (!apiKey) missing.push("APPWRITE_API_KEY");
+  if (missing.length > 0) {
+    throw new Error(`[soft-reset] missing environment variables: ${missing.join(", ")}`);
+  }
+  return { endpoint, projectId, apiKey };
+}
+
+const appwriteEnv = loadAppwriteEnv();
 const client = new Client()
-  .setEndpoint(process.env.APPWRITE_ENDPOINT!)
-  .setProject(process.env.APPWRITE_PROJECT_ID!)
-  .setKey(process.env.APPWRITE_API_KEY!);
+  .setEndpoint(appwriteEnv.endpoint)
+  .setProject(appwriteEnv.projectId)
+  .setKey(appwriteEnv.apiKey);
 
 const databases = new Databases(client);
 

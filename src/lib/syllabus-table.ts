@@ -21,8 +21,14 @@ export interface SyllabusTablePaperSummary {
   paperName: string;
   subject: string;
   subjectCode: string;
+  credits?: number;
   units: number;
   lectures: number;
+  questionPapers: Array<{
+    paperId: string;
+    year: number;
+    examType?: string;
+  }>;
 }
 
 export const PAPER_NAME_SPLIT_RE = /[.;\n]/;

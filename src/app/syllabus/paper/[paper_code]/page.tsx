@@ -144,7 +144,7 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 rounded-2xl bg-surface-container px-4 py-2 text-sm font-semibold text-on-surface ring-1 ring-outline-variant/40"
             >
-              Download Departmental PDF
+              Download Question Paper Group PDF
             </a>
           </div>
         </div>
@@ -181,7 +181,7 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
 
           <aside className="space-y-4">
             <div className="rounded-2xl border border-outline-variant/40 bg-surface p-4">
-              <h3 className="text-sm font-semibold text-on-surface">Uploaded syllabus PDFs</h3>
+              <h3 className="text-sm font-semibold text-on-surface">Uploaded Syllabus PDFs</h3>
               {uploadedPdfs.length === 0 ? (
                 <p className="mt-2 text-xs text-on-surface-variant">No approved uploads yet.</p>
               ) : (

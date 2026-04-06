@@ -6,8 +6,6 @@ import { cn } from "@/lib/utils";
 import type { Syllabus } from "@/types";
 import type { SyllabusTablePaperSummary } from "@/lib/syllabus-table";
 
-type SubjectStat = { subjectCode: string; subjectName: string; papers: number; units: number };
-
 /** Map of uploaded-syllabus PDFs keyed by paper code (upper-case). */
 type PdfsByCode = Map<string, Syllabus[]>;
 
@@ -16,17 +14,28 @@ function getSubjectDisplay(paper: Pick<SyllabusTablePaperSummary, "subject" | "s
   return paper.subject || paper.subjectCode;
 }
 
-function PaperRow({
+function SyllabusRow({
   paper,
   uploadedPdfs,
+  serialNo,
+  years,
 }: {
   paper: SyllabusTablePaperSummary;
   uploadedPdfs: PdfsByCode;
+  serialNo: number;
+  years: number[];
 }) {
   const pdfs = uploadedPdfs.get(paper.paperCode.toUpperCase()) ?? [];
+  const yearsByValue = paper.questionPapers.reduce<Map<number, Array<{ paperId: string; examType?: string }>>>((acc, qp) => {
+    const list = acc.get(qp.year) ?? [];
+    list.push({ paperId: qp.paperId, examType: qp.examType });
+    acc.set(qp.year, list);
+    return acc;
+  }, new Map());
   return (
     <tr className="border-b border-outline-variant/30 last:border-0 hover:bg-surface-container-low/60 transition-colors">
-      <td className="py-3 pl-4 pr-2 align-top">
+      <td className="py-3 pl-4 pr-2 align-top text-sm text-on-surface-variant">{serialNo}</td>
+      <td className="py-3 pl-2 pr-2 align-top">
         <Link
           href={`/syllabus/paper/${encodeURIComponent(paper.paperCode)}`}
           className="font-mono text-xs font-semibold text-primary hover:underline"
@@ -34,17 +43,46 @@ function PaperRow({
           {paper.paperCode}
         </Link>
       </td>
-      <td className="py-3 px-2 align-top">
+      <td className="py-3 px-2 align-top min-w-[240px]">
         <p className="text-sm font-medium text-on-surface leading-snug">{paper.paperName || paper.paperCode}</p>
         <p className="mt-0.5 text-[11px] text-on-surface-variant">
           {[paper.university, paper.course, paper.type].filter(Boolean).join(" · ")}
         </p>
       </td>
+      <td className="py-3 px-2 align-middle text-center text-sm text-on-surface-variant">
+        {typeof paper.credits === "number" ? paper.credits : "—"}
+      </td>
       <td className="py-3 px-2 align-middle text-center">
         <span className="rounded-full bg-surface-container px-2 py-0.5 text-xs text-on-surface-variant">
-          {paper.units}u
+          {paper.lectures || "—"}
         </span>
       </td>
+      {years.map((year) => {
+        const items = yearsByValue.get(year) ?? [];
+        if (items.length === 0) {
+          return (
+            <td key={`${paper.paperCode}-${year}`} className="py-3 px-1 text-center text-xs text-on-surface-variant">
+              —
+            </td>
+          );
+        }
+        return (
+          <td key={`${paper.paperCode}-${year}`} className="py-3 px-1 text-center">
+            <div className="flex flex-col items-center gap-1">
+              {items.map((item) => (
+                <Link
+                  key={`${year}-${item.paperId}-${item.examType ?? ""}`}
+                  href={`/paper/${item.paperId}`}
+                  className="rounded-md bg-surface-container px-2 py-0.5 text-[11px] font-semibold text-primary hover:underline"
+                  title={item.examType ? `${year} · ${item.examType}` : String(year)}
+                >
+                  {item.examType ? item.examType.slice(0, 3).toUpperCase() : "PDF"}
+                </Link>
+              ))}
+            </div>
+          </td>
+        );
+      })}
       <td className="py-3 pl-2 pr-4 align-middle">
         <div className="flex flex-wrap items-center gap-1.5 justify-end">
           <Link
@@ -59,7 +97,7 @@ function PaperRow({
             rel="noopener noreferrer"
             className="rounded-lg bg-surface-container-high px-2.5 py-1 text-[11px] font-semibold text-on-surface whitespace-nowrap ring-1 ring-outline-variant/40"
           >
-            Generated PDF
+            Syllabus PDF (MD)
           </a>
           {pdfs.map((pdf) => (
             <a
@@ -69,7 +107,7 @@ function PaperRow({
               rel="noopener noreferrer"
               className="rounded-lg bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 whitespace-nowrap ring-1 ring-emerald-200"
             >
-              Original PDF {pdf.year ? `(${pdf.year})` : ""}
+              Uploaded PDF {pdf.year ? `(${pdf.year})` : ""}
             </a>
           ))}
         </div>
@@ -79,17 +117,41 @@ function PaperRow({
 }
 
 function SubjectSection({
-  subject,
+  subjectName,
+  subjectCodes,
+  stats,
+  preferSubjectNamePdf,
   papers,
   uploadedPdfs,
   defaultOpen,
 }: {
-  subject: SubjectStat;
+  subjectName: string;
+  subjectCodes: string[];
+  stats: { papers: number; units: number };
+  preferSubjectNamePdf: boolean;
   papers: SyllabusTablePaperSummary[];
   uploadedPdfs: PdfsByCode;
   defaultOpen: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const years = useMemo(() => {
+    const set = new Set<number>();
+    for (const p of papers) {
+      for (const qp of p.questionPapers) {
+        set.add(qp.year);
+      }
+    }
+    return Array.from(set).sort((a, b) => a - b);
+  }, [papers]);
+
+  const deptPdfHref = useMemo(() => {
+    if (preferSubjectNamePdf && subjectName.trim().length > 0) {
+      return `/api/syllabus/table?subjectName=${encodeURIComponent(subjectName)}&mode=pdf`;
+    }
+    const fallbackCode = subjectCodes[0] ?? "";
+    return `/api/syllabus/table?subjectCode=${encodeURIComponent(fallbackCode)}&mode=pdf`;
+  }, [preferSubjectNamePdf, subjectName, subjectCodes]);
+
   return (
     <div className="rounded-2xl border border-outline-variant/40 bg-surface overflow-hidden">
       <button
@@ -100,14 +162,14 @@ function SubjectSection({
           <span className="material-symbols-outlined text-xl text-primary">
             {open ? "expand_less" : "expand_more"}
           </span>
-          <span className="text-base font-semibold text-on-surface">{subject.subjectName}</span>
+          <span className="text-base font-semibold text-on-surface">{subjectName}</span>
           <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
-            {subject.papers} {subject.papers === 1 ? "paper" : "papers"}
+            {stats.papers} {stats.papers === 1 ? "paper" : "papers"}
           </span>
         </div>
         <div className="flex items-center gap-2">
           <a
-            href={`/api/syllabus/table?subjectCode=${encodeURIComponent(subject.subjectCode)}&mode=pdf`}
+            href={deptPdfHref}
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
@@ -119,19 +181,51 @@ function SubjectSection({
         </div>
       </button>
       {open && (
-        <div className="border-t border-outline-variant/30">
+        <div className="border-t border-outline-variant/30 overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="bg-surface-container-low">
+                <th className="py-2 pl-4 pr-2 text-left text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant">Sl. No.</th>
                 <th className="py-2 pl-4 pr-2 text-left text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant">Code</th>
-                <th className="py-2 px-2 text-left text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant">Paper</th>
-                <th className="py-2 px-2 text-center text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant">Units</th>
+                <th className="py-2 px-2 text-left text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant">Paper Name</th>
+                <th className="py-2 px-2 text-center text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant">Credit</th>
+                <th className="py-2 px-2 text-center text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant">Lecture</th>
+                {years.map((year) => (
+                  <th
+                    key={`year-head-${year}`}
+                    className="py-2 px-1 text-center text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant"
+                  >
+                    {year}
+                  </th>
+                ))}
                 <th className="py-2 pl-2 pr-4 text-right text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant">Actions</th>
+              </tr>
+              <tr className="bg-surface-container-low/70">
+                <th className="py-1 pl-4 pr-2" />
+                <th className="py-1 pl-4 pr-2" />
+                <th className="py-1 px-2" />
+                <th className="py-1 px-2" />
+                <th className="py-1 px-2" />
+                {years.length > 0 ? (
+                  <th
+                    className="py-1 px-2 text-center text-[10px] font-semibold uppercase tracking-wide text-on-surface-variant"
+                    colSpan={years.length}
+                  >
+                    Question Paper
+                  </th>
+                ) : null}
+                <th className="py-1 pl-2 pr-4" />
               </tr>
             </thead>
             <tbody>
-              {papers.map((paper) => (
-                <PaperRow key={paper.paperCode} paper={paper} uploadedPdfs={uploadedPdfs} />
+              {papers.map((paper, idx) => (
+                <SyllabusRow
+                  key={paper.paperCode}
+                  serialNo={idx + 1}
+                  paper={paper}
+                  uploadedPdfs={uploadedPdfs}
+                  years={years}
+                />
               ))}
             </tbody>
           </table>
@@ -144,7 +238,6 @@ function SubjectSection({
 export default function SyllabusCatalogClient({ syllabi }: { syllabi: Syllabus[] }) {
   const [activeSubject, setActiveSubject] = useState<string>("All");
   const [papers, setPapers] = useState<SyllabusTablePaperSummary[]>([]);
-  const [subjects, setSubjects] = useState<SubjectStat[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -158,7 +251,6 @@ export default function SyllabusCatalogClient({ syllabi }: { syllabi: Syllabus[]
         const data = await res.json();
         if (!cancelled) {
           setPapers(Array.isArray(data.papers) ? data.papers : []);
-          setSubjects(Array.isArray(data.subjects) ? data.subjects : []);
           setError(null);
         }
       } catch (err) {
@@ -190,10 +282,26 @@ export default function SyllabusCatalogClient({ syllabi }: { syllabi: Syllabus[]
   }, [syllabi]);
 
   /** Subject filter options, including "All". */
-  const subjectFilters = useMemo(
-    () => ["All", ...subjects.map((s) => s.subjectName)],
-    [subjects],
-  );
+  const subjectGroups = useMemo(() => {
+    const groups = new Map<string, { papers: SyllabusTablePaperSummary[]; subjectCodes: string[]; units: number; hasStoredSubject: boolean }>();
+    for (const paper of papers) {
+      const subjectName = getSubjectDisplay(paper);
+      const current = groups.get(subjectName) ?? { papers: [], subjectCodes: [], units: 0, hasStoredSubject: false };
+      current.papers.push(paper);
+      if (!current.subjectCodes.includes(paper.subjectCode)) {
+        current.subjectCodes.push(paper.subjectCode);
+      }
+      current.units += paper.units;
+      if (paper.subject.trim().length > 0) {
+        current.hasStoredSubject = true;
+      }
+      groups.set(subjectName, current);
+    }
+    return groups;
+  }, [papers]);
+
+  /** Subject filter options, including "All". */
+  const subjectFilters = useMemo(() => ["All", ...Array.from(subjectGroups.keys())], [subjectGroups]);
 
   /** Papers visible under current subject filter. */
   const filteredPapers = useMemo(() => {
@@ -213,13 +321,11 @@ export default function SyllabusCatalogClient({ syllabi }: { syllabi: Syllabus[]
     return map;
   }, [filteredPapers]);
 
-  const visibleSubjects = useMemo(
-    () =>
-      subjects.filter(
-        (s) => activeSubject === "All" || s.subjectName === activeSubject,
-      ),
-    [subjects, activeSubject],
-  );
+  const visibleSubjects = useMemo(() => {
+    const all = Array.from(subjectGroups.keys()).sort((a, b) => a.localeCompare(b));
+    if (activeSubject === "All") return all;
+    return all.filter((name) => name === activeSubject);
+  }, [subjectGroups, activeSubject]);
 
   return (
     <section className="mx-auto w-full max-w-5xl px-4 pb-16 pt-8">
@@ -230,7 +336,7 @@ export default function SyllabusCatalogClient({ syllabi }: { syllabi: Syllabus[]
           <div>
             <h1 className="text-4xl font-black leading-tight text-on-surface">Syllabus Catalog</h1>
             <p className="mt-2 max-w-2xl text-base text-on-surface-variant">
-              Browse curriculum by subject. Open any paper to view its full syllabus or download a PDF.
+              Browse curriculum by subject. Each table shows syllabus details and available question papers by year.
             </p>
           </div>
 
@@ -297,11 +403,15 @@ export default function SyllabusCatalogClient({ syllabi }: { syllabi: Syllabus[]
         ) : (
           <div className="space-y-3">
             {visibleSubjects.map((subject, idx) => {
-              const subjectPapers = groupedBySubject.get(subject.subjectName) ?? [];
+              const subjectPapers = groupedBySubject.get(subject) ?? [];
+              const group = subjectGroups.get(subject);
               return (
                 <SubjectSection
-                  key={subject.subjectName}
-                  subject={subject}
+                  key={subject}
+                  subjectName={subject}
+                  subjectCodes={group?.subjectCodes ?? []}
+                  stats={{ papers: group?.papers.length ?? 0, units: group?.units ?? 0 }}
+                  preferSubjectNamePdf={Boolean(group?.hasStoredSubject)}
                   papers={subjectPapers}
                   uploadedPdfs={uploadedPdfs}
                   defaultOpen={idx === 0}
