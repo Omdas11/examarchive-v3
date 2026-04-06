@@ -329,7 +329,7 @@ export default async function HomePage() {
 
             <div className="mt-8 flex flex-wrap justify-center gap-3">
               <Link href="/browse" className="btn-primary text-base px-6 py-2.5">
-                Browse Question Papers
+                Browse
               </Link>
               <Link href="/upload" className="btn text-base px-6 py-2.5">
                 Upload Paper

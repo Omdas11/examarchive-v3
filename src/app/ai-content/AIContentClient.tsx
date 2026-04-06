@@ -42,12 +42,15 @@ export default function AIContentClient() {
   const [stream, setStream] = useState("Arts");
   const [type, setType] = useState("DSC");
   const [paperCode, setPaperCode] = useState("");
+  const [semester, setSemester] = useState<number | "">("");
   const [unitNumber, setUnitNumber] = useState(1);
   const [selectedYear, setSelectedYear] = useState<number | "">("");
   const [notesPaperCodes, setNotesPaperCodes] = useState<string[]>([]);
   const [papersPaperCodes, setPapersPaperCodes] = useState<string[]>([]);
   const [unitsByPaperCode, setUnitsByPaperCode] = useState<Record<string, number[]>>({});
   const [yearsByPaperCode, setYearsByPaperCode] = useState<Record<string, number[]>>({});
+  const [semestersByPaperCode, setSemestersByPaperCode] = useState<Record<string, number[]>>({});
+  const [availableSemesters, setAvailableSemesters] = useState<number[]>([]);
   const [paperCodeLoading, setPaperCodeLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [notesPdfResult, setNotesPdfResult] = useState<{ key: string; url: string } | null>(null);
@@ -70,6 +73,7 @@ export default function AIContentClient() {
   const [currentPart, setCurrentPart] = useState(1);
   const [totalParts, setTotalParts] = useState(1);
   const [showLogs, setShowLogs] = useState(false);
+  const generationRunIdRef = useRef(0);
   const elapsedSecondsRef = useRef(0);
   const eventSourceRef = useRef<EventSource | null>(null);
   const hasPaperCode = paperCode.trim().length > 0;
@@ -78,6 +82,11 @@ export default function AIContentClient() {
     return Array.isArray(units) && units.length > 0 ? units : (hasPaperCode ? [] : UNIT_OPTIONS);
   }, [unitsByPaperCode, paperCode, hasPaperCode]);
   const availableYears = useMemo(() => yearsByPaperCode[paperCode] || [], [yearsByPaperCode, paperCode]);
+  const availableSemestersForSelection = useMemo(() => {
+    const mapped = semestersByPaperCode[paperCode];
+    if (Array.isArray(mapped) && mapped.length > 0) return mapped;
+    return availableSemesters;
+  }, [semestersByPaperCode, paperCode, availableSemesters]);
   const courseOptions: CustomDropdownOption[] = useMemo(
     () => [
       { label: "FYUG", value: "FYUG" },
@@ -122,14 +131,18 @@ export default function AIContentClient() {
     () => availableYears.map((year) => ({ label: String(year), value: String(year) })),
     [availableYears],
   );
+  const semesterOptions: CustomDropdownOption[] = useMemo(
+    () => availableSemestersForSelection.map((entry) => ({ label: `Semester ${entry}`, value: String(entry) })),
+    [availableSemestersForSelection],
+  );
   const progressPercent = progressTotal > 0 ? Math.min(100, Math.round((progressIndex / progressTotal) * 100)) : 0;
   const notesSelectionKey = useMemo(
-    () => [university, course, stream, type, paperCode.trim(), String(unitNumber)].join("|"),
-    [university, course, stream, type, paperCode, unitNumber],
+    () => [university, course, stream, type, String(semester), paperCode.trim(), String(unitNumber)].join("|"),
+    [university, course, stream, type, semester, paperCode, unitNumber],
   );
   const papersSelectionKey = useMemo(
-    () => [university, course, stream, type, paperCode.trim(), String(selectedYear)].join("|"),
-    [university, course, stream, type, paperCode, selectedYear],
+    () => [university, course, stream, type, String(semester), paperCode.trim(), String(selectedYear)].join("|"),
+    [university, course, stream, type, semester, paperCode, selectedYear],
   );
   const activePdfUrl =
     activeTab === "notes"
@@ -168,7 +181,11 @@ export default function AIContentClient() {
 
   function abortGeneration() {
     if (!generating) return;
+    generationRunIdRef.current += 1;
     closeEventSource();
+    setNotesPdfResult(null);
+    setPapersPdfResult(null);
+    setCanResumeGeneration(false);
     setError("Generation aborted.");
     setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] Generation aborted by user.`]);
     resetProgressState();
@@ -202,7 +219,8 @@ export default function AIContentClient() {
     return { totalQuestions, totalParts: computedParts, etaMinutes: computedEta };
   }
 
-  function startGenerationStream(baseParams: URLSearchParams, part: number) {
+  function startGenerationStream(baseParams: URLSearchParams, part: number, runId: number) {
+    if (runId !== generationRunIdRef.current) return;
     setCurrentPart(part);
     const streamParams = new URLSearchParams(baseParams.toString());
     streamParams.set("part", String(part));
@@ -215,6 +233,7 @@ export default function AIContentClient() {
     let finished = false;
 
     source.onmessage = (event) => {
+      if (runId !== generationRunIdRef.current) return;
       let data: Record<string, unknown>;
       try {
         data = JSON.parse(event.data);
@@ -250,7 +269,7 @@ export default function AIContentClient() {
         }
         if (typeof data.totalParts === "number") setTotalParts(data.totalParts);
         closeEventSource();
-        startGenerationStream(baseParams, nextPart);
+        startGenerationStream(baseParams, nextPart, runId);
         return;
       }
 
@@ -319,6 +338,7 @@ export default function AIContentClient() {
     };
 
     source.onerror = () => {
+      if (runId !== generationRunIdRef.current) return;
       if (finished) return;
       const timeoutError = activeTab === "papers" && elapsedSecondsRef.current >= TIMEOUT_THRESHOLD_SECONDS;
       setError(
@@ -340,6 +360,8 @@ export default function AIContentClient() {
       void Notification.requestPermission();
     }
     closeEventSource();
+    const runId = generationRunIdRef.current + 1;
+    generationRunIdRef.current = runId;
     setLogs([]);
     setGenerating(true);
     setError(null);
@@ -368,6 +390,7 @@ export default function AIContentClient() {
       ...(activeTab === "notes"
         ? { unitNumber: String(unitNumber) }
         : { year: String(selectedYear) }),
+      ...(semester !== "" ? { semester: String(semester) } : {}),
     });
     try {
       if (activeTab === "papers") {
@@ -375,7 +398,7 @@ export default function AIContentClient() {
         setTotalParts(meta.totalParts);
         setEtaMinutes(meta.etaMinutes);
       }
-      startGenerationStream(params, 1);
+      startGenerationStream(params, 1, runId);
     } catch (streamError) {
       setError(streamError instanceof Error ? streamError.message : "Generation failed.");
       resetProgressState();
@@ -450,6 +473,7 @@ export default function AIContentClient() {
       course,
       stream,
       type,
+      ...(semester !== "" ? { semester: String(semester) } : {}),
     });
     fetch(`/api/generate-notes?${params.toString()}`)
       .then((res) => res.json())
@@ -495,6 +519,30 @@ export default function AIContentClient() {
             }
           }
           setYearsByPaperCode(map);
+        } else {
+          setYearsByPaperCode({});
+        }
+        if (data.semestersByPaperCode && typeof data.semestersByPaperCode === "object") {
+          const map: Record<string, number[]> = {};
+          for (const [code, semesters] of Object.entries(data.semestersByPaperCode as Record<string, unknown>)) {
+            if (Array.isArray(semesters)) {
+              map[code] = semesters
+                .map((entry) => (typeof entry === "number" ? entry : Number(entry)))
+                .filter((entry) => Number.isInteger(entry) && entry >= 1 && entry <= 8);
+            }
+          }
+          setSemestersByPaperCode(map);
+        } else {
+          setSemestersByPaperCode({});
+        }
+        if (Array.isArray(data.availableSemesters)) {
+          setAvailableSemesters(
+            data.availableSemesters
+              .map((entry: unknown) => (typeof entry === "number" ? entry : Number(entry)))
+              .filter((entry: number) => Number.isInteger(entry) && entry >= 1 && entry <= 8),
+          );
+        } else {
+          setAvailableSemesters([]);
         }
       })
       .catch(() => {
@@ -503,10 +551,13 @@ export default function AIContentClient() {
         setUnitsByPaperCode({});
         setPaperCode("");
         setYearsByPaperCode({});
+        setSemestersByPaperCode({});
+        setAvailableSemesters([]);
+        setSemester("");
         setSelectedYear("");
       })
       .finally(() => setPaperCodeLoading(false));
-  }, [university, course, stream, type]);
+  }, [university, course, stream, type, semester]);
 
   useEffect(() => {
     const fallbackCode = visiblePaperCodes[0] || "";
@@ -515,6 +566,17 @@ export default function AIContentClient() {
       return fallbackCode;
     });
   }, [visiblePaperCodes]);
+
+  useEffect(() => {
+    if (availableSemestersForSelection.length === 0) {
+      setSemester("");
+      return;
+    }
+    setSemester((current) => {
+      if (typeof current === "number" && availableSemestersForSelection.includes(current)) return current;
+      return availableSemestersForSelection[0] ?? "";
+    });
+  }, [paperCode, availableSemestersForSelection]);
 
   useEffect(() => {
     const defaultUnit = UNIT_OPTIONS[0] ?? 1;
@@ -569,8 +631,10 @@ export default function AIContentClient() {
       : canGenerateByLegacyLimit && papersQuotaAllowed;
   const hasAvailableUnitsForPaper = availableUnits.length > 0;
   const hasAvailableYearsForPaper = availableYears.length > 0;
+  const hasAvailableSemesters = semesterOptions.length > 0;
   const isGenerationDisabled =
     !hasPaperCode ||
+    !hasAvailableSemesters ||
     !canGenerate ||
     (activeTab === "papers" && selectedYear === "") ||
     (activeTab === "notes" && !hasAvailableUnitsForPaper);
@@ -640,6 +704,16 @@ export default function AIContentClient() {
                 onChange={setPaperCode}
                 placeholder={paperCodeLoading ? "Loading..." : "Select paper code"}
                 disabled={generating || paperCodeLoading || visiblePaperCodes.length === 0}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-semibold">Semester</label>
+              <CustomDropdown
+                options={semesterOptions}
+                value={semester === "" ? "" : String(semester)}
+                onChange={(nextValue) => setSemester(Number(nextValue))}
+                placeholder="Select semester"
+                disabled={generating || semesterOptions.length === 0}
               />
             </div>
             {activeTab === "notes" ? (

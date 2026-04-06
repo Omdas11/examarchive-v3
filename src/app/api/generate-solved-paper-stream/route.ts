@@ -394,6 +394,13 @@ function getSolvedPaperCacheKey(course: string, type: string, paperCode: string)
   return `${course}::${type}::${paperCode}`.slice(0, 128);
 }
 
+function normalizeSemester(value: string | null): number | null {
+  if (!value) return null;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 8) return null;
+  return parsed;
+}
+
 async function readSolvedPaperCheckpoint(
   cachePaperCode: string,
   year: number,
@@ -584,6 +591,7 @@ export async function GET(request: NextRequest) {
   const type = (searchParams.get("type") || "").trim();
   const paperCode = (searchParams.get("paperCode") || "").trim();
   const year = normalizeNumber(searchParams.get("year"));
+  const semester = normalizeSemester(searchParams.get("semester"));
   const azureGotenbergUrl = process.env.AZURE_GOTENBERG_URL;
 
   if (!course || !streamName || !type || !paperCode || year === null) {
@@ -609,7 +617,7 @@ export async function GET(request: NextRequest) {
 
   await ensureSolvedPaperCacheSchema();
   await ensureMarkdownCacheBucket();
-  const cachePaperCode = getSolvedPaperCacheKey(course, type, paperCode);
+  const cachePaperCode = getSolvedPaperCacheKey(course, type, `${paperCode}:${semester ?? "all"}`);
 
   if (metaOnly) {
     try {
@@ -779,7 +787,7 @@ export async function GET(request: NextRequest) {
           log: `Using provider/model: google/${model}`,
         }));
         const googleClient = new GoogleGenerativeAI(String(geminiApiKey));
-        const cachePaperCode = getSolvedPaperCacheKey(course, type, paperCode);
+        const cachePaperCode = getSolvedPaperCacheKey(course, type, `${paperCode}:${semester ?? "all"}`);
         const checkpoint = await readSolvedPaperCheckpoint(cachePaperCode, year);
         if (checkpoint?.status === COMPLETED_STATUS && checkpoint.markdown.trim().length > 0) {
           let pdfUrl = checkpoint.pdfFileId ? getAppwriteFileDownloadUrl(checkpoint.pdfFileId) : "";

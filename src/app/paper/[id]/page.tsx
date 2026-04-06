@@ -89,7 +89,7 @@ export default async function PaperPage({ params }: PaperPageProps) {
         <p className="mt-2" style={{ color: "var(--color-text-muted)" }}>
           The requested paper does not exist or has been removed.
         </p>
-        <Link href="/browse" className="btn-primary mt-5 inline-block">← Browse Question Papers</Link>
+        <Link href="/browse" className="btn-primary mt-5 inline-block">← Browse</Link>
       </section>
       </MainLayout>
     );
@@ -163,7 +163,7 @@ export default async function PaperPage({ params }: PaperPageProps) {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M19 12H5M12 5l-7 7 7 7" />
         </svg>
-        Browse Question Papers
+        Browse
       </Link>
 
       {/* ── Paper header card ── */}

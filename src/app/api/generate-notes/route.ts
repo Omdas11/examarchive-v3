@@ -35,6 +35,13 @@ function normalizeTags(raw: unknown): string[] {
   return [];
 }
 
+function normalizeSemester(value: string | null): number | null {
+  if (!value) return null;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 8) return null;
+  return parsed;
+}
+
 async function getDailyCount(userId: string, todayStr: string): Promise<number> {
   const db = adminDatabases();
   try {
@@ -77,12 +84,14 @@ export async function GET(request: NextRequest) {
   const course = (searchParams.get("course") || "").trim();
   const stream = (searchParams.get("stream") || "").trim();
   const type = (searchParams.get("type") || "").trim();
+  const semester = normalizeSemester(searchParams.get("semester"));
 
   try {
     const queries = [Query.equal("university", university)];
     if (course) queries.push(Query.equal("course", course));
     if (stream) queries.push(Query.equal("stream", stream));
     if (type) queries.push(Query.equal("type", type));
+    if (semester !== null) queries.push(Query.equal("semester", semester));
 
     const db = adminDatabases();
     const OPTION_MAX_PAGES = 20;
@@ -139,6 +148,7 @@ export async function GET(request: NextRequest) {
     };
     const syllabusPaperCodes = new Set<string>();
     const unitsByPaperCode: Record<string, number[]> = {};
+    const semestersByPaperCode: Record<string, number[]> = {};
     for (const doc of syllabusDocs) {
       const code = typeof doc.paper_code === "string" ? doc.paper_code.trim() : "";
       if (!code) continue;
@@ -155,10 +165,30 @@ export async function GET(request: NextRequest) {
       if (!Number.isInteger(unit) || unit < 1) continue;
       if (!unitsByPaperCode[code]) unitsByPaperCode[code] = [];
       if (!unitsByPaperCode[code].includes(unit)) unitsByPaperCode[code].push(unit);
+
+      const semesterRaw = doc.semester;
+      const semesterValue =
+        typeof semesterRaw === "number"
+          ? semesterRaw
+          : typeof semesterRaw === "string"
+            ? Number(semesterRaw)
+            : NaN;
+      if (Number.isInteger(semesterValue) && semesterValue >= 1 && semesterValue <= 8) {
+        if (!semestersByPaperCode[code]) semestersByPaperCode[code] = [];
+        if (!semestersByPaperCode[code].includes(semesterValue)) {
+          semestersByPaperCode[code].push(semesterValue);
+        }
+      }
     }
     for (const code of Object.keys(unitsByPaperCode)) {
       unitsByPaperCode[code].sort((a, b) => a - b);
     }
+    for (const code of Object.keys(semestersByPaperCode)) {
+      semestersByPaperCode[code].sort((a, b) => a - b);
+    }
+    const availableSemesters = Array.from(
+      new Set(Object.values(semestersByPaperCode).flat()),
+    ).sort((a, b) => a - b);
 
     const questionPaperCodes = new Set<string>();
     for (const questionDoc of questionDocs) {
@@ -204,6 +234,8 @@ export async function GET(request: NextRequest) {
       papers,
       unitsByPaperCode,
       yearsByPaperCode,
+      semestersByPaperCode,
+      availableSemesters,
     });
   } catch (error) {
     console.error("[generate-notes] Failed to load options:", error);
@@ -220,6 +252,8 @@ export async function GET(request: NextRequest) {
       papers: [],
       unitsByPaperCode: {},
       yearsByPaperCode: {},
+      semestersByPaperCode: {},
+      availableSemesters: [],
     });
   }
 }

@@ -56,7 +56,7 @@ export default async function PapersPage() {
 
       <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
         <Link href="/browse" className="btn-primary px-6 py-2.5">
-          Browse Question Papers Now
+          Browse Now
         </Link>
         <Link href="/" className="btn px-6 py-2.5">
           Back to Home

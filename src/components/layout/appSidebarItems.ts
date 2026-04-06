@@ -31,7 +31,7 @@ export const APP_SIDEBAR_ITEMS: AppSidebarItem[] = [
     href: "/dashboard",
   },
   {
-    label: "Browse Question Papers",
+    label: "Browse",
     icon: "library_books",
     href: "/browse",
   },

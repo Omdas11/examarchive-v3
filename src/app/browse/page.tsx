@@ -13,7 +13,7 @@ import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import BrowseClient from "./BrowseClient";
 
 export const metadata: Metadata = {
-  title: "Browse Question Papers by Course, Year, Semester",
+  title: "Browse PDFs by Course, Year, Semester",
   description:
     "Browse and filter past exam question papers by university, course code, semester, paper type, and year on ExamArchive.",
   keywords: [
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   ],
   alternates: { canonical: "/browse" },
   openGraph: {
-    title: "Browse Question Papers | ExamArchive",
+    title: "Browse | ExamArchive",
     description:
       "Find verified past exam papers using filters for course code, university, semester, and year.",
     url: "https://examarchive.dev/browse",
@@ -93,7 +93,7 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
     >
       <section className="mx-auto px-4 py-10" style={{ maxWidth: "var(--max-w)" }}>
         <div className="rounded-2xl bg-surface-container p-6 shadow-lift border border-outline-variant/30">
-          <h1 className="text-3xl font-bold text-on-surface">Browse Question Papers</h1>
+          <h1 className="text-3xl font-bold text-on-surface">Browse</h1>
           <p className="mt-2 max-w-2xl text-base text-on-surface-variant">
             Quickly search and filter past papers by programme, stream, and year. Pick a paper to inspect or use it as reference for AI notes.
           </p>
