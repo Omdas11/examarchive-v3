@@ -13,7 +13,7 @@ import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import BrowseClient from "./BrowseClient";
 
 export const metadata: Metadata = {
-  title: "Browse PDFs by Course, Year, Semester",
+  title: "Browse by Course, Year, Semester",
   description:
     "Browse and filter past exam question papers by university, course code, semester, paper type, and year on ExamArchive.",
   keywords: [

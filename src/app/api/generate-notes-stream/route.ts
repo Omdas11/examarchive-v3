@@ -30,6 +30,7 @@ const COMPLETED_STATUS = "completed";
 const ATTRIBUTE_AVAILABILITY_POLL_INTERVAL_MS = 300;
 const ATTRIBUTE_AVAILABILITY_TIMEOUT_MS = 12000;
 const GEMINI_MODEL = "gemini-3.1-flash-lite-preview";
+const CACHE_NUMERIC_STRING_MAX_LEN = 10;
 
 function isAdminPlus(role: string): boolean {
   return role === "admin" || role === "founder";
@@ -204,7 +205,17 @@ async function ensureNotesCacheSchema(): Promise<void> {
       DATABASE_ID,
       COLLECTION.generated_notes_cache,
       "year",
-      10,
+      CACHE_NUMERIC_STRING_MAX_LEN,
+      false,
+      undefined,
+    ),
+  );
+  await ensureAttribute("semester", () =>
+    db.createStringAttribute(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      "semester",
+      CACHE_NUMERIC_STRING_MAX_LEN,
       false,
       undefined,
     ),
@@ -316,7 +327,7 @@ async function readCachedNotes(
 ): Promise<CachedNotes | null> {
   const db = adminDatabases();
   const storage = adminStorage();
-  const cachePaperCode = getUnitNotesCacheKey(university, course, stream, selectionType, paperCode);
+  const semesterValue = semester !== null ? String(semester) : null;
   const parseDoc = async (doc: Record<string, unknown> | undefined): Promise<CachedNotes | null> => {
     if (!doc) return null;
     const markdownFileId = typeof doc.markdown_file_id === "string" ? doc.markdown_file_id.trim() : "";
@@ -343,7 +354,7 @@ async function readCachedNotes(
       Query.equal("unit_number", unitNumber),
       Query.equal("type", UNIT_NOTES_CACHE_TYPE),
       Query.equal("status", COMPLETED_STATUS),
-      ...(semester !== null ? [Query.equal("year", String(semester))] : []),
+      ...(semesterValue ? [Query.equal("semester", semesterValue)] : []),
       Query.orderDesc("$createdAt"),
       Query.limit(1),
     ]);
@@ -352,18 +363,56 @@ async function readCachedNotes(
   } catch {
     // Fall through to compatibility lookup.
   }
+  if (semesterValue) {
+    try {
+      const legacyRes = await db.listDocuments(DATABASE_ID, COLLECTION.generated_notes_cache, [
+        Query.equal("university", university),
+        Query.equal("course", course),
+        Query.equal("stream", stream),
+        Query.equal("selection_type", selectionType),
+        Query.equal("paper_code", paperCode),
+        Query.equal("unit_number", unitNumber),
+        Query.equal("type", UNIT_NOTES_CACHE_TYPE),
+        Query.equal("status", COMPLETED_STATUS),
+        Query.equal("year", semesterValue),
+        Query.orderDesc("$createdAt"),
+        Query.limit(1),
+      ]);
+      const legacyPrimary = await parseDoc(legacyRes.documents[0]);
+      if (legacyPrimary) return legacyPrimary;
+    } catch {
+      // Ignore and continue with cache-key fallback queries.
+    }
+  }
+  const fallbackCachePaperCode = getUnitNotesCacheKey(university, course, stream, selectionType, paperCode);
   try {
-    const fallback = await db.listDocuments(DATABASE_ID, COLLECTION.generated_notes_cache, [
-      Query.equal("paper_code", cachePaperCode),
+    const fallbackByCacheKey = await db.listDocuments(DATABASE_ID, COLLECTION.generated_notes_cache, [
+      Query.equal("paper_code", fallbackCachePaperCode),
       Query.equal("unit_number", unitNumber),
       Query.equal("type", UNIT_NOTES_CACHE_TYPE),
       Query.equal("status", COMPLETED_STATUS),
-      ...(semester !== null ? [Query.equal("year", String(semester))] : []),
+      ...(semesterValue ? [Query.equal("semester", semesterValue)] : []),
       Query.orderDesc("$createdAt"),
       Query.limit(1),
     ]);
-    const fallbackDoc = await parseDoc(fallback.documents[0]);
-    if (fallbackDoc) return fallbackDoc;
+    const fallbackPrimary = await parseDoc(fallbackByCacheKey.documents[0]);
+    if (fallbackPrimary) return fallbackPrimary;
+  } catch {
+    // Try legacy `year`-keyed fallback below.
+  }
+  if (!semesterValue) return null;
+  try {
+    const fallbackLegacy = await db.listDocuments(DATABASE_ID, COLLECTION.generated_notes_cache, [
+      Query.equal("paper_code", fallbackCachePaperCode),
+      Query.equal("unit_number", unitNumber),
+      Query.equal("type", UNIT_NOTES_CACHE_TYPE),
+      Query.equal("status", COMPLETED_STATUS),
+      Query.equal("year", semesterValue),
+      Query.orderDesc("$createdAt"),
+      Query.limit(1),
+    ]);
+    const fallbackLegacyPrimary = await parseDoc(fallbackLegacy.documents[0]);
+    if (fallbackLegacyPrimary) return fallbackLegacyPrimary;
   } catch (error) {
     console.error("[generate-notes-stream] Failed to read cache:", error);
   }
@@ -420,14 +469,13 @@ async function writeCachedNotes(
 ): Promise<void> {
   const db = adminDatabases();
   const storage = adminStorage();
-  const cachePaperCode = getUnitNotesCacheKey(university, course, stream, selectionType, paperCode);
-  let markdownFileId = "";
+  const mdFileName = `${paperCode}_Unit_${unitNumber}_Cache.md`;
+  const inputFile = InputFile.fromBuffer(
+    Buffer.from(markdown, "utf-8"),
+    mdFileName,
+  );
+  let markdownFileId: string;
   try {
-    const mdFileName = `${paperCode}_Unit_${unitNumber}_Cache.md`;
-    const inputFile = InputFile.fromBuffer(
-      Buffer.from(markdown, "utf-8"),
-      mdFileName,
-    );
     const uploadResult = await storage.createFile(MARKDOWN_CACHE_BUCKET_ID, ID.unique(), inputFile);
     markdownFileId = String(uploadResult.$id);
   } catch (uploadError) {
@@ -450,15 +498,22 @@ async function writeCachedNotes(
     syllabus_content: syllabusContent,
     created_at: createdAt,
   };
-  if (semester !== null) primaryPayload.year = String(semester);
+  if (semester !== null) {
+    primaryPayload.semester = String(semester);
+    // Legacy compatibility: mirror semester into `year` while old rows still
+    // exist and rollback safety is needed. Safe to remove after a backfill/
+    // TTL window once all active cache reads are `semester`-aware.
+    primaryPayload.year = String(semester);
+  }
   try {
     // Keep explicit created_at because schema/docs require this field for cache reads and audits.
     await db.createDocument(DATABASE_ID, COLLECTION.generated_notes_cache, ID.unique(), primaryPayload);
     log?.("Markdown cache saved successfully.");
   } catch {
     try {
+      const fallbackCachePaperCode = getUnitNotesCacheKey(university, course, stream, selectionType, paperCode);
       const fallbackPayload: Record<string, unknown> = {
-        paper_code: cachePaperCode,
+        paper_code: fallbackCachePaperCode,
         unit_number: unitNumber,
         type: UNIT_NOTES_CACHE_TYPE,
         status: COMPLETED_STATUS,
@@ -466,7 +521,11 @@ async function writeCachedNotes(
         syllabus_content: syllabusContent,
         created_at: createdAt,
       };
-      if (semester !== null) fallbackPayload.year = String(semester);
+      if (semester !== null) {
+        fallbackPayload.semester = String(semester);
+        // Same legacy mirror rationale as primary payload above.
+        fallbackPayload.year = String(semester);
+      }
       await db.createDocument(DATABASE_ID, COLLECTION.generated_notes_cache, ID.unique(), fallbackPayload);
       log?.("Markdown cache saved successfully.");
     } catch (fallbackError) {

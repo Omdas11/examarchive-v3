@@ -473,7 +473,6 @@ export default function AIContentClient() {
       course,
       stream,
       type,
-      ...(semester !== "" ? { semester: String(semester) } : {}),
     });
     fetch(`/api/generate-notes?${params.toString()}`)
       .then((res) => res.json())
@@ -557,7 +556,7 @@ export default function AIContentClient() {
         setSelectedYear("");
       })
       .finally(() => setPaperCodeLoading(false));
-  }, [university, course, stream, type, semester]);
+  }, [university, course, stream, type]);
 
   useEffect(() => {
     const fallbackCode = visiblePaperCodes[0] || "";
