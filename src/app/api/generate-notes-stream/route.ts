@@ -486,6 +486,8 @@ async function writeCachedNotes(
 
   const createdAt = new Date().toISOString();
   const primaryDocId = ID.unique();
+  // Some deployed Generated_Notes_Cache schemas include a required custom `id`
+  // attribute in addition to the document ID parameter, so we mirror both.
   const primaryPayload: Record<string, unknown> = {
     id: primaryDocId,
     university,
@@ -515,6 +517,7 @@ async function writeCachedNotes(
     try {
       const fallbackCachePaperCode = getUnitNotesCacheKey(university, course, stream, selectionType, paperCode);
       const fallbackDocId = ID.unique();
+      // Keep payload `id` mirrored with createDocument id for the same schema reason above.
       const fallbackPayload: Record<string, unknown> = {
         id: fallbackDocId,
         paper_code: fallbackCachePaperCode,
