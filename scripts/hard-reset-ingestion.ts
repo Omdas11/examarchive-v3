@@ -22,7 +22,8 @@ const MAX_TRUNCATION_ITERATIONS = 1000;
 
 type IngestionAttribute =
   | { key: string; type: "string"; size: number; required: boolean }
-  | { key: string; type: "integer"; required: boolean };
+  | { key: string; type: "integer"; required: boolean }
+  | { key: string; type: "datetime"; required: boolean };
 
 const INGESTION_ATTRIBUTES: IngestionAttribute[] = [
   { key: "paper_code", type: "string", size: 256, required: false },
@@ -33,6 +34,13 @@ const INGESTION_ATTRIBUTES: IngestionAttribute[] = [
   { key: "model", type: "string", size: 64, required: false },
   { key: "characters_ingested", type: "integer", required: false },
   { key: "digest", type: "string", size: 8192, required: false },
+  // ── Syllabus-tracker fields ───────────────────────────────────────────
+  { key: "paper_name", type: "string", size: 255, required: false },
+  { key: "ingested_at", type: "datetime", required: false },
+  { key: "row_count", type: "integer", required: false },
+  { key: "error_summary", type: "string", size: 2000, required: false },
+  { key: "subject", type: "string", size: 128, required: false },
+  { key: "dept_code", type: "string", size: 16, required: false },
 ];
 
 function isNotFoundError(error: unknown): boolean {
@@ -51,6 +59,10 @@ function isNotFoundError(error: unknown): boolean {
 async function createIngestionAttribute(attribute: IngestionAttribute) {
   if (attribute.type === "string") {
     await databases.createStringAttribute(DB_ID, AI_INGESTIONS_COL_ID, attribute.key, attribute.size, attribute.required);
+    return;
+  }
+  if (attribute.type === "datetime") {
+    await databases.createDatetimeAttribute(DB_ID, AI_INGESTIONS_COL_ID, attribute.key, attribute.required);
     return;
   }
   await databases.createIntegerAttribute(DB_ID, AI_INGESTIONS_COL_ID, attribute.key, attribute.required);

@@ -3,6 +3,9 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { useToast } from "@/components/ToastContext";
 
+/** Delay in ms before navigating to the tracker page after a successful ingest. */
+const REDIRECT_DELAY_MS = 1800;
+
 type IngestionError = { line: number; message: string };
 type IngestionLog = {
   id: string;
@@ -90,7 +93,7 @@ export default function IngestMdClient() {
           // Navigate to tracker after a short delay so the toast is visible first.
           setTimeout(() => {
             window.location.assign(trackerUrl);
-          }, 1800);
+          }, REDIRECT_DELAY_MS);
         }
       }
       await loadLogs();

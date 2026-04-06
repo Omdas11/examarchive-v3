@@ -18,6 +18,9 @@ const LARGE_STRING_SIZE = 8192;
 const TEXT_CHUNK_SIZE = 1000000;
 const REFERRAL_CODE_SIZE = 6;
 const MARKDOWN_FILE_ID_SIZE = 100;
+/** NEP 2020 FYUG semester range (1–8). */
+const MIN_SEMESTER = 1;
+const MAX_SEMESTER = 8;
 const DATABASE_SCHEMA_DOC_PATH = path.resolve(__dirname, "../DATABASE_SCHEMA.md");
 const STATUS_BLOCK_START = "<!-- SCHEMA_SYNC_STATUS_START -->";
 const STATUS_BLOCK_END = "<!-- SCHEMA_SYNC_STATUS_END -->";
@@ -33,6 +36,9 @@ const DEFAULT_DATABASE_SCHEMA_MARKDOWN = `# DATABASE_SCHEMA
 | \`stream\` | String | **Yes** | Stream name (Arts/Science/Commerce) |
 | \`type\` | String | **Yes** | Paper type (DSC/DSM/SEC/AEC/VAC/IDC) |
 | \`paper_code\` | String | **Yes** | Paper code |
+| \`paper_name\` | String | No | Paper name (from YAML frontmatter) |
+| \`subject\` | String | No | Subject / department name |
+| \`semester\` | Integer | No | Semester number (1–8) |
 | \`unit_number\` | Integer | **Yes** | Unit number |
 | \`syllabus_content\` | String | **Yes** | Unit syllabus content |
 | \`lectures\` | Integer | No | Number of lectures |
@@ -259,7 +265,12 @@ const TARGET_SCHEMA = [
       { key: "stream", type: "string", required: true, size: 64 },
       { key: "type", type: "string", required: true, size: 32 },
       { key: "paper_code", type: "string", required: true, size: 128 },
+      // paper_name stored alongside units so the tracker can show names without
+      // cross-joining against Questions_Table (added for syllabus tracker feature).
+      { key: "paper_name", type: "string", required: false, size: 255 },
       { key: "subject", type: "string", required: false, size: 256 },
+      // semester (1–8) stored explicitly for efficient range queries.
+      { key: "semester", type: "integer", required: false, min: MIN_SEMESTER, max: MAX_SEMESTER },
       { key: "unit_number", type: "integer", required: true },
       { key: "syllabus_content", type: "string", required: true, size: TEXT_CHUNK_SIZE },
       { key: "lectures", type: "integer", required: false },

@@ -2,6 +2,15 @@ name: Appwrite Schema Sync
 
 on:
   workflow_dispatch:
+    inputs:
+      force_sync:
+        description: "Force schema sync even if no files changed"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
   push:
     branches: [ main ]
     paths:

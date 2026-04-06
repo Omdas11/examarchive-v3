@@ -15,6 +15,11 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
+/** Maximum pages to paginate per collection (500 docs/page → covers 3 000 rows). */
+const MAX_FETCH_PAGES = 6;
+/** Documents fetched per Appwrite page. */
+const PAGE_SIZE = 500;
+
 export default async function SyllabusTrackerPage() {
   const user = await getServerUser();
   if (!user || !isAdmin(user.role)) {
@@ -22,9 +27,9 @@ export default async function SyllabusTrackerPage() {
   }
 
   // Fetch all ingested paper codes + names.
-  // Syllabus_Table has paper_code but not paper_name.
-  // Questions_Table has both paper_code and paper_name.
-  // We combine both to determine upload status.
+  // Syllabus_Table now has paper_name (after schema sync) + paper_code.
+  // Questions_Table also has paper_name as a fallback.
+  // We combine both to determine upload status and populate names.
   const db = adminDatabases();
   const uploadedMap: Record<string, string | null> = {};
 
@@ -33,13 +38,12 @@ export default async function SyllabusTrackerPage() {
     nameField: boolean,
   ): Promise<void> {
     let cursor: string | undefined;
-    const PAGE = 500;
-    for (let page = 0; page < 6; page++) {
+    for (let page = 0; page < MAX_FETCH_PAGES; page++) {
       const fields = nameField
         ? ["paper_code", "paper_name"]
         : ["paper_code"];
       const queries = [
-        Query.limit(PAGE),
+        Query.limit(PAGE_SIZE),
         Query.select(fields),
         Query.orderAsc("paper_code"),
       ];
@@ -57,7 +61,7 @@ export default async function SyllabusTrackerPage() {
           uploadedMap[code] = doc.paper_name;
         }
       }
-      if (documents.length < PAGE) break;
+      if (documents.length < PAGE_SIZE) break;
       const last = documents[documents.length - 1];
       cursor = (last as { $id?: string }).$id;
     }

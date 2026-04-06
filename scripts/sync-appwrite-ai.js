@@ -35,6 +35,18 @@ const AI_COLLECTIONS = [
       { key: "model", type: "string", required: false, size: 64 },
       { key: "characters_ingested", type: "integer", required: false },
       { key: "digest", type: "string", required: false, size: 8192 },
+      // ── Syllabus-tracker fields (added for launch-readiness) ──────────────
+      // paper_name avoids a cross-join to Questions_Table for human-readable logs.
+      { key: "paper_name", type: "string", required: false, size: 255 },
+      // ingested_at is an explicit ISO-8601 timestamp (vs relying on $createdAt).
+      { key: "ingested_at", type: "datetime", required: false },
+      // row_count: total syllabus + question rows written in the ingestion.
+      { key: "row_count", type: "integer", required: false },
+      // error_summary: comma-joined parse/DB errors for quick mobile triage.
+      { key: "error_summary", type: "string", required: false, size: 2000 },
+      // subject / dept_code for department-scoped dashboard filters.
+      { key: "subject", type: "string", required: false, size: 128 },
+      { key: "dept_code", type: "string", required: false, size: 16 },
     ],
   },
   {

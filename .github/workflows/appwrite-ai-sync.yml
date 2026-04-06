@@ -2,6 +2,15 @@ name: Appwrite AI Sync
 
 on:
   workflow_dispatch:
+    inputs:
+      force_sync:
+        description: "Force AI schema sync even if no files changed"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
   push:
     branches: [ main ]
     paths:
@@ -9,6 +18,7 @@ on:
       - "scripts/sync-appwrite-ai.js"
       - "scripts/appwrite-schema-setup.js"
       - "scripts/sync-appwrite-schema.js"
+      - "scripts/hard-reset-ingestion.ts"
       - ".github/workflows/appwrite-ai-sync.yml"
 
 permissions:

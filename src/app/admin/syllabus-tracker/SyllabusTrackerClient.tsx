@@ -63,7 +63,7 @@ function PaperCell({
     ? "border border-green-300 bg-green-50 dark:bg-green-900/30 dark:border-green-700"
     : "border border-outline-variant/30 bg-surface-container-low";
   const highlightRing = isHighlighted
-    ? "ring-2 ring-primary ring-offset-1 animate-pulse"
+    ? "ring-2 ring-primary ring-offset-1 motion-safe:animate-pulse"
     : "";
 
   return (

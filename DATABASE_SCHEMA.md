@@ -7,8 +7,12 @@
 | `id` | String | **Yes** | Document ID |
 | `university` | String | **Yes** | University name |
 | `course` | String | **Yes** | Course name (FYUG/CBCS) |
+| `stream` | String | **Yes** | Stream name (Arts/Science/Commerce) |
 | `type` | String | **Yes** | Paper type (DSC/DSM/SEC/AEC/VAC/IDC) |
 | `paper_code` | String | **Yes** | Paper code |
+| `paper_name` | String | No | Paper name (from YAML frontmatter) |
+| `subject` | String | No | Subject / department name |
+| `semester` | Integer | No | Semester number (1–8) |
 | `unit_number` | Integer | **Yes** | Unit number |
 | `syllabus_content` | String | **Yes** | Unit syllabus content |
 | `lectures` | Integer | No | Number of lectures |
@@ -21,9 +25,11 @@
 | `id` | String | **Yes** | Document ID |
 | `university` | String | **Yes** | University name |
 | `course` | String | **Yes** | Course name (FYUG/CBCS) |
+| `stream` | String | **Yes** | Stream name (Arts/Science/Commerce) |
 | `type` | String | **Yes** | Paper type |
 | `paper_code` | String | **Yes** | Paper code |
 | `paper_name` | String | No | Paper name |
+| `subject` | String | No | Subject / department name |
 | `question_no` | String | No | Question number |
 | `question_subpart` | String | No | Subpart label |
 | `year` | Integer | No | Exam year |
@@ -61,8 +67,20 @@
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `paper_code` | String (255) | **Yes** | Strict ingestion paper code |
-| `file_id` | String (255) | **Yes** | Appwrite Storage file ID for ingested markdown |
+| `paper_code` | String (256) | No | Paper code from frontmatter |
+| `source_label` | String (256) | No | Uploaded filename |
+| `file_id` | String (64) | No | Appwrite Storage file ID for ingested markdown |
+| `file_url` | String (2048) | No | URL to retrieve the file |
+| `status` | String (32) | No | `success` / `partial` / `failed` |
+| `model` | String (64) | No | Parser model identifier |
+| `characters_ingested` | Integer | No | Legacy row-count field |
+| `digest` | String (8192) | No | JSON blob with error details (legacy) |
+| `paper_name` | String (255) | No | Human-readable paper name from frontmatter |
+| `ingested_at` | Datetime | No | Explicit ingestion timestamp |
+| `row_count` | Integer | No | Total syllabus + question rows written |
+| `error_summary` | String (2000) | No | Comma-joined parse errors for quick triage |
+| `subject` | String (128) | No | Subject / department (e.g., `Physics`) |
+| `dept_code` | String (16) | No | 3-letter dept code (e.g., `PHY`) |
 
 ## Storage Bucket: `examarchive-md-ingestion`
 
