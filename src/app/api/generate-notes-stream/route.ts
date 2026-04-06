@@ -492,11 +492,15 @@ async function writeCachedNotes(
   }
 
   const createdAt = new Date().toISOString();
+  const fallbackCachePaperCode = getUnitNotesCacheKey(university, course, stream, selectionType, paperCode);
   const applySemesterCompatFields = (payload: Record<string, unknown>) => {
+    // Unit-notes requests may omit semester for legacy callers; in that case
+    // cache rows are intentionally written without semester/year selectors.
     if (semester === null) return;
     payload.semester = String(semester);
     // Legacy compatibility: historically "year" was used for this same
     // semester selector in unit-notes cache keys/queries.
+    // Remove once all active cache readers and rows are fully semester-based.
     payload.year = String(semester);
   };
   const primaryDocId = ID.unique();
@@ -524,7 +528,6 @@ async function writeCachedNotes(
   } catch (primaryError) {
     console.warn("[generate-notes-stream] Primary cache write failed; falling back to compatibility payload:", primaryError);
     try {
-      const fallbackCachePaperCode = getUnitNotesCacheKey(university, course, stream, selectionType, paperCode);
       const fallbackDocId = ID.unique();
       // Keep payload `id` mirrored with createDocument id for the same schema reason above.
       const fallbackPayload: Record<string, unknown> = {
@@ -543,7 +546,6 @@ async function writeCachedNotes(
     } catch (fallbackError) {
       console.warn("[generate-notes-stream] Compatibility cache write failed; retrying without optional syllabus_content:", fallbackError);
       try {
-        const fallbackCachePaperCode = getUnitNotesCacheKey(university, course, stream, selectionType, paperCode);
         const finalFallbackDocId = ID.unique();
         const finalFallbackPayload: Record<string, unknown> = {
           id: finalFallbackDocId,
