@@ -109,8 +109,8 @@ _This section is updated by `scripts/sync-appwrite-schema.js` when run with `--u
 | `ai_usage` | ✅ Perfectly connected | 0 | collection existed; 0/2 missing attrs created; no mismatches detected |
 | `ai_embeddings` | ⚠️ Connected with differences | 0 | collection existed; 0/11 missing attrs created; 8 attr definition mismatch(es) |
 | `pdf_usage` | ✅ Perfectly connected | 0 | collection existed; 0/2 missing attrs created; no mismatches detected |
-| `Syllabus_Table` | ⚠️ Connected with differences | 1 | collection existed; 1/11 missing attrs created; 1 attr definition mismatch(es) |
-| `Questions_Table` | ⚠️ Connected with differences | 1 | collection existed; 1/14 missing attrs created; 1 attr definition mismatch(es) |
+| `Syllabus_Table` | ⚠️ Connected with differences | 2 | collection existed; 2/13 missing attrs created; 1 attr definition mismatch(es) |
+| `Questions_Table` | ⚠️ Connected with differences | 0 | collection existed; 0/14 missing attrs created; 1 attr definition mismatch(es) |
 | `Generated_Notes_Cache` | ⚠️ Connected with differences | 0 | collection existed; 0/10 missing attrs created; 3 attr definition mismatch(es) |
 | `User_Quotas` | ✅ Perfectly connected | 0 | collection existed; 0/5 missing attrs created; no mismatches detected |
 
@@ -118,7 +118,7 @@ _This section is updated by `scripts/sync-appwrite-schema.js` when run with `--u
 
 ---
 ### Sync Remarks (Auto-Generated)
-**Last Synced:** 2026-04-06T05:00:31.003Z
+**Last Synced:** 2026-04-06T14:18:07.045Z
 **Overall Status:** Partial
 **Connected:**
 - feedback updated successfully.
