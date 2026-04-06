@@ -7,6 +7,17 @@ export interface AppSidebarItem {
   roles?: string[];
 }
 
+const ALL_AUTHENTICATED_ROLES = [
+  "visitor",
+  "student",
+  "explorer",
+  "contributor",
+  "verified_contributor",
+  "moderator",
+  "admin",
+  "founder",
+];
+
 export const APP_SIDEBAR_ITEMS: AppSidebarItem[] = [
   // ── Main ──────────────────────────────────────────────
   {
@@ -94,7 +105,7 @@ export const APP_SIDEBAR_ITEMS: AppSidebarItem[] = [
     label: "Syllabus Tracker",
     icon: "table_chart",
     href: "/admin/syllabus-tracker",
-    roles: ["visitor", "student", "explorer", "contributor", "verified_contributor", "moderator", "admin", "founder"],
+    roles: ALL_AUTHENTICATED_ROLES,
   },
   {
     label: "Manage Users",

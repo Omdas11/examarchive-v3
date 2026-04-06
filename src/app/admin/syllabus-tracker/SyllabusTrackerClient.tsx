@@ -211,7 +211,8 @@ export default function SyllabusTrackerClient({ tables, slotOrder, uploadedMap, 
             );
           const checkedCount = codes.filter((c) => checkedMap[c]).length;
           const checked = codes.length > 0 && checkedCount === codes.length;
-          return { semester, total: codes.length, checked, checkedCount };
+          const progressPercent = codes.length ? (checkedCount / codes.length) * 100 : 0;
+          return { semester, total: codes.length, checked, checkedCount, progressPercent };
         });
         return { id: table.id, label: table.label, bySemester };
       }),
@@ -232,7 +233,10 @@ export default function SyllabusTrackerClient({ tables, slotOrder, uploadedMap, 
   return (
     <div className="space-y-6">
       {!canEdit && (
-        <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low px-4 py-3 text-sm text-on-surface-variant">
+        <div
+          role="status"
+          className="rounded-xl border border-outline-variant/30 bg-surface-container-low px-4 py-3 text-sm text-on-surface-variant"
+        >
           View-only mode: only admin+ roles can update checklist states.
         </div>
       )}
@@ -285,7 +289,13 @@ export default function SyllabusTrackerClient({ tables, slotOrder, uploadedMap, 
                       ) : (
                         <div className="space-y-1">
                           <label className="inline-flex items-center gap-1.5">
-                            <input type="checkbox" checked={s.checked} readOnly className="h-4 w-4" />
+                            <input
+                              type="checkbox"
+                              checked={s.checked}
+                              readOnly
+                              aria-label={`${dept.label} semester ${s.semester} completion status`}
+                              className="h-4 w-4"
+                            />
                             <span className="text-[10px] text-on-surface-variant">
                               {s.checkedCount}/{s.total}
                             </span>
@@ -293,7 +303,7 @@ export default function SyllabusTrackerClient({ tables, slotOrder, uploadedMap, 
                           <div className="mx-auto h-1.5 w-14 overflow-hidden rounded-full bg-surface-container-low">
                             <div
                               className="h-full bg-primary"
-                              style={{ width: `${Math.min(100, (s.checkedCount / s.total) * 100)}%` }}
+                              style={{ width: `${s.progressPercent}%` }}
                             />
                           </div>
                         </div>
