@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { useToast } from "@/components/ToastContext";
 
 type IngestionError = { line: number; message: string };
 type IngestionLog = {
@@ -14,6 +15,7 @@ type IngestionLog = {
 };
 
 export default function IngestMdClient() {
+  const { showToast } = useToast();
   const [dragActive, setDragActive] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,9 +77,21 @@ export default function IngestMdClient() {
           : [];
         setError(data.error ?? (fallbackErrors.join("; ") || "Upload/ingestion failed."));
       } else {
+        const paperCode = String(data.paperCode ?? "");
         setLastResult(
           `${String(data.status).toUpperCase()} · Added ${data.added}, Updated ${data.updated}, Rows ${data.rowsAffected}`,
         );
+        if (paperCode) {
+          const trackerUrl = `/admin/syllabus-tracker?highlight=${encodeURIComponent(paperCode)}`;
+          showToast(
+            `✓ ${paperCode} ingested — view in Syllabus Tracker`,
+            data.status === "success" ? "success" : "warning",
+          );
+          // Navigate to tracker after a short delay so the toast is visible first.
+          setTimeout(() => {
+            window.location.assign(trackerUrl);
+          }, 1800);
+        }
       }
       await loadLogs();
     } catch {

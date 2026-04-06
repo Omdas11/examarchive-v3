@@ -1,0 +1,3049 @@
+{
+  "metadata": {
+    "university": "Assam University",
+    "programme": "FYUG",
+    "totalExpected": 526,
+    "generatedPapers": 363,
+    "departments": [
+      "PHY",
+      "CHM",
+      "ZOO",
+      "BOT",
+      "MAT",
+      "COM",
+      "ENG",
+      "ECO",
+      "BEN",
+      "ASM",
+      "PLS",
+      "HIS",
+      "PHI"
+    ],
+    "courseTypes": [
+      "DSC",
+      "DSM",
+      "IDC",
+      "SEC",
+      "AEC",
+      "VAC"
+    ],
+    "semesters": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "note": "Paper names (null) are populated when the corresponding .md syllabus file is ingested."
+  },
+  "tables": [
+    {
+      "id": "PHY",
+      "label": "PHY",
+      "papers": [
+        {
+          "code": "PHYDSC101T",
+          "name": null,
+          "semester": 1,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "PHYDSC101P",
+          "name": null,
+          "semester": 1,
+          "type": "DSC",
+          "variant": "P",
+          "credits": 2
+        },
+        {
+          "code": "PHYDSM101T",
+          "name": null,
+          "semester": 1,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "PHYDSC201T",
+          "name": null,
+          "semester": 2,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "PHYDSC201P",
+          "name": null,
+          "semester": 2,
+          "type": "DSC",
+          "variant": "P",
+          "credits": 2
+        },
+        {
+          "code": "PHYDSM201T",
+          "name": null,
+          "semester": 2,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "PHYDSC301T",
+          "name": null,
+          "semester": 3,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "PHYDSC301P",
+          "name": null,
+          "semester": 3,
+          "type": "DSC",
+          "variant": "P",
+          "credits": 2
+        },
+        {
+          "code": "PHYDSM301T",
+          "name": null,
+          "semester": 3,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "PHYIDC301T",
+          "name": null,
+          "semester": 3,
+          "type": "IDC",
+          "variant": "T",
+          "credits": 2
+        },
+        {
+          "code": "PHYDSC401T",
+          "name": null,
+          "semester": 4,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "PHYDSC401P",
+          "name": null,
+          "semester": 4,
+          "type": "DSC",
+          "variant": "P",
+          "credits": 2
+        },
+        {
+          "code": "PHYDSM401T",
+          "name": null,
+          "semester": 4,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "PHYIDC401T",
+          "name": null,
+          "semester": 4,
+          "type": "IDC",
+          "variant": "T",
+          "credits": 2
+        },
+        {
+          "code": "PHYDSC501T",
+          "name": null,
+          "semester": 5,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "PHYDSC502T",
+          "name": null,
+          "semester": 5,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "PHYDSC501P",
+          "name": null,
+          "semester": 5,
+          "type": "DSC",
+          "variant": "P",
+          "credits": 2
+        },
+        {
+          "code": "PHYDSM501T",
+          "name": null,
+          "semester": 5,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "PHYDSC601T",
+          "name": null,
+          "semester": 6,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "PHYDSC602T",
+          "name": null,
+          "semester": 6,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "PHYDSC601P",
+          "name": null,
+          "semester": 6,
+          "type": "DSC",
+          "variant": "P",
+          "credits": 2
+        },
+        {
+          "code": "PHYDSM601T",
+          "name": null,
+          "semester": 6,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "PHYDSC701T",
+          "name": null,
+          "semester": 7,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "PHYDSC702T",
+          "name": null,
+          "semester": 7,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "PHYDSC701P",
+          "name": null,
+          "semester": 7,
+          "type": "DSC",
+          "variant": "P",
+          "credits": 2
+        },
+        {
+          "code": "PHYDSM701T",
+          "name": null,
+          "semester": 7,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "PHYDSC801T",
+          "name": null,
+          "semester": 8,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "PHYDSC801P",
+          "name": null,
+          "semester": 8,
+          "type": "DSC",
+          "variant": "P",
+          "credits": 4
+        },
+        {
+          "code": "PHYDSM801T",
+          "name": null,
+          "semester": 8,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "PHYDSC802T",
+          "name": null,
+          "semester": 8,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        }
+      ]
+    },
+    {
+      "id": "CHM",
+      "label": "CHM",
+      "papers": [
+        {
+          "code": "CHMDSC101T",
+          "name": null,
+          "semester": 1,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "CHMDSC101P",
+          "name": null,
+          "semester": 1,
+          "type": "DSC",
+          "variant": "P",
+          "credits": 2
+        },
+        {
+          "code": "CHMDSM101T",
+          "name": null,
+          "semester": 1,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "CHMDSC201T",
+          "name": null,
+          "semester": 2,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "CHMDSC201P",
+          "name": null,
+          "semester": 2,
+          "type": "DSC",
+          "variant": "P",
+          "credits": 2
+        },
+        {
+          "code": "CHMDSM201T",
+          "name": null,
+          "semester": 2,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "CHMDSC301T",
+          "name": null,
+          "semester": 3,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "CHMDSC301P",
+          "name": null,
+          "semester": 3,
+          "type": "DSC",
+          "variant": "P",
+          "credits": 2
+        },
+        {
+          "code": "CHMDSM301T",
+          "name": null,
+          "semester": 3,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "CHMIDC301T",
+          "name": null,
+          "semester": 3,
+          "type": "IDC",
+          "variant": "T",
+          "credits": 2
+        },
+        {
+          "code": "CHMDSC401T",
+          "name": null,
+          "semester": 4,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "CHMDSC401P",
+          "name": null,
+          "semester": 4,
+          "type": "DSC",
+          "variant": "P",
+          "credits": 2
+        },
+        {
+          "code": "CHMDSM401T",
+          "name": null,
+          "semester": 4,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "CHMIDC401T",
+          "name": null,
+          "semester": 4,
+          "type": "IDC",
+          "variant": "T",
+          "credits": 2
+        },
+        {
+          "code": "CHMDSC501T",
+          "name": null,
+          "semester": 5,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "CHMDSC502T",
+          "name": null,
+          "semester": 5,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "CHMDSC501P",
+          "name": null,
+          "semester": 5,
+          "type": "DSC",
+          "variant": "P",
+          "credits": 2
+        },
+        {
+          "code": "CHMDSM501T",
+          "name": null,
+          "semester": 5,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "CHMDSC601T",
+          "name": null,
+          "semester": 6,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "CHMDSC602T",
+          "name": null,
+          "semester": 6,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "CHMDSC601P",
+          "name": null,
+          "semester": 6,
+          "type": "DSC",
+          "variant": "P",
+          "credits": 2
+        },
+        {
+          "code": "CHMDSM601T",
+          "name": null,
+          "semester": 6,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "CHMDSC701T",
+          "name": null,
+          "semester": 7,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "CHMDSC702T",
+          "name": null,
+          "semester": 7,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "CHMDSC701P",
+          "name": null,
+          "semester": 7,
+          "type": "DSC",
+          "variant": "P",
+          "credits": 2
+        },
+        {
+          "code": "CHMDSM701T",
+          "name": null,
+          "semester": 7,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "CHMDSC801T",
+          "name": null,
+          "semester": 8,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "CHMDSC801P",
+          "name": null,
+          "semester": 8,
+          "type": "DSC",
+          "variant": "P",
+          "credits": 4
+        },
+        {
+          "code": "CHMDSM801T",
+          "name": null,
+          "semester": 8,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "CHMDSC802T",
+          "name": null,
+          "semester": 8,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        }
+      ]
+    },
+    {
+      "id": "ZOO",
+      "label": "ZOO",
+      "papers": [
+        {
+          "code": "ZOODSC101T",
+          "name": null,
+          "semester": 1,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "ZOODSC101P",
+          "name": null,
+          "semester": 1,
+          "type": "DSC",
+          "variant": "P",
+          "credits": 2
+        },
+        {
+          "code": "ZOODSM101T",
+          "name": null,
+          "semester": 1,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "ZOODSC201T",
+          "name": null,
+          "semester": 2,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "ZOODSC201P",
+          "name": null,
+          "semester": 2,
+          "type": "DSC",
+          "variant": "P",
+          "credits": 2
+        },
+        {
+          "code": "ZOODSM201T",
+          "name": null,
+          "semester": 2,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "ZOODSC301T",
+          "name": null,
+          "semester": 3,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "ZOODSC301P",
+          "name": null,
+          "semester": 3,
+          "type": "DSC",
+          "variant": "P",
+          "credits": 2
+        },
+        {
+          "code": "ZOODSM301T",
+          "name": null,
+          "semester": 3,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "ZOOIDC301T",
+          "name": null,
+          "semester": 3,
+          "type": "IDC",
+          "variant": "T",
+          "credits": 2
+        },
+        {
+          "code": "ZOODSC401T",
+          "name": null,
+          "semester": 4,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "ZOODSC401P",
+          "name": null,
+          "semester": 4,
+          "type": "DSC",
+          "variant": "P",
+          "credits": 2
+        },
+        {
+          "code": "ZOODSM401T",
+          "name": null,
+          "semester": 4,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "ZOOIDC401T",
+          "name": null,
+          "semester": 4,
+          "type": "IDC",
+          "variant": "T",
+          "credits": 2
+        },
+        {
+          "code": "ZOODSC501T",
+          "name": null,
+          "semester": 5,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "ZOODSC502T",
+          "name": null,
+          "semester": 5,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "ZOODSC501P",
+          "name": null,
+          "semester": 5,
+          "type": "DSC",
+          "variant": "P",
+          "credits": 2
+        },
+        {
+          "code": "ZOODSM501T",
+          "name": null,
+          "semester": 5,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "ZOODSC601T",
+          "name": null,
+          "semester": 6,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "ZOODSC602T",
+          "name": null,
+          "semester": 6,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "ZOODSC601P",
+          "name": null,
+          "semester": 6,
+          "type": "DSC",
+          "variant": "P",
+          "credits": 2
+        },
+        {
+          "code": "ZOODSM601T",
+          "name": null,
+          "semester": 6,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "ZOODSC701T",
+          "name": null,
+          "semester": 7,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "ZOODSC702T",
+          "name": null,
+          "semester": 7,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "ZOODSC701P",
+          "name": null,
+          "semester": 7,
+          "type": "DSC",
+          "variant": "P",
+          "credits": 2
+        },
+        {
+          "code": "ZOODSM701T",
+          "name": null,
+          "semester": 7,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "ZOODSC801T",
+          "name": null,
+          "semester": 8,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "ZOODSC801P",
+          "name": null,
+          "semester": 8,
+          "type": "DSC",
+          "variant": "P",
+          "credits": 4
+        },
+        {
+          "code": "ZOODSM801T",
+          "name": null,
+          "semester": 8,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "ZOODSC802T",
+          "name": null,
+          "semester": 8,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        }
+      ]
+    },
+    {
+      "id": "BOT",
+      "label": "BOT",
+      "papers": [
+        {
+          "code": "BOTDSC101T",
+          "name": null,
+          "semester": 1,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "BOTDSC101P",
+          "name": null,
+          "semester": 1,
+          "type": "DSC",
+          "variant": "P",
+          "credits": 2
+        },
+        {
+          "code": "BOTDSM101T",
+          "name": null,
+          "semester": 1,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "BOTDSC201T",
+          "name": null,
+          "semester": 2,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "BOTDSC201P",
+          "name": null,
+          "semester": 2,
+          "type": "DSC",
+          "variant": "P",
+          "credits": 2
+        },
+        {
+          "code": "BOTDSM201T",
+          "name": null,
+          "semester": 2,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "BOTDSC301T",
+          "name": null,
+          "semester": 3,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "BOTDSC301P",
+          "name": null,
+          "semester": 3,
+          "type": "DSC",
+          "variant": "P",
+          "credits": 2
+        },
+        {
+          "code": "BOTDSM301T",
+          "name": null,
+          "semester": 3,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "BOTIDC301T",
+          "name": null,
+          "semester": 3,
+          "type": "IDC",
+          "variant": "T",
+          "credits": 2
+        },
+        {
+          "code": "BOTDSC401T",
+          "name": null,
+          "semester": 4,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "BOTDSC401P",
+          "name": null,
+          "semester": 4,
+          "type": "DSC",
+          "variant": "P",
+          "credits": 2
+        },
+        {
+          "code": "BOTDSM401T",
+          "name": null,
+          "semester": 4,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "BOTIDC401T",
+          "name": null,
+          "semester": 4,
+          "type": "IDC",
+          "variant": "T",
+          "credits": 2
+        },
+        {
+          "code": "BOTDSC501T",
+          "name": null,
+          "semester": 5,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "BOTDSC502T",
+          "name": null,
+          "semester": 5,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "BOTDSC501P",
+          "name": null,
+          "semester": 5,
+          "type": "DSC",
+          "variant": "P",
+          "credits": 2
+        },
+        {
+          "code": "BOTDSM501T",
+          "name": null,
+          "semester": 5,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "BOTDSC601T",
+          "name": null,
+          "semester": 6,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "BOTDSC602T",
+          "name": null,
+          "semester": 6,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "BOTDSC601P",
+          "name": null,
+          "semester": 6,
+          "type": "DSC",
+          "variant": "P",
+          "credits": 2
+        },
+        {
+          "code": "BOTDSM601T",
+          "name": null,
+          "semester": 6,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "BOTDSC701T",
+          "name": null,
+          "semester": 7,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "BOTDSC702T",
+          "name": null,
+          "semester": 7,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "BOTDSC701P",
+          "name": null,
+          "semester": 7,
+          "type": "DSC",
+          "variant": "P",
+          "credits": 2
+        },
+        {
+          "code": "BOTDSM701T",
+          "name": null,
+          "semester": 7,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "BOTDSC801T",
+          "name": null,
+          "semester": 8,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "BOTDSC801P",
+          "name": null,
+          "semester": 8,
+          "type": "DSC",
+          "variant": "P",
+          "credits": 4
+        },
+        {
+          "code": "BOTDSM801T",
+          "name": null,
+          "semester": 8,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "BOTDSC802T",
+          "name": null,
+          "semester": 8,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        }
+      ]
+    },
+    {
+      "id": "MAT",
+      "label": "MAT",
+      "papers": [
+        {
+          "code": "MATDSC101T",
+          "name": null,
+          "semester": 1,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "MATDSM101T",
+          "name": null,
+          "semester": 1,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "MATDSC201T",
+          "name": null,
+          "semester": 2,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "MATDSM201T",
+          "name": null,
+          "semester": 2,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "MATDSC301T",
+          "name": null,
+          "semester": 3,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "MATDSM301T",
+          "name": null,
+          "semester": 3,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "MATIDC301T",
+          "name": null,
+          "semester": 3,
+          "type": "IDC",
+          "variant": "T",
+          "credits": 2
+        },
+        {
+          "code": "MATDSC401T",
+          "name": null,
+          "semester": 4,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "MATDSM401T",
+          "name": null,
+          "semester": 4,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "MATIDC401T",
+          "name": null,
+          "semester": 4,
+          "type": "IDC",
+          "variant": "T",
+          "credits": 2
+        },
+        {
+          "code": "MATDSC401AT",
+          "name": null,
+          "semester": 4,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3,
+          "elective": "A"
+        },
+        {
+          "code": "MATDSC401BT",
+          "name": null,
+          "semester": 4,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3,
+          "elective": "B"
+        },
+        {
+          "code": "MATDSC501T",
+          "name": null,
+          "semester": 5,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "MATDSC502T",
+          "name": null,
+          "semester": 5,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "MATDSC501AT",
+          "name": null,
+          "semester": 5,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4,
+          "elective": "A"
+        },
+        {
+          "code": "MATDSC501BT",
+          "name": null,
+          "semester": 5,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4,
+          "elective": "B"
+        },
+        {
+          "code": "MATDSM501T",
+          "name": null,
+          "semester": 5,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "MATDSC601T",
+          "name": null,
+          "semester": 6,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "MATDSC602T",
+          "name": null,
+          "semester": 6,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "MATDSC601AT",
+          "name": null,
+          "semester": 6,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4,
+          "elective": "A"
+        },
+        {
+          "code": "MATDSC601BT",
+          "name": null,
+          "semester": 6,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4,
+          "elective": "B"
+        },
+        {
+          "code": "MATDSM601T",
+          "name": null,
+          "semester": 6,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "MATDSC701T",
+          "name": null,
+          "semester": 7,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "MATDSC702T",
+          "name": null,
+          "semester": 7,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "MATDSC701AT",
+          "name": null,
+          "semester": 7,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4,
+          "elective": "A"
+        },
+        {
+          "code": "MATDSC701BT",
+          "name": null,
+          "semester": 7,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4,
+          "elective": "B"
+        },
+        {
+          "code": "MATDSM701T",
+          "name": null,
+          "semester": 7,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "MATDSC801T",
+          "name": null,
+          "semester": 8,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "MATDSC801AT",
+          "name": null,
+          "semester": 8,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4,
+          "elective": "A"
+        },
+        {
+          "code": "MATDSC801BT",
+          "name": null,
+          "semester": 8,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4,
+          "elective": "B"
+        },
+        {
+          "code": "MATDSC802T",
+          "name": null,
+          "semester": 8,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "MATDSM801T",
+          "name": null,
+          "semester": 8,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        }
+      ]
+    },
+    {
+      "id": "COM",
+      "label": "COM",
+      "papers": [
+        {
+          "code": "COMDSC101T",
+          "name": null,
+          "semester": 1,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "COMDSC101P",
+          "name": null,
+          "semester": 1,
+          "type": "DSC",
+          "variant": "P",
+          "credits": 2
+        },
+        {
+          "code": "COMDSM101T",
+          "name": null,
+          "semester": 1,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "COMDSC201T",
+          "name": null,
+          "semester": 2,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "COMDSC201P",
+          "name": null,
+          "semester": 2,
+          "type": "DSC",
+          "variant": "P",
+          "credits": 2
+        },
+        {
+          "code": "COMDSM201T",
+          "name": null,
+          "semester": 2,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "COMDSC301T",
+          "name": null,
+          "semester": 3,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "COMDSC301P",
+          "name": null,
+          "semester": 3,
+          "type": "DSC",
+          "variant": "P",
+          "credits": 2
+        },
+        {
+          "code": "COMDSM301T",
+          "name": null,
+          "semester": 3,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "COMIDC301T",
+          "name": null,
+          "semester": 3,
+          "type": "IDC",
+          "variant": "T",
+          "credits": 2
+        },
+        {
+          "code": "COMDSC401T",
+          "name": null,
+          "semester": 4,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "COMDSC401P",
+          "name": null,
+          "semester": 4,
+          "type": "DSC",
+          "variant": "P",
+          "credits": 2
+        },
+        {
+          "code": "COMDSM401T",
+          "name": null,
+          "semester": 4,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "COMIDC401T",
+          "name": null,
+          "semester": 4,
+          "type": "IDC",
+          "variant": "T",
+          "credits": 2
+        },
+        {
+          "code": "COMDSC501T",
+          "name": null,
+          "semester": 5,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "COMDSC502T",
+          "name": null,
+          "semester": 5,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "COMDSC501P",
+          "name": null,
+          "semester": 5,
+          "type": "DSC",
+          "variant": "P",
+          "credits": 2
+        },
+        {
+          "code": "COMDSM501T",
+          "name": null,
+          "semester": 5,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "COMDSC601T",
+          "name": null,
+          "semester": 6,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "COMDSC602T",
+          "name": null,
+          "semester": 6,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "COMDSC601P",
+          "name": null,
+          "semester": 6,
+          "type": "DSC",
+          "variant": "P",
+          "credits": 2
+        },
+        {
+          "code": "COMDSM601T",
+          "name": null,
+          "semester": 6,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "COMDSC701T",
+          "name": null,
+          "semester": 7,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "COMDSC702T",
+          "name": null,
+          "semester": 7,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "COMDSC701P",
+          "name": null,
+          "semester": 7,
+          "type": "DSC",
+          "variant": "P",
+          "credits": 2
+        },
+        {
+          "code": "COMDSM701T",
+          "name": null,
+          "semester": 7,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "COMDSC801T",
+          "name": null,
+          "semester": 8,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "COMDSC801P",
+          "name": null,
+          "semester": 8,
+          "type": "DSC",
+          "variant": "P",
+          "credits": 4
+        },
+        {
+          "code": "COMDSM801T",
+          "name": null,
+          "semester": 8,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "COMDSC802T",
+          "name": null,
+          "semester": 8,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        }
+      ]
+    },
+    {
+      "id": "ENG",
+      "label": "ENG",
+      "papers": [
+        {
+          "code": "ENGDSC101T",
+          "name": null,
+          "semester": 1,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "ENGDSM101T",
+          "name": null,
+          "semester": 1,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "ENGDSC201T",
+          "name": null,
+          "semester": 2,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "ENGDSM201T",
+          "name": null,
+          "semester": 2,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "ENGDSC301T",
+          "name": null,
+          "semester": 3,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "ENGDSM301T",
+          "name": null,
+          "semester": 3,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "ENGIDC301T",
+          "name": null,
+          "semester": 3,
+          "type": "IDC",
+          "variant": "T",
+          "credits": 2
+        },
+        {
+          "code": "ENGDSC401T",
+          "name": null,
+          "semester": 4,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "ENGDSM401T",
+          "name": null,
+          "semester": 4,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "ENGIDC401T",
+          "name": null,
+          "semester": 4,
+          "type": "IDC",
+          "variant": "T",
+          "credits": 2
+        },
+        {
+          "code": "ENGDSC401AT",
+          "name": null,
+          "semester": 4,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3,
+          "elective": "A"
+        },
+        {
+          "code": "ENGDSC501T",
+          "name": null,
+          "semester": 5,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "ENGDSC502T",
+          "name": null,
+          "semester": 5,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "ENGDSM501T",
+          "name": null,
+          "semester": 5,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "ENGDSC601T",
+          "name": null,
+          "semester": 6,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "ENGDSC602T",
+          "name": null,
+          "semester": 6,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "ENGDSM601T",
+          "name": null,
+          "semester": 6,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "ENGDSC701T",
+          "name": null,
+          "semester": 7,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "ENGDSC702T",
+          "name": null,
+          "semester": 7,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "ENGDSM701T",
+          "name": null,
+          "semester": 7,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "ENGDSC801T",
+          "name": null,
+          "semester": 8,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "ENGDSC802T",
+          "name": null,
+          "semester": 8,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "ENGDSM801T",
+          "name": null,
+          "semester": 8,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        }
+      ]
+    },
+    {
+      "id": "ECO",
+      "label": "ECO",
+      "papers": [
+        {
+          "code": "ECODSC101T",
+          "name": null,
+          "semester": 1,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "ECODSM101T",
+          "name": null,
+          "semester": 1,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "ECODSC201T",
+          "name": null,
+          "semester": 2,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "ECODSM201T",
+          "name": null,
+          "semester": 2,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "ECODSC301T",
+          "name": null,
+          "semester": 3,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "ECODSM301T",
+          "name": null,
+          "semester": 3,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "ECOIDC301T",
+          "name": null,
+          "semester": 3,
+          "type": "IDC",
+          "variant": "T",
+          "credits": 2
+        },
+        {
+          "code": "ECODSC401T",
+          "name": null,
+          "semester": 4,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "ECODSM401T",
+          "name": null,
+          "semester": 4,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "ECOIDC401T",
+          "name": null,
+          "semester": 4,
+          "type": "IDC",
+          "variant": "T",
+          "credits": 2
+        },
+        {
+          "code": "ECODSC401AT",
+          "name": null,
+          "semester": 4,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3,
+          "elective": "A"
+        },
+        {
+          "code": "ECODSC501T",
+          "name": null,
+          "semester": 5,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "ECODSC502T",
+          "name": null,
+          "semester": 5,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "ECODSM501T",
+          "name": null,
+          "semester": 5,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "ECODSC601T",
+          "name": null,
+          "semester": 6,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "ECODSC602T",
+          "name": null,
+          "semester": 6,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "ECODSM601T",
+          "name": null,
+          "semester": 6,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "ECODSC701T",
+          "name": null,
+          "semester": 7,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "ECODSC702T",
+          "name": null,
+          "semester": 7,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "ECODSM701T",
+          "name": null,
+          "semester": 7,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "ECODSC801T",
+          "name": null,
+          "semester": 8,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "ECODSC802T",
+          "name": null,
+          "semester": 8,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "ECODSM801T",
+          "name": null,
+          "semester": 8,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        }
+      ]
+    },
+    {
+      "id": "BEN",
+      "label": "BEN",
+      "papers": [
+        {
+          "code": "BENDSC101T",
+          "name": null,
+          "semester": 1,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "BENDSM101T",
+          "name": null,
+          "semester": 1,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "BENDSC201T",
+          "name": null,
+          "semester": 2,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "BENDSM201T",
+          "name": null,
+          "semester": 2,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "BENDSC301T",
+          "name": null,
+          "semester": 3,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "BENDSM301T",
+          "name": null,
+          "semester": 3,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "BENIDC301T",
+          "name": null,
+          "semester": 3,
+          "type": "IDC",
+          "variant": "T",
+          "credits": 2
+        },
+        {
+          "code": "BENDSC401T",
+          "name": null,
+          "semester": 4,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "BENDSM401T",
+          "name": null,
+          "semester": 4,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "BENIDC401T",
+          "name": null,
+          "semester": 4,
+          "type": "IDC",
+          "variant": "T",
+          "credits": 2
+        },
+        {
+          "code": "BENDSC401AT",
+          "name": null,
+          "semester": 4,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3,
+          "elective": "A"
+        },
+        {
+          "code": "BENDSC501T",
+          "name": null,
+          "semester": 5,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "BENDSC502T",
+          "name": null,
+          "semester": 5,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "BENDSM501T",
+          "name": null,
+          "semester": 5,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "BENDSC601T",
+          "name": null,
+          "semester": 6,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "BENDSC602T",
+          "name": null,
+          "semester": 6,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "BENDSM601T",
+          "name": null,
+          "semester": 6,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "BENDSC701T",
+          "name": null,
+          "semester": 7,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "BENDSC702T",
+          "name": null,
+          "semester": 7,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "BENDSM701T",
+          "name": null,
+          "semester": 7,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "BENDSC801T",
+          "name": null,
+          "semester": 8,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "BENDSC802T",
+          "name": null,
+          "semester": 8,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "BENDSM801T",
+          "name": null,
+          "semester": 8,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        }
+      ]
+    },
+    {
+      "id": "ASM",
+      "label": "ASM",
+      "papers": [
+        {
+          "code": "ASMDSC101T",
+          "name": null,
+          "semester": 1,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "ASMDSM101T",
+          "name": null,
+          "semester": 1,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "ASMDSC201T",
+          "name": null,
+          "semester": 2,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "ASMDSM201T",
+          "name": null,
+          "semester": 2,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "ASMDSC301T",
+          "name": null,
+          "semester": 3,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "ASMDSM301T",
+          "name": null,
+          "semester": 3,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "ASMIDC301T",
+          "name": null,
+          "semester": 3,
+          "type": "IDC",
+          "variant": "T",
+          "credits": 2
+        },
+        {
+          "code": "ASMDSC401T",
+          "name": null,
+          "semester": 4,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "ASMDSM401T",
+          "name": null,
+          "semester": 4,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "ASMIDC401T",
+          "name": null,
+          "semester": 4,
+          "type": "IDC",
+          "variant": "T",
+          "credits": 2
+        },
+        {
+          "code": "ASMDSC401AT",
+          "name": null,
+          "semester": 4,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3,
+          "elective": "A"
+        },
+        {
+          "code": "ASMDSC501T",
+          "name": null,
+          "semester": 5,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "ASMDSC502T",
+          "name": null,
+          "semester": 5,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "ASMDSM501T",
+          "name": null,
+          "semester": 5,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "ASMDSC601T",
+          "name": null,
+          "semester": 6,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "ASMDSC602T",
+          "name": null,
+          "semester": 6,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "ASMDSM601T",
+          "name": null,
+          "semester": 6,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "ASMDSC701T",
+          "name": null,
+          "semester": 7,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "ASMDSC702T",
+          "name": null,
+          "semester": 7,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "ASMDSM701T",
+          "name": null,
+          "semester": 7,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "ASMDSC801T",
+          "name": null,
+          "semester": 8,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "ASMDSC802T",
+          "name": null,
+          "semester": 8,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "ASMDSM801T",
+          "name": null,
+          "semester": 8,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        }
+      ]
+    },
+    {
+      "id": "PLS",
+      "label": "PLS",
+      "papers": [
+        {
+          "code": "PLSDSC101T",
+          "name": null,
+          "semester": 1,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "PLSDSM101T",
+          "name": null,
+          "semester": 1,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "PLSDSC201T",
+          "name": null,
+          "semester": 2,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "PLSDSM201T",
+          "name": null,
+          "semester": 2,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "PLSDSC301T",
+          "name": null,
+          "semester": 3,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "PLSDSM301T",
+          "name": null,
+          "semester": 3,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "PLSIDC301T",
+          "name": null,
+          "semester": 3,
+          "type": "IDC",
+          "variant": "T",
+          "credits": 2
+        },
+        {
+          "code": "PLSDSC401T",
+          "name": null,
+          "semester": 4,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "PLSDSM401T",
+          "name": null,
+          "semester": 4,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "PLSIDC401T",
+          "name": null,
+          "semester": 4,
+          "type": "IDC",
+          "variant": "T",
+          "credits": 2
+        },
+        {
+          "code": "PLSDSC401AT",
+          "name": null,
+          "semester": 4,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3,
+          "elective": "A"
+        },
+        {
+          "code": "PLSDSC501T",
+          "name": null,
+          "semester": 5,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "PLSDSC502T",
+          "name": null,
+          "semester": 5,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "PLSDSM501T",
+          "name": null,
+          "semester": 5,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "PLSDSC601T",
+          "name": null,
+          "semester": 6,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "PLSDSC602T",
+          "name": null,
+          "semester": 6,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "PLSDSM601T",
+          "name": null,
+          "semester": 6,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "PLSDSC701T",
+          "name": null,
+          "semester": 7,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "PLSDSC702T",
+          "name": null,
+          "semester": 7,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "PLSDSM701T",
+          "name": null,
+          "semester": 7,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "PLSDSC801T",
+          "name": null,
+          "semester": 8,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "PLSDSC802T",
+          "name": null,
+          "semester": 8,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "PLSDSM801T",
+          "name": null,
+          "semester": 8,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        }
+      ]
+    },
+    {
+      "id": "HIS",
+      "label": "HIS",
+      "papers": [
+        {
+          "code": "HISDSC101T",
+          "name": null,
+          "semester": 1,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "HISDSM101T",
+          "name": null,
+          "semester": 1,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "HISDSC201T",
+          "name": null,
+          "semester": 2,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "HISDSM201T",
+          "name": null,
+          "semester": 2,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "HISDSC301T",
+          "name": null,
+          "semester": 3,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "HISDSM301T",
+          "name": null,
+          "semester": 3,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "HISIDC301T",
+          "name": null,
+          "semester": 3,
+          "type": "IDC",
+          "variant": "T",
+          "credits": 2
+        },
+        {
+          "code": "HISDSC401T",
+          "name": null,
+          "semester": 4,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "HISDSM401T",
+          "name": null,
+          "semester": 4,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "HISIDC401T",
+          "name": null,
+          "semester": 4,
+          "type": "IDC",
+          "variant": "T",
+          "credits": 2
+        },
+        {
+          "code": "HISDSC401AT",
+          "name": null,
+          "semester": 4,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3,
+          "elective": "A"
+        },
+        {
+          "code": "HISDSC501T",
+          "name": null,
+          "semester": 5,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "HISDSC502T",
+          "name": null,
+          "semester": 5,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "HISDSM501T",
+          "name": null,
+          "semester": 5,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "HISDSC601T",
+          "name": null,
+          "semester": 6,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "HISDSC602T",
+          "name": null,
+          "semester": 6,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "HISDSM601T",
+          "name": null,
+          "semester": 6,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "HISDSC701T",
+          "name": null,
+          "semester": 7,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "HISDSC702T",
+          "name": null,
+          "semester": 7,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "HISDSM701T",
+          "name": null,
+          "semester": 7,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "HISDSC801T",
+          "name": null,
+          "semester": 8,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "HISDSC802T",
+          "name": null,
+          "semester": 8,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "HISDSM801T",
+          "name": null,
+          "semester": 8,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        }
+      ]
+    },
+    {
+      "id": "PHI",
+      "label": "PHI",
+      "papers": [
+        {
+          "code": "PHIDSC101T",
+          "name": null,
+          "semester": 1,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "PHIDSM101T",
+          "name": null,
+          "semester": 1,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "PHIDSC201T",
+          "name": null,
+          "semester": 2,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "PHIDSM201T",
+          "name": null,
+          "semester": 2,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "PHIDSC301T",
+          "name": null,
+          "semester": 3,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "PHIDSM301T",
+          "name": null,
+          "semester": 3,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "PHIIDC301T",
+          "name": null,
+          "semester": 3,
+          "type": "IDC",
+          "variant": "T",
+          "credits": 2
+        },
+        {
+          "code": "PHIDSC401T",
+          "name": null,
+          "semester": 4,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "PHIDSM401T",
+          "name": null,
+          "semester": 4,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 3
+        },
+        {
+          "code": "PHIIDC401T",
+          "name": null,
+          "semester": 4,
+          "type": "IDC",
+          "variant": "T",
+          "credits": 2
+        },
+        {
+          "code": "PHIDSC401AT",
+          "name": null,
+          "semester": 4,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 3,
+          "elective": "A"
+        },
+        {
+          "code": "PHIDSC501T",
+          "name": null,
+          "semester": 5,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "PHIDSC502T",
+          "name": null,
+          "semester": 5,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "PHIDSM501T",
+          "name": null,
+          "semester": 5,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "PHIDSC601T",
+          "name": null,
+          "semester": 6,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "PHIDSC602T",
+          "name": null,
+          "semester": 6,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "PHIDSM601T",
+          "name": null,
+          "semester": 6,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "PHIDSC701T",
+          "name": null,
+          "semester": 7,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "PHIDSC702T",
+          "name": null,
+          "semester": 7,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "PHIDSM701T",
+          "name": null,
+          "semester": 7,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "PHIDSC801T",
+          "name": null,
+          "semester": 8,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "PHIDSC802T",
+          "name": null,
+          "semester": 8,
+          "type": "DSC",
+          "variant": "T",
+          "credits": 4
+        },
+        {
+          "code": "PHIDSM801T",
+          "name": null,
+          "semester": 8,
+          "type": "DSM",
+          "variant": "T",
+          "credits": 4
+        }
+      ]
+    },
+    {
+      "id": "COMMON",
+      "label": "Common / Shared Papers",
+      "papers": [
+        {
+          "code": "ENGAEC101T",
+          "name": null,
+          "semester": 1,
+          "type": "AEC",
+          "variant": "T",
+          "credits": 2
+        },
+        {
+          "code": "EVSVAC151T",
+          "name": null,
+          "semester": 2,
+          "type": "VAC",
+          "variant": "T",
+          "credits": 2
+        },
+        {
+          "code": "ENGAEC251T",
+          "name": null,
+          "semester": 4,
+          "type": "AEC",
+          "variant": "T",
+          "credits": 2
+        },
+        {
+          "code": "PHYSEC151T",
+          "name": null,
+          "semester": 2,
+          "type": "SEC",
+          "variant": "T",
+          "credits": 2
+        },
+        {
+          "code": "MATSEC151T",
+          "name": null,
+          "semester": 2,
+          "type": "SEC",
+          "variant": "T",
+          "credits": 2
+        },
+        {
+          "code": "COMSEC151T",
+          "name": null,
+          "semester": 2,
+          "type": "SEC",
+          "variant": "T",
+          "credits": 2
+        },
+        {
+          "code": "ENGSEC151T",
+          "name": null,
+          "semester": 2,
+          "type": "SEC",
+          "variant": "T",
+          "credits": 2
+        },
+        {
+          "code": "ECOSEC151T",
+          "name": null,
+          "semester": 2,
+          "type": "SEC",
+          "variant": "T",
+          "credits": 2
+        },
+        {
+          "code": "BENSEC151T",
+          "name": null,
+          "semester": 2,
+          "type": "SEC",
+          "variant": "T",
+          "credits": 2
+        },
+        {
+          "code": "ASMSEC151T",
+          "name": null,
+          "semester": 2,
+          "type": "SEC",
+          "variant": "T",
+          "credits": 2
+        },
+        {
+          "code": "PLSSEC151T",
+          "name": null,
+          "semester": 2,
+          "type": "SEC",
+          "variant": "T",
+          "credits": 2
+        },
+        {
+          "code": "HISSEC151T",
+          "name": null,
+          "semester": 2,
+          "type": "SEC",
+          "variant": "T",
+          "credits": 2
+        },
+        {
+          "code": "PHISEC151T",
+          "name": null,
+          "semester": 2,
+          "type": "SEC",
+          "variant": "T",
+          "credits": 2
+        },
+        {
+          "code": "CHMSEC151T",
+          "name": null,
+          "semester": 2,
+          "type": "SEC",
+          "variant": "T",
+          "credits": 2
+        },
+        {
+          "code": "ZOOSEC151T",
+          "name": null,
+          "semester": 2,
+          "type": "SEC",
+          "variant": "T",
+          "credits": 2
+        },
+        {
+          "code": "BOTSEC151T",
+          "name": null,
+          "semester": 2,
+          "type": "SEC",
+          "variant": "T",
+          "credits": 2
+        },
+        {
+          "code": "PHYSEC251T",
+          "name": null,
+          "semester": 3,
+          "type": "SEC",
+          "variant": "T",
+          "credits": 2
+        },
+        {
+          "code": "MATSEC251T",
+          "name": null,
+          "semester": 3,
+          "type": "SEC",
+          "variant": "T",
+          "credits": 2
+        },
+        {
+          "code": "COMSEC251T",
+          "name": null,
+          "semester": 3,
+          "type": "SEC",
+          "variant": "T",
+          "credits": 2
+        },
+        {
+          "code": "ENGSEC251T",
+          "name": null,
+          "semester": 3,
+          "type": "SEC",
+          "variant": "T",
+          "credits": 2
+        }
+      ]
+    }
+  ]
+}
