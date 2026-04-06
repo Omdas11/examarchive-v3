@@ -185,6 +185,14 @@ export async function GET(request: NextRequest) {
       if (!semestersByPaperCode[code]) semestersByPaperCode[code] = [];
       if (!semestersByPaperCode[code].includes(semesterValue)) semestersByPaperCode[code].push(semesterValue);
     };
+    const applyCanonicalOrFallbackSemester = (code: string, semesterCandidate: number) => {
+      const canonicalSemesters = CANONICAL_SEMESTERS_BY_PAPER_CODE[code];
+      if (Array.isArray(canonicalSemesters) && canonicalSemesters.length > 0) {
+        for (const canonicalSemester of canonicalSemesters) addSemesterForCode(code, canonicalSemester);
+        return;
+      }
+      addSemesterForCode(code, semesterCandidate);
+    };
     for (const doc of syllabusDocs) {
       const code = typeof doc.paper_code === "string" ? doc.paper_code.trim().toUpperCase() : "";
       if (!code) continue;
@@ -209,10 +217,7 @@ export async function GET(request: NextRequest) {
           : typeof semesterRaw === "string"
             ? Number(semesterRaw)
             : NaN;
-      addSemesterForCode(code, semesterValue);
-      for (const canonicalSemester of CANONICAL_SEMESTERS_BY_PAPER_CODE[code] ?? []) {
-        addSemesterForCode(code, canonicalSemester);
-      }
+      applyCanonicalOrFallbackSemester(code, semesterValue);
     }
     for (const code of Object.keys(unitsByPaperCode)) {
       unitsByPaperCode[code].sort((a, b) => a - b);
@@ -230,9 +235,7 @@ export async function GET(request: NextRequest) {
       if (!code) continue;
       questionPaperCodes.add(code);
       storePaperName(code, questionDoc.paper_name);
-      for (const canonicalSemester of CANONICAL_SEMESTERS_BY_PAPER_CODE[code] ?? []) {
-        addSemesterForCode(code, canonicalSemester);
-      }
+      applyCanonicalOrFallbackSemester(code, NaN);
     }
     const notesPaperCodes = Array.from(syllabusPaperCodes).sort((a, b) => a.localeCompare(b));
     const papersPaperCodes = Array.from(questionPaperCodes).sort((a, b) => a.localeCompare(b));
