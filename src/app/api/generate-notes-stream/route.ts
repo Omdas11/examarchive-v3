@@ -480,7 +480,7 @@ async function writeCachedNotes(
     markdownFileId = String(uploadResult.$id);
   } catch (uploadError) {
     console.error("[generate-notes-stream] Failed to upload markdown cache file:", uploadError);
-    log?.("Warning: Could not save markdown cache.");
+    log?.("Note: cache save skipped (generation output is still available).");
     return;
   }
 
@@ -537,7 +537,7 @@ async function writeCachedNotes(
       log?.("Markdown cache saved successfully.");
     } catch (fallbackError) {
       console.error("[generate-notes-stream] Failed to write cache:", fallbackError);
-      log?.("Warning: Could not save markdown cache.");
+      log?.("Note: cache save skipped (generation output is still available).");
     }
   }
 }
