@@ -304,7 +304,7 @@ Use this checklist to wipe counters and storage before relaunch:
 <!-- SCHEMA_SYNC_STATUS_START -->
 ## Schema Sync Status (Auto-generated)
 
-_Last synced: 2026-04-05T16:54:55.822Z_
+_Last synced: 2026-04-06T05:06:43.667Z_
 
 ### Storage Buckets
 | Bucket | Status | ID |
@@ -333,7 +333,6 @@ _Last synced: 2026-04-05T16:54:55.822Z_
 | `ai_syllabus_maps` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from DATABASE_SCHEMA.md |
 | `ai_flashcards` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from DATABASE_SCHEMA.md |
 | `ai_admin_reports` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from DATABASE_SCHEMA.md |
-| `syllabus_registry` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from DATABASE_SCHEMA.md |
 | `Syllabus_Table` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from DATABASE_SCHEMA.md |
 | `Questions_Table` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from DATABASE_SCHEMA.md |
 | `Generated_Notes_Cache` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from DATABASE_SCHEMA.md |
