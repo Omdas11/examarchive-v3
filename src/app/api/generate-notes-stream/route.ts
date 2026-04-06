@@ -485,7 +485,9 @@ async function writeCachedNotes(
   }
 
   const createdAt = new Date().toISOString();
+  const primaryDocId = ID.unique();
   const primaryPayload: Record<string, unknown> = {
+    id: primaryDocId,
     university,
     course,
     stream,
@@ -507,12 +509,14 @@ async function writeCachedNotes(
   }
   try {
     // Keep explicit created_at because schema/docs require this field for cache reads and audits.
-    await db.createDocument(DATABASE_ID, COLLECTION.generated_notes_cache, ID.unique(), primaryPayload);
+    await db.createDocument(DATABASE_ID, COLLECTION.generated_notes_cache, primaryDocId, primaryPayload);
     log?.("Markdown cache saved successfully.");
   } catch {
     try {
       const fallbackCachePaperCode = getUnitNotesCacheKey(university, course, stream, selectionType, paperCode);
+      const fallbackDocId = ID.unique();
       const fallbackPayload: Record<string, unknown> = {
+        id: fallbackDocId,
         paper_code: fallbackCachePaperCode,
         unit_number: unitNumber,
         type: UNIT_NOTES_CACHE_TYPE,
@@ -526,7 +530,7 @@ async function writeCachedNotes(
         // Same legacy mirror rationale as primary payload above.
         fallbackPayload.year = String(semester);
       }
-      await db.createDocument(DATABASE_ID, COLLECTION.generated_notes_cache, ID.unique(), fallbackPayload);
+      await db.createDocument(DATABASE_ID, COLLECTION.generated_notes_cache, fallbackDocId, fallbackPayload);
       log?.("Markdown cache saved successfully.");
     } catch (fallbackError) {
       console.error("[generate-notes-stream] Failed to write cache:", fallbackError);
@@ -628,6 +632,11 @@ function getErrorStatusFromMessage(message: string): number | null {
   if (!match) return null;
   const parsed = Number(match[1]);
   return Number.isFinite(parsed) && parsed >= 400 && parsed <= 599 ? parsed : null;
+}
+
+function isSmtpNotConfiguredError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  return /SMTP_FROM and SMTP_USER are missing|SMTP configuration incomplete/i.test(message);
 }
 
 async function getDailyCount(userId: string, todayStr: string): Promise<number> {
@@ -998,7 +1007,11 @@ CRITICAL FORMAT CONSTRAINTS:
               });
             }
           } catch (emailError) {
-            console.error("[generate-notes-stream] Failed to send generation email:", emailError);
+            if (isSmtpNotConfiguredError(emailError)) {
+              controller.enqueue(toSseData({ log: "Email notification skipped: SMTP is not configured." }));
+            } else {
+              console.error("[generate-notes-stream] Failed to send generation email:", emailError);
+            }
           }
         }
 
