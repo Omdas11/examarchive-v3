@@ -2,8 +2,8 @@
 
 This note documents the paper-code pattern used in this repository, based on:
 
-- `/home/runner/work/examarchive-v3/examarchive-v3/HAFLONG GOVERNMENT COLLEGE SYLLABUS.md`
-- `/home/runner/work/examarchive-v3/examarchive-v3/src/data/curriculum.json`
+- `./HAFLONG GOVERNMENT COLLEGE SYLLABUS.md`
+- `./src/data/curriculum.json`
 
 ## Core code pattern
 
