@@ -15,6 +15,7 @@ import {
   Query,
 } from "@/lib/appwrite";
 import { parseDemoDataEntryMarkdown } from "@/lib/admin-md-ingestion";
+import { FYUG_DEPT_CODES } from "@/lib/fyug-depts";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -25,6 +26,32 @@ const MAX_QUESTION_ROWS_PER_NUMBER = 100;
 function normalizeError(error: unknown): string {
   if (error instanceof Error) return error.message;
   return String(error);
+}
+
+function isUnknownAttributeError(error: unknown, attribute: string): boolean {
+  const message = normalizeError(error).toLowerCase();
+  return message.includes("unknown attribute") && message.includes(attribute.toLowerCase());
+}
+
+/**
+ * Derives the semester (1–8) from a paper code following the NEP 2020 FYUG convention:
+ * [3-letter dept][3-letter type][semDigit][2-digit num][opt elective A/B/C][T/P]
+ * e.g. PHYDSC101T → 1, MATDSC501AT → 5
+ * Returns null when the code doesn't match the expected pattern.
+ */
+function deriveSemesterFromCode(paperCode: string): number | null {
+  const match = /^[A-Z]{3}(?:DSC|DSM|IDC|SEC|AEC|VAC)([1-8])\d{2}[ABC]?[TP]$/.exec(paperCode);
+  if (match) return parseInt(match[1], 10);
+  return null;
+}
+
+/**
+ * Derives the 3-letter dept code from the start of a paper code.
+ * Returns null for common papers that don't map to a specific dept.
+ */
+function deriveDeptCode(paperCode: string): string | null {
+  const prefix = paperCode.slice(0, 3).toUpperCase();
+  return FYUG_DEPT_CODES.has(prefix as Parameters<typeof FYUG_DEPT_CODES.has>[0]) ? prefix : null;
 }
 
 async function ensureMdIngestionBucket() {
@@ -56,7 +83,9 @@ async function upsertSyllabusRows(args: {
   stream: string;
   type: string;
   paperCode: string;
+  paperName: string;
   subject: string;
+  semester: number | null;
   rows: ReturnType<typeof parseDemoDataEntryMarkdown>["syllabus"];
 }) {
   const db = adminDatabases();
@@ -76,7 +105,7 @@ async function upsertSyllabusRows(args: {
       typeof existing.documents[0]?.id === "string" && existing.documents[0].id.trim().length > 0
         ? existing.documents[0].id
         : randomUUID();
-    const payload: Record<string, unknown> = {
+    const basePayload: Record<string, unknown> = {
       id: rowId,
       university: args.university,
       course: args.course,
@@ -88,15 +117,35 @@ async function upsertSyllabusRows(args: {
       syllabus_content: row.syllabus_content,
       tags: row.tags,
     };
+    const payload: Record<string, unknown> = {
+      ...basePayload,
+      paper_name: args.paperName,
+    };
+    if (typeof args.semester === "number") {
+      payload.semester = args.semester;
+    }
     if (typeof row.lectures === "number") {
       payload.lectures = row.lectures;
     }
-    if (existing.documents[0]) {
-      await db.updateDocument(DATABASE_ID, COLLECTION.syllabus_table, existing.documents[0].$id, payload);
-      updated += 1;
-    } else {
-      await db.createDocument(DATABASE_ID, COLLECTION.syllabus_table, ID.unique(), payload);
-      added += 1;
+    try {
+      if (existing.documents[0]) {
+        await db.updateDocument(DATABASE_ID, COLLECTION.syllabus_table, existing.documents[0].$id, payload);
+        updated += 1;
+      } else {
+        await db.createDocument(DATABASE_ID, COLLECTION.syllabus_table, ID.unique(), payload);
+        added += 1;
+      }
+    } catch (error) {
+      const shouldRetryWithoutNewFields =
+        isUnknownAttributeError(error, "paper_name") || isUnknownAttributeError(error, "semester");
+      if (!shouldRetryWithoutNewFields) throw error;
+      if (existing.documents[0]) {
+        await db.updateDocument(DATABASE_ID, COLLECTION.syllabus_table, existing.documents[0].$id, basePayload);
+        updated += 1;
+      } else {
+        await db.createDocument(DATABASE_ID, COLLECTION.syllabus_table, ID.unique(), basePayload);
+        added += 1;
+      }
     }
   }
   return { added, updated };
@@ -170,13 +219,18 @@ async function createIngestionLog(payload: {
   fileName: string;
   fileId?: string;
   paperCode?: string;
+  paperName?: string;
+  subject?: string;
   status: "success" | "partial" | "failed";
   rowsAffected: number;
   errors: Array<{ line: number; message: string }>;
 }) {
   try {
     const db = adminDatabases();
-    await db.createDocument(DATABASE_ID, COLLECTION.ai_ingestions, ID.unique(), {
+    const errorSummary = payload.errors.length > 0
+      ? payload.errors.map((e) => `L${e.line}: ${e.message}`).join("; ").slice(0, 2000)
+      : "";
+    const doc: Record<string, unknown> = {
       paper_code: payload.paperCode ?? "",
       source_label: payload.fileName,
       file_id: payload.fileId ?? "",
@@ -189,7 +243,16 @@ async function createIngestionLog(payload: {
         rowsAffected: payload.rowsAffected,
         errors: payload.errors,
       }),
-    });
+      // ── New fields for syllabus tracker / mobile dashboard ──
+      ingested_at: new Date().toISOString(),
+      row_count: payload.rowsAffected,
+    };
+    if (payload.paperName) doc.paper_name = payload.paperName;
+    if (payload.subject) doc.subject = payload.subject;
+    if (errorSummary) doc.error_summary = errorSummary;
+    const deptCode = payload.paperCode ? deriveDeptCode(payload.paperCode) : null;
+    if (deptCode) doc.dept_code = deptCode;
+    await db.createDocument(DATABASE_ID, COLLECTION.ai_ingestions, ID.unique(), doc);
   } catch (error) {
     console.warn("[ingest-md] failed to write ingestion log:", error);
   }
@@ -296,6 +359,7 @@ export async function POST(request: NextRequest) {
     let syllabusResult = { added: 0, updated: 0 };
     let questionResult = { added: 0, updated: 0 };
     const dbErrors = [...parsed.errors];
+    const semester = deriveSemesterFromCode(frontmatter.paper_code);
 
     try {
       syllabusResult = await upsertSyllabusRows({
@@ -304,7 +368,9 @@ export async function POST(request: NextRequest) {
         stream: frontmatter.stream,
         type: frontmatter.type,
         paperCode: frontmatter.paper_code,
+        paperName: frontmatter.paper_name,
         subject: frontmatter.subject,
+        semester,
         rows: parsed.syllabus,
       });
     } catch (error) {
@@ -336,6 +402,8 @@ export async function POST(request: NextRequest) {
       fileName: file.name,
       fileId,
       paperCode: frontmatter.paper_code,
+      paperName: frontmatter.paper_name,
+      subject: frontmatter.subject,
       status,
       rowsAffected,
       errors: dbErrors,

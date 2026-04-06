@@ -7,6 +7,17 @@ export interface AppSidebarItem {
   roles?: string[];
 }
 
+const ALL_AUTHENTICATED_ROLES = [
+  "visitor",
+  "student",
+  "explorer",
+  "contributor",
+  "verified_contributor",
+  "moderator",
+  "admin",
+  "founder",
+];
+
 export const APP_SIDEBAR_ITEMS: AppSidebarItem[] = [
   // ── Main ──────────────────────────────────────────────
   {
@@ -89,6 +100,12 @@ export const APP_SIDEBAR_ITEMS: AppSidebarItem[] = [
     icon: "upload_file",
     href: "/admin/ingest-md",
     roles: ["admin", "founder"],
+  },
+  {
+    label: "Syllabus Tracker",
+    icon: "table_chart",
+    href: "/admin/syllabus-tracker",
+    roles: ALL_AUTHENTICATED_ROLES,
   },
   {
     label: "Manage Users",
