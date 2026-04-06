@@ -5,8 +5,8 @@ import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 
 export const metadata: Metadata = {
-  title: "Papers",
-  description: "Explore all exam papers in the ExamArchive.",
+  title: "Question Papers",
+  description: "Explore all question papers in the ExamArchive.",
 };
 
 export default async function PapersPage() {
@@ -16,8 +16,8 @@ export default async function PapersPage() {
 
   return (
     <MainLayout
-      title="Papers"
-      breadcrumbs={[{ label: "Home", href: "/" }, { label: "Papers" }]}
+      title="Question Papers"
+      breadcrumbs={[{ label: "Home", href: "/" }, { label: "Question Papers" }]}
       showSearch={false}
       sidebarItems={APP_SIDEBAR_ITEMS}
       userRole={user?.role ?? "visitor"}
@@ -45,7 +45,7 @@ export default async function PapersPage() {
         </svg>
       </div>
 
-      <h1 className="text-3xl font-bold">Papers</h1>
+      <h1 className="text-3xl font-bold">Question Papers</h1>
       <p className="mt-3 text-lg font-medium" style={{ color: "var(--color-primary)" }}>
         Under Development
       </p>
@@ -56,7 +56,7 @@ export default async function PapersPage() {
 
       <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
         <Link href="/browse" className="btn-primary px-6 py-2.5">
-          Browse Papers Now
+          Browse Question Papers Now
         </Link>
         <Link href="/" className="btn px-6 py-2.5">
           Back to Home

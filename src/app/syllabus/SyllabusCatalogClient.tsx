@@ -35,6 +35,9 @@ function SyllabusRow({
   return (
     <tr className="border-b border-outline-variant/30 last:border-0 hover:bg-surface-container-low/60 transition-colors">
       <td className="py-3 pl-4 pr-2 align-top text-sm text-on-surface-variant">{serialNo}</td>
+      <td className="py-3 px-2 align-top text-sm font-medium text-on-surface">
+        {getSubjectDisplay(paper)}
+      </td>
       <td className="py-3 pl-2 pr-2 align-top">
         <Link
           href={`/syllabus/paper/${encodeURIComponent(paper.paperCode)}`}
@@ -43,7 +46,7 @@ function SyllabusRow({
           {paper.paperCode}
         </Link>
       </td>
-      <td className="py-3 px-2 align-top min-w-[240px]">
+      <td className="py-3 px-2 align-top min-w-[200px]">
         <p className="text-sm font-medium text-on-surface leading-snug">{paper.paperName || paper.paperCode}</p>
         <p className="mt-0.5 text-[11px] text-on-surface-variant">
           {[paper.university, paper.course, paper.type].filter(Boolean).join(" · ")}
@@ -97,7 +100,7 @@ function SyllabusRow({
             rel="noopener noreferrer"
             className="rounded-lg bg-surface-container-high px-2.5 py-1 text-[11px] font-semibold text-on-surface whitespace-nowrap ring-1 ring-outline-variant/40"
           >
-            Syllabus PDF (MD)
+            Syllabus PDF
           </a>
           {pdfs.map((pdf) => (
             <a
@@ -113,125 +116,6 @@ function SyllabusRow({
         </div>
       </td>
     </tr>
-  );
-}
-
-function SubjectSection({
-  subjectName,
-  subjectCodes,
-  stats,
-  preferSubjectNamePdf,
-  papers,
-  uploadedPdfs,
-  defaultOpen,
-}: {
-  subjectName: string;
-  subjectCodes: string[];
-  stats: { papers: number; units: number };
-  preferSubjectNamePdf: boolean;
-  papers: SyllabusTablePaperSummary[];
-  uploadedPdfs: PdfsByCode;
-  defaultOpen: boolean;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
-  const years = useMemo(() => {
-    const set = new Set<number>();
-    for (const p of papers) {
-      for (const qp of p.questionPapers) {
-        set.add(qp.year);
-      }
-    }
-    return Array.from(set).sort((a, b) => a - b);
-  }, [papers]);
-
-  const deptPdfHref = useMemo(() => {
-    if (preferSubjectNamePdf && subjectName.trim().length > 0) {
-      return `/api/syllabus/table?subjectName=${encodeURIComponent(subjectName)}&mode=pdf`;
-    }
-    const fallbackCode = subjectCodes[0] ?? "";
-    return `/api/syllabus/table?subjectCode=${encodeURIComponent(fallbackCode)}&mode=pdf`;
-  }, [preferSubjectNamePdf, subjectName, subjectCodes]);
-
-  return (
-    <div className="rounded-2xl border border-outline-variant/40 bg-surface overflow-hidden">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left"
-      >
-        <div className="flex items-center gap-3">
-          <span className="material-symbols-outlined text-xl text-primary">
-            {open ? "expand_less" : "expand_more"}
-          </span>
-          <span className="text-base font-semibold text-on-surface">{subjectName}</span>
-          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
-            {stats.papers} {stats.papers === 1 ? "paper" : "papers"}
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <a
-            href={deptPdfHref}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="hidden sm:inline-flex items-center gap-1.5 rounded-xl bg-surface-container px-3 py-1.5 text-xs font-semibold text-on-surface ring-1 ring-outline-variant/40 hover:bg-surface-container-high"
-          >
-            <span className="material-symbols-outlined text-sm">download</span>
-            Dept PDF
-          </a>
-        </div>
-      </button>
-      {open && (
-        <div className="border-t border-outline-variant/30 overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-surface-container-low">
-                <th className="py-2 pl-4 pr-2 text-left text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant">Sl. No.</th>
-                <th className="py-2 pl-4 pr-2 text-left text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant">Code</th>
-                <th className="py-2 px-2 text-left text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant">Paper Name</th>
-                <th className="py-2 px-2 text-center text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant">Credit</th>
-                <th className="py-2 px-2 text-center text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant">Lecture</th>
-                {years.map((year) => (
-                  <th
-                    key={`year-head-${year}`}
-                    className="py-2 px-1 text-center text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant"
-                  >
-                    {year}
-                  </th>
-                ))}
-                <th className="py-2 pl-2 pr-4 text-right text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant">Actions</th>
-              </tr>
-              <tr className="bg-surface-container-low/70">
-                <th className="py-1 pl-4 pr-2" />
-                <th className="py-1 pl-4 pr-2" />
-                <th className="py-1 px-2" />
-                <th className="py-1 px-2" />
-                <th className="py-1 px-2" />
-                {years.length > 0 ? (
-                  <th
-                    className="py-1 px-2 text-center text-[10px] font-semibold uppercase tracking-wide text-on-surface-variant"
-                    colSpan={years.length}
-                  >
-                    Question Paper
-                  </th>
-                ) : null}
-                <th className="py-1 pl-2 pr-4" />
-              </tr>
-            </thead>
-            <tbody>
-              {papers.map((paper, idx) => (
-                <SyllabusRow
-                  key={paper.paperCode}
-                  serialNo={idx + 1}
-                  paper={paper}
-                  uploadedPdfs={uploadedPdfs}
-                  years={years}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -281,27 +165,12 @@ export default function SyllabusCatalogClient({ syllabi }: { syllabi: Syllabus[]
     return map;
   }, [syllabi]);
 
-  /** Subject filter options, including "All". */
-  const subjectGroups = useMemo(() => {
-    const groups = new Map<string, { papers: SyllabusTablePaperSummary[]; subjectCodes: string[]; units: number; hasStoredSubject: boolean }>();
-    for (const paper of papers) {
-      const subjectName = getSubjectDisplay(paper);
-      const current = groups.get(subjectName) ?? { papers: [], subjectCodes: [], units: 0, hasStoredSubject: false };
-      current.papers.push(paper);
-      if (!current.subjectCodes.includes(paper.subjectCode)) {
-        current.subjectCodes.push(paper.subjectCode);
-      }
-      current.units += paper.units;
-      if (paper.subject.trim().length > 0) {
-        current.hasStoredSubject = true;
-      }
-      groups.set(subjectName, current);
-    }
-    return groups;
+  /** Unique subject names for filter chips. */
+  const subjectFilters = useMemo(() => {
+    const subjects = new Set<string>();
+    for (const p of papers) subjects.add(getSubjectDisplay(p));
+    return ["All", ...Array.from(subjects).sort((a, b) => a.localeCompare(b))];
   }, [papers]);
-
-  /** Subject filter options, including "All". */
-  const subjectFilters = useMemo(() => ["All", ...Array.from(subjectGroups.keys())], [subjectGroups]);
 
   /** Papers visible under current subject filter. */
   const filteredPapers = useMemo(() => {
@@ -309,26 +178,17 @@ export default function SyllabusCatalogClient({ syllabi }: { syllabi: Syllabus[]
     return papers.filter((p) => getSubjectDisplay(p) === activeSubject);
   }, [papers, activeSubject]);
 
-  /** Group visible papers by subject name (or code if no name). */
-  const groupedBySubject = useMemo(() => {
-    const map = new Map<string, SyllabusTablePaperSummary[]>();
-    for (const p of filteredPapers) {
-      const key = getSubjectDisplay(p);
-      const list = map.get(key) ?? [];
-      list.push(p);
-      map.set(key, list);
+  /** All years across all papers, sorted ascending for stable table columns. */
+  const years = useMemo(() => {
+    const set = new Set<number>();
+    for (const p of papers) {
+      for (const qp of p.questionPapers) set.add(qp.year);
     }
-    return map;
-  }, [filteredPapers]);
-
-  const visibleSubjects = useMemo(() => {
-    const all = Array.from(subjectGroups.keys()).sort((a, b) => a.localeCompare(b));
-    if (activeSubject === "All") return all;
-    return all.filter((name) => name === activeSubject);
-  }, [subjectGroups, activeSubject]);
+    return Array.from(set).sort((a, b) => a - b);
+  }, [papers]);
 
   return (
-    <section className="mx-auto w-full max-w-5xl px-4 pb-16 pt-8">
+    <section className="mx-auto w-full max-w-6xl px-4 pb-16 pt-8">
       <div className="space-y-6 rounded-[36px] bg-gradient-to-b from-surface to-surface-container-lowest p-5 shadow-inner shadow-primary/5 ring-1 ring-primary/5">
 
         {/* ── Header ── */}
@@ -336,7 +196,7 @@ export default function SyllabusCatalogClient({ syllabi }: { syllabi: Syllabus[]
           <div>
             <h1 className="text-4xl font-black leading-tight text-on-surface">Syllabus Catalog</h1>
             <p className="mt-2 max-w-2xl text-base text-on-surface-variant">
-              Browse curriculum by subject. Each table shows syllabus details and available question papers by year.
+              Browse curriculum by subject. The table shows syllabus details and available question papers by year.
             </p>
           </div>
 
@@ -401,23 +261,58 @@ export default function SyllabusCatalogClient({ syllabi }: { syllabi: Syllabus[]
             No syllabus entries found. Check back after papers have been ingested.
           </div>
         ) : (
-          <div className="space-y-3">
-            {visibleSubjects.map((subject, idx) => {
-              const subjectPapers = groupedBySubject.get(subject) ?? [];
-              const group = subjectGroups.get(subject);
-              return (
-                <SubjectSection
-                  key={subject}
-                  subjectName={subject}
-                  subjectCodes={group?.subjectCodes ?? []}
-                  stats={{ papers: group?.papers.length ?? 0, units: group?.units ?? 0 }}
-                  preferSubjectNamePdf={Boolean(group?.hasStoredSubject)}
-                  papers={subjectPapers}
-                  uploadedPdfs={uploadedPdfs}
-                  defaultOpen={idx === 0}
-                />
-              );
-            })}
+          <div className="rounded-2xl border border-outline-variant/40 bg-surface overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-surface-container-low">
+                    <th className="py-2 pl-4 pr-2 text-left text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant">Sl.</th>
+                    <th className="py-2 px-2 text-left text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant">Subject</th>
+                    <th className="py-2 pl-2 pr-2 text-left text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant">Code</th>
+                    <th className="py-2 px-2 text-left text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant">Paper Name</th>
+                    <th className="py-2 px-2 text-center text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant">Credit</th>
+                    <th className="py-2 px-2 text-center text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant">Lecture</th>
+                    {years.map((year) => (
+                      <th
+                        key={`year-head-${year}`}
+                        className="py-2 px-1 text-center text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant"
+                      >
+                        {year}
+                      </th>
+                    ))}
+                    <th className="py-2 pl-2 pr-4 text-right text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant">Actions</th>
+                  </tr>
+                  {years.length > 0 && (
+                    <tr className="bg-surface-container-low/70">
+                      <th className="py-1 pl-4 pr-2" />
+                      <th className="py-1 px-2" />
+                      <th className="py-1 pl-2 pr-2" />
+                      <th className="py-1 px-2" />
+                      <th className="py-1 px-2" />
+                      <th className="py-1 px-2" />
+                      <th
+                        className="py-1 px-2 text-center text-[10px] font-semibold uppercase tracking-wide text-on-surface-variant"
+                        colSpan={years.length}
+                      >
+                        Question Papers
+                      </th>
+                      <th className="py-1 pl-2 pr-4" />
+                    </tr>
+                  )}
+                </thead>
+                <tbody>
+                  {filteredPapers.map((paper, idx) => (
+                    <SyllabusRow
+                      key={paper.paperCode}
+                      serialNo={idx + 1}
+                      paper={paper}
+                      uploadedPdfs={uploadedPdfs}
+                      years={years}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>

@@ -226,11 +226,11 @@ export default function Sidebar({
           {isCollapsed ? (
             <span className="material-symbols-outlined">upload</span>
           ) : (
-            <>
-              <span className="material-symbols-outlined text-sm mr-2 inline-block">upload</span>
-              Upload Paper
-            </>
-          )}
+              <>
+                <span className="material-symbols-outlined text-sm mr-2 inline-block">upload</span>
+                Upload Question Paper
+              </>
+            )}
         </Link>
 
         <button

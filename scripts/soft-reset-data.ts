@@ -1,13 +1,14 @@
 /**
- * Soft reset: clears all rows from Syllabus_Table, Questions_Table, and (optionally)
- * the ai_ingestions log, without dropping or recreating any collection or bucket.
+ * Soft reset: clears all rows from Syllabus_Table, Questions_Table, and ai_ingestions
+ * without dropping or recreating any collection or bucket. Also deletes legacy
+ * syllabus_registry collection if it still exists.
  *
  * Use this when you want to re-ingest fresh markdown files without losing the
  * collection schemas, indexes, or the md-ingestion storage bucket.
  *
  * Usage:
  *   npx tsx scripts/soft-reset-data.ts
- *   npx tsx scripts/soft-reset-data.ts --include-ingestions
+ *   npx tsx scripts/soft-reset-data.ts --skip-ingestions
  *
  * Environment variables required:
  *   APPWRITE_API_KEY and either:
@@ -47,6 +48,7 @@ const DB_ID = "examarchive";
 const SYLLABUS_TABLE_COL_ID = "Syllabus_Table";
 const QUESTIONS_TABLE_COL_ID = "Questions_Table";
 const AI_INGESTIONS_COL_ID = "ai_ingestions";
+const SYLLABUS_REGISTRY_COL_ID = "syllabus_registry";
 const LIST_PAGE_LIMIT = 100;
 const MAX_TRUNCATION_ITERATIONS = 1000;
 
@@ -106,16 +108,32 @@ async function truncateCollection(collectionId: string): Promise<void> {
   console.log(`[soft-reset] truncated ${collectionId}: ${deleted} doc(s) removed`);
 }
 
+async function deleteLegacySyllabusRegistryCollection(): Promise<void> {
+  try {
+    await databases.deleteCollection(DB_ID, SYLLABUS_REGISTRY_COL_ID);
+    console.log(`[soft-reset] deleted legacy collection ${SYLLABUS_REGISTRY_COL_ID}`);
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      console.log(`[soft-reset] legacy collection ${SYLLABUS_REGISTRY_COL_ID} already absent`);
+      return;
+    }
+    throw error;
+  }
+}
+
 async function softReset(includeIngestions: boolean): Promise<void> {
   console.log("🗑️  SOFT RESET: clearing Syllabus_Table and Questions_Table rows…");
   console.log("    Collection schemas and storage buckets are preserved.");
 
   await truncateCollection(SYLLABUS_TABLE_COL_ID);
   await truncateCollection(QUESTIONS_TABLE_COL_ID);
+  await deleteLegacySyllabusRegistryCollection();
 
   if (includeIngestions) {
-    console.log("    Also clearing ai_ingestions (--include-ingestions flag set).");
+    console.log("    Also clearing ai_ingestions (default behavior).");
     await truncateCollection(AI_INGESTIONS_COL_ID);
+  } else {
+    console.log("    Skipping ai_ingestions (--skip-ingestions flag set).");
   }
 
   console.log("✅  Soft reset complete.");
@@ -125,7 +143,7 @@ async function softReset(includeIngestions: boolean): Promise<void> {
   console.log("2) Upload files via the Admin → MD Ingest panel or POST /api/admin/ingest-md.");
 }
 
-const includeIngestions = process.argv.includes("--include-ingestions");
+const includeIngestions = !process.argv.includes("--skip-ingestions");
 softReset(includeIngestions).catch((error) => {
   console.error("[soft-reset] failed:", error);
   process.exitCode = 1;

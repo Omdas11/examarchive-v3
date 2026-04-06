@@ -119,14 +119,44 @@ Optional:
 - Set `APPWRITE_PROPAGATION_DELAY_MS` before running if your Appwrite environment needs a longer settle delay between delete/recreate operations.
 
 What this reset does:
-- Truncates `Syllabus_Table`, `Questions_Table`, and `syllabus_registry`
+- Truncates `Syllabus_Table` and `Questions_Table`; deletes legacy `syllabus_registry` collection if it exists
 - Recreates `ai_ingestions` collection with ingestion attributes
 - Recreates and clears `examarchive-md-ingestion` bucket
+
+### Soft-launch quick cleanup (non-destructive)
+
+If you want an automation step before soft launch that **only clears data rows** (and keeps schemas/buckets intact), run:
+
+```bash
+npm run soft-reset:data
+```
+
+This will:
+- Truncate rows in `Syllabus_Table`, `Questions_Table`, and `ai_ingestions`
+- Delete legacy `syllabus_registry` collection if it still exists
+
+If you need to keep `ai_ingestions` rows:
+
+```bash
+npm run soft-reset:data:skip-ingestions
+```
+
+##### Mobile trigger for soft reset
+
+You can run this same soft-reset automation from mobile via GitHub Actions:
+
+1. Open **Actions** in the GitHub app/browser.
+2. Select **Manual Soft Reset Data**.
+3. Tap **Run workflow**.
+4. Enter `SOFT_RESET` in the confirmation field.
+5. Choose:
+   - `clear_ingestions` (default): also truncates `ai_ingestions`
+   - `keep_ingestions`: keeps `ai_ingestions` rows
+6. Run the workflow and monitor logs.
 
 After reset:
 1. Re-ingest markdown files strictly following `DEMO_DATA_ENTRY.md`
 2. Ensure each file uses paper-code linking (`paper_code`) across syllabus + questions
-3. Re-sync syllabus registry if required for browse/search flows
 
 #### Mobile / Manual Trigger (GitHub Actions)
 

@@ -33,10 +33,10 @@ export default function RightSidebar({ userName = "Guest", userInitials = "GU" }
         <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary">Quick Access</p>
         <div className="mt-3 space-y-2 text-sm">
           <Link href="/upload" className="block rounded-lg px-3 py-2 hover:bg-surface-container-low transition-colors">
-            Upload Paper
+            Upload Question Paper
           </Link>
           <Link href="/browse" className="block rounded-lg px-3 py-2 hover:bg-surface-container-low transition-colors">
-            Browse Papers
+            Browse Question Papers
           </Link>
           <Link href="/syllabus" className="block rounded-lg px-3 py-2 hover:bg-surface-container-low transition-colors">
             Syllabus
