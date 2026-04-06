@@ -18,6 +18,7 @@
     "sync:appwrite-ai": "node scripts/sync-appwrite-ai.js",
     "generate-limits": "node scripts/generate-model-limits.js",
     "soft-reset:data": "tsx scripts/soft-reset-data.ts",
+    "soft-reset:data:skip-ingestions": "tsx scripts/soft-reset-data.ts --skip-ingestions",
     "appwrite:sync": "tsx scripts/sync-appwrite.ts"
   },
   "dependencies": {

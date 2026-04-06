@@ -123,6 +123,24 @@ What this reset does:
 - Recreates `ai_ingestions` collection with ingestion attributes
 - Recreates and clears `examarchive-md-ingestion` bucket
 
+### Soft-launch quick cleanup (non-destructive)
+
+If you want an automation step before soft launch that **only clears data rows** (and keeps schemas/buckets intact), run:
+
+```bash
+npm run soft-reset:data
+```
+
+This will:
+- Truncate rows in `Syllabus_Table`, `Questions_Table`, and `ai_ingestions`
+- Delete legacy `syllabus_registry` collection if it still exists
+
+If you need to keep `ai_ingestions` rows:
+
+```bash
+npm run soft-reset:data:skip-ingestions
+```
+
 After reset:
 1. Re-ingest markdown files strictly following `DEMO_DATA_ENTRY.md`
 2. Ensure each file uses paper-code linking (`paper_code`) across syllabus + questions
