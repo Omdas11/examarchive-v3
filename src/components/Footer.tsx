@@ -32,8 +32,8 @@ export default function Footer() {
           <div className="flex flex-col gap-2">
             <h4 className="mb-1 text-sm font-semibold tracking-wide" style={{ color: "var(--color-text)" }}>Resources</h4>
             <Link href="/" className="hover:underline hover:opacity-80 transition-opacity text-xs">Home</Link>
-            <Link href="/browse" className="hover:underline hover:opacity-80 transition-opacity text-xs">Browse Papers</Link>
-            <Link href="/upload" className="hover:underline hover:opacity-80 transition-opacity text-xs">Upload Paper</Link>
+            <Link href="/browse" className="hover:underline hover:opacity-80 transition-opacity text-xs">Browse Question Papers</Link>
+            <Link href="/upload" className="hover:underline hover:opacity-80 transition-opacity text-xs">Upload Question Paper</Link>
             <Link href="/syllabus" className="hover:underline hover:opacity-80 transition-opacity text-xs">Syllabus</Link>
             <Link href="/about" className="hover:underline hover:opacity-80 transition-opacity text-xs">About ExamArchive</Link>
           </div>

@@ -1,13 +1,9 @@
 # Syllabus Registry
 
-Single source of truth for syllabus metadata (paper code, name, programme, university, etc.). Update this table to propagate changes to the backend. Large datasets (500+ rows) are supported.
+Single source of truth for syllabus metadata (paper code, name, programme, university, etc.). This flat table is the reference data used by `src/data/syllabus-registry.ts` and ingested into the `Syllabus_Table` Appwrite collection via the MD ingestion pipeline. The legacy `syllabus_registry` Appwrite collection has been removed.
 
 <!-- SYLLABUS_REGISTRY_STATUS_START -->
-> Sync status: ✅ Synced
-> Last run: 2026-03-29T13:54:49.919Z
-> Records in markdown: 511
-> Synced: created 391, updated 120
-> Target: database `examarchive`, collection `syllabus_registry`
+> **Note:** The `syllabus_registry` Appwrite collection has been removed. Syllabus metadata is now read from `src/data/syllabus-registry.ts` and ingested into `Syllabus_Table` via the MD ingestion pipeline.
 <!-- SYLLABUS_REGISTRY_STATUS_END -->
 
 | paper_code | paper_name | semester | subject | credits | programme | university | category | contact_hours | full_marks |

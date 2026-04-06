@@ -20,12 +20,12 @@ export const APP_SIDEBAR_ITEMS: AppSidebarItem[] = [
     href: "/dashboard",
   },
   {
-    label: "Browse Papers",
+    label: "Browse Question Papers",
     icon: "library_books",
     href: "/browse",
   },
   {
-    label: "Papers",
+    label: "Question Papers",
     icon: "description",
     href: "/papers",
   },
@@ -45,7 +45,7 @@ export const APP_SIDEBAR_ITEMS: AppSidebarItem[] = [
     href: "/study",
   },
   {
-    label: "Upload Paper",
+    label: "Upload Question Paper",
     icon: "upload_file",
     href: "/upload",
   },

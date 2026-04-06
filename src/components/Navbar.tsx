@@ -19,7 +19,7 @@ const RIGHT_EDGE_THRESHOLD = 48;
 const navLinks = [
   { href: "/", label: "Home" },
   { href: "/browse", label: "Browse" },
-  { href: "/papers", label: "Papers" },
+  { href: "/papers", label: "Question Papers" },
   { href: "/upload", label: "Upload" },
   { href: "/syllabus", label: "Syllabus" },
   { href: "/ai-content", label: "✨ AI" },

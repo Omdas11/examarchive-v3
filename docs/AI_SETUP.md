@@ -119,14 +119,13 @@ Optional:
 - Set `APPWRITE_PROPAGATION_DELAY_MS` before running if your Appwrite environment needs a longer settle delay between delete/recreate operations.
 
 What this reset does:
-- Truncates `Syllabus_Table`, `Questions_Table`, and `syllabus_registry`
+- Truncates `Syllabus_Table` and `Questions_Table`; deletes legacy `syllabus_registry` collection if it exists
 - Recreates `ai_ingestions` collection with ingestion attributes
 - Recreates and clears `examarchive-md-ingestion` bucket
 
 After reset:
 1. Re-ingest markdown files strictly following `DEMO_DATA_ENTRY.md`
 2. Ensure each file uses paper-code linking (`paper_code`) across syllabus + questions
-3. Re-sync syllabus registry if required for browse/search flows
 
 #### Mobile / Manual Trigger (GitHub Actions)
 
