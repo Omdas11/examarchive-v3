@@ -107,7 +107,7 @@ function PaperCell({
 export default function SyllabusTrackerClient({ tables, slotOrder, uploadedMap, totalExpected }: Props) {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const highlightCode = (searchParams.get("highlight") || "").toUpperCase() || null;
+  const highlightCode = searchParams.get("highlight")?.toUpperCase() ?? null;
 
   const [checkedMap, setCheckedMap] = useState<Record<string, boolean>>({});
   const highlightRef = useRef<HTMLTableCellElement | null>(null);
@@ -131,7 +131,7 @@ export default function SyllabusTrackerClient({ tables, slotOrder, uploadedMap, 
 
   useEffect(() => {
     if (highlightCode && highlightRef.current) {
-      const id = window.setTimeout(() => {
+      const id = setTimeout(() => {
         highlightRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       }, 250);
       return () => clearTimeout(id);
