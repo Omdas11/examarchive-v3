@@ -11,6 +11,11 @@ type SubjectStat = { subjectCode: string; subjectName: string; papers: number; u
 /** Map of uploaded-syllabus PDFs keyed by paper code (upper-case). */
 type PdfsByCode = Map<string, Syllabus[]>;
 
+/** Returns the display name for a paper's subject, falling back to subjectCode. */
+function getSubjectDisplay(paper: Pick<SyllabusTablePaperSummary, "subject" | "subjectCode">): string {
+  return paper.subject || paper.subjectCode;
+}
+
 function PaperRow({
   paper,
   uploadedPdfs,
@@ -193,14 +198,14 @@ export default function SyllabusCatalogClient({ syllabi }: { syllabi: Syllabus[]
   /** Papers visible under current subject filter. */
   const filteredPapers = useMemo(() => {
     if (activeSubject === "All") return papers;
-    return papers.filter((p) => (p.subject || p.subjectCode) === activeSubject);
+    return papers.filter((p) => getSubjectDisplay(p) === activeSubject);
   }, [papers, activeSubject]);
 
   /** Group visible papers by subject name (or code if no name). */
   const groupedBySubject = useMemo(() => {
     const map = new Map<string, SyllabusTablePaperSummary[]>();
     for (const p of filteredPapers) {
-      const key = p.subject || p.subjectCode;
+      const key = getSubjectDisplay(p);
       const list = map.get(key) ?? [];
       list.push(p);
       map.set(key, list);

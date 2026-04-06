@@ -259,11 +259,11 @@ export async function GET(request: NextRequest) {
     const papers: SyllabusTablePaperSummary[] = Array.from(grouped.entries())
       .map(([code, paperRows]) => {
         const derivedSubjectCode = extractSubjectCode(code);
-        const subjectName = paperRows.find((r) => r.subject)?.subject ?? "";
+        const storedSubject = paperRows.find((r) => r.subject)?.subject ?? "";
         return {
           paperCode: code,
           paperName: derivePaperNameFromRows(code, paperRows),
-          subject: subjectName,
+          subject: storedSubject,
           subjectCode: derivedSubjectCode,
           university: paperRows[0]?.university ?? "",
           course: paperRows[0]?.course ?? "",

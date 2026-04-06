@@ -58,11 +58,10 @@ async function truncateCollection(collectionId: string): Promise<void> {
   }
 
   let deleted = 0;
-  let hitIterationLimit = true;
+  let hitIterationLimit = false;
   for (let iteration = 0; iteration < MAX_TRUNCATION_ITERATIONS; iteration++) {
     const list = await databases.listDocuments(DB_ID, collectionId, [Query.limit(LIST_PAGE_LIMIT)]);
     if (!Array.isArray(list.documents) || list.documents.length === 0) {
-      hitIterationLimit = false;
       break;
     }
     await Promise.all(
@@ -70,8 +69,10 @@ async function truncateCollection(collectionId: string): Promise<void> {
     );
     deleted += list.documents.length;
     if (list.documents.length < LIST_PAGE_LIMIT) {
-      hitIterationLimit = false;
       break;
+    }
+    if (iteration === MAX_TRUNCATION_ITERATIONS - 1) {
+      hitIterationLimit = true;
     }
   }
   if (hitIterationLimit) {
