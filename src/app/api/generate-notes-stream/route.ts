@@ -16,7 +16,7 @@ import { getDailyLimit } from "@/lib/ai-limits";
 import { runGeminiCompletion } from "@/lib/gemini";
 import { readDynamicSystemPrompt } from "@/lib/system-prompt";
 import { checkAndResetQuotas, incrementQuotaCounter } from "@/lib/user-quotas";
-import { sendGenerationPdfEmail } from "@/lib/generation-notifications";
+import { SmtpConfigurationError, sendGenerationPdfEmail } from "@/lib/generation-notifications";
 import { renderMarkdownPdfToAppwrite } from "@/lib/ai-pdf-pipeline";
 
 const EMPTY_RESPONSE_RETRY_MS = 2000;
@@ -635,8 +635,7 @@ function getErrorStatusFromMessage(message: string): number | null {
 }
 
 function isSmtpNotConfiguredError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error ?? "");
-  return /SMTP_FROM and SMTP_USER are missing|SMTP configuration incomplete/i.test(message);
+  return error instanceof SmtpConfigurationError;
 }
 
 async function getDailyCount(userId: string, todayStr: string): Promise<number> {
