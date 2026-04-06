@@ -217,6 +217,20 @@ export default function SyllabusTrackerClient({ tables, slotOrder, uploadedMap, 
       }),
     [tables, normalizedSlotOrder, checkedMap],
   );
+  const masterDepartmentTotals = useMemo(
+    () =>
+      Object.fromEntries(
+        masterByDepartment.map((dept) => [
+          dept.id,
+          dept.bySemester.reduce((sum, sem) => sum + sem.total, 0),
+        ]),
+      ) as Record<string, number>,
+    [masterByDepartment],
+  );
+  const masterGrandTotal = useMemo(
+    () => Object.values(masterDepartmentTotals).reduce((sum, total) => sum + total, 0),
+    [masterDepartmentTotals],
+  );
 
   function toggleCode(code: string) {
     if (!canEdit) return;
@@ -263,7 +277,7 @@ export default function SyllabusTrackerClient({ tables, slotOrder, uploadedMap, 
           <h2 className="text-base font-semibold">Master Table (Auto summary from individual checks)</h2>
         </div>
         <div className="overflow-x-auto p-4">
-          <table className="min-w-[1100px] w-full text-left text-xs">
+          <table className="min-w-[1200px] w-full text-left text-xs">
             <thead>
               <tr className="bg-surface-container-low">
                 <th className="border border-outline-variant/30 px-2 py-2">Department</th>
@@ -272,6 +286,7 @@ export default function SyllabusTrackerClient({ tables, slotOrder, uploadedMap, 
                     Sem {s}
                   </th>
                 ))}
+                <th className="border border-outline-variant/30 px-2 py-2 text-center">Total Papers</th>
               </tr>
             </thead>
             <tbody>
@@ -306,6 +321,9 @@ export default function SyllabusTrackerClient({ tables, slotOrder, uploadedMap, 
                       )}
                     </td>
                   ))}
+                  <td className="border border-outline-variant/30 px-2 py-2 text-center font-semibold">
+                    {masterDepartmentTotals[dept.id] ?? 0}
+                  </td>
                 </tr>
               ))}
               <tr className="bg-surface-container-low/60">
@@ -317,6 +335,9 @@ export default function SyllabusTrackerClient({ tables, slotOrder, uploadedMap, 
                     </span>
                   </td>
                 ))}
+                <td className="border border-outline-variant/30 px-2 py-2 text-center font-semibold">
+                  {masterGrandTotal}
+                </td>
               </tr>
             </tbody>
           </table>
