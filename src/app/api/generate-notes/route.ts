@@ -6,6 +6,7 @@ import { GeminiServiceError, runGeminiCompletion } from "@/lib/gemini";
 import { readMasterNotesPrompt } from "@/lib/master-notes-prompt";
 import { checkAndResetQuotas } from "@/lib/user-quotas";
 import { NOTES_DAILY_LIMIT, PAPERS_DAILY_LIMIT } from "@/lib/quota-config";
+import curriculumData from "@/data/curriculum.json";
 
 type GenerateNotesBody = {
   university?: string;
@@ -34,6 +35,44 @@ function normalizeTags(raw: unknown): string[] {
   }
   return [];
 }
+
+function normalizeSemester(value: string | null): number | null {
+  if (!value) return null;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 8) return null;
+  return parsed;
+}
+
+type CurriculumTable = {
+  id: string;
+  rows: Array<{
+    semester: number;
+    slots: Record<string, { code: string | null }>;
+  }>;
+};
+
+function buildCanonicalSemestersByPaperCode(): Record<string, number[]> {
+  const result: Record<string, number[]> = {};
+  const tables = (curriculumData as { tables?: CurriculumTable[] }).tables ?? [];
+  for (const table of tables) {
+    for (const row of table.rows ?? []) {
+      const semester = Number(row.semester);
+      if (!Number.isInteger(semester) || semester < 1 || semester > 8) continue;
+      for (const slot of Object.values(row.slots ?? {})) {
+        const code = typeof slot?.code === "string" ? slot.code.trim().toUpperCase() : "";
+        if (!code) continue;
+        if (!result[code]) result[code] = [];
+        if (!result[code].includes(semester)) result[code].push(semester);
+      }
+    }
+  }
+  for (const code of Object.keys(result)) {
+    result[code].sort((a, b) => a - b);
+  }
+  return result;
+}
+
+const CANONICAL_SEMESTERS_BY_PAPER_CODE = buildCanonicalSemestersByPaperCode();
 
 async function getDailyCount(userId: string, todayStr: string): Promise<number> {
   const db = adminDatabases();
@@ -77,6 +116,7 @@ export async function GET(request: NextRequest) {
   const course = (searchParams.get("course") || "").trim();
   const stream = (searchParams.get("stream") || "").trim();
   const type = (searchParams.get("type") || "").trim();
+  const semester = normalizeSemester(searchParams.get("semester"));
 
   try {
     const queries = [Query.equal("university", university)];
@@ -139,8 +179,22 @@ export async function GET(request: NextRequest) {
     };
     const syllabusPaperCodes = new Set<string>();
     const unitsByPaperCode: Record<string, number[]> = {};
+    const semestersByPaperCode: Record<string, number[]> = {};
+    const addSemesterForCode = (code: string, semesterValue: number) => {
+      if (!Number.isInteger(semesterValue) || semesterValue < 1 || semesterValue > 8) return;
+      if (!semestersByPaperCode[code]) semestersByPaperCode[code] = [];
+      if (!semestersByPaperCode[code].includes(semesterValue)) semestersByPaperCode[code].push(semesterValue);
+    };
+    const applyCanonicalOrFallbackSemester = (code: string, semesterCandidate: number) => {
+      const canonicalSemesters = CANONICAL_SEMESTERS_BY_PAPER_CODE[code];
+      if (Array.isArray(canonicalSemesters) && canonicalSemesters.length > 0) {
+        for (const canonicalSemester of canonicalSemesters) addSemesterForCode(code, canonicalSemester);
+        return;
+      }
+      addSemesterForCode(code, semesterCandidate);
+    };
     for (const doc of syllabusDocs) {
-      const code = typeof doc.paper_code === "string" ? doc.paper_code.trim() : "";
+      const code = typeof doc.paper_code === "string" ? doc.paper_code.trim().toUpperCase() : "";
       if (!code) continue;
       storePaperName(code, doc.paper_name);
       syllabusPaperCodes.add(code);
@@ -155,26 +209,44 @@ export async function GET(request: NextRequest) {
       if (!Number.isInteger(unit) || unit < 1) continue;
       if (!unitsByPaperCode[code]) unitsByPaperCode[code] = [];
       if (!unitsByPaperCode[code].includes(unit)) unitsByPaperCode[code].push(unit);
+
+      const semesterRaw = doc.semester;
+      const semesterValue =
+        typeof semesterRaw === "number"
+          ? semesterRaw
+          : typeof semesterRaw === "string"
+            ? Number(semesterRaw)
+            : NaN;
+      applyCanonicalOrFallbackSemester(code, semesterValue);
     }
     for (const code of Object.keys(unitsByPaperCode)) {
       unitsByPaperCode[code].sort((a, b) => a - b);
     }
-
+    for (const code of Object.keys(semestersByPaperCode)) {
+      semestersByPaperCode[code].sort((a, b) => a - b);
+    }
     const questionPaperCodes = new Set<string>();
     for (const questionDoc of questionDocs) {
-      const code = typeof questionDoc.paper_code === "string" ? questionDoc.paper_code.trim() : "";
+      const code = typeof questionDoc.paper_code === "string" ? questionDoc.paper_code.trim().toUpperCase() : "";
       if (!code) continue;
       questionPaperCodes.add(code);
       storePaperName(code, questionDoc.paper_name);
+      applyCanonicalOrFallbackSemester(code, NaN);
     }
+    const availableSemesters = Array.from(
+      new Set(Object.values(semestersByPaperCode).flat()),
+    ).sort((a, b) => a - b);
     const notesPaperCodes = Array.from(syllabusPaperCodes).sort((a, b) => a.localeCompare(b));
     const papersPaperCodes = Array.from(questionPaperCodes).sort((a, b) => a.localeCompare(b));
-    const paperCodes = [...new Set([...notesPaperCodes, ...papersPaperCodes])].sort((a, b) => a.localeCompare(b));
+    const allPaperCodes = [...new Set([...notesPaperCodes, ...papersPaperCodes])].sort((a, b) => a.localeCompare(b));
+    const paperCodes = semester === null
+      ? allPaperCodes
+      : allPaperCodes.filter((code) => (semestersByPaperCode[code] ?? []).includes(semester));
     const paperCodesSet = new Set(paperCodes);
     const papers = paperCodes.map((code) => ({ code, name: papersMap.get(code) || code }));
     const yearsByPaperCode: Record<string, number[]> = {};
     for (const questionDoc of questionDocs) {
-      const code = typeof questionDoc.paper_code === "string" ? questionDoc.paper_code.trim() : "";
+      const code = typeof questionDoc.paper_code === "string" ? questionDoc.paper_code.trim().toUpperCase() : "";
       if (!code || !paperCodesSet.has(code)) continue;
       const yearRaw = questionDoc.year;
       const year =
@@ -190,6 +262,8 @@ export async function GET(request: NextRequest) {
     for (const code of Object.keys(yearsByPaperCode)) {
       yearsByPaperCode[code]?.sort((a, b) => b - a);
     }
+    const filteredNotesPaperCodes = notesPaperCodes.filter((code) => paperCodesSet.has(code));
+    const filteredPapersPaperCodes = papersPaperCodes.filter((code) => paperCodesSet.has(code));
 
     return NextResponse.json({
       remaining,
@@ -199,11 +273,13 @@ export async function GET(request: NextRequest) {
       notesDailyLimit: isAdminPlus(user.role) ? null : NOTES_DAILY_LIMIT,
       papersDailyLimit: isAdminPlus(user.role) ? null : PAPERS_DAILY_LIMIT,
       paperCodes,
-      notesPaperCodes,
-      papersPaperCodes,
+      notesPaperCodes: filteredNotesPaperCodes,
+      papersPaperCodes: filteredPapersPaperCodes,
       papers,
       unitsByPaperCode,
       yearsByPaperCode,
+      semestersByPaperCode,
+      availableSemesters,
     });
   } catch (error) {
     console.error("[generate-notes] Failed to load options:", error);
@@ -220,6 +296,8 @@ export async function GET(request: NextRequest) {
       papers: [],
       unitsByPaperCode: {},
       yearsByPaperCode: {},
+      semestersByPaperCode: {},
+      availableSemesters: [],
     });
   }
 }

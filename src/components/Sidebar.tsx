@@ -87,9 +87,6 @@ export default function Sidebar({ user }: SidebarProps) {
       <Link href="/browse" className={isActive("/browse") ? "active" : ""}>
         {icons.browse} Browse
       </Link>
-      <Link href="/papers" className={isActive("/papers") ? "active" : ""}>
-        {icons.papers} Question Papers
-      </Link>
       <Link href="/upload" className={isActive("/upload") ? "active" : ""}>
         {icons.upload} Upload
       </Link>

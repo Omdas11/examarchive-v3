@@ -1,6 +1,8 @@
 import nodemailer from "nodemailer";
 import type SMTPTransport from "nodemailer/lib/smtp-transport";
 
+export class SmtpConfigurationError extends Error {}
+
 function getSiteUrl(): string {
   return (
     process.env.NEXT_PUBLIC_SITE_URL ||
@@ -26,7 +28,7 @@ async function getTransporter() {
     if (!pass) missing.push("SMTP_PASS");
     if (!Number.isFinite(port) || port <= 0) missing.push("SMTP_PORT");
     if (missing.length > 0) {
-      throw new Error(`SMTP configuration incomplete: missing ${missing.join(", ")}`);
+      throw new SmtpConfigurationError(`SMTP configuration incomplete: missing ${missing.join(", ")}`);
     }
     cachedTransporter = nodemailer.createTransport({
       host,
@@ -54,7 +56,7 @@ export async function sendGenerationPdfEmail(args: {
   if (!to) return;
   const from = (process.env.SMTP_FROM || process.env.SMTP_USER || "").trim();
   if (!from) {
-    throw new Error("SMTP_FROM and SMTP_USER are missing.");
+    throw new SmtpConfigurationError("SMTP_FROM and SMTP_USER are missing.");
   }
   const normalizedUrl = args.downloadUrl.trim();
   const downloadUrl = /^https?:\/\//i.test(normalizedUrl)

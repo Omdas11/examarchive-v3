@@ -36,7 +36,7 @@ export default function RightSidebar({ userName = "Guest", userInitials = "GU" }
             Upload Question Paper
           </Link>
           <Link href="/browse" className="block rounded-lg px-3 py-2 hover:bg-surface-container-low transition-colors">
-            Browse Question Papers
+            Browse
           </Link>
           <Link href="/syllabus" className="block rounded-lg px-3 py-2 hover:bg-surface-container-low transition-colors">
             Syllabus
