@@ -455,7 +455,7 @@ async function writeCachedNotes(
     // Keep explicit created_at because schema/docs require this field for cache reads and audits.
     await db.createDocument(DATABASE_ID, COLLECTION.generated_notes_cache, ID.unique(), primaryPayload);
     log?.("Markdown cache saved successfully.");
-  } catch (error) {
+  } catch {
     try {
       const fallbackPayload: Record<string, unknown> = {
         paper_code: cachePaperCode,
