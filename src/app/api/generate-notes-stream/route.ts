@@ -416,6 +416,20 @@ async function readCachedNotes(
   } catch (error) {
     console.error("[generate-notes-stream] Failed to read cache:", error);
   }
+  try {
+    const noSelectorFallback = await db.listDocuments(DATABASE_ID, COLLECTION.generated_notes_cache, [
+      Query.equal("paper_code", fallbackCachePaperCode),
+      Query.equal("unit_number", unitNumber),
+      Query.equal("type", UNIT_NOTES_CACHE_TYPE),
+      Query.equal("status", COMPLETED_STATUS),
+      Query.orderDesc("$createdAt"),
+      Query.limit(1),
+    ]);
+    const noSelectorPrimary = await parseDoc(noSelectorFallback.documents[0]);
+    if (noSelectorPrimary) return noSelectorPrimary;
+  } catch (error) {
+    console.error("[generate-notes-stream] Failed to read selectorless cache fallback:", error);
+  }
   return null;
 }
 
@@ -568,8 +582,30 @@ async function writeCachedNotes(
         );
         log?.("Markdown cache saved successfully.");
       } catch (finalFallbackError) {
-        console.error("[generate-notes-stream] Failed to write cache after all fallbacks:", finalFallbackError);
-        log?.("Warning: Could not save markdown cache.");
+        console.warn("[generate-notes-stream] Selector-aware fallback failed; retrying selectorless cache row:", finalFallbackError);
+        try {
+          const fallbackCachePaperCode = getUnitNotesCacheKey(university, course, stream, selectionType, paperCode);
+          const selectorlessDocId = ID.unique();
+          const selectorlessPayload: Record<string, unknown> = {
+            id: selectorlessDocId,
+            paper_code: fallbackCachePaperCode,
+            unit_number: unitNumber,
+            type: UNIT_NOTES_CACHE_TYPE,
+            status: COMPLETED_STATUS,
+            markdown_file_id: markdownFileId,
+            created_at: createdAt,
+          };
+          await db.createDocument(
+            DATABASE_ID,
+            COLLECTION.generated_notes_cache,
+            selectorlessDocId,
+            selectorlessPayload,
+          );
+          log?.("Markdown cache saved successfully.");
+        } catch (selectorlessError) {
+          console.error("[generate-notes-stream] Failed to write cache after all fallbacks:", selectorlessError);
+          log?.("Warning: Could not save markdown cache.");
+        }
       }
     }
   }

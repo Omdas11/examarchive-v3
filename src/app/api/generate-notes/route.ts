@@ -225,10 +225,6 @@ export async function GET(request: NextRequest) {
     for (const code of Object.keys(semestersByPaperCode)) {
       semestersByPaperCode[code].sort((a, b) => a - b);
     }
-    const availableSemesters = Array.from(
-      new Set(Object.values(semestersByPaperCode).flat()),
-    ).sort((a, b) => a - b);
-
     const questionPaperCodes = new Set<string>();
     for (const questionDoc of questionDocs) {
       const code = typeof questionDoc.paper_code === "string" ? questionDoc.paper_code.trim().toUpperCase() : "";
@@ -237,6 +233,9 @@ export async function GET(request: NextRequest) {
       storePaperName(code, questionDoc.paper_name);
       applyCanonicalOrFallbackSemester(code, NaN);
     }
+    const availableSemesters = Array.from(
+      new Set(Object.values(semestersByPaperCode).flat()),
+    ).sort((a, b) => a - b);
     const notesPaperCodes = Array.from(syllabusPaperCodes).sort((a, b) => a.localeCompare(b));
     const papersPaperCodes = Array.from(questionPaperCodes).sort((a, b) => a.localeCompare(b));
     const allPaperCodes = [...new Set([...notesPaperCodes, ...papersPaperCodes])].sort((a, b) => a.localeCompare(b));
