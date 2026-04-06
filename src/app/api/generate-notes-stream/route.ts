@@ -492,6 +492,13 @@ async function writeCachedNotes(
   }
 
   const createdAt = new Date().toISOString();
+  const applySemesterCompatFields = (payload: Record<string, unknown>) => {
+    if (semester === null) return;
+    payload.semester = String(semester);
+    // Legacy compatibility: historically "year" was used for this same
+    // semester selector in unit-notes cache keys/queries.
+    payload.year = String(semester);
+  };
   const primaryDocId = ID.unique();
   // Some deployed Generated_Notes_Cache schemas include a required custom `id`
   // attribute in addition to the document ID parameter, so we mirror both.
@@ -509,13 +516,7 @@ async function writeCachedNotes(
     syllabus_content: syllabusContent,
     created_at: createdAt,
   };
-  if (semester !== null) {
-    primaryPayload.semester = String(semester);
-    // Legacy compatibility: mirror semester into `year` while old rows still
-    // exist and rollback safety is needed. Safe to remove after a backfill/
-    // TTL window once all active cache reads are `semester`-aware.
-    primaryPayload.year = String(semester);
-  }
+  applySemesterCompatFields(primaryPayload);
   try {
     // Keep explicit created_at because schema/docs require this field for cache reads and audits.
     await db.createDocument(DATABASE_ID, COLLECTION.generated_notes_cache, primaryDocId, primaryPayload);
@@ -536,11 +537,7 @@ async function writeCachedNotes(
         syllabus_content: syllabusContent,
         created_at: createdAt,
       };
-      if (semester !== null) {
-        fallbackPayload.semester = String(semester);
-        // Same legacy mirror rationale as primary payload above.
-        fallbackPayload.year = String(semester);
-      }
+      applySemesterCompatFields(fallbackPayload);
       await db.createDocument(DATABASE_ID, COLLECTION.generated_notes_cache, fallbackDocId, fallbackPayload);
       log?.("Markdown cache saved successfully.");
     } catch (fallbackError) {
@@ -557,10 +554,7 @@ async function writeCachedNotes(
           markdown_file_id: markdownFileId,
           created_at: createdAt,
         };
-        if (semester !== null) {
-          finalFallbackPayload.semester = String(semester);
-          finalFallbackPayload.year = String(semester);
-        }
+        applySemesterCompatFields(finalFallbackPayload);
         await db.createDocument(
           DATABASE_ID,
           COLLECTION.generated_notes_cache,
