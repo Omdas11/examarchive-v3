@@ -40,6 +40,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install tsx globally
+        run: npm install -g tsx
+
       - name: Run soft reset (clear ingestions)
         if: ${{ github.event.inputs.ingestion_mode == 'clear_ingestions' }}
         env:
