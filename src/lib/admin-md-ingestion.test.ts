@@ -9,6 +9,7 @@ stream: Science
 type: DSC
 paper_code: PHYDSC101T
 paper_name: Mechanics
+subject: Physics
 ---
 
 ## Syllabus
@@ -28,11 +29,38 @@ paper_name: Mechanics
     expect(parsed.errors).toEqual([]);
     expect(parsed.frontmatter?.paper_code).toBe("PHYDSC101T");
     expect(parsed.frontmatter?.stream).toBe("Science");
+    expect(parsed.frontmatter?.subject).toBe("Physics");
     expect(parsed.syllabus).toHaveLength(1);
     expect(parsed.questions).toHaveLength(1);
     expect(parsed.syllabus[0]?.tags).toEqual(["motion", "vector"]);
     expect(parsed.questions[0]?.tags).toEqual(["motion"]);
     expect(parsed.questions[0]?.year).toBe(2023);
+  });
+
+  it("reports a validation error when subject field is missing", () => {
+    const markdown = `---
+university: Assam University
+course: FYUG
+stream: Science
+type: DSC
+paper_code: PHYDSC101T
+paper_name: Mechanics
+---
+
+## Syllabus
+| unit_number | syllabus_content | lectures | tags |
+|---|---|---|---|
+| 1 | Kinematics | 12 | motion |
+
+## Questions
+    | question_no | question_subpart | year | question_content | marks | tags |
+    |---|---|---|---|---|---|
+    | 1 | a | 2023 | Define displacement. | 2 | motion |
+`;
+
+    const parsed = parseDemoDataEntryMarkdown(markdown);
+    expect(parsed.errors.some((err) => err.message.includes("subject"))).toBe(true);
+    expect(parsed.frontmatter).toBeNull();
   });
 
   it("reports deterministic line-level errors for invalid rows", () => {
@@ -43,6 +71,7 @@ stream: Science
 type: DSC
 paper_code: PHYDSC101T
 paper_name: Mechanics
+subject: Physics
 ---
 
 ## Syllabus

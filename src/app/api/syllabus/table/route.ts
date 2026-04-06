@@ -257,34 +257,43 @@ export async function GET(request: NextRequest) {
     }
 
     const papers: SyllabusTablePaperSummary[] = Array.from(grouped.entries())
-      .map(([code, paperRows]) => ({
-        paperCode: code,
-        paperName: derivePaperNameFromRows(code, paperRows),
-        subjectCode: extractSubjectCode(code),
-        university: paperRows[0]?.university ?? "",
-        course: paperRows[0]?.course ?? "",
-        stream: paperRows[0]?.stream ?? "",
-        type: paperRows[0]?.type ?? "",
-        units: new Set(paperRows.map((row) => row.unit_number)).size,
-        lectures: paperRows.reduce(
-          (sum, row) => sum + (typeof row.lectures === "number" ? row.lectures : 0),
-          0,
-        ),
-      }))
+      .map(([code, paperRows]) => {
+        const derivedSubjectCode = extractSubjectCode(code);
+        const subjectName = paperRows.find((r) => r.subject)?.subject ?? "";
+        return {
+          paperCode: code,
+          paperName: derivePaperNameFromRows(code, paperRows),
+          subject: subjectName,
+          subjectCode: derivedSubjectCode,
+          university: paperRows[0]?.university ?? "",
+          course: paperRows[0]?.course ?? "",
+          stream: paperRows[0]?.stream ?? "",
+          type: paperRows[0]?.type ?? "",
+          units: new Set(paperRows.map((row) => row.unit_number)).size,
+          lectures: paperRows.reduce(
+            (sum, row) => sum + (typeof row.lectures === "number" ? row.lectures : 0),
+            0,
+          ),
+        };
+      })
       .sort((a, b) => a.paperCode.localeCompare(b.paperCode));
+
+    // Group by subject name if available, fall back to subject code.
     const subjectStats = Array.from(
-      papers.reduce<Map<string, { subjectCode: string; papers: number; units: number }>>((acc, paper) => {
-        const current = acc.get(paper.subjectCode) ?? {
+      papers.reduce<Map<string, { subjectCode: string; subjectName: string; papers: number; units: number }>>((acc, paper) => {
+        const key = paper.subject || paper.subjectCode;
+        const current = acc.get(key) ?? {
           subjectCode: paper.subjectCode,
+          subjectName: paper.subject || paper.subjectCode,
           papers: 0,
           units: 0,
         };
         current.papers += 1;
         current.units += paper.units;
-        acc.set(paper.subjectCode, current);
+        acc.set(key, current);
         return acc;
       }, new Map()).values(),
-    ).sort((a, b) => a.subjectCode.localeCompare(b.subjectCode));
+    ).sort((a, b) => a.subjectName.localeCompare(b.subjectName));
 
     return NextResponse.json({ papers, subjects: subjectStats });
   } catch (err: unknown) {

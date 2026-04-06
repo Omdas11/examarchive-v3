@@ -5,6 +5,7 @@ export interface SyllabusTableRow {
   stream: string;
   type: string;
   paper_code: string;
+  subject: string;
   unit_number: number;
   syllabus_content: string;
   lectures?: number;
@@ -18,6 +19,7 @@ export interface SyllabusTablePaperSummary {
   type: string;
   paperCode: string;
   paperName: string;
+  subject: string;
   subjectCode: string;
   units: number;
   lectures: number;
@@ -45,6 +47,7 @@ export function toSyllabusTableRow(doc: Record<string, unknown>): SyllabusTableR
     stream: String(doc.stream ?? ""),
     type: String(doc.type ?? ""),
     paper_code: String(doc.paper_code ?? ""),
+    subject: String(doc.subject ?? ""),
     unit_number: Number(doc.unit_number ?? 0),
     syllabus_content: String(doc.syllabus_content ?? ""),
     lectures:

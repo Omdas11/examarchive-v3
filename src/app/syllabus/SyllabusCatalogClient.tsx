@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import type { Syllabus } from "@/types";
 import type { SyllabusTablePaperSummary } from "@/lib/syllabus-table";
 
-type SubjectStat = { subjectCode: string; papers: number; units: number };
+type SubjectStat = { subjectCode: string; subjectName: string; papers: number; units: number };
 
 /** Map of uploaded-syllabus PDFs keyed by paper code (upper-case). */
 type PdfsByCode = Map<string, Syllabus[]>;
@@ -95,7 +95,7 @@ function SubjectSection({
           <span className="material-symbols-outlined text-xl text-primary">
             {open ? "expand_less" : "expand_more"}
           </span>
-          <span className="text-base font-semibold text-on-surface">{subject.subjectCode}</span>
+          <span className="text-base font-semibold text-on-surface">{subject.subjectName}</span>
           <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
             {subject.papers} {subject.papers === 1 ? "paper" : "papers"}
           </span>
@@ -186,23 +186,24 @@ export default function SyllabusCatalogClient({ syllabi }: { syllabi: Syllabus[]
 
   /** Subject filter options, including "All". */
   const subjectFilters = useMemo(
-    () => ["All", ...subjects.map((s) => s.subjectCode)],
+    () => ["All", ...subjects.map((s) => s.subjectName)],
     [subjects],
   );
 
   /** Papers visible under current subject filter. */
   const filteredPapers = useMemo(() => {
     if (activeSubject === "All") return papers;
-    return papers.filter((p) => p.subjectCode === activeSubject);
+    return papers.filter((p) => (p.subject || p.subjectCode) === activeSubject);
   }, [papers, activeSubject]);
 
-  /** Group visible papers by subject code. */
+  /** Group visible papers by subject name (or code if no name). */
   const groupedBySubject = useMemo(() => {
     const map = new Map<string, SyllabusTablePaperSummary[]>();
     for (const p of filteredPapers) {
-      const list = map.get(p.subjectCode) ?? [];
+      const key = p.subject || p.subjectCode;
+      const list = map.get(key) ?? [];
       list.push(p);
-      map.set(p.subjectCode, list);
+      map.set(key, list);
     }
     return map;
   }, [filteredPapers]);
@@ -210,7 +211,7 @@ export default function SyllabusCatalogClient({ syllabi }: { syllabi: Syllabus[]
   const visibleSubjects = useMemo(
     () =>
       subjects.filter(
-        (s) => activeSubject === "All" || s.subjectCode === activeSubject,
+        (s) => activeSubject === "All" || s.subjectName === activeSubject,
       ),
     [subjects, activeSubject],
   );
@@ -291,10 +292,10 @@ export default function SyllabusCatalogClient({ syllabi }: { syllabi: Syllabus[]
         ) : (
           <div className="space-y-3">
             {visibleSubjects.map((subject, idx) => {
-              const subjectPapers = groupedBySubject.get(subject.subjectCode) ?? [];
+              const subjectPapers = groupedBySubject.get(subject.subjectName) ?? [];
               return (
                 <SubjectSection
-                  key={subject.subjectCode}
+                  key={subject.subjectName}
                   subject={subject}
                   papers={subjectPapers}
                   uploadedPdfs={uploadedPdfs}

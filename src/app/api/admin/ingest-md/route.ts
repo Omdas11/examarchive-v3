@@ -56,6 +56,7 @@ async function upsertSyllabusRows(args: {
   stream: string;
   type: string;
   paperCode: string;
+  subject: string;
   rows: ReturnType<typeof parseDemoDataEntryMarkdown>["syllabus"];
 }) {
   const db = adminDatabases();
@@ -82,6 +83,7 @@ async function upsertSyllabusRows(args: {
       stream: args.stream,
       type: args.type,
       paper_code: args.paperCode,
+      subject: args.subject,
       unit_number: row.unit_number,
       syllabus_content: row.syllabus_content,
       tags: row.tags,
@@ -107,6 +109,7 @@ async function upsertQuestionRows(args: {
   type: string;
   paperCode: string;
   paperName: string;
+  subject: string;
   rows: ReturnType<typeof parseDemoDataEntryMarkdown>["questions"];
 }) {
   const db = adminDatabases();
@@ -140,6 +143,7 @@ async function upsertQuestionRows(args: {
       type: args.type,
       paper_code: args.paperCode,
       paper_name: args.paperName,
+      subject: args.subject,
       question_no: row.question_no,
       question_subpart: row.question_subpart,
       question_content: row.question_content,
@@ -300,6 +304,7 @@ export async function POST(request: NextRequest) {
         stream: frontmatter.stream,
         type: frontmatter.type,
         paperCode: frontmatter.paper_code,
+        subject: frontmatter.subject,
         rows: parsed.syllabus,
       });
     } catch (error) {
@@ -314,6 +319,7 @@ export async function POST(request: NextRequest) {
         type: frontmatter.type,
         paperCode: frontmatter.paper_code,
         paperName: frontmatter.paper_name,
+        subject: frontmatter.subject,
         rows: parsed.questions,
       });
     } catch (error) {

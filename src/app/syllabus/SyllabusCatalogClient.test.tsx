@@ -6,6 +6,7 @@ const tablePayload = {
     {
       paperCode: "PHY101",
       paperName: "Physics I",
+      subject: "",
       subjectCode: "PHY",
       units: 3,
       lectures: 12,
@@ -15,7 +16,7 @@ const tablePayload = {
       university: "Test University",
     },
   ],
-  subjects: [{ subjectCode: "PHY", papers: 1, units: 3 }],
+  subjects: [{ subjectCode: "PHY", subjectName: "PHY", papers: 1, units: 3 }],
 };
 
 describe("SyllabusCatalogClient", () => {
