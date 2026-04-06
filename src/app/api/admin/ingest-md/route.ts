@@ -28,6 +28,11 @@ function normalizeError(error: unknown): string {
   return String(error);
 }
 
+function isUnknownAttributeError(error: unknown, attribute: string): boolean {
+  const message = normalizeError(error).toLowerCase();
+  return message.includes("unknown attribute") && message.includes(attribute.toLowerCase());
+}
+
 /**
  * Derives the semester (1–8) from a paper code following the NEP 2020 FYUG convention:
  * [3-letter dept][3-letter type][semDigit][2-digit num][opt elective A/B/C][T/P]
@@ -100,18 +105,21 @@ async function upsertSyllabusRows(args: {
       typeof existing.documents[0]?.id === "string" && existing.documents[0].id.trim().length > 0
         ? existing.documents[0].id
         : randomUUID();
-    const payload: Record<string, unknown> = {
+    const basePayload: Record<string, unknown> = {
       id: rowId,
       university: args.university,
       course: args.course,
       stream: args.stream,
       type: args.type,
       paper_code: args.paperCode,
-      paper_name: args.paperName,
       subject: args.subject,
       unit_number: row.unit_number,
       syllabus_content: row.syllabus_content,
       tags: row.tags,
+    };
+    const payload: Record<string, unknown> = {
+      ...basePayload,
+      paper_name: args.paperName,
     };
     if (typeof args.semester === "number") {
       payload.semester = args.semester;
@@ -119,12 +127,25 @@ async function upsertSyllabusRows(args: {
     if (typeof row.lectures === "number") {
       payload.lectures = row.lectures;
     }
-    if (existing.documents[0]) {
-      await db.updateDocument(DATABASE_ID, COLLECTION.syllabus_table, existing.documents[0].$id, payload);
-      updated += 1;
-    } else {
-      await db.createDocument(DATABASE_ID, COLLECTION.syllabus_table, ID.unique(), payload);
-      added += 1;
+    try {
+      if (existing.documents[0]) {
+        await db.updateDocument(DATABASE_ID, COLLECTION.syllabus_table, existing.documents[0].$id, payload);
+        updated += 1;
+      } else {
+        await db.createDocument(DATABASE_ID, COLLECTION.syllabus_table, ID.unique(), payload);
+        added += 1;
+      }
+    } catch (error) {
+      const shouldRetryWithoutNewFields =
+        isUnknownAttributeError(error, "paper_name") || isUnknownAttributeError(error, "semester");
+      if (!shouldRetryWithoutNewFields) throw error;
+      if (existing.documents[0]) {
+        await db.updateDocument(DATABASE_ID, COLLECTION.syllabus_table, existing.documents[0].$id, basePayload);
+        updated += 1;
+      } else {
+        await db.createDocument(DATABASE_ID, COLLECTION.syllabus_table, ID.unique(), basePayload);
+        added += 1;
+      }
     }
   }
   return { added, updated };

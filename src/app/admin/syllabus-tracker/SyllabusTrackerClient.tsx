@@ -37,7 +37,7 @@ interface SlotOrderItem {
 interface Props {
   tables: CurriculumTable[];
   slotOrder: SlotOrderItem[];
-  uploadedMap: Record<string, string | null>;
+  uploadedMap: Record<string, true>;
   totalExpected: number;
   canEdit: boolean;
 }
@@ -57,7 +57,7 @@ const SLOT_BG: Record<SlotKey, string> = {
   aec: "bg-red-50 dark:bg-red-900/25",
 };
 
-function getIsUploaded(code: string | null, uploadedMap: Record<string, string | null>): boolean {
+function getIsUploaded(code: string | null, uploadedMap: Record<string, true>): boolean {
   return Boolean(code && code in uploadedMap);
 }
 
@@ -183,22 +183,22 @@ export default function SyllabusTrackerClient({ tables, slotOrder, uploadedMap, 
   const masterRows = useMemo(() => {
     const semesters = [1, 2, 3, 4, 5, 6, 7, 8];
     return semesters.map((semester) => {
-      const semesterCodes = allCodes.filter((code) => {
-        for (const table of tables) {
-          for (const row of table.rows) {
-            if (row.semester !== semester) continue;
-            for (const slot of normalizedSlotOrder) {
-              if (row.slots[slot.key]?.code === code) return true;
-            }
+      const semesterCodesSet = new Set<string>();
+      for (const table of tables) {
+        for (const row of table.rows) {
+          if (row.semester !== semester) continue;
+          for (const slot of normalizedSlotOrder) {
+            const code = row.slots[slot.key]?.code;
+            if (code) semesterCodesSet.add(code);
           }
         }
-        return false;
-      });
+      }
+      const semesterCodes = Array.from(semesterCodesSet);
       const checked = semesterCodes.filter((c) => checkedMap[c]).length;
       const uploaded = semesterCodes.filter((c) => c in uploadedMap).length;
       return { semester, total: semesterCodes.length, checked, uploaded };
     });
-  }, [allCodes, tables, normalizedSlotOrder, checkedMap, uploadedMap]);
+  }, [tables, normalizedSlotOrder, checkedMap, uploadedMap]);
   const masterByDepartment = useMemo(
     () =>
       tables.map((table) => {

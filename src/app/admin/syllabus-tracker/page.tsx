@@ -15,8 +15,6 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-/** Maximum pages to paginate per collection (500 docs/page → covers 3 000 rows). */
-const MAX_FETCH_PAGES = 6;
 /** Documents fetched per Appwrite page. */
 const PAGE_SIZE = 500;
 
@@ -26,10 +24,7 @@ export default async function SyllabusTrackerPage() {
     redirect("/");
   }
 
-  // Fetch all ingested paper codes + names.
-  // Syllabus_Table now has paper_name (after schema sync) + paper_code.
-  // Questions_Table also has paper_name as a fallback.
-  // We combine both to determine upload status and populate names.
+  // Fetch all ingested paper codes from Syllabus_Table.
   let db: ReturnType<typeof adminDatabases> | null = null;
   try {
     db = adminDatabases();
@@ -37,52 +32,37 @@ export default async function SyllabusTrackerPage() {
     // In local/dev environments without Appwrite env vars, render baseline UI with empty upload state.
     db = null;
   }
-  const uploadedMap: Record<string, string | null> = {};
+  const uploadedMap: Record<string, true> = {};
 
-  async function paginateDistinct(
+  async function paginateDistinctCodes(
     collection: string,
-    nameField: boolean,
   ): Promise<void> {
     let cursor: string | undefined;
-    for (let page = 0; page < MAX_FETCH_PAGES; page++) {
-      const fields = nameField
-        ? ["paper_code", "paper_name"]
-        : ["paper_code"];
+    while (true) {
       const queries = [
         Query.limit(PAGE_SIZE),
-        Query.select(fields),
+        Query.select(["paper_code"]),
         Query.orderAsc("paper_code"),
       ];
       if (cursor) queries.push(Query.cursorAfter(cursor));
 
       if (!db) return;
       const { documents } = await db.listDocuments(DATABASE_ID, collection, queries);
-      for (const doc of documents as unknown as Array<{ paper_code?: string; paper_name?: string }>) {
+      for (const doc of documents as unknown as Array<{ paper_code?: string }>) {
         const code = doc.paper_code;
         if (!code) continue;
-        if (!(code in uploadedMap)) {
-          // First time seeing this code – use paper_name if available
-          uploadedMap[code] = (nameField ? doc.paper_name : null) ?? null;
-        } else if (nameField && doc.paper_name && !uploadedMap[code]) {
-          // Enrich with a name if we got one later
-          uploadedMap[code] = doc.paper_name;
-        }
+        uploadedMap[code] = true;
       }
       if (documents.length < PAGE_SIZE) break;
       const last = documents[documents.length - 1];
-      cursor = (last as { $id?: string }).$id;
+      const nextCursor = (last as { $id?: string }).$id;
+      if (!nextCursor || nextCursor === cursor) break;
+      cursor = nextCursor;
     }
   }
 
   try {
-    // Syllabus_Table: gives upload presence (no paper_name)
-    await paginateDistinct(COLLECTION.syllabus_table, false);
-  } catch {
-    // Collection may not exist yet
-  }
-  try {
-    // Questions_Table: gives paper_name
-    await paginateDistinct(COLLECTION.questions_table, true);
+    await paginateDistinctCodes(COLLECTION.syllabus_table);
   } catch {
     // Collection may not exist yet
   }
@@ -112,6 +92,18 @@ export default async function SyllabusTrackerPage() {
           <p className="mt-1 text-sm text-on-surface-variant">
             Tracks the Haflong FYUG baseline as 13 departmental tables plus a master tracking table.
             Uploaded papers are auto-detected, and each paper cell includes a checkbox for manual tracking.
+          </p>
+          <p className="mt-1 text-sm text-on-surface-variant">
+            Tracking syllabus of FYUG of all 13 departments of{" "}
+            <a
+              href="https://haflonggovtcollege.ac.in/"
+              target="_blank"
+              rel="noreferrer noopener"
+              className="text-primary underline underline-offset-2 hover:opacity-80"
+            >
+              HAFLONG GOVERNMENT COLLEGE
+            </a>
+            .
           </p>
         </div>
         <SyllabusTrackerClient
