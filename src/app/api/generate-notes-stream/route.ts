@@ -492,7 +492,7 @@ async function writeCachedNotes(
   }
 
   const createdAt = new Date().toISOString();
-  const applySemesterCompatFields = (payload: Record<string, unknown>) => {
+  const mutateSemesterCompatFields = (payload: Record<string, unknown>) => {
     // Unit-notes requests may omit semester for legacy callers; in that case
     // cache rows are intentionally written without semester/year selectors.
     if (semester === null) {
@@ -521,15 +521,15 @@ async function writeCachedNotes(
     syllabus_content: syllabusContent,
     created_at: createdAt,
   };
-  applySemesterCompatFields(primaryPayload);
+  mutateSemesterCompatFields(primaryPayload);
   try {
     // Keep explicit created_at because schema/docs require this field for cache reads and audits.
     await db.createDocument(DATABASE_ID, COLLECTION.generated_notes_cache, primaryDocId, primaryPayload);
     log?.("Markdown cache saved successfully.");
   } catch (primaryError) {
     console.error("[generate-notes-stream] Primary cache write failed; falling back to compatibility payload:", primaryError);
-    const fallbackCachePaperCode = getUnitNotesCacheKey(university, course, stream, selectionType, paperCode);
     try {
+      const fallbackCachePaperCode = getUnitNotesCacheKey(university, course, stream, selectionType, paperCode);
       const fallbackDocId = ID.unique();
       // Keep payload `id` mirrored with createDocument id for the same schema reason above.
       const fallbackPayload: Record<string, unknown> = {
@@ -542,12 +542,13 @@ async function writeCachedNotes(
         syllabus_content: syllabusContent,
         created_at: createdAt,
       };
-      applySemesterCompatFields(fallbackPayload);
+      mutateSemesterCompatFields(fallbackPayload);
       await db.createDocument(DATABASE_ID, COLLECTION.generated_notes_cache, fallbackDocId, fallbackPayload);
       log?.("Markdown cache saved successfully.");
     } catch (fallbackError) {
       console.warn("[generate-notes-stream] Compatibility cache write failed; retrying without optional syllabus_content:", fallbackError);
       try {
+        const fallbackCachePaperCode = getUnitNotesCacheKey(university, course, stream, selectionType, paperCode);
         const finalFallbackDocId = ID.unique();
         const finalFallbackPayload: Record<string, unknown> = {
           id: finalFallbackDocId,
@@ -558,7 +559,7 @@ async function writeCachedNotes(
           markdown_file_id: markdownFileId,
           created_at: createdAt,
         };
-        applySemesterCompatFields(finalFallbackPayload);
+        mutateSemesterCompatFields(finalFallbackPayload);
         await db.createDocument(
           DATABASE_ID,
           COLLECTION.generated_notes_cache,
