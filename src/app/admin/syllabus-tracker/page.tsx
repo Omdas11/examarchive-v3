@@ -98,7 +98,7 @@ export default async function SyllabusTrackerPage() {
             <a
               href="https://haflonggovtcollege.ac.in/"
               target="_blank"
-              rel="noreferrer noopener"
+              rel="noopener noreferrer"
               className="text-primary underline underline-offset-2 hover:opacity-80"
             >
               HAFLONG GOVERNMENT COLLEGE
