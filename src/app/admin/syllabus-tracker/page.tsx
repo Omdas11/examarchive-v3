@@ -22,7 +22,7 @@ const PAGE_SIZE = 500;
 
 export default async function SyllabusTrackerPage() {
   const user = await getServerUser();
-  if (!user || !isAdmin(user.role)) {
+  if (!user) {
     redirect("/");
   }
 
@@ -119,6 +119,7 @@ export default async function SyllabusTrackerPage() {
           slotOrder={curriculumData.metadata.slotOrder}
           uploadedMap={uploadedMap}
           totalExpected={curriculumData.metadata.totalExpected}
+          canEdit={isAdmin(user.role)}
         />
       </section>
     </MainLayout>

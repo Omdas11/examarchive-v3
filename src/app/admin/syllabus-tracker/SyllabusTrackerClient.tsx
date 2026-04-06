@@ -39,9 +39,11 @@ interface Props {
   slotOrder: SlotOrderItem[];
   uploadedMap: Record<string, string | null>;
   totalExpected: number;
+  canEdit: boolean;
 }
 
 const CHECKED_STORAGE_KEY = "syllabus-tracker-checked-v1";
+const LINKED_CHECK_GROUPS: string[][] = [["ENGAEC151T", "ENGAEC251T"]];
 
 const SLOT_BG: Record<SlotKey, string> = {
   dsc1: "bg-blue-50 dark:bg-blue-900/25",
@@ -66,6 +68,7 @@ function PaperCell({
   uploaded,
   checked,
   onToggle,
+  disabled,
   highlighted,
   refEl,
   bgClass,
@@ -75,6 +78,7 @@ function PaperCell({
   uploaded: boolean;
   checked: boolean;
   onToggle: () => void;
+  disabled: boolean;
   highlighted: boolean;
   refEl?: React.Ref<HTMLTableCellElement>;
   bgClass: string;
@@ -96,6 +100,7 @@ function PaperCell({
           aria-label={`Check ${code}`}
           checked={checked}
           onChange={onToggle}
+          disabled={disabled}
           className="mt-0.5 h-4 w-4 rounded border-outline-variant"
         />
         <div className="min-w-0">
@@ -109,7 +114,7 @@ function PaperCell({
   );
 }
 
-export default function SyllabusTrackerClient({ tables, slotOrder, uploadedMap, totalExpected }: Props) {
+export default function SyllabusTrackerClient({ tables, slotOrder, uploadedMap, totalExpected, canEdit }: Props) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const highlightCode = searchParams.get("highlight")?.toUpperCase() ?? null;
@@ -204,8 +209,9 @@ export default function SyllabusTrackerClient({ tables, slotOrder, uploadedMap, 
             .flatMap((r) =>
               normalizedSlotOrder.map((s) => r.slots[s.key]?.code).filter(Boolean) as string[],
             );
-          const checked = codes.length > 0 && codes.every((c) => checkedMap[c]);
-          return { semester, total: codes.length, checked };
+          const checkedCount = codes.filter((c) => checkedMap[c]).length;
+          const checked = codes.length > 0 && checkedCount === codes.length;
+          return { semester, total: codes.length, checked, checkedCount };
         });
         return { id: table.id, label: table.label, bySemester };
       }),
@@ -213,11 +219,23 @@ export default function SyllabusTrackerClient({ tables, slotOrder, uploadedMap, 
   );
 
   function toggleCode(code: string) {
-    setCheckedMap((prev) => ({ ...prev, [code]: !prev[code] }));
+    if (!canEdit) return;
+    const linked = LINKED_CHECK_GROUPS.find((group) => group.includes(code)) ?? [code];
+    setCheckedMap((prev) => {
+      const nextValue = !prev[code];
+      const updated = { ...prev };
+      for (const targetCode of linked) updated[targetCode] = nextValue;
+      return updated;
+    });
   }
 
   return (
     <div className="space-y-6">
+      {!canEdit && (
+        <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low px-4 py-3 text-sm text-on-surface-variant">
+          View-only mode: only admin+ roles can update checklist states.
+        </div>
+      )}
       <div className="rounded-xl border border-outline-variant/30 bg-surface p-4 shadow-sm">
         <p className="text-sm font-semibold">
           Uploaded: <span className="text-primary">{uploadedCount}/{totalExpected}</span> · Checked:{" "}
@@ -259,16 +277,26 @@ export default function SyllabusTrackerClient({ tables, slotOrder, uploadedMap, 
             <tbody>
               {masterByDepartment.map((dept) => (
                 <tr key={dept.id}>
-                  <td className="border border-outline-variant/30 px-2 py-2 font-semibold">{dept.id}</td>
+                  <td className="border border-outline-variant/30 px-2 py-2 font-semibold">{dept.label}</td>
                   {dept.bySemester.map((s) => (
                     <td key={`${dept.id}-${s.semester}`} className="border border-outline-variant/30 px-2 py-2 text-center">
                       {s.total === 0 ? (
                         <span className="text-on-surface-variant">—</span>
                       ) : (
-                        <label className="inline-flex items-center gap-1.5">
-                          <input type="checkbox" checked={s.checked} readOnly className="h-4 w-4" />
-                          <span className="text-[10px] text-on-surface-variant">{s.total}</span>
-                        </label>
+                        <div className="space-y-1">
+                          <label className="inline-flex items-center gap-1.5">
+                            <input type="checkbox" checked={s.checked} readOnly className="h-4 w-4" />
+                            <span className="text-[10px] text-on-surface-variant">
+                              {s.checkedCount}/{s.total}
+                            </span>
+                          </label>
+                          <div className="mx-auto h-1.5 w-14 overflow-hidden rounded-full bg-surface-container-low">
+                            <div
+                              className="h-full bg-primary"
+                              style={{ width: `${Math.min(100, (s.checkedCount / s.total) * 100)}%` }}
+                            />
+                          </div>
+                        </div>
                       )}
                     </td>
                   ))}
@@ -335,6 +363,7 @@ export default function SyllabusTrackerClient({ tables, slotOrder, uploadedMap, 
                               highlighted={highlighted}
                               refEl={highlighted ? highlightRef : undefined}
                               bgClass={SLOT_BG[slot.key]}
+                              disabled={!canEdit}
                             />
                           );
                         })}

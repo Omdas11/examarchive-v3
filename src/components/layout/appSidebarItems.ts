@@ -94,7 +94,7 @@ export const APP_SIDEBAR_ITEMS: AppSidebarItem[] = [
     label: "Syllabus Tracker",
     icon: "table_chart",
     href: "/admin/syllabus-tracker",
-    roles: ["admin", "founder"],
+    roles: ["visitor", "student", "explorer", "contributor", "verified_contributor", "moderator", "admin", "founder"],
   },
   {
     label: "Manage Users",
