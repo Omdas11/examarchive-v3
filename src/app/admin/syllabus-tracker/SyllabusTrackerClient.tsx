@@ -43,7 +43,6 @@ interface Props {
 }
 
 const CHECKED_STORAGE_KEY = "syllabus-tracker-checked-v1";
-const LINKED_CHECK_GROUPS: string[][] = [["ENGAEC151T", "ENGAEC251T"]];
 
 const SLOT_BG: Record<SlotKey, string> = {
   dsc1: "bg-blue-50 dark:bg-blue-900/25",
@@ -221,12 +220,9 @@ export default function SyllabusTrackerClient({ tables, slotOrder, uploadedMap, 
 
   function toggleCode(code: string) {
     if (!canEdit) return;
-    const linked = LINKED_CHECK_GROUPS.find((group) => group.includes(code)) ?? [code];
     setCheckedMap((prev) => {
       const nextValue = !prev[code];
-      const updated = { ...prev };
-      for (const targetCode of linked) updated[targetCode] = nextValue;
-      return updated;
+      return { ...prev, [code]: nextValue };
     });
   }
 
