@@ -141,6 +141,19 @@ If you need to keep `ai_ingestions` rows:
 npm run soft-reset:data:skip-ingestions
 ```
 
+##### Mobile trigger for soft reset
+
+You can run this same soft-reset automation from mobile via GitHub Actions:
+
+1. Open **Actions** in the GitHub app/browser.
+2. Select **Manual Soft Reset Data**.
+3. Tap **Run workflow**.
+4. Enter `SOFT_RESET` in the confirmation field.
+5. Choose:
+   - `clear_ingestions` (default): also truncates `ai_ingestions`
+   - `keep_ingestions`: keeps `ai_ingestions` rows
+6. Run the workflow and monitor logs.
+
 After reset:
 1. Re-ingest markdown files strictly following `DEMO_DATA_ENTRY.md`
 2. Ensure each file uses paper-code linking (`paper_code`) across syllabus + questions

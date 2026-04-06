@@ -178,14 +178,14 @@ export default function SyllabusCatalogClient({ syllabi }: { syllabi: Syllabus[]
     return papers.filter((p) => getSubjectDisplay(p) === activeSubject);
   }, [papers, activeSubject]);
 
-  /** All years across filtered papers, sorted ascending. */
+  /** All years across all papers, sorted ascending for stable table columns. */
   const years = useMemo(() => {
     const set = new Set<number>();
-    for (const p of filteredPapers) {
+    for (const p of papers) {
       for (const qp of p.questionPapers) set.add(qp.year);
     }
     return Array.from(set).sort((a, b) => a - b);
-  }, [filteredPapers]);
+  }, [papers]);
 
   return (
     <section className="mx-auto w-full max-w-6xl px-4 pb-16 pt-8">
