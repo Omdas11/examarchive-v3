@@ -115,10 +115,15 @@ export default function AIContentClient() {
     () => [...new Set([...notesPaperCodes, ...papersPaperCodes])].sort((a, b) => a.localeCompare(b)),
     [notesPaperCodes, papersPaperCodes],
   );
-  const visiblePaperCodes = useMemo(
-    () => (activeTab === "notes" ? notesPaperCodes : mergedPaperCodesForSolvedTab),
-    [activeTab, notesPaperCodes, mergedPaperCodesForSolvedTab],
-  );
+  const visiblePaperCodes = useMemo(() => {
+    const baseCodes = activeTab === "notes" ? notesPaperCodes : mergedPaperCodesForSolvedTab;
+    if (semester === "") return baseCodes;
+    return baseCodes.filter((code) => {
+      const semesters = semestersByPaperCode[code];
+      if (!Array.isArray(semesters) || semesters.length === 0) return true;
+      return semesters.includes(semester);
+    });
+  }, [activeTab, notesPaperCodes, mergedPaperCodesForSolvedTab, semester, semestersByPaperCode]);
   const paperCodeDropdownOptions: CustomDropdownOption[] = useMemo(
     () => visiblePaperCodes.map((code) => ({ label: code, value: code })),
     [visiblePaperCodes],
@@ -132,7 +137,7 @@ export default function AIContentClient() {
     [availableYears],
   );
   const semesterOptions: CustomDropdownOption[] = useMemo(
-    () => availableSemestersForSelection.map((entry) => ({ label: `Semester ${entry}`, value: String(entry) })),
+    () => availableSemestersForSelection.map((entry) => ({ label: `SEMESTER ${entry}`, value: String(entry) })),
     [availableSemestersForSelection],
   );
   const progressPercent = progressTotal > 0 ? Math.min(100, Math.round((progressIndex / progressTotal) * 100)) : 0;
@@ -692,6 +697,16 @@ export default function AIContentClient() {
               <CustomDropdown options={streamOptions} value={stream} onChange={setStream} disabled={generating} />
             </div>
             <div>
+              <label className="mb-1 block text-sm font-semibold">Semester</label>
+              <CustomDropdown
+                options={semesterOptions}
+                value={semester === "" ? "" : String(semester)}
+                onChange={(nextValue) => setSemester(Number(nextValue))}
+                placeholder="Select semester"
+                disabled={generating || semesterOptions.length === 0}
+              />
+            </div>
+            <div>
               <label className="mb-1 block text-sm font-semibold">Type</label>
               <CustomDropdown options={typeOptions} value={type} onChange={setType} disabled={generating} />
             </div>
@@ -703,16 +718,6 @@ export default function AIContentClient() {
                 onChange={setPaperCode}
                 placeholder={paperCodeLoading ? "Loading..." : "Select paper code"}
                 disabled={generating || paperCodeLoading || visiblePaperCodes.length === 0}
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-semibold">Semester</label>
-              <CustomDropdown
-                options={semesterOptions}
-                value={semester === "" ? "" : String(semester)}
-                onChange={(nextValue) => setSemester(Number(nextValue))}
-                placeholder="Select semester"
-                disabled={generating || semesterOptions.length === 0}
               />
             </div>
             {activeTab === "notes" ? (

@@ -90,10 +90,6 @@ export default async function SyllabusTrackerPage() {
         <div className="mb-6">
           <h1 className="text-2xl font-bold">Syllabus Upload Tracker</h1>
           <p className="mt-1 text-sm text-on-surface-variant">
-            Tracks the Haflong FYUG baseline as 13 departmental tables plus a master tracking table.
-            Uploaded papers are auto-detected, and each paper cell includes a checkbox for manual tracking.
-          </p>
-          <p className="mt-1 text-sm text-on-surface-variant">
             Tracking syllabus of FYUG of all 13 departments of{" "}
             <a
               href="https://haflonggovtcollege.ac.in/"

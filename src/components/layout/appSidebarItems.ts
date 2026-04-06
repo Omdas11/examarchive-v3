@@ -36,11 +36,6 @@ export const APP_SIDEBAR_ITEMS: AppSidebarItem[] = [
     href: "/browse",
   },
   {
-    label: "Question Papers",
-    icon: "description",
-    href: "/papers",
-  },
-  {
     label: "Syllabus",
     icon: "menu_book",
     href: "/syllabus",
@@ -49,11 +44,6 @@ export const APP_SIDEBAR_ITEMS: AppSidebarItem[] = [
     label: "AI Content",
     icon: "auto_awesome",
     href: "/ai-content",
-  },
-  {
-    label: "Study",
-    icon: "school",
-    href: "/study",
   },
   {
     label: "Upload Question Paper",
