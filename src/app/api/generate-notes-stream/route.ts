@@ -479,9 +479,16 @@ async function writeCachedNotes(
     const uploadResult = await storage.createFile(MARKDOWN_CACHE_BUCKET_ID, ID.unique(), inputFile);
     markdownFileId = String(uploadResult.$id);
   } catch (uploadError) {
-    console.error("[generate-notes-stream] Failed to upload markdown cache file:", uploadError);
-    log?.("Note: cache save skipped (generation output is still available).");
-    return;
+    console.error("[generate-notes-stream] Failed to upload markdown cache file (first attempt):", uploadError);
+    try {
+      await ensureMarkdownCacheBucket();
+      const retryUploadResult = await storage.createFile(MARKDOWN_CACHE_BUCKET_ID, ID.unique(), inputFile);
+      markdownFileId = String(retryUploadResult.$id);
+    } catch (retryUploadError) {
+      console.error("[generate-notes-stream] Failed to upload markdown cache file (retry):", retryUploadError);
+      log?.("Warning: Could not save markdown cache.");
+      return;
+    }
   }
 
   const createdAt = new Date().toISOString();
@@ -513,7 +520,8 @@ async function writeCachedNotes(
     // Keep explicit created_at because schema/docs require this field for cache reads and audits.
     await db.createDocument(DATABASE_ID, COLLECTION.generated_notes_cache, primaryDocId, primaryPayload);
     log?.("Markdown cache saved successfully.");
-  } catch {
+  } catch (primaryError) {
+    console.warn("[generate-notes-stream] Primary cache write failed; falling back to compatibility payload:", primaryError);
     try {
       const fallbackCachePaperCode = getUnitNotesCacheKey(university, course, stream, selectionType, paperCode);
       const fallbackDocId = ID.unique();
@@ -536,8 +544,34 @@ async function writeCachedNotes(
       await db.createDocument(DATABASE_ID, COLLECTION.generated_notes_cache, fallbackDocId, fallbackPayload);
       log?.("Markdown cache saved successfully.");
     } catch (fallbackError) {
-      console.error("[generate-notes-stream] Failed to write cache:", fallbackError);
-      log?.("Note: cache save skipped (generation output is still available).");
+      console.warn("[generate-notes-stream] Compatibility cache write failed; retrying without optional syllabus_content:", fallbackError);
+      try {
+        const fallbackCachePaperCode = getUnitNotesCacheKey(university, course, stream, selectionType, paperCode);
+        const finalFallbackDocId = ID.unique();
+        const finalFallbackPayload: Record<string, unknown> = {
+          id: finalFallbackDocId,
+          paper_code: fallbackCachePaperCode,
+          unit_number: unitNumber,
+          type: UNIT_NOTES_CACHE_TYPE,
+          status: COMPLETED_STATUS,
+          markdown_file_id: markdownFileId,
+          created_at: createdAt,
+        };
+        if (semester !== null) {
+          finalFallbackPayload.semester = String(semester);
+          finalFallbackPayload.year = String(semester);
+        }
+        await db.createDocument(
+          DATABASE_ID,
+          COLLECTION.generated_notes_cache,
+          finalFallbackDocId,
+          finalFallbackPayload,
+        );
+        log?.("Markdown cache saved successfully.");
+      } catch (finalFallbackError) {
+        console.error("[generate-notes-stream] Failed to write cache after all fallbacks:", finalFallbackError);
+        log?.("Warning: Could not save markdown cache.");
+      }
     }
   }
 }
