@@ -6,12 +6,17 @@ Remove the 500 RPD bottleneck and build scalable multi-model AI infrastructure f
 
 ## Current State
 
-| Parameter            | Value                                          |
-|----------------------|------------------------------------------------|
-| Primary model        | Gemini 2.0 Flash Lite (experimental)           |
-| Free RPD limit       | 500 requests/day                               |
-| Failure mode         | Hard stop after 500; all queued jobs fail      |
-| No fallback          | Any quota exhaustion = downtime for students   |
+| Parameter            | Value                                                              |
+|----------------------|--------------------------------------------------------------------|
+| Primary model        | `gemini-3.1-flash-lite-preview` (configurable via `GEMINI_MODEL_ID` env var) |
+| Daily request limit  | Configurable via `AI_DAILY_LIMIT` env var (default: 5); see `src/lib/ai-limits.ts` |
+| RPM limit            | Configurable via `AI_RPM_LIMIT` env var (default: 15); see `src/lib/ai-limits.ts` |
+| Existing fallback    | Gemini → OpenRouter free-tier models (see `docs/AI_SETUP.md`)     |
+| Primary risk         | Queue exhaustion during peak student usage under free-tier limits  |
+
+For authoritative current model and limit values, refer to `docs/FREE_MODELS_LIMITS.md`
+and `src/lib/ai-limits.ts`. This document describes the **expanded** multi-tier
+architecture needed to handle launch-scale load.
 
 ---
 
@@ -36,16 +41,18 @@ Add rate-limiter and retry scheduler with exponential back-off.
 
 Route tasks to the right model by job type:
 
-| Task Type                       | Recommended Tier | Model (example)               |
-|---------------------------------|------------------|-------------------------------|
-| Paper code classification       | Basic (fast)     | Gemini 2.0 Flash Lite         |
-| Syllabus extraction             | Standard         | Gemini 2.0 Flash              |
-| Question paper summarization    | Standard         | Gemini 2.0 Flash              |
-| AI notes PDF generation (basic) | Basic            | Gemini 2.0 Flash Lite         |
-| AI notes PDF (structured)       | Standard         | Gemini 2.0 Flash              |
-| Deep explanation / solved PDF   | Premium          | Gemini 1.5 Pro / GPT-4o Mini  |
+| Task Type                                   | Recommended Tier | Model (example)               |
+|---------------------------------------------|------------------|-------------------------------|
+| Paper metadata enrichment (post-validation) | Basic (fast)     | Gemini 3.1 Flash Lite         |
+| Syllabus extraction                         | Standard         | Gemini 2.0 Flash              |
+| Question paper summarization                | Standard         | Gemini 2.0 Flash              |
+| AI notes PDF generation (basic)             | Basic            | Gemini 3.1 Flash Lite         |
+| AI notes PDF (structured)                   | Standard         | Gemini 2.0 Flash              |
+| Deep explanation / solved PDF               | Premium          | Gemini 1.5 Pro / GPT-4o Mini  |
 
-Router reads current quota usage per model and re-routes dynamically.
+> **Important:** Paper-code parsing and validation are **not** AI-routed tasks.
+> They must always be handled by the deterministic parser as specified in
+> `PAPER_CODE_VALIDATION_RULES.md` — no LLM calls in the validation path.
 
 ---
 
@@ -69,12 +76,12 @@ Critical jobs only → alert admin
 
 **Fallback models to configure:**
 
-| Slot              | Candidate                         |
-|-------------------|-----------------------------------|
-| Primary           | Gemini 2.0 Flash Lite (free tier) |
-| Fallback A        | Gemini 2.0 Flash (paid)           |
-| Fallback B        | Gemini 1.5 Flash (paid)           |
-| Emergency         | OpenAI GPT-4o Mini (paid)         |
+| Slot              | Candidate                                          |
+|-------------------|----------------------------------------------------|
+| Primary           | Gemini 3.1 Flash Lite (free, via `GEMINI_API_KEY`) |
+| Fallback A        | Gemini 2.0 Flash (paid)                            |
+| Fallback B        | Gemini 1.5 Flash (paid)                            |
+| Emergency         | OpenRouter free-tier models (via `OPENROUTER_API_KEY`) |
 
 ---
 

@@ -15,6 +15,25 @@ Strict validation and parsing rules for Assam University FYUG paper codes used b
 | Semester code    | 7–9      | 3 digits | Sequence block mapping to semester (e.g., `101`) |
 | Component suffix | 10+      | variable | Optional trailing marker (e.g., `T` for Theory) |
 
+## Component suffix
+
+The suffix comes after the semester digits. Based on the current ingestion code
+(`src/app/api/admin/ingest-md/route.ts`), the canonical suffix pattern is:
+
+```
+[ABC]?[TP]
+```
+
+Where:
+- `[ABC]` — optional elective slot marker (used when multiple DSC/DSM papers share a semester)
+- `[TP]` — required component type: `T` = Theory, `P` = Practical
+
+**The suffix is required for canonical paper codes.** Codes without a `T` or `P` suffix
+are not accepted by the current ingestion parser. The `exam_type` field stored in the
+`papers` collection is derived directly from this suffix (see `docs/UPLOAD_FLOW.md`).
+
+Examples of valid suffixes: `T`, `P`, `AT`, `BT`, `CT`, `AP`, `BP`
+
 ---
 
 ## Allowed Paper Types
@@ -62,19 +81,21 @@ Any other type (e.g., `XYZ`, `GEN`) → **reject**.
 
 ---
 
-## Regex (Baseline)
+## Regex (Canonical)
 
-Use for structural validation:
+Use this regex for full structural validation, aligned with the current ingestion parser
+(`deriveSemesterFromCode` in `src/app/api/admin/ingest-md/route.ts`):
 
 ```
-^([A-Z]{3})(DSC|DSM|SEC|IDC|AEC|VAC)(10[1-9]|15[1-9]|20[1-9]|25[1-9]|30[1-9]|35[1-9]|40[1-9]|45[1-9])([A-Z0-9]*)$
+^([A-Z]{3})(DSC|DSM|SEC|IDC|AEC|VAC)(10[1-9]|15[1-9]|20[1-9]|25[1-9]|30[1-9]|35[1-9]|40[1-9]|45[1-9])[ABC]?[TP]$
 ```
 
 This validates:
 - 3-char subject code
-- Allowed type code
+- Allowed type code from the permitted set
 - Valid semester range within each block (01–09 slots)
-- Optional suffix
+- Optional elective slot marker (`A`, `B`, or `C`)
+- **Required** component suffix (`T` for Theory or `P` for Practical)
 
 ---
 
@@ -88,7 +109,8 @@ subject_code: "PHY"
 paper_type: "DSC"
 semester_code: "101"
 semester_no: 1
-component_suffix: "T"
+elective_marker: null    # or "A" / "B" / "C" if present
+component_suffix: "T"    # "T" (Theory) or "P" (Practical)
 ```
 
 On invalid code, parser must return:
@@ -136,10 +158,13 @@ error_message: "Paper type 'XYZ' is not in the allowed set."
 |-------------------|-------------------------------------------------|
 | `phydsc101t`      | Normalize to uppercase → `PHYDSC101T` → valid   |
 | `  PHYDSC101T  ` | Trim whitespace → `PHYDSC101T` → valid          |
+| `PHYDSC101AT`     | Elective marker `A` + Theory suffix → valid     |
 | `PHYDSC111T`      | `111` not in valid semester range → reject       |
 | `PHYXYZ101T`      | `XYZ` not allowed type → reject                 |
+| `PHYDSC101`       | Missing required `T`/`P` suffix → format invalid |
 | `PHYDSC`          | Missing semester + suffix → format invalid       |
 | `PHYADSC101T`     | Subject code 4 chars → format invalid            |
+| `PHYDSC101X`      | Suffix `X` is not `T` or `P` → format invalid   |
 
 ---
 

@@ -7,14 +7,17 @@ gateway, while providing a clear path to full revenue automation.
 
 ## Current AI Bottleneck
 
-| Parameter         | Value                                     |
-|-------------------|-------------------------------------------|
-| Current model     | Gemini 2.0 Flash Lite (experimental)      |
-| Free RPD limit    | 500 requests/day                          |
-| Primary risk      | Queue exhaustion during peak student usage|
+| Parameter         | Value                                                                         |
+|-------------------|-------------------------------------------------------------------------------|
+| Current model     | Configurable — see `docs/FREE_MODELS_LIMITS.md` for current default free model (default: `gemini-3.1-flash-lite-preview` via `GEMINI_MODEL_ID`) |
+| Free usage limits | Configurable — `AI_DAILY_LIMIT` / `AI_RPM_LIMIT` env vars in `src/lib/ai-limits.ts` |
+| Existing fallback | Gemini → OpenRouter free-tier models (see `docs/AI_SETUP.md`)                |
+| Primary risk      | Queue exhaustion during peak student usage under free-tier limits             |
 
-This bottleneck must be resolved by launch via queue management and tiered access rules.
-See `AI_MODEL_EXPANSION_PLAN.md` for multi-model routing strategy.
+For the current enforced limits and model choice, use `docs/FREE_MODELS_LIMITS.md` and
+`src/lib/ai-limits.ts` as the source of truth. This bottleneck must be resolved by launch
+via queue management and tiered access rules. See `AI_MODEL_EXPANSION_PLAN.md` for the
+multi-model routing strategy.
 
 ---
 
@@ -84,13 +87,14 @@ coin_price   = ceil(cost_per_pdf × margin_multiplier / coin_unit_value)
 
 ### Model Tier Reference
 
-> Replace with exact live provider pricing before launch.
+> Replace with exact live provider pricing before launch. Use `docs/FREE_MODELS_LIMITS.md`
+> for current model IDs and their prompt/completion costs.
 
-| Tier     | Model                        | Est. Cost/PDF (INR) | Coin Price | Notes                        |
-|----------|------------------------------|---------------------|------------|------------------------------|
-| Basic    | Gemini 2.0 Flash Lite        | ₹0.08–₹0.15         | 8–15       | 500 RPD free tier            |
-| Standard | Gemini 2.0 Flash             | ₹0.20–₹0.45         | 20–45      | Pay-as-you-go API            |
-| Premium  | Gemini 1.5 Pro / GPT-4o Mini | ₹0.50–₹1.20         | 50–120     | High quality, deep reasoning |
+| Tier     | Model                              | Est. Cost/PDF (INR) | Coin Price | Notes                        |
+|----------|------------------------------------|---------------------|------------|------------------------------|
+| Basic    | Gemini 3.1 Flash Lite (free tier)  | ₹0.08–₹0.15         | 8–15       | Default free model           |
+| Standard | Gemini 2.0 Flash                   | ₹0.20–₹0.45         | 20–45      | Pay-as-you-go API            |
+| Premium  | Gemini 1.5 Pro / GPT-4o Mini       | ₹0.50–₹1.20         | 50–120     | High quality, deep reasoning |
 
 ---
 

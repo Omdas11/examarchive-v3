@@ -4,12 +4,16 @@ Canonical schema for question paper ingestion into ExamArchive.
 
 ## Purpose
 
-Standardize all question paper uploads so they are automatically linked to the correct
-syllabus entry, surfaced on the browse page, and eligible for AI note generation.
+This document defines a **v2 question paper authoring schema** intended for future ingestion
+pipeline improvements. It is **not** the same as the current `DEMO_DATA_ENTRY.md` frontmatter
+schema enforced by `src/lib/admin-md-ingestion.ts`.
+
+Before any v2 entry is ingested by the current system, v2 fields must be mapped to the currently
+enforced keys. See the **Field Mapping** section below.
 
 ## Rules
 
-- YAML structure must remain compatible with `DEMO_DATA_ENTRY.md` frontmatter.
+- YAML structure is a v2 schema; see mapping table for current ingestion equivalents.
 - `paper_code` must match validation rules from `PAPER_CODE_VALIDATION_RULES.md`.
 - `exam_year` and `group` must be explicit for accurate auto-linking.
 - Each question PDF entry has a unique `question_id`.
@@ -17,28 +21,51 @@ syllabus entry, surfaced on the browse page, and eligible for AI note generation
 
 ---
 
+## Field Mapping: v2 → Current Ingestion Schema
+
+The current parser (`src/lib/admin-md-ingestion.ts`) reads these frontmatter keys:
+
+| v2 Field (this doc)   | Current Ingestion Key | Notes                                    |
+|-----------------------|-----------------------|------------------------------------------|
+| `paper_code`          | `paper_code`          | Same                                     |
+| `paper_title`         | `paper_name`          | Renamed in v2                            |
+| `paper_type`          | `type`                | Renamed in v2                            |
+| `subject_code`        | `subject`             | Renamed in v2                            |
+| `university`          | `university`          | Same                                     |
+| `course`              | `course`              | Same                                     |
+| `stream`              | `stream`              | Same                                     |
+| `question_id`         | —                     | v2 metadata only; not in current ingestion |
+| `college`             | —                     | v2 metadata only; not in current ingestion |
+| `group`               | —                     | v2 metadata only; not in current ingestion |
+| `exam_year`           | —                     | v2 metadata only; not in current ingestion |
+| `exam_session`        | —                     | v2 metadata only; not in current ingestion |
+| `semester_code`       | —                     | v2 metadata only; not in current ingestion |
+| `semester_no`         | —                     | v2 metadata only; not in current ingestion |
+
+---
+
 ## Required Fields
 
-| Field                | Type   | Description                                                       |
-|----------------------|--------|-------------------------------------------------------------------|
-| `entry_type`         | string | Always `question`                                                 |
-| `question_id`        | string | Unique ID: `QST-{college_short}-{paper_code}-{year}-{seq}`        |
-| `college`            | string | Full college name                                                 |
-| `university`         | string | Affiliating university                                            |
-| `course`             | string | `FYUG` or `CBCS`                                                  |
-| `stream`             | string | `Science`, `Arts`, `Commerce`                                     |
-| `group`              | string | Major subject group (e.g., `Physics Major`)                       |
-| `exam_year`          | number | Year of the examination                                           |
-| `exam_session`       | string | `Odd Semester` or `Even Semester`                                 |
-| `paper_code`         | string | Canonical code — must pass validator                              |
-| `paper_title`        | string | Official paper title                                              |
-| `subject_code`       | string | Derived first 3 chars of `paper_code`                             |
-| `paper_type`         | string | One of: `DSC`, `DSM`, `SEC`, `IDC`, `AEC`, `VAC`                 |
-| `semester_code`      | string | 3-digit semester code                                             |
-| `semester_no`        | number | Derived semester number (1–8)                                     |
-| `question_pdf_url`   | string | URL or path to question PDF                                       |
-| `source_reference`   | string | Source doc or upload batch this was ingested from                 |
-| `status`             | string | `active`, `archived`, or `draft`                                  |
+| Field                | Type   | Maps to current key | Description                                                       |
+|----------------------|--------|---------------------|-------------------------------------------------------------------|
+| `entry_type`         | string | —                   | Always `question`; v2 metadata only                               |
+| `question_id`        | string | —                   | Unique ID: `QST-{college_short}-{paper_code}-{year}-{seq}`        |
+| `college`            | string | —                   | Full college name; v2 metadata only                               |
+| `university`         | string | `university`        | Affiliating university                                            |
+| `course`             | string | `course`            | `FYUG` or `CBCS`                                                  |
+| `stream`             | string | `stream`            | `Science`, `Arts`, `Commerce`                                     |
+| `group`              | string | —                   | Major subject group (e.g., `Physics Major`); v2 only              |
+| `exam_year`          | number | —                   | Year of the examination; v2 metadata only                         |
+| `exam_session`       | string | —                   | `Odd Semester` or `Even Semester`; v2 only                        |
+| `paper_code`         | string | `paper_code`        | Canonical code — must pass validator                              |
+| `paper_title`        | string | `paper_name`        | Official paper title                                              |
+| `subject_code`       | string | `subject`           | Derived first 3 chars of `paper_code`                             |
+| `paper_type`         | string | `type`              | One of: `DSC`, `DSM`, `SEC`, `IDC`, `AEC`, `VAC`                 |
+| `semester_code`      | string | —                   | 3-digit semester code; v2 metadata only                           |
+| `semester_no`        | number | —                   | Derived semester number (1–8); v2 metadata only                   |
+| `question_pdf_url`   | string | —                   | URL or path to question PDF                                       |
+| `source_reference`   | string | —                   | Source doc or upload batch this was ingested from                 |
+| `status`             | string | —                   | `active`, `archived`, or `draft`                                  |
 
 ---
 

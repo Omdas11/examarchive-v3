@@ -25,8 +25,8 @@ Extract the syllabus entry from the following text. The paper code follows the p
 
 Return a JSON object with this exact schema:
 {
-  "paper_code": string | null,
-  "paper_title": string | null,
+  "paper_code": string,
+  "paper_title": string,
   "subject_code": string | null,
   "paper_type": string | null,
   "semester_code": string | null,
@@ -44,8 +44,11 @@ Source text:
 {SOURCE_TEXT}
 ```
 
-**Output schema enforcement:** `paper_code`, `paper_title`, `confidence` are mandatory.
-All other fields may be null but must be present in the response.
+**Output schema enforcement:** `paper_code`, `paper_title`, and `confidence` are
+**mandatory and non-nullable** — if the model cannot extract these with any confidence,
+return `confidence: 0` and set `paper_code`/`paper_title` to the best available guess
+with the field listed in `low_confidence_fields`. All other fields may be `null` but
+must be present in the response.
 
 ---
 
@@ -68,9 +71,9 @@ Extract the question paper metadata and questions from the following text.
 
 Return a JSON object with this exact schema:
 {
-  "paper_code": string | null,
+  "paper_code": string,
   "paper_title": string | null,
-  "exam_year": number | null,
+  "exam_year": number,
   "exam_month": string | null,
   "exam_session": "Odd Semester" | "Even Semester" | null,
   "attempt_type": "regular" | "backlog" | "improvement" | null,
@@ -91,8 +94,11 @@ Source text:
 {SOURCE_TEXT}
 ```
 
-**Output schema enforcement:** `paper_code`, `exam_year`, `confidence` are mandatory.
-`questions` array must have at least one entry if any questions are found.
+**Output schema enforcement:** `paper_code`, `exam_year`, and `confidence` are
+**mandatory and non-nullable** — if the model cannot extract these with any confidence,
+return `confidence: 0` and provide the best available guess with the field listed in
+`low_confidence_fields`. `questions` array must have at least one entry if any questions
+are detected in the source.
 
 ---
 
