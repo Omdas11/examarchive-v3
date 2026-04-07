@@ -828,7 +828,7 @@ export default function AIContentClient() {
                           Download PDF
                         </button>
                         <button onClick={handleRerenderFromMarkdownClick} className="btn w-full" type="button">
-                          Regenerate PDF
+                          Re-render PDF
                         </button>
                       </div>
                     ) : (
