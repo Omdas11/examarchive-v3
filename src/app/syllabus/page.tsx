@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     title: "Syllabus Library | ExamArchive",
     description:
       "Explore approved syllabus PDFs and paper-code syllabus pages for faster exam preparation.",
-    url: "https://examarchive.dev/syllabus",
+    url: "https://www.examarchive.dev/syllabus",
     type: "website",
   },
 };

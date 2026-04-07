@@ -30,9 +30,9 @@ This repository contains the Next.js 15 + Appwrite implementation.
 
 ## Startup Readiness (Execution Docs)
 
-The growth and monetization prep checklist is now split into focused docs:
+The growth and monetization prep checklist is documented in focused docs:
 
-- [docs/STARTUP_TODO.md](./STARTUP_TODO.md) — prioritized to-do list (AI tasks + author/business tasks) covering SEO, student UX, distribution, gamification, in-app purchases, and AI roadmap.
+- [../MONETIZATION_ROADMAP.md](../MONETIZATION_ROADMAP.md) — staged implementation roadmap for credits economy, manual UPI verification, tiered content, and operations.
 - [docs/GOOGLE_ANALYTICS_SETUP.md](./GOOGLE_ANALYTICS_SETUP.md) — GA4 setup + event instrumentation guide for conversion tracking.
 - [docs/SIMPLE_ANALYTICS_SETUP.md](./SIMPLE_ANALYTICS_SETUP.md) — Simple Analytics setup for lightweight pageview tracking.
 
@@ -40,10 +40,11 @@ The growth and monetization prep checklist is now split into focused docs:
 
 | Document | Description |
 |----------|-------------|
-| [docs/STARTUP_TODO.md](./STARTUP_TODO.md) | Startup success checklist with ownership, priority, and immediate actions |
+| [../MONETIZATION_ROADMAP.md](../MONETIZATION_ROADMAP.md) | Roadmap for monetization, wallet, entitlements, and moderation operations |
 | [docs/GOOGLE_ANALYTICS_SETUP.md](./GOOGLE_ANALYTICS_SETUP.md) | GA4 implementation and event taxonomy guide |
 | [docs/SIMPLE_ANALYTICS_SETUP.md](./SIMPLE_ANALYTICS_SETUP.md) | Simple Analytics configuration steps and verification checklist |
-| [docs/DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) | Appwrite collection schemas |
+| [DATABASE_SCHEMA.md](../DATABASE_SCHEMA.md) | Primary schema document used by sync workflows and root tooling |
+| [docs/DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) | Secondary schema snapshot for docs-focused references |
 | [docs/UPLOAD_FLOW.md](./UPLOAD_FLOW.md) | End-to-end upload and moderation architecture |
 | [docs/AI_SETUP.md](./AI_SETUP.md) | OpenRouter-based AI setup, limits, and endpoint behavior |
 | [docs/ENVIRONMENT.md](./ENVIRONMENT.md) | Complete environment variable reference |

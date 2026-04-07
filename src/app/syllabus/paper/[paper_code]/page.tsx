@@ -16,6 +16,8 @@ import {
   derivePaperNameFromContent,
   toSyllabusTableRow,
 } from "@/lib/syllabus-table";
+import { formatIstDateTime } from "@/lib/datetime";
+import { buildSyllabusJsonLd, serializeJsonLd } from "@/lib/json-ld";
 
 interface PageProps {
   params: Promise<{ paper_code: string }>;
@@ -30,6 +32,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return {
     title: `${code} Syllabus`,
     description: `Syllabus details sourced from Syllabus_Table for ${code}.`,
+    alternates: {
+      canonical: `/syllabus/paper/${encodeURIComponent(code)}`,
+    },
+    openGraph: {
+      title: `${code} Syllabus | ExamArchive`,
+      description: `Structured syllabus details for ${code} from the ExamArchive syllabus table.`,
+      url: `https://www.examarchive.dev/syllabus/paper/${encodeURIComponent(code)}`,
+      type: "article",
+    },
   };
 }
 
@@ -103,6 +114,13 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
 
   const first = rows[0];
   const paperName = first.paper_name?.trim() || derivePaperNameFromContent(first.syllabus_content, code);
+  const lastVerifiedAt = uploadedPdfs[0]?.created_at ?? new Date().toISOString();
+  const syllabusJsonLd = buildSyllabusJsonLd({
+    paperCode: code,
+    paperName,
+    university: first.university,
+    urlPath: `/syllabus/paper/${encodeURIComponent(code)}`,
+  });
 
   return (
     <MainLayout
@@ -119,6 +137,9 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
       userName={userName}
       userInitials={userInitials}
     >
+      <script type="application/ld+json">
+        {serializeJsonLd(syllabusJsonLd)}
+      </script>
       <section className="mx-auto w-full max-w-5xl px-4 pb-16 pt-8">
         <div className="rounded-3xl border border-outline-variant/40 bg-surface p-6 shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
@@ -129,6 +150,9 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
           <p className="mt-2 text-sm text-on-surface-variant">
             {first.university} · {first.course} · {first.stream} · {first.type}
           </p>
+          <p className="mt-1 text-xs text-on-surface-variant">
+            Last verified {formatIstDateTime(lastVerifiedAt)} IST
+          </p>
 
           <div className="mt-5 flex flex-wrap gap-2">
             <a
@@ -138,6 +162,12 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
               className="inline-flex items-center gap-2 rounded-2xl bg-primary px-4 py-2 text-sm font-semibold text-on-primary"
             >
               Download Syllabus PDF
+            </a>
+            <a
+              href={`mailto:feedback@examarchive.dev?subject=${encodeURIComponent(`Wrong syllabus: ${code}`)}&body=${encodeURIComponent(`Please review syllabus page /syllabus/paper/${code}`)}`}
+              className="inline-flex items-center gap-2 rounded-2xl bg-surface-container px-4 py-2 text-sm font-semibold text-on-surface"
+            >
+              Report wrong syllabus
             </a>
           </div>
         </div>

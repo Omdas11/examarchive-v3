@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     title: "AI Study Notes Generator | ExamArchive",
     description:
       "Create detailed revision notes with syllabus-aware context and structured exam preparation output.",
-    url: "https://examarchive.dev/ai-content",
+    url: "https://www.examarchive.dev/ai-content",
     type: "website",
   },
   robots: { index: false, follow: false },

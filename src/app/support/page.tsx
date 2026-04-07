@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Support | ExamArchive",
     description: "Get help, report issues, or send feedback to the ExamArchive team.",
-    url: "https://examarchive.dev/support",
+    url: "https://www.examarchive.dev/support",
     type: "website",
   },
 };

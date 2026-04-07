@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     title: "Browse | ExamArchive",
     description:
       "Find verified past exam papers using filters for course code, university, semester, and year.",
-    url: "https://examarchive.dev/browse",
+    url: "https://www.examarchive.dev/browse",
     type: "website",
   },
 };

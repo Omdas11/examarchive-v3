@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://examarchive.dev";
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.examarchive.dev";
 
 /**
  * Generates /robots.txt via the Next.js Metadata API.

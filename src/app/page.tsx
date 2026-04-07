@@ -43,7 +43,7 @@ export const metadata: Metadata = {
     title: "ExamArchive – Free Past Exam Papers & Syllabi · Early Access",
     description:
       "Sign up to view free past exam papers and syllabi. Starting with Haflong Government College — community-driven, verified archive.",
-    url: "https://examarchive.dev",
+    url: "https://www.examarchive.dev",
     type: "website",
   },
 };
@@ -101,60 +101,35 @@ export default async function HomePage() {
 
   try {
     const db = adminDatabases();
-
-    const pageSize = 100;
-    const [papersRes, syllabusRes] = await Promise.all([
+    const [papersRes, syllabusRes, popularRes, recentRes] = await Promise.all([
       db.listDocuments(DATABASE_ID, COLLECTION.papers, [
         Query.equal("approved", true),
-        Query.limit(pageSize),
+        Query.limit(1),
       ]),
       db.listDocuments(DATABASE_ID, COLLECTION.syllabus, [
         Query.equal("approval_status", "approved"),
         Query.limit(1),
       ]),
+      db.listDocuments(DATABASE_ID, COLLECTION.papers, [
+        Query.equal("approved", true),
+        Query.orderDesc("view_count"),
+        Query.limit(4),
+      ]),
+      db.listDocuments(DATABASE_ID, COLLECTION.papers, [
+        Query.equal("approved", true),
+        Query.orderDesc("$createdAt"),
+        Query.limit(4),
+      ]),
     ]);
 
     papersTotal = papersRes.total;
     syllabusTotal = syllabusRes.total;
-
-    const allPapers: Paper[] = [];
-    const addInstitutions = (papers: Paper[]) => {
-      for (const paper of papers) {
-        const institution = paper.institution?.trim();
-        if (institution) universitiesSet.add(institution);
-      }
-    };
-
-    const firstPagePapers = papersRes.documents.map(toPaper);
-    allPapers.push(...firstPagePapers);
-    addInstitutions(firstPagePapers);
-
-    const firstPageCount = papersRes.documents.length;
-    if (papersTotal > firstPageCount && firstPageCount > 0) {
-      let offset = firstPageCount;
-      while (offset < papersTotal) {
-        const pageRes = await db.listDocuments(DATABASE_ID, COLLECTION.papers, [
-          Query.equal("approved", true),
-          Query.limit(pageSize),
-          Query.offset(offset),
-        ]);
-        if (pageRes.documents.length === 0) break;
-        const pagePapers = pageRes.documents.map(toPaper);
-        allPapers.push(...pagePapers);
-        addInstitutions(pagePapers);
-        offset += pageRes.documents.length;
-      }
+    popularPapers = popularRes.documents.map(toPaper);
+    recentPapers = recentRes.documents.map(toPaper);
+    for (const paper of [...popularPapers, ...recentPapers]) {
+      const institution = paper.institution?.trim();
+      if (institution) universitiesSet.add(institution);
     }
-
-    // Popular papers: highest view_count
-    popularPapers = [...allPapers]
-      .sort((a, b) => (b.view_count ?? 0) - (a.view_count ?? 0))
-      .slice(0, 4);
-
-    // Recently added papers: newest first
-    recentPapers = [...allPapers]
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-      .slice(0, 4);
   } catch {
     // collections may not exist yet in dev
   }
@@ -410,6 +385,17 @@ export default async function HomePage() {
         <section className="py-6">
           <h2 className="mb-3 text-lg font-semibold">Search Exam Papers &amp; Syllabi</h2>
           <HomeSearch />
+          <div className="mt-4 flex flex-wrap gap-2 text-xs">
+            <Link href="/browse?q=semester%201" className="rounded-full bg-surface-container px-3 py-1">
+              Semester 1 papers
+            </Link>
+            <Link href="/browse?q=DSC" className="rounded-full bg-surface-container px-3 py-1">
+              DSC papers
+            </Link>
+            <Link href="/syllabus" className="rounded-full bg-surface-container px-3 py-1">
+              Syllabus catalog
+            </Link>
+          </div>
         </section>
 
         {/* ── Popular Papers ── */}

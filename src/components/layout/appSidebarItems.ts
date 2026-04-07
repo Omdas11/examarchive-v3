@@ -61,6 +61,11 @@ export const APP_SIDEBAR_ITEMS: AppSidebarItem[] = [
     icon: "help",
     href: "/support",
   },
+  {
+    label: "Shop",
+    icon: "shopping_bag",
+    href: "/shop",
+  },
   // ── Account ───────────────────────────────────────────
   {
     label: "My Profile",

@@ -13,7 +13,6 @@ const PROTECTED_PATHS = [
   "/settings",
   "/devtool",
   "/stats",
-  "/paper",
   "/ai-content",
   // API routes
   "/api/upload",
@@ -27,6 +26,20 @@ const PROTECTED_PATHS = [
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const host = request.headers.get("host") ?? "";
+  const canonicalHost = "www.examarchive.dev";
+
+  // Canonical host redirect for SEO consistency.
+  if (
+    host === "examarchive.dev" &&
+    !pathname.startsWith("/api/") &&
+    !pathname.startsWith("/_next/")
+  ) {
+    const url = request.nextUrl.clone();
+    url.host = canonicalHost;
+    url.protocol = "https:";
+    return NextResponse.redirect(url, 301);
+  }
 
   // Check if the user has an active session cookie.
   const session = request.cookies.get(SESSION_COOKIE)?.value;
