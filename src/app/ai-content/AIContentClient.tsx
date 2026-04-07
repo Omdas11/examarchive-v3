@@ -1158,7 +1158,7 @@ export default function AIContentClient() {
                       <div className="rounded-xl border border-outline-variant/40 bg-surface p-3 shadow-sm">
                         <button
                           className="flex w-full items-start justify-between gap-3 text-left"
-                          aria-label={`${step.expanded ? "Collapse" : "Expand"} details for ${step.title}`}
+                          aria-expanded={step.expanded}
                           onClick={() => {
                             setNotesTimelineSteps((prev) =>
                               prev.map((entry) =>
@@ -1175,7 +1175,6 @@ export default function AIContentClient() {
                                 title={`Step status: ${visuals.label}`}
                               >
                                 {visuals.label}
-                                <span className="sr-only">{` step status: ${visuals.label}`}</span>
                               </span>
                               <span className="text-[11px] text-on-surface-variant">{step.logs.length} log entries</span>
                             </div>
