@@ -143,7 +143,6 @@ export default function AIContentClient() {
     canRerenderFromMarkdown: boolean;
   } | null>(null);
   const [papersPdfResult, setPapersPdfResult] = useState<{ key: string; url: string } | null>(null);
-  const [, setLogs] = useState<string[]>([]);
   const [notesTimelineSteps, setNotesTimelineSteps] = useState<TimelineStep[]>([]);
   const [remaining, setRemaining] = useState<number | null>(null);
   const [limit, setLimit] = useState<number | null>(null);
@@ -334,7 +333,6 @@ export default function AIContentClient() {
     setPapersPdfResult(null);
     setCanResumeGeneration(false);
     setError("Generation aborted.");
-    setLogs((prev) => [...prev, `[${formatIstTime()} IST] Generation aborted by user.`]);
     setTimelineStatus("completed", "error", "Generation aborted by user.");
     resetProgressState();
   }
@@ -390,7 +388,6 @@ export default function AIContentClient() {
       }
 
       if (typeof data.log === "string" && data.log.trim().length > 0) {
-        setLogs((prev) => [...prev, `[${formatIstTime()} IST] ${data.log}`]);
         if (activeTab === "notes") {
           const stepKey = classifyNotesLog(data.log);
           appendTimelineLog(stepKey, data.log);
@@ -591,7 +588,6 @@ export default function AIContentClient() {
     closeEventSource();
     const runId = generationRunIdRef.current + 1;
     generationRunIdRef.current = runId;
-    setLogs([]);
     setGenerating(true);
     setError(null);
     setProgressStatus(activeTab === "notes" ? "Searching existing PDF and markdown cache..." : "Starting chunked generation...");

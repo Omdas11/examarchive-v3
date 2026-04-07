@@ -243,11 +243,11 @@ export function buildPdfHtml(args: {
     : (typeof unitNumber === "number" ? `Unit ${unitNumber}` : "");
   const coverDetails = [
     paperCode ? `<p><strong>Paper Code:</strong> ${escapeHtml(paperCode)}</p>` : "",
-    typeof paperName === "string" ? `<p><strong>Paper Name:</strong> ${escapeHtml(safePaperName)}</p>` : "",
+    safePaperName ? `<p><strong>Paper Name:</strong> ${escapeHtml(safePaperName)}</p>` : "",
     unitLabel ? `<p><strong>Unit:</strong> ${escapeHtml(unitLabel)}</p>` : "",
     `<p><strong>Model:</strong> ${escapeHtml(safeModelName)}</p>`,
     generatedAtLabel ? `<p><strong>Generated at:</strong> ${escapeHtml(generatedAtLabel)}</p>` : "",
-    reRenderAtLabel ? `<p><strong>Re-render at:</strong> ${escapeHtml(reRenderAtLabel)}</p>` : "",
+    reRenderAtLabel ? `<p><strong>Re-rendered at:</strong> ${escapeHtml(reRenderAtLabel)}</p>` : "",
     typeof year === "number" ? `<p><strong>Year:</strong> ${year}</p>` : "",
   ].filter(Boolean).join("");
   const coverSection = coverDetails || syllabusBullets
@@ -357,12 +357,7 @@ function formatHeaderTimestamp(value: string | undefined): string {
   return `${formatIstDateTime(date)} IST`;
 }
 
-function buildHeaderHtml(args?: {
-  modelName?: string;
-  generatedAtIso?: string;
-  reRenderedAtIso?: string;
-}): string {
-  void args;
+function buildHeaderHtml(): string {
   return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8" />
 <style>
@@ -467,11 +462,7 @@ export async function renderMarkdownPdfToAppwrite(args: {
     year: args.year,
     syllabusContent: args.syllabusContent,
   });
-  const headerHtml = buildHeaderHtml({
-    modelName: args.modelName,
-    generatedAtIso: args.generatedAtIso,
-    reRenderedAtIso: args.reRenderedAtIso,
-  });
+  const headerHtml = buildHeaderHtml();
   const footerHtml = buildFooterHtml();
   const buildFormData = () => {
     const formData = new FormData();
