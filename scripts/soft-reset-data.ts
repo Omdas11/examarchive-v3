@@ -7,13 +7,13 @@
  * collection schemas, indexes, or the md-ingestion storage bucket.
  *
  * Usage:
- *   npx tsx scripts/soft-reset-data.ts
- *   npx tsx scripts/soft-reset-data.ts --skip-ingestions
+ * npx tsx scripts/soft-reset-data.ts
+ * npx tsx scripts/soft-reset-data.ts --skip-ingestions
  *
  * Environment variables required:
- *   APPWRITE_API_KEY and either:
- *   - APPWRITE_ENDPOINT + APPWRITE_PROJECT_ID
- *   - NEXT_PUBLIC_APPWRITE_ENDPOINT + NEXT_PUBLIC_APPWRITE_PROJECT_ID
+ * APPWRITE_API_KEY and either:
+ * - APPWRITE_ENDPOINT + APPWRITE_PROJECT_ID
+ * - NEXT_PUBLIC_APPWRITE_ENDPOINT + NEXT_PUBLIC_APPWRITE_PROJECT_ID
  */
 
 import { Client, Databases, Query } from "node-appwrite";
@@ -77,16 +77,31 @@ async function truncateCollection(collectionId: string): Promise<void> {
   }
 
   let deleted = 0;
+  let failed = 0;
   let hitIterationLimit = false;
+
   for (let iteration = 0; iteration < MAX_TRUNCATION_ITERATIONS; iteration++) {
     const list = await databases.listDocuments(DB_ID, collectionId, [Query.limit(LIST_PAGE_LIMIT)]);
     if (!Array.isArray(list.documents) || list.documents.length === 0) {
       break;
     }
-    await Promise.all(
-      list.documents.map((doc) => databases.deleteDocument(DB_ID, collectionId, doc.$id)),
-    );
-    deleted += list.documents.length;
+
+    // Process deletions sequentially to avoid 500 Server Errors
+    for (const doc of list.documents) {
+      try {
+        await databases.deleteDocument(DB_ID, collectionId, doc.$id);
+        deleted++;
+      } catch (err) {
+        console.error(`[soft-reset] Failed to delete doc ${doc.$id}:`, err);
+        failed++;
+      }
+      
+      // Small delay to prevent rate limits / overwhelming the server
+      await new Promise(resolve => setTimeout(resolve, 20));
+    }
+
+    console.log(`[soft-reset] Progress: ${deleted} rows deleted so far from ${collectionId}...`);
+
     if (list.documents.length < LIST_PAGE_LIMIT) {
       break;
     }
@@ -94,10 +109,12 @@ async function truncateCollection(collectionId: string): Promise<void> {
       hitIterationLimit = true;
     }
   }
+
   if (hitIterationLimit) {
     console.warn(`[soft-reset] ${collectionId} truncation hit iteration cap (${MAX_TRUNCATION_ITERATIONS})`);
   }
-  if (deleted > 0) {
+  
+  if (deleted > 0 || failed > 0) {
     const remaining = await databases.listDocuments(DB_ID, collectionId, [Query.limit(1)]);
     if (remaining.total > 0) {
       console.warn(
@@ -105,7 +122,8 @@ async function truncateCollection(collectionId: string): Promise<void> {
       );
     }
   }
-  console.log(`[soft-reset] truncated ${collectionId}: ${deleted} doc(s) removed`);
+  
+  console.log(`[soft-reset] FINAL: truncated ${collectionId}. ${deleted} doc(s) successfully removed, ${failed} failed.`);
 }
 
 async function deleteLegacySyllabusRegistryCollection(): Promise<void> {
