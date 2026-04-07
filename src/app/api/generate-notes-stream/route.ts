@@ -7,7 +7,6 @@ import {
   adminStorage,
   COLLECTION,
   DATABASE_ID,
-  getAppwriteFileDownloadUrl,
   ID,
   MARKDOWN_CACHE_BUCKET_ID,
   Query,
@@ -907,55 +906,50 @@ export async function GET(request: NextRequest) {
       (await readSyllabusContent(university, course, streamName, type, paperCode, unitNumber));
     const stream = new ReadableStream<Uint8Array>({
       start: async (controller) => {
-        let pdfUrl = completedCache.pdfFileId ? getAppwriteFileDownloadUrl(completedCache.pdfFileId) : "";
-        if (!pdfUrl) {
-          try {
-            controller.enqueue(toSseData({ log: "Cache hit: generating PDF from cached markdown..." }));
-            const dynamicPdfName = `${paperCode}_Unit_${unitNumber}_Notes.pdf`;
-            const rendered = await renderMarkdownPdfToAppwrite({
-              markdown: completedCache.markdown,
-              fileBaseName: `${paperCode}_unit_${unitNumber}_cache`,
-              fileName: dynamicPdfName,
-              gotenbergUrl: azureGotenbergUrl,
+        let pdfUrl = "";
+        try {
+          controller.enqueue(toSseData({ log: "Cache markdown found: rendering PDF from cached markdown." }));
+          const dynamicPdfName = `${paperCode}_Unit_${unitNumber}_Notes.pdf`;
+          const rendered = await renderMarkdownPdfToAppwrite({
+            markdown: completedCache.markdown,
+            fileBaseName: `${paperCode}_unit_${unitNumber}_cache`,
+            fileName: dynamicPdfName,
+            gotenbergUrl: azureGotenbergUrl,
+            paperCode,
+            unitNumber,
+            syllabusContent: cachedSyllabusContent || undefined,
+          });
+          pdfUrl = rendered.fileUrl;
+          if (completedCache.id) {
+            await updateCachedNotesPdfFileId(completedCache.id, rendered.fileId);
+          } else {
+            const recoveredDocId = await persistCachedNotesRecord({
+              university,
+              course,
+              stream: streamName,
+              selectionType: type,
               paperCode,
               unitNumber,
-              syllabusContent: cachedSyllabusContent || undefined,
+              semester,
+              markdown: completedCache.markdown,
+              markdownFileId: completedCache.markdownFileId,
+              syllabusContent: cachedSyllabusContent,
             });
-            pdfUrl = rendered.fileUrl;
-            if (completedCache.id) {
-              await updateCachedNotesPdfFileId(completedCache.id, rendered.fileId);
+            if (recoveredDocId) {
+              await updateCachedNotesPdfFileId(recoveredDocId, rendered.fileId);
             } else {
-              const recoveredDocId = await persistCachedNotesRecord({
-                university,
-                course,
-                stream: streamName,
-                selectionType: type,
-                paperCode,
-                unitNumber,
-                semester,
-                markdown: completedCache.markdown,
-                markdownFileId: completedCache.markdownFileId,
-                syllabusContent: cachedSyllabusContent,
-              });
-              if (recoveredDocId) {
-                await updateCachedNotesPdfFileId(recoveredDocId, rendered.fileId);
-              } else {
-                console.warn("[generate-notes-stream] Rendered cache PDF but cache doc id is unavailable; skipped pdf_file_id persistence.");
-              }
+              console.warn("[generate-notes-stream] Rendered cache PDF but cache doc id is unavailable; skipped pdf_file_id persistence.");
             }
-            controller.enqueue(toSseData({ log: "PDF rendered successfully from cached content." }));
-          } catch (pdfError) {
-            const pipelineMessage = pdfError instanceof Error ? pdfError.message : String(pdfError);
-            controller.enqueue(toSseData({ event: "error", error: `PDF generation failed: ${pipelineMessage}` }));
-            controller.close();
-            return;
           }
-        } else {
-          controller.enqueue(toSseData({ log: "Cache hit: reusing previously rendered PDF." }));
+          controller.enqueue(toSseData({ log: "PDF rendered successfully from cached markdown." }));
+        } catch (pdfError) {
+          const pipelineMessage = pdfError instanceof Error ? pdfError.message : String(pdfError);
+          controller.enqueue(toSseData({ event: "error", error: `PDF generation failed: ${pipelineMessage}` }));
+          controller.close();
+          return;
         }
         controller.enqueue(toSseData({
           event: "done",
-          markdown: completedCache.markdown,
           model: "cache",
           cached: true,
           remaining,
