@@ -1172,10 +1172,10 @@ export default function AIContentClient() {
                             <div className="mt-2 flex items-center gap-2">
                               <span
                                 className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${visuals.badgeClass}`}
-                                aria-label={`Step status: ${visuals.label}`}
                                 title={`Step status: ${visuals.label}`}
                               >
                                 {visuals.label}
+                                <span className="sr-only">{` step status: ${visuals.label}`}</span>
                               </span>
                               <span className="text-[11px] text-on-surface-variant">{step.logs.length} log entries</span>
                             </div>
