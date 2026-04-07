@@ -42,13 +42,20 @@
 | Attribute Name | Type | Size | Required | Description |
 |---|---|---|---|---|
 | `id` | String | - | Yes | Document ID |
+| `university` | String | 256 | No | University selector for unit-notes cache lookups |
+| `course` | String | 64 | No | Course selector for unit-notes cache lookups |
+| `stream` | String | 64 | No | Stream selector for unit-notes cache lookups |
+| `selection_type` | String | 32 | No | Type selector used by unit-notes requests |
 | `paper_code` | String | 128 | Yes | The target course paper code (e.g., PHYDSC101T) |
 | `type` | String | 50 | Yes | Identifies cache type: 'solved_paper' or 'unit_notes' |
 | `year` | String | 10 | No | The year of the question paper (if type is solved_paper) |
+| `semester` | String | 10 | No | Semester selector for unit-notes cache (legacy compatibility mirrors `year`) |
 | `unit_number` | Integer | - | Yes | The syllabus unit number (if type is unit_notes) |
 | `part_number` | Integer | - | No | Tracks batching parts to bypass serverless timeouts |
 | `markdown_file_id` | String | 100 | Yes | Appwrite Storage file ID for stitched AI-generated markdown |
+| `generated_markdown` | String | 1000000 | No | Cached markdown text for compatibility with legacy required schemas |
 | `syllabus_content` | String | 1000000 | No | Cached syllabus content for notes print context |
+| `pdf_file_id` | String | 100 | No | Cached generated PDF file id for direct reuse |
 | `created_at` | Datetime | - | Yes | Cache creation timestamp |
 | `status` | String | 50 | Yes | 'generating' or 'completed' |
 | `last_processed_index` | Integer | - | No | Last processed question index for resume-safe continuation |

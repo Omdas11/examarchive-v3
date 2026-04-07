@@ -67,13 +67,20 @@ const DEFAULT_DATABASE_SCHEMA_MARKDOWN = `# DATABASE_SCHEMA
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | \`id\` | String | **Yes** | Document ID |
+| \`university\` | String | No | University selector for unit-notes cache lookups |
+| \`course\` | String | No | Course selector for unit-notes cache lookups |
+| \`stream\` | String | No | Stream selector for unit-notes cache lookups |
+| \`selection_type\` | String | No | Type selector used by unit-notes requests |
 | \`paper_code\` | String | **Yes** | Paper code |
 | \`type\` | String | **Yes** | Cache type (\`solved_paper\` or \`unit_notes\`) |
 | \`year\` | String | No | Solved-paper exam year |
+| \`semester\` | String | No | Semester selector (legacy compatibility also mirrors \`year\`) |
 | \`unit_number\` | Integer | **Yes** | Unit number |
 | \`part_number\` | Integer | No | Current part index for long generations |
 | \`markdown_file_id\` | String | **Yes** | Appwrite Storage file ID for cached markdown |
+| \`generated_markdown\` | String | No | Cached markdown text for compatibility with legacy required schemas |
 | \`syllabus_content\` | String | No | Cached syllabus bullets text for print cover |
+| \`pdf_file_id\` | String | No | Cached rendered PDF file id for direct reuse |
 | \`created_at\` | Datetime | **Yes** | Cache creation timestamp |
 | \`status\` | String | **Yes** | Cache status (\`generating\` or \`completed\`) |
 | \`last_processed_index\` | Integer | No | Last processed question index for resume |
@@ -300,13 +307,20 @@ const TARGET_SCHEMA = [
     id: "Generated_Notes_Cache",
     name: "Generated_Notes_Cache",
     attributes: [
+      { key: "university", type: "string", required: false, size: 256 },
+      { key: "course", type: "string", required: false, size: 64 },
+      { key: "stream", type: "string", required: false, size: 64 },
+      { key: "selection_type", type: "string", required: false, size: 32 },
       { key: "paper_code", type: "string", required: true, size: 128 },
       { key: "type", type: "string", required: true, size: 50 },
       { key: "year", type: "string", required: false, size: 10 },
+      { key: "semester", type: "string", required: false, size: 10 },
       { key: "unit_number", type: "integer", required: true },
       { key: "part_number", type: "integer", required: false },
       { key: "markdown_file_id", type: "string", required: true, size: MARKDOWN_FILE_ID_SIZE },
+      { key: "generated_markdown", type: "string", required: false, size: TEXT_CHUNK_SIZE },
       { key: "syllabus_content", type: "string", required: false, size: TEXT_CHUNK_SIZE },
+      { key: "pdf_file_id", type: "string", required: false, size: 100 },
       { key: "created_at", type: "datetime", required: true },
       { key: "status", type: "string", required: true, size: 50 },
       { key: "last_processed_index", type: "integer", required: false },

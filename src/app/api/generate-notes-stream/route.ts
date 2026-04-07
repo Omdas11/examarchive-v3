@@ -31,6 +31,8 @@ const ATTRIBUTE_AVAILABILITY_POLL_INTERVAL_MS = 300;
 const ATTRIBUTE_AVAILABILITY_TIMEOUT_MS = 12000;
 const GEMINI_MODEL = "gemini-3.1-flash-lite-preview";
 const CACHE_NUMERIC_STRING_MAX_LEN = 10;
+const CACHE_FILE_NAME_MAX_LEN = 220;
+const GENERATED_MARKDOWN_MAX_LEN = 1_000_000;
 
 function isAdminPlus(role: string): boolean {
   return role === "admin" || role === "founder";
@@ -78,6 +80,41 @@ function getUnitNotesCacheKey(university: string, course: string, stream: string
   return `${university}::${course}::${stream}::${selectionType}::${paperCode}`.slice(0, 128);
 }
 
+function stableStringHash(value: string): string {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = Math.imul((hash ^ value.charCodeAt(i)) >>> 0, 0x01000193) >>> 0;
+  }
+  return hash.toString(36);
+}
+
+function sanitizeCacheFileToken(value: string): string {
+  const cleaned = value
+    .replace(/[^a-zA-Z0-9_-]+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return cleaned || `cache_${stableStringHash(value)}`;
+}
+
+function buildUnitNotesCacheFileNames(
+  university: string,
+  course: string,
+  stream: string,
+  selectionType: string,
+  paperCode: string,
+  unitNumber: number,
+  semester: number | null,
+): string[] {
+  const legacyName = `${paperCode}_Unit_${unitNumber}_Cache.md`;
+  const scope = sanitizeCacheFileToken(getUnitNotesCacheKey(university, course, stream, selectionType, paperCode));
+  const semesterToken = semester !== null ? `sem${semester}` : "semall";
+  const extension = ".md";
+  const scopedBase = `${scope}_${semesterToken}_unit${unitNumber}_cache`;
+  const scopedName =
+    `${scopedBase.slice(0, Math.max(1, CACHE_FILE_NAME_MAX_LEN - extension.length))}${extension}`;
+  return scopedName === legacyName ? [legacyName] : [scopedName, legacyName];
+}
+
 function cleanGeneratedTopicMarkdown(topic: string, markdown: string): string {
   const trimmed = markdown.trim();
   if (!trimmed) return trimmed;
@@ -107,7 +144,8 @@ function ensureTopicMarkdownHeader(topic: string, markdown: string): string {
 }
 
 type CachedNotes = {
-  id: string;
+  id: string | null;
+  markdownFileId: string;
   markdown: string;
   syllabusContent: string | null;
   pdfFileId: string | null;
@@ -241,6 +279,16 @@ async function ensureNotesCacheSchema(): Promise<void> {
       undefined,
     ),
   );
+  await ensureAttribute("generated_markdown", () =>
+    db.createStringAttribute(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      "generated_markdown",
+      GENERATED_MARKDOWN_MAX_LEN,
+      false,
+      undefined,
+    ),
+  );
   await ensureAttribute("university", () =>
     db.createStringAttribute(
       DATABASE_ID,
@@ -337,8 +385,10 @@ async function readCachedNotes(
     if (!markdown) return null;
     const syllabusContent = typeof doc.syllabus_content === "string" ? doc.syllabus_content.trim() : "";
     const pdfFileId = typeof doc.pdf_file_id === "string" ? doc.pdf_file_id.trim() : "";
+    const docId = typeof doc.$id === "string" ? doc.$id : "";
     return {
-      id: String(doc.$id),
+      id: docId || null,
+      markdownFileId,
       markdown,
       syllabusContent: syllabusContent || null,
       pdfFileId: pdfFileId || null,
@@ -430,6 +480,53 @@ async function readCachedNotes(
   } catch (error) {
     console.error("[generate-notes-stream] Failed to read selectorless cache fallback:", error);
   }
+  try {
+    const candidateNames = buildUnitNotesCacheFileNames(
+      university,
+      course,
+      stream,
+      selectionType,
+      paperCode,
+      unitNumber,
+      semester,
+    );
+    for (const cacheFileName of candidateNames) {
+      const filesRes = await storage.listFiles(MARKDOWN_CACHE_BUCKET_ID, [
+        Query.equal("name", cacheFileName),
+        Query.orderDesc("$createdAt"),
+        Query.limit(1),
+      ]);
+      const file = filesRes.files[0];
+      if (!file || typeof file.$id !== "string" || !file.$id.trim()) continue;
+      const fileBuffer = await storage.getFileDownload(MARKDOWN_CACHE_BUCKET_ID, file.$id);
+      const markdown = Buffer.from(fileBuffer).toString("utf-8").trim();
+      if (!markdown) continue;
+      const recoveredDocId = await persistCachedNotesRecord({
+        university,
+        course,
+        stream,
+        selectionType,
+        paperCode,
+        unitNumber,
+        semester,
+        markdown,
+        markdownFileId: file.$id,
+        createdAt: typeof file.$createdAt === "string" ? file.$createdAt : new Date().toISOString(),
+      });
+      if (!recoveredDocId) {
+        console.warn("[generate-notes-stream] Cache markdown recovered from storage, but DB self-heal failed.");
+      }
+      return {
+        id: recoveredDocId,
+        markdownFileId: file.$id,
+        markdown,
+        syllabusContent: null,
+        pdfFileId: null,
+      };
+    }
+  } catch (error) {
+    console.error("[generate-notes-stream] Failed storage-level cache fallback:", error);
+  }
   return null;
 }
 
@@ -481,9 +578,16 @@ async function writeCachedNotes(
   syllabusContent: string,
   log?: (message: string) => void,
 ): Promise<void> {
-  const db = adminDatabases();
   const storage = adminStorage();
-  const mdFileName = `${paperCode}_Unit_${unitNumber}_Cache.md`;
+  const [mdFileName] = buildUnitNotesCacheFileNames(
+    university,
+    course,
+    stream,
+    selectionType,
+    paperCode,
+    unitNumber,
+    semester,
+  );
   const inputFile = InputFile.fromBuffer(
     Buffer.from(markdown, "utf-8"),
     mdFileName,
@@ -505,106 +609,135 @@ async function writeCachedNotes(
     }
   }
 
-  const createdAt = new Date().toISOString();
-  const mutateSemesterCompatFields = (payload: Record<string, unknown>) => {
-    // Unit-notes requests may omit semester for legacy callers; in that case
-    // cache rows are intentionally written without semester/year selectors.
-    if (semester === null) {
-      return;
-    }
-    payload.semester = String(semester);
-    // Legacy compatibility: historically "year" was used for this same
-    // semester selector in unit-notes cache keys/queries.
-    // Remove once all active cache readers and rows are fully semester-based.
-    payload.year = String(semester);
-  };
-  const primaryDocId = ID.unique();
-  // Some deployed Generated_Notes_Cache schemas include a required custom `id`
-  // attribute in addition to the document ID parameter, so we mirror both.
-  const primaryPayload: Record<string, unknown> = {
-    id: primaryDocId,
+  const persistedId = await persistCachedNotesRecord({
     university,
     course,
     stream,
-    selection_type: selectionType,
-    paper_code: paperCode,
-    unit_number: unitNumber,
-    type: UNIT_NOTES_CACHE_TYPE,
-    status: COMPLETED_STATUS,
-    markdown_file_id: markdownFileId,
-    syllabus_content: syllabusContent,
-    created_at: createdAt,
-  };
-  mutateSemesterCompatFields(primaryPayload);
+    selectionType,
+    paperCode,
+    unitNumber,
+    semester,
+    markdown,
+    markdownFileId,
+    syllabusContent,
+  });
+  if (!persistedId) {
+    log?.("Warning: Could not save markdown cache.");
+    return;
+  }
+  log?.("Markdown cache saved successfully.");
+}
+
+type PersistCachedNotesRecordArgs = {
+  university: string;
+  course: string;
+  stream: string;
+  selectionType: string;
+  paperCode: string;
+  unitNumber: number;
+  semester: number | null;
+  markdown: string;
+  markdownFileId: string;
+  syllabusContent?: string | null;
+  createdAt?: string;
+};
+
+async function persistCachedNotesRecord(args: PersistCachedNotesRecordArgs): Promise<string | null> {
+  const db = adminDatabases();
+  const createdAt = args.createdAt ?? new Date().toISOString();
+  const cleanMarkdown = args.markdown.trim();
+  if (!cleanMarkdown) {
+    console.warn("[generate-notes-stream] Skipping cache metadata write because markdown content is empty.");
+    return null;
+  }
+  const cleanSyllabus = typeof args.syllabusContent === "string" ? args.syllabusContent.trim() : "";
   try {
-    // Keep explicit created_at because schema/docs require this field for cache reads and audits.
-    await db.createDocument(DATABASE_ID, COLLECTION.generated_notes_cache, primaryDocId, primaryPayload);
-    log?.("Markdown cache saved successfully.");
+    const existing = await db.listDocuments(DATABASE_ID, COLLECTION.generated_notes_cache, [
+      Query.equal("markdown_file_id", args.markdownFileId),
+      Query.equal("type", UNIT_NOTES_CACHE_TYPE),
+      Query.equal("status", COMPLETED_STATUS),
+      Query.orderDesc("$createdAt"),
+      Query.limit(1),
+    ]);
+    const existingId = typeof existing.documents[0]?.$id === "string" ? existing.documents[0].$id.trim() : "";
+    if (existingId) return existingId;
+  } catch {
+    // Continue to create flow when compatibility schemas reject filter fields.
+  }
+  const mutateSemesterCompatFields = (payload: Record<string, unknown>) => {
+    if (args.semester === null) return;
+    payload.semester = String(args.semester);
+    payload.year = String(args.semester);
+  };
+  const tryCreate = async (payload: Record<string, unknown>): Promise<string> => {
+    const docId = ID.unique();
+    await db.createDocument(DATABASE_ID, COLLECTION.generated_notes_cache, docId, {
+      id: docId,
+      ...payload,
+    });
+    return docId;
+  };
+  try {
+    const primaryPayload: Record<string, unknown> = {
+      university: args.university,
+      course: args.course,
+      stream: args.stream,
+      selection_type: args.selectionType,
+      paper_code: args.paperCode,
+      unit_number: args.unitNumber,
+      type: UNIT_NOTES_CACHE_TYPE,
+      status: COMPLETED_STATUS,
+      markdown_file_id: args.markdownFileId,
+      generated_markdown: cleanMarkdown.slice(0, GENERATED_MARKDOWN_MAX_LEN),
+      created_at: createdAt,
+    };
+    if (cleanSyllabus) primaryPayload.syllabus_content = cleanSyllabus;
+    mutateSemesterCompatFields(primaryPayload);
+    return await tryCreate(primaryPayload);
   } catch (primaryError) {
     console.error("[generate-notes-stream] Primary cache write failed; falling back to compatibility payload:", primaryError);
     try {
-      const fallbackCachePaperCode = getUnitNotesCacheKey(university, course, stream, selectionType, paperCode);
-      const fallbackDocId = ID.unique();
-      // Keep payload `id` mirrored with createDocument id for the same schema reason above.
       const fallbackPayload: Record<string, unknown> = {
-        id: fallbackDocId,
-        paper_code: fallbackCachePaperCode,
-        unit_number: unitNumber,
+        paper_code: getUnitNotesCacheKey(args.university, args.course, args.stream, args.selectionType, args.paperCode),
+        unit_number: args.unitNumber,
         type: UNIT_NOTES_CACHE_TYPE,
         status: COMPLETED_STATUS,
-        markdown_file_id: markdownFileId,
-        syllabus_content: syllabusContent,
+        markdown_file_id: args.markdownFileId,
+        generated_markdown: cleanMarkdown.slice(0, GENERATED_MARKDOWN_MAX_LEN),
         created_at: createdAt,
       };
+      if (cleanSyllabus) fallbackPayload.syllabus_content = cleanSyllabus;
       mutateSemesterCompatFields(fallbackPayload);
-      await db.createDocument(DATABASE_ID, COLLECTION.generated_notes_cache, fallbackDocId, fallbackPayload);
-      log?.("Markdown cache saved successfully.");
+      return await tryCreate(fallbackPayload);
     } catch (fallbackError) {
       console.warn("[generate-notes-stream] Compatibility cache write failed; retrying without optional syllabus_content:", fallbackError);
       try {
-        const fallbackCachePaperCode = getUnitNotesCacheKey(university, course, stream, selectionType, paperCode);
-        const finalFallbackDocId = ID.unique();
         const finalFallbackPayload: Record<string, unknown> = {
-          id: finalFallbackDocId,
-          paper_code: fallbackCachePaperCode,
-          unit_number: unitNumber,
+          paper_code: getUnitNotesCacheKey(args.university, args.course, args.stream, args.selectionType, args.paperCode),
+          unit_number: args.unitNumber,
           type: UNIT_NOTES_CACHE_TYPE,
           status: COMPLETED_STATUS,
-          markdown_file_id: markdownFileId,
+          markdown_file_id: args.markdownFileId,
+          generated_markdown: cleanMarkdown.slice(0, GENERATED_MARKDOWN_MAX_LEN),
           created_at: createdAt,
         };
         mutateSemesterCompatFields(finalFallbackPayload);
-        await db.createDocument(
-          DATABASE_ID,
-          COLLECTION.generated_notes_cache,
-          finalFallbackDocId,
-          finalFallbackPayload,
-        );
-        log?.("Markdown cache saved successfully.");
+        return await tryCreate(finalFallbackPayload);
       } catch (finalFallbackError) {
         console.warn("[generate-notes-stream] Selector-aware fallback failed; retrying selectorless cache row:", finalFallbackError);
         try {
-          const fallbackCachePaperCode = getUnitNotesCacheKey(university, course, stream, selectionType, paperCode);
-          const selectorlessDocId = ID.unique();
-          const selectorlessPayload: Record<string, unknown> = {
-            id: selectorlessDocId,
-            paper_code: fallbackCachePaperCode,
-            unit_number: unitNumber,
+          return await tryCreate({
+            paper_code: getUnitNotesCacheKey(args.university, args.course, args.stream, args.selectionType, args.paperCode),
+            unit_number: args.unitNumber,
             type: UNIT_NOTES_CACHE_TYPE,
             status: COMPLETED_STATUS,
-            markdown_file_id: markdownFileId,
+            markdown_file_id: args.markdownFileId,
+            generated_markdown: cleanMarkdown.slice(0, GENERATED_MARKDOWN_MAX_LEN),
             created_at: createdAt,
-          };
-          await db.createDocument(
-            DATABASE_ID,
-            COLLECTION.generated_notes_cache,
-            selectorlessDocId,
-            selectorlessPayload,
-          );
-          log?.("Markdown cache saved successfully.");
+          });
         } catch (selectorlessError) {
           console.error("[generate-notes-stream] Failed to write cache after all fallbacks:", selectorlessError);
-          log?.("Warning: Could not save markdown cache.");
+          return null;
         }
       }
     }
@@ -789,7 +922,27 @@ export async function GET(request: NextRequest) {
               syllabusContent: cachedSyllabusContent || undefined,
             });
             pdfUrl = rendered.fileUrl;
-            await updateCachedNotesPdfFileId(completedCache.id, rendered.fileId);
+            if (completedCache.id) {
+              await updateCachedNotesPdfFileId(completedCache.id, rendered.fileId);
+            } else {
+              const recoveredDocId = await persistCachedNotesRecord({
+                university,
+                course,
+                stream: streamName,
+                selectionType: type,
+                paperCode,
+                unitNumber,
+                semester,
+                markdown: completedCache.markdown,
+                markdownFileId: completedCache.markdownFileId,
+                syllabusContent: cachedSyllabusContent,
+              });
+              if (recoveredDocId) {
+                await updateCachedNotesPdfFileId(recoveredDocId, rendered.fileId);
+              } else {
+                console.warn("[generate-notes-stream] Rendered cache PDF but cache doc id is unavailable; skipped pdf_file_id persistence.");
+              }
+            }
             controller.enqueue(toSseData({ log: "PDF rendered successfully from cached content." }));
           } catch (pdfError) {
             const pipelineMessage = pdfError instanceof Error ? pdfError.message : String(pdfError);
