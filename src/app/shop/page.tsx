@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { getServerUser } from "@/lib/auth";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
-import { CONTACT_EMAILS } from "@/lib/contact-emails";
+import ShopPollClient from "./ShopPollClient";
 
 export const metadata: Metadata = {
   title: "Shop | ExamArchive",
@@ -19,10 +19,26 @@ export const metadata: Metadata = {
 };
 
 const products = [
-  { name: "AI PDF (Short)", price: "₹9-19", credits: "9-19 credits" },
-  { name: "Solved Paper Generation", price: "₹19-39", credits: "19-39 credits" },
-  { name: "Premium Typed Notes", price: "₹29-79", credits: "29-79 credits" },
-  { name: "Semester Pass (6 months)", price: "₹299-499", credits: "pass entitlement" },
+  {
+    key: "ai_pdf_short",
+    name: "AI PDF Notes",
+    description: "Short/medium revision PDFs generated from your selected topics.",
+  },
+  {
+    key: "solved_paper",
+    name: "Solved Paper Generation",
+    description: "AI-generated solved-paper style guidance for selected paper code/year.",
+  },
+  {
+    key: "premium_notes",
+    name: "Premium Typed Notes",
+    description: "Editorially formatted notes bundles for high-demand subjects.",
+  },
+  {
+    key: "semester_pass",
+    name: "Semester Pass (6 months)",
+    description: "Access bundle for semester-level premium resources and utilities.",
+  },
 ];
 
 export default async function ShopPage() {
@@ -45,25 +61,11 @@ export default async function ShopPage() {
         <div className="card p-6">
           <h1 className="text-2xl font-bold">ExamArchive Shop</h1>
           <p className="mt-2 text-sm text-on-surface-variant">
-            Digital-only products to sustain the platform. Available via request, with manual verification during the launch phase.
+            We are finalizing launch pricing. Vote on each item to help set student-friendly pricing tiers.
           </p>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          {products.map((product) => (
-            <article key={product.name} className="card p-5">
-              <h2 className="text-base font-semibold">{product.name}</h2>
-              <p className="mt-2 text-sm text-on-surface-variant">Suggested pricing: {product.price}</p>
-              <p className="mt-1 text-xs text-on-surface-variant">Credit model: {product.credits}</p>
-              <a
-                href={`mailto:${CONTACT_EMAILS.contact}?subject=${encodeURIComponent(`Shop interest: ${product.name}`)}`}
-                className="inline-flex mt-4 rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-on-primary"
-              >
-                Request Access
-              </a>
-            </article>
-          ))}
-        </div>
+        <ShopPollClient products={products} />
       </section>
     </MainLayout>
   );

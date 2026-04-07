@@ -28,6 +28,7 @@ const NEW_LAYOUT_PREFIXES = [
   "/about",
   "/support",
   "/stats",
+  "/shop",
   "/paper",
   "/admin",
   "/devtool",

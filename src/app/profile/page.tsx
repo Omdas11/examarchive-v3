@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { getServerUser } from "@/lib/auth";
 import { adminDatabases, DATABASE_ID, COLLECTION, Query } from "@/lib/appwrite";
 import { signOut } from "@/app/auth/actions";
@@ -105,7 +106,24 @@ function roleBadgeIconName(role: string): IconName {
 // ── Achievement types matching v2 ACHIEVEMENTS.md ───────────────────────────
 type EarnedAchievement = { icon: IconName; label: string };
 
-export default async function ProfilePage() {
+const PROFILE_TABS = ["overview", "contributions", "rewards", "referrals", "settings"] as const;
+type ProfileTab = (typeof PROFILE_TABS)[number];
+
+function normalizeProfileTab(tab?: string): ProfileTab {
+  if (!tab) return "overview";
+  const normalized = tab.toLowerCase();
+  return PROFILE_TABS.includes(normalized as ProfileTab)
+    ? (normalized as ProfileTab)
+    : "overview";
+}
+
+export default async function ProfilePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
+  const params = await searchParams;
+  const activeTab = normalizeProfileTab(params.tab);
   const user = await getServerUser();
   if (!user) redirect("/login?next=/profile");
   const userName = user.name || "User";
@@ -177,6 +195,7 @@ export default async function ProfilePage() {
   // XP bar left label: show primary role name for system roles, XP rank for students
   // mirrors v2 profile-panel.js xpCurrentTierEl logic
   const xpLabel = (user.role === "student") ? currentRank : capitalise(user.role);
+  const nextUploadGoal = Math.max(0, 2 - approvedCount);
 
   return (
     <MainLayout
@@ -200,6 +219,26 @@ export default async function ProfilePage() {
         { label: "Profile" },
       ]} />
 
+      <div className="card p-2 sm:p-3">
+        <nav className="flex flex-wrap gap-2">
+          {PROFILE_TABS.map((tab) => (
+            <Link
+              key={tab}
+              href={`/profile?tab=${tab}`}
+              className={`rounded-xl px-3 py-2 text-xs font-semibold uppercase tracking-wide ${
+                activeTab === tab
+                  ? "bg-primary text-on-primary"
+                  : "bg-surface-container text-on-surface-variant"
+              }`}
+            >
+              {tab}
+            </Link>
+          ))}
+        </nav>
+      </div>
+
+      {activeTab === "overview" && (
+      <>
       {/* ── Main profile card ── */}
       <div className="card p-6">
         <div className="flex flex-col items-center">
@@ -363,6 +402,14 @@ export default async function ProfilePage() {
           </div>
         </div>
       </div>
+      <div className="card p-5">
+        <h2 className="text-base font-semibold">Next Goal</h2>
+        <p className="mt-2 text-sm text-on-surface-variant">
+          {nextUploadGoal > 0
+            ? `${nextUploadGoal} more verified upload${nextUploadGoal === 1 ? "" : "s"} to reach Contributor+ momentum.`
+            : "You have crossed the next verified-upload milestone. Keep consistency for reviewer recognition."}
+        </p>
+      </div>
 
       {/* ── Account Info (read-only) ── */}
       <div className="card p-6">
@@ -394,17 +441,107 @@ export default async function ProfilePage() {
           </div>
         </dl>
       </div>
+      </>
+      )}
 
-      {/* ── Course Selection ── */}
-      <ProfileCoursePrefs />
+      {activeTab === "contributions" && (
+        <>
+          <div className="card p-6">
+            <h2 className="text-base font-semibold">Impact Cards</h2>
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="rounded-xl border border-outline-variant/30 p-4">
+                <p className="text-xs uppercase text-on-surface-variant">Students helped</p>
+                <p className="mt-1 text-2xl font-bold">{approvedCount}</p>
+              </div>
+              <div className="rounded-xl border border-outline-variant/30 p-4">
+                <p className="text-xs uppercase text-on-surface-variant">Accepted uploads</p>
+                <p className="mt-1 text-2xl font-bold">{approvedCount}</p>
+              </div>
+              <div className="rounded-xl border border-outline-variant/30 p-4">
+                <p className="text-xs uppercase text-on-surface-variant">Approval trend</p>
+                <p className="mt-1 text-2xl font-bold">{approvalPct}%</p>
+              </div>
+            </div>
+          </div>
+          <div className="card p-6">
+            <h2 className="text-base font-semibold">Contribution Activity</h2>
+            <div className="mt-4">
+              <ContributionHeatmap
+                totalUploads={totalUploads}
+                approvedCount={approvedCount}
+                streakDays={streakDays}
+                lastActivity={user.last_activity ?? ""}
+              />
+            </div>
+          </div>
+        </>
+      )}
 
-      {/* ── Referral Share ── */}
-      <ReferralShareCard referralCode={referralCode} referralLink={referralLink} />
+      {activeTab === "rewards" && (
+        <>
+          <div className="card p-6">
+            <h2 className="text-base font-semibold">Rewards & XP</h2>
+            <XPBar
+              percent={xpPercent}
+              leftLabel={`${user.xp} XP · ${xpLabel}`}
+              rightLabel={nextXp && nextLabel ? `Next: ${nextLabel} (${nextXp} XP)` : undefined}
+            />
+            <div className="mt-4 flex flex-wrap gap-2">
+              {earnedAchievements.length === 0 ? (
+                <p className="text-sm text-on-surface-variant">No achievements yet.</p>
+              ) : (
+                earnedAchievements.map((a) => (
+                  <span
+                    key={a.label}
+                    className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium"
+                    style={{
+                      background: "var(--color-accent-soft)",
+                      color: "var(--color-primary)",
+                      border: "1px solid rgba(211,39,62,0.2)",
+                    }}
+                  >
+                    <Icon name={a.icon} size={11} aria-hidden="true" />
+                    {a.label}
+                  </span>
+                ))
+              )}
+            </div>
+          </div>
+          <div className="card p-6">
+            <h2 className="text-base font-semibold">Role Perks</h2>
+            <ul className="mt-3 space-y-2 text-sm text-on-surface-variant">
+              <li>Current role: <span className="font-semibold text-on-surface capitalize">{user.role}</span></li>
+              <li>XP rank: <span className="font-semibold text-on-surface">{currentRank}</span></li>
+              <li>Perks unlock through approved contributions, streak consistency, and reviewer-quality submissions.</li>
+            </ul>
+          </div>
+        </>
+      )}
 
-      {/* Sign out */}
-      <form action={signOut}>
-        <button type="submit" className="btn text-sm px-4 py-2">Sign out</button>
-      </form>
+      {activeTab === "referrals" && (
+        <>
+          <ReferralShareCard referralCode={referralCode} referralLink={referralLink} />
+          <div className="card p-6">
+            <h2 className="text-base font-semibold">Referral Progress</h2>
+            <p className="mt-2 text-sm text-on-surface-variant">
+              Share your invite link to earn XP and credits when referrals contribute approved content.
+            </p>
+          </div>
+        </>
+      )}
+
+      {activeTab === "settings" && (
+        <>
+          <ProfileCoursePrefs />
+          <div className="card p-6">
+            <h2 className="text-base font-semibold mb-3">Account Actions</h2>
+            <form action={signOut}>
+              <button type="submit" className="btn text-sm px-4 py-2">Sign out</button>
+            </form>
+          </div>
+        </>
+      )}
+
     </section>
     </MainLayout>
   );
