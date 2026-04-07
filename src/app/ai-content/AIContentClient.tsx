@@ -295,8 +295,9 @@ export default function AIContentClient() {
         finished = true;
         setShowLogs(false);
         if (activeTab === "notes") {
-          const cacheSource = data.cache_source === "pdf" || data.cache_source === "markdown"
-            ? data.cache_source
+          const rawCacheSource = typeof data.cache_source === "string" ? data.cache_source : "";
+          const cacheSource = rawCacheSource === "pdf" || rawCacheSource === "markdown"
+            ? rawCacheSource
             : null;
           const canRerenderFromMarkdown = typeof data.can_rerender_from_markdown === "boolean"
             ? data.can_rerender_from_markdown

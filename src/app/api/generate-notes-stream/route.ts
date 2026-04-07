@@ -160,6 +160,14 @@ function normalizeSemester(value: string | null): number | null {
   return parsed;
 }
 
+function extractUnitName(source: Record<string, unknown> | undefined): string {
+  if (!source) return "";
+  const unitNameRaw = typeof source.unit_name === "string"
+    ? source.unit_name
+    : (typeof source.unit_title === "string" ? source.unit_title : "");
+  return unitNameRaw.trim();
+}
+
 function getAppwriteErrorCode(error: unknown): number | null {
   if (!error || typeof error !== "object") return null;
   const raw = "code" in error ? (error as { code?: unknown }).code : null;
@@ -548,7 +556,7 @@ async function updateCachedNotesPdfFileId(cacheDocId: string, pdfFileId: string)
   }
 }
 
-async function readSyllabusContent(
+async function readSyllabusInfo(
   university: string,
   course: string,
   stream: string,
@@ -569,10 +577,7 @@ async function readSyllabusContent(
   const syllabusDoc = syllabusRes.documents[0];
   const syllabusContent = typeof syllabusDoc?.syllabus_content === "string" ? syllabusDoc.syllabus_content.trim() : "";
   const paperName = typeof syllabusDoc?.paper_name === "string" ? syllabusDoc.paper_name.trim() : "";
-  const unitName =
-    typeof syllabusDoc?.unit_name === "string"
-      ? syllabusDoc.unit_name.trim()
-      : (typeof syllabusDoc?.unit_title === "string" ? syllabusDoc.unit_title.trim() : "");
+  const unitName = extractUnitName(syllabusDoc);
   return { syllabusContent, paperName, unitName };
 }
 
@@ -935,6 +940,7 @@ export async function GET(request: NextRequest) {
         let unitName = "";
         let pdfUrl = "";
         let cacheSource: "pdf" | "markdown" = "markdown";
+        // `rerender=1` intentionally bypasses cached PDF reuse and forces markdown->PDF rendering.
         if (!forceMarkdownRerender && completedCache.pdfFileId) {
           const hasCachedPdf = await hasCachedPdfFile(completedCache.pdfFileId);
           if (hasCachedPdf) {
@@ -949,7 +955,7 @@ export async function GET(request: NextRequest) {
           if (!pdfUrl) {
             cacheSource = "markdown";
             try {
-              const syllabusInfo = await readSyllabusContent(university, course, streamName, type, paperCode, unitNumber);
+              const syllabusInfo = await readSyllabusInfo(university, course, streamName, type, paperCode, unitNumber);
               if (!cachedSyllabusContent) {
                 cachedSyllabusContent = syllabusInfo.syllabusContent;
               }
@@ -1090,10 +1096,7 @@ export async function GET(request: NextRequest) {
 
         const syllabusContent = typeof syllabusDoc.syllabus_content === "string" ? syllabusDoc.syllabus_content.trim() : "";
         const paperName = typeof syllabusDoc.paper_name === "string" ? syllabusDoc.paper_name.trim() : "";
-        const unitName =
-          typeof syllabusDoc.unit_name === "string"
-            ? syllabusDoc.unit_name.trim()
-            : (typeof syllabusDoc.unit_title === "string" ? syllabusDoc.unit_title.trim() : "");
+        const unitName = extractUnitName(syllabusDoc);
         if (!syllabusContent) {
           controller.enqueue(toSseData({ event: "error", error: "Syllabus content is empty for this unit." }));
           closeStream();

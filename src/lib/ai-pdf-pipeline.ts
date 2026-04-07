@@ -9,6 +9,8 @@ import {
   getAppwriteFileDownloadUrl,
 } from "@/lib/appwrite";
 
+const DEFAULT_PDF_MODEL_NAME = "Gemini 3.1 Flash Lite";
+
 function escapeHtml(text: string): string {
   return text.replace(/[&<>"'`]/g, (ch) => {
     switch (ch) {
@@ -355,13 +357,13 @@ function buildHeaderHtml(args?: {
   generatedAtIso?: string;
   reRenderedAtIso?: string;
 }): string {
-  const modelName = (args?.modelName || "Gemini 3.1 Flash Lite").trim() || "Gemini 3.1 Flash Lite";
+  const modelName = args?.modelName?.trim() || DEFAULT_PDF_MODEL_NAME;
   const generatedAtLabel = formatHeaderTimestamp(args?.generatedAtIso || new Date().toISOString());
   const rerenderedAtLabel = formatHeaderTimestamp(args?.reRenderedAtIso);
   const rightParts = [
     `Model: ${escapeHtml(modelName)}`,
     generatedAtLabel ? `Generated at: ${escapeHtml(generatedAtLabel)}` : "",
-    rerenderedAtLabel ? `Re-render at: ${escapeHtml(rerenderedAtLabel)}` : "",
+    rerenderedAtLabel ? `Re-rendered at: ${escapeHtml(rerenderedAtLabel)}` : "",
   ].filter(Boolean);
   return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8" />
