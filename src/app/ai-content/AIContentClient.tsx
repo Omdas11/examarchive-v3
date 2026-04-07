@@ -32,6 +32,39 @@ type TimelineStep = {
   expanded: boolean;
 };
 
+function getTimelineStepVisuals(status: StepStatus): { badgeClass: string; iconClass: string; icon: string; label: string } {
+  switch (status) {
+    case "success":
+      return {
+        badgeClass: "bg-green-50 text-green-700 border border-green-200",
+        iconClass: "bg-green-600 text-white",
+        icon: "✓",
+        label: "Success",
+      };
+    case "error":
+      return {
+        badgeClass: "bg-red-50 text-red-700 border border-red-200",
+        iconClass: "bg-red-600 text-white",
+        icon: "✕",
+        label: "Error",
+      };
+    case "loading":
+      return {
+        badgeClass: "bg-primary/10 text-primary border border-primary/20",
+        iconClass: "bg-primary text-white animate-pulse",
+        icon: "…",
+        label: "Loading",
+      };
+    default:
+      return {
+        badgeClass: "bg-surface-container text-on-surface-variant border border-outline-variant/50",
+        iconClass: "bg-outline-variant text-on-surface",
+        icon: "•",
+        label: "Pending",
+      };
+  }
+}
+
 function initialNotesTimelineSteps(): TimelineStep[] {
   return [
     {
@@ -1069,7 +1102,7 @@ export default function AIContentClient() {
               </div>
             )}
           </div>
-          {generating && (
+          {generating && activeTab === "papers" && (
             <div className="mt-4 rounded-xl border border-outline-variant/30 bg-surface-container-low p-3">
               <p className="text-sm font-medium">{progressStatus || "Generating..."}</p>
               {progressTopic && <p className="mt-1 text-xs text-on-surface-variant">Current topic: {progressTopic}</p>}
@@ -1079,7 +1112,7 @@ export default function AIContentClient() {
               <p className="mt-2 text-xs text-on-surface-variant">
                 {progressTotal > 0
                   ? `Progress: ${progressIndex} / ${progressTotal}`
-                  : (activeTab === "notes" ? "Checking cache and preparing next step..." : "Preparing generation chunks...")}
+                  : "Preparing generation chunks..."}
               </p>
               {activeTab === "papers" && (
                 <p className="mt-1 text-xs text-on-surface-variant">
@@ -1100,7 +1133,7 @@ export default function AIContentClient() {
         {activeTab === "notes" ? (
           <section className="card border border-outline-variant/30 p-5">
             <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 className="text-xl font-semibold">Generation Timeline</h2>
+              <h2 className="text-xl font-semibold">Vertical Loading Status</h2>
               {notesTimelineSteps.length > 0 ? (
                 <span className="text-xs text-on-surface-variant">Expand a step to view detailed logs.</span>
               ) : null}
@@ -1110,22 +1143,19 @@ export default function AIContentClient() {
                 Start generation to see cache search, decision, rendering, and completion steps.
               </p>
             ) : (
-              <div className="space-y-4">
+              <div className="rounded-2xl border border-outline-variant/40 bg-surface-container-low px-4 py-4">
+                <div className="space-y-4">
                 {notesTimelineSteps.map((step, index) => {
-                  const iconClass = step.status === "success"
-                    ? "bg-green-600"
-                    : step.status === "error"
-                      ? "bg-red-600"
-                      : step.status === "loading"
-                        ? "bg-primary animate-pulse"
-                        : "bg-outline-variant";
+                  const visuals = getTimelineStepVisuals(step.status);
                   return (
                     <div key={step.key} className="relative pl-8">
                       {index < notesTimelineSteps.length - 1 ? (
-                        <span className="absolute left-[11px] top-5 h-[calc(100%+8px)] w-[2px] bg-outline-variant/50" />
+                        <span className="absolute left-[11px] top-6 h-[calc(100%+6px)] w-[2px] bg-outline-variant/60" />
                       ) : null}
-                      <span className={`absolute left-0 top-1.5 inline-flex h-[22px] w-[22px] rounded-full border-2 border-surface-container ${iconClass}`} />
-                      <div className="rounded-xl border border-outline-variant/40 bg-surface-container-low p-3">
+                      <span className={`absolute left-0 top-2 inline-flex h-[22px] w-[22px] items-center justify-center rounded-full border-2 border-surface-container text-xs font-bold ${visuals.iconClass}`}>
+                        {visuals.icon}
+                      </span>
+                      <div className="rounded-xl border border-outline-variant/40 bg-surface p-3 shadow-sm">
                         <button
                           className="flex w-full items-start justify-between gap-3 text-left"
                           onClick={() => {
@@ -1138,12 +1168,17 @@ export default function AIContentClient() {
                           <div>
                             <p className="text-sm font-semibold">{step.title}</p>
                             <p className="mt-1 text-xs text-on-surface-variant">{step.detail}</p>
+                            <div className="mt-2 flex items-center gap-2">
+                              <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${visuals.badgeClass}`}>{visuals.label}</span>
+                              <span className="text-[11px] text-on-surface-variant">{step.logs.length} log entries</span>
+                            </div>
                           </div>
-                          <span className="text-on-surface-variant">{step.expanded ? "▾" : "▸"}</span>
+                          <span className="text-base text-on-surface-variant">{step.expanded ? "▾" : "▸"}</span>
                         </button>
                         {step.expanded ? (
-                          <div className="mt-3 space-y-2">
-                            <div className="flex justify-end">
+                          <div className="mt-3 space-y-2 border-t border-outline-variant/30 pt-3">
+                            <div className="flex justify-between">
+                              <span className="text-xs text-on-surface-variant">Deep console output</span>
                               <button className="btn text-xs" onClick={() => void copyTimelineLogs(step)} type="button">
                                 Copy step logs
                               </button>
@@ -1161,6 +1196,7 @@ export default function AIContentClient() {
                     </div>
                   );
                 })}
+                </div>
               </div>
             )}
           </section>
