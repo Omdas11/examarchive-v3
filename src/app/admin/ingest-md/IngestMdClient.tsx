@@ -225,7 +225,7 @@ export default function IngestMdClient() {
           onDrop={(e) => {
             e.preventDefault();
             setDragActive(false);
-            const files = Array.from(e.dataTransfer.files ?? []);
+            const files = Array.from(e.dataTransfer.files);
             if (files.length > 0) void ingestFiles(files);
           }}
           className={`block cursor-pointer rounded-xl border-2 border-dashed p-8 text-center transition ${
@@ -239,7 +239,7 @@ export default function IngestMdClient() {
             className="hidden"
             disabled={uploading}
             onChange={(e) => {
-              const files = Array.from(e.target.files ?? []);
+              const files = e.target.files ? Array.from(e.target.files) : [];
               if (files.length > 0) void ingestFiles(files);
             }}
           />
