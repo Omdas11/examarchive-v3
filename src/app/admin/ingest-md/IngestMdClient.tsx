@@ -19,6 +19,10 @@ type IngestionLog = {
   errors: IngestionError[];
 };
 
+function isMarkdownFile(file: File): boolean {
+  return file.name.toLowerCase().endsWith(".md");
+}
+
 export default function IngestMdClient() {
   const { showToast } = useToast();
   const [dragActive, setDragActive] = useState(false);
@@ -77,50 +81,86 @@ export default function IngestMdClient() {
     };
   }, [loadLogs, pollDelayMs]);
 
-  async function ingestFile(file: File) {
-    if (!file.name.toLowerCase().endsWith(".md")) {
-      setError("Only .md files are allowed.");
+  async function ingestFiles(files: File[]) {
+    if (files.length === 0) {
+      setError("Please choose at least one file.");
+      return;
+    }
+    const invalidFiles = files.filter((file) => !isMarkdownFile(file)).map((file) => file.name);
+    if (invalidFiles.length > 0) {
+      setError(`Only .md files are allowed. Invalid: ${invalidFiles.join(", ")}`);
       return;
     }
     setUploading(true);
     setPollDelayMs(2_500);
     setError(null);
     setLastResult(null);
+    const outcomes: Array<{ paperCode: string; status: string; rowsAffected: number; added: number; updated: number }> = [];
+    const errors: string[] = [];
     try {
-      const form = new FormData();
-      form.set("file", file);
-      const res = await fetch("/api/admin/ingest-md", {
-        method: "POST",
-        body: form,
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        const fallbackErrors = Array.isArray(data.errors)
-          ? data.errors
-              .filter((entry: unknown) => typeof entry === "object" && entry !== null && "message" in entry)
-              .map((entry: unknown) => String((entry as { message?: unknown }).message ?? ""))
-              .filter(Boolean)
-          : [];
-        setError(data.error ?? (fallbackErrors.join("; ") || "Upload/ingestion failed."));
-      } else {
+      for (const file of files) {
+        const form = new FormData();
+        form.set("file", file);
+        const res = await fetch("/api/admin/ingest-md", {
+          method: "POST",
+          body: form,
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          const fallbackErrors = Array.isArray(data.errors)
+            ? data.errors
+                .filter((entry: unknown) => typeof entry === "object" && entry !== null && "message" in entry)
+                .map((entry: unknown) => String((entry as { message?: unknown }).message ?? ""))
+                .filter(Boolean)
+            : [];
+          errors.push(`${file.name}: ${data.error ?? (fallbackErrors.join("; ") || "Upload/ingestion failed.")}`);
+          continue;
+        }
+
         const paperCode = String(data.paperCode ?? "");
-        setLastResult(
-          `${String(data.status).toUpperCase()} · Added ${data.added}, Updated ${data.updated}, Rows ${data.rowsAffected}`,
-        );
+        outcomes.push({
+          paperCode,
+          status: String(data.status ?? "failed"),
+          rowsAffected: Number(data.rowsAffected ?? 0),
+          added: Number(data.added ?? 0),
+          updated: Number(data.updated ?? 0),
+        });
         if (paperCode) {
-          const trackerUrl = `/admin/syllabus-tracker?highlight=${encodeURIComponent(paperCode)}&returnToIngest=1`;
           showToast(
             `✓ ${paperCode} ingested — view in Syllabus Tracker`,
             data.status === "success" ? "success" : "warning",
           );
-          if (autoTrackerFlow) {
-            // Navigate to tracker after a short delay so the toast is visible first.
-            setTimeout(() => {
-              window.location.assign(trackerUrl);
-            }, REDIRECT_DELAY_MS);
-          }
         }
       }
+
+      const successCount = outcomes.filter((item) => item.status === "success").length;
+      const partialCount = outcomes.filter((item) => item.status === "partial").length;
+      const failedCount = files.length - successCount - partialCount;
+      const totalAdded = outcomes.reduce((sum, item) => sum + item.added, 0);
+      const totalUpdated = outcomes.reduce((sum, item) => sum + item.updated, 0);
+      const totalRows = outcomes.reduce((sum, item) => sum + item.rowsAffected, 0);
+
+      setLastResult(
+        `Processed ${files.length} file(s) · Success ${successCount}, Partial ${partialCount}, Failed ${failedCount} · Added ${totalAdded}, Updated ${totalUpdated}, Rows ${totalRows}`,
+      );
+      if (errors.length > 0) {
+        setError(errors.join(" | "));
+      }
+
+      if (autoTrackerFlow) {
+        const paperCodes = outcomes
+          .map((item) => item.paperCode)
+          .filter((code) => code.length > 0);
+        const lastPaperCode = paperCodes.length > 0 ? paperCodes[paperCodes.length - 1] : null;
+        if (lastPaperCode) {
+          const trackerUrl = `/admin/syllabus-tracker?highlight=${encodeURIComponent(lastPaperCode)}&returnToIngest=1`;
+          // Navigate to tracker after a short delay so the toast is visible first.
+          setTimeout(() => {
+            window.location.assign(trackerUrl);
+          }, REDIRECT_DELAY_MS);
+        }
+      }
+
       await loadLogs();
     } catch {
       setError("Network error while uploading file.");
@@ -185,8 +225,8 @@ export default function IngestMdClient() {
           onDrop={(e) => {
             e.preventDefault();
             setDragActive(false);
-            const file = e.dataTransfer.files?.[0];
-            if (file) void ingestFile(file);
+            const files = Array.from(e.dataTransfer.files ?? []);
+            if (files.length > 0) void ingestFiles(files);
           }}
           className={`block cursor-pointer rounded-xl border-2 border-dashed p-8 text-center transition ${
             dragActive ? "border-primary bg-primary/10" : "border-outline-variant/40 bg-surface-container-low"
@@ -194,15 +234,16 @@ export default function IngestMdClient() {
         >
           <input
             type="file"
+            multiple
             accept=".md,text/markdown"
             className="hidden"
             disabled={uploading}
             onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) void ingestFile(file);
+              const files = Array.from(e.target.files ?? []);
+              if (files.length > 0) void ingestFiles(files);
             }}
           />
-          <p className="text-sm font-semibold">Drag & drop a Markdown file or click to choose one</p>
+          <p className="text-sm font-semibold">Drag & drop Markdown files or click to choose one or more files</p>
           <p className="mt-1 text-xs text-on-surface-variant">Only `.md` files using the strict template are accepted.</p>
           {uploading && <p className="mt-3 text-sm text-primary">Processing ingestion…</p>}
         </label>

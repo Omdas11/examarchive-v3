@@ -123,6 +123,7 @@ export default function SyllabusTrackerClient({ tables, slotOrder, uploadedMap, 
   const [checkedMap, setCheckedMap] = useState<Record<string, boolean>>({});
   const [autoReturnToIngest, setAutoReturnToIngest] = useState(returnToIngestRequested);
   const highlightRef = useRef<HTMLTableCellElement | null>(null);
+  const pendingAutoReturnRef = useRef(false);
   const normalizedSlotOrder = useMemo(
     () => slotOrder.filter((slot): slot is { key: SlotKey; label: string } => isSlotKey(slot.key)),
     [slotOrder],
@@ -167,6 +168,12 @@ export default function SyllabusTrackerClient({ tables, slotOrder, uploadedMap, 
       // ignore storage errors
     }
   }, [autoReturnToIngest]);
+
+  useEffect(() => {
+    if (!pendingAutoReturnRef.current) return;
+    pendingAutoReturnRef.current = false;
+    window.location.assign("/admin/ingest-md");
+  }, [checkedMap]);
 
   useEffect(() => {
     if (highlightCode && highlightRef.current) {
@@ -260,14 +267,18 @@ export default function SyllabusTrackerClient({ tables, slotOrder, uploadedMap, 
 
   function toggleCode(code: string) {
     if (!canEdit) return;
-    const shouldReturn = autoReturnToIngest && returnToIngestRequested && Boolean(highlightCode && code === highlightCode);
     setCheckedMap((prev) => {
       const nextValue = !prev[code];
+      const shouldReturn =
+        nextValue &&
+        autoReturnToIngest &&
+        returnToIngestRequested &&
+        Boolean(highlightCode && code === highlightCode);
+      if (shouldReturn) {
+        pendingAutoReturnRef.current = true;
+      }
       return { ...prev, [code]: nextValue };
     });
-    if (shouldReturn) {
-      window.location.assign("/admin/ingest-md");
-    }
   }
 
   return (
