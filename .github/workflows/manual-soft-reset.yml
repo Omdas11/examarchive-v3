@@ -15,6 +15,14 @@ on:
         options:
           - clear_ingestions
           - keep_ingestions
+      bucket_mode:
+        description: "Choose whether to clear the MD Ingestion Cache bucket files"
+        required: true
+        default: keep_files
+        type: choice
+        options:
+          - keep_files
+          - clear_files
 
 jobs:
   soft-reset-data:
@@ -43,18 +51,21 @@ jobs:
       - name: Install tsx globally
         run: npm install -g tsx
 
-      - name: Run soft reset (clear ingestions)
-        if: ${{ github.event.inputs.ingestion_mode == 'clear_ingestions' }}
+      - name: Run soft reset
         env:
           APPWRITE_ENDPOINT: ${{ secrets.APPWRITE_ENDPOINT }}
           APPWRITE_PROJECT_ID: ${{ secrets.APPWRITE_PROJECT_ID }}
           APPWRITE_API_KEY: ${{ secrets.APPWRITE_API_KEY }}
-        run: npm run soft-reset:data
-
-      - name: Run soft reset (keep ingestions)
-        if: ${{ github.event.inputs.ingestion_mode == 'keep_ingestions' }}
-        env:
-          APPWRITE_ENDPOINT: ${{ secrets.APPWRITE_ENDPOINT }}
-          APPWRITE_PROJECT_ID: ${{ secrets.APPWRITE_PROJECT_ID }}
-          APPWRITE_API_KEY: ${{ secrets.APPWRITE_API_KEY }}
-        run: npm run soft-reset:data:skip-ingestions
+        run: |
+          CMD="tsx scripts/soft-reset-data.ts"
+          
+          if [ "${{ github.event.inputs.ingestion_mode }}" = "keep_ingestions" ]; then
+            CMD="$CMD --skip-ingestions"
+          fi
+          
+          if [ "${{ github.event.inputs.bucket_mode }}" = "clear_files" ]; then
+            CMD="$CMD --clear-bucket"
+          fi
+          
+          echo "Running: npx $CMD"
+          npx $CMD
