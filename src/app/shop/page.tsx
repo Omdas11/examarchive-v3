@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import { getServerUser } from "@/lib/auth";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
+import { CONTACT_EMAILS } from "@/lib/contact-emails";
 
 export const metadata: Metadata = {
-  title: "Shop",
+  title: "Shop | ExamArchive",
   description:
     "Buy AI credits, semester passes, and premium study bundles on ExamArchive.",
   alternates: { canonical: "/shop" },
@@ -40,11 +41,11 @@ export default async function ShopPage() {
       userName={userName}
       userInitials={userInitials}
     >
-      <section className="mx-auto px-4 py-10 space-y-6" style={{ maxWidth: "var(--max-w)" }}>
+      <section className="mx-auto max-w-[var(--max-w)] px-4 py-10 space-y-6">
         <div className="card p-6">
           <h1 className="text-2xl font-bold">ExamArchive Shop</h1>
           <p className="mt-2 text-sm text-on-surface-variant">
-            Digital-only products to sustain the platform. Payment gateway is not enabled yet; launch flow is manual UPI verification.
+            Digital-only products to sustain the platform. Available via request, with manual verification during the launch phase.
           </p>
         </div>
 
@@ -55,7 +56,7 @@ export default async function ShopPage() {
               <p className="mt-2 text-sm text-on-surface-variant">Suggested pricing: {product.price}</p>
               <p className="mt-1 text-xs text-on-surface-variant">Credit model: {product.credits}</p>
               <a
-                href={`mailto:contact@examarchive.dev?subject=${encodeURIComponent(`Shop interest: ${product.name}`)}`}
+                href={`mailto:${CONTACT_EMAILS.contact}?subject=${encodeURIComponent(`Shop interest: ${product.name}`)}`}
                 className="inline-flex mt-4 rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-on-primary"
               >
                 Request Access

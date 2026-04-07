@@ -2,6 +2,25 @@ import type { MetadataRoute } from "next";
 import { adminDatabases, COLLECTION, DATABASE_ID, Query } from "@/lib/appwrite";
 
 const SITE_URL = "https://www.examarchive.dev";
+function parsePositiveInt(value: string | undefined, fallback: number): number {
+  const parsed = Number(value ?? fallback);
+  if (!Number.isFinite(parsed) || parsed < 1) return fallback;
+  return Math.floor(parsed);
+}
+
+function getLastModified(doc: Record<string, unknown>): Date | undefined {
+  const candidate = String(doc.$updatedAt ?? doc.$createdAt ?? "").trim();
+  if (!candidate) return undefined;
+  const parsed = new Date(candidate);
+  if (Number.isNaN(parsed.getTime())) return undefined;
+  return parsed;
+}
+
+const SITEMAP_PAPER_LIMIT = parsePositiveInt(process.env.SITEMAP_PAPER_LIMIT, 500);
+const SITEMAP_SYLLABUS_TABLE_LIMIT = parsePositiveInt(
+  process.env.SITEMAP_SYLLABUS_TABLE_LIMIT,
+  1000,
+);
 
 /**
  * Generates /sitemap.xml via Next.js Metadata API.
@@ -75,20 +94,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       db.listDocuments(DATABASE_ID, COLLECTION.papers, [
         Query.equal("approved", true),
         Query.orderDesc("$updatedAt"),
-        Query.limit(500),
+        Query.limit(SITEMAP_PAPER_LIMIT),
       ]),
       db.listDocuments(DATABASE_ID, COLLECTION.syllabus_table, [
         Query.orderDesc("$updatedAt"),
-        Query.limit(1000),
+        Query.limit(SITEMAP_SYLLABUS_TABLE_LIMIT),
       ]),
     ]);
 
     for (const doc of papersRes.documents) {
       const id = String(doc.$id ?? "");
       if (!id) continue;
+      const lastModified = getLastModified(doc as unknown as Record<string, unknown>);
       dynamicRoutes.push({
         url: `${SITE_URL}/paper/${encodeURIComponent(id)}`,
-        lastModified: new Date(String(doc.$updatedAt ?? doc.$createdAt ?? Date.now())),
+        ...(lastModified ? { lastModified } : {}),
         changeFrequency: "weekly",
         priority: 0.8,
       });
@@ -99,15 +119,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       const code = String(doc.paper_code ?? "").trim().toUpperCase();
       if (!code || seenCodes.has(code)) continue;
       seenCodes.add(code);
+      const lastModified = getLastModified(doc as unknown as Record<string, unknown>);
       dynamicRoutes.push({
         url: `${SITE_URL}/syllabus/paper/${encodeURIComponent(code)}`,
-        lastModified: new Date(String(doc.$updatedAt ?? doc.$createdAt ?? Date.now())),
+        ...(lastModified ? { lastModified } : {}),
         changeFrequency: "weekly",
         priority: 0.75,
       });
     }
-  } catch {
+  } catch (error) {
     // Fallback to static routes when DB is unavailable at build/runtime.
+    console.warn("[sitemap] Dynamic route generation skipped:", error);
   }
 
   return [...staticRoutes, ...dynamicRoutes];

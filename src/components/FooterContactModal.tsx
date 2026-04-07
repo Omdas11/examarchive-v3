@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { CONTACT_EMAILS, DEFAULT_CONTACT_EMAIL } from "@/lib/contact-emails";
 
 /** Map each footer label to an official @examarchive.dev contact address. */
-const CONTACT_EMAILS: Record<string, string> = {
-  "Help & Support":  "help@examarchive.dev",
-  "Contact Us":      "contact@examarchive.dev",
-  "Send Feedback":   "feedback@examarchive.dev",
+const FOOTER_CONTACT_EMAILS: Record<string, string> = {
+  "Help & Support": CONTACT_EMAILS.help,
+  "Contact Us": CONTACT_EMAILS.contact,
+  "Send Feedback": CONTACT_EMAILS.feedback,
 };
 
 /**
@@ -15,7 +16,7 @@ const CONTACT_EMAILS: Record<string, string> = {
  */
 export default function FooterContactModal({ label }: { label: string }) {
   const [open, setOpen] = useState(false);
-  const email = CONTACT_EMAILS[label] ?? "contact@examarchive.dev";
+  const email = FOOTER_CONTACT_EMAILS[label] ?? DEFAULT_CONTACT_EMAIL;
 
   return (
     <>

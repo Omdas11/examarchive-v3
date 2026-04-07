@@ -18,6 +18,7 @@ import {
 } from "@/lib/syllabus-table";
 import { formatIstDateTime } from "@/lib/datetime";
 import { buildSyllabusJsonLd, serializeJsonLd } from "@/lib/json-ld";
+import { CONTACT_EMAILS } from "@/lib/contact-emails";
 
 interface PageProps {
   params: Promise<{ paper_code: string }>;
@@ -114,7 +115,7 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
 
   const first = rows[0];
   const paperName = first.paper_name?.trim() || derivePaperNameFromContent(first.syllabus_content, code);
-  const lastVerifiedAt = uploadedPdfs[0]?.created_at ?? new Date().toISOString();
+  const lastVerifiedAt = uploadedPdfs[0]?.created_at ?? null;
   const syllabusJsonLd = buildSyllabusJsonLd({
     paperCode: code,
     paperName,
@@ -150,9 +151,11 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
           <p className="mt-2 text-sm text-on-surface-variant">
             {first.university} · {first.course} · {first.stream} · {first.type}
           </p>
-          <p className="mt-1 text-xs text-on-surface-variant">
-            Last verified {formatIstDateTime(lastVerifiedAt)} IST
-          </p>
+          {lastVerifiedAt && (
+            <p className="mt-1 text-xs text-on-surface-variant">
+              Last verified {formatIstDateTime(lastVerifiedAt)} IST
+            </p>
+          )}
 
           <div className="mt-5 flex flex-wrap gap-2">
             <a
@@ -164,7 +167,7 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
               Download Syllabus PDF
             </a>
             <a
-              href={`mailto:feedback@examarchive.dev?subject=${encodeURIComponent(`Wrong syllabus: ${code}`)}&body=${encodeURIComponent(`Please review syllabus page /syllabus/paper/${code}`)}`}
+              href={`mailto:${CONTACT_EMAILS.feedback}?subject=${encodeURIComponent(`Wrong syllabus: ${code}`)}&body=${encodeURIComponent(`Please review syllabus page /syllabus/paper/${code}`)}`}
               className="inline-flex items-center gap-2 rounded-2xl bg-surface-container px-4 py-2 text-sm font-semibold text-on-surface"
             >
               Report wrong syllabus

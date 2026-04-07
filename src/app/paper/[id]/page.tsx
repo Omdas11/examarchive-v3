@@ -20,6 +20,8 @@ import { PAPER_TYPE_COLORS } from "@/components/PaperCard";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import { formatIstDateTime } from "@/lib/datetime";
+import { CONTACT_EMAILS } from "@/lib/contact-emails";
+import { calculateSourceConfidence } from "./sourceConfidence";
 
 const SITE_URL = "https://www.examarchive.dev";
 const OG_IMAGE_URL = `${SITE_URL}/branding/logo.png`;
@@ -143,8 +145,7 @@ export default async function PaperPage({ params }: PaperPageProps) {
       // ignore
     }
   }
-  const sourceConfidence =
-    relatedPapers.length >= 2 ? "High" : relatedPapers.length === 1 ? "Medium" : "Baseline";
+  const sourceConfidence = calculateSourceConfidence(relatedPapers.length);
 
   return (
     <MainLayout
@@ -244,14 +245,14 @@ export default async function PaperPage({ params }: PaperPageProps) {
         </a>
         <div className="mt-3 flex flex-wrap gap-3 text-xs">
           <a
-            href={`mailto:bugs@examarchive.dev?subject=${encodeURIComponent(`Paper issue: ${paper.course_code ?? paper.id}`)}&body=${encodeURIComponent(`Please describe the issue for /paper/${paper.id}`)}`}
+            href={`mailto:${CONTACT_EMAILS.bugs}?subject=${encodeURIComponent(`Paper issue: ${paper.course_code ?? paper.id}`)}&body=${encodeURIComponent(`Please describe the issue for /paper/${paper.id}`)}`}
             className="font-medium"
             style={{ color: "var(--color-primary)" }}
           >
             Report issue
           </a>
           <a
-            href={`mailto:feedback@examarchive.dev?subject=${encodeURIComponent(`Wrong syllabus mapping: ${paper.course_code ?? paper.id}`)}&body=${encodeURIComponent(`Please review syllabus linkage for /paper/${paper.id}`)}`}
+            href={`mailto:${CONTACT_EMAILS.feedback}?subject=${encodeURIComponent(`Wrong syllabus mapping: ${paper.course_code ?? paper.id}`)}&body=${encodeURIComponent(`Please review syllabus linkage for /paper/${paper.id}`)}`}
             className="font-medium"
             style={{ color: "var(--color-primary)" }}
           >

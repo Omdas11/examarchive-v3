@@ -34,6 +34,7 @@ jest.mock("@/lib/syllabus-registry", () => ({
 import { adminDatabases } from "@/lib/appwrite";
 import { toPaper } from "@/types";
 import { generateMetadata } from "./page";
+import { calculateSourceConfidence } from "./sourceConfidence";
 
 describe("paper route generateMetadata", () => {
   it("returns OG/Twitter metadata when paper lookup succeeds", async () => {
@@ -67,5 +68,20 @@ describe("paper route generateMetadata", () => {
     });
 
     expect(metadata).toEqual({ title: "Paper Not Found" });
+  });
+});
+
+describe("calculateSourceConfidence", () => {
+  it("returns baseline for no related papers", () => {
+    expect(calculateSourceConfidence(0)).toBe("Baseline");
+  });
+
+  it("returns medium for one related paper", () => {
+    expect(calculateSourceConfidence(1)).toBe("Medium");
+  });
+
+  it("returns high for two or more related papers", () => {
+    expect(calculateSourceConfidence(2)).toBe("High");
+    expect(calculateSourceConfidence(5)).toBe("High");
   });
 });

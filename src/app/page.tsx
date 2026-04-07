@@ -101,7 +101,7 @@ export default async function HomePage() {
 
   try {
     const db = adminDatabases();
-    const [papersRes, syllabusRes, popularRes, recentRes] = await Promise.all([
+    const [papersCountRes, syllabusRes, popularRes, recentRes] = await Promise.all([
       db.listDocuments(DATABASE_ID, COLLECTION.papers, [
         Query.equal("approved", true),
         Query.limit(1),
@@ -122,7 +122,7 @@ export default async function HomePage() {
       ]),
     ]);
 
-    papersTotal = papersRes.total;
+    papersTotal = papersCountRes.total;
     syllabusTotal = syllabusRes.total;
     popularPapers = popularRes.documents.map(toPaper);
     recentPapers = recentRes.documents.map(toPaper);
