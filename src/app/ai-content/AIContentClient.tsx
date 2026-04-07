@@ -1143,8 +1143,7 @@ export default function AIContentClient() {
                 Start generation to see cache search, decision, rendering, and completion steps.
               </p>
             ) : (
-              <div className="rounded-2xl border border-outline-variant/40 bg-surface-container-low px-4 py-4">
-                <div className="space-y-4">
+              <div className="space-y-4">
                 {notesTimelineSteps.map((step, index) => {
                   const visuals = getTimelineStepStyles(step.status);
                   return (
@@ -1155,7 +1154,7 @@ export default function AIContentClient() {
                       <span className={`absolute left-0 top-2 inline-flex h-[22px] w-[22px] items-center justify-center rounded-full border-2 border-surface-container text-xs font-bold ${visuals.iconClass}`}>
                         {visuals.icon}
                       </span>
-                      <div className="rounded-xl border border-outline-variant/40 bg-surface p-3 shadow-sm">
+                      <div className="py-1">
                         <button
                           className="flex w-full items-start justify-between gap-3 text-left"
                           aria-expanded={step.expanded}
@@ -1182,16 +1181,16 @@ export default function AIContentClient() {
                           <span className="text-base text-on-surface-variant">{step.expanded ? "▾" : "▸"}</span>
                         </button>
                         {step.expanded ? (
-                          <div className="mt-3 space-y-2 border-t border-outline-variant/30 pt-3">
+                          <div className="mt-2 space-y-2 pt-1">
                             <div className="flex justify-between">
                               <span className="text-xs text-on-surface-variant">Deep console output</span>
                               <button className="btn text-xs" onClick={() => void copyTimelineLogs(step)} type="button">
                                 Copy step logs
                               </button>
                             </div>
-                            <div className="max-h-44 overflow-auto rounded-lg border border-outline-variant/40 bg-surface px-3 py-2 text-xs">
+                            <div className="max-h-44 overflow-auto px-1 py-1 text-xs">
                               {step.logs.length > 0 ? (
-                                <pre className="whitespace-pre-wrap break-words">{step.logs.join("\n")}</pre>
+                                <pre className="whitespace-pre-wrap break-words text-on-surface-variant">{step.logs.join("\n")}</pre>
                               ) : (
                                 <p className="text-on-surface-variant">No detailed logs for this step yet.</p>
                               )}
@@ -1202,7 +1201,6 @@ export default function AIContentClient() {
                     </div>
                   );
                 })}
-                </div>
               </div>
             )}
           </section>
