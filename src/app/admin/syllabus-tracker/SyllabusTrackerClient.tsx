@@ -309,7 +309,7 @@ export default function SyllabusTrackerClient({ tables, slotOrder, uploadedMap, 
           )}
           <button
             onClick={clearHighlight}
-            className={`${canEdit && returnToIngestRequested ? "" : "ml-auto "}text-xs text-on-surface-variant hover:text-on-surface`}
+            className={`${canEdit && returnToIngestRequested ? "" : "ml-auto"} text-xs text-on-surface-variant hover:text-on-surface`}
           >
             Clear
           </button>
