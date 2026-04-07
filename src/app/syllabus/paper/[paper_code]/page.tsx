@@ -14,7 +14,6 @@ import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import {
   derivePaperNameFromContent,
-  extractSubjectCode,
   toSyllabusTableRow,
 } from "@/lib/syllabus-table";
 
@@ -103,6 +102,7 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
   }
 
   const first = rows[0];
+  const paperName = first.paper_name?.trim() || derivePaperNameFromContent(first.syllabus_content, code);
 
   return (
     <MainLayout
@@ -124,7 +124,8 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
             Syllabus_Table Source
           </p>
-          <h1 className="mt-2 text-3xl font-black text-on-surface">{code}</h1>
+          <h1 className="mt-2 text-3xl font-black text-on-surface">{paperName}</h1>
+          <p className="mt-1 font-mono text-sm text-on-surface-variant">{code}</p>
           <p className="mt-2 text-sm text-on-surface-variant">
             {first.university} · {first.course} · {first.stream} · {first.type}
           </p>
@@ -136,15 +137,7 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 rounded-2xl bg-primary px-4 py-2 text-sm font-semibold text-on-primary"
             >
-              Download MD PDF (single paper)
-            </a>
-            <a
-              href={`/api/syllabus/table?subjectCode=${encodeURIComponent(extractSubjectCode(code))}&mode=pdf`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-2xl bg-surface-container px-4 py-2 text-sm font-semibold text-on-surface ring-1 ring-outline-variant/40"
-            >
-              Download Question Paper Group PDF
+              Download Syllabus PDF
             </a>
           </div>
         </div>

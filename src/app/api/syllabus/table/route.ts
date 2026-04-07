@@ -64,6 +64,10 @@ async function recordPdfGeneration(userId: string, todayStr: string): Promise<vo
 }
 
 function derivePaperNameFromRows(paperCode: string, rows: SyllabusTableRow[]): string {
+  const storedPaperName = rows
+    .map((row) => row.paper_name.trim())
+    .find((name) => name.length > 0);
+  if (storedPaperName) return storedPaperName;
   const derivedPaperName = rows
     .map((row) => row.syllabus_content.trim())
     .find((content) => content.length > 0);

@@ -43,6 +43,7 @@ interface Props {
 }
 
 const CHECKED_STORAGE_KEY = "syllabus-tracker-checked-v1";
+const RETURN_TO_INGEST_STORAGE_KEY = "syllabus-tracker-return-to-ingest-v1";
 
 const SLOT_BG: Record<SlotKey, string> = {
   dsc1: "bg-blue-50 dark:bg-blue-900/25",
@@ -117,8 +118,10 @@ export default function SyllabusTrackerClient({ tables, slotOrder, uploadedMap, 
   const searchParams = useSearchParams();
   const router = useRouter();
   const highlightCode = searchParams.get("highlight")?.toUpperCase() ?? null;
+  const returnToIngestRequested = searchParams.get("returnToIngest") === "1";
 
   const [checkedMap, setCheckedMap] = useState<Record<string, boolean>>({});
+  const [autoReturnToIngest, setAutoReturnToIngest] = useState(returnToIngestRequested);
   const highlightRef = useRef<HTMLTableCellElement | null>(null);
   const normalizedSlotOrder = useMemo(
     () => slotOrder.filter((slot): slot is { key: SlotKey; label: string } => isSlotKey(slot.key)),
@@ -136,11 +139,34 @@ export default function SyllabusTrackerClient({ tables, slotOrder, uploadedMap, 
 
   useEffect(() => {
     try {
+      const raw = window.localStorage.getItem(RETURN_TO_INGEST_STORAGE_KEY);
+      if (raw === "1") setAutoReturnToIngest(true);
+      if (raw === "0") setAutoReturnToIngest(false);
+    } catch {
+      // ignore parse/storage errors
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!returnToIngestRequested) return;
+    setAutoReturnToIngest(true);
+  }, [returnToIngestRequested]);
+
+  useEffect(() => {
+    try {
       window.localStorage.setItem(CHECKED_STORAGE_KEY, JSON.stringify(checkedMap));
     } catch {
       // ignore storage errors
     }
   }, [checkedMap]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(RETURN_TO_INGEST_STORAGE_KEY, autoReturnToIngest ? "1" : "0");
+    } catch {
+      // ignore storage errors
+    }
+  }, [autoReturnToIngest]);
 
   useEffect(() => {
     if (highlightCode && highlightRef.current) {
@@ -234,10 +260,14 @@ export default function SyllabusTrackerClient({ tables, slotOrder, uploadedMap, 
 
   function toggleCode(code: string) {
     if (!canEdit) return;
+    const shouldReturn = autoReturnToIngest && returnToIngestRequested && Boolean(highlightCode && code === highlightCode);
     setCheckedMap((prev) => {
       const nextValue = !prev[code];
       return { ...prev, [code]: nextValue };
     });
+    if (shouldReturn) {
+      window.location.assign("/admin/ingest-md");
+    }
   }
 
   return (
@@ -266,7 +296,21 @@ export default function SyllabusTrackerClient({ tables, slotOrder, uploadedMap, 
           <span>
             Highlighting <strong className="font-mono">{highlightCode}</strong>
           </span>
-          <button onClick={clearHighlight} className="ml-auto text-xs text-on-surface-variant hover:text-on-surface">
+          {canEdit && returnToIngestRequested && (
+            <label className="ml-auto inline-flex items-center gap-2 rounded-lg border border-outline-variant/40 bg-surface px-2 py-1 text-xs">
+              <span>Auto return</span>
+              <input
+                type="checkbox"
+                checked={autoReturnToIngest}
+                onChange={(e) => setAutoReturnToIngest(e.target.checked)}
+                className="h-4 w-4"
+              />
+            </label>
+          )}
+          <button
+            onClick={clearHighlight}
+            className={`${canEdit && returnToIngestRequested ? "" : "ml-auto "}text-xs text-on-surface-variant hover:text-on-surface`}
+          >
             Clear
           </button>
         </div>

@@ -6,6 +6,7 @@ import { formatIstDateTime } from "@/lib/datetime";
 
 /** Delay in ms before navigating to the tracker page after a successful ingest. */
 const REDIRECT_DELAY_MS = 1800;
+const TRACKER_AUTO_FLOW_STORAGE_KEY = "syllabus-tracker-auto-flow-v1";
 
 type IngestionError = { line: number; message: string };
 type IngestionLog = {
@@ -29,6 +30,25 @@ export default function IngestMdClient() {
   const [pollDelayMs, setPollDelayMs] = useState(10_000);
   const [statusFilter, setStatusFilter] = useState<"all" | "success" | "partial" | "failed">("all");
   const [query, setQuery] = useState("");
+  const [autoTrackerFlow, setAutoTrackerFlow] = useState(true);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(TRACKER_AUTO_FLOW_STORAGE_KEY);
+      if (raw === "0") setAutoTrackerFlow(false);
+      if (raw === "1") setAutoTrackerFlow(true);
+    } catch {
+      // ignore storage errors
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(TRACKER_AUTO_FLOW_STORAGE_KEY, autoTrackerFlow ? "1" : "0");
+    } catch {
+      // ignore storage errors
+    }
+  }, [autoTrackerFlow]);
 
   const loadLogs = useCallback(async () => {
     try {
@@ -88,15 +108,17 @@ export default function IngestMdClient() {
           `${String(data.status).toUpperCase()} · Added ${data.added}, Updated ${data.updated}, Rows ${data.rowsAffected}`,
         );
         if (paperCode) {
-          const trackerUrl = `/admin/syllabus-tracker?highlight=${encodeURIComponent(paperCode)}`;
+          const trackerUrl = `/admin/syllabus-tracker?highlight=${encodeURIComponent(paperCode)}&returnToIngest=1`;
           showToast(
             `✓ ${paperCode} ingested — view in Syllabus Tracker`,
             data.status === "success" ? "success" : "warning",
           );
-          // Navigate to tracker after a short delay so the toast is visible first.
-          setTimeout(() => {
-            window.location.assign(trackerUrl);
-          }, REDIRECT_DELAY_MS);
+          if (autoTrackerFlow) {
+            // Navigate to tracker after a short delay so the toast is visible first.
+            setTimeout(() => {
+              window.location.assign(trackerUrl);
+            }, REDIRECT_DELAY_MS);
+          }
         }
       }
       await loadLogs();
@@ -144,6 +166,15 @@ export default function IngestMdClient() {
           <a href="/DEMO_DATA_ENTRY.md" className="btn">
             View Template
           </a>
+          <label className="inline-flex items-center gap-2 rounded-lg border border-outline-variant/40 px-3 py-2 text-sm">
+            <span>Auto Ingest ↔ Tracker flow</span>
+            <input
+              type="checkbox"
+              checked={autoTrackerFlow}
+              onChange={(e) => setAutoTrackerFlow(e.target.checked)}
+              className="h-4 w-4"
+            />
+          </label>
         </div>
         <label
           onDragOver={(e) => {
