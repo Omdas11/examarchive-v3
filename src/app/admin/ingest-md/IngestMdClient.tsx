@@ -221,7 +221,7 @@ export default function IngestMdClient() {
                 <Fragment key={log.id}>
                   <tr className="border-b border-outline-variant/20">
                     <td className="py-2 pr-2">{new Date(log.timestamp).toLocaleString()}</td>
-                    <td className="max-w-[360px] truncate py-2 pr-2" title={log.fileName}>{log.fileName}</td>
+                    <td className="max-w-sm truncate py-2 pr-2 md:max-w-xl" title={log.fileName}>{log.fileName}</td>
                     <td className="py-2 pr-2">{log.paperCode || "—"}</td>
                     <td className={`py-2 pr-2 font-semibold ${getStatusClass(log.status)}`}>
                       {log.status.toUpperCase()}

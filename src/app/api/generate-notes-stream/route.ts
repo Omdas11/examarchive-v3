@@ -647,7 +647,10 @@ async function persistCachedNotesRecord(args: PersistCachedNotesRecordArgs): Pro
   const db = adminDatabases();
   const createdAt = args.createdAt ?? new Date().toISOString();
   const cleanMarkdown = args.markdown.trim();
-  if (!cleanMarkdown) return null;
+  if (!cleanMarkdown) {
+    console.warn("[generate-notes-stream] Skipping cache metadata write because markdown content is empty.");
+    return null;
+  }
   const cleanSyllabus = typeof args.syllabusContent === "string" ? args.syllabusContent.trim() : "";
   try {
     const existing = await db.listDocuments(DATABASE_ID, COLLECTION.generated_notes_cache, [
