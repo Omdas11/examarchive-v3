@@ -36,7 +36,6 @@ export const metadata: Metadata = {
     "Gauhati University",
     "free exam papers",
     "FYUGP",
-    "CBCS",
     "NEP",
   ],
   alternates: { canonical: "/" },

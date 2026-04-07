@@ -2,16 +2,12 @@
 
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import "katex/dist/katex.min.css";
-import LiveLogsConsole from "./LiveLogsConsole";
 import { useToast } from "@/components/ToastContext";
 import CustomDropdown, { type CustomDropdownOption } from "@/components/CustomDropdown";
+import { formatIstTime } from "@/lib/datetime";
 
 const COURSE_TYPES: Record<string, string[]> = {
   FYUG: ["DSC", "DSM", "SEC", "AEC", "VAC", "IDC"],
-  CBCS: ["DSC", "SEC"],
-  "B.Com": ["DSC", "DSM", "SEC", "AEC", "VAC", "IDC"],
-  "B.Sc": ["DSC", "DSM", "SEC", "AEC", "VAC", "IDC"],
-  "B.A": ["DSC", "DSM", "SEC", "AEC", "VAC", "IDC"],
 };
 const STREAM_TYPES: Record<string, string[]> = {
   Arts: ["DSC", "DSM", "SEC", "AEC", "VAC", "IDC"],
@@ -23,6 +19,93 @@ const BACKEND_PAPERS_MAX_DURATION_SECONDS = 300;
 const RESUME_TIMEOUT_BUFFER_SECONDS = 5;
 const TIMEOUT_THRESHOLD_SECONDS = BACKEND_PAPERS_MAX_DURATION_SECONDS - RESUME_TIMEOUT_BUFFER_SECONDS;
 const SOLVED_PAPER_PART_SIZE = 10;
+type StepStatus = "pending" | "loading" | "success" | "error";
+type TimelineStep = {
+  key: string;
+  title: string;
+  status: StepStatus;
+  detail: string;
+  logs: string[];
+  expanded: boolean;
+};
+
+function getTimelineStepStyles(status: StepStatus): { badgeClass: string; iconClass: string; icon: string; label: string } {
+  switch (status) {
+    case "success":
+      return {
+        badgeClass: "bg-green-50 text-green-700 border border-green-200",
+        iconClass: "bg-green-600 text-white",
+        icon: "✓",
+        label: "Success",
+      };
+    case "error":
+      return {
+        badgeClass: "bg-red-50 text-red-700 border border-red-200",
+        iconClass: "bg-red-600 text-white",
+        icon: "✕",
+        label: "Error",
+      };
+    case "loading":
+      return {
+        badgeClass: "bg-primary/10 text-primary border border-primary/20",
+        iconClass: "bg-primary text-white animate-pulse",
+        icon: "…",
+        label: "Loading",
+      };
+    default:
+      return {
+        badgeClass: "bg-surface-container text-on-surface-variant border border-outline-variant/50",
+        iconClass: "bg-outline-variant text-on-surface",
+        icon: "•",
+        label: "Pending",
+      };
+  }
+}
+
+function initialNotesTimelineSteps(): TimelineStep[] {
+  return [
+    {
+      key: "cache_lookup",
+      title: "Searching existing PDF and markdown cache",
+      status: "loading",
+      detail: "Searching Appwrite bucket and cache records...",
+      logs: [],
+      expanded: true,
+    },
+    {
+      key: "cache_decision",
+      title: "Cache result decision",
+      status: "pending",
+      detail: "Waiting for cache lookup result...",
+      logs: [],
+      expanded: false,
+    },
+    {
+      key: "ai_generation",
+      title: "AI generation",
+      status: "pending",
+      detail: "Will start only if cache cannot serve PDF directly.",
+      logs: [],
+      expanded: false,
+    },
+    {
+      key: "pdf_render",
+      title: "PDF rendering and upload",
+      status: "pending",
+      detail: "Will render and upload when markdown is available.",
+      logs: [],
+      expanded: false,
+    },
+    {
+      key: "completed",
+      title: "Completion",
+      status: "pending",
+      detail: "Waiting for final done event.",
+      logs: [],
+      expanded: false,
+    },
+  ];
+}
 
 function LoadingDots() {
   return (
@@ -53,9 +136,14 @@ export default function AIContentClient() {
   const [availableSemesters, setAvailableSemesters] = useState<number[]>([]);
   const [paperCodeLoading, setPaperCodeLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
-  const [notesPdfResult, setNotesPdfResult] = useState<{ key: string; url: string } | null>(null);
+  const [notesPdfResult, setNotesPdfResult] = useState<{
+    key: string;
+    url: string;
+    cacheSource: "pdf" | "markdown" | null;
+    canRerenderFromMarkdown: boolean;
+  } | null>(null);
   const [papersPdfResult, setPapersPdfResult] = useState<{ key: string; url: string } | null>(null);
-  const [logs, setLogs] = useState<string[]>([]);
+  const [notesTimelineSteps, setNotesTimelineSteps] = useState<TimelineStep[]>([]);
   const [remaining, setRemaining] = useState<number | null>(null);
   const [limit, setLimit] = useState<number | null>(null);
   const [notesRemaining, setNotesRemaining] = useState<number | null>(null);
@@ -72,7 +160,6 @@ export default function AIContentClient() {
   const [etaMinutes, setEtaMinutes] = useState<number | null>(null);
   const [currentPart, setCurrentPart] = useState(1);
   const [totalParts, setTotalParts] = useState(1);
-  const [showLogs, setShowLogs] = useState(false);
   const generationRunIdRef = useRef(0);
   const elapsedSecondsRef = useRef(0);
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -88,13 +175,7 @@ export default function AIContentClient() {
     return availableSemesters;
   }, [semestersByPaperCode, paperCode, availableSemesters]);
   const courseOptions: CustomDropdownOption[] = useMemo(
-    () => [
-      { label: "FYUG", value: "FYUG" },
-      { label: "CBCS", value: "CBCS" },
-      { label: "B.Com", value: "B.Com" },
-      { label: "B.Sc", value: "B.Sc" },
-      { label: "B.A", value: "B.A" },
-    ],
+    () => [{ label: "FYUG", value: "FYUG" }],
     [],
   );
   const streamOptions: CustomDropdownOption[] = useMemo(
@@ -168,6 +249,66 @@ export default function AIContentClient() {
     return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
   }
 
+  function upsertTimelineStep(
+    key: string,
+    updater: (step: TimelineStep) => TimelineStep,
+  ) {
+    setNotesTimelineSteps((prev) => {
+      const index = prev.findIndex((step) => step.key === key);
+      if (index < 0) return prev;
+      const next = [...prev];
+      next[index] = updater(next[index]);
+      return next;
+    });
+  }
+
+  function appendTimelineLog(key: string, message: string) {
+    upsertTimelineStep(key, (step) => ({
+      ...step,
+      logs: [...step.logs, `[${formatIstTime()} IST] ${message}`],
+    }));
+  }
+
+  function setTimelineStatus(key: string, status: StepStatus, detail: string) {
+    upsertTimelineStep(key, (step) => ({
+      ...step,
+      status,
+      detail,
+      expanded: status === "error" ? true : step.expanded,
+    }));
+  }
+
+  function classifyNotesLog(message: string) {
+    const normalized = message.toLowerCase();
+    if (
+      normalized.includes("cache") &&
+      (normalized.includes("search") || normalized.includes("lookup") || normalized.includes("bucket"))
+    ) return "cache_lookup";
+    if (
+      normalized.includes("cache pdf found") ||
+      normalized.includes("cache markdown found") ||
+      normalized.includes("cache pdf reference missing") ||
+      normalized.includes("re-render requested")
+    ) return "cache_decision";
+    if (normalized.includes("ai generation") || normalized.includes("topic") || normalized.includes("gemini")) return "ai_generation";
+    if (normalized.includes("azure") || normalized.includes("gotenberg") || normalized.includes("pdf rendered")) return "pdf_render";
+    return "cache_lookup";
+  }
+
+  async function copyTimelineLogs(step: TimelineStep) {
+    const content = step.logs.join("\n");
+    if (!content) {
+      showToast("No logs available for this step yet.", "warning");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(content);
+      showToast("Logs copied to clipboard.", "success");
+    } catch {
+      showToast("Failed to copy logs.", "error");
+    }
+  }
+
   function getQuotaSummaryLabel(): string {
     // Prefer strict per-feature quotas when available; fallback to legacy aggregate quota response.
     if (notesDailyLimit !== null && papersDailyLimit !== null) {
@@ -192,7 +333,7 @@ export default function AIContentClient() {
     setPapersPdfResult(null);
     setCanResumeGeneration(false);
     setError("Generation aborted.");
-    setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] Generation aborted by user.`]);
+    setTimelineStatus("completed", "error", "Generation aborted by user.");
     resetProgressState();
   }
 
@@ -247,7 +388,40 @@ export default function AIContentClient() {
       }
 
       if (typeof data.log === "string" && data.log.trim().length > 0) {
-        setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ${data.log}`]);
+        if (activeTab === "notes") {
+          const stepKey = classifyNotesLog(data.log);
+          appendTimelineLog(stepKey, data.log);
+          if (stepKey === "cache_lookup") {
+            setTimelineStatus("cache_lookup", "loading", "Searching Appwrite bucket and cache records...");
+          }
+          if (data.log.includes("Cache PDF found")) {
+            setTimelineStatus("cache_lookup", "success", "Cache lookup completed.");
+            setTimelineStatus("cache_decision", "success", "Existing PDF found in cache.");
+            setTimelineStatus("ai_generation", "success", "Skipped: cached PDF path does not require AI generation.");
+            setTimelineStatus("pdf_render", "success", "Skipped: reusing existing cached PDF.");
+          }
+          if (data.log.includes("Cache PDF reference missing")) {
+            setTimelineStatus("cache_lookup", "success", "Cache lookup completed.");
+            setTimelineStatus("cache_decision", "success", "No reusable PDF found. Will continue with markdown.");
+            setTimelineStatus("ai_generation", "loading", "Preparing generation from markdown cache.");
+          }
+          if (data.log.includes("Cache markdown found") || data.log.includes("Re-render requested")) {
+            setTimelineStatus("cache_lookup", "success", "Cache lookup completed.");
+            setTimelineStatus("cache_decision", "success", "Using cached markdown path.");
+            setTimelineStatus("ai_generation", "success", "Skipped: rendering directly from cached markdown.");
+            setTimelineStatus("pdf_render", "loading", "Rendering PDF from markdown...");
+          }
+          if (data.log.includes("AI generation complete")) {
+            setTimelineStatus("ai_generation", "success", "AI generation completed.");
+            setTimelineStatus("pdf_render", "loading", "Sending HTML payload for PDF rendering...");
+          }
+          if (data.log.includes("Sending HTML payload")) {
+            setTimelineStatus("pdf_render", "loading", "Sending HTML payload for PDF rendering...");
+          }
+          if (data.log.includes("PDF rendered and uploaded successfully") || data.log.includes("PDF rendered successfully from cached markdown")) {
+            setTimelineStatus("pdf_render", "success", "PDF rendered and uploaded successfully.");
+          }
+        }
       }
       const eventType = typeof data.event === "string" ? data.event : "";
       if (eventType === "progress") {
@@ -259,6 +433,11 @@ export default function AIContentClient() {
         setProgressTotal(typeof data.total === "number" ? data.total : 0);
         if (typeof data.part === "number") setCurrentPart(data.part);
         if (typeof data.totalParts === "number") setTotalParts(data.totalParts);
+        if (activeTab === "notes") {
+          setTimelineStatus("cache_lookup", "success", "Cache lookup completed.");
+          setTimelineStatus("cache_decision", "success", "No reusable cache hit. Continuing generation.");
+          setTimelineStatus("ai_generation", "loading", typeof data.status === "string" ? data.status : "Generating notes with AI...");
+        }
         return;
       }
 
@@ -282,15 +461,45 @@ export default function AIContentClient() {
         const incomingPdfUrl = typeof data.pdf_url === "string" ? data.pdf_url.trim() : "";
         if (!incomingPdfUrl) {
           finished = true;
-          setShowLogs(true);
           setError("PDF generation failed. Please try again.");
+          if (activeTab === "notes") {
+            setTimelineStatus("completed", "error", "Done event received without a PDF URL.");
+          }
           resetProgressState();
           return;
         }
         finished = true;
-        setShowLogs(false);
         if (activeTab === "notes") {
-          setNotesPdfResult({ key: notesSelectionKey, url: incomingPdfUrl });
+          const rawCacheSource = typeof data.cache_source === "string" ? data.cache_source : "";
+          const cacheSource = rawCacheSource === "pdf" || rawCacheSource === "markdown"
+            ? rawCacheSource
+            : null;
+          const canRerenderFromMarkdown = typeof data.can_rerender_from_markdown === "boolean"
+            ? data.can_rerender_from_markdown
+            : false;
+          setNotesPdfResult({
+            key: notesSelectionKey,
+            url: incomingPdfUrl,
+            cacheSource,
+            canRerenderFromMarkdown,
+          });
+          setTimelineStatus("cache_lookup", "success", "Cache lookup completed.");
+          if (cacheSource === "pdf") {
+            setTimelineStatus("cache_decision", "success", "Existing PDF found in cache.");
+            setTimelineStatus("ai_generation", "success", "Skipped: cached PDF path does not require AI generation.");
+            setTimelineStatus("pdf_render", "success", "Skipped: reusing existing cached PDF.");
+          } else if (cacheSource === "markdown") {
+            setTimelineStatus("cache_decision", "success", "Using cached markdown path.");
+            setTimelineStatus("ai_generation", "success", "Skipped: rendering directly from cached markdown.");
+            setTimelineStatus("pdf_render", "success", "PDF rendered successfully from cached markdown.");
+          } else {
+            setTimelineStatus("cache_decision", "success", "No reusable cache hit. Continuing generation.");
+            setTimelineStatus("ai_generation", "success", "AI generation completed.");
+            setTimelineStatus("pdf_render", "success", "PDF rendered and uploaded successfully.");
+          }
+          setTimelineStatus("completed", "success", cacheSource === "pdf"
+            ? "Existing cached PDF is ready."
+            : "PDF ready from markdown rendering.");
         } else {
           setPapersPdfResult({ key: papersSelectionKey, url: incomingPdfUrl });
         }
@@ -326,6 +535,9 @@ export default function AIContentClient() {
         const errorMessage = typeof data.error === "string" ? data.error : "Generation failed.";
         const shouldOfferResume = activeTab === "papers" && /timeout/i.test(errorMessage);
         setError(errorMessage);
+        if (activeTab === "notes") {
+          setTimelineStatus("completed", "error", errorMessage);
+        }
         if (shouldOfferResume) {
           setCanResumeGeneration(true);
           showToast("Server timeout reached. Click Resume to continue from where it left off.", "warning");
@@ -336,7 +548,11 @@ export default function AIContentClient() {
 
       if (data.action === "error") {
         finished = true;
-        setError(typeof data.error === "string" ? data.error : "Generation failed.");
+        const failureMessage = typeof data.error === "string" ? data.error : "Generation failed.";
+        setError(failureMessage);
+        if (activeTab === "notes") {
+          setTimelineStatus("completed", "error", failureMessage);
+        }
         resetProgressState();
         return;
       }
@@ -351,6 +567,11 @@ export default function AIContentClient() {
           ? "Server timeout reached. Click Resume to continue from where it left off."
           : "Network error. Please try again.",
       );
+      if (activeTab === "notes") {
+        setTimelineStatus("completed", "error", timeoutError
+          ? "Server timeout reached."
+          : "Network error while receiving stream events.");
+      }
       if (timeoutError) {
         setCanResumeGeneration(true);
         showToast("Server timeout reached. Click Resume to continue from where it left off.", "warning");
@@ -359,7 +580,7 @@ export default function AIContentClient() {
     };
   }
 
-  async function generate() {
+  async function generate(options?: { forceMarkdownRerender?: boolean }) {
     if (generating) return;
     if ("Notification" in window && Notification.permission !== "granted") {
       void Notification.requestPermission();
@@ -367,10 +588,9 @@ export default function AIContentClient() {
     closeEventSource();
     const runId = generationRunIdRef.current + 1;
     generationRunIdRef.current = runId;
-    setLogs([]);
     setGenerating(true);
     setError(null);
-    setProgressStatus("Starting chunked generation...");
+    setProgressStatus(activeTab === "notes" ? "Searching existing PDF and markdown cache..." : "Starting chunked generation...");
     setProgressTopic("");
     setProgressIndex(0);
     setProgressTotal(0);
@@ -382,10 +602,16 @@ export default function AIContentClient() {
     elapsedSecondsRef.current = 0;
     if (activeTab === "notes") {
       setNotesPdfResult(null);
+      const steps = initialNotesTimelineSteps();
+      if (options?.forceMarkdownRerender) {
+        steps[0] = { ...steps[0], status: "success", detail: "Skipped cache PDF reuse by user choice." };
+        steps[1] = { ...steps[1], status: "success", detail: "Forced re-render from existing markdown." };
+        steps[3] = { ...steps[3], status: "loading", detail: "Rendering PDF from cached markdown..." };
+      }
+      setNotesTimelineSteps(steps);
     } else {
       setPapersPdfResult(null);
     }
-    setShowLogs(true);
     const params = new URLSearchParams({
       university,
       course,
@@ -397,6 +623,9 @@ export default function AIContentClient() {
         : { year: String(selectedYear) }),
       ...(semester !== "" ? { semester: String(semester) } : {}),
     });
+    if (options?.forceMarkdownRerender) {
+      params.set("rerender", "1");
+    }
     try {
       if (activeTab === "papers") {
         const meta = await fetchSolvedPaperMeta(params);
@@ -447,6 +676,13 @@ export default function AIContentClient() {
     event.preventDefault();
     event.stopPropagation();
     void generate();
+  }
+
+  function handleRerenderFromMarkdownClick(event: MouseEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (generating) return;
+    void generate({ forceMarkdownRerender: true });
   }
 
   function handleAbortClick(event: MouseEvent<HTMLButtonElement>) {
@@ -644,6 +880,12 @@ export default function AIContentClient() {
     (activeTab === "notes" && !hasAvailableUnitsForPaper);
   const isNotesGenerationFinished = activeTab === "notes" && !generating && Boolean(activePdfUrl);
   const isPapersGenerationFinished = activeTab === "papers" && !generating && Boolean(activePdfUrl);
+  const isCachedPdfReuseResult =
+    notesPdfResult?.key === notesSelectionKey &&
+    notesPdfResult.cacheSource === "pdf";
+  const canRerenderFromMarkdown =
+    notesPdfResult?.key === notesSelectionKey &&
+    notesPdfResult.canRerenderFromMarkdown === true;
 
   return (
     <div className="relative min-h-screen bg-surface px-4 py-8 text-on-surface">
@@ -789,14 +1031,25 @@ export default function AIContentClient() {
                 )}
                 {!generating && isNotesGenerationFinished && (
                   <div className="space-y-2">
-                    <div className="flex gap-3">
-                      <button onClick={handlePreviewPdfClick} className="btn w-full" type="button">
-                        Preview
-                      </button>
-                      <button onClick={handleDownloadPdfClick} className="btn w-full" type="button">
-                        Download
-                      </button>
-                    </div>
+                    {isCachedPdfReuseResult && canRerenderFromMarkdown ? (
+                      <div className="flex gap-3">
+                        <button onClick={handleDownloadPdfClick} className="btn w-full" type="button">
+                          Download PDF
+                        </button>
+                        <button onClick={handleRerenderFromMarkdownClick} className="btn w-full" type="button">
+                          Re-render PDF
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-3">
+                        <button onClick={handlePreviewPdfClick} className="btn w-full" type="button">
+                          Preview
+                        </button>
+                        <button onClick={handleDownloadPdfClick} className="btn w-full" type="button">
+                          Download
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -853,7 +1106,7 @@ export default function AIContentClient() {
               </div>
             )}
           </div>
-          {generating && (
+          {generating && activeTab === "papers" && (
             <div className="mt-4 rounded-xl border border-outline-variant/30 bg-surface-container-low p-3">
               <p className="text-sm font-medium">{progressStatus || "Generating..."}</p>
               {progressTopic && <p className="mt-1 text-xs text-on-surface-variant">Current topic: {progressTopic}</p>}
@@ -861,7 +1114,9 @@ export default function AIContentClient() {
                 <div className="h-full bg-primary transition-all duration-300" style={{ width: `${progressPercent}%` }} />
               </div>
               <p className="mt-2 text-xs text-on-surface-variant">
-                {progressTotal > 0 ? `Progress: ${progressIndex} / ${progressTotal}` : "Preparing generation chunks..."}
+                {progressTotal > 0
+                  ? `Progress: ${progressIndex} / ${progressTotal}`
+                  : "Preparing generation chunks..."}
               </p>
               {activeTab === "papers" && (
                 <p className="mt-1 text-xs text-on-surface-variant">
@@ -879,24 +1134,93 @@ export default function AIContentClient() {
           {error && <p className="mt-3 text-sm text-error">⚠ {error}</p>}
         </section>
 
-        <section className="card border border-outline-variant/30 p-5">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <h2 className="text-xl font-semibold">Generation Logs</h2>
-            <button
-              className="btn"
-              onClick={() => setShowLogs((prev) => !prev)}
-              aria-label={showLogs ? "Hide generation logs" : "Show generation logs"}
-              type="button"
-            >
-              {showLogs ? "Hide Logs" : "Show Logs"}
-            </button>
-          </div>
-          {showLogs ? (
-            <LiveLogsConsole logs={logs} />
-          ) : (
-            <p className="text-sm text-on-surface-variant">Logs are hidden. Use “Show Logs” to inspect stream output.</p>
-          )}
-        </section>
+        {activeTab === "notes" ? (
+          <section className="card border border-outline-variant/30 p-5">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h2 className="text-xl font-semibold">Generation Process Timeline</h2>
+              {notesTimelineSteps.length > 0 ? (
+                <span className="text-xs text-on-surface-variant">Expand a step to view detailed logs.</span>
+              ) : null}
+            </div>
+            {notesTimelineSteps.length === 0 ? (
+              <p className="text-sm text-on-surface-variant">
+                Start generation to see cache search, decision, rendering, and completion steps.
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {notesTimelineSteps.map((step, index) => {
+                  const visuals = getTimelineStepStyles(step.status);
+                  return (
+                    <div key={step.key} className="relative pl-8">
+                      {index < notesTimelineSteps.length - 1 ? (
+                        <span className="absolute left-[11px] top-6 h-[calc(100%+6px)] w-[2px] bg-outline-variant/60" />
+                      ) : null}
+                      <span className={`absolute left-0 top-2 inline-flex h-[22px] w-[22px] items-center justify-center rounded-full border-2 border-surface-container text-xs font-bold ${visuals.iconClass}`}>
+                        {visuals.icon}
+                      </span>
+                      <div className="py-1">
+                        <button
+                          className="flex w-full items-start justify-between gap-3 text-left"
+                          aria-expanded={step.expanded}
+                          onClick={() => {
+                            setNotesTimelineSteps((prev) =>
+                              prev.map((entry) =>
+                                entry.key === step.key ? { ...entry, expanded: !entry.expanded } : entry));
+                          }}
+                          type="button"
+                        >
+                          <div>
+                            <p className="text-sm font-semibold">{step.title}</p>
+                            <p className="mt-1 text-xs text-on-surface-variant">{step.detail}</p>
+                            <div className="mt-2 flex items-center gap-2">
+                              <span
+                                className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${visuals.badgeClass}`}
+                                title={`Step status: ${visuals.label}`}
+                              >
+                                {visuals.label}
+                              </span>
+                              <span className="text-[11px] text-on-surface-variant">{step.logs.length} log entries</span>
+                            </div>
+                          </div>
+                          <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2.5"
+                            aria-hidden="true"
+                            className="mt-0.5 flex-shrink-0 text-on-surface-variant transition-transform"
+                            style={{ transform: step.expanded ? "rotate(180deg)" : "rotate(0deg)" }}
+                          >
+                            <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </button>
+                        {step.expanded ? (
+                          <div className="mt-2 space-y-2 pt-1">
+                            <div className="flex justify-between">
+                              <span className="text-xs text-on-surface-variant">Deep console output</span>
+                              <button className="btn text-xs" onClick={() => void copyTimelineLogs(step)} type="button">
+                                Copy step logs
+                              </button>
+                            </div>
+                            <div className="max-h-44 overflow-auto px-1 py-1 text-xs">
+                              {step.logs.length > 0 ? (
+                                <pre className="whitespace-pre-wrap break-words text-on-surface-variant">{step.logs.join("\n")}</pre>
+                              ) : (
+                                <p className="text-on-surface-variant">No detailed logs for this step yet.</p>
+                              )}
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        ) : null}
       </div>
     </div>
   );

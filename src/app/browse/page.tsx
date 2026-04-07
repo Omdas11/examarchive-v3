@@ -21,7 +21,6 @@ export const metadata: Metadata = {
     "past exam papers",
     "course code papers",
     "FYUGP papers",
-    "CBCS papers",
     "ExamArchive browse",
   ],
   alternates: { canonical: "/browse" },

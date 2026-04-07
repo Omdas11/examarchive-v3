@@ -1,15 +1,13 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import CustomSelect from "./CustomSelect";
 import { useToast } from "./ToastContext";
 import {
   uploadFileDirectly,
   MAX_UPLOAD_BYTES,
   type UploadProgress,
 } from "@/lib/appwrite-client";
-import type { SyllabusRegistryEntry } from "@/data/syllabus-registry";
 
 type MessageState = { type: "success" | "error"; text: string } | null;
 
@@ -58,82 +56,25 @@ export default function UploadForm() {
   const [dragOver, setDragOver] = useState(false);
   const [fileName, setFileName] = useState("");
   const [university, setUniversity] = useState("");
-  const [registryEntry, setRegistryEntry] = useState<SyllabusRegistryEntry | null>(null);
   const [derivedExamType, setDerivedExamType] = useState<string | undefined>(undefined);
-  const [noRegistryMatch, setNoRegistryMatch] = useState(false);
-  const [paperCodeInput, setPaperCodeInput] = useState("");
-  const [universities, setUniversities] = useState<Array<{ value: string; label: string }>>([]);
   const formRef = useRef<HTMLFormElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const startTimeRef = useRef<number>(0);
   const router = useRouter();
   const { showToast } = useToast();
 
-  // Load distinct universities for selector
-  useEffect(() => {
-    let active = true;
-    fetch("/api/syllabus/registry?distinct=university")
-      .then((res) => res.json())
-      .then((data) => {
-        if (!active) return;
-        const list: string[] = data.universities ?? [];
-        setUniversities(list.map((u) => ({ value: u, label: u })));
-      })
-      .catch(() => {
-        if (!active) return;
-        setUniversities([]);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  /** When paper code changes, auto-resolve metadata from the backend registry. */
+  /** Keep paper code state in sync to derive exam type hint. */
   const handlePaperCodeChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const code = e.target.value.trim().toUpperCase();
-      setPaperCodeInput(code);
       if (!code) {
-        setRegistryEntry(null);
         setDerivedExamType(undefined);
-        setNoRegistryMatch(false);
         return;
       }
       setDerivedExamType(examTypeFromCode(code));
     },
     [],
   );
-
-  // Debounced fetch for registry entry
-  useEffect(() => {
-    if (!paperCodeInput) return;
-    const controller = new AbortController();
-    const timer = setTimeout(async () => {
-      try {
-        const url = new URL("/api/syllabus/registry", window.location.origin);
-        url.searchParams.set("code", paperCodeInput);
-        const res = await fetch(url.toString(), { signal: controller.signal });
-        const data = await res.json();
-        const entry: SyllabusRegistryEntry | null = data.entry ?? null;
-        if (entry && (!university || entry.university.toLowerCase() === university.toLowerCase())) {
-          setRegistryEntry(entry);
-          setNoRegistryMatch(false);
-        } else {
-          setRegistryEntry(null);
-          setNoRegistryMatch(true);
-        }
-      } catch {
-        if (!controller.signal.aborted) {
-          setRegistryEntry(null);
-          setNoRegistryMatch(true);
-        }
-      }
-    }, 150);
-    return () => {
-      controller.abort();
-      clearTimeout(timer);
-    };
-  }, [paperCodeInput, university]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -211,9 +152,7 @@ export default function UploadForm() {
       setMessage({ type: "success", text: "Upload successful — awaiting admin approval." });
       setFileName("");
       setUniversity("");
-      setRegistryEntry(null);
       setDerivedExamType(undefined);
-      setNoRegistryMatch(false);
       formRef.current?.reset();
 
       // Show success toast and redirect to profile
@@ -232,8 +171,6 @@ export default function UploadForm() {
     : progress < 50
     ? lerpColor("#d32f2f", "#f59e0b", progress / 50)
     : lerpColor("#f59e0b", "#16a34a", (progress - 50) / 50);
-  const universityOptions = universities.length ? universities : [];
-
   return (
     <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
       <div>
@@ -241,19 +178,17 @@ export default function UploadForm() {
           Step 1: Paper Details
         </h3>
         <p className="text-xs mb-4" style={{ color: "var(--color-text-muted)" }}>
-          Enter the university, paper code, and exam year. All other metadata (paper name, semester, department, paper type) is auto-resolved from the syllabus registry. The paper code suffix determines exam type: <strong>T</strong> = Theory, <strong>P</strong> = Practical.
+          Enter the university, paper code, and exam year. The paper code suffix determines exam type: <strong>T</strong> = Theory, <strong>P</strong> = Practical.
         </p>
         <div className="grid gap-4 sm:grid-cols-2">
-          {/* University */}
-          <CustomSelect
+          <input
             name="university"
-            options={universityOptions}
-            placeholder="University"
+            placeholder="University / Institution"
+            required
             value={university}
-            onChange={(v) => { setUniversity(v); setRegistryEntry(null); setNoRegistryMatch(false); }}
-            className="sm:col-span-2"
+            onChange={(e) => setUniversity(e.target.value)}
+            className="input-field sm:col-span-2"
           />
-          {/* Paper Code — triggers registry auto-resolve */}
           <input
             name="paper_code"
             placeholder="Paper Code (e.g. PHYDSC101T)"
@@ -270,41 +205,9 @@ export default function UploadForm() {
             className="input-field"
           />
         </div>
-
-        {/* Registry match panel */}
-        {registryEntry && (
-          <div
-            className="mt-4 rounded-lg p-4 text-sm space-y-1"
-            style={{ background: "var(--color-accent-soft)", border: "1px solid var(--color-primary)" }}
-          >
-            <p className="font-semibold" style={{ color: "var(--color-primary)" }}>
-              ✓ Registry match found — metadata auto-resolved
-            </p>
-            <p style={{ color: "var(--color-text-muted)" }}>
-              <span className="font-medium">Paper:</span> {registryEntry.paper_name}
-            </p>
-            <p style={{ color: "var(--color-text-muted)" }}>
-              <span className="font-medium">Department:</span> {registryEntry.subject} &nbsp;|&nbsp;
-              <span className="font-medium">Semester:</span> {registryEntry.semester} &nbsp;|&nbsp;
-              <span className="font-medium">Category:</span> {registryEntry.category ?? "—"} &nbsp;|&nbsp;
-              <span className="font-medium">Programme:</span> {registryEntry.programme}
-            </p>
-            {derivedExamType && (
-              <p style={{ color: "var(--color-text-muted)" }}>
-                <span className="font-medium">Exam Type:</span> {derivedExamType} (from code suffix)
-              </p>
-            )}
-          </div>
-        )}
-        {!registryEntry && derivedExamType && (
+        {derivedExamType && (
           <p className="mt-3 text-xs" style={{ color: "var(--color-text-muted)" }}>
             Exam type auto-detected: <strong>{derivedExamType}</strong> (from code suffix).
-            {noRegistryMatch && " Paper code not found in registry — other metadata cannot be auto-resolved."}
-          </p>
-        )}
-        {noRegistryMatch && !derivedExamType && (
-          <p className="mt-3 text-xs" style={{ color: "var(--color-text-muted)" }}>
-            ⚠ Paper code not found in registry. Metadata will not be auto-resolved — please verify the code.
           </p>
         )}
       </div>

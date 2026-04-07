@@ -8,6 +8,9 @@ import {
   ID,
   getAppwriteFileDownloadUrl,
 } from "@/lib/appwrite";
+import { formatIstDateTime } from "@/lib/datetime";
+
+const DEFAULT_PDF_MODEL_NAME = "Gemini 3.1 Flash Lite";
 
 function escapeHtml(text: string): string {
   return text.replace(/[&<>"'`]/g, (ch) => {
@@ -167,12 +170,28 @@ function renderLatexToMathMl(markdown: string): string {
 
 export function buildPdfHtml(args: {
   markdown: string;
+  modelName?: string;
+  generatedAtIso?: string;
+  reRenderedAtIso?: string;
   paperCode?: string;
+  paperName?: string;
   unitNumber?: number;
+  unitName?: string;
   year?: number;
   syllabusContent?: string;
 }): string {
-  const { markdown, paperCode, unitNumber, year, syllabusContent } = args;
+  const {
+    markdown,
+    modelName,
+    generatedAtIso,
+    reRenderedAtIso,
+    paperCode,
+    paperName,
+    unitNumber,
+    unitName,
+    year,
+    syllabusContent,
+  } = args;
   const ESCAPED_DOLLAR_PLACEHOLDER = "__EXAMARCHIVE_ESCAPED_DOLLAR_PLACEHOLDER__";
   const cleanMarkdown = markdown
     .replace(/\\\$/g, ESCAPED_DOLLAR_PLACEHOLDER)
@@ -214,9 +233,21 @@ export function buildPdfHtml(args: {
   const syllabusBullets = splitSyllabusItems(syllabusContent ?? "")
     .map((item) => `<li>${escapeHtml(item)}</li>`)
     .join("");
+  const safePaperName = typeof paperName === "string" ? paperName.trim() : "";
+  const safeUnitName = typeof unitName === "string" ? unitName.trim() : "";
+  const safeModelName = (modelName || DEFAULT_PDF_MODEL_NAME).trim() || DEFAULT_PDF_MODEL_NAME;
+  const generatedAtLabel = formatHeaderTimestamp(generatedAtIso || new Date().toISOString());
+  const reRenderAtLabel = formatHeaderTimestamp(reRenderedAtIso);
+  const unitLabel = safeUnitName
+    ? (typeof unitNumber === "number" ? `${safeUnitName} (Unit ${unitNumber})` : safeUnitName)
+    : (typeof unitNumber === "number" ? `Unit ${unitNumber}` : "");
   const coverDetails = [
     paperCode ? `<p><strong>Paper Code:</strong> ${escapeHtml(paperCode)}</p>` : "",
-    typeof unitNumber === "number" ? `<p><strong>Unit:</strong> ${unitNumber}</p>` : "",
+    safePaperName ? `<p><strong>Paper Name:</strong> ${escapeHtml(safePaperName)}</p>` : "",
+    unitLabel ? `<p><strong>Unit:</strong> ${escapeHtml(unitLabel)}</p>` : "",
+    `<p><strong>Model:</strong> ${escapeHtml(safeModelName)}</p>`,
+    generatedAtLabel ? `<p><strong>Generated at:</strong> ${escapeHtml(generatedAtLabel)}</p>` : "",
+    reRenderAtLabel ? `<p><strong>Re-rendered at:</strong> ${escapeHtml(reRenderAtLabel)}</p>` : "",
     typeof year === "number" ? `<p><strong>Year:</strong> ${year}</p>` : "",
   ].filter(Boolean).join("");
   const coverSection = coverDetails || syllabusBullets
@@ -257,7 +288,7 @@ export function buildPdfHtml(args: {
       background-repeat: repeat;
     }
     main { padding: 0 4mm; }
-    @page { margin: 12mm 10mm; }
+    @page { size: A4; margin: 12mm 10mm; }
     h1, h2, h3 { color: #800000; }
     h1, h2, h3 { page-break-after: avoid; }
     h1 { border-bottom: 2px solid #e7d8d8; padding-bottom: 8px; }
@@ -319,6 +350,13 @@ export function buildPdfHtml(args: {
 </html>`;
 }
 
+function formatHeaderTimestamp(value: string | undefined): string {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return `${formatIstDateTime(date)} IST`;
+}
+
 function buildHeaderHtml(): string {
   return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8" />
@@ -332,12 +370,18 @@ function buildHeaderHtml(): string {
     width: 100%;
     display: flex;
     justify-content: space-between;
+    align-items: center;
+    gap: 8px;
     border-bottom: 1px solid #e5e7eb;
     box-sizing: border-box;
   }
+  .brand {
+    font-weight: 700;
+    letter-spacing: 0.06em;
+  }
 </style></head><body>
-  <span>ExamArchive Premium Notes</span>
-  <span>Model: Gemini 3.1 Flash Lite</span>
+  <span class="brand">EXAMARCHIVE</span>
+  <span></span>
 </body></html>`;
 }
 
@@ -380,8 +424,13 @@ export async function renderMarkdownPdfToAppwrite(args: {
   fileBaseName: string;
   fileName?: string;
   gotenbergUrl?: string;
+  modelName?: string;
+  generatedAtIso?: string;
+  reRenderedAtIso?: string;
   paperCode?: string;
+  paperName?: string;
   unitNumber?: number;
+  unitName?: string;
   year?: number;
   syllabusContent?: string;
 }): Promise<{ fileId: string; fileUrl: string }> {
@@ -403,8 +452,13 @@ export async function renderMarkdownPdfToAppwrite(args: {
   const fallbackEndpoint = buildGotenbergEndpoint(gotenbergUrl.toString(), "/convert/html");
   const html = buildPdfHtml({
     markdown: args.markdown,
+    modelName: args.modelName,
+    generatedAtIso: args.generatedAtIso,
+    reRenderedAtIso: args.reRenderedAtIso,
     paperCode: args.paperCode,
+    paperName: args.paperName,
     unitNumber: args.unitNumber,
+    unitName: args.unitName,
     year: args.year,
     syllabusContent: args.syllabusContent,
   });

@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useToast } from "@/components/ToastContext";
 import { FLASHCARD_COUNT_OPTIONS, FLASHCARD_FIELD_MAX_LEN } from "@/lib/flashcards-constants";
 import { IconCheck, IconSparkles, IconXMark, IconChevronLeft, IconChevronRight } from "@/components/Icons";
+import { formatIstDateTime } from "@/lib/datetime";
 
 interface Flashcard {
   question: string;
@@ -385,7 +386,7 @@ export default function StudyClient() {
                   <span className="text-sm font-bold text-on-surface">{entry.subject}</span>
                   <span className="line-clamp-1 text-xs text-on-surface-variant">{entry.topic || "Untitled topic"}</span>
                   <span className="text-[11px] font-semibold text-on-surface-variant/80">
-                    {entry.cards.length} cards • {new Date(entry.createdAt).toLocaleString()}
+                    {entry.cards.length} cards • {formatIstDateTime(entry.createdAt)} IST
                   </span>
                 </button>
               ))}

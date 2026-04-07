@@ -44,7 +44,7 @@ const syllabusGuidelines = [
 
 const deptSyllabusGuidelines = [
   "Upload the full departmental syllabus covering all semesters.",
-  "Specify the programme (e.g. FYUG, CBCS) and department/subject accurately.",
+  "Specify the programme (FYUG) and department/subject accurately.",
   "PDF format is required. Maximum file size is 20 MB.",
   "Use this type for official university-issued full syllabus documents.",
   "Uploads are reviewed by admins before publishing.",

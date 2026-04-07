@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { formatIstTime } from "@/lib/datetime";
 
 /**
  * Dev-only floating debug panel.
@@ -22,7 +23,7 @@ interface DebugUserInfo {
 }
 
 function now() {
-  return new Date().toLocaleTimeString();
+  return `${formatIstTime()} IST`;
 }
 
 /** Maximum number of log entries retained in memory to avoid performance degradation. */

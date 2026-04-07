@@ -21,7 +21,6 @@ export const metadata: Metadata = {
     "paper code syllabus",
     "university syllabus pdf",
     "FYUGP syllabus",
-    "CBCS syllabus",
   ],
   alternates: { canonical: "/syllabus" },
   openGraph: {
