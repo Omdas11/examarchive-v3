@@ -169,6 +169,9 @@ function renderLatexToMathMl(markdown: string): string {
 
 export function buildPdfHtml(args: {
   markdown: string;
+  modelName?: string;
+  generatedAtIso?: string;
+  reRenderedAtIso?: string;
   paperCode?: string;
   paperName?: string;
   unitNumber?: number;
@@ -178,6 +181,9 @@ export function buildPdfHtml(args: {
 }): string {
   const {
     markdown,
+    modelName,
+    generatedAtIso,
+    reRenderedAtIso,
     paperCode,
     paperName,
     unitNumber,
@@ -228,6 +234,9 @@ export function buildPdfHtml(args: {
     .join("");
   const safePaperName = typeof paperName === "string" ? paperName.trim() : "";
   const safeUnitName = typeof unitName === "string" ? unitName.trim() : "";
+  const safeModelName = (modelName || DEFAULT_PDF_MODEL_NAME).trim() || DEFAULT_PDF_MODEL_NAME;
+  const generatedAtLabel = formatHeaderTimestamp(generatedAtIso || new Date().toISOString());
+  const reRenderAtLabel = formatHeaderTimestamp(reRenderedAtIso);
   const unitLabel = safeUnitName
     ? (typeof unitNumber === "number" ? `${safeUnitName} (Unit ${unitNumber})` : safeUnitName)
     : (typeof unitNumber === "number" ? `Unit ${unitNumber}` : "");
@@ -235,6 +244,9 @@ export function buildPdfHtml(args: {
     paperCode ? `<p><strong>Paper Code:</strong> ${escapeHtml(paperCode)}</p>` : "",
     typeof paperName === "string" ? `<p><strong>Paper Name:</strong> ${escapeHtml(safePaperName)}</p>` : "",
     unitLabel ? `<p><strong>Unit:</strong> ${escapeHtml(unitLabel)}</p>` : "",
+    `<p><strong>Model:</strong> ${escapeHtml(safeModelName)}</p>`,
+    generatedAtLabel ? `<p><strong>Generated at:</strong> ${escapeHtml(generatedAtLabel)}</p>` : "",
+    reRenderAtLabel ? `<p><strong>Re-render at:</strong> ${escapeHtml(reRenderAtLabel)}</p>` : "",
     typeof year === "number" ? `<p><strong>Year:</strong> ${year}</p>` : "",
   ].filter(Boolean).join("");
   const coverSection = coverDetails || syllabusBullets
@@ -275,7 +287,7 @@ export function buildPdfHtml(args: {
       background-repeat: repeat;
     }
     main { padding: 0 4mm; }
-    @page { margin: 12mm 10mm; }
+    @page { size: A4; margin: 12mm 10mm; }
     h1, h2, h3 { color: #800000; }
     h1, h2, h3 { page-break-after: avoid; }
     h1 { border-bottom: 2px solid #e7d8d8; padding-bottom: 8px; }
@@ -357,14 +369,7 @@ function buildHeaderHtml(args?: {
   generatedAtIso?: string;
   reRenderedAtIso?: string;
 }): string {
-  const modelName = args?.modelName?.trim() || DEFAULT_PDF_MODEL_NAME;
-  const generatedAtLabel = formatHeaderTimestamp(args?.generatedAtIso || new Date().toISOString());
-  const rerenderedAtLabel = formatHeaderTimestamp(args?.reRenderedAtIso);
-  const rightParts = [
-    `Model: ${escapeHtml(modelName)}`,
-    generatedAtLabel ? `Generated at: ${escapeHtml(generatedAtLabel)}` : "",
-    rerenderedAtLabel ? `Re-rendered at: ${escapeHtml(rerenderedAtLabel)}` : "",
-  ].filter(Boolean);
+  void args;
   return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8" />
 <style>
@@ -386,16 +391,9 @@ function buildHeaderHtml(args?: {
     font-weight: 700;
     letter-spacing: 0.06em;
   }
-  .meta {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    text-align: right;
-  }
 </style></head><body>
   <span class="brand">EXAMARCHIVE</span>
-  <span class="meta">${rightParts.map((item) => `<span>${item}</span>`).join("")}</span>
+  <span></span>
 </body></html>`;
 }
 
@@ -466,6 +464,9 @@ export async function renderMarkdownPdfToAppwrite(args: {
   const fallbackEndpoint = buildGotenbergEndpoint(gotenbergUrl.toString(), "/convert/html");
   const html = buildPdfHtml({
     markdown: args.markdown,
+    modelName: args.modelName,
+    generatedAtIso: args.generatedAtIso,
+    reRenderedAtIso: args.reRenderedAtIso,
     paperCode: args.paperCode,
     paperName: args.paperName,
     unitNumber: args.unitNumber,
