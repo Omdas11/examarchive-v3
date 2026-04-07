@@ -81,12 +81,11 @@ function getUnitNotesCacheKey(university: string, course: string, stream: string
 }
 
 function stableStringHash(value: string): string {
-  let hash = 2166136261;
+  let hash = 0x811c9dc5;
   for (let i = 0; i < value.length; i += 1) {
-    hash ^= value.charCodeAt(i);
-    hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+    hash = Math.imul((hash ^ value.charCodeAt(i)) >>> 0, 0x01000193) >>> 0;
   }
-  return (hash >>> 0).toString(36);
+  return hash.toString(36);
 }
 
 function sanitizeCacheFileToken(value: string): string {
