@@ -53,7 +53,12 @@ export default function AIContentClient() {
   const [availableSemesters, setAvailableSemesters] = useState<number[]>([]);
   const [paperCodeLoading, setPaperCodeLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
-  const [notesPdfResult, setNotesPdfResult] = useState<{ key: string; url: string } | null>(null);
+  const [notesPdfResult, setNotesPdfResult] = useState<{
+    key: string;
+    url: string;
+    cacheSource: "pdf" | "markdown" | null;
+    canRerenderFromMarkdown: boolean;
+  } | null>(null);
   const [papersPdfResult, setPapersPdfResult] = useState<{ key: string; url: string } | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
   const [remaining, setRemaining] = useState<number | null>(null);
@@ -290,7 +295,18 @@ export default function AIContentClient() {
         finished = true;
         setShowLogs(false);
         if (activeTab === "notes") {
-          setNotesPdfResult({ key: notesSelectionKey, url: incomingPdfUrl });
+          const cacheSource = data.cache_source === "pdf" || data.cache_source === "markdown"
+            ? data.cache_source
+            : null;
+          const canRerenderFromMarkdown = typeof data.can_rerender_from_markdown === "boolean"
+            ? data.can_rerender_from_markdown
+            : false;
+          setNotesPdfResult({
+            key: notesSelectionKey,
+            url: incomingPdfUrl,
+            cacheSource,
+            canRerenderFromMarkdown,
+          });
         } else {
           setPapersPdfResult({ key: papersSelectionKey, url: incomingPdfUrl });
         }
@@ -359,7 +375,7 @@ export default function AIContentClient() {
     };
   }
 
-  async function generate() {
+  async function generate(options?: { forceMarkdownRerender?: boolean }) {
     if (generating) return;
     if ("Notification" in window && Notification.permission !== "granted") {
       void Notification.requestPermission();
@@ -397,6 +413,9 @@ export default function AIContentClient() {
         : { year: String(selectedYear) }),
       ...(semester !== "" ? { semester: String(semester) } : {}),
     });
+    if (options?.forceMarkdownRerender) {
+      params.set("rerender", "1");
+    }
     try {
       if (activeTab === "papers") {
         const meta = await fetchSolvedPaperMeta(params);
@@ -447,6 +466,13 @@ export default function AIContentClient() {
     event.preventDefault();
     event.stopPropagation();
     void generate();
+  }
+
+  function handleRerenderFromMarkdownClick(event: MouseEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (generating) return;
+    void generate({ forceMarkdownRerender: true });
   }
 
   function handleAbortClick(event: MouseEvent<HTMLButtonElement>) {
@@ -644,6 +670,12 @@ export default function AIContentClient() {
     (activeTab === "notes" && !hasAvailableUnitsForPaper);
   const isNotesGenerationFinished = activeTab === "notes" && !generating && Boolean(activePdfUrl);
   const isPapersGenerationFinished = activeTab === "papers" && !generating && Boolean(activePdfUrl);
+  const isCachedPdfReuseResult =
+    notesPdfResult?.key === notesSelectionKey &&
+    notesPdfResult.cacheSource === "pdf";
+  const canRerenderFromMarkdown =
+    notesPdfResult?.key === notesSelectionKey &&
+    notesPdfResult.canRerenderFromMarkdown === true;
 
   return (
     <div className="relative min-h-screen bg-surface px-4 py-8 text-on-surface">
@@ -789,14 +821,25 @@ export default function AIContentClient() {
                 )}
                 {!generating && isNotesGenerationFinished && (
                   <div className="space-y-2">
-                    <div className="flex gap-3">
-                      <button onClick={handlePreviewPdfClick} className="btn w-full" type="button">
-                        Preview
-                      </button>
-                      <button onClick={handleDownloadPdfClick} className="btn w-full" type="button">
-                        Download
-                      </button>
-                    </div>
+                    {isCachedPdfReuseResult && canRerenderFromMarkdown ? (
+                      <div className="flex gap-3">
+                        <button onClick={handleDownloadPdfClick} className="btn w-full" type="button">
+                          Download PDF
+                        </button>
+                        <button onClick={handleRerenderFromMarkdownClick} className="btn w-full" type="button">
+                          Re-render from Markdown
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-3">
+                        <button onClick={handlePreviewPdfClick} className="btn w-full" type="button">
+                          Preview
+                        </button>
+                        <button onClick={handleDownloadPdfClick} className="btn w-full" type="button">
+                          Download
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

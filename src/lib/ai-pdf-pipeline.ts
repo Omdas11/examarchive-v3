@@ -168,11 +168,21 @@ function renderLatexToMathMl(markdown: string): string {
 export function buildPdfHtml(args: {
   markdown: string;
   paperCode?: string;
+  paperName?: string;
   unitNumber?: number;
+  unitName?: string;
   year?: number;
   syllabusContent?: string;
 }): string {
-  const { markdown, paperCode, unitNumber, year, syllabusContent } = args;
+  const {
+    markdown,
+    paperCode,
+    paperName,
+    unitNumber,
+    unitName,
+    year,
+    syllabusContent,
+  } = args;
   const ESCAPED_DOLLAR_PLACEHOLDER = "__EXAMARCHIVE_ESCAPED_DOLLAR_PLACEHOLDER__";
   const cleanMarkdown = markdown
     .replace(/\\\$/g, ESCAPED_DOLLAR_PLACEHOLDER)
@@ -214,9 +224,15 @@ export function buildPdfHtml(args: {
   const syllabusBullets = splitSyllabusItems(syllabusContent ?? "")
     .map((item) => `<li>${escapeHtml(item)}</li>`)
     .join("");
+  const safePaperName = typeof paperName === "string" ? paperName.trim() : "";
+  const safeUnitName = typeof unitName === "string" ? unitName.trim() : "";
+  const unitLabel = safeUnitName
+    ? (typeof unitNumber === "number" ? `${safeUnitName} (Unit ${unitNumber})` : safeUnitName)
+    : (typeof unitNumber === "number" ? `Unit ${unitNumber}` : "");
   const coverDetails = [
     paperCode ? `<p><strong>Paper Code:</strong> ${escapeHtml(paperCode)}</p>` : "",
-    typeof unitNumber === "number" ? `<p><strong>Unit:</strong> ${unitNumber}</p>` : "",
+    typeof paperName === "string" ? `<p><strong>Paper Name:</strong> ${escapeHtml(safePaperName)}</p>` : "",
+    unitLabel ? `<p><strong>Unit:</strong> ${escapeHtml(unitLabel)}</p>` : "",
     typeof year === "number" ? `<p><strong>Year:</strong> ${year}</p>` : "",
   ].filter(Boolean).join("");
   const coverSection = coverDetails || syllabusBullets
@@ -319,7 +335,34 @@ export function buildPdfHtml(args: {
 </html>`;
 }
 
-function buildHeaderHtml(): string {
+function formatHeaderTimestamp(value: string | undefined): string {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString("en-IN", {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  });
+}
+
+function buildHeaderHtml(args?: {
+  modelName?: string;
+  generatedAtIso?: string;
+  reRenderedAtIso?: string;
+}): string {
+  const modelName = (args?.modelName || "Gemini 3.1 Flash Lite").trim() || "Gemini 3.1 Flash Lite";
+  const generatedAtLabel = formatHeaderTimestamp(args?.generatedAtIso || new Date().toISOString());
+  const rerenderedAtLabel = formatHeaderTimestamp(args?.reRenderedAtIso);
+  const rightParts = [
+    `Model: ${escapeHtml(modelName)}`,
+    generatedAtLabel ? `Generated at: ${escapeHtml(generatedAtLabel)}` : "",
+    rerenderedAtLabel ? `Re-render at: ${escapeHtml(rerenderedAtLabel)}` : "",
+  ].filter(Boolean);
   return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8" />
 <style>
@@ -332,12 +375,25 @@ function buildHeaderHtml(): string {
     width: 100%;
     display: flex;
     justify-content: space-between;
+    align-items: center;
+    gap: 8px;
     border-bottom: 1px solid #e5e7eb;
     box-sizing: border-box;
   }
+  .brand {
+    font-weight: 700;
+    letter-spacing: 0.06em;
+  }
+  .meta {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    text-align: right;
+  }
 </style></head><body>
-  <span>ExamArchive Premium Notes</span>
-  <span>Model: Gemini 3.1 Flash Lite</span>
+  <span class="brand">EXAMARCHIVE</span>
+  <span class="meta">${rightParts.map((item) => `<span>${item}</span>`).join("")}</span>
 </body></html>`;
 }
 
@@ -380,8 +436,13 @@ export async function renderMarkdownPdfToAppwrite(args: {
   fileBaseName: string;
   fileName?: string;
   gotenbergUrl?: string;
+  modelName?: string;
+  generatedAtIso?: string;
+  reRenderedAtIso?: string;
   paperCode?: string;
+  paperName?: string;
   unitNumber?: number;
+  unitName?: string;
   year?: number;
   syllabusContent?: string;
 }): Promise<{ fileId: string; fileUrl: string }> {
@@ -404,11 +465,17 @@ export async function renderMarkdownPdfToAppwrite(args: {
   const html = buildPdfHtml({
     markdown: args.markdown,
     paperCode: args.paperCode,
+    paperName: args.paperName,
     unitNumber: args.unitNumber,
+    unitName: args.unitName,
     year: args.year,
     syllabusContent: args.syllabusContent,
   });
-  const headerHtml = buildHeaderHtml();
+  const headerHtml = buildHeaderHtml({
+    modelName: args.modelName,
+    generatedAtIso: args.generatedAtIso,
+    reRenderedAtIso: args.reRenderedAtIso,
+  });
   const footerHtml = buildFooterHtml();
   const buildFormData = () => {
     const formData = new FormData();

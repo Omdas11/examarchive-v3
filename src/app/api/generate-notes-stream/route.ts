@@ -5,8 +5,10 @@ import { InputFile } from "node-appwrite/file";
 import {
   adminDatabases,
   adminStorage,
+  BUCKET_ID,
   COLLECTION,
   DATABASE_ID,
+  getAppwriteFileDownloadUrl,
   ID,
   MARKDOWN_CACHE_BUCKET_ID,
   Query,
@@ -148,6 +150,7 @@ type CachedNotes = {
   markdown: string;
   syllabusContent: string | null;
   pdfFileId: string | null;
+  createdAt: string | null;
 };
 
 function normalizeSemester(value: string | null): number | null {
@@ -391,6 +394,7 @@ async function readCachedNotes(
       markdown,
       syllabusContent: syllabusContent || null,
       pdfFileId: pdfFileId || null,
+      createdAt: typeof doc.$createdAt === "string" ? doc.$createdAt : null,
     };
   };
   try {
@@ -521,6 +525,7 @@ async function readCachedNotes(
         markdown,
         syllabusContent: null,
         pdfFileId: null,
+        createdAt: typeof file.$createdAt === "string" ? file.$createdAt : null,
       };
     }
   } catch (error) {
@@ -550,7 +555,7 @@ async function readSyllabusContent(
   type: string,
   paperCode: string,
   unitNumber: number,
-): Promise<string> {
+): Promise<{ syllabusContent: string; paperName: string; unitName: string }> {
   const db = adminDatabases();
   const syllabusRes = await db.listDocuments(DATABASE_ID, COLLECTION.syllabus_table, [
     Query.equal("university", university),
@@ -562,7 +567,28 @@ async function readSyllabusContent(
     Query.limit(1),
   ]);
   const syllabusDoc = syllabusRes.documents[0];
-  return typeof syllabusDoc?.syllabus_content === "string" ? syllabusDoc.syllabus_content.trim() : "";
+  const syllabusContent = typeof syllabusDoc?.syllabus_content === "string" ? syllabusDoc.syllabus_content.trim() : "";
+  const paperName = typeof syllabusDoc?.paper_name === "string" ? syllabusDoc.paper_name.trim() : "";
+  const unitName =
+    typeof syllabusDoc?.unit_name === "string"
+      ? syllabusDoc.unit_name.trim()
+      : (typeof syllabusDoc?.unit_title === "string" ? syllabusDoc.unit_title.trim() : "");
+  return { syllabusContent, paperName, unitName };
+}
+
+async function hasCachedPdfFile(fileId: string): Promise<boolean> {
+  const normalizedId = fileId.trim();
+  if (!normalizedId) return false;
+  const storage = adminStorage();
+  try {
+    await storage.getFile(BUCKET_ID, normalizedId);
+    return true;
+  } catch (error) {
+    const code = getAppwriteErrorCode(error);
+    if (code === 404) return false;
+    console.error("[generate-notes-stream] Failed to validate cached PDF file id:", error);
+    return false;
+  }
 }
 
 async function writeCachedNotes(
@@ -881,6 +907,7 @@ export async function GET(request: NextRequest) {
   const paperCode = (searchParams.get("paperCode") || "").trim();
   const unitNumber = Number(searchParams.get("unitNumber"));
   const semester = normalizeSemester(searchParams.get("semester"));
+  const forceMarkdownRerender = searchParams.get("rerender") === "1";
   const azureGotenbergUrl = process.env.AZURE_GOTENBERG_URL;
 
   if (!course || !streamName || !type || !paperCode || !Number.isInteger(unitNumber) || unitNumber < 1 || unitNumber > 5) {
@@ -901,47 +928,80 @@ export async function GET(request: NextRequest) {
     const dailyLimit = getDailyLimit();
     const usedBefore = isAdminPlus(user.role) ? 0 : await getDailyCount(user.id, todayStr);
     const remaining = isAdminPlus(user.role) ? null : Math.max(0, dailyLimit - usedBefore);
-    const cachedSyllabusContent =
-      completedCache.syllabusContent ??
-      (await readSyllabusContent(university, course, streamName, type, paperCode, unitNumber));
     const stream = new ReadableStream<Uint8Array>({
       start: async (controller) => {
+        let cachedSyllabusContent = completedCache.syllabusContent || "";
+        let paperName = "";
+        let unitName = "";
         let pdfUrl = "";
-        try {
-          controller.enqueue(toSseData({ log: "Cache markdown found: rendering PDF from cached markdown." }));
-          const dynamicPdfName = `${paperCode}_Unit_${unitNumber}_Notes.pdf`;
-          const rendered = await renderMarkdownPdfToAppwrite({
-            markdown: completedCache.markdown,
-            fileBaseName: `${paperCode}_unit_${unitNumber}_cache`,
-            fileName: dynamicPdfName,
-            gotenbergUrl: azureGotenbergUrl,
-            paperCode,
-            unitNumber,
-            syllabusContent: cachedSyllabusContent || undefined,
-          });
-          pdfUrl = rendered.fileUrl;
-          if (completedCache.id) {
-            await updateCachedNotesPdfFileId(completedCache.id, rendered.fileId);
+        let cacheSource: "pdf" | "markdown" = "markdown";
+        if (!forceMarkdownRerender && completedCache.pdfFileId) {
+          const hasCachedPdf = await hasCachedPdfFile(completedCache.pdfFileId);
+          if (hasCachedPdf) {
+            cacheSource = "pdf";
+            pdfUrl = getAppwriteFileDownloadUrl(completedCache.pdfFileId);
+            controller.enqueue(toSseData({ log: "Cache PDF found: using existing rendered PDF." }));
           } else {
-            const recoveredDocId = await persistCachedNotesRecord({
-              university,
-              course,
-              stream: streamName,
-              selectionType: type,
-              paperCode,
-              unitNumber,
-              semester,
-              markdown: completedCache.markdown,
-              markdownFileId: completedCache.markdownFileId,
-              syllabusContent: cachedSyllabusContent,
-            });
-            if (recoveredDocId) {
-              await updateCachedNotesPdfFileId(recoveredDocId, rendered.fileId);
-            } else {
-              console.warn("[generate-notes-stream] Rendered cache PDF but cache doc id is unavailable; skipped pdf_file_id persistence.");
-            }
+            controller.enqueue(toSseData({ log: "Cache PDF reference missing in storage: rendering from cached markdown." }));
           }
-          controller.enqueue(toSseData({ log: "PDF rendered successfully from cached markdown." }));
+        }
+        try {
+          if (!pdfUrl) {
+            cacheSource = "markdown";
+            try {
+              const syllabusInfo = await readSyllabusContent(university, course, streamName, type, paperCode, unitNumber);
+              if (!cachedSyllabusContent) {
+                cachedSyllabusContent = syllabusInfo.syllabusContent;
+              }
+              paperName = syllabusInfo.paperName;
+              unitName = syllabusInfo.unitName;
+            } catch (error) {
+              console.warn("[generate-notes-stream] Could not load syllabus metadata for cached markdown rerender:", error);
+            }
+            controller.enqueue(toSseData({
+              log: forceMarkdownRerender
+                ? "Re-render requested: rendering PDF from cached markdown."
+                : "Cache markdown found: rendering PDF from cached markdown.",
+            }));
+            const dynamicPdfName = `${paperCode}_Unit_${unitNumber}_Notes.pdf`;
+            const rendered = await renderMarkdownPdfToAppwrite({
+              markdown: completedCache.markdown,
+              fileBaseName: `${paperCode}_unit_${unitNumber}_cache`,
+              fileName: dynamicPdfName,
+              gotenbergUrl: azureGotenbergUrl,
+              modelName: GEMINI_MODEL,
+              generatedAtIso: completedCache.createdAt || new Date().toISOString(),
+              reRenderedAtIso: forceMarkdownRerender ? new Date().toISOString() : undefined,
+              paperCode,
+              paperName,
+              unitNumber,
+              unitName,
+              syllabusContent: cachedSyllabusContent || undefined,
+            });
+            pdfUrl = rendered.fileUrl;
+            if (completedCache.id) {
+              await updateCachedNotesPdfFileId(completedCache.id, rendered.fileId);
+            } else {
+              const recoveredDocId = await persistCachedNotesRecord({
+                university,
+                course,
+                stream: streamName,
+                selectionType: type,
+                paperCode,
+                unitNumber,
+                semester,
+                markdown: completedCache.markdown,
+                markdownFileId: completedCache.markdownFileId,
+                syllabusContent: cachedSyllabusContent,
+              });
+              if (recoveredDocId) {
+                await updateCachedNotesPdfFileId(recoveredDocId, rendered.fileId);
+              } else {
+                console.warn("[generate-notes-stream] Rendered cache PDF but cache doc id is unavailable; skipped pdf_file_id persistence.");
+              }
+            }
+            controller.enqueue(toSseData({ log: "PDF rendered successfully from cached markdown." }));
+          }
         } catch (pdfError) {
           const pipelineMessage = pdfError instanceof Error ? pdfError.message : String(pdfError);
           controller.enqueue(toSseData({ event: "error", error: `PDF generation failed: ${pipelineMessage}` }));
@@ -954,6 +1014,8 @@ export async function GET(request: NextRequest) {
           cached: true,
           remaining,
           syllabus_content: cachedSyllabusContent,
+          cache_source: cacheSource,
+          can_rerender_from_markdown: true,
           pdf_url: pdfUrl || null,
         }));
         controller.close();
@@ -1027,6 +1089,11 @@ export async function GET(request: NextRequest) {
         }
 
         const syllabusContent = typeof syllabusDoc.syllabus_content === "string" ? syllabusDoc.syllabus_content.trim() : "";
+        const paperName = typeof syllabusDoc.paper_name === "string" ? syllabusDoc.paper_name.trim() : "";
+        const unitName =
+          typeof syllabusDoc.unit_name === "string"
+            ? syllabusDoc.unit_name.trim()
+            : (typeof syllabusDoc.unit_title === "string" ? syllabusDoc.unit_title.trim() : "");
         if (!syllabusContent) {
           controller.enqueue(toSseData({ event: "error", error: "Syllabus content is empty for this unit." }));
           closeStream();
@@ -1201,8 +1268,12 @@ CRITICAL FORMAT CONSTRAINTS:
             fileBaseName: `${paperCode}_unit_${unitNumber}_${Date.now()}`,
             fileName: dynamicPdfName,
             gotenbergUrl: azureGotenbergUrl,
+            modelName: GEMINI_MODEL,
+            generatedAtIso: new Date().toISOString(),
             paperCode,
+            paperName,
             unitNumber,
+            unitName,
             syllabusContent,
           });
           pdfUrl = rendered.fileUrl;
