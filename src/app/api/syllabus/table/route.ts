@@ -64,14 +64,20 @@ async function recordPdfGeneration(userId: string, todayStr: string): Promise<vo
 }
 
 function derivePaperNameFromRows(paperCode: string, rows: SyllabusTableRow[]): string {
+  const capPaperName = (name: string): string =>
+    name.length > MAX_PAPER_NAME_LENGTH
+      ? `${name.slice(0, MAX_PAPER_NAME_LENGTH - ELLIPSIS_LENGTH)}...`
+      : name;
+  const storedPaperName = rows
+    .map((row) => row.paper_name.trim())
+    .find((name) => name.length > 0);
+  if (storedPaperName) return capPaperName(storedPaperName);
   const derivedPaperName = rows
     .map((row) => row.syllabus_content.trim())
     .find((content) => content.length > 0);
   if (!derivedPaperName) return paperCode;
   const name = derivePaperNameFromContent(derivedPaperName, paperCode);
-  return name.length > MAX_PAPER_NAME_LENGTH
-    ? `${name.slice(0, MAX_PAPER_NAME_LENGTH - ELLIPSIS_LENGTH)}...`
-    : name;
+  return capPaperName(name);
 }
 
 export async function GET(request: NextRequest) {
