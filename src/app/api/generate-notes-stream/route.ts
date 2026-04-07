@@ -32,6 +32,7 @@ const ATTRIBUTE_AVAILABILITY_TIMEOUT_MS = 12000;
 const GEMINI_MODEL = "gemini-3.1-flash-lite-preview";
 const CACHE_NUMERIC_STRING_MAX_LEN = 10;
 const CACHE_FILE_NAME_MAX_LEN = 220;
+const GENERATED_MARKDOWN_MAX_LEN = 1_000_000;
 
 function isAdminPlus(role: string): boolean {
   return role === "admin" || role === "founder";
@@ -279,6 +280,16 @@ async function ensureNotesCacheSchema(): Promise<void> {
       undefined,
     ),
   );
+  await ensureAttribute("generated_markdown", () =>
+    db.createStringAttribute(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      "generated_markdown",
+      GENERATED_MARKDOWN_MAX_LEN,
+      false,
+      undefined,
+    ),
+  );
   await ensureAttribute("university", () =>
     db.createStringAttribute(
       DATABASE_ID,
@@ -499,6 +510,7 @@ async function readCachedNotes(
         paperCode,
         unitNumber,
         semester,
+        markdown,
         markdownFileId: file.$id,
         createdAt: typeof file.$createdAt === "string" ? file.$createdAt : new Date().toISOString(),
       });
@@ -606,6 +618,7 @@ async function writeCachedNotes(
     paperCode,
     unitNumber,
     semester,
+    markdown,
     markdownFileId,
     syllabusContent,
   });
@@ -624,6 +637,7 @@ type PersistCachedNotesRecordArgs = {
   paperCode: string;
   unitNumber: number;
   semester: number | null;
+  markdown: string;
   markdownFileId: string;
   syllabusContent?: string | null;
   createdAt?: string;
@@ -632,6 +646,8 @@ type PersistCachedNotesRecordArgs = {
 async function persistCachedNotesRecord(args: PersistCachedNotesRecordArgs): Promise<string | null> {
   const db = adminDatabases();
   const createdAt = args.createdAt ?? new Date().toISOString();
+  const cleanMarkdown = args.markdown.trim();
+  if (!cleanMarkdown) return null;
   const cleanSyllabus = typeof args.syllabusContent === "string" ? args.syllabusContent.trim() : "";
   try {
     const existing = await db.listDocuments(DATABASE_ID, COLLECTION.generated_notes_cache, [
@@ -670,6 +686,7 @@ async function persistCachedNotesRecord(args: PersistCachedNotesRecordArgs): Pro
       type: UNIT_NOTES_CACHE_TYPE,
       status: COMPLETED_STATUS,
       markdown_file_id: args.markdownFileId,
+      generated_markdown: cleanMarkdown.slice(0, GENERATED_MARKDOWN_MAX_LEN),
       created_at: createdAt,
     };
     if (cleanSyllabus) primaryPayload.syllabus_content = cleanSyllabus;
@@ -684,6 +701,7 @@ async function persistCachedNotesRecord(args: PersistCachedNotesRecordArgs): Pro
         type: UNIT_NOTES_CACHE_TYPE,
         status: COMPLETED_STATUS,
         markdown_file_id: args.markdownFileId,
+        generated_markdown: cleanMarkdown.slice(0, GENERATED_MARKDOWN_MAX_LEN),
         created_at: createdAt,
       };
       if (cleanSyllabus) fallbackPayload.syllabus_content = cleanSyllabus;
@@ -698,6 +716,7 @@ async function persistCachedNotesRecord(args: PersistCachedNotesRecordArgs): Pro
           type: UNIT_NOTES_CACHE_TYPE,
           status: COMPLETED_STATUS,
           markdown_file_id: args.markdownFileId,
+          generated_markdown: cleanMarkdown.slice(0, GENERATED_MARKDOWN_MAX_LEN),
           created_at: createdAt,
         };
         mutateSemesterCompatFields(finalFallbackPayload);
@@ -711,6 +730,7 @@ async function persistCachedNotesRecord(args: PersistCachedNotesRecordArgs): Pro
             type: UNIT_NOTES_CACHE_TYPE,
             status: COMPLETED_STATUS,
             markdown_file_id: args.markdownFileId,
+            generated_markdown: cleanMarkdown.slice(0, GENERATED_MARKDOWN_MAX_LEN),
             created_at: createdAt,
           });
         } catch (selectorlessError) {
@@ -911,6 +931,7 @@ export async function GET(request: NextRequest) {
                 paperCode,
                 unitNumber,
                 semester,
+                markdown: completedCache.markdown,
                 markdownFileId: completedCache.markdownFileId,
                 syllabusContent: cachedSyllabusContent,
               });

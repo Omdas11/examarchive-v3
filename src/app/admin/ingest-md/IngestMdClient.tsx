@@ -26,6 +26,8 @@ export default function IngestMdClient() {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [lastResult, setLastResult] = useState<string | null>(null);
   const [pollDelayMs, setPollDelayMs] = useState(10_000);
+  const [statusFilter, setStatusFilter] = useState<"all" | "success" | "partial" | "failed">("all");
+  const [query, setQuery] = useState("");
 
   const loadLogs = useCallback(async () => {
     try {
@@ -118,6 +120,19 @@ export default function IngestMdClient() {
     return statusClass[status as keyof typeof statusClass] ?? "text-on-surface";
   }
 
+  const filteredLogs = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return logs.filter((log) => {
+      if (statusFilter !== "all" && log.status !== statusFilter) return false;
+      if (!q) return true;
+      return (
+        log.fileName.toLowerCase().includes(q) ||
+        log.paperCode.toLowerCase().includes(q) ||
+        log.status.toLowerCase().includes(q)
+      );
+    });
+  }, [logs, query, statusFilter]);
+
   return (
     <div className="mt-6 space-y-6">
       <section className="rounded-xl border border-outline-variant/40 bg-surface p-4 shadow-sm">
@@ -164,30 +179,55 @@ export default function IngestMdClient() {
       </section>
 
       <section className="rounded-xl border border-outline-variant/40 bg-surface p-4 shadow-sm">
-        <h2 className="text-lg font-semibold">Ingestion Log Dashboard</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold">Ingestion Log Dashboard</h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search file, paper code, status…"
+              className="input-field h-9 w-64 text-sm"
+            />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
+              className="input-field h-9 w-36 text-sm"
+            >
+              <option value="all">All statuses</option>
+              <option value="success">Success</option>
+              <option value="partial">Partial</option>
+              <option value="failed">Failed</option>
+            </select>
+          </div>
+        </div>
+        <p className="mt-2 text-xs text-on-surface-variant">
+          Showing {filteredLogs.length} of {logs.length} log entries
+        </p>
         <div className="mt-3 overflow-x-auto">
           <table className="w-full min-w-[780px] text-left text-sm">
-            <thead>
+            <thead className="sticky top-0 bg-surface">
               <tr className="border-b border-outline-variant/30 text-on-surface-variant">
                 <th className="py-2 pr-2">Timestamp</th>
                 <th className="py-2 pr-2">File Name</th>
                 <th className="py-2 pr-2">Paper Code</th>
                 <th className="py-2 pr-2">Status</th>
                 <th className="py-2 pr-2">Rows Affected</th>
+                <th className="py-2 pr-2">Errors</th>
                 <th className="py-2 pr-2">Expand</th>
               </tr>
             </thead>
             <tbody>
-              {logs.map((log) => (
+              {filteredLogs.map((log) => (
                 <Fragment key={log.id}>
                   <tr className="border-b border-outline-variant/20">
                     <td className="py-2 pr-2">{new Date(log.timestamp).toLocaleString()}</td>
-                    <td className="py-2 pr-2">{log.fileName}</td>
+                    <td className="max-w-[360px] truncate py-2 pr-2" title={log.fileName}>{log.fileName}</td>
                     <td className="py-2 pr-2">{log.paperCode || "—"}</td>
                     <td className={`py-2 pr-2 font-semibold ${getStatusClass(log.status)}`}>
                       {log.status.toUpperCase()}
                     </td>
                     <td className="py-2 pr-2">{log.rowsAffected}</td>
+                    <td className="py-2 pr-2">{log.errors.length}</td>
                     <td className="py-2 pr-2">
                       <button
                         className="btn text-xs"
@@ -199,7 +239,7 @@ export default function IngestMdClient() {
                   </tr>
                   {expanded[log.id] && (
                     <tr key={`${log.id}-errors`} className="border-b border-outline-variant/20">
-                      <td colSpan={6} className="py-2">
+                      <td colSpan={7} className="py-2">
                         {log.errors.length === 0 ? (
                           <p className="text-xs text-on-surface-variant">No parsing errors.</p>
                         ) : (
@@ -216,10 +256,10 @@ export default function IngestMdClient() {
                   )}
                 </Fragment>
               ))}
-              {logs.length === 0 && (
+              {filteredLogs.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="py-4 text-center text-on-surface-variant">
-                    No ingestion logs yet.
+                  <td colSpan={7} className="py-4 text-center text-on-surface-variant">
+                    No ingestion logs match the current filters.
                   </td>
                 </tr>
               )}
