@@ -160,11 +160,11 @@ function normalizeSemester(value: string | null): number | null {
   return parsed;
 }
 
-function extractUnitName(source: Record<string, unknown> | undefined): string {
-  if (!source) return "";
-  const unitNameRaw = typeof source.unit_name === "string"
-    ? source.unit_name
-    : (typeof source.unit_title === "string" ? source.unit_title : "");
+function extractUnitName(syllabusDoc: Record<string, unknown> | undefined): string {
+  if (!syllabusDoc) return "";
+  const unitNameRaw = typeof syllabusDoc.unit_name === "string"
+    ? syllabusDoc.unit_name
+    : (typeof syllabusDoc.unit_title === "string" ? syllabusDoc.unit_title : "");
   return unitNameRaw.trim();
 }
 
@@ -591,8 +591,7 @@ async function hasCachedPdfFile(fileId: string): Promise<boolean> {
   } catch (error) {
     const code = getAppwriteErrorCode(error);
     if (code === 404) return false;
-    console.error("[generate-notes-stream] Failed to validate cached PDF file id:", error);
-    return false;
+    throw error;
   }
 }
 
@@ -942,13 +941,18 @@ export async function GET(request: NextRequest) {
         let cacheSource: "pdf" | "markdown" = "markdown";
         // `rerender=1` intentionally bypasses cached PDF reuse and forces markdown->PDF rendering.
         if (!forceMarkdownRerender && completedCache.pdfFileId) {
-          const hasCachedPdf = await hasCachedPdfFile(completedCache.pdfFileId);
-          if (hasCachedPdf) {
-            cacheSource = "pdf";
-            pdfUrl = getAppwriteFileDownloadUrl(completedCache.pdfFileId);
-            controller.enqueue(toSseData({ log: "Cache PDF found: using existing rendered PDF." }));
-          } else {
-            controller.enqueue(toSseData({ log: "Cache PDF reference missing in storage: rendering from cached markdown." }));
+          try {
+            const hasCachedPdf = await hasCachedPdfFile(completedCache.pdfFileId);
+            if (hasCachedPdf) {
+              cacheSource = "pdf";
+              pdfUrl = getAppwriteFileDownloadUrl(completedCache.pdfFileId);
+              controller.enqueue(toSseData({ log: "Cache PDF found: using existing rendered PDF." }));
+            } else {
+              controller.enqueue(toSseData({ log: "Cache PDF reference missing in storage: rendering from cached markdown." }));
+            }
+          } catch (error) {
+            console.error("[generate-notes-stream] Failed to validate cached PDF file id:", error);
+            controller.enqueue(toSseData({ log: "Cache PDF validation failed: rendering from cached markdown." }));
           }
         }
         try {
