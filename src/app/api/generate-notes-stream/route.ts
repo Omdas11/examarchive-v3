@@ -79,12 +79,21 @@ function getUnitNotesCacheKey(university: string, course: string, stream: string
   return `${university}::${course}::${stream}::${selectionType}::${paperCode}`.slice(0, 128);
 }
 
+function stableStringHash(value: string): string {
+  let hash = 2166136261;
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+  }
+  return (hash >>> 0).toString(36);
+}
+
 function sanitizeCacheFileToken(value: string): string {
   const cleaned = value
     .replace(/[^a-zA-Z0-9_-]+/g, "_")
     .replace(/_+/g, "_")
     .replace(/^_+|_+$/g, "");
-  return cleaned || "cache";
+  return cleaned || `cache_${stableStringHash(value)}`;
 }
 
 function buildUnitNotesCacheFileNames(
@@ -99,7 +108,10 @@ function buildUnitNotesCacheFileNames(
   const legacyName = `${paperCode}_Unit_${unitNumber}_Cache.md`;
   const scope = sanitizeCacheFileToken(getUnitNotesCacheKey(university, course, stream, selectionType, paperCode));
   const semesterToken = semester !== null ? `sem${semester}` : "semall";
-  const scopedName = `${scope}_${semesterToken}_unit${unitNumber}_cache.md`.slice(0, CACHE_FILE_NAME_MAX_LEN);
+  const extension = ".md";
+  const scopedBase = `${scope}_${semesterToken}_unit${unitNumber}_cache`;
+  const scopedName =
+    `${scopedBase.slice(0, Math.max(1, CACHE_FILE_NAME_MAX_LEN - extension.length))}${extension}`;
   return scopedName === legacyName ? [legacyName] : [scopedName, legacyName];
 }
 
@@ -133,6 +145,7 @@ function ensureTopicMarkdownHeader(topic: string, markdown: string): string {
 
 type CachedNotes = {
   id: string | null;
+  markdownFileId: string;
   markdown: string;
   syllabusContent: string | null;
   pdfFileId: string | null;
@@ -365,6 +378,7 @@ async function readCachedNotes(
     const docId = typeof doc.$id === "string" ? doc.$id : "";
     return {
       id: docId || null,
+      markdownFileId,
       markdown,
       syllabusContent: syllabusContent || null,
       pdfFileId: pdfFileId || null,
@@ -488,8 +502,12 @@ async function readCachedNotes(
         markdownFileId: file.$id,
         createdAt: typeof file.$createdAt === "string" ? file.$createdAt : new Date().toISOString(),
       });
+      if (!recoveredDocId) {
+        console.warn("[generate-notes-stream] Cache markdown recovered from storage, but DB self-heal failed.");
+      }
       return {
         id: recoveredDocId,
+        markdownFileId: file.$id,
         markdown,
         syllabusContent: null,
         pdfFileId: null,
@@ -615,6 +633,19 @@ async function persistCachedNotesRecord(args: PersistCachedNotesRecordArgs): Pro
   const db = adminDatabases();
   const createdAt = args.createdAt ?? new Date().toISOString();
   const cleanSyllabus = typeof args.syllabusContent === "string" ? args.syllabusContent.trim() : "";
+  try {
+    const existing = await db.listDocuments(DATABASE_ID, COLLECTION.generated_notes_cache, [
+      Query.equal("markdown_file_id", args.markdownFileId),
+      Query.equal("type", UNIT_NOTES_CACHE_TYPE),
+      Query.equal("status", COMPLETED_STATUS),
+      Query.orderDesc("$createdAt"),
+      Query.limit(1),
+    ]);
+    const existingId = typeof existing.documents[0]?.$id === "string" ? existing.documents[0].$id.trim() : "";
+    if (existingId) return existingId;
+  } catch {
+    // Continue to create flow when compatibility schemas reject filter fields.
+  }
   const mutateSemesterCompatFields = (payload: Record<string, unknown>) => {
     if (args.semester === null) return;
     payload.semester = String(args.semester);
@@ -871,6 +902,23 @@ export async function GET(request: NextRequest) {
             pdfUrl = rendered.fileUrl;
             if (completedCache.id) {
               await updateCachedNotesPdfFileId(completedCache.id, rendered.fileId);
+            } else {
+              const recoveredDocId = await persistCachedNotesRecord({
+                university,
+                course,
+                stream: streamName,
+                selectionType: type,
+                paperCode,
+                unitNumber,
+                semester,
+                markdownFileId: completedCache.markdownFileId,
+                syllabusContent: cachedSyllabusContent,
+              });
+              if (recoveredDocId) {
+                await updateCachedNotesPdfFileId(recoveredDocId, rendered.fileId);
+              } else {
+                console.warn("[generate-notes-stream] Rendered cache PDF but cache doc id is unavailable; skipped pdf_file_id persistence.");
+              }
             }
             controller.enqueue(toSseData({ log: "PDF rendered successfully from cached content." }));
           } catch (pdfError) {
