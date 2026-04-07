@@ -108,6 +108,7 @@ type EarnedAchievement = { icon: IconName; label: string };
 
 const PROFILE_TABS = ["overview", "contributions", "rewards", "referrals", "settings"] as const;
 type ProfileTab = (typeof PROFILE_TABS)[number];
+const CONTRIBUTOR_PLUS_UPLOADS = 2;
 
 function normalizeProfileTab(tab?: string): ProfileTab {
   if (!tab) return "overview";
@@ -195,8 +196,6 @@ export default async function ProfilePage({
   // XP bar left label: show primary role name for system roles, XP rank for students
   // mirrors v2 profile-panel.js xpCurrentTierEl logic
   const xpLabel = (user.role === "student") ? currentRank : capitalise(user.role);
-  const nextUploadGoal = Math.max(0, 2 - approvedCount);
-
   return (
     <MainLayout
       title="Profile"
@@ -239,6 +238,10 @@ export default async function ProfilePage({
 
       {activeTab === "overview" && (
       <>
+      {(() => {
+        const nextUploadGoal = Math.max(0, CONTRIBUTOR_PLUS_UPLOADS - approvedCount);
+        return (
+        <>
       {/* ── Main profile card ── */}
       <div className="card p-6">
         <div className="flex flex-col items-center">
@@ -441,6 +444,9 @@ export default async function ProfilePage({
           </div>
         </dl>
       </div>
+        </>
+        );
+      })()}
       </>
       )}
 
@@ -450,8 +456,8 @@ export default async function ProfilePage({
             <h2 className="text-base font-semibold">Impact Cards</h2>
             <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div className="rounded-xl border border-outline-variant/30 p-4">
-                <p className="text-xs uppercase text-on-surface-variant">Students helped</p>
-                <p className="mt-1 text-2xl font-bold">{approvedCount}</p>
+                <p className="text-xs uppercase text-on-surface-variant">Total uploads</p>
+                <p className="mt-1 text-2xl font-bold">{totalUploads}</p>
               </div>
               <div className="rounded-xl border border-outline-variant/30 p-4">
                 <p className="text-xs uppercase text-on-surface-variant">Accepted uploads</p>

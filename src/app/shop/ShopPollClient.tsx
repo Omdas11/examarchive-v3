@@ -42,7 +42,7 @@ export default function ShopPollClient({ products }: { products: ShopProduct[] }
     const loadVotes = async () => {
       setIsLoading(true);
       try {
-        const res = await fetch("/api/shop/poll", { cache: "no-store" });
+        const res = await fetch("/api/shop/poll");
         const data = (await res.json()) as PollApiResponse;
         if (!cancelled) setVotes(data.votes ?? {});
       } catch {
@@ -70,11 +70,12 @@ export default function ShopPollClient({ products }: { products: ShopProduct[] }
     if (submittingKey) return;
     setSubmittingKey(productKey);
     try {
-      await fetch("/api/shop/poll", {
+      const res = await fetch("/api/shop/poll", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ product: productKey, option: optionKey }),
       });
+      if (!res.ok) return;
 
       const nextVotes = { ...myVotes, [productKey]: optionKey };
       setMyVotes(nextVotes);
@@ -97,7 +98,13 @@ export default function ShopPollClient({ products }: { products: ShopProduct[] }
   };
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
+    <>
+      {isLoading && (
+        <p className="text-xs text-on-surface-variant">
+          Loading latest vote totals…
+        </p>
+      )}
+      <div className="grid gap-4 sm:grid-cols-2">
       {products.map((product) => {
         const totalVotes = totalVotesByProduct[product.key] ?? 0;
         const userChoice = myVotes[product.key];
@@ -142,19 +149,14 @@ export default function ShopPollClient({ products }: { products: ShopProduct[] }
 
             <a
               href={`mailto:${CONTACT_EMAILS.contact}?subject=${encodeURIComponent(`Shop interest: ${product.name}`)}`}
-              className="inline-flex mt-4 rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-on-primary"
+              className="mt-4 inline-flex rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-on-primary"
             >
               Request Access
             </a>
           </article>
         );
       })}
-
-      {isLoading && (
-        <p className="sm:col-span-2 text-xs text-on-surface-variant">
-          Loading latest vote totals…
-        </p>
-      )}
-    </div>
+      </div>
+    </>
   );
 }
