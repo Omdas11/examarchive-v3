@@ -116,16 +116,16 @@ _This section is updated by `scripts/sync-appwrite-schema.js` when run with `--u
 | `ai_usage` | ✅ Perfectly connected | 0 | collection existed; 0/2 missing attrs created; no mismatches detected |
 | `ai_embeddings` | ⚠️ Connected with differences | 0 | collection existed; 0/11 missing attrs created; 8 attr definition mismatch(es) |
 | `pdf_usage` | ✅ Perfectly connected | 0 | collection existed; 0/2 missing attrs created; no mismatches detected |
-| `Syllabus_Table` | ⚠️ Connected with differences | 2 | collection existed; 2/13 missing attrs created; 1 attr definition mismatch(es) |
+| `Syllabus_Table` | ⚠️ Connected with differences | 0 | collection existed; 0/13 missing attrs created; 1 attr definition mismatch(es) |
 | `Questions_Table` | ⚠️ Connected with differences | 0 | collection existed; 0/14 missing attrs created; 1 attr definition mismatch(es) |
-| `Generated_Notes_Cache` | ⚠️ Connected with differences | 0 | collection existed; 0/10 missing attrs created; 3 attr definition mismatch(es) |
+| `Generated_Notes_Cache` | ⚠️ Connected with differences | 0 | collection existed; 0/17 missing attrs created; 4 attr definition mismatch(es) |
 | `User_Quotas` | ✅ Perfectly connected | 0 | collection existed; 0/5 missing attrs created; no mismatches detected |
 
 <!-- SCHEMA_SYNC_STATUS_END -->
 
 ---
 ### Sync Remarks (Auto-Generated)
-**Last Synced:** 2026-04-06T14:18:07.045Z
+**Last Synced:** 2026-04-07T05:12:06.585Z
 **Overall Status:** Partial
 **Connected:**
 - feedback updated successfully.
@@ -143,4 +143,4 @@ _This section is updated by `scripts/sync-appwrite-schema.js` when run with `--u
 - ai_embeddings has 8 mismatch(es).
 - Syllabus_Table has 1 mismatch(es).
 - Questions_Table has 1 mismatch(es).
-- Generated_Notes_Cache has 3 mismatch(es).
+- Generated_Notes_Cache has 4 mismatch(es).
