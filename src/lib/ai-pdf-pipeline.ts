@@ -8,6 +8,7 @@ import {
   ID,
   getAppwriteFileDownloadUrl,
 } from "@/lib/appwrite";
+import { formatIstDateTime } from "@/lib/datetime";
 
 const DEFAULT_PDF_MODEL_NAME = "Gemini 3.1 Flash Lite";
 
@@ -353,15 +354,7 @@ function formatHeaderTimestamp(value: string | undefined): string {
   if (!value) return "";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleString("en-IN", {
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-  });
+  return `${formatIstDateTime(date)} IST`;
 }
 
 function buildHeaderHtml(args?: {

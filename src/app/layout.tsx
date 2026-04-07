@@ -15,7 +15,7 @@ const SITE_URL = "https://www.examarchive.dev";
 const OG_IMAGE_URL = `${SITE_URL}/branding/logo.png`;
 const SITE_NAME = "ExamArchive";
 const SITE_DESCRIPTION =
-  "Browse, download, and contribute past exam papers and syllabi. Free community-driven archive for FYUGP and CBCS students — starting with Haflong Government College.";
+  "Browse, download, and contribute past exam papers and syllabi. Free community-driven archive for FYUGP students — starting with Haflong Government College.";
 const THEME_INIT_SCRIPT =
   '(function(){try{var t=localStorage.getItem("theme");if(t==="dark"||(!t&&window.matchMedia("(prefers-color-scheme:dark)").matches)){document.documentElement.setAttribute("data-theme","dark")}var rm=localStorage.getItem("reduceMotion");if(rm==="true"){document.documentElement.setAttribute("data-reduce-motion","true")}}catch(e){}})();';
 const SERVICE_WORKER_SCRIPT =
@@ -38,7 +38,6 @@ export const metadata: Metadata = {
     "Assam University",
     "Gauhati University",
     "FYUGP",
-    "CBCS",
     "NEP",
     "free exam papers",
     "study materials",

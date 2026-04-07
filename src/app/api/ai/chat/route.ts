@@ -11,7 +11,7 @@ About ExamArchive:
 - Students can browse and download past exam question papers.
 - A syllabus library is available for multiple universities including Haflong Government College, Assam University, Gauhati University, and others.
 - Users can upload their own exam papers after registering. Uploads go through an admin approval process before becoming visible.
-- The platform supports FYUGP (Four-Year Undergraduate Programme) and CBCS (Choice Based Credit System) frameworks.
+- The platform currently focuses on FYUGP (Four-Year Undergraduate Programme).
 - Course types include DSC (Discipline Specific Core), DSM (Discipline Specific Minor), SEC (Skill Enhancement Course), IDC (Interdisciplinary Course), AEC (Ability Enhancement Course), and VAC (Value Added Course).
 
 Navigation guide:

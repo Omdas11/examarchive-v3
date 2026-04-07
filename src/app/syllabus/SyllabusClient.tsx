@@ -16,8 +16,6 @@ import {
   matchesCoursePreferenceSelection,
 } from "@/data/course-selection-data";
 
-type Tab = "pdfs" | "library";
-
 interface SyllabusClientProps {
   syllabi: Syllabus[];
   isAdmin?: boolean;
@@ -217,7 +215,6 @@ type SortKey = "code" | "name" | "semester" | "credits";
 /** Colour-code the accent bar by programme type. */
 const PROGRAMME_COLORS: Record<string, string> = {
   FYUGP: "#3b82f6",  // blue — covers both "FYUG" and "FYUGP" via substring match below
-  CBCS: "#10b981",   // emerald
   NEP: "#f59e0b",    // amber
   HONOURS: "#8b5cf6", // violet
 };
@@ -239,7 +236,6 @@ function programmeBadgeStyle(programme?: string): CSSProperties {
   if (!programme) return { background: "var(--color-border)", color: "var(--color-text-muted)" };
   const upper = programme.toUpperCase();
   if (upper.includes("FYUG")) return { background: "#dbeafe", color: "#1d4ed8" };
-  if (upper.includes("CBCS")) return { background: "#d1fae5", color: "#065f46" };
   if (upper.includes("NEP"))  return { background: "#fef3c7", color: "#92400e" };
   if (upper.includes("HONOURS")) return { background: "#ede9fe", color: "#5b21b6" };
   return { background: "var(--color-border)", color: "var(--color-text-muted)" };
@@ -702,40 +698,9 @@ function PaperTable({
 }
 
 export default function SyllabusClient({ syllabi, isAdmin }: SyllabusClientProps) {
-  const [activeTab, setActiveTab] = useState<Tab>("pdfs");
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
-  const [registryEntries, setRegistryEntries] = useState<SyllabusRegistryRecord[]>([]);
-  const [registryLoading, setRegistryLoading] = useState(true);
-  const [registryError, setRegistryError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    async function loadRegistry() {
-      setRegistryLoading(true);
-      try {
-        const res = await fetch("/api/syllabus/registry");
-        if (!res.ok) throw new Error(`Failed with status ${res.status}: ${res.statusText}`);
-        const data = await res.json();
-        if (!cancelled) {
-          setRegistryEntries(Array.isArray(data.entries) ? data.entries : []);
-          setRegistryError(null);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          console.error("[syllabus] registry fetch failed", err);
-          setRegistryError("Unable to load syllabus registry at the moment.");
-        }
-      } finally {
-        if (!cancelled) setRegistryLoading(false);
-      }
-    }
-    loadRegistry();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const visibleSyllabi = syllabi.filter((s) => !hiddenIds.has(s.id));
+  const visibleSyllabi = syllabi.filter((s) => !hiddenIds.has(s.id) && !(s.programme || "").toUpperCase().includes("CBCS"));
 
   // Departmental syllabi have no semester (covers all semesters)
   function isDeptSyllabus(s: Syllabus): boolean {
@@ -764,57 +729,11 @@ export default function SyllabusClient({ syllabi, isAdmin }: SyllabusClientProps
             <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
               PDFs {visibleSyllabi.length}
             </span>
-            <span className="rounded-full bg-surface-container-high px-3 py-1 text-xs font-semibold text-on-surface-variant">
-              Library {syllabi.length}
-            </span>
           </div>
         </div>
       </section>
 
-      {/* Tabs */}
-      <div
-        className="inline-flex flex-wrap gap-1 rounded-2xl border border-outline-variant/35 bg-surface-container p-1"
-        role="tablist"
-      >
-        <button
-          role="tab"
-          aria-selected={activeTab === "pdfs"}
-          type="button"
-          onClick={() => setActiveTab("pdfs")}
-          className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors ${
-            activeTab === "pdfs"
-              ? "bg-primary text-on-primary shadow-sm"
-              : "text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"
-          }`}
-        >
-          Available Syllabus PDFs
-          {visibleSyllabi.length > 0 && (
-            <span className={`inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-[10px] font-semibold ${activeTab === "pdfs" ? "bg-on-primary/15 text-on-primary" : "bg-surface-container-high text-primary"}`}>
-              {visibleSyllabi.length}
-            </span>
-          )}
-        </button>
-        <button
-          role="tab"
-          aria-selected={activeTab === "library"}
-          type="button"
-          onClick={() => setActiveTab("library")}
-          className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors ${
-            activeTab === "library"
-              ? "bg-primary text-on-primary shadow-sm"
-              : "text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"
-          }`}
-        >
-          Paper Syllabus Library
-          <span className={`inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-[10px] font-semibold ${activeTab === "library" ? "bg-on-primary/15 text-on-primary" : "bg-surface-container-high text-primary"}`}>
-            {syllabi.length}
-          </span>
-        </button>
-      </div>
-
-      {/* Tab content */}
-      {activeTab === "pdfs" && (
-        <div role="tabpanel" aria-label="Available Syllabus PDFs" className="mt-2 space-y-8">
+      <div role="region" aria-label="Available Syllabus PDFs" className="mt-2 space-y-8">
           {/* Departmental Syllabus section */}
           {deptSyllabi.length > 0 && (
             <div>
@@ -889,24 +808,7 @@ export default function SyllabusClient({ syllabi, isAdmin }: SyllabusClientProps
               </div>
             )
           )}
-        </div>
-      )}
-
-      {activeTab === "library" && (
-        <div role="tabpanel" aria-label="Paper Syllabus Library">
-          {registryLoading ? (
-            <div className="mt-3 rounded-2xl bg-surface-container-low p-4 text-sm text-on-surface-variant">
-              Loading syllabus registry…
-            </div>
-          ) : registryError ? (
-            <div className="mt-3 rounded-2xl bg-error-container px-4 py-3 text-sm text-on-error">
-              {registryError}
-            </div>
-          ) : (
-            <PaperLibrary entries={registryEntries} />
-          )}
-        </div>
-      )}
+      </div>
     </div>
   );
 }

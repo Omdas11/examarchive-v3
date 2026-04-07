@@ -24,7 +24,7 @@ interface BrowseClientProps {
   initialSearch?: string;
 }
 
-const PROGRAMMES = ["ALL", "FYUGP", "CBCS", "Other"];
+const PROGRAMMES = ["FYUGP", "ALL", "Other"];
 
 type SortKey = "newest" | "oldest" | "title_asc" | "title_desc";
 
@@ -56,7 +56,7 @@ export default function BrowseClient({
 }: BrowseClientProps) {
   const [search, setSearch] = useState(initialSearch);
   const debouncedSearch = useDebounce(search, 250);
-  const [activeProgramme, setActiveProgramme] = useState("ALL");
+  const [activeProgramme, setActiveProgramme] = useState("FYUGP");
   const [activePaperType, setActivePaperType] = useState<string | null>(null);
   const [activeStream, setActiveStream] = useState<string | null>(null);
   const [activeYear, setActiveYear] = useState<number | null>(null);
@@ -97,6 +97,7 @@ export default function BrowseClient({
 
   const filtered = useMemo(() => {
     let list = initialPapers.filter((p) => !hiddenIds.has(p.id));
+    list = list.filter((p) => (p.programme || "").toUpperCase() !== "CBCS");
 
     // "My Courses" filter — show only papers matching the saved subject for the paper type
     if (myCoursesActive && coursePrefs) {
@@ -125,7 +126,7 @@ export default function BrowseClient({
     if (!myCoursesActive && activeProgramme !== "ALL") {
       if (activeProgramme === "Other") {
         list = list.filter(
-          (p) => !p.programme || (p.programme !== "FYUGP" && p.programme !== "CBCS"),
+          (p) => !p.programme || p.programme !== "FYUGP",
         );
       } else {
         list = list.filter((p) => p.programme === activeProgramme);

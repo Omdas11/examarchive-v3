@@ -2,6 +2,7 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { useToast } from "@/components/ToastContext";
+import { formatIstDateTime } from "@/lib/datetime";
 
 /** Delay in ms before navigating to the tracker page after a successful ingest. */
 const REDIRECT_DELAY_MS = 1800;
@@ -220,7 +221,7 @@ export default function IngestMdClient() {
               {filteredLogs.map((log) => (
                 <Fragment key={log.id}>
                   <tr className="border-b border-outline-variant/20">
-                    <td className="py-2 pr-2">{new Date(log.timestamp).toLocaleString()}</td>
+                    <td className="py-2 pr-2">{formatIstDateTime(log.timestamp)} IST</td>
                     <td className="py-2 pr-2">
                       <details>
                         <summary className="max-w-sm cursor-pointer truncate md:max-w-xl">{log.fileName}</summary>

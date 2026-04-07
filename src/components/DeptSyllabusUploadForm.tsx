@@ -16,8 +16,6 @@ const MAX_MB = MAX_UPLOAD_BYTES / (1024 * 1024); // 20
 
 const programmeOptions = [
   { value: "FYUG", label: "FYUG (NEP 2020)" },
-  { value: "CBCS", label: "CBCS" },
-  { value: "Other", label: "Other" },
 ];
 
 export default function DeptSyllabusUploadForm() {
@@ -26,7 +24,7 @@ export default function DeptSyllabusUploadForm() {
   const [message, setMessage] = useState<MessageState>(null);
   const [dragOver, setDragOver] = useState(false);
   const [fileName, setFileName] = useState("");
-  const [programme, setProgramme] = useState("");
+  const [programme, setProgramme] = useState("FYUG");
   const formRef = useRef<HTMLFormElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -100,7 +98,7 @@ export default function DeptSyllabusUploadForm() {
         text: "Departmental Syllabus uploaded — awaiting admin approval.",
       });
       setFileName("");
-      setProgramme("");
+      setProgramme("FYUG");
       formRef.current?.reset();
 
       // Show success toast and redirect to profile
@@ -133,7 +131,7 @@ export default function DeptSyllabusUploadForm() {
           <CustomSelect
             name="programme"
             options={programmeOptions}
-            placeholder="Programme (e.g. FYUG, CBCS)"
+            placeholder="Programme (FYUG)"
             value={programme}
             onChange={setProgramme}
           />

@@ -4,13 +4,10 @@ import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import "katex/dist/katex.min.css";
 import { useToast } from "@/components/ToastContext";
 import CustomDropdown, { type CustomDropdownOption } from "@/components/CustomDropdown";
+import { formatIstTime } from "@/lib/datetime";
 
 const COURSE_TYPES: Record<string, string[]> = {
   FYUG: ["DSC", "DSM", "SEC", "AEC", "VAC", "IDC"],
-  CBCS: ["DSC", "SEC"],
-  "B.Com": ["DSC", "DSM", "SEC", "AEC", "VAC", "IDC"],
-  "B.Sc": ["DSC", "DSM", "SEC", "AEC", "VAC", "IDC"],
-  "B.A": ["DSC", "DSM", "SEC", "AEC", "VAC", "IDC"],
 };
 const STREAM_TYPES: Record<string, string[]> = {
   Arts: ["DSC", "DSM", "SEC", "AEC", "VAC", "IDC"],
@@ -179,13 +176,7 @@ export default function AIContentClient() {
     return availableSemesters;
   }, [semestersByPaperCode, paperCode, availableSemesters]);
   const courseOptions: CustomDropdownOption[] = useMemo(
-    () => [
-      { label: "FYUG", value: "FYUG" },
-      { label: "CBCS", value: "CBCS" },
-      { label: "B.Com", value: "B.Com" },
-      { label: "B.Sc", value: "B.Sc" },
-      { label: "B.A", value: "B.A" },
-    ],
+    () => [{ label: "FYUG", value: "FYUG" }],
     [],
   );
   const streamOptions: CustomDropdownOption[] = useMemo(
@@ -275,7 +266,7 @@ export default function AIContentClient() {
   function appendTimelineLog(key: string, message: string) {
     upsertTimelineStep(key, (step) => ({
       ...step,
-      logs: [...step.logs, `[${new Date().toLocaleTimeString()}] ${message}`],
+      logs: [...step.logs, `[${formatIstTime()} IST] ${message}`],
     }));
   }
 
@@ -343,7 +334,7 @@ export default function AIContentClient() {
     setPapersPdfResult(null);
     setCanResumeGeneration(false);
     setError("Generation aborted.");
-    setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] Generation aborted by user.`]);
+    setLogs((prev) => [...prev, `[${formatIstTime()} IST] Generation aborted by user.`]);
     setTimelineStatus("completed", "error", "Generation aborted by user.");
     resetProgressState();
   }
@@ -399,7 +390,7 @@ export default function AIContentClient() {
       }
 
       if (typeof data.log === "string" && data.log.trim().length > 0) {
-        setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ${data.log}`]);
+        setLogs((prev) => [...prev, `[${formatIstTime()} IST] ${data.log}`]);
         if (activeTab === "notes") {
           const stepKey = classifyNotesLog(data.log);
           appendTimelineLog(stepKey, data.log);
@@ -409,6 +400,8 @@ export default function AIContentClient() {
           if (data.log.includes("Cache PDF found")) {
             setTimelineStatus("cache_lookup", "success", "Cache lookup completed.");
             setTimelineStatus("cache_decision", "success", "Existing PDF found in cache.");
+            setTimelineStatus("ai_generation", "success", "Skipped: cached PDF path does not require AI generation.");
+            setTimelineStatus("pdf_render", "success", "Skipped: reusing existing cached PDF.");
           }
           if (data.log.includes("Cache PDF reference missing")) {
             setTimelineStatus("cache_lookup", "success", "Cache lookup completed.");
@@ -418,6 +411,7 @@ export default function AIContentClient() {
           if (data.log.includes("Cache markdown found") || data.log.includes("Re-render requested")) {
             setTimelineStatus("cache_lookup", "success", "Cache lookup completed.");
             setTimelineStatus("cache_decision", "success", "Using cached markdown path.");
+            setTimelineStatus("ai_generation", "success", "Skipped: rendering directly from cached markdown.");
             setTimelineStatus("pdf_render", "loading", "Rendering PDF from markdown...");
           }
           if (data.log.includes("AI generation complete")) {
@@ -492,6 +486,20 @@ export default function AIContentClient() {
             cacheSource,
             canRerenderFromMarkdown,
           });
+          setTimelineStatus("cache_lookup", "success", "Cache lookup completed.");
+          if (cacheSource === "pdf") {
+            setTimelineStatus("cache_decision", "success", "Existing PDF found in cache.");
+            setTimelineStatus("ai_generation", "success", "Skipped: cached PDF path does not require AI generation.");
+            setTimelineStatus("pdf_render", "success", "Skipped: reusing existing cached PDF.");
+          } else if (cacheSource === "markdown") {
+            setTimelineStatus("cache_decision", "success", "Using cached markdown path.");
+            setTimelineStatus("ai_generation", "success", "Skipped: rendering directly from cached markdown.");
+            setTimelineStatus("pdf_render", "success", "PDF rendered successfully from cached markdown.");
+          } else {
+            setTimelineStatus("cache_decision", "success", "No reusable cache hit. Continuing generation.");
+            setTimelineStatus("ai_generation", "success", "AI generation completed.");
+            setTimelineStatus("pdf_render", "success", "PDF rendered and uploaded successfully.");
+          }
           setTimelineStatus("completed", "success", cacheSource === "pdf"
             ? "Existing cached PDF is ready."
             : "PDF ready from markdown rendering.");
@@ -1178,7 +1186,19 @@ export default function AIContentClient() {
                               <span className="text-[11px] text-on-surface-variant">{step.logs.length} log entries</span>
                             </div>
                           </div>
-                          <span className="text-base text-on-surface-variant">{step.expanded ? "▾" : "▸"}</span>
+                          <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2.5"
+                            aria-hidden="true"
+                            className="mt-0.5 flex-shrink-0 text-on-surface-variant transition-transform"
+                            style={{ transform: step.expanded ? "rotate(180deg)" : "rotate(0deg)" }}
+                          >
+                            <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
                         </button>
                         {step.expanded ? (
                           <div className="mt-2 space-y-2 pt-1">
