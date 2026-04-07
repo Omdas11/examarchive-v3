@@ -1133,7 +1133,7 @@ export default function AIContentClient() {
         {activeTab === "notes" ? (
           <section className="card border border-outline-variant/30 p-5">
             <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 className="text-xl font-semibold">Vertical Loading Status</h2>
+              <h2 className="text-xl font-semibold">Generation Process Timeline</h2>
               {notesTimelineSteps.length > 0 ? (
                 <span className="text-xs text-on-surface-variant">Expand a step to view detailed logs.</span>
               ) : null}
