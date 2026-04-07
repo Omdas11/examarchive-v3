@@ -32,7 +32,7 @@ type TimelineStep = {
   expanded: boolean;
 };
 
-function getTimelineStepVisuals(status: StepStatus): { badgeClass: string; iconClass: string; icon: string; label: string } {
+function getTimelineStepStyles(status: StepStatus): { badgeClass: string; iconClass: string; icon: string; label: string } {
   switch (status) {
     case "success":
       return {
@@ -1146,7 +1146,7 @@ export default function AIContentClient() {
               <div className="rounded-2xl border border-outline-variant/40 bg-surface-container-low px-4 py-4">
                 <div className="space-y-4">
                 {notesTimelineSteps.map((step, index) => {
-                  const visuals = getTimelineStepVisuals(step.status);
+                  const visuals = getTimelineStepStyles(step.status);
                   return (
                     <div key={step.key} className="relative pl-8">
                       {index < notesTimelineSteps.length - 1 ? (
@@ -1158,6 +1158,7 @@ export default function AIContentClient() {
                       <div className="rounded-xl border border-outline-variant/40 bg-surface p-3 shadow-sm">
                         <button
                           className="flex w-full items-start justify-between gap-3 text-left"
+                          aria-label={`${step.expanded ? "Collapse" : "Expand"} details for ${step.title}`}
                           onClick={() => {
                             setNotesTimelineSteps((prev) =>
                               prev.map((entry) =>
@@ -1169,7 +1170,13 @@ export default function AIContentClient() {
                             <p className="text-sm font-semibold">{step.title}</p>
                             <p className="mt-1 text-xs text-on-surface-variant">{step.detail}</p>
                             <div className="mt-2 flex items-center gap-2">
-                              <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${visuals.badgeClass}`}>{visuals.label}</span>
+                              <span
+                                className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${visuals.badgeClass}`}
+                                aria-label={`Step status: ${visuals.label}`}
+                                title={`Step status: ${visuals.label}`}
+                              >
+                                {visuals.label}
+                              </span>
                               <span className="text-[11px] text-on-surface-variant">{step.logs.length} log entries</span>
                             </div>
                           </div>
