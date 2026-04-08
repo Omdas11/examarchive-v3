@@ -152,7 +152,7 @@ async function upsertSyllabusRows(args: {
       }
     } catch (error) {
       if (!isUnknownAttributeError(error)) throw error;
-      console.warn("[ingest-md] Syllabus_Table v2 field fallback to base payload:", normalizeError(error));
+      console.warn("[ingest-md] Syllabus_Table v2 field fallback to base payload:", normalizeError(error), error);
       if (existing.documents[0]) {
         await db.updateDocument(DATABASE_ID, COLLECTION.syllabus_table, existing.documents[0].$id, basePayload);
         updated += 1;
