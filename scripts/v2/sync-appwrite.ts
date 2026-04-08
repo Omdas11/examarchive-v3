@@ -319,7 +319,7 @@ async function cleanupOrphanBuckets(storage: Storage, liveBuckets: LiveBucket[])
 
 async function cleanupOrphanDatabases(databases: Databases): Promise<string[]> {
   const deleted: string[] = [];
-  const response = await databases.list();
+  const response = await databases.list([Query.limit(100)]);
   for (const db of response.databases) {
     if (db.$id === TARGET_DATABASE_ID || (!db.$id.startsWith("examarchive-") && !db.$id.startsWith("examarchive_"))) {
       continue;
