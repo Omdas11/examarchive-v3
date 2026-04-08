@@ -1,5 +1,6 @@
 export interface SyllabusTableRow {
   id: string;
+  entry_id?: string;
   university: string;
   course: string;
   stream: string;
@@ -49,6 +50,7 @@ export function toSyllabusTableRow(doc: Record<string, unknown>): SyllabusTableR
     : [];
   return {
     id: String(doc.$id ?? doc.id ?? ""),
+    entry_id: typeof doc.entry_id === "string" && doc.entry_id.trim().length > 0 ? doc.entry_id.trim() : undefined,
     university: String(doc.university ?? ""),
     course: String(doc.course ?? ""),
     stream: String(doc.stream ?? ""),

@@ -212,8 +212,8 @@ async function softReset(includeIngestions: boolean, clearBucket: boolean): Prom
 
   console.log("✅  Soft reset complete.");
   console.log("Next steps:");
-  console.log("1) Re-ingest markdown files following the DEMO_DATA_ENTRY.md format.");
-  console.log("   Be sure to include the `subject` field in every file's frontmatter.");
+  console.log("1) Re-ingest markdown files following docs/MASTER_SYLLABUS_ENTRY.md or docs/MASTER_QUESTION_ENTRY.md.");
+  console.log("   Be sure to include paper metadata (`paper_code`, `paper_type`, and title fields) in frontmatter.");
   console.log("2) Upload files via the Admin → MD Ingest panel or POST /api/admin/ingest-md.");
 }
 

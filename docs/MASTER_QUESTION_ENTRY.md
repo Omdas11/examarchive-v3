@@ -4,12 +4,11 @@ Canonical schema for question paper ingestion into ExamArchive.
 
 ## Purpose
 
-This document defines a **v2 question paper authoring schema** intended for future ingestion
-pipeline improvements. It is **not** the same as the current `DEMO_DATA_ENTRY.md` frontmatter
-schema enforced by `src/lib/admin-md-ingestion.ts`.
+This document defines the canonical **question paper authoring schema** supported by
+`src/lib/admin-md-ingestion.ts` and `/api/admin/ingest-md`.
 
-Before any v2 entry is ingested by the current system, v2 fields must be mapped to the currently
-enforced keys. See the **Field Mapping** section below.
+For the master drafting guide (both syllabus and question formats, naming, and upload order), see:
+`docs/MASTER_INGESTION_GUIDE.md`.
 
 ## Rules
 
@@ -17,7 +16,10 @@ enforced keys. See the **Field Mapping** section below.
 - `paper_code` must match validation rules from `PAPER_CODE_VALIDATION_RULES.md`.
 - `exam_year` and `group` must be explicit for accurate auto-linking.
 - Each question PDF entry has a unique `question_id`.
-- File should be named using the convention: `{paper_code}-{exam_year}.md` (e.g., `PHYDSC101T-2024.md`).
+- File should be named using the convention: `{paper_code}-questions-{exam_year}.md`
+  (e.g., `PHYDSC101T-questions-2024.md`).
+- Do **not** include a `## Syllabus` section in this file. Syllabus and question ingestion
+  are intentionally split and must be uploaded as separate markdown files.
 
 ---
 
@@ -34,13 +36,14 @@ The current parser (`src/lib/admin-md-ingestion.ts`) reads these frontmatter key
 | `university`          | `university`          | Same                                     |
 | `course`              | `course`              | Same                                     |
 | `stream`              | `stream`              | Same                                     |
-| `question_id`         | —                     | v2 metadata only; not in current ingestion |
-| `college`             | —                     | v2 metadata only; not in current ingestion |
-| `group`               | —                     | v2 metadata only; not in current ingestion |
-| `exam_year`           | —                     | v2 metadata only; not in current ingestion |
-| `exam_session`        | —                     | v2 metadata only; not in current ingestion |
-| `semester_code`       | —                     | v2 metadata only; not in current ingestion |
-| `semester_no`         | —                     | v2 metadata only; not in current ingestion |
+| `entry_type`          | `entry_type`          | Same                                     |
+| `question_id`         | `question_id`         | Same                                     |
+| `college`             | `college`             | Same                                     |
+| `group`               | `group`               | Same                                     |
+| `exam_year`           | `exam_year`           | Same                                     |
+| `exam_session`        | `exam_session`        | Same                                     |
+| `semester_code`       | `semester_code`       | Same                                     |
+| `semester_no`         | `semester_no`         | Same                                     |
 
 ---
 
@@ -48,24 +51,24 @@ The current parser (`src/lib/admin-md-ingestion.ts`) reads these frontmatter key
 
 | Field                | Type   | Maps to current key | Description                                                       |
 |----------------------|--------|---------------------|-------------------------------------------------------------------|
-| `entry_type`         | string | —                   | Always `question`; v2 metadata only                               |
-| `question_id`        | string | —                   | Unique ID: `QST-{college_short}-{paper_code}-{year}-{seq}`        |
-| `college`            | string | —                   | Full college name; v2 metadata only                               |
+| `entry_type`         | string | `entry_type`        | Always `question`                                                  |
+| `question_id`        | string | `question_id`       | Unique ID: `QST-{college_short}-{paper_code}-{year}-{seq}`        |
+| `college`            | string | `college`           | Full college name                                                  |
 | `university`         | string | `university`        | Affiliating university                                            |
 | `course`             | string | `course`            | `FYUG` or `CBCS`                                                  |
 | `stream`             | string | `stream`            | `Science`, `Arts`, `Commerce`                                     |
-| `group`              | string | —                   | Major subject group (e.g., `Physics Major`); v2 only              |
-| `exam_year`          | number | —                   | Year of the examination; v2 metadata only                         |
-| `exam_session`       | string | —                   | `Odd Semester` or `Even Semester`; v2 only                        |
+| `group`              | string | `group`             | Major subject group (e.g., `Physics Major`)                       |
+| `exam_year`          | number | `exam_year`         | Year of the examination                                            |
+| `exam_session`       | string | `exam_session`      | `Odd Semester` or `Even Semester`                                 |
 | `paper_code`         | string | `paper_code`        | Canonical code — must pass validator                              |
 | `paper_title`        | string | `paper_name`        | Official paper title                                              |
 | `subject_code`       | string | `subject`           | Derived first 3 chars of `paper_code`                             |
 | `paper_type`         | string | `type`              | One of: `DSC`, `DSM`, `SEC`, `IDC`, `AEC`, `VAC`                 |
-| `semester_code`      | string | —                   | 3-digit semester code; v2 metadata only                           |
-| `semester_no`        | number | —                   | Derived semester number (1–8); v2 metadata only                   |
-| `question_pdf_url`   | string | —                   | URL or path to question PDF                                       |
-| `source_reference`   | string | —                   | Source doc or upload batch this was ingested from                 |
-| `status`             | string | —                   | `active`, `archived`, or `draft`                                  |
+| `semester_code`      | string | `semester_code`     | 3-digit semester code                                              |
+| `semester_no`        | number | `semester_no`       | Derived semester number (1–8)                                     |
+| `question_pdf_url`   | string | `question_pdf_url`  | URL or path to question PDF                                       |
+| `source_reference`   | string | `source_reference`  | Source doc or upload batch this was ingested from                 |
+| `status`             | string | `status`            | `active`, `archived`, or `draft`                                  |
 
 ---
 
@@ -109,7 +112,7 @@ semester_code: "101"
 semester_no: 1
 
 question_pdf_url: "https://www.examarchive.dev/assets/questions/2024/PHYDSC101T-Nov-2024.pdf"
-source_reference: "DEMO_DATA_ENTRY.md"
+source_reference: "MASTER_QUESTION_ENTRY.md"
 status: "active"
 
 tags:
@@ -145,7 +148,7 @@ using this priority order:
 
 ## Question Table (markdown body, after frontmatter)
 
-After the YAML block, include individual questions in a table matching `DEMO_DATA_ENTRY.md`:
+After the YAML block, include individual questions in a table as shown below:
 
 ```markdown
 ## Questions

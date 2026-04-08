@@ -36,6 +36,7 @@ const INGESTION_ATTRIBUTES: IngestionAttribute[] = [
   { key: "digest", type: "string", size: 8192, required: false },
   // ── Syllabus-tracker fields ───────────────────────────────────────────
   { key: "paper_name", type: "string", size: 255, required: false },
+  { key: "entry_type", type: "string", size: 16, required: false },
   { key: "ingested_at", type: "datetime", required: false },
   { key: "row_count", type: "integer", required: false },
   { key: "error_summary", type: "string", size: 2000, required: false },
@@ -199,7 +200,7 @@ async function hardReset() {
 
   console.log("🎉 RESET COMPLETE.");
   console.log("Next steps:");
-  console.log("1) Re-ingest markdown files in DEMO_DATA_ENTRY.md format.");
+  console.log("1) Re-ingest markdown files using docs/MASTER_SYLLABUS_ENTRY.md and docs/MASTER_QUESTION_ENTRY.md formats.");
   console.log("2) Validate AI Content tabs: units should work when syllabus exists, solved papers only when question-year rows exist.");
 }
 

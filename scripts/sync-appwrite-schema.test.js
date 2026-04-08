@@ -147,5 +147,9 @@ describe("sync-appwrite-schema helpers", () => {
     expect(questions).toBeDefined();
     expect(syllabus.attributes.some((attribute) => attribute.key === "stream")).toBe(true);
     expect(questions.attributes.some((attribute) => attribute.key === "stream")).toBe(true);
+    expect(syllabus.attributes.some((attribute) => attribute.key === "entry_id")).toBe(true);
+    expect(syllabus.attributes.some((attribute) => attribute.key === "semester_code")).toBe(true);
+    expect(questions.attributes.some((attribute) => attribute.key === "question_id")).toBe(true);
+    expect(questions.attributes.some((attribute) => attribute.key === "exam_year")).toBe(true);
   });
 });
