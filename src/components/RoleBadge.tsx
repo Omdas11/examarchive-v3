@@ -18,7 +18,6 @@ const ROLE_COLORS: Record<string, { bg: string; text: string }> = {
   student: { bg: "#f1f5f9", text: "#475569" },   // legacy alias
   // Community / custom roles
   reviewer: { bg: "#f3e8ff", text: "#6b21a8" },
-  curator: { bg: "#d1fae5", text: "#065f46" },
   mentor: { bg: "#ede9fe", text: "#4c1d95" },
   archivist: { bg: "#e0f2fe", text: "#075985" },
   ambassador: { bg: "#dcfce7", text: "#14532d" },
@@ -41,7 +40,6 @@ export const ROLE_LABELS: Record<string, string> = {
   founder: "Admin",
   maintainer: "Admin",
   moderator: "Moderator",
-  curator: "Curator",
   verified_contributor: "Curator",
   contributor: "Contributor",
   viewer: "Viewer",
