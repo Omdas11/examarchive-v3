@@ -117,7 +117,12 @@ function buildQuestionMarkdown(frontmatter: IngestionFrontmatter, rows: Array<{
   lines.push("| No | Subpart | Year | Marks | Question | Tags |");
   lines.push("|---|---|---:|---:|---|---|");
   for (const row of rows) {
-    const year = typeof row.year === "number" ? row.year : (typeof frontmatter.exam_year === "number" ? frontmatter.exam_year : "");
+    let year: number | string = "";
+    if (typeof row.year === "number") {
+      year = row.year;
+    } else if (typeof frontmatter.exam_year === "number") {
+      year = frontmatter.exam_year;
+    }
     const marks = typeof row.marks === "number" ? row.marks : "";
     const subpart = row.question_subpart || "—";
     const tags = row.tags.length > 0 ? row.tags.join(", ") : "—";
@@ -342,7 +347,8 @@ async function upsertQuestionRows(args: {
     if (args.frontmatter.attempt_type) payload.attempt_type = args.frontmatter.attempt_type;
     if (args.frontmatter.semester_code) payload.semester_code = args.frontmatter.semester_code;
     if (typeof args.frontmatter.semester_no === "number") payload.semester_no = args.frontmatter.semester_no;
-    if (args.resolvedQuestionPdfUrl) payload.question_pdf_url = args.resolvedQuestionPdfUrl;
+    const resolvedQuestionPdfUrl = args.resolvedQuestionPdfUrl.trim();
+    if (resolvedQuestionPdfUrl.length > 0) payload.question_pdf_url = resolvedQuestionPdfUrl;
     if (args.frontmatter.source_reference) payload.source_reference = args.frontmatter.source_reference;
     if (args.frontmatter.status) payload.status = args.frontmatter.status;
     if (linkedSyllabusEntryId) payload.linked_syllabus_entry_id = linkedSyllabusEntryId;
