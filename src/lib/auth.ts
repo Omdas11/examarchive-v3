@@ -81,7 +81,7 @@ async function evaluateXpAndPromotion(
     const uploadCount = (profile.upload_count as number) ?? 0;
     const currentRole = normalizeRole((profile.role as string) ?? "viewer");
     const currentTier = (profile.tier as string) ?? "bronze";
-    const xo = ((profile.xo as number) ?? (profile.xp as number) ?? 0);
+    const currentXo = ((profile.xo as number) ?? (profile.xp as number) ?? 0);
     const createdAt = typeof profile.$createdAt === "string" ? profile.$createdAt : "";
     const accountAgeDays = createdAt
       ? Math.floor((Date.now() - new Date(createdAt).getTime()) / 86_400_000)
@@ -89,11 +89,11 @@ async function evaluateXpAndPromotion(
     const hasActiveAbuseFlag = Boolean(profile.abuse_flag);
     const update: Record<string, unknown> = {};
 
-    if (currentRole === "viewer" && xo >= 30 && uploadCount >= 2 && accountAgeDays >= 3) {
+    if (currentRole === "viewer" && currentXo >= 30 && uploadCount >= 2 && accountAgeDays >= 3) {
       update.role = "contributor";
     }
 
-    if (currentRole === "contributor" && xo >= 150 && uploadCount >= 10 && !hasActiveAbuseFlag) {
+    if (currentRole === "contributor" && currentXo >= 150 && uploadCount >= 10 && !hasActiveAbuseFlag) {
       update.role = "curator";
     }
 

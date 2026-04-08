@@ -40,7 +40,7 @@ export const ROLE_LABELS: Record<string, string> = {
   founder: "Admin",
   maintainer: "Admin",
   moderator: "Moderator",
-  verified_contributor: "Curator",
+  verified_contributor: "Curator (legacy verified contributor)",
   contributor: "Contributor",
   viewer: "Viewer",
   explorer: "Viewer",

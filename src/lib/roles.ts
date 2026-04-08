@@ -11,11 +11,11 @@ import type { CustomRole, UserRole, UserTier } from "@/types";
 const ROLE_LEVELS: Record<UserRole, number> = {
   guest: 0,
   viewer: 1,
+  contributor: 2,
   curator: 3,
   visitor: 0,
-  student: 1,            // legacy alias for viewer
+  student: 0,            // legacy alias for visitor/guest
   explorer: 1,           // legacy alias for viewer
-  contributor: 2,
   verified_contributor: 3, // legacy alias for curator
   moderator: 4,
   maintainer: 5,         // legacy alias for admin
@@ -24,7 +24,7 @@ const ROLE_LEVELS: Record<UserRole, number> = {
 };
 
 /**
- * Minimum XO required for each role (informational thresholds).
+ * XO thresholds for role eligibility.
  */
 export const ROLE_XO_THRESHOLDS: Record<UserRole, number> = {
   guest: 0,
@@ -35,7 +35,7 @@ export const ROLE_XO_THRESHOLDS: Record<UserRole, number> = {
   contributor: 30,
   curator: 150,
   verified_contributor: 150,
-  moderator: 400,
+  moderator: 0,
   maintainer: 0,
   admin: 0,
   founder: 0,
@@ -64,8 +64,8 @@ export const ROLE_RING_COLORS: Record<UserRole, string | null> = {
 };
 
 const LEGACY_ROLE_MAP: Partial<Record<UserRole, UserRole>> = {
-  visitor: "viewer",
-  student: "viewer",
+  visitor: "guest",
+  student: "guest",
   explorer: "viewer",
   verified_contributor: "curator",
   maintainer: "admin",

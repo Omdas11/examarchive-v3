@@ -19,7 +19,7 @@ const XP_STREAK_7_DAY_BONUS = 100;
 /** Bonus XP at 30-day streak. */
 const XP_STREAK_30_DAY_BONUS = 500;
 
-/** Role/XO thresholds (ROLE_XO_RULEBOOK.md). */
+/** Role/XO thresholds (docs/ROLE_XO_RULEBOOK.md). */
 const VIEWER_TO_CONTRIBUTOR_UPLOAD_THRESHOLD = 2;
 const VIEWER_TO_CONTRIBUTOR_XO_THRESHOLD = 30;
 const CONTRIBUTOR_TO_CURATOR_UPLOAD_THRESHOLD = 10;
@@ -51,6 +51,7 @@ async function incrementUploadCount(
     let xpGain = XP_PER_APPROVED_UPLOAD;
     if (currentCount === 1) xpGain += XP_FIRST_UPLOAD_BONUS; // first upload bonus
     const nextXo = ((profile.xo as number) ?? (profile.xp as number) ?? 0) + xpGain;
+    // Keep both fields in sync during migration while existing pages still read `xp`.
     update.xp = nextXo;
     update.xo = nextXo;
 

@@ -15,6 +15,7 @@ import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import ReferralShareCard from "./ReferralShareCard";
 import ProfileRightSidebar from "./ProfileRightSidebar";
 import { normalizeRole, roleLabel } from "@/lib/roles";
+import type { UserProfile } from "@/types";
 
 export const metadata: Metadata = {
   title: "Profile",
@@ -150,8 +151,8 @@ export default async function ProfilePage() {
   });
 
   const tier = (user.tier ?? "bronze") as import("@/types").UserTier;
-  const xoScore = user.xp;
-  const { progress: xpPercent, nextXp, nextLabel } = xpProgress(xoScore);
+  const xoScore = (user as UserProfile & { xo?: number }).xo ?? user.xp;
+  const { progress: xpPercent, nextXp: nextXo, nextLabel } = xpProgress(xoScore);
   const currentRank = xpRank(xoScore);
 
   const streakDays = user.streak_days;
@@ -270,7 +271,7 @@ export default async function ProfilePage() {
             <XPBar
               percent={xpPercent}
               leftLabel={`${xoScore} XO · ${xpLabel}`}
-              rightLabel={nextXp && nextLabel ? `Next: ${nextLabel} (${nextXp} XO)` : undefined}
+              rightLabel={nextXo && nextLabel ? `Next: ${nextLabel} (${nextXo} XO)` : undefined}
             />
 
           {/* ── Daily Streak ── */}

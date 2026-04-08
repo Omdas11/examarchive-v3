@@ -31,7 +31,7 @@ export default function ProfileRightSidebar({
     <>
       <div className="flex justify-end">
         <button type="button" className="btn text-xs px-3 py-1.5" onClick={() => setOpen(true)}>
-          Profile sidebar
+          Show profile details
         </button>
       </div>
 
@@ -54,7 +54,7 @@ export default function ProfileRightSidebar({
             aria-label="Profile sidebar"
           >
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Profile sidebar</h2>
+              <h2 className="text-lg font-semibold">Profile information</h2>
               <button type="button" className="btn text-xs px-2 py-1" onClick={() => setOpen(false)}>
                 Close
               </button>
