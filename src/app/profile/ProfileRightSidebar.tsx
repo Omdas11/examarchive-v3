@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface ProfileRightSidebarProps {
   email: string;
@@ -26,6 +26,42 @@ export default function ProfileRightSidebar({
   joinedDate,
 }: ProfileRightSidebarProps) {
   const [open, setOpen] = useState(false);
+  const panelRef = useRef<HTMLElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    closeButtonRef.current?.focus();
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+        return;
+      }
+      if (event.key !== "Tab" || !panelRef.current) return;
+      const focusable = panelRef.current.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [open]);
 
   return (
     <>
@@ -44,6 +80,7 @@ export default function ProfileRightSidebar({
             onClick={() => setOpen(false)}
           />
           <aside
+            ref={panelRef}
             className="absolute right-0 top-0 h-full w-full max-w-sm p-5"
             style={{
               background: "var(--color-surface)",
@@ -55,7 +92,12 @@ export default function ProfileRightSidebar({
           >
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold">Profile information</h2>
-              <button type="button" className="btn text-xs px-2 py-1" onClick={() => setOpen(false)}>
+              <button
+                ref={closeButtonRef}
+                type="button"
+                className="btn text-xs px-2 py-1"
+                onClick={() => setOpen(false)}
+              >
                 Close
               </button>
             </div>

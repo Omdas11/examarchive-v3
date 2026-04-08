@@ -9,7 +9,13 @@ import {
   Permission,
   Role,
 } from "./appwrite";
-import { isValidCustomRole, isValidTier, isValidUserRole, normalizeRole } from "./roles";
+import {
+  isValidCustomRole,
+  isValidTier,
+  isValidUserRole,
+  normalizeRole,
+  ROLE_XO_THRESHOLDS,
+} from "./roles";
 import { generateUniqueReferralCode } from "./referral-server";
 import type {
   Achievement,
@@ -89,11 +95,21 @@ async function evaluateXpAndPromotion(
     const hasActiveAbuseFlag = Boolean(profile.abuse_flag);
     const update: Record<string, unknown> = {};
 
-    if (currentRole === "viewer" && currentXo >= 30 && uploadCount >= 2 && accountAgeDays >= 3) {
+    if (
+      currentRole === "viewer" &&
+      currentXo >= ROLE_XO_THRESHOLDS.contributor &&
+      uploadCount >= 2 &&
+      accountAgeDays >= 3
+    ) {
       update.role = "contributor";
     }
 
-    if (currentRole === "contributor" && currentXo >= 150 && uploadCount >= 10 && !hasActiveAbuseFlag) {
+    if (
+      currentRole === "contributor" &&
+      currentXo >= ROLE_XO_THRESHOLDS.curator &&
+      uploadCount >= 10 &&
+      !hasActiveAbuseFlag
+    ) {
       update.role = "curator";
     }
 

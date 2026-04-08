@@ -28,6 +28,12 @@ function normalizeError(error: unknown): string {
   return String(error);
 }
 
+function normalizeQuestionSubpart(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 function isUnknownAttributeError(error: unknown, attribute: string): boolean {
   const message = normalizeError(error).toLowerCase();
   return message.includes("unknown attribute") && message.includes(attribute.toLowerCase());
@@ -165,6 +171,7 @@ async function upsertQuestionRows(args: {
   let added = 0;
   let updated = 0;
   for (const row of args.rows) {
+    const normalizedQuestionSubpart = normalizeQuestionSubpart(row.question_subpart);
     const existingByQuestionNo = await db.listDocuments(DATABASE_ID, COLLECTION.questions_table, [
       Query.equal("university", args.university),
       Query.equal("course", args.course),
@@ -176,9 +183,7 @@ async function upsertQuestionRows(args: {
     ]);
     const existing = existingByQuestionNo.documents.find(
       (document) =>
-        document.question_subpart === row.question_subpart ||
-        ((document.question_subpart === null || document.question_subpart === undefined) &&
-          (row.question_subpart === null || row.question_subpart === undefined)),
+        normalizeQuestionSubpart(document.question_subpart) === normalizedQuestionSubpart,
     );
     const rowId =
       typeof existing?.id === "string" && existing.id.trim().length > 0
@@ -194,7 +199,7 @@ async function upsertQuestionRows(args: {
       paper_name: args.paperName,
       subject: args.subject,
       question_no: row.question_no,
-      question_subpart: row.question_subpart,
+      question_subpart: normalizedQuestionSubpart,
       question_content: row.question_content,
       tags: row.tags,
     };
@@ -254,7 +259,7 @@ async function createIngestionLog(payload: {
     if (deptCode) doc.dept_code = deptCode;
     await db.createDocument(DATABASE_ID, COLLECTION.ai_ingestions, ID.unique(), doc);
   } catch (error) {
-    console.warn("[ingest-md] failed to write ingestion log:", error);
+    console.warn("[ingest-md] failed to write ingestion log:", normalizeError(error));
   }
 }
 
@@ -265,6 +270,21 @@ export async function GET(request: NextRequest) {
   }
 
   const { searchParams } = new URL(request.url);
+  const fileId = searchParams.get("fileId")?.trim() ?? "";
+  if (fileId) {
+    try {
+      const fileBuffer = await adminStorage().getFileDownload(MD_INGESTION_BUCKET_ID, fileId);
+      return new NextResponse(fileBuffer as BodyInit, {
+        status: 200,
+        headers: {
+          "Content-Type": "text/markdown; charset=utf-8",
+          "Content-Disposition": `attachment; filename="${fileId}.md"`,
+        },
+      });
+    } catch (error) {
+      return NextResponse.json({ error: normalizeError(error) }, { status: 404 });
+    }
+  }
   if (searchParams.get("template") === "1") {
     const fs = await import("fs/promises");
     const template = await fs.readFile(TEMPLATE_PATH, "utf8");

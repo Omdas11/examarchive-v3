@@ -62,7 +62,7 @@ export default function RoleEditModal({
   onClose,
   onSaved,
 }: RoleEditModalProps) {
-  // Normalize legacy "student" role (not in the selectable ROLES list) to "visitor"
+  // Normalize legacy "student" role (not in the selectable ROLES list) to "viewer"
   // so the dropdown never defaults to the first option ("founder") for regular users.
   const initialRole: UserRole = ROLES.includes(user.role) ? user.role : "viewer";
   const [role, setRole] = useState<UserRole>(initialRole);

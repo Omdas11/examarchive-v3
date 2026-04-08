@@ -69,7 +69,6 @@ const LEGACY_ROLE_MAP: Partial<Record<UserRole, UserRole>> = {
   explorer: "viewer",
   verified_contributor: "curator",
   maintainer: "admin",
-  founder: "admin",
 };
 
 export function normalizeRole(role: string | null | undefined): UserRole {

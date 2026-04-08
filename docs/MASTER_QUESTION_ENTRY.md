@@ -34,13 +34,13 @@ The current parser (`src/lib/admin-md-ingestion.ts`) reads these frontmatter key
 | `university`          | `university`          | Same                                     |
 | `course`              | `course`              | Same                                     |
 | `stream`              | `stream`              | Same                                     |
-| `question_id`         | —                     | v2 metadata only; not in current ingestion |
-| `college`             | —                     | v2 metadata only; not in current ingestion |
-| `group`               | —                     | v2 metadata only; not in current ingestion |
-| `exam_year`           | —                     | v2 metadata only; not in current ingestion |
-| `exam_session`        | —                     | v2 metadata only; not in current ingestion |
-| `semester_code`       | —                     | v2 metadata only; not in current ingestion |
-| `semester_no`         | —                     | v2 metadata only; not in current ingestion |
+| `question_id`         | `id`                  | Persisted in `Questions_Table.id`          |
+| `college`             | `college`             | Persisted when schema supports the field   |
+| `group`               | `group`               | Persisted when schema supports the field   |
+| `exam_year`           | `exam_year`           | Persisted when schema supports the field   |
+| `exam_session`        | `exam_session`        | Persisted when schema supports the field   |
+| `semester_code`       | `semester_code`       | Persisted when schema supports the field   |
+| `semester_no`         | `semester_no`         | Persisted when schema supports the field   |
 
 ---
 

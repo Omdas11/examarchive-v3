@@ -518,7 +518,8 @@ async function ensureCollectionExists(databases, databaseId, collection) {
   }
 }
 
-async function syncCollection(databases, databaseId, collection) {
+async function syncCollection(databases, databaseId, collection, options = {}) {
+  const deleteObsolete = Boolean(options.deleteObsolete);
   const created = await ensureCollectionExists(databases, databaseId, collection);
   console.log(created ? `[create] collection ${collection.id}` : `[exists] collection ${collection.id}`);
 
@@ -543,9 +544,15 @@ async function syncCollection(databases, databaseId, collection) {
     console.log(`[ready] attribute ${collection.id}.${attribute.key}`);
   }
 
+  let removedAttributes = 0;
   for (const attribute of obsoleteAttributes) {
+    if (!deleteObsolete) {
+      console.log(`[obsolete] attribute ${collection.id}.${attribute.key} (pass --delete-obsolete to remove)`);
+      continue;
+    }
     console.log(`[delete] attribute ${collection.id}.${attribute.key} (obsolete)`);
     await databases.deleteAttribute(databaseId, collection.id, attribute.key);
+    removedAttributes += 1;
   }
 
   if (missingAttributes.length === 0 && obsoleteAttributes.length === 0) {
@@ -557,7 +564,8 @@ async function syncCollection(databases, databaseId, collection) {
     createdCollection: created,
     totalTargetAttributes: collection.attributes.length,
     createdAttributes: missingAttributes.length,
-    removedAttributes: obsoleteAttributes.length,
+    removedAttributes,
+    obsoleteAttributes: obsoleteAttributes.length,
     mismatchCount,
     connected: mismatchCount === 0,
   };
@@ -579,6 +587,7 @@ function renderSchemaStatusSection(results) {
     const notes = [
       result.createdCollection ? "collection created" : "collection existed",
       `${result.createdAttributes}/${result.totalTargetAttributes} missing attrs created`,
+      `${result.obsoleteAttributes ?? 0} obsolete attrs detected`,
       `${result.removedAttributes ?? 0} obsolete attrs removed`,
       result.mismatchCount > 0 ? `${result.mismatchCount} attr definition mismatch(es)` : "no mismatches detected",
     ].join("; ");
@@ -621,6 +630,7 @@ function updateSchemaDocWithStatus(results, filePath = DATABASE_SCHEMA_DOC_PATH)
 
 async function main() {
   const shouldUpdateSchemaDoc = process.argv.includes("--update-schema-md");
+  const shouldDeleteObsolete = process.argv.includes("--delete-obsolete");
   const databases = createAppwriteDatabasesClient();
   ensureMasterNotesPrompt();
 
@@ -635,7 +645,7 @@ async function main() {
   );
   const results = [];
   for (const collection of effectiveSchema) {
-    results.push(await syncCollection(databases, DATABASE_ID, collection));
+    results.push(await syncCollection(databases, DATABASE_ID, collection, { deleteObsolete: shouldDeleteObsolete }));
   }
   if (shouldUpdateSchemaDoc) {
     updateSchemaDocWithStatus(results);

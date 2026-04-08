@@ -22,6 +22,7 @@ const XP_STREAK_30_DAY_BONUS = 500;
 /** Role/XO thresholds (docs/ROLE_XO_RULEBOOK.md). */
 const VIEWER_TO_CONTRIBUTOR_UPLOAD_THRESHOLD = 2;
 const VIEWER_TO_CONTRIBUTOR_XO_THRESHOLD = 30;
+const VIEWER_TO_CONTRIBUTOR_ACCOUNT_AGE_DAYS = 3;
 const CONTRIBUTOR_TO_CURATOR_UPLOAD_THRESHOLD = 10;
 const CONTRIBUTOR_TO_CURATOR_XO_THRESHOLD = 150;
 const TIER_SILVER_UPLOAD_THRESHOLD = 20;
@@ -83,10 +84,15 @@ async function incrementUploadCount(
     update.last_activity = now.toISOString();
 
     const currentRole = normalizeRole((profile.role as string) ?? "viewer");
+    const createdAt = typeof profile.$createdAt === "string" ? profile.$createdAt : "";
+    const accountAgeDays = createdAt
+      ? Math.floor((Date.now() - new Date(createdAt).getTime()) / 86_400_000)
+      : 0;
     if (
       currentRole === "viewer" &&
       currentCount >= VIEWER_TO_CONTRIBUTOR_UPLOAD_THRESHOLD &&
-      nextXo >= VIEWER_TO_CONTRIBUTOR_XO_THRESHOLD
+      nextXo >= VIEWER_TO_CONTRIBUTOR_XO_THRESHOLD &&
+      accountAgeDays >= VIEWER_TO_CONTRIBUTOR_ACCOUNT_AGE_DAYS
     ) {
       update.role = "contributor";
     }
