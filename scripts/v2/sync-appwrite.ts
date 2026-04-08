@@ -445,7 +445,7 @@ async function syncInfrastructure() {
   const databaseResult = await ensureDatabase(databases, TARGET_DATABASE_ID, TARGET_DATABASE_NAME);
   const requiredCollectionResult = await ensureCollection(databases, TARGET_DATABASE_ID, REQUIRED_COLLECTION_ID);
   const orphanDatabasesDeleted = await cleanupOrphanDatabases(databases);
-  const liveBucketsResponse = await storage.listBuckets();
+  const liveBucketsResponse = await storage.listBuckets([Query.limit(100)]);
   const orphanBucketsDeleted = await cleanupOrphanBuckets(
     storage,
     liveBucketsResponse.buckets.map((bucket) => ({ $id: bucket.$id, name: bucket.name })),
