@@ -240,7 +240,7 @@ async function upsertQuestionRows(args: {
         await db.createDocument(DATABASE_ID, COLLECTION.questions_table, ID.unique(), payload);
         added += 1;
       }
-    } catch (error) {
+    } catch {
       if (existing) {
         await db.updateDocument(DATABASE_ID, COLLECTION.questions_table, existing.$id, basePayload);
         updated += 1;

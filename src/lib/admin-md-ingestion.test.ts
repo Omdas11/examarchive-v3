@@ -37,7 +37,7 @@ subject: Physics
     expect(parsed.questions[0]?.year).toBe(2023);
   });
 
-  it("reports a validation error when subject field is missing", () => {
+  it("derives subject from paper_code when subject is missing", () => {
     const markdown = `---
 university: Assam University
 course: FYUG
@@ -59,8 +59,8 @@ paper_name: Mechanics
 `;
 
     const parsed = parseDemoDataEntryMarkdown(markdown);
-    expect(parsed.errors.some((err) => err.message.includes("subject"))).toBe(true);
-    expect(parsed.frontmatter).toBeNull();
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.frontmatter?.subject).toBe("PHY");
   });
 
   it("reports deterministic line-level errors for invalid rows", () => {
