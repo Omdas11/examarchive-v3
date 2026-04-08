@@ -32,7 +32,7 @@ export default async function AdminIngestMdPage() {
       <section className="mx-auto max-w-6xl px-4 py-10">
         <h1 className="text-2xl font-bold">Admin Markdown Ingestion</h1>
         <p className="mt-1 text-sm text-on-surface-variant">
-          Upload structured Markdown data and ingest it into Syllabus_Table and Questions_Table.
+          Upload structured syllabus or question Markdown data and ingest into the matching table.
         </p>
         <IngestMdClient />
       </section>

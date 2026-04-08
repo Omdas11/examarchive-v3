@@ -238,12 +238,187 @@ Tracks PDF generation usage events for `/api/ai/pdf` throttling.
 
 Stores markdown ingestion records for AI content options.
 
-| Field        | Type   | Required | Notes |
-|--------------|--------|----------|-------|
-| `paper_code` | String | **Yes**  | Strict ingestion paper code |
-| `file_id`    | String | **Yes**  | Appwrite Storage file ID for ingested markdown |
+| Field                 | Type          | Required | Notes |
+|-----------------------|---------------|----------|-------|
+| `entry_type`          | String(32)    | No       | Current ingestion values: `syllabus` \| `question` (split mode; not DB-enforced enum) |
+| `paper_code`          | String(256)   | No       | Ingestion paper code |
+| `source_label`        | String(256)   | No       | Source file label |
+| `file_id`             | String(64)    | No       | Appwrite Storage file ID |
+| `file_url`            | String(2048)  | No       | Source file URL |
+| `status`              | String(32)    | No       | Ingestion status |
+| `model`               | String(64)    | No       | Ingestion parser/model label |
+| `characters_ingested` | Integer       | No       | Parsed character count |
+| `digest`              | String(8192)  | No       | JSON digest |
+| `paper_name`          | String(255)   | No       | Human-readable paper name |
+| `ingested_at`         | Datetime      | No       | Explicit ingestion timestamp |
+| `row_count`           | Integer       | No       | Syllabus+question rows written |
+| `error_summary`       | String(2000)  | No       | Compressed parse/db errors |
+| `subject`             | String(128)   | No       | Department/subject |
+| `dept_code`           | String(16)    | No       | Department code |
 
 **Collection settings:** `documentSecurity = false`, permissions include `read("any")`.
+
+---
+
+## Collection: `ai_syllabus_maps`
+
+AI-generated syllabus-to-archive mapping records.
+
+| Field                 | Type         | Required | Notes |
+|-----------------------|--------------|----------|-------|
+| `university`          | String(256)  | No       | University name |
+| `college`             | String(256)  | No       | College/institution |
+| `program`             | String(128)  | No       | Program/course |
+| `semester`            | String(32)   | No       | Semester label/code |
+| `checksum`            | String(128)  | No       | Mapping checksum |
+| `modules_json`        | String(10000)| No       | JSON payload of module mappings |
+| `model`               | String(64)   | No       | AI model identifier |
+| `source_syllabus_id`  | String(64)   | No       | Source syllabus document ID |
+
+---
+
+## Collection: `ai_flashcards`
+
+AI-generated flashcards payloads.
+
+| Field             | Type         | Required | Notes |
+|-------------------|--------------|----------|-------|
+| `userId`          | String(64)   | No       | User ID |
+| `source_paper_id` | String(64)   | No       | Source paper ID |
+| `payload`         | String(10000)| No       | Serialized flashcards payload |
+| `model`           | String(64)   | No       | AI model identifier |
+| `tags`            | Array(String(128)) | No | Optional tags |
+
+---
+
+## Collection: `ai_admin_reports`
+
+AI-generated admin summary reports.
+
+| Field       | Type         | Required | Notes |
+|-------------|--------------|----------|-------|
+| `run_at`    | Datetime     | No       | Report run timestamp |
+| `summary`   | String(10000)| No       | Summary text |
+| `risks_json`| String(10000)| No       | Structured risks payload |
+| `model`     | String(64)   | No       | AI model identifier |
+
+---
+
+## Collection: `Syllabus_Table`
+
+Canonical parsed syllabus units used by ingestion and AI notes generation.
+
+| Field                  | Type                  | Required | Notes |
+|------------------------|-----------------------|----------|-------|
+| `entry_type`           | String(32)            | No       | `syllabus` for split mode |
+| `entry_id`             | String(128)           | No       | External/source entry ID |
+| `college`              | String(256)           | No       | College |
+| `university`           | String(256)           | **Yes**  | University |
+| `course`               | String(64)            | **Yes**  | Course |
+| `stream`               | String(64)            | **Yes**  | Stream |
+| `group`                | String(256)           | No       | Group/category |
+| `session`              | String(64)            | No       | Academic session |
+| `year`                 | Integer               | No       | Academic year |
+| `type`                 | String(32)            | **Yes**  | Paper type |
+| `paper_code`           | String(128)           | **Yes**  | Paper code |
+| `paper_name`           | String(255)           | No       | Paper name |
+| `subject`              | String(256)           | No       | Subject |
+| `semester_code`        | String(16)            | No       | Semester code |
+| `semester_no`          | Integer               | No       | Semester number |
+| `semester`             | Integer               | No       | Canonical semester (1–8) |
+| `credits`              | Integer               | No       | Credits |
+| `marks_total`          | Integer               | No       | Total marks |
+| `syllabus_pdf_url`     | String(2048)          | No       | Syllabus PDF URL |
+| `source_reference`     | String(512)           | No       | Source reference |
+| `status`               | String(64)            | No       | Ingestion status |
+| `aliases`              | Array(String(256))    | No       | Alias list |
+| `keywords`             | Array(String(128))    | No       | Keywords |
+| `notes`                | String(8192)          | No       | Notes |
+| `version`              | Integer               | No       | Entry version |
+| `last_updated`         | String(32)            | No       | Last updated marker |
+| `unit_number`          | Integer               | **Yes**  | Unit number |
+| `syllabus_content`     | String(1000000)       | **Yes**  | Unit syllabus text |
+| `lectures`             | Integer               | No       | Lecture count |
+| `tags`                 | Array(String(128))    | No       | Unit tags |
+
+---
+
+## Collection: `Questions_Table`
+
+Canonical parsed question rows used by solved-paper generation.
+
+| Field                    | Type                | Required | Notes |
+|--------------------------|---------------------|----------|-------|
+| `entry_type`             | String(32)          | No       | `question` for split mode |
+| `question_id`            | String(128)         | No       | External/source question ID |
+| `college`                | String(256)         | No       | College |
+| `university`             | String(256)         | **Yes**  | University |
+| `course`                 | String(64)          | **Yes**  | Course |
+| `stream`                 | String(64)          | **Yes**  | Stream |
+| `group`                  | String(256)         | No       | Group/category |
+| `type`                   | String(32)          | **Yes**  | Paper type |
+| `paper_code`             | String(128)         | **Yes**  | Paper code |
+| `paper_name`             | String(256)         | No       | Paper name |
+| `subject`                | String(256)         | No       | Subject |
+| `exam_year`              | Integer             | No       | Exam year |
+| `exam_session`           | String(64)          | No       | Exam session |
+| `exam_month`             | String(32)          | No       | Exam month |
+| `attempt_type`           | String(32)          | No       | Attempt type |
+| `semester_code`          | String(16)          | No       | Semester code |
+| `semester_no`            | Integer             | No       | Semester number |
+| `question_pdf_url`       | String(2048)        | No       | Question paper PDF URL |
+| `source_reference`       | String(512)         | No       | Source reference |
+| `status`                 | String(64)          | No       | Ingestion status |
+| `question_no`            | String(32)          | No       | Question number |
+| `question_subpart`       | String(32)          | No       | Question subpart |
+| `year`                   | Integer             | No       | Legacy year field |
+| `question_content`       | String(1000000)     | **Yes**  | Question text |
+| `marks`                  | Integer             | No       | Marks |
+| `tags`                   | Array(String(128))  | No       | Tags |
+| `linked_syllabus_entry_id` | String(128)      | No       | Link to syllabus entry |
+| `link_status`            | String(32)          | No       | Linking status |
+| `ocr_text_path`          | String(512)         | No       | OCR text reference |
+| `ai_summary_status`      | String(32)          | No       | AI summary status |
+| `difficulty_estimate`    | String(32)          | No       | Difficulty estimate |
+
+---
+
+## Collection: `Generated_Notes_Cache`
+
+Cache for generated unit/part markdown and rendered PDF artifacts.
+
+| Field                 | Type             | Required | Notes |
+|-----------------------|------------------|----------|-------|
+| `university`          | String(256)      | No       | University |
+| `course`              | String(64)       | No       | Course |
+| `stream`              | String(64)       | No       | Stream |
+| `selection_type`      | String(32)       | No       | Selection key |
+| `paper_code`          | String(128)      | **Yes**  | Paper code |
+| `type`                | String(50)       | **Yes**  | Notes type |
+| `year`                | String(10)       | No       | Legacy year key |
+| `semester`            | String(10)       | No       | Semester key |
+| `unit_number`         | Integer          | **Yes**  | Unit number |
+| `part_number`         | Integer          | No       | Part number |
+| `markdown_file_id`    | String(100)      | **Yes**  | Markdown storage file ID |
+| `generated_markdown`  | String(1000000)  | No       | Generated markdown content |
+| `syllabus_content`    | String(1000000)  | No       | Source syllabus chunk |
+| `pdf_file_id`         | String(100)      | No       | Rendered PDF storage file ID |
+| `created_at`          | Datetime         | **Yes**  | Creation timestamp |
+| `status`              | String(50)       | **Yes**  | Cache row status |
+| `last_processed_index`| Integer          | No       | Partial-generation progress marker |
+
+---
+
+## Collection: `User_Quotas`
+
+Per-user daily quota counters for notes and solved-paper generation.
+
+| Field                 | Type       | Required | Notes |
+|-----------------------|------------|----------|-------|
+| `user_id`             | String(64) | **Yes**  | User ID |
+| `notes_generated_today` | Integer  | **Yes**  | Daily notes generation count |
+| `papers_solved_today` | Integer    | **Yes**  | Daily solved-paper generation count |
+| `last_generation_date`| String(10) | **Yes**  | Date key (`YYYY-MM-DD`) |
 
 ---
 
@@ -280,12 +455,14 @@ Recommended index:
 | `papers`         | Exam question paper PDFs        | 20 MB         | `read("users")` — authenticated only |
 | `syllabus-files` | Syllabus PDFs                   | 20 MB         | `read("users")` — authenticated only |
 | `avatars`        | User avatar images              | 5 MB          | `read("users")`  |
-| `examarchive-md-ingestion` | Markdown ingestion cache | - | `read("any")` |
+| `examarchive-syllabus-md-ingestion` | Uploaded syllabus markdown ingestion files | 2 MB | server-side admin only |
+| `examarchive-question-ingestion-assets` | Question ingestion assets (markdown + rendered PDFs) | 5 MB | server-side admin only |
 
 All files are served via Next.js proxy routes that verify the user's session:
 - Papers: `/api/files/papers/[fileId]`
 - Syllabi: `/api/files/syllabus/[fileId]`
 - Avatars: `/api/files/avatars/[fileId]`
+- Ingestion-rendered question PDFs: `/api/files/ingestion-question/[fileId]`
 
 ---
 
@@ -330,12 +507,12 @@ _Last synced: 2026-04-07T11:58:20.350Z_
 | `ai_embeddings` | ⚠️ Connected with differences | 0 | collection existed; 0 missing attrs created; 2 attr definition mismatch(es); 0 missing expected attr(s); mismatch: course_code, embedding |
 | `pdf_usage` | ✅ Perfectly connected | 0 | collection existed; 0 missing attrs created; 0 attr definition mismatch(es); 0 missing expected attr(s) |
 | `ai_ingestions` | ⚠️ Connected with differences | 0 | collection existed; 0 missing attrs created; 2 attr definition mismatch(es); 0 missing expected attr(s); mismatch: paper_code, file_id |
-| `ai_syllabus_maps` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from DATABASE_SCHEMA.md |
-| `ai_flashcards` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from DATABASE_SCHEMA.md |
-| `ai_admin_reports` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from DATABASE_SCHEMA.md |
-| `Syllabus_Table` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from DATABASE_SCHEMA.md |
-| `Questions_Table` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from DATABASE_SCHEMA.md |
-| `Generated_Notes_Cache` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from DATABASE_SCHEMA.md |
-| `User_Quotas` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from DATABASE_SCHEMA.md |
+| `ai_syllabus_maps` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from v2/DATABASE_SCHEMA.md |
+| `ai_flashcards` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from v2/DATABASE_SCHEMA.md |
+| `ai_admin_reports` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from v2/DATABASE_SCHEMA.md |
+| `Syllabus_Table` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from v2/DATABASE_SCHEMA.md |
+| `Questions_Table` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from v2/DATABASE_SCHEMA.md |
+| `Generated_Notes_Cache` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from v2/DATABASE_SCHEMA.md |
+| `User_Quotas` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from v2/DATABASE_SCHEMA.md |
 
 <!-- SCHEMA_SYNC_STATUS_END -->

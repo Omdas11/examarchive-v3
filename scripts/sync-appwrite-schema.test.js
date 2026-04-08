@@ -2,6 +2,7 @@ const {
   createAttribute,
   getAppwriteDefaultValue,
   getMissingAttributes,
+  getObsoleteAttributes,
   renderSchemaStatusSection,
   TARGET_SCHEMA,
   upsertSchemaStatusBlock,
@@ -10,10 +11,16 @@ const {
 
 describe("sync-appwrite-schema helpers", () => {
   test("getMissingAttributes returns only attributes not present live", () => {
-    const target = [{ key: "email" }, { key: "role" }, { key: "xp" }];
-    const live = [{ key: "email" }, { key: "xp" }];
+    const target = [{ key: "email" }, { key: "role" }, { key: "xo" }];
+    const live = [{ key: "email" }, { key: "xo" }];
 
     expect(getMissingAttributes(target, live)).toEqual([{ key: "role" }]);
+  });
+
+  test("getObsoleteAttributes returns configured legacy attributes", () => {
+    const collection = { obsoleteAttributes: ["xp", "streak_days"] };
+    const live = [{ key: "email" }, { key: "xp" }, { key: "streak_days" }, { key: "xo" }];
+    expect(getObsoleteAttributes(collection, live)).toEqual([{ key: "xp" }, { key: "streak_days" }]);
   });
 
   test("createAttribute routes to matching Appwrite create method", async () => {
@@ -33,7 +40,7 @@ describe("sync-appwrite-schema helpers", () => {
       size: 320,
     });
     await createAttribute(databases, "examarchive", "users", {
-      key: "xp",
+      key: "xo",
       type: "integer",
       required: false,
     });
@@ -147,5 +154,9 @@ describe("sync-appwrite-schema helpers", () => {
     expect(questions).toBeDefined();
     expect(syllabus.attributes.some((attribute) => attribute.key === "stream")).toBe(true);
     expect(questions.attributes.some((attribute) => attribute.key === "stream")).toBe(true);
+    expect(syllabus.attributes.some((attribute) => attribute.key === "entry_id")).toBe(true);
+    expect(syllabus.attributes.some((attribute) => attribute.key === "semester_code")).toBe(true);
+    expect(questions.attributes.some((attribute) => attribute.key === "question_id")).toBe(true);
+    expect(questions.attributes.some((attribute) => attribute.key === "exam_year")).toBe(true);
   });
 });

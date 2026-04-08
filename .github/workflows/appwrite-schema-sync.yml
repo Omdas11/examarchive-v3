@@ -14,11 +14,11 @@ on:
   push:
     branches: [ main ]
     paths:
-      - "DATABASE_SCHEMA.md"
-      - "scripts/sync-appwrite-schema.js"
-      - "scripts/md-sync-utils.js"
-      - "scripts/watch-md-sync.js"
-      - "scripts/appwrite-schema-setup.js"
+      - "docs/launch/v2/DATABASE_SCHEMA.md"
+      - "scripts/v2/sync-appwrite-schema.js"
+      - "scripts/v2/md-sync-utils.js"
+      - "scripts/v2/watch-md-sync.js"
+      - "scripts/v2/appwrite-schema-setup.js"
       - ".github/workflows/appwrite-schema-sync.yml"
 
 permissions:
@@ -50,17 +50,17 @@ jobs:
           APPWRITE_API_KEY: ${{ secrets.APPWRITE_API_KEY }}
         run: npm run sync:appwrite-schema:status
 
-      - name: Commit updated DATABASE_SCHEMA.md status
+      - name: Commit updated docs/launch/v2/DATABASE_SCHEMA.md status
         shell: bash
         run: |
-          if git diff --quiet -- DATABASE_SCHEMA.md MASTER_NOTES_PROMPT.md; then
+          if git diff --quiet -- docs/launch/v2/DATABASE_SCHEMA.md MASTER_NOTES_PROMPT.md; then
             echo "No schema status changes to commit."
             exit 0
           fi
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add DATABASE_SCHEMA.md MASTER_NOTES_PROMPT.md
+          git add docs/launch/v2/DATABASE_SCHEMA.md MASTER_NOTES_PROMPT.md
           git commit -m "chore: update auto-generated schema sync status"
           git fetch origin main
           if ! git rebase origin/main; then

@@ -4,21 +4,22 @@ Canonical schema for syllabus ingestion into ExamArchive.
 
 ## Purpose
 
-This document defines a **v2 syllabus authoring schema** intended for future ingestion
-pipeline improvements. It is **not** the same as the current `DEMO_DATA_ENTRY.md`
-frontmatter schema enforced by `src/lib/admin-md-ingestion.ts`.
+This document defines the canonical **syllabus authoring schema** supported by
+`src/lib/admin-md-ingestion.ts` and `/api/admin/ingest-md`.
 
-Before any v2 entry can be ingested by the current system, the v2 fields must be mapped
-to the currently enforced frontmatter keys. See the **Field Mapping** section below.
+For the master drafting guide (both syllabus and question formats, naming, and upload order), see:
+`docs/MASTER_INGESTION_GUIDE.md`.
 
 ## Rules
 
 - Keep fields consistent and machine-readable.
 - Use one YAML block per syllabus paper entry.
 - `paper_code` must pass validation from `PAPER_CODE_VALIDATION_RULES.md`.
-- File should be named `{paper_code}.md` (e.g., `PHYDSC101T.md`). Since a paper code
-  represents a canonical curriculum slot (not a year-specific record), one file per code
-  is the intended convention. Year/session context is captured inside the YAML fields.
+- File should be named `{paper_code}-syllabus.md` (e.g., `PHYDSC101T-syllabus.md`).
+  Since a paper code represents a canonical curriculum slot (not a year-specific record),
+  one syllabus file per code is the intended convention.
+- Do **not** include a `## Questions` section in this file. Syllabus and question ingestion
+  are intentionally split and must be uploaded as separate markdown files.
 - Follow the encoding and naming conventions from `docs/ASSAM_UNIVERSITY_PAPER_CODING.md`.
 
 ---
@@ -69,7 +70,7 @@ The current parser (`src/lib/admin-md-ingestion.ts`) reads these frontmatter key
 | `semester_no`       | number | —                   | Derived semester number (1–8); v2 only                   |
 | `credits`           | number | —                   | Credit value of the paper; v2 metadata only              |
 | `marks_total`       | number | —                   | Total marks; v2 metadata only                            |
-| `syllabus_pdf_url`  | string | —                   | URL or relative path to the syllabus PDF                 |
+| `syllabus_pdf_url`  | string | —                   | Optional override; auto-generated if omitted             |
 | `source_reference`  | string | —                   | Source doc or file this entry was derived from           |
 | `status`            | string | —                   | `active`, `archived`, or `draft`                         |
 
@@ -112,7 +113,9 @@ semester_no: 1
 credits: 4
 marks_total: 100
 
-syllabus_pdf_url: "https://www.examarchive.dev/assets/syllabus/PHYDSC101T.pdf"
+# Optional: if omitted, ingestion auto-fills:
+# /api/syllabus/table?paperCode=PHYDSC101T&mode=pdf&university=...&course=...&stream=...&type=...
+syllabus_pdf_url: "/api/syllabus/table?paperCode=PHYDSC101T&mode=pdf&university=Assam%20University&course=FYUG&stream=Science&type=DSC"
 source_reference: "HAFLONG-GOVERNMENT-COLLEGE-SYLLABUS.md"
 status: "active"
 
@@ -142,7 +145,7 @@ last_updated: "2026-04-08"
 
 ## Ingestion Flow
 
-1. Contributor creates the `.md` file named after the paper code.
+1. Contributor creates the `.md` file as `{paper_code}-syllabus.md`.
 2. YAML frontmatter is parsed and `paper_code` is validated first.
 3. If invalid, reject with error from `PAPER_CODE_VALIDATION_RULES.md`.
 4. Derive and cross-check: `subject_code`, `paper_type`, `semester_code`, `semester_no`.
@@ -160,14 +163,14 @@ last_updated: "2026-04-08"
 - [ ] `stream` is `Science`, `Arts`, or `Commerce`
 - [ ] Program/group present
 - [ ] Source reference present
-- [ ] URL/path non-empty
+- [ ] `syllabus_pdf_url` provided only when overriding the auto-generated value
 - [ ] `status` is one of: `active`, `archived`, `draft`
 
 ---
 
 ## Syllabus Table (markdown body, after frontmatter)
 
-After the YAML block, include the unit-level syllabus in a table matching `DEMO_DATA_ENTRY.md`:
+After the YAML block, include the unit-level syllabus table as shown below:
 
 ```markdown
 ## Syllabus

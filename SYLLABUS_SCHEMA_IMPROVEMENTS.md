@@ -10,19 +10,19 @@
 
 ### 1. `paper_name` added to `Syllabus_Table` ✅
 
-**Script:** `scripts/sync-appwrite-schema.js` → `TARGET_SCHEMA`  
+**Script:** `scripts/v2/sync-appwrite-schema.js` → `TARGET_SCHEMA`  
 **Ingestion:** `src/app/api/admin/ingest-md/route.ts` — `upsertSyllabusRows` now writes `paper_name` from YAML frontmatter  
 **Why:** The Syllabus Tracker page can now display paper names directly from `Syllabus_Table` without cross-joining `Questions_Table`.
 
 ### 2. `semester` (Integer 1–8) added to `Syllabus_Table` ✅
 
-**Script:** `scripts/sync-appwrite-schema.js` → `TARGET_SCHEMA`  
+**Script:** `scripts/v2/sync-appwrite-schema.js` → `TARGET_SCHEMA`  
 **Ingestion:** `src/app/api/admin/ingest-md/route.ts` — `deriveSemesterFromCode()` extracts the semester from the paper code pattern `[DEPT][TYPE][semN]...` and stores it  
 **Why:** Enables direct range queries (`semester = 3`) without string parsing.
 
 ### 3. New fields added to `ai_ingestions` ✅
 
-**Script:** `scripts/sync-appwrite-ai.js` → `AI_COLLECTIONS`  
+**Script:** `scripts/v2/sync-appwrite-ai.js` → `AI_COLLECTIONS`  
 **Hard-reset sync:** `scripts/hard-reset-ingestion.ts` → `INGESTION_ATTRIBUTES`  
 **Ingestion:** `src/app/api/admin/ingest-md/route.ts` → `createIngestionLog` writes all new fields
 

@@ -190,10 +190,10 @@ export async function signUp(formData: FormData) {
         created.$id,
         {
           email,
-          role: "visitor",
+          role: "viewer",
           display_name: "",
           username: "",
-          xp: 0,
+          xo: 0,
           streak: 0,
           upload_count: 0,
           secondary_role: null,

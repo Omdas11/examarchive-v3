@@ -215,6 +215,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    case "xo_add":
+    case "xo_set":
     case "xp_add":
     case "xp_set": {
       const { userId, amount } = body;
@@ -226,12 +228,13 @@ export async function POST(request: NextRequest) {
       }
       try {
         const doc = await db.getDocument(DATABASE_ID, COLLECTION.users, userId);
-        const currentXp = (doc.xp as number) ?? 0;
-        const newXp = action === "xp_add" ? Math.max(0, currentXp + amount) : Math.max(0, amount);
-        await db.updateDocument(DATABASE_ID, COLLECTION.users, userId, { xp: newXp });
+        const currentXo = (doc.xo as number) ?? (doc.xp as number) ?? 0;
+        const isAdd = action === "xo_add" || action === "xp_add";
+        const newXo = isAdd ? Math.max(0, currentXo + amount) : Math.max(0, amount);
+        await db.updateDocument(DATABASE_ID, COLLECTION.users, userId, { xo: newXo });
         return NextResponse.json({
           success: true,
-          message: `XP ${action === "xp_add" ? "adjusted" : "set"} to ${newXp} for user ${userId}.`,
+          message: `XO ${isAdd ? "adjusted" : "set"} to ${newXo} for user ${userId}.`,
         });
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -239,6 +242,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    case "reset_users_xo":
     case "reset_users_xp": {
       try {
         let updated = 0;
@@ -253,17 +257,17 @@ export async function POST(request: NextRequest) {
             hasMore = false;
           } else {
             for (const doc of documents) {
-              await db.updateDocument(DATABASE_ID, COLLECTION.users, doc.$id, {
-                xp: 0,
-                streak_days: 0,
-              });
+              const updatePayload: { xo: number; streak?: number; streak_days?: number } = { xo: 0 };
+              if ("streak" in doc) updatePayload.streak = 0;
+              if ("streak_days" in doc) updatePayload.streak_days = 0;
+              await db.updateDocument(DATABASE_ID, COLLECTION.users, doc.$id, updatePayload);
               updated++;
             }
           }
         }
         return NextResponse.json({
           success: true,
-          message: `Reset XP and streak for ${updated} user${updated !== 1 ? "s" : ""}.`,
+          message: `Reset XO and streak for ${updated} user${updated !== 1 ? "s" : ""}.`,
         });
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);

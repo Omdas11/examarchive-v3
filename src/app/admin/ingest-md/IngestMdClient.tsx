@@ -200,11 +200,11 @@ export default function IngestMdClient() {
     <div className="mt-6 space-y-6">
       <section className="rounded-xl border border-outline-variant/40 bg-surface p-4 shadow-sm">
         <div className="mb-3 flex flex-wrap gap-2">
-          <a href="/api/admin/ingest-md?template=1" className="btn">
-            Download Template
+          <a href="/api/admin/ingest-md?template=syllabus" className="btn">
+            Download Syllabus Template
           </a>
-          <a href="/DEMO_DATA_ENTRY.md" className="btn">
-            View Template
+          <a href="/api/admin/ingest-md?template=question" className="btn">
+            Download Question Template
           </a>
           <label className="inline-flex items-center gap-2 rounded-lg border border-outline-variant/40 px-3 py-2 text-sm">
             <span>Auto Ingest ↔ Tracker flow</span>
@@ -244,7 +244,11 @@ export default function IngestMdClient() {
             }}
           />
           <p className="text-sm font-semibold">Drag & drop Markdown files or click to choose one or more files</p>
-          <p className="mt-1 text-xs text-on-surface-variant">Only `.md` files using the strict template are accepted.</p>
+          <p className="mt-1 text-xs text-on-surface-variant">
+            Only `.md` files are accepted. Upload syllabus-only or question-only markdown templates.
+            Files containing both sections are rejected. Authoring spec: docs/MASTER_INGESTION_GUIDE.md.
+            `syllabus_pdf_url` and `question_pdf_url` are auto-populated when omitted.
+          </p>
           {uploading && <p className="mt-3 text-sm text-primary">Processing ingestion…</p>}
         </label>
         {error && <p className="mt-3 text-sm text-error">⚠ {error}</p>}

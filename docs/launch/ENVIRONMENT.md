@@ -40,6 +40,8 @@ APPWRITE_API_KEY=your-appwrite-api-key
 APPWRITE_BUCKET_ID=papers
 APPWRITE_AVATARS_BUCKET_ID=avatars
 APPWRITE_SYLLABUS_BUCKET_ID=syllabus-files
+APPWRITE_SYLLABUS_MD_INGESTION_BUCKET_ID=examarchive-syllabus-md-ingestion
+APPWRITE_QUESTION_INGESTION_ASSETS_BUCKET_ID=examarchive-question-ingestion-assets
 APPWRITE_MD_CACHE_BUCKET_ID=examarchive-md-bucket
 ```
 
@@ -149,7 +151,7 @@ ExamArchive requires the following Appwrite collections to be manually created i
 - **Permissions**: Server key only
 - **Recommended Index**: Create compound index on `(user_id, date)` for efficient queries
 
-See [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) for complete schema documentation.
+See [v2/DATABASE_SCHEMA.md](./v2/DATABASE_SCHEMA.md) for complete schema documentation.
 
 ## Security Best Practices
 

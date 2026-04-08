@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getServerUser } from "@/lib/auth";
-import { isModerator } from "@/lib/roles";
+import { isModerator, normalizeRole } from "@/lib/roles";
 import {
   adminDatabases,
   adminStorage,
@@ -10,22 +10,26 @@ import {
 } from "@/lib/appwrite";
 import { logActivity } from "@/lib/activity-log";
 
-/** XP awarded when a paper is approved. */
+/** XO awarded when a paper is approved. */
 const XP_PER_APPROVED_UPLOAD = 50;
-/** Bonus XP for the very first approved upload. */
+/** Bonus XO for the very first approved upload. */
 const XP_FIRST_UPLOAD_BONUS = 20;
-/** Bonus XP at 7-day streak. */
+/** Bonus XO at 7-day streak. */
 const XP_STREAK_7_DAY_BONUS = 100;
-/** Bonus XP at 30-day streak. */
+/** Bonus XO at 30-day streak. */
 const XP_STREAK_30_DAY_BONUS = 500;
 
-/** Upload-count thresholds for auto-promotion. */
-const CONTRIBUTOR_THRESHOLD = 3;
-const MODERATOR_ELIGIBLE_THRESHOLD = 20;
+/** Role/XO thresholds (docs/ROLE_XO_RULEBOOK.md). */
+const VIEWER_TO_CONTRIBUTOR_UPLOAD_THRESHOLD = 2;
+const VIEWER_TO_CONTRIBUTOR_XO_THRESHOLD = 30;
+const VIEWER_TO_CONTRIBUTOR_ACCOUNT_AGE_DAYS = 3;
+const CONTRIBUTOR_TO_CURATOR_UPLOAD_THRESHOLD = 10;
+const CONTRIBUTOR_TO_CURATOR_XO_THRESHOLD = 150;
+const TIER_SILVER_UPLOAD_THRESHOLD = 20;
 
 /**
  * After a paper is approved, increment the uploader's `upload_count`,
- * grant XP (+50 per upload, +20 first-upload bonus), update streak,
+  * grant XO (+50 per upload, +20 first-upload bonus), update streak,
  * and auto-promote based on thresholds.
  */
 async function incrementUploadCount(
@@ -44,10 +48,11 @@ async function incrementUploadCount(
     const currentCount = ((profile.upload_count as number) ?? 0) + 1;
     const update: Record<string, unknown> = { upload_count: currentCount };
 
-    // ── XP grant ──────────────────────────────────────────────────────────
-    let xpGain = XP_PER_APPROVED_UPLOAD;
-    if (currentCount === 1) xpGain += XP_FIRST_UPLOAD_BONUS; // first upload bonus
-    update.xp = ((profile.xp as number) ?? 0) + xpGain;
+    // ── XO grant ──────────────────────────────────────────────────────────
+    let xoGain = XP_PER_APPROVED_UPLOAD;
+    if (currentCount === 1) xoGain += XP_FIRST_UPLOAD_BONUS; // first upload bonus
+    const nextXo = ((profile.xo as number) ?? (profile.xp as number) ?? 0) + xoGain;
+    update.xo = nextXo;
 
     // ── Streak update ─────────────────────────────────────────────────────
     const now = new Date();
@@ -68,31 +73,41 @@ async function incrementUploadCount(
       streak = 1;
     }
 
-    // Streak milestone XP bonuses — award when crossing the threshold
+    // Streak milestone XO bonuses — award when crossing the threshold
     if (prevStreak < 7 && streak >= 7) {
-      update.xp = (update.xp as number) + XP_STREAK_7_DAY_BONUS;
+      update.xo = (update.xo as number) + XP_STREAK_7_DAY_BONUS;
     } else if (prevStreak < 30 && streak >= 30) {
-      update.xp = (update.xp as number) + XP_STREAK_30_DAY_BONUS;
+      update.xo = (update.xo as number) + XP_STREAK_30_DAY_BONUS;
     }
 
     update.streak = streak;
     update.last_activity = now.toISOString();
 
-    // Auto-promote: upgrade `role` to "contributor" after reaching the threshold.
-    // "contributor" is a valid UserRole so we update the main role field, not secondary_role.
-    // "student" is included because it is a legacy alias for "visitor" (level 0) and
-    // some older profiles may still carry that value.
-    const currentRole = (profile.role as string) ?? "visitor";
+    const currentRole = normalizeRole((profile.role as string) ?? "viewer");
+    const createdAt = typeof profile.$createdAt === "string" ? profile.$createdAt : "";
+    const accountAgeDays = createdAt
+      ? Math.floor((Date.now() - new Date(createdAt).getTime()) / 86_400_000)
+      : 0;
     if (
-      currentCount >= CONTRIBUTOR_THRESHOLD &&
-      (currentRole === "student" || currentRole === "visitor" || currentRole === "explorer")
+      currentRole === "viewer" &&
+      currentCount >= VIEWER_TO_CONTRIBUTOR_UPLOAD_THRESHOLD &&
+      nextXo >= VIEWER_TO_CONTRIBUTOR_XO_THRESHOLD &&
+      accountAgeDays >= VIEWER_TO_CONTRIBUTOR_ACCOUNT_AGE_DAYS
     ) {
       update.role = "contributor";
+    }
+    if (
+      currentRole === "contributor" &&
+      currentCount >= CONTRIBUTOR_TO_CURATOR_UPLOAD_THRESHOLD &&
+      nextXo >= CONTRIBUTOR_TO_CURATOR_XO_THRESHOLD &&
+      !Boolean(profile.abuse_flag)
+    ) {
+      update.role = "curator";
     }
 
     // Auto-promote: set tier to silver once moderator-eligible threshold is reached
     if (
-      currentCount >= MODERATOR_ELIGIBLE_THRESHOLD &&
+      currentCount >= TIER_SILVER_UPLOAD_THRESHOLD &&
       ((profile.tier as string) ?? "bronze") === "bronze"
     ) {
       update.tier = "silver";

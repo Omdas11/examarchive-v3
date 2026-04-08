@@ -13,13 +13,13 @@ jest.mock("node-appwrite", () => ({
   Functions: jest.fn(),
 }));
 
-jest.mock("./sync-appwrite-schema", () => ({
-  ...jest.requireActual("./sync-appwrite-schema"),
+jest.mock("./v2/sync-appwrite-schema", () => ({
+  ...jest.requireActual("./v2/sync-appwrite-schema"),
   createAttribute: jest.fn().mockResolvedValue({}),
   waitForAttributeAvailability: jest.fn().mockResolvedValue({ status: "available" }),
 }));
 
-const { createAttribute, waitForAttributeAvailability } = require("./sync-appwrite-schema");
+const { createAttribute, waitForAttributeAvailability } = require("./v2/sync-appwrite-schema");
 const { ensureFunctionExists, syncCollection } = require("./sync-appwrite-ai");
 
 describe("sync-appwrite-ai", () => {

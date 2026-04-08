@@ -1,14 +1,21 @@
-# Bucket Setup Guide: `examarchive-md-ingestion`
+# Bucket Setup Guide: Ingestion Buckets
 
-If automatic bucket creation fails (insufficient permissions), configure the bucket manually in Appwrite:
+If automatic bucket creation fails (insufficient permissions), configure both ingestion buckets manually in Appwrite:
 
 1. Open **Storage** → **Create Bucket**.
-2. Set **Bucket ID** to `examarchive-md-ingestion`.
-3. Recommended settings:
+2. Create `examarchive-syllabus-md-ingestion` with:
    - Enabled: `true`
    - File Security: `false`
    - Max File Size: `2 MB`
    - Allowed Extensions: `md`
+   - Compression: `none`
+   - Encryption: `true`
+   - Antivirus: `true`
+3. Create `examarchive-question-ingestion-assets` with:
+   - Enabled: `true`
+   - File Security: `false`
+   - Max File Size: `5 MB`
+   - Allowed Extensions: `md,pdf`
    - Compression: `none`
    - Encryption: `true`
    - Antivirus: `true`
@@ -26,4 +33,4 @@ Run:
 npm run ensure:md-ingestion-bucket
 ```
 
-This calls `scripts/ensure-md-ingestion-bucket.js`, which checks and creates the bucket if missing.
+This calls `scripts/ensure-md-ingestion-bucket.js`, which checks and creates both buckets if missing.

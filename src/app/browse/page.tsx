@@ -8,6 +8,7 @@ import {
 import type { Paper } from "@/types";
 import { toPaper } from "@/types";
 import { getServerUser } from "@/lib/auth";
+import { isModerator } from "@/lib/roles";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import BrowseClient from "./BrowseClient";
@@ -42,7 +43,7 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
   const user = await getServerUser();
   const userName = user?.name || "Guest";
   const userInitials = user ? userName.substring(0, 2).toUpperCase() : "";
-  const isAdmin = user?.role === "admin" || user?.role === "moderator" || user?.role === "founder";
+  const isAdmin = user ? isModerator(user.role) : false;
 
   let papers: Paper[] = [];
   try {
@@ -85,7 +86,7 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
       breadcrumbs={[{ label: "Dashboard", href: "/dashboard" }, { label: "Browse" }]}
       showSearch={false}
       sidebarItems={APP_SIDEBAR_ITEMS}
-      userRole={user?.role ?? "student"}
+      userRole={user?.role ?? "guest"}
       isLoggedIn={!!user}
       userName={userName}
       userInitials={userInitials}
