@@ -132,7 +132,11 @@ function buildQuestionMarkdown(frontmatter: IngestionFrontmatter, rows: Array<{
     const marks = typeof row.marks === "number" ? row.marks : "";
     const subpart = row.question_subpart || "—";
     const tags = row.tags.length > 0 ? row.tags.join(", ") : "—";
-    const question = row.question_content.replace(/\|/g, "\\|").replace(/[ \t]+/g, " ").trim();
+    const question = row.question_content
+      .replace(/\r?\n+/g, " / ")
+      .replace(/\|/g, "\\|")
+      .replace(/[ \t]+/g, " ")
+      .trim();
     lines.push(`| ${row.question_no} | ${subpart} | ${year} | ${marks} | ${question} | ${tags} |`);
   }
   lines.push("");
@@ -141,8 +145,10 @@ function buildQuestionMarkdown(frontmatter: IngestionFrontmatter, rows: Array<{
 
 function questionPdfFilename(frontmatter: IngestionFrontmatter): string {
   const paperCode = normalizePaperCode(frontmatter.paper_code).replace(/[^A-Z0-9_-]+/g, "_");
+  const questionId = (frontmatter.question_id ?? "").trim().replace(/[^A-Za-z0-9_-]+/g, "_").slice(0, 32);
   const examYear = typeof frontmatter.exam_year === "number" ? String(frontmatter.exam_year) : "unknown";
-  return `${paperCode}-questions-${examYear}.pdf`;
+  const suffix = questionId.length > 0 ? questionId : "ingestion";
+  return `${paperCode}-questions-${examYear}-${suffix}.pdf`;
 }
 
 async function ensureIngestionBuckets() {
@@ -353,8 +359,9 @@ async function upsertQuestionRows(args: {
     if (args.frontmatter.attempt_type) payload.attempt_type = args.frontmatter.attempt_type;
     if (args.frontmatter.semester_code) payload.semester_code = args.frontmatter.semester_code;
     if (typeof args.frontmatter.semester_no === "number") payload.semester_no = args.frontmatter.semester_no;
-    const resolvedQuestionPdfUrl = args.resolvedQuestionPdfUrl.trim();
-    if (resolvedQuestionPdfUrl.length > 0) payload.question_pdf_url = resolvedQuestionPdfUrl;
+    if (args.resolvedQuestionPdfUrl.trim().length > 0) {
+      payload.question_pdf_url = args.resolvedQuestionPdfUrl.trim();
+    }
     if (args.frontmatter.source_reference) payload.source_reference = args.frontmatter.source_reference;
     if (args.frontmatter.status) payload.status = args.frontmatter.status;
     if (linkedSyllabusEntryId) payload.linked_syllabus_entry_id = linkedSyllabusEntryId;
