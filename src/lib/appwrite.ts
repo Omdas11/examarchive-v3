@@ -82,7 +82,7 @@ export const SYLLABUS_MD_INGESTION_BUCKET_ID =
   process.env.APPWRITE_SYLLABUS_MD_INGESTION_BUCKET_ID ?? "examarchive-syllabus-md-ingestion";
 /** Storage bucket for question ingestion assets (source markdown + rendered PDFs). */
 export const QUESTION_INGESTION_ASSETS_BUCKET_ID =
-  process.env.APPWRITE_QUESTION_INGESTION_ASSETS_BUCKET_ID ?? "examarchive-question-ingestion-assets";
+  process.env.APPWRITE_QUESTION_INGESTION_ASSETS_BUCKET_ID ?? "examarchive-question-ingestion-asset";
 /** Storage bucket for generated markdown cache payloads. */
 export const MARKDOWN_CACHE_BUCKET_ID =
   process.env.APPWRITE_MD_CACHE_BUCKET_ID ??

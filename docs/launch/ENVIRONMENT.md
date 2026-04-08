@@ -41,7 +41,7 @@ APPWRITE_BUCKET_ID=papers
 APPWRITE_AVATARS_BUCKET_ID=avatars
 APPWRITE_SYLLABUS_BUCKET_ID=syllabus-files
 APPWRITE_SYLLABUS_MD_INGESTION_BUCKET_ID=examarchive-syllabus-md-ingestion
-APPWRITE_QUESTION_INGESTION_ASSETS_BUCKET_ID=examarchive-question-ingestion-assets
+APPWRITE_QUESTION_INGESTION_ASSETS_BUCKET_ID=examarchive-question-ingestion-asset
 APPWRITE_MD_CACHE_BUCKET_ID=examarchive-md-bucket
 ```
 

@@ -54,7 +54,7 @@ const SCHEMA_STATUS_END_TAG = "<!-- SCHEMA_SYNC_STATUS_END -->";
 const REQUIRED_BUCKETS: BucketSpec[] = [
   { id: "papers", name: "papers" },
   { id: "examarchive-syllabus-md-ingestion", name: "examarchive-syllabus-md-ingestion" },
-  { id: "examarchive-question-ingestion-assets", name: "examarchive-question-ingestion-assets" },
+  { id: "examarchive-question-ingestion-asset", name: "examarchive-question-ingestion-asset" },
   { id: "syllabus-files", name: "syllabus-files" },
   { id: "avatars", name: "avatars" },
   { id: "generated-md-cache", name: "generated-md-cache" },

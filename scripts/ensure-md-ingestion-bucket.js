@@ -6,7 +6,7 @@ const { loadAppwriteEnv } = require("./appwrite-schema-setup");
 const SYLLABUS_MD_INGESTION_BUCKET_ID =
   process.env.APPWRITE_SYLLABUS_MD_INGESTION_BUCKET_ID || "examarchive-syllabus-md-ingestion";
 const QUESTION_INGESTION_ASSETS_BUCKET_ID =
-  process.env.APPWRITE_QUESTION_INGESTION_ASSETS_BUCKET_ID || "examarchive-question-ingestion-assets";
+  process.env.APPWRITE_QUESTION_INGESTION_ASSETS_BUCKET_ID || "examarchive-question-ingestion-asset";
 
 function isNotFoundError(error) {
   const code = error?.code ?? error?.response?.code;
@@ -59,7 +59,7 @@ async function ensureMdIngestionBucket() {
     }),
     ensureBucket(storage, {
       bucketId: QUESTION_INGESTION_ASSETS_BUCKET_ID,
-      name: "examarchive-question-ingestion-assets",
+      name: "examarchive-question-ingestion-asset",
       maximumFileSize: 5 * 1024 * 1024,
       allowedFileExtensions: ["md", "pdf"],
     }),
