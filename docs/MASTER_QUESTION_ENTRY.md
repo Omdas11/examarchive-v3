@@ -7,6 +7,9 @@ Canonical schema for question paper ingestion into ExamArchive.
 This document defines the canonical **question paper authoring schema** supported by
 `src/lib/admin-md-ingestion.ts` and `/api/admin/ingest-md`.
 
+For the combined drafting guide (both syllabus and question formats, naming, and upload order), see:
+`docs/MASTER_INGESTION_GUIDE.md`.
+
 ## Rules
 
 - YAML structure is a v2 schema; see mapping table for current ingestion equivalents.
@@ -14,6 +17,8 @@ This document defines the canonical **question paper authoring schema** supporte
 - `exam_year` and `group` must be explicit for accurate auto-linking.
 - Each question PDF entry has a unique `question_id`.
 - File should be named using the convention: `{paper_code}-{exam_year}.md` (e.g., `PHYDSC101T-2024.md`).
+- Do **not** include a `## Syllabus` section in this file. Syllabus and question ingestion
+  are intentionally split and must be uploaded as separate markdown files.
 
 ---
 

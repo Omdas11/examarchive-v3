@@ -64,7 +64,7 @@ export interface IngestionParseError {
 }
 
 export interface IngestionParseResult {
-  entryType: "syllabus" | "question" | "combined" | null;
+  entryType: "syllabus" | "question" | null;
   frontmatter: IngestionFrontmatter | null;
   syllabus: ParsedSyllabusRow[];
   questions: ParsedQuestionRow[];
@@ -256,12 +256,16 @@ export function parseDemoDataEntryMarkdown(source: string): IngestionParseResult
   const hasQuestions = questionsHeading !== -1;
   let entryType: IngestionParseResult["entryType"] = null;
 
-  if (explicitType === "syllabus") {
+  if (hasSyllabus && hasQuestions) {
+    errors.push({
+      line: 1,
+      message:
+        "One file cannot contain both ## Syllabus and ## Questions. Split into two files: <paper_code>-syllabus.md and <paper_code>-questions-<exam_year>.md.",
+    });
+  } else if (explicitType === "syllabus") {
     entryType = "syllabus";
   } else if (explicitType === "question") {
     entryType = "question";
-  } else if (hasSyllabus && hasQuestions) {
-    entryType = "combined";
   } else if (hasSyllabus) {
     entryType = "syllabus";
   } else if (hasQuestions) {
@@ -274,15 +278,7 @@ export function parseDemoDataEntryMarkdown(source: string): IngestionParseResult
   if (entryType === "question" && questionsHeading === -1) {
     errors.push({ line: 1, message: "Missing required section: ## Questions" });
   }
-  if (entryType === "combined") {
-    if (syllabusHeading === -1) {
-      errors.push({ line: 1, message: "Missing required section: ## Syllabus" });
-    }
-    if (questionsHeading === -1) {
-      errors.push({ line: 1, message: "Missing required section: ## Questions" });
-    }
-  }
-  if (!entryType) {
+  if (!entryType && !(hasSyllabus && hasQuestions)) {
     errors.push({
       line: 1,
       message: 'Unable to determine entry type. Add `entry_type: syllabus|question` or include "## Syllabus"/"## Questions".',
@@ -292,7 +288,7 @@ export function parseDemoDataEntryMarkdown(source: string): IngestionParseResult
   const syllabus: ParsedSyllabusRow[] = [];
   const questions: ParsedQuestionRow[] = [];
 
-  if ((entryType === "syllabus" || entryType === "combined") && syllabusHeading !== -1) {
+  if (entryType === "syllabus" && syllabusHeading !== -1) {
     const section = collectSectionLines(lines, syllabusHeading);
     const rows = parseTableRows(section);
     if (rows.length === 0) {
@@ -331,7 +327,7 @@ export function parseDemoDataEntryMarkdown(source: string): IngestionParseResult
     }
   }
 
-  if ((entryType === "question" || entryType === "combined") && questionsHeading !== -1) {
+  if (entryType === "question" && questionsHeading !== -1) {
     const section = collectSectionLines(lines, questionsHeading);
     const rows = parseTableRows(section);
     if (rows.length === 0) {

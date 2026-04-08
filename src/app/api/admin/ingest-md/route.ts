@@ -170,6 +170,8 @@ async function upsertQuestionRows(args: {
   rows: ReturnType<typeof parseDemoDataEntryMarkdown>["questions"];
 }) {
   const db = adminDatabases();
+  const linkedSyllabusEntryId = await resolveLinkedSyllabusEntryId(args.frontmatter);
+  const linkStatus = args.frontmatter.link_status ?? (linkedSyllabusEntryId ? "linked" : "unmapped");
   let added = 0;
   let updated = 0;
   for (const row of args.rows) {
@@ -220,8 +222,8 @@ async function upsertQuestionRows(args: {
     if (args.frontmatter.question_pdf_url) payload.question_pdf_url = args.frontmatter.question_pdf_url;
     if (args.frontmatter.source_reference) payload.source_reference = args.frontmatter.source_reference;
     if (args.frontmatter.status) payload.status = args.frontmatter.status;
-    if (args.frontmatter.linked_syllabus_entry_id) payload.linked_syllabus_entry_id = args.frontmatter.linked_syllabus_entry_id;
-    if (args.frontmatter.link_status) payload.link_status = args.frontmatter.link_status;
+    if (linkedSyllabusEntryId) payload.linked_syllabus_entry_id = linkedSyllabusEntryId;
+    if (linkStatus) payload.link_status = linkStatus;
     if (args.frontmatter.ocr_text_path) payload.ocr_text_path = args.frontmatter.ocr_text_path;
     if (args.frontmatter.ai_summary_status) payload.ai_summary_status = args.frontmatter.ai_summary_status;
     if (args.frontmatter.difficulty_estimate) payload.difficulty_estimate = args.frontmatter.difficulty_estimate;
@@ -264,7 +266,7 @@ async function createIngestionLog(payload: {
   paperCode?: string;
   paperName?: string;
   subject?: string;
-  entryType?: "syllabus" | "question" | "combined";
+  entryType?: "syllabus" | "question";
   status: "success" | "partial" | "failed";
   rowsAffected: number;
   errors: Array<{ line: number; message: string }>;
@@ -301,6 +303,35 @@ async function createIngestionLog(payload: {
   } catch (error) {
     console.warn("[ingest-md] failed to write ingestion log:", error);
   }
+}
+
+async function resolveLinkedSyllabusEntryId(frontmatter: IngestionFrontmatter): Promise<string | null> {
+  if (frontmatter.linked_syllabus_entry_id?.trim()) {
+    return frontmatter.linked_syllabus_entry_id.trim();
+  }
+
+  const db = adminDatabases();
+  const matches = await db.listDocuments(DATABASE_ID, COLLECTION.syllabus_table, [
+    Query.equal("university", frontmatter.university),
+    Query.equal("course", frontmatter.course),
+    Query.equal("stream", frontmatter.stream),
+    Query.equal("type", frontmatter.type),
+    Query.equal("paper_code", frontmatter.paper_code),
+    Query.limit(200),
+  ]);
+
+  for (const doc of matches.documents) {
+    const entryId = typeof doc.entry_id === "string" ? doc.entry_id.trim() : "";
+    if (entryId) return entryId;
+  }
+
+  for (const doc of matches.documents) {
+    const stableId = typeof doc.id === "string" ? doc.id.trim() : "";
+    if (stableId) return stableId;
+    if (typeof doc.$id === "string" && doc.$id.trim().length > 0) return doc.$id;
+  }
+
+  return null;
 }
 
 export async function GET(request: NextRequest) {
@@ -412,7 +443,7 @@ export async function POST(request: NextRequest) {
     const semester = deriveSemesterFromCode(frontmatter.paper_code);
 
     try {
-      if (parsed.entryType === "syllabus" || parsed.entryType === "combined") {
+      if (parsed.entryType === "syllabus") {
         syllabusResult = await upsertSyllabusRows({
           frontmatter,
           semester,
@@ -424,7 +455,7 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      if (parsed.entryType === "question" || parsed.entryType === "combined") {
+      if (parsed.entryType === "question") {
         questionResult = await upsertQuestionRows({
           frontmatter,
           rows: parsed.questions,

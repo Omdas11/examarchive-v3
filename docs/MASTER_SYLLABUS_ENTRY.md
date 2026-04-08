@@ -7,14 +7,19 @@ Canonical schema for syllabus ingestion into ExamArchive.
 This document defines the canonical **syllabus authoring schema** supported by
 `src/lib/admin-md-ingestion.ts` and `/api/admin/ingest-md`.
 
+For the combined drafting guide (both syllabus and question formats, naming, and upload order), see:
+`docs/MASTER_INGESTION_GUIDE.md`.
+
 ## Rules
 
 - Keep fields consistent and machine-readable.
 - Use one YAML block per syllabus paper entry.
 - `paper_code` must pass validation from `PAPER_CODE_VALIDATION_RULES.md`.
-- File should be named `{paper_code}.md` (e.g., `PHYDSC101T.md`). Since a paper code
-  represents a canonical curriculum slot (not a year-specific record), one file per code
-  is the intended convention. Year/session context is captured inside the YAML fields.
+- File should be named `{paper_code}-syllabus.md` (e.g., `PHYDSC101T-syllabus.md`).
+  Since a paper code represents a canonical curriculum slot (not a year-specific record),
+  one syllabus file per code is the intended convention.
+- Do **not** include a `## Questions` section in this file. Syllabus and question ingestion
+  are intentionally split and must be uploaded as separate markdown files.
 - Follow the encoding and naming conventions from `docs/ASSAM_UNIVERSITY_PAPER_CODING.md`.
 
 ---
@@ -138,7 +143,7 @@ last_updated: "2026-04-08"
 
 ## Ingestion Flow
 
-1. Contributor creates the `.md` file named after the paper code.
+1. Contributor creates the `.md` file as `{paper_code}-syllabus.md`.
 2. YAML frontmatter is parsed and `paper_code` is validated first.
 3. If invalid, reject with error from `PAPER_CODE_VALIDATION_RULES.md`.
 4. Derive and cross-check: `subject_code`, `paper_type`, `semester_code`, `semester_no`.

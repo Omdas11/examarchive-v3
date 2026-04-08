@@ -246,6 +246,7 @@ export default function IngestMdClient() {
           <p className="text-sm font-semibold">Drag & drop Markdown files or click to choose one or more files</p>
           <p className="mt-1 text-xs text-on-surface-variant">
             Only `.md` files are accepted. Upload syllabus-only or question-only markdown templates.
+            Files containing both sections are rejected. Authoring spec: docs/MASTER_INGESTION_GUIDE.md.
           </p>
           {uploading && <p className="mt-3 text-sm text-primary">Processing ingestion…</p>}
         </label>

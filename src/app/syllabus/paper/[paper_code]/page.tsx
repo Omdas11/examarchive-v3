@@ -24,6 +24,18 @@ interface PageProps {
 const UNKNOWN_YEAR_LABEL = "Unknown year";
 const UNKNOWN_UNIVERSITY_LABEL = "Unknown university";
 
+type LinkedQuestionRow = {
+  id: string;
+  question_no: string;
+  question_subpart: string;
+  year?: number;
+  marks?: number;
+  question_content: string;
+  tags: string[];
+  linked_syllabus_entry_id?: string;
+  link_status?: string;
+};
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { paper_code } = await params;
   const code = decodeURIComponent(paper_code).toUpperCase();
@@ -85,6 +97,47 @@ async function getUploadedSyllabusPdfs(paperCode: string): Promise<Syllabus[]> {
   return bySubject.documents.map(toSyllabus).filter((s) => !s.is_hidden);
 }
 
+function sortLinkedQuestions(a: LinkedQuestionRow, b: LinkedQuestionRow): number {
+  const aNo = Number(a.question_no);
+  const bNo = Number(b.question_no);
+  if (Number.isFinite(aNo) && Number.isFinite(bNo) && aNo !== bNo) return aNo - bNo;
+  if (a.question_no !== b.question_no) return a.question_no.localeCompare(b.question_no);
+  if (a.question_subpart !== b.question_subpart) return a.question_subpart.localeCompare(b.question_subpart);
+  return (b.year ?? 0) - (a.year ?? 0);
+}
+
+async function getLinkedQuestionRows(paperCode: string, linkedSyllabusIds: Set<string>) {
+  const db = adminDatabases();
+  const { documents } = await db.listDocuments(
+    DATABASE_ID,
+    COLLECTION.questions_table,
+    [Query.equal("paper_code", paperCode), Query.limit(500)],
+  );
+
+  const allRows: LinkedQuestionRow[] = documents.map((doc) => ({
+    id: String(doc.$id ?? ""),
+    question_no: String(doc.question_no ?? ""),
+    question_subpart: String(doc.question_subpart ?? ""),
+    year: typeof doc.year === "number" ? doc.year : undefined,
+    marks: typeof doc.marks === "number" ? doc.marks : undefined,
+    question_content: String(doc.question_content ?? ""),
+    tags: Array.isArray(doc.tags) ? doc.tags.filter((tag): tag is string => typeof tag === "string") : [],
+    linked_syllabus_entry_id:
+      typeof doc.linked_syllabus_entry_id === "string" && doc.linked_syllabus_entry_id.trim().length > 0
+        ? doc.linked_syllabus_entry_id.trim()
+        : undefined,
+    link_status: typeof doc.link_status === "string" ? doc.link_status : undefined,
+  }));
+
+  const linkedRows = linkedSyllabusIds.size > 0
+    ? allRows.filter((row) => row.linked_syllabus_entry_id && linkedSyllabusIds.has(row.linked_syllabus_entry_id))
+    : [];
+
+  const rowsToShow = (linkedRows.length > 0 ? linkedRows : allRows).sort(sortLinkedQuestions);
+  const filteredOutCount = linkedRows.length > 0 ? allRows.length - linkedRows.length : 0;
+  return { rowsToShow, filteredOutCount };
+}
+
 export default async function SyllabusPaperPage({ params }: PageProps) {
   const { paper_code } = await params;
   const code = decodeURIComponent(paper_code).toUpperCase();
@@ -103,6 +156,8 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
 
   const first = rows[0];
   const paperName = first.paper_name?.trim() || derivePaperNameFromContent(first.syllabus_content, code);
+  const linkedSyllabusIds = new Set(rows.map((row) => row.entry_id).filter((entryId): entryId is string => Boolean(entryId)));
+  const { rowsToShow: linkedQuestions, filteredOutCount } = await getLinkedQuestionRows(code, linkedSyllabusIds);
 
   return (
     <MainLayout
@@ -170,6 +225,51 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
                 )}
               </article>
             ))}
+
+            <article className="rounded-2xl border border-outline-variant/40 bg-surface p-4">
+              <h2 className="text-lg font-semibold text-on-surface">Linked Questions</h2>
+              {linkedQuestions.length === 0 ? (
+                <p className="mt-2 text-sm text-on-surface-variant">No questions linked to this syllabus yet.</p>
+              ) : (
+                <>
+                  {filteredOutCount > 0 && (
+                    <p className="mt-1 text-xs text-on-surface-variant">
+                      Showing {linkedQuestions.length} linked questions ({filteredOutCount} other paper questions hidden).
+                    </p>
+                  )}
+                  <div className="mt-3 space-y-3">
+                    {linkedQuestions.map((question) => (
+                      <div key={question.id} className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-3">
+                        <p className="text-xs font-semibold text-on-surface-variant">
+                          Q{question.question_no}
+                          {question.question_subpart ? `(${question.question_subpart})` : ""}
+                          {typeof question.year === "number" ? ` · ${question.year}` : ""}
+                          {typeof question.marks === "number" ? ` · ${question.marks} marks` : ""}
+                        </p>
+                        <p className="mt-1 text-sm text-on-surface">{question.question_content}</p>
+                        {(question.tags.length > 0 || question.link_status) && (
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            {question.link_status && (
+                              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
+                                {question.link_status}
+                              </span>
+                            )}
+                            {question.tags.map((tag) => (
+                              <span
+                                key={`${question.id}-${tag}`}
+                                className="rounded-full bg-surface px-2 py-0.5 text-[11px] font-semibold text-on-surface-variant"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </article>
           </div>
 
           <aside className="space-y-4">
