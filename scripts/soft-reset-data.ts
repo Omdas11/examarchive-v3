@@ -46,7 +46,6 @@ const SYLLABUS_TABLE_COL_ID = "Syllabus_Table";
 const QUESTIONS_TABLE_COL_ID = "Questions_Table";
 const AI_INGESTIONS_COL_ID = "ai_ingestions";
 const SYLLABUS_REGISTRY_COL_ID = "syllabus_registry";
-const LEGACY_MD_BUCKET_ID = "examarchive-md-ingestion";
 const SYLLABUS_MD_BUCKET_ID = "examarchive-syllabus-md-ingestion";
 const QUESTION_ASSETS_BUCKET_ID = "examarchive-question-ingestion-assets";
 const LIST_PAGE_LIMIT = 100;
@@ -207,11 +206,10 @@ async function softReset(includeIngestions: boolean, clearBucket: boolean): Prom
 
   if (clearBucket) {
     console.log(
-      `    Clearing ingestion storage buckets: ${SYLLABUS_MD_BUCKET_ID}, ${QUESTION_ASSETS_BUCKET_ID}, and legacy ${LEGACY_MD_BUCKET_ID} when present (--clear-bucket flag set).`,
+      `    Clearing ingestion storage buckets: ${SYLLABUS_MD_BUCKET_ID} and ${QUESTION_ASSETS_BUCKET_ID} (--clear-bucket flag set).`,
     );
     await emptyBucket(SYLLABUS_MD_BUCKET_ID);
     await emptyBucket(QUESTION_ASSETS_BUCKET_ID);
-    await emptyBucket(LEGACY_MD_BUCKET_ID);
   } else {
     console.log("    Skipping ingestion storage buckets (default behavior).");
   }

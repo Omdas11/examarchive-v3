@@ -72,6 +72,7 @@ function deriveDeptCode(paperCode: string): string | null {
   return FYUG_DEPT_CODES.has(prefix as Parameters<typeof FYUG_DEPT_CODES.has>[0]) ? prefix : null;
 }
 
+// Cap generated question-paper PDFs to avoid runaway render sizes from malformed markdown uploads.
 const MAX_QUESTION_PDF_PAGES = 80;
 
 function normalizePaperCode(value: string): string {
@@ -131,7 +132,7 @@ function buildQuestionMarkdown(frontmatter: IngestionFrontmatter, rows: Array<{
     const marks = typeof row.marks === "number" ? row.marks : "";
     const subpart = row.question_subpart || "—";
     const tags = row.tags.length > 0 ? row.tags.join(", ") : "—";
-    const question = row.question_content.replace(/\|/g, "\\|").replace(/\s+/g, " ").trim();
+    const question = row.question_content.replace(/\|/g, "\\|").replace(/[ \t]+/g, " ").trim();
     lines.push(`| ${row.question_no} | ${subpart} | ${year} | ${marks} | ${question} | ${tags} |`);
   }
   lines.push("");
