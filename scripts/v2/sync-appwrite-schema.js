@@ -573,6 +573,7 @@ async function syncCollection(databases, databaseId, collection) {
 
   let mismatchCount = 0;
   let createdAttributes = 0;
+  let attributeLimitExceeded = false;
   for (const attribute of collection.attributes) {
     const existing = liveByKey.get(attribute.key);
     if (existing) {
@@ -587,6 +588,7 @@ async function syncCollection(databases, databaseId, collection) {
       createdAttributes += 1;
     } catch (error) {
       if (isAttributeLimitExceeded(error)) {
+        attributeLimitExceeded = true;
         console.warn(
           `[warn] attribute limit reached for ${collection.id} while creating ${attribute.key}; ` +
             "skipping remaining attributes. Remove unused attributes in Appwrite and re-run sync if needed.",
@@ -615,7 +617,8 @@ async function syncCollection(databases, databaseId, collection) {
     totalTargetAttributes: collection.attributes.length,
     createdAttributes,
     mismatchCount,
-    connected: mismatchCount === 0,
+    connected: mismatchCount === 0 && !attributeLimitExceeded,
+    attributeLimitExceeded,
   };
 }
 

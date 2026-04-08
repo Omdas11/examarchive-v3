@@ -260,6 +260,8 @@ describe("sync-appwrite-schema helpers", () => {
     expect(result.createdAttributes).toBe(1);
     expect(databases.createStringAttribute).toHaveBeenCalledTimes(2);
     expect(databases.getAttribute).toHaveBeenCalledTimes(1);
+    expect(result.connected).toBe(false);
+    expect(result.attributeLimitExceeded).toBe(true);
     expect(warnSpy).toHaveBeenCalledWith(
       "[warn] attribute limit reached for demo while creating notes; " +
         "skipping remaining attributes. Remove unused attributes in Appwrite and re-run sync if needed.",
