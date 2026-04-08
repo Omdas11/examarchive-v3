@@ -125,6 +125,7 @@ export default function MainLayout({
             <RightSidebar
               userName={headerProps.userName || "Guest"}
               userInitials={headerProps.userInitials || "GU"}
+              isLoggedIn={isLoggedIn}
             />
           </div>
         </aside>
@@ -136,7 +137,7 @@ export default function MainLayout({
             onClick={() => setIsRightSidebarOpen(false)}
             aria-hidden="true"
           />
-          <aside className="fixed right-0 bottom-0 w-[85vw] max-w-[320px] z-50 border-l border-outline-variant/20 bg-surface overflow-y-auto lg:hidden" style={{ top: "var(--layout-header-height)" }}>
+          <aside className="fixed inset-y-0 right-0 h-screen w-[88vw] max-w-[360px] z-50 border-l border-outline-variant/20 bg-surface overflow-y-auto lg:hidden">
             <div className="p-4">
               <div className="flex justify-end">
                 <button
@@ -151,6 +152,7 @@ export default function MainLayout({
               <RightSidebar
                 userName={headerProps.userName || "Guest"}
                 userInitials={headerProps.userInitials || "GU"}
+                isLoggedIn={isLoggedIn}
               />
             </div>
           </aside>

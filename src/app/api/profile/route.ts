@@ -149,13 +149,24 @@ export async function GET() {
 
   // Fetch username_last_changed from the DB
   let username_last_changed: string | null = null;
+  let approved_upload_count = 0;
+  let total_uploads = 0;
   try {
     const db = adminDatabases();
     const profile = await db.getDocument(DATABASE_ID, COLLECTION.users, user.id);
     username_last_changed = (profile.username_last_changed as string) ?? null;
+    approved_upload_count = (profile.upload_count as number) ?? 0;
+    // Query.limit(1) keeps payload small while still allowing Appwrite to return
+    // the collection-level `total` count for the filtered query.
+    const { total } = await db.listDocuments(DATABASE_ID, COLLECTION.papers, [
+      Query.equal("uploaded_by", user.id),
+      Query.limit(1),
+    ]);
+    total_uploads = total;
   } catch {
     // ignore
   }
+  const approval_pct = total_uploads > 0 ? Math.round((approved_upload_count / total_uploads) * 100) : 0;
 
   return NextResponse.json({
     id: user.id,
@@ -163,9 +174,19 @@ export async function GET() {
     name: user.name,
     username: user.username,
     avatar_url: user.avatar_url,
+    role: user.role,
+    tier: user.tier ?? "bronze",
     xp: user.xp,
+    xo: user.xp,
     streak_days: user.streak_days,
     last_activity: user.last_activity,
+    created_at: user.created_at,
+    approved_upload_count,
+    approved_count: approved_upload_count,
+    total_uploads,
+    approval_pct,
+    referral_code: user.referral_code ?? "",
+    ai_credits: user.ai_credits ?? 0,
     username_last_changed,
   });
 }
