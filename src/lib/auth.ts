@@ -9,7 +9,7 @@ import {
   Permission,
   Role,
 } from "./appwrite";
-import { isValidCustomRole, isValidTier, isValidUserRole } from "./roles";
+import { isValidCustomRole, isValidTier, isValidUserRole, normalizeRole } from "./roles";
 import { generateUniqueReferralCode } from "./referral-server";
 import type {
   Achievement,
@@ -66,12 +66,12 @@ async function updateDailyStreak(
 }
 
 /**
- * Evaluate XP and auto-promotion on each login/page load.
+ * Evaluate XO/role auto-assignment on each login/page load.
  * Runs silently — any failure is ignored so it never blocks page rendering.
  *
- * Promotion thresholds (mirrors admin/route.ts):
- *  - upload_count >= 3  → promote visitor/student/explorer → contributor
- *  - upload_count >= 20 → promote bronze tier → silver
+ * Role thresholds (ROLE_XO_RULEBOOK.md):
+ *  - viewer → contributor: xo>=30, approved uploads>=2, account age>=3 days
+ *  - contributor → curator: xo>=150, approved uploads>=10, no active abuse flag
  */
 async function evaluateXpAndPromotion(
   db: ReturnType<typeof adminDatabases>,
@@ -79,19 +79,25 @@ async function evaluateXpAndPromotion(
 ): Promise<void> {
   try {
     const uploadCount = (profile.upload_count as number) ?? 0;
-    const currentRole = (profile.role as string) ?? "visitor";
+    const currentRole = normalizeRole((profile.role as string) ?? "viewer");
     const currentTier = (profile.tier as string) ?? "bronze";
+    const xo = ((profile.xo as number) ?? (profile.xp as number) ?? 0);
+    const createdAt = typeof profile.$createdAt === "string" ? profile.$createdAt : "";
+    const accountAgeDays = createdAt
+      ? Math.floor((Date.now() - new Date(createdAt).getTime()) / 86_400_000)
+      : 0;
+    const hasActiveAbuseFlag = Boolean(profile.abuse_flag);
     const update: Record<string, unknown> = {};
 
-    // Auto-promote role: visitor/student/explorer → contributor
-    if (
-      uploadCount >= 3 &&
-      (currentRole === "visitor" || currentRole === "student" || currentRole === "explorer")
-    ) {
+    if (currentRole === "viewer" && xo >= 30 && uploadCount >= 2 && accountAgeDays >= 3) {
       update.role = "contributor";
     }
 
-    // Auto-promote tier: bronze → silver
+    if (currentRole === "contributor" && xo >= 150 && uploadCount >= 10 && !hasActiveAbuseFlag) {
+      update.role = "curator";
+    }
+
+    // Keep existing tier progression.
     if (uploadCount >= 20 && currentTier === "bronze") {
       update.tier = "silver";
     }
@@ -181,7 +187,7 @@ export async function getServerUser(): Promise<UserProfile | null> {
         username: (profile.username as string) ?? "",
         avatar_url: (profile.avatar_url as string) ?? "",
         avatar_file_id: (profile.avatar_file_id as string) ?? undefined,
-        role: (profile.role as UserRole) ?? "student",
+        role: normalizeRole((profile.role as string) ?? "viewer"),
         secondary_role: isValidCustomRole(rawSecondary) ? rawSecondary : null,
         tier: isValidTier(rawTier) ? rawTier : "bronze",
         xp: (profile.xp as number) ?? 0,
@@ -234,7 +240,7 @@ export async function getServerUser(): Promise<UserProfile | null> {
         username: (profile.username as string) ?? "",
         avatar_url: (profile.avatar_url as string) ?? "",
         avatar_file_id: (profile.avatar_file_id as string) ?? undefined,
-        role: (profile.role as UserRole) ?? "student",
+        role: normalizeRole((profile.role as string) ?? "viewer"),
         secondary_role: isValidCustomRole(rawSecondary) ? rawSecondary : null,
         tier: isValidTier(rawTier) ? rawTier : "bronze",
         xp: (profile.xp as number) ?? 0,
@@ -261,7 +267,7 @@ export async function getServerUser(): Promise<UserProfile | null> {
         user.$id,
         {
           email: user.email,
-          role: "visitor",
+          role: "viewer",
           display_name: "",
           username: "",
           xp: 0,
@@ -290,7 +296,7 @@ export async function getServerUser(): Promise<UserProfile | null> {
         username: "",
         avatar_url: "",
         avatar_file_id: undefined,
-        role: "visitor" as UserRole,
+        role: "viewer" as UserRole,
         secondary_role: null,
         tier: "bronze" as UserTier,
         xp: 0,
@@ -317,7 +323,7 @@ export async function getServerUser(): Promise<UserProfile | null> {
           username: (existing.username as string) ?? "",
           avatar_url: (existing.avatar_url as string) ?? "",
           avatar_file_id: (existing.avatar_file_id as string) ?? undefined,
-          role: (existing.role as UserRole) ?? "visitor",
+          role: normalizeRole((existing.role as string) ?? "viewer"),
           secondary_role: isValidCustomRole(rawSecondary) ? rawSecondary : null,
           tier: isValidTier(rawTier) ? rawTier : "bronze",
           xp: (existing.xp as number) ?? 0,
@@ -371,8 +377,8 @@ export async function getExtendedServerUser(): Promise<ExtendedUserProfile | nul
 
     const rawPrimary = profile.role;
     const primaryRole: UserRole = isValidUserRole(rawPrimary)
-      ? rawPrimary
-      : "student";
+      ? normalizeRole(rawPrimary)
+      : "viewer";
 
     const rawSecondary = profile.secondary_role ?? null;
     const secondaryRole: CustomRole = isValidCustomRole(rawSecondary)

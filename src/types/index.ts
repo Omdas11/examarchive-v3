@@ -99,21 +99,27 @@ export interface UserProfile {
 }
 
 /**
- * Supported user roles – ordered from least to most privileged.
- * "student" is kept as a legacy alias for "visitor" (level 0).
+ * Supported user roles.
  *
- * Hierarchy: visitor → explorer → contributor → verified_contributor
- *            → moderator → maintainer → admin → founder
+ * v2 canonical hierarchy:
+ * Guest → Viewer → Contributor → Curator → Moderator → Admin
+ *
+ * Legacy v1 role values are retained for backward compatibility and are
+ * normalized by src/lib/roles.ts.
  */
 export type UserRole =
-  | "visitor"
-  | "student"           // legacy alias for visitor (level 0)
-  | "explorer"
+  | "guest"
+  | "viewer"
   | "contributor"
-  | "verified_contributor"
+  | "curator"
   | "moderator"
-  | "maintainer"
   | "admin"
+  // legacy aliases (v1)
+  | "visitor"
+  | "student"
+  | "explorer"
+  | "verified_contributor"
+  | "maintainer"
   | "founder";
 
 /** Community/cosmetic custom roles (display-only, never grant permissions). */
@@ -204,8 +210,8 @@ export function toAdminUser(doc: Record<string, unknown>): AdminUser {
     name: (doc.display_name ?? doc.name ?? "") as string,
     username: (doc.username ?? "") as string,
     avatar_url: (doc.avatar_url ?? "") as string,
-    role: ((doc.role as string) ?? "student") as UserRole,
-    primary_role: ((doc.primary_role ?? doc.role ?? "student") as string) as UserRole,
+    role: ((doc.role as string) ?? "viewer") as UserRole,
+    primary_role: ((doc.primary_role ?? doc.role ?? "viewer") as string) as UserRole,
     secondary_role: (doc.secondary_role ?? null) as CustomRole,
     tertiary_role: (doc.tertiary_role ?? null) as CustomRole,
     tier: ((doc.tier ?? "bronze") as string) as UserTier,

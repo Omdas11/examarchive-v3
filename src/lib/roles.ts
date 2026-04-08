@@ -3,55 +3,91 @@ import type { CustomRole, UserRole, UserTier } from "@/types";
 /**
  * Role hierarchy – higher number = more privilege.
  *
- * Progression: visitor → explorer → contributor → verified_contributor
- *              → moderator → maintainer → admin → founder
+ * Canonical progression (v2):
+ * guest → viewer → contributor → curator → moderator → admin
  *
- * "student" is a legacy alias kept at level 0 for backward compatibility.
+ * Legacy v1 roles are accepted and normalized.
  */
 const ROLE_LEVELS: Record<UserRole, number> = {
+  guest: 0,
+  viewer: 1,
+  curator: 3,
   visitor: 0,
-  student: 0,            // legacy alias for visitor
-  explorer: 1,
+  student: 1,            // legacy alias for viewer
+  explorer: 1,           // legacy alias for viewer
   contributor: 2,
-  verified_contributor: 3,
+  verified_contributor: 3, // legacy alias for curator
   moderator: 4,
-  maintainer: 5,
+  maintainer: 5,         // legacy alias for admin
   admin: 6,
-  founder: 7,
+  founder: 6,            // legacy super-admin alias
 };
 
 /**
- * Minimum XP required to be eligible for each role (informational only –
- * promotions are always confirmed manually by an admin or founder).
- * "student" / "visitor" require 0 XP (default starting role).
+ * Minimum XO required for each role (informational thresholds).
  */
-export const ROLE_XP_THRESHOLDS: Record<UserRole, number> = {
+export const ROLE_XO_THRESHOLDS: Record<UserRole, number> = {
+  guest: 0,
+  viewer: 0,
   visitor: 0,
   student: 0,
-  explorer: 50,
-  contributor: 150,
-  verified_contributor: 300,
-  moderator: 0,           // moderation roles are assigned, not earned by XP
+  explorer: 0,
+  contributor: 30,
+  curator: 150,
+  verified_contributor: 150,
+  moderator: 400,
   maintainer: 0,
   admin: 0,
   founder: 0,
 };
 
+/** @deprecated use ROLE_XO_THRESHOLDS */
+export const ROLE_XP_THRESHOLDS = ROLE_XO_THRESHOLDS;
+
 /**
  * Static ring colour for each role (shown in AvatarRing component).
- * Returns null for visitor / student (no ring).
+ * Returns null for guest/viewer and visitor aliases (no ring).
  */
 export const ROLE_RING_COLORS: Record<UserRole, string | null> = {
+  guest: null,
+  viewer: null,
+  curator: "#6366f1",             // indigo-500
   visitor: null,
   student: null,
-  explorer: "#0ea5e9",           // sky-500
+  explorer: null,
   contributor: "#3b82f6",        // blue-500
-  verified_contributor: "#6366f1", // indigo-500
+  verified_contributor: "#6366f1", // legacy alias for curator
   moderator: "#f97316",          // orange-500
-  maintainer: "#a855f7",         // purple-500
+  maintainer: "#ef4444",         // legacy alias for admin
   admin: "#ef4444",              // red-500
-  founder: "#7c3aed",            // violet-700 (static purple)
+  founder: "#ef4444",            // legacy alias for admin
 };
+
+const LEGACY_ROLE_MAP: Partial<Record<UserRole, UserRole>> = {
+  visitor: "viewer",
+  student: "viewer",
+  explorer: "viewer",
+  verified_contributor: "curator",
+  maintainer: "admin",
+  founder: "admin",
+};
+
+export function normalizeRole(role: string | null | undefined): UserRole {
+  if (!role) return "guest";
+  if (!(role in ROLE_LEVELS)) return "guest";
+  const typedRole = role as UserRole;
+  return LEGACY_ROLE_MAP[typedRole] ?? typedRole;
+}
+
+export function roleLabel(role: string | null | undefined): string {
+  const normalized = normalizeRole(role);
+  if (normalized === "guest") return "Guest";
+  if (normalized === "viewer") return "Viewer";
+  if (normalized === "contributor") return "Contributor";
+  if (normalized === "curator") return "Curator";
+  if (normalized === "moderator") return "Moderator";
+  return "Admin";
+}
 
 /** Tier hierarchy – higher number = higher standing. */
 const TIER_LEVELS: Record<UserTier, number> = {
@@ -75,7 +111,7 @@ const VALID_CUSTOM_ROLES = new Set<string>([
 
 /** Returns `true` when `userRole` meets or exceeds the `requiredRole`. */
 export function hasRole(userRole: UserRole, requiredRole: UserRole): boolean {
-  return ROLE_LEVELS[userRole] >= ROLE_LEVELS[requiredRole];
+  return ROLE_LEVELS[normalizeRole(userRole)] >= ROLE_LEVELS[normalizeRole(requiredRole)];
 }
 
 /** Convenience check for admin-level access (admin and above). */

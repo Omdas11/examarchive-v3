@@ -6,7 +6,6 @@ import { signOut } from "@/app/auth/actions";
 import ProfileEditor from "./ProfileEditor";
 import { TierBadge } from "@/components/RoleBadge";
 import { Icon, type IconName } from "@/components/Icons";
-import ContributionHeatmap from "@/components/ContributionHeatmap";
 import Breadcrumb from "@/components/Breadcrumb";
 import ConfettiTrigger from "@/components/ConfettiTrigger";
 import XPBar from "@/components/XPBar";
@@ -14,6 +13,8 @@ import ProfileCoursePrefs from "@/components/ProfileCoursePrefs";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import ReferralShareCard from "./ReferralShareCard";
+import ProfileRightSidebar from "./ProfileRightSidebar";
+import { normalizeRole, roleLabel } from "@/lib/roles";
 
 export const metadata: Metadata = {
   title: "Profile",
@@ -96,9 +97,10 @@ function nextStreakGoal(streak: number): number {
 
 // ── Role badge SVG icon name (matches v2 roles.js getBadgeIcon) ─────────────
 function roleBadgeIconName(role: string): IconName {
-  if (role === "founder")   return "crown";
-  if (role === "admin")     return "shield";
-  if (role === "moderator") return "badge";
+  const normalized = normalizeRole(role);
+  if (normalized === "admin") return "shield";
+  if (normalized === "moderator") return "badge";
+  if (normalized === "curator") return "medal";
   return "user";
 }
 
@@ -148,8 +150,9 @@ export default async function ProfilePage() {
   });
 
   const tier = (user.tier ?? "bronze") as import("@/types").UserTier;
-  const { progress: xpPercent, nextXp, nextLabel } = xpProgress(user.xp);
-  const currentRank = xpRank(user.xp);
+  const xoScore = user.xp;
+  const { progress: xpPercent, nextXp, nextLabel } = xpProgress(xoScore);
+  const currentRank = xpRank(xoScore);
 
   const streakDays = user.streak_days;
   const weekActive = getWeekActiveDays(streakDays, user.last_activity ?? "");
@@ -169,14 +172,13 @@ export default async function ProfilePage() {
     user.xp >= 800      ? { icon: "medal",     label: "Top Contributor" } : null,
   ].filter(Boolean) as EarnedAchievement[];
 
-  const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.examarchive.dev";
   const referralCode = user.referral_code ?? "";
   const referralLink = `${siteUrl}/login?mode=signup&ref=${encodeURIComponent(referralCode)}`;
 
-  // XP bar left label: show primary role name for system roles, XP rank for students
-  // mirrors v2 profile-panel.js xpCurrentTierEl logic
-  const xpLabel = (user.role === "student") ? currentRank : capitalise(user.role);
+  const normalizedRole = normalizeRole(user.role);
+  const roleDisplayLabel = roleLabel(user.role);
+  const xpLabel = normalizedRole === "viewer" ? currentRank : roleDisplayLabel;
 
   return (
     <MainLayout
@@ -199,6 +201,17 @@ export default async function ProfilePage() {
         { label: "Home", href: "/" },
         { label: "Profile" },
       ]} />
+      <ProfileRightSidebar
+        email={user.email}
+        roleLabel={roleDisplayLabel}
+        rankLabel={currentRank}
+        tierLabel={tier}
+        xoScore={xoScore}
+        approvedCount={approvedCount}
+        totalUploads={totalUploads}
+        streakDays={streakDays}
+        joinedDate={joinedDate}
+      />
 
       {/* ── Main profile card ── */}
       <div className="card p-6">
@@ -225,7 +238,7 @@ export default async function ProfilePage() {
               style={{ border: "1px solid var(--color-border)" }}
             >
               <Icon name={roleBadgeIconName(user.role)} size={14} aria-hidden="true" />
-              {capitalise(user.role)}
+              {roleDisplayLabel}
             </span>
           </div>
 
@@ -254,21 +267,11 @@ export default async function ProfilePage() {
           )}
 
           {/* ── XP progress bar (animated, no overflow pips) ── */}
-          <XPBar
-            percent={xpPercent}
-            leftLabel={`${user.xp} XP · ${xpLabel}`}
-            rightLabel={nextXp && nextLabel ? `Next: ${nextLabel} (${nextXp} XP)` : undefined}
-          />
-
-          {/* ── Contribution Heatmap ── */}
-          <div className="w-full mt-6">
-            <ContributionHeatmap
-              totalUploads={totalUploads}
-              approvedCount={approvedCount}
-              streakDays={streakDays}
-              lastActivity={user.last_activity ?? ""}
+            <XPBar
+              percent={xpPercent}
+              leftLabel={`${xoScore} XO · ${xpLabel}`}
+              rightLabel={nextXp && nextLabel ? `Next: ${nextLabel} (${nextXp} XO)` : undefined}
             />
-          </div>
 
           {/* ── Daily Streak ── */}
           {/* Header uses fire icon matching v2 renderStreak (SvgIcons.inline('fire')) */}
@@ -329,7 +332,7 @@ export default async function ProfilePage() {
             </div>
           </div>
 
-          {/* ── 4-stat grid (Uploads / Approved / Approval % / XP) ── */}
+           {/* ── 4-stat grid (Uploads / Approved / Approval % / XO) ── */}
           {/* Matches v2 profile stats layout (get_user_upload_stats RPC equivalent) */}
           <div className="w-full mt-5 grid grid-cols-2 gap-y-0">
             <div
@@ -357,8 +360,8 @@ export default async function ProfilePage() {
               className="text-center py-4"
               style={{ borderTop: "1px solid var(--color-border)" }}
             >
-              <p className="text-3xl font-bold" style={{ color: "var(--color-primary)" }}>{user.xp}</p>
-              <p className="text-[11px] tracking-wider mt-1 uppercase" style={{ color: "var(--color-text-muted)" }}>XP</p>
+               <p className="text-3xl font-bold" style={{ color: "var(--color-primary)" }}>{xoScore}</p>
+               <p className="text-[11px] tracking-wider mt-1 uppercase" style={{ color: "var(--color-text-muted)" }}>XO</p>
             </div>
           </div>
         </div>
@@ -373,10 +376,10 @@ export default async function ProfilePage() {
             <dd className="font-medium">{user.email}</dd>
           </div>
           <hr style={{ borderColor: "var(--color-border)" }} />
-          <div className="flex justify-between">
-            <dt style={{ color: "var(--color-text-muted)" }}>Role</dt>
-            <dd className="capitalize font-medium">{user.role}</dd>
-          </div>
+            <div className="flex justify-between">
+              <dt style={{ color: "var(--color-text-muted)" }}>Role</dt>
+              <dd className="font-medium">{roleDisplayLabel}</dd>
+            </div>
           <hr style={{ borderColor: "var(--color-border)" }} />
           <div className="flex justify-between items-center">
             <dt style={{ color: "var(--color-text-muted)" }}>Rank</dt>

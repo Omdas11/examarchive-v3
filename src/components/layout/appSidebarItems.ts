@@ -8,6 +8,9 @@ export interface AppSidebarItem {
 }
 
 const ALL_AUTHENTICATED_ROLES = [
+  "viewer",
+  "guest",
+  "curator",
   "visitor",
   "student",
   "explorer",
@@ -77,19 +80,19 @@ export const APP_SIDEBAR_ITEMS: AppSidebarItem[] = [
     label: "Admin Panel",
     icon: "admin_panel_settings",
     href: "/admin",
-    roles: ["admin", "moderator", "founder"],
+    roles: ["admin", "moderator", "founder", "maintainer"],
   },
   {
     label: "AI Controls",
     icon: "monitoring",
     href: "/admin/ai-stats",
-    roles: ["admin", "founder"],
+    roles: ["admin", "founder", "maintainer"],
   },
   {
     label: "MD Ingestion",
     icon: "upload_file",
     href: "/admin/ingest-md",
-    roles: ["admin", "founder"],
+    roles: ["admin", "founder", "maintainer"],
   },
   {
     label: "Syllabus Tracker",
@@ -101,7 +104,7 @@ export const APP_SIDEBAR_ITEMS: AppSidebarItem[] = [
     label: "Manage Users",
     icon: "group",
     href: "/admin/users",
-    roles: ["admin", "moderator", "founder"],
+    roles: ["admin", "moderator", "founder", "maintainer"],
   },
   // ── Founder only ──────────────────────────────────────
   {

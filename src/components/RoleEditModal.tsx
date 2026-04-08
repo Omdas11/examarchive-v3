@@ -8,27 +8,33 @@ import type { AdminUser, UserRole, CustomRole, UserTier } from "@/types";
  * Founders can assign any role; admins can assign up to "admin".
  */
 const ROLES: UserRole[] = [
-  "founder",
   "admin",
-  "maintainer",
   "moderator",
-  "verified_contributor",
+  "curator",
   "contributor",
+  "viewer",
+  // legacy values for compatibility while records are migrated
+  "founder",
+  "maintainer",
+  "verified_contributor",
   "explorer",
   "visitor",
 ];
 
 /** Human-readable labels for the role dropdown. */
 const ROLE_LABELS: Record<UserRole, string> = {
-  founder: "Founder",
   admin: "Admin",
-  maintainer: "Maintainer",
+  founder: "Admin (legacy founder)",
+  maintainer: "Admin (legacy maintainer)",
   moderator: "Moderator",
-  verified_contributor: "Verified Contributor",
+  curator: "Curator",
+  verified_contributor: "Curator (legacy verified contributor)",
   contributor: "Contributor",
-  explorer: "Explorer",
-  visitor: "Visitor",
-  student: "Visitor (legacy)",
+  viewer: "Viewer",
+  explorer: "Viewer (legacy explorer)",
+  visitor: "Viewer (legacy visitor)",
+  student: "Viewer (legacy student)",
+  guest: "Guest",
 };
 
 const CUSTOM_ROLES: string[] = [
@@ -58,7 +64,7 @@ export default function RoleEditModal({
 }: RoleEditModalProps) {
   // Normalize legacy "student" role (not in the selectable ROLES list) to "visitor"
   // so the dropdown never defaults to the first option ("founder") for regular users.
-  const initialRole: UserRole = ROLES.includes(user.role) ? user.role : "visitor";
+  const initialRole: UserRole = ROLES.includes(user.role) ? user.role : "viewer";
   const [role, setRole] = useState<UserRole>(initialRole);
   const [secondaryRole, setSecondaryRole] = useState<CustomRole | "none">(
     user.secondary_role ?? "none",
