@@ -380,12 +380,11 @@ function isNotFoundError(error) {
 }
 
 function isAttributeAlreadyExistsError(error) {
-  const code = error?.code ?? error?.response?.code;
+  const rawCode = error?.code ?? error?.response?.code;
+  const code = Number(rawCode);
   const type = error?.type ?? error?.response?.type;
   const message = String(error?.message ?? error?.response?.message ?? "");
-  return (
-    (code === 409 && /attribute.*already exist(s)?/i.test(message)) || type === "attribute_already_exists"
-  );
+  return (code === 409 && /already exist(s)?/i.test(message)) || type === "attribute_already_exists";
 }
 
 function sleep(ms) {
