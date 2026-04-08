@@ -589,7 +589,7 @@ function renderSchemaStatusSection(results) {
   const lines = [
     "## Schema Sync Status (Auto-generated)",
     "",
-    "_This section is updated by `scripts/v2/sync-appwrite-schema.js` when run with `--update-schema-md`._",
+    "_This v2 schema section is updated by `scripts/v2/sync-appwrite-schema.js` when run with `--update-schema-md`._",
     "",
     "| Collection | Status | Created in run | Notes |",
     "|---|---|---:|---|",

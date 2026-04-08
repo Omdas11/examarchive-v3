@@ -445,7 +445,7 @@ async function syncInfrastructure() {
       collectionName: liveCollection.name,
       status: "⚠️ Connected with differences",
       createdInRun: 0,
-      notes: "undocumented live collection; exists in Appwrite but missing from launch/v2/DATABASE_SCHEMA.md",
+      notes: "undocumented live collection; exists in Appwrite but missing from docs/launch/v2/DATABASE_SCHEMA.md",
     });
   }
 

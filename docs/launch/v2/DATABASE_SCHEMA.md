@@ -330,12 +330,12 @@ _Last synced: 2026-04-07T11:58:20.350Z_
 | `ai_embeddings` | ⚠️ Connected with differences | 0 | collection existed; 0 missing attrs created; 2 attr definition mismatch(es); 0 missing expected attr(s); mismatch: course_code, embedding |
 | `pdf_usage` | ✅ Perfectly connected | 0 | collection existed; 0 missing attrs created; 0 attr definition mismatch(es); 0 missing expected attr(s) |
 | `ai_ingestions` | ⚠️ Connected with differences | 0 | collection existed; 0 missing attrs created; 2 attr definition mismatch(es); 0 missing expected attr(s); mismatch: paper_code, file_id |
-| `ai_syllabus_maps` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from DATABASE_SCHEMA.md |
-| `ai_flashcards` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from DATABASE_SCHEMA.md |
-| `ai_admin_reports` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from DATABASE_SCHEMA.md |
-| `Syllabus_Table` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from DATABASE_SCHEMA.md |
-| `Questions_Table` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from DATABASE_SCHEMA.md |
-| `Generated_Notes_Cache` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from DATABASE_SCHEMA.md |
-| `User_Quotas` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from DATABASE_SCHEMA.md |
+| `ai_syllabus_maps` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from v2/DATABASE_SCHEMA.md |
+| `ai_flashcards` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from v2/DATABASE_SCHEMA.md |
+| `ai_admin_reports` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from v2/DATABASE_SCHEMA.md |
+| `Syllabus_Table` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from v2/DATABASE_SCHEMA.md |
+| `Questions_Table` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from v2/DATABASE_SCHEMA.md |
+| `Generated_Notes_Cache` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from v2/DATABASE_SCHEMA.md |
+| `User_Quotas` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from v2/DATABASE_SCHEMA.md |
 
 <!-- SCHEMA_SYNC_STATUS_END -->
