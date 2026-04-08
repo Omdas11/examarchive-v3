@@ -7,6 +7,18 @@ Phase-wise go-live checklist for ExamArchive v3 launch.
 
 ---
 
+## Parallel Execution Split (Apr 8 → Apr 30)
+
+| Part | Window | Owner lane | Checklist coverage | Target output |
+|---|---|---|---|---|
+| Part 1 — Data Foundation | Apr 8–Apr 13 | Data + QA | 1–8 | Data Gate ready for pass |
+| Part 2 — UX Delivery | Apr 10–Apr 20 | Frontend + QA | 9–12, 16 | UX Gate ready for pass |
+| Part 3 — AI Reliability | Apr 12–Apr 22 | AI + QA | 13–15, 22 | Ops/AI reliability baseline complete |
+| Part 4 — Growth & Monetization | Apr 18–Apr 27 | Backend + Monetization | 17–21 | Monetization Gate ready for pass |
+| Part 5 — SEO + Launch Readiness | Apr 24–Apr 30 | SEO + Release manager + All | 23–26 | Required gates passed + pilot kickoff prep done |
+
+---
+
 ## Phase 1 Checklist — Foundation & Data Reliability (Due: Apr 15)
 
 | # | Item                                              | Owner    | Deadline | Status      | Blocker                        | Acceptance Criteria                                              |
@@ -37,7 +49,7 @@ Phase-wise go-live checklist for ExamArchive v3 launch.
 
 ---
 
-## Phase 3 Checklist — Growth Readiness (Due: May 1)
+## Phase 3 Checklist — Growth Readiness (Due: Apr 30)
 
 | #  | Item                                              | Owner    | Deadline | Status      | Blocker                          | Acceptance Criteria                                               |
 |----|---------------------------------------------------|----------|----------|-------------|----------------------------------|-------------------------------------------------------------------|
@@ -50,7 +62,7 @@ Phase-wise go-live checklist for ExamArchive v3 launch.
 | 23 | SEO: meta + OG + Twitter card tags live           | Person E | Apr 29   | todo        | —                                | pass: tags present on all major pages; OG image renders          |
 | 24 | SEO: sitemap.xml and robots.txt deployed          | Person E | Apr 30   | todo        | —                                | pass: sitemap indexed by Google Search Console                   |
 | 25 | SEO: structured data (EducationalOrganization)    | Person E | Apr 30   | todo        | —                                | pass: no errors in Google Rich Results Test                      |
-| 26 | Soft launch with 20–50 students                   | All      | May 1    | todo        | All above must be in-progress    | pass: < 5 critical bugs reported in 24 hours                     |
+| 26 | Soft launch with 20–50 students (kickoff + prep)  | All      | Apr 30   | todo        | All above must be in-progress    | pass: pilot cohort ready, launch checklist approved, onboarding runbook shared |
 
 ---
 
@@ -133,6 +145,6 @@ To be reviewed by **Person A** on **April 30, 2026** before public announcement.
 | Ops Gate          | Yes           | pending | No-Go if fail — AI downtime during launch is critical |
 
 **Final decision:**
-- All required gates `pass` → **GO — launch on May 1**
-- Any required gate `fail` → **NO-GO — delay to June 1 fallback**
+- All required gates `pass` by Apr 30 → **GO — proceed with pilot/public launch sequence**
+- Any required gate `fail` on Apr 30 → **NO-GO — delay to June 1 fallback**
 - Record decision + reasoning in this doc before announcement

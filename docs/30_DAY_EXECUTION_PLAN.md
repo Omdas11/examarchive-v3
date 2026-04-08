@@ -1,120 +1,100 @@
 # 30_DAY_EXECUTION_PLAN.md
 
-**Execution window:** April 8, 2026 → May 7, 2026
-**Primary target:** Production-ready by May 1, 2026
+**Execution window:** April 8, 2026 → April 30, 2026  
+**Target:** Complete all launch checklist plans by April 30, 2026
 
 ---
 
-## Week 1 (Apr 8–Apr 14) — Hard Foundation
+## Simplified Parallel Execution Plan (Apr 8 → Apr 30)
 
-**Focus:** Stabilize core data structures so no downstream work is blocked.
+### Part 1 — Data Foundation (Apr 8–Apr 13)
+**Owner lane:** Data + QA  
+**Checklist items:** 1–8  
+- Finalize parser, validation docs, and master entry formats
+- Implement ingestion validation, tracker states, and auto-linking
+- Run 20+ paper-code QA pass
 
-| Day        | Tasks                                                                 | Owner    |
-|------------|-----------------------------------------------------------------------|----------|
-| Apr 8–9    | Finalize paper code parser + validation rules; commit to docs         | Person B |
-| Apr 8–9    | Scope lock meeting; define "done" for all modules                     | Person A |
-| Apr 10–11  | Introduce `MASTER_SYLLABUS_ENTRY.md` and `MASTER_QUESTION_ENTRY.md`   | Person B |
-| Apr 10–11  | Build ingestion validation checks (type, semester, format)            | Person B |
-| Apr 12–13  | Add syllabus tracker visibility for valid/invalid/unmapped/duplicate  | Person D |
-| Apr 14     | QA pass on sample ingestion data; fix failures                        | Person D |
+**Output by Apr 13:** Data Gate ready for pass
 
-**Deliverable:** Stable, validated ingestion pipeline; all contributors know exact format.
+### Part 2 — UX Delivery (Apr 10–Apr 20)
+**Owner lane:** Frontend + QA  
+**Checklist items:** 9–12, 16  
+- Browse redesign + filters + deep-links
+- Profile redesign
+- Mobile QA for browse/profile
 
----
+**Output by Apr 20:** UX Gate ready for pass
 
-## Week 2 (Apr 15–Apr 21) — Data Linking + Browse Backbone
+### Part 3 — AI Reliability (Apr 12–Apr 22)
+**Owner lane:** AI + QA  
+**Checklist items:** 13–15, 22  
+- Prompt standards and template lock
+- Schema validation + low-confidence fallback flow
+- Model fallback chain testing
 
-**Focus:** Connect data across syllabus, questions, and browse page.
+**Output by Apr 22:** Ops/AI reliability baseline complete
 
-| Day        | Tasks                                                                 | Owner    |
-|------------|-----------------------------------------------------------------------|----------|
-| Apr 15     | Auto-link question ↔ syllabus by paper code + year + group            | Person B |
-| Apr 16–17  | Redesign browse page architecture and filter system                   | Person C |
-| Apr 18–19  | Integrate PDF notes into browse cards (syllabus + papers + notes)     | Person C |
-| Apr 20     | Add regression checks for mapping accuracy                            | Person D |
-| Apr 21     | Browse QA pass on real data; fix layout and link issues               | Person C + D |
+### Part 4 — Growth & Monetization (Apr 18–Apr 27)
+**Owner lane:** Backend + Monetization  
+**Checklist items:** 17–21  
+- Role/XO rule engine + anti-abuse
+- Coin earn/spend flow
+- AI pricing tiers
 
-**Deliverable:** Unified browse experience driven by real ingested data.
+**Output by Apr 27:** Monetization Gate ready for pass
 
----
+### Part 5 — SEO + Launch Readiness (Apr 24–Apr 30)
+**Owner lane:** SEO + Release manager + All  
+**Checklist items:** 23–26  
+- Meta/OG, sitemap/robots, structured data
+- Final gate review + Apr 30 go/no-go
+- Soft launch pilot kickoff prep on Apr 30
 
-## Week 3 (Apr 22–Apr 28) — Profile + Roles/XO + Prompt Reliability
-
-**Focus:** Student-facing usability and reliable AI output quality.
-
-| Day        | Tasks                                                                 | Owner    |
-|------------|-----------------------------------------------------------------------|----------|
-| Apr 22–23  | Profile page redesign (activity, contributions, role/XO, saved PDFs) | Person C |
-| Apr 24–25  | Activity-based Role/XO rule engine (see `ROLE_XO_RULEBOOK.md`)        | Person B |
-| Apr 26     | AI prompt templates per task type (see `AI_PROMPT_STANDARDS.md`)      | Person E |
-| Apr 27     | Lock AI output schema; add moderation queue for low-confidence output | Person E |
-| Apr 28     | Full AI output QA pass; fix schema violations                         | Person E + D |
-
-**Deliverable:** Student-facing pages polished; AI outputs schema-validated.
-
----
-
-## Week 4 (Apr 29–May 7) — Monetization + SEO + Launch Ops
-
-**Focus:** Revenue foundation, search visibility, and production readiness.
-
-| Day        | Tasks                                                                 | Owner    |
-|------------|-----------------------------------------------------------------------|----------|
-| Apr 29     | Virtual currency MVP (earn/spend coin loop, admin config panel)       | Person F |
-| Apr 30     | Configure AI usage pricing tiers (Basic / Standard / Premium)         | Person F |
-| May 1      | SEO baseline: meta, OG, sitemap.xml, robots.txt, structured data      | Person E |
-| May 2      | Internal link audit + page speed pass                                 | Person E |
-| May 3      | Soft launch with 20–50 students; collect breakpoints                  | All      |
-| May 4–5    | Bug triage; critical fixes only                                       | All      |
-| May 6      | Production freeze; final QA sign-off                                  | Person A + D |
-| May 7      | Public launch announcement                                            | Person A |
-
-**Deliverable:** Monetization-ready, SEO-complete, publicly launchable platform.
+**Output by Apr 30:** All required gates passed; soft launch started/prepared
 
 ---
 
-## Daily Cadence (AI-assisted team)
+## Weekly Compression View
 
-| Block         | Duration | Activity                              |
-|---------------|----------|---------------------------------------|
-| Morning sync  | 30 min   | Task assignment + blocker check       |
-| Work block 1  | 2 hr     | Implementation with AI assistance     |
-| Work block 2  | 2 hr     | Implementation or QA                  |
-| End of day    | 30 min   | Issue tagging + doc updates           |
+| Window | Goal |
+|---|---|
+| Apr 8–Apr 13 | Finish Part 1 while Part 2 and Part 3 begin |
+| Apr 14–Apr 20 | Finish Part 2, continue Part 3, start Part 4 |
+| Apr 21–Apr 27 | Close Part 3 + Part 4 and run gate tests |
+| Apr 28–Apr 30 | Finish Part 5 and complete final gate sign-off |
+
+---
+
+## Parallel Squad Split
+
+| Squad | Focus |
+|---|---|
+| Squad A (Data) | Checklist items 1–8, 17–18 |
+| Squad B (Frontend) | Checklist items 9–12, 16 |
+| Squad C (AI/SEO) | Checklist items 13–15, 22–25 |
+| Squad D (Monetization/Ops) | Checklist items 19–21 + launch checks |
 
 ---
 
 ## Ownership Matrix
 
-| Role                         | Person   | Primary Responsibilities                               |
-|------------------------------|----------|--------------------------------------------------------|
-| Product lead / release mgr   | Person A | Scope, milestones, go/no-go decisions                  |
-| Ingestion + schema lead       | Person B | Parser, master entries, auto-linking, DB work          |
-| Frontend UI builder           | Person C | Browse + Profile redesign, mobile layout               |
-| QA + mapping validator        | Person D | Test coverage, data QA, tracker checks                 |
-| AI + SEO                      | Person E | Prompt templates, output QA, meta/sitemap/schema       |
-| Monetization + ops            | Person F | Coin economy, AI pricing, admin tooling, UPI ledger    |
+| Role | Person | Primary Responsibilities |
+|---|---|---|
+| Product lead / release manager | Person A | Scope lock, milestones, go/no-go decision |
+| Ingestion + schema lead | Person B | Parser, validation, linking, role/anti-abuse backend |
+| Frontend UI builder | Person C | Browse + profile redesign, mobile readiness |
+| QA + mapping validator | Person D | Ingestion QA, mobile QA, gate test evidence |
+| AI + SEO | Person E | Prompt templates, schema guardrails, fallback, SEO |
+| Monetization + ops | Person F | Coin flows, pricing tiers, monetization gate checks |
 
 ---
 
-## Must-Not-Slip Milestones
+## Must-Not-Slip Milestones (Apr 30 target)
 
-| Date   | Milestone                                              |
-|--------|--------------------------------------------------------|
-| Apr 15 | Parser + master ingestion format stable                |
-| Apr 22 | Browse/profile + link flow stable                      |
-| Apr 28 | Role/XO + AI prompt system stable                      |
-| May 1  | Launch candidate + student pilot complete              |
-| May 7  | Public launch                                          |
-
----
-
-## Risk Register
-
-| Risk                                  | Likelihood | Impact | Mitigation                                      |
-|---------------------------------------|------------|--------|-------------------------------------------------|
-| Paper code parser bugs in edge cases  | Medium     | High   | Run against all historical codes before Apr 15  |
-| Browse redesign takes too long        | Medium     | High   | Use existing component library; no full rewrite |
-| AI output quality inconsistent        | High       | Medium | Lock prompt + schema; use fallback on failures  |
-| Gemini 500 RPD hit during soft launch | High       | High   | Implement queue + coin rate limiting before May 1|
-| Team bandwidth (non-coders)           | Medium     | High   | Assign one clear AI tool per person; daily check|
+| Date | Milestone |
+|---|---|
+| Apr 13 | Data Foundation complete (Part 1) |
+| Apr 20 | UX Delivery complete (Part 2) |
+| Apr 22 | AI Reliability complete (Part 3) |
+| Apr 27 | Growth & Monetization complete (Part 4) |
+| Apr 30 | SEO + Launch Readiness complete (Part 5) |
