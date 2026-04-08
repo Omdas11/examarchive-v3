@@ -15,9 +15,9 @@ on:
     branches: [ main ]
     paths:
       - "docs/AI_UPGRADE.md"
-      - "scripts/sync-appwrite-ai.js"
-      - "scripts/appwrite-schema-setup.js"
-      - "scripts/sync-appwrite-schema.js"
+      - "scripts/v2/sync-appwrite-ai.js"
+      - "scripts/v2/appwrite-schema-setup.js"
+      - "scripts/v2/sync-appwrite-schema.js"
       - "scripts/hard-reset-ingestion.ts"
       - ".github/workflows/appwrite-ai-sync.yml"
 

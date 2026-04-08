@@ -149,7 +149,7 @@ ExamArchive requires the following Appwrite collections to be manually created i
 - **Permissions**: Server key only
 - **Recommended Index**: Create compound index on `(user_id, date)` for efficient queries
 
-See [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) for complete schema documentation.
+See [v2/DATABASE_SCHEMA.md](./v2/DATABASE_SCHEMA.md) for complete schema documentation.
 
 ## Security Best Practices
 

@@ -43,7 +43,7 @@ The growth and monetization prep checklist is now split into focused docs:
 | [docs/STARTUP_TODO.md](./STARTUP_TODO.md) | Startup success checklist with ownership, priority, and immediate actions |
 | [docs/GOOGLE_ANALYTICS_SETUP.md](./GOOGLE_ANALYTICS_SETUP.md) | GA4 implementation and event taxonomy guide |
 | [docs/SIMPLE_ANALYTICS_SETUP.md](./SIMPLE_ANALYTICS_SETUP.md) | Simple Analytics configuration steps and verification checklist |
-| [docs/launch/DATABASE_SCHEMA.md](./launch/DATABASE_SCHEMA.md) | Appwrite collection schemas |
+| [docs/launch/v2/DATABASE_SCHEMA.md](./launch/v2/DATABASE_SCHEMA.md) | Appwrite collection schemas |
 | [docs/UPLOAD_FLOW.md](./UPLOAD_FLOW.md) | End-to-end upload and moderation architecture |
 | [docs/AI_SETUP.md](./AI_SETUP.md) | OpenRouter-based AI setup, limits, and endpoint behavior |
 | [docs/ENVIRONMENT.md](./ENVIRONMENT.md) | Complete environment variable reference |
