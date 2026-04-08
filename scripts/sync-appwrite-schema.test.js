@@ -142,6 +142,11 @@ describe("sync-appwrite-schema helpers", () => {
       expected: true,
     },
     {
+      description: "with string 409 code and message",
+      error: { code: "409", message: "already exists: attribute key conflict" },
+      expected: true,
+    },
+    {
       description: "with non-409 code",
       error: { code: 500, message: "Unexpected error" },
       expected: false,
