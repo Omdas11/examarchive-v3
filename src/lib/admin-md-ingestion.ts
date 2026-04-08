@@ -254,9 +254,10 @@ export function parseDemoDataEntryMarkdown(source: string): IngestionParseResult
   const explicitType = frontmatter?.entry_type;
   const hasSyllabus = syllabusHeading !== -1;
   const hasQuestions = questionsHeading !== -1;
+  const hasMixedSections = hasSyllabus && hasQuestions;
   let entryType: IngestionParseResult["entryType"] = null;
 
-  if (hasSyllabus && hasQuestions) {
+  if (hasMixedSections) {
     errors.push({
       line: 1,
       message:
@@ -278,7 +279,7 @@ export function parseDemoDataEntryMarkdown(source: string): IngestionParseResult
   if (entryType === "question" && questionsHeading === -1) {
     errors.push({ line: 1, message: "Missing required section: ## Questions" });
   }
-  if (!entryType && !(hasSyllabus && hasQuestions)) {
+  if (!entryType && !hasMixedSections) {
     errors.push({
       line: 1,
       message: 'Unable to determine entry type. Add `entry_type: syllabus|question` or include "## Syllabus"/"## Questions".',

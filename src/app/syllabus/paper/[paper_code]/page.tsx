@@ -23,6 +23,7 @@ interface PageProps {
 
 const UNKNOWN_YEAR_LABEL = "Unknown year";
 const UNKNOWN_UNIVERSITY_LABEL = "Unknown university";
+const MAX_QUESTIONS_PER_PAPER = 500;
 
 type LinkedQuestionRow = {
   id: string;
@@ -111,7 +112,7 @@ async function getLinkedQuestionRows(paperCode: string, linkedSyllabusIds: Set<s
   const { documents } = await db.listDocuments(
     DATABASE_ID,
     COLLECTION.questions_table,
-    [Query.equal("paper_code", paperCode), Query.limit(500)],
+    [Query.equal("paper_code", paperCode), Query.limit(MAX_QUESTIONS_PER_PAPER)],
   );
 
   const allRows: LinkedQuestionRow[] = documents.map((doc) => ({

@@ -23,6 +23,7 @@ export const maxDuration = 60;
 const SYLLABUS_TEMPLATE_PATH = path.resolve(process.cwd(), "docs/MASTER_SYLLABUS_ENTRY.md");
 const QUESTION_TEMPLATE_PATH = path.resolve(process.cwd(), "docs/MASTER_QUESTION_ENTRY.md");
 const MAX_QUESTION_ROWS_PER_NUMBER = 100;
+const MAX_SYLLABUS_MATCH_LIMIT = 200;
 
 function normalizeError(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -317,20 +318,19 @@ async function resolveLinkedSyllabusEntryId(frontmatter: IngestionFrontmatter): 
     Query.equal("stream", frontmatter.stream),
     Query.equal("type", frontmatter.type),
     Query.equal("paper_code", frontmatter.paper_code),
-    Query.limit(200),
+    Query.limit(MAX_SYLLABUS_MATCH_LIMIT),
   ]);
 
   for (const doc of matches.documents) {
     const entryId = typeof doc.entry_id === "string" ? doc.entry_id.trim() : "";
     if (entryId) return entryId;
 
-    let fallbackId = "";
     if (typeof doc.id === "string" && doc.id.trim().length > 0) {
-      fallbackId = doc.id.trim();
-    } else if (typeof doc.$id === "string" && doc.$id.trim().length > 0) {
-      fallbackId = doc.$id.trim();
+      return doc.id.trim();
     }
-    if (fallbackId) return fallbackId;
+    if (typeof doc.$id === "string" && doc.$id.trim().length > 0) {
+      return doc.$id.trim();
+    }
   }
 
   return null;
