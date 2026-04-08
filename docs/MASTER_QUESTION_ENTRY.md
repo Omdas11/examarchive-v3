@@ -16,7 +16,8 @@ For the combined drafting guide (both syllabus and question formats, naming, and
 - `paper_code` must match validation rules from `PAPER_CODE_VALIDATION_RULES.md`.
 - `exam_year` and `group` must be explicit for accurate auto-linking.
 - Each question PDF entry has a unique `question_id`.
-- File should be named using the convention: `{paper_code}-{exam_year}.md` (e.g., `PHYDSC101T-2024.md`).
+- File should be named using the convention: `{paper_code}-questions-{exam_year}.md`
+  (e.g., `PHYDSC101T-questions-2024.md`).
 - Do **not** include a `## Syllabus` section in this file. Syllabus and question ingestion
   are intentionally split and must be uploaded as separate markdown files.
 

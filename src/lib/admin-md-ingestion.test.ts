@@ -156,6 +156,7 @@ subject: Physics
 
     const parsed = parseDemoDataEntryMarkdown(markdown);
     expect(parsed.entryType).toBeNull();
+    expect(parsed.errors).toHaveLength(1);
     expect(parsed.errors.some((err) => err.message.includes("cannot contain both"))).toBe(true);
     expect(parsed.syllabus).toHaveLength(0);
     expect(parsed.questions).toHaveLength(0);

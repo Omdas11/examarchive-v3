@@ -132,10 +132,10 @@ async function getLinkedQuestionRows(paperCode: string, linkedSyllabusIds: Set<s
   const linkedRows = linkedSyllabusIds.size > 0
     ? allRows.filter((row) => row.linked_syllabus_entry_id && linkedSyllabusIds.has(row.linked_syllabus_entry_id))
     : [];
-
-  const rowsToShow = (linkedRows.length > 0 ? linkedRows : allRows).sort(sortLinkedQuestions);
+  const usedFallbackToAll = linkedRows.length === 0;
+  const rowsToShow = (usedFallbackToAll ? allRows : linkedRows).sort(sortLinkedQuestions);
   const filteredOutCount = linkedRows.length > 0 ? allRows.length - linkedRows.length : 0;
-  return { rowsToShow, filteredOutCount };
+  return { rowsToShow, filteredOutCount, usedFallbackToAll };
 }
 
 export default async function SyllabusPaperPage({ params }: PageProps) {
@@ -157,7 +157,7 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
   const first = rows[0];
   const paperName = first.paper_name?.trim() || derivePaperNameFromContent(first.syllabus_content, code);
   const linkedSyllabusIds = new Set(rows.map((row) => row.entry_id).filter((entryId): entryId is string => Boolean(entryId)));
-  const { rowsToShow: linkedQuestions, filteredOutCount } = await getLinkedQuestionRows(code, linkedSyllabusIds);
+  const { rowsToShow: linkedQuestions, filteredOutCount, usedFallbackToAll } = await getLinkedQuestionRows(code, linkedSyllabusIds);
 
   return (
     <MainLayout
@@ -232,6 +232,11 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
                 <p className="mt-2 text-sm text-on-surface-variant">No questions linked to this syllabus yet.</p>
               ) : (
                 <>
+                  {usedFallbackToAll && (
+                    <p className="mt-1 text-xs text-on-surface-variant">
+                      Showing all paper questions because no linked question rows were found for this syllabus.
+                    </p>
+                  )}
                   {filteredOutCount > 0 && (
                     <p className="mt-1 text-xs text-on-surface-variant">
                       Showing {linkedQuestions.length} linked questions ({filteredOutCount} other paper questions hidden).
