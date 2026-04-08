@@ -240,7 +240,11 @@ async function upsertQuestionRows(args: {
         await db.createDocument(DATABASE_ID, COLLECTION.questions_table, ID.unique(), payload);
         added += 1;
       }
-    } catch {
+    } catch (error) {
+      if (!normalizeError(error).toLowerCase().includes("unknown attribute")) {
+        throw error;
+      }
+      console.warn("[ingest-md] Questions_Table v2 field fallback to base payload:", normalizeError(error));
       if (existing) {
         await db.updateDocument(DATABASE_ID, COLLECTION.questions_table, existing.$id, basePayload);
         updated += 1;
