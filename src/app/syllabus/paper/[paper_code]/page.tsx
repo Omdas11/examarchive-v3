@@ -129,9 +129,9 @@ async function getLinkedQuestionRows(paperCode: string, linkedSyllabusIds: Set<s
     link_status: typeof doc.link_status === "string" ? doc.link_status : undefined,
   }));
 
-  const linkedRows = linkedSyllabusIds.size > 0
-    ? allRows.filter((row) => row.linked_syllabus_entry_id && linkedSyllabusIds.has(row.linked_syllabus_entry_id))
-    : [];
+  const linkedRows = allRows.filter(
+    (row) => row.linked_syllabus_entry_id && linkedSyllabusIds.has(row.linked_syllabus_entry_id),
+  );
   const usedFallbackToAll = linkedRows.length === 0;
   const rowsToShow = (usedFallbackToAll ? allRows : linkedRows).sort(sortLinkedQuestions);
   const filteredOutCount = linkedRows.length > 0 ? allRows.length - linkedRows.length : 0;
