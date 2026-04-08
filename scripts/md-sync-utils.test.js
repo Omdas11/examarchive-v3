@@ -67,13 +67,13 @@ describe("md-sync-utils", () => {
 `;
     const parsed = parseDatabaseSchemaMarkdown(markdown);
     expect(parsed).toHaveLength(1);
+    expect(parsed[0].attributes).toHaveLength(2);
     expect(parsed[0].attributes).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ key: "user_id", type: "string", required: true }),
         expect.objectContaining({ key: "valid_key-1", type: "string", required: false }),
-      ]),
+      ])
     );
-    expect(parsed[0].attributes.some((attribute) => attribute.key === "$createdAt")).toBe(false);
     expect(warnSpy).toHaveBeenCalledWith(
       expect.stringContaining('skipping invalid markdown attribute key "$createdAt" in ai_usage'),
     );
