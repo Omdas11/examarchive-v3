@@ -64,8 +64,8 @@ export const ROLE_RING_COLORS: Record<UserRole, string | null> = {
 };
 
 const LEGACY_ROLE_MAP: Partial<Record<UserRole, UserRole>> = {
-  visitor: "guest",
-  student: "guest",
+  visitor: "viewer",
+  student: "viewer",
   explorer: "viewer",
   verified_contributor: "curator",
   maintainer: "admin",
