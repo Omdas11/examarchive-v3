@@ -88,14 +88,14 @@ function parseDatabaseSchemaMarkdown(markdown) {
     const id = rawName;
     const attributes = parseMarkdownTable(section)
       .filter((row) => {
-        if (isValidAppwriteAttributeKey(row.key)) {
-          return true;
+        const isValid = isValidAppwriteAttributeKey(row.key);
+        if (!isValid) {
+          console.warn(
+            `[warn] skipping invalid markdown attribute key "${row.key}" in ${id}; ` +
+              "it cannot be created as an Appwrite user attribute."
+          );
         }
-        console.warn(
-          `[warn] skipping invalid markdown attribute key "${row.key}" in ${id}; ` +
-            "it cannot be created as an Appwrite user attribute.",
-        );
-        return false;
+        return isValid;
       })
       .map((row) => ({
         key: row.key,
