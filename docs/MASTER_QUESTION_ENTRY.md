@@ -4,12 +4,8 @@ Canonical schema for question paper ingestion into ExamArchive.
 
 ## Purpose
 
-This document defines a **v2 question paper authoring schema** intended for future ingestion
-pipeline improvements. It is **not** the same as the current `DEMO_DATA_ENTRY.md` frontmatter
-schema enforced by `src/lib/admin-md-ingestion.ts`.
-
-Before any v2 entry is ingested by the current system, v2 fields must be mapped to the currently
-enforced keys. See the **Field Mapping** section below.
+This document defines the canonical **question paper authoring schema** supported by
+`src/lib/admin-md-ingestion.ts` and `/api/admin/ingest-md`.
 
 ## Rules
 
@@ -109,7 +105,7 @@ semester_code: "101"
 semester_no: 1
 
 question_pdf_url: "https://www.examarchive.dev/assets/questions/2024/PHYDSC101T-Nov-2024.pdf"
-source_reference: "DEMO_DATA_ENTRY.md"
+source_reference: "MASTER_QUESTION_ENTRY.md"
 status: "active"
 
 tags:
@@ -145,7 +141,7 @@ using this priority order:
 
 ## Question Table (markdown body, after frontmatter)
 
-After the YAML block, include individual questions in a table matching `DEMO_DATA_ENTRY.md`:
+After the YAML block, include individual questions in a table as shown below:
 
 ```markdown
 ## Questions

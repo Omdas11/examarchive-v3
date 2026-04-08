@@ -14,7 +14,7 @@ const {
   upsertSyncRemarks,
 } = require("./md-sync-utils");
 
-const DATABASE_SCHEMA_MD_PATH = path.resolve(__dirname, "../DATABASE_SCHEMA.md");
+const DATABASE_SCHEMA_MD_PATH = path.resolve(__dirname, "../docs/launch/DATABASE_SCHEMA.md");
 const WATCH_PATHS = [DATABASE_SCHEMA_MD_PATH, MASTER_NOTES_PROMPT_PATH];
 const fileHashes = new Map();
 const syncing = new Set();
@@ -107,7 +107,7 @@ function startWatcher() {
       console.error("[md-sync] watcher error:", error);
     });
   });
-  console.log("[md-sync] Watching DATABASE_SCHEMA.md and MASTER_NOTES_PROMPT.md");
+  console.log("[md-sync] Watching docs/launch/DATABASE_SCHEMA.md and MASTER_NOTES_PROMPT.md");
 }
 
 if (require.main === module) {

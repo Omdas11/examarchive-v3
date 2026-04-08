@@ -14,13 +14,14 @@ import {
   MD_INGESTION_BUCKET_ID,
   Query,
 } from "@/lib/appwrite";
-import { parseDemoDataEntryMarkdown } from "@/lib/admin-md-ingestion";
+import { parseDemoDataEntryMarkdown, type IngestionFrontmatter } from "@/lib/admin-md-ingestion";
 import { FYUG_DEPT_CODES } from "@/lib/fyug-depts";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const TEMPLATE_PATH = path.resolve(process.cwd(), "DEMO_DATA_ENTRY.md");
+const SYLLABUS_TEMPLATE_PATH = path.resolve(process.cwd(), "docs/MASTER_SYLLABUS_ENTRY.md");
+const QUESTION_TEMPLATE_PATH = path.resolve(process.cwd(), "docs/MASTER_QUESTION_ENTRY.md");
 const MAX_QUESTION_ROWS_PER_NUMBER = 100;
 
 function normalizeError(error: unknown): string {
@@ -78,13 +79,7 @@ async function ensureMdIngestionBucket() {
 }
 
 async function upsertSyllabusRows(args: {
-  university: string;
-  course: string;
-  stream: string;
-  type: string;
-  paperCode: string;
-  paperName: string;
-  subject: string;
+  frontmatter: IngestionFrontmatter;
   semester: number | null;
   rows: ReturnType<typeof parseDemoDataEntryMarkdown>["syllabus"];
 }) {
@@ -93,11 +88,11 @@ async function upsertSyllabusRows(args: {
   let updated = 0;
   for (const row of args.rows) {
     const existing = await db.listDocuments(DATABASE_ID, COLLECTION.syllabus_table, [
-      Query.equal("university", args.university),
-      Query.equal("course", args.course),
-      Query.equal("stream", args.stream),
-      Query.equal("type", args.type),
-      Query.equal("paper_code", args.paperCode),
+      Query.equal("university", args.frontmatter.university),
+      Query.equal("course", args.frontmatter.course),
+      Query.equal("stream", args.frontmatter.stream),
+      Query.equal("type", args.frontmatter.type),
+      Query.equal("paper_code", args.frontmatter.paper_code),
       Query.equal("unit_number", row.unit_number),
       Query.limit(1),
     ]);
@@ -107,20 +102,38 @@ async function upsertSyllabusRows(args: {
         : randomUUID();
     const basePayload: Record<string, unknown> = {
       id: rowId,
-      university: args.university,
-      course: args.course,
-      stream: args.stream,
-      type: args.type,
-      paper_code: args.paperCode,
-      subject: args.subject,
+      university: args.frontmatter.university,
+      course: args.frontmatter.course,
+      stream: args.frontmatter.stream,
+      type: args.frontmatter.type,
+      paper_code: args.frontmatter.paper_code,
+      subject: args.frontmatter.subject,
       unit_number: row.unit_number,
       syllabus_content: row.syllabus_content,
       tags: row.tags,
     };
     const payload: Record<string, unknown> = {
       ...basePayload,
-      paper_name: args.paperName,
+      paper_name: args.frontmatter.paper_name,
     };
+    if (args.frontmatter.entry_type) payload.entry_type = args.frontmatter.entry_type;
+    if (args.frontmatter.entry_id) payload.entry_id = args.frontmatter.entry_id;
+    if (args.frontmatter.college) payload.college = args.frontmatter.college;
+    if (args.frontmatter.group) payload.group = args.frontmatter.group;
+    if (args.frontmatter.session) payload.session = args.frontmatter.session;
+    if (typeof args.frontmatter.year === "number") payload.year = args.frontmatter.year;
+    if (args.frontmatter.semester_code) payload.semester_code = args.frontmatter.semester_code;
+    if (typeof args.frontmatter.semester_no === "number") payload.semester_no = args.frontmatter.semester_no;
+    if (typeof args.frontmatter.credits === "number") payload.credits = args.frontmatter.credits;
+    if (typeof args.frontmatter.marks_total === "number") payload.marks_total = args.frontmatter.marks_total;
+    if (args.frontmatter.syllabus_pdf_url) payload.syllabus_pdf_url = args.frontmatter.syllabus_pdf_url;
+    if (args.frontmatter.source_reference) payload.source_reference = args.frontmatter.source_reference;
+    if (args.frontmatter.status) payload.status = args.frontmatter.status;
+    if (Array.isArray(args.frontmatter.aliases)) payload.aliases = args.frontmatter.aliases;
+    if (Array.isArray(args.frontmatter.keywords)) payload.keywords = args.frontmatter.keywords;
+    if (args.frontmatter.notes) payload.notes = args.frontmatter.notes;
+    if (typeof args.frontmatter.version === "number") payload.version = args.frontmatter.version;
+    if (args.frontmatter.last_updated) payload.last_updated = args.frontmatter.last_updated;
     if (typeof args.semester === "number") {
       payload.semester = args.semester;
     }
@@ -152,13 +165,7 @@ async function upsertSyllabusRows(args: {
 }
 
 async function upsertQuestionRows(args: {
-  university: string;
-  course: string;
-  stream: string;
-  type: string;
-  paperCode: string;
-  paperName: string;
-  subject: string;
+  frontmatter: IngestionFrontmatter;
   rows: ReturnType<typeof parseDemoDataEntryMarkdown>["questions"];
 }) {
   const db = adminDatabases();
@@ -166,11 +173,11 @@ async function upsertQuestionRows(args: {
   let updated = 0;
   for (const row of args.rows) {
     const existingByQuestionNo = await db.listDocuments(DATABASE_ID, COLLECTION.questions_table, [
-      Query.equal("university", args.university),
-      Query.equal("course", args.course),
-      Query.equal("stream", args.stream),
-      Query.equal("type", args.type),
-      Query.equal("paper_code", args.paperCode),
+      Query.equal("university", args.frontmatter.university),
+      Query.equal("course", args.frontmatter.course),
+      Query.equal("stream", args.frontmatter.stream),
+      Query.equal("type", args.frontmatter.type),
+      Query.equal("paper_code", args.frontmatter.paper_code),
       Query.equal("question_no", row.question_no),
       Query.limit(MAX_QUESTION_ROWS_PER_NUMBER),
     ]);
@@ -184,32 +191,63 @@ async function upsertQuestionRows(args: {
       typeof existing?.id === "string" && existing.id.trim().length > 0
         ? existing.id
         : randomUUID();
-    const payload: Record<string, unknown> = {
+    const basePayload: Record<string, unknown> = {
       id: rowId,
-      university: args.university,
-      course: args.course,
-      stream: args.stream,
-      type: args.type,
-      paper_code: args.paperCode,
-      paper_name: args.paperName,
-      subject: args.subject,
+      university: args.frontmatter.university,
+      course: args.frontmatter.course,
+      stream: args.frontmatter.stream,
+      type: args.frontmatter.type,
+      paper_code: args.frontmatter.paper_code,
+      paper_name: args.frontmatter.paper_name,
+      subject: args.frontmatter.subject,
       question_no: row.question_no,
       question_subpart: row.question_subpart,
       question_content: row.question_content,
       tags: row.tags,
     };
+    const payload: Record<string, unknown> = { ...basePayload };
+    if (args.frontmatter.entry_type) payload.entry_type = args.frontmatter.entry_type;
+    if (args.frontmatter.question_id) payload.question_id = args.frontmatter.question_id;
+    if (args.frontmatter.college) payload.college = args.frontmatter.college;
+    if (args.frontmatter.group) payload.group = args.frontmatter.group;
+    if (typeof args.frontmatter.exam_year === "number") payload.exam_year = args.frontmatter.exam_year;
+    if (args.frontmatter.exam_session) payload.exam_session = args.frontmatter.exam_session;
+    if (args.frontmatter.exam_month) payload.exam_month = args.frontmatter.exam_month;
+    if (args.frontmatter.attempt_type) payload.attempt_type = args.frontmatter.attempt_type;
+    if (args.frontmatter.semester_code) payload.semester_code = args.frontmatter.semester_code;
+    if (typeof args.frontmatter.semester_no === "number") payload.semester_no = args.frontmatter.semester_no;
+    if (args.frontmatter.question_pdf_url) payload.question_pdf_url = args.frontmatter.question_pdf_url;
+    if (args.frontmatter.source_reference) payload.source_reference = args.frontmatter.source_reference;
+    if (args.frontmatter.status) payload.status = args.frontmatter.status;
+    if (args.frontmatter.linked_syllabus_entry_id) payload.linked_syllabus_entry_id = args.frontmatter.linked_syllabus_entry_id;
+    if (args.frontmatter.link_status) payload.link_status = args.frontmatter.link_status;
+    if (args.frontmatter.ocr_text_path) payload.ocr_text_path = args.frontmatter.ocr_text_path;
+    if (args.frontmatter.ai_summary_status) payload.ai_summary_status = args.frontmatter.ai_summary_status;
+    if (args.frontmatter.difficulty_estimate) payload.difficulty_estimate = args.frontmatter.difficulty_estimate;
     if (typeof row.year === "number") {
       payload.year = row.year;
+    } else if (typeof args.frontmatter.exam_year === "number") {
+      payload.year = args.frontmatter.exam_year;
     }
     if (typeof row.marks === "number") {
       payload.marks = row.marks;
     }
-    if (existing) {
-      await db.updateDocument(DATABASE_ID, COLLECTION.questions_table, existing.$id, payload);
-      updated += 1;
-    } else {
-      await db.createDocument(DATABASE_ID, COLLECTION.questions_table, ID.unique(), payload);
-      added += 1;
+    try {
+      if (existing) {
+        await db.updateDocument(DATABASE_ID, COLLECTION.questions_table, existing.$id, payload);
+        updated += 1;
+      } else {
+        await db.createDocument(DATABASE_ID, COLLECTION.questions_table, ID.unique(), payload);
+        added += 1;
+      }
+    } catch (error) {
+      if (existing) {
+        await db.updateDocument(DATABASE_ID, COLLECTION.questions_table, existing.$id, basePayload);
+        updated += 1;
+      } else {
+        await db.createDocument(DATABASE_ID, COLLECTION.questions_table, ID.unique(), basePayload);
+        added += 1;
+      }
     }
   }
   return { added, updated };
@@ -221,6 +259,7 @@ async function createIngestionLog(payload: {
   paperCode?: string;
   paperName?: string;
   subject?: string;
+  entryType?: "syllabus" | "question" | "combined";
   status: "success" | "partial" | "failed";
   rowsAffected: number;
   errors: Array<{ line: number; message: string }>;
@@ -247,6 +286,7 @@ async function createIngestionLog(payload: {
       ingested_at: new Date().toISOString(),
       row_count: payload.rowsAffected,
     };
+    if (payload.entryType) doc.entry_type = payload.entryType;
     if (payload.paperName) doc.paper_name = payload.paperName;
     if (payload.subject) doc.subject = payload.subject;
     if (errorSummary) doc.error_summary = errorSummary;
@@ -265,9 +305,13 @@ export async function GET(request: NextRequest) {
   }
 
   const { searchParams } = new URL(request.url);
-  if (searchParams.get("template") === "1") {
+  const templateKind = searchParams.get("template");
+  if (templateKind) {
     const fs = await import("fs/promises");
-    const template = await fs.readFile(TEMPLATE_PATH, "utf8");
+    const templatePath = templateKind === "question"
+      ? QUESTION_TEMPLATE_PATH
+      : SYLLABUS_TEMPLATE_PATH;
+    const template = await fs.readFile(templatePath, "utf8");
     return new NextResponse(template, {
       status: 200,
       headers: { "Content-Type": "text/markdown; charset=utf-8" },
@@ -341,10 +385,11 @@ export async function POST(request: NextRequest) {
     const source = buffer.toString("utf8");
     const parsed = parseDemoDataEntryMarkdown(source);
 
-    if (!parsed.frontmatter) {
+    if (!parsed.frontmatter || !parsed.entryType) {
       await createIngestionLog({
         fileName: file.name,
         fileId,
+        entryType: parsed.entryType ?? undefined,
         status: "failed",
         rowsAffected: 0,
         errors: parsed.errors,
@@ -362,32 +407,24 @@ export async function POST(request: NextRequest) {
     const semester = deriveSemesterFromCode(frontmatter.paper_code);
 
     try {
-      syllabusResult = await upsertSyllabusRows({
-        university: frontmatter.university,
-        course: frontmatter.course,
-        stream: frontmatter.stream,
-        type: frontmatter.type,
-        paperCode: frontmatter.paper_code,
-        paperName: frontmatter.paper_name,
-        subject: frontmatter.subject,
-        semester,
-        rows: parsed.syllabus,
-      });
+      if (parsed.entryType === "syllabus" || parsed.entryType === "combined") {
+        syllabusResult = await upsertSyllabusRows({
+          frontmatter,
+          semester,
+          rows: parsed.syllabus,
+        });
+      }
     } catch (error) {
       dbErrors.push({ line: 0, message: `Syllabus upsert failed: ${normalizeError(error)}` });
     }
 
     try {
-      questionResult = await upsertQuestionRows({
-        university: frontmatter.university,
-        course: frontmatter.course,
-        stream: frontmatter.stream,
-        type: frontmatter.type,
-        paperCode: frontmatter.paper_code,
-        paperName: frontmatter.paper_name,
-        subject: frontmatter.subject,
-        rows: parsed.questions,
-      });
+      if (parsed.entryType === "question" || parsed.entryType === "combined") {
+        questionResult = await upsertQuestionRows({
+          frontmatter,
+          rows: parsed.questions,
+        });
+      }
     } catch (error) {
       dbErrors.push({ line: 0, message: `Question upsert failed: ${normalizeError(error)}` });
     }
@@ -404,6 +441,7 @@ export async function POST(request: NextRequest) {
       paperCode: frontmatter.paper_code,
       paperName: frontmatter.paper_name,
       subject: frontmatter.subject,
+      entryType: parsed.entryType,
       status,
       rowsAffected,
       errors: dbErrors,
@@ -414,6 +452,7 @@ export async function POST(request: NextRequest) {
       fileId,
       fileName: file.name,
       paperCode: frontmatter.paper_code,
+      entryType: parsed.entryType,
       added,
       updated,
       rowsAffected,

@@ -317,9 +317,9 @@ function buildSchemaStatusTableFromDiff(input: {
 }
 
 function injectSchemaStatusIntoDatabaseDoc(statusTable: string) {
-  const docPath = path.resolve(__dirname, "../docs/DATABASE_SCHEMA.md");
+  const docPath = path.resolve(__dirname, "../docs/launch/DATABASE_SCHEMA.md");
   if (!fs.existsSync(docPath)) {
-    console.error("docs/DATABASE_SCHEMA.md not found!");
+    console.error("docs/launch/DATABASE_SCHEMA.md not found!");
     return;
   }
 
@@ -335,24 +335,24 @@ function injectSchemaStatusIntoDatabaseDoc(statusTable: string) {
     const tagBlockMatches = existingContent.match(globalRegex) ?? [];
     if (tagBlockMatches.length !== 1) {
       throw new Error(
-        `Expected exactly one schema status tag block in docs/DATABASE_SCHEMA.md, found ${tagBlockMatches.length}.`,
+        `Expected exactly one schema status tag block in docs/launch/DATABASE_SCHEMA.md, found ${tagBlockMatches.length}.`,
       );
     }
     nextContent = existingContent.replace(regex, newBlock);
   }
 
   fs.writeFileSync(docPath, nextContent, "utf8");
-  console.log("Successfully injected live status into docs/DATABASE_SCHEMA.md");
+  console.log("Successfully injected live status into docs/launch/DATABASE_SCHEMA.md");
 }
 
 function deleteLegacySchemaDoc() {
-  const oldDocPath = path.resolve(__dirname, "../docs/APPWRITE_SCHEMA.md");
+  const oldDocPath = path.resolve(__dirname, "../docs/launch/APPWRITE_SCHEMA.md");
   if (!fs.existsSync(oldDocPath)) {
     return;
   }
 
   fs.unlinkSync(oldDocPath);
-  console.log("Deleted deprecated docs/APPWRITE_SCHEMA.md");
+  console.log("Deleted deprecated docs/launch/APPWRITE_SCHEMA.md");
 }
 
 async function syncInfrastructure() {
@@ -368,7 +368,7 @@ async function syncInfrastructure() {
   const requiredCollectionResult = await ensureCollection(databases, TARGET_DATABASE_ID, REQUIRED_COLLECTION_ID);
   const liveBucketsResponse = await storage.listBuckets();
   const liveBuckets = liveBucketsResponse.buckets.map((bucket) => ({ $id: bucket.$id, name: bucket.name }));
-  const docPath = path.resolve(__dirname, "../docs/DATABASE_SCHEMA.md");
+  const docPath = path.resolve(__dirname, "../docs/launch/DATABASE_SCHEMA.md");
   const docContent = fs.existsSync(docPath) ? fs.readFileSync(docPath, "utf8") : "";
   const expectedSchemas = parseExpectedCollectionsFromDoc(docContent);
   const liveCollections = await fetchLiveCollections(databases);
@@ -445,7 +445,7 @@ async function syncInfrastructure() {
       collectionName: liveCollection.name,
       status: "⚠️ Connected with differences",
       createdInRun: 0,
-      notes: "undocumented live collection; exists in Appwrite but missing from DATABASE_SCHEMA.md",
+      notes: "undocumented live collection; exists in Appwrite but missing from launch/DATABASE_SCHEMA.md",
     });
   }
 

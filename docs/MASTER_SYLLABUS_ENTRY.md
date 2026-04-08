@@ -4,12 +4,8 @@ Canonical schema for syllabus ingestion into ExamArchive.
 
 ## Purpose
 
-This document defines a **v2 syllabus authoring schema** intended for future ingestion
-pipeline improvements. It is **not** the same as the current `DEMO_DATA_ENTRY.md`
-frontmatter schema enforced by `src/lib/admin-md-ingestion.ts`.
-
-Before any v2 entry can be ingested by the current system, the v2 fields must be mapped
-to the currently enforced frontmatter keys. See the **Field Mapping** section below.
+This document defines the canonical **syllabus authoring schema** supported by
+`src/lib/admin-md-ingestion.ts` and `/api/admin/ingest-md`.
 
 ## Rules
 
@@ -167,7 +163,7 @@ last_updated: "2026-04-08"
 
 ## Syllabus Table (markdown body, after frontmatter)
 
-After the YAML block, include the unit-level syllabus in a table matching `DEMO_DATA_ENTRY.md`:
+After the YAML block, include the unit-level syllabus table as shown below:
 
 ```markdown
 ## Syllabus

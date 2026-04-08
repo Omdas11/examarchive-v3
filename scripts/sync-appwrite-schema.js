@@ -21,7 +21,7 @@ const MARKDOWN_FILE_ID_SIZE = 100;
 /** NEP 2020 FYUG semester range (1–8). */
 const MIN_SEMESTER = 1;
 const MAX_SEMESTER = 8;
-const DATABASE_SCHEMA_DOC_PATH = path.resolve(__dirname, "../DATABASE_SCHEMA.md");
+const DATABASE_SCHEMA_DOC_PATH = path.resolve(__dirname, "../docs/launch/DATABASE_SCHEMA.md");
 const STATUS_BLOCK_START = "<!-- SCHEMA_SYNC_STATUS_START -->";
 const STATUS_BLOCK_END = "<!-- SCHEMA_SYNC_STATUS_END -->";
 const DEFAULT_DATABASE_SCHEMA_MARKDOWN = `# DATABASE_SCHEMA
@@ -267,17 +267,35 @@ const TARGET_SCHEMA = [
     id: "Syllabus_Table",
     name: "Syllabus_Table",
     attributes: [
+      { key: "entry_type", type: "string", required: false, size: 32 },
+      { key: "entry_id", type: "string", required: false, size: 128 },
+      { key: "college", type: "string", required: false, size: 256 },
       { key: "university", type: "string", required: true, size: 256 },
       { key: "course", type: "string", required: true, size: 64 },
       { key: "stream", type: "string", required: true, size: 64 },
+      { key: "group", type: "string", required: false, size: 256 },
+      { key: "session", type: "string", required: false, size: 64 },
+      { key: "year", type: "integer", required: false },
       { key: "type", type: "string", required: true, size: 32 },
       { key: "paper_code", type: "string", required: true, size: 128 },
       // paper_name stored alongside units so the tracker can show names without
       // cross-joining against Questions_Table (added for syllabus tracker feature).
       { key: "paper_name", type: "string", required: false, size: 255 },
       { key: "subject", type: "string", required: false, size: 256 },
+      { key: "semester_code", type: "string", required: false, size: 16 },
+      { key: "semester_no", type: "integer", required: false, min: MIN_SEMESTER, max: MAX_SEMESTER },
       // semester (1–8) stored explicitly for efficient range queries.
       { key: "semester", type: "integer", required: false, min: MIN_SEMESTER, max: MAX_SEMESTER },
+      { key: "credits", type: "integer", required: false },
+      { key: "marks_total", type: "integer", required: false },
+      { key: "syllabus_pdf_url", type: "string", required: false, size: 2048 },
+      { key: "source_reference", type: "string", required: false, size: 512 },
+      { key: "status", type: "string", required: false, size: 64 },
+      { key: "aliases", type: "string", required: false, size: 256, array: true },
+      { key: "keywords", type: "string", required: false, size: 128, array: true },
+      { key: "notes", type: "string", required: false, size: LARGE_STRING_SIZE },
+      { key: "version", type: "integer", required: false },
+      { key: "last_updated", type: "string", required: false, size: 32 },
       { key: "unit_number", type: "integer", required: true },
       { key: "syllabus_content", type: "string", required: true, size: TEXT_CHUNK_SIZE },
       { key: "lectures", type: "integer", required: false },
@@ -288,19 +306,37 @@ const TARGET_SCHEMA = [
     id: "Questions_Table",
     name: "Questions_Table",
     attributes: [
+      { key: "entry_type", type: "string", required: false, size: 32 },
+      { key: "question_id", type: "string", required: false, size: 128 },
+      { key: "college", type: "string", required: false, size: 256 },
       { key: "university", type: "string", required: true, size: 256 },
       { key: "course", type: "string", required: true, size: 64 },
       { key: "stream", type: "string", required: true, size: 64 },
+      { key: "group", type: "string", required: false, size: 256 },
       { key: "type", type: "string", required: true, size: 32 },
       { key: "paper_code", type: "string", required: true, size: 128 },
       { key: "paper_name", type: "string", required: false, size: 256 },
       { key: "subject", type: "string", required: false, size: 256 },
+      { key: "exam_year", type: "integer", required: false },
+      { key: "exam_session", type: "string", required: false, size: 64 },
+      { key: "exam_month", type: "string", required: false, size: 32 },
+      { key: "attempt_type", type: "string", required: false, size: 32 },
+      { key: "semester_code", type: "string", required: false, size: 16 },
+      { key: "semester_no", type: "integer", required: false, min: MIN_SEMESTER, max: MAX_SEMESTER },
+      { key: "question_pdf_url", type: "string", required: false, size: 2048 },
+      { key: "source_reference", type: "string", required: false, size: 512 },
+      { key: "status", type: "string", required: false, size: 64 },
       { key: "question_no", type: "string", required: false, size: 32 },
       { key: "question_subpart", type: "string", required: false, size: 32 },
       { key: "year", type: "integer", required: false },
       { key: "question_content", type: "string", required: true, size: TEXT_CHUNK_SIZE },
       { key: "marks", type: "integer", required: false },
       { key: "tags", type: "string", required: false, size: 128, array: true },
+      { key: "linked_syllabus_entry_id", type: "string", required: false, size: 128 },
+      { key: "link_status", type: "string", required: false, size: 32 },
+      { key: "ocr_text_path", type: "string", required: false, size: 512 },
+      { key: "ai_summary_status", type: "string", required: false, size: 32 },
+      { key: "difficulty_estimate", type: "string", required: false, size: 32 },
     ],
   },
   {

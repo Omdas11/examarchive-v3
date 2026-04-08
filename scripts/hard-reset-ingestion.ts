@@ -199,7 +199,7 @@ async function hardReset() {
 
   console.log("🎉 RESET COMPLETE.");
   console.log("Next steps:");
-  console.log("1) Re-ingest markdown files in DEMO_DATA_ENTRY.md format.");
+  console.log("1) Re-ingest markdown files using docs/MASTER_SYLLABUS_ENTRY.md and docs/MASTER_QUESTION_ENTRY.md formats.");
   console.log("2) Validate AI Content tabs: units should work when syllabus exists, solved papers only when question-year rows exist.");
 }
 

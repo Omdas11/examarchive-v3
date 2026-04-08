@@ -1,13 +1,43 @@
 import matter from "gray-matter";
 
 export interface IngestionFrontmatter {
+  entry_type?: "syllabus" | "question";
+  entry_id?: string;
+  question_id?: string;
+  college?: string;
   university: string;
   course: string;
   stream: string;
+  group?: string;
+  session?: string;
+  exam_session?: string;
+  exam_month?: string;
+  attempt_type?: string;
   type: string;
   paper_code: string;
   paper_name: string;
   subject: string;
+  semester_code?: string;
+  semester_no?: number;
+  credits?: number;
+  marks_total?: number;
+  syllabus_pdf_url?: string;
+  question_pdf_url?: string;
+  source_reference?: string;
+  status?: string;
+  aliases?: string[];
+  keywords?: string[];
+  tags?: string[];
+  notes?: string;
+  version?: number;
+  last_updated?: string;
+  year?: number;
+  exam_year?: number;
+  linked_syllabus_entry_id?: string;
+  link_status?: string;
+  ocr_text_path?: string;
+  ai_summary_status?: string;
+  difficulty_estimate?: string;
 }
 
 export interface ParsedSyllabusRow {
@@ -34,6 +64,7 @@ export interface IngestionParseError {
 }
 
 export interface IngestionParseResult {
+  entryType: "syllabus" | "question" | "combined" | null;
   frontmatter: IngestionFrontmatter | null;
   syllabus: ParsedSyllabusRow[];
   questions: ParsedQuestionRow[];
@@ -57,6 +88,11 @@ function parseTags(value: string): string[] {
     .split(",")
     .map((tag) => tag.trim())
     .filter(Boolean);
+}
+
+function deriveSubjectFromPaperCode(paperCode: string): string {
+  const normalized = paperCode.trim().toUpperCase();
+  return /^[A-Z]{3}/.test(normalized) ? normalized.slice(0, 3) : "";
 }
 
 function findHeadingLine(lines: string[], title: string): number {
@@ -97,22 +133,107 @@ function parseTableRows(
 }
 
 function parseFrontmatter(data: Record<string, unknown>, errors: IngestionParseError[]): IngestionFrontmatter | null {
-  const get = (key: keyof IngestionFrontmatter) => {
-    const value = data[key];
-    return typeof value === "string" ? value.trim() : "";
-  };
-  const frontmatter: IngestionFrontmatter = {
-    university: get("university"),
-    course: get("course"),
-    stream: get("stream"),
-    type: get("type"),
-    paper_code: get("paper_code"),
-    paper_name: get("paper_name"),
-    subject: get("subject"),
+  const getString = (...keys: string[]) => {
+    for (const key of keys) {
+      const value = data[key];
+      if (typeof value === "string" && value.trim().length > 0) {
+        return value.trim();
+      }
+    }
+    return "";
   };
 
-  (Object.keys(frontmatter) as Array<keyof IngestionFrontmatter>).forEach((key) => {
-    if (!frontmatter[key]) {
+  const getOptionalString = (...keys: string[]) => {
+    const value = getString(...keys);
+    return value.length > 0 ? value : undefined;
+  };
+
+  const getNumber = (...keys: string[]) => {
+    for (const key of keys) {
+      const value = data[key];
+      if (typeof value === "number" && Number.isFinite(value)) {
+        return value;
+      }
+      if (typeof value === "string" && value.trim().length > 0) {
+        const parsed = Number(value.trim());
+        if (Number.isFinite(parsed)) return parsed;
+      }
+    }
+    return undefined;
+  };
+
+  const getStringArray = (...keys: string[]) => {
+    for (const key of keys) {
+      const value = data[key];
+      if (Array.isArray(value)) {
+        const parsed = value
+          .map((entry) => (typeof entry === "string" ? entry.trim() : ""))
+          .filter(Boolean);
+        if (parsed.length > 0) return parsed;
+      }
+      if (typeof value === "string" && value.trim().length > 0) {
+        const parsed = value
+          .split(",")
+          .map((entry) => entry.trim())
+          .filter(Boolean);
+        if (parsed.length > 0) return parsed;
+      }
+    }
+    return undefined;
+  };
+
+  const entryTypeRaw = getString("entry_type").toLowerCase();
+  const entryType = entryTypeRaw === "syllabus" || entryTypeRaw === "question"
+    ? entryTypeRaw
+    : undefined;
+  if (entryTypeRaw && !entryType) {
+    errors.push({ line: 1, message: 'Invalid entry_type. Expected "syllabus" or "question".' });
+  }
+
+  const paperCode = getString("paper_code");
+  const subject = getString("subject", "subject_code") || deriveSubjectFromPaperCode(paperCode);
+  const frontmatter: IngestionFrontmatter = {
+    entry_type: entryType,
+    entry_id: getOptionalString("entry_id"),
+    question_id: getOptionalString("question_id"),
+    college: getOptionalString("college"),
+    university: getString("university"),
+    course: getString("course"),
+    stream: getString("stream"),
+    group: getOptionalString("group"),
+    session: getOptionalString("session"),
+    exam_session: getOptionalString("exam_session"),
+    exam_month: getOptionalString("exam_month"),
+    attempt_type: getOptionalString("attempt_type"),
+    type: getString("type", "paper_type"),
+    paper_code: paperCode,
+    paper_name: getString("paper_name", "paper_title"),
+    subject,
+    semester_code: getOptionalString("semester_code"),
+    semester_no: getNumber("semester_no"),
+    credits: getNumber("credits"),
+    marks_total: getNumber("marks_total"),
+    syllabus_pdf_url: getOptionalString("syllabus_pdf_url"),
+    question_pdf_url: getOptionalString("question_pdf_url"),
+    source_reference: getOptionalString("source_reference"),
+    status: getOptionalString("status"),
+    aliases: getStringArray("aliases"),
+    keywords: getStringArray("keywords"),
+    tags: getStringArray("tags"),
+    notes: getOptionalString("notes"),
+    version: getNumber("version"),
+    last_updated: getOptionalString("last_updated"),
+    year: getNumber("year"),
+    exam_year: getNumber("exam_year"),
+    linked_syllabus_entry_id: getOptionalString("linked_syllabus_entry_id"),
+    link_status: getOptionalString("link_status"),
+    ocr_text_path: getOptionalString("ocr_text_path"),
+    ai_summary_status: getOptionalString("ai_summary_status"),
+    difficulty_estimate: getOptionalString("difficulty_estimate"),
+  };
+
+  (["university", "course", "stream", "type", "paper_code", "paper_name", "subject"] as const).forEach((key) => {
+    if (!frontmatter[key] || String(frontmatter[key]).trim().length === 0) {
       errors.push({ line: 1, message: `Missing required frontmatter field: ${key}` });
     }
   });
@@ -130,18 +251,48 @@ export function parseDemoDataEntryMarkdown(source: string): IngestionParseResult
   const frontmatter = parseFrontmatter(parsed.data as Record<string, unknown>, errors);
   const syllabusHeading = findHeadingLine(lines, "Syllabus");
   const questionsHeading = findHeadingLine(lines, "Questions");
+  const explicitType = frontmatter?.entry_type;
+  const hasSyllabus = syllabusHeading !== -1;
+  const hasQuestions = questionsHeading !== -1;
+  let entryType: IngestionParseResult["entryType"] = null;
 
-  if (syllabusHeading === -1) {
+  if (explicitType === "syllabus") {
+    entryType = "syllabus";
+  } else if (explicitType === "question") {
+    entryType = "question";
+  } else if (hasSyllabus && hasQuestions) {
+    entryType = "combined";
+  } else if (hasSyllabus) {
+    entryType = "syllabus";
+  } else if (hasQuestions) {
+    entryType = "question";
+  }
+
+  if (entryType === "syllabus" && syllabusHeading === -1) {
     errors.push({ line: 1, message: "Missing required section: ## Syllabus" });
   }
-  if (questionsHeading === -1) {
+  if (entryType === "question" && questionsHeading === -1) {
     errors.push({ line: 1, message: "Missing required section: ## Questions" });
+  }
+  if (entryType === "combined") {
+    if (syllabusHeading === -1) {
+      errors.push({ line: 1, message: "Missing required section: ## Syllabus" });
+    }
+    if (questionsHeading === -1) {
+      errors.push({ line: 1, message: "Missing required section: ## Questions" });
+    }
+  }
+  if (!entryType) {
+    errors.push({
+      line: 1,
+      message: 'Unable to determine entry type. Add `entry_type: syllabus|question` or include "## Syllabus"/"## Questions".',
+    });
   }
 
   const syllabus: ParsedSyllabusRow[] = [];
   const questions: ParsedQuestionRow[] = [];
 
-  if (syllabusHeading !== -1) {
+  if ((entryType === "syllabus" || entryType === "combined") && syllabusHeading !== -1) {
     const section = collectSectionLines(lines, syllabusHeading);
     const rows = parseTableRows(section);
     if (rows.length === 0) {
@@ -180,7 +331,7 @@ export function parseDemoDataEntryMarkdown(source: string): IngestionParseResult
     }
   }
 
-  if (questionsHeading !== -1) {
+  if ((entryType === "question" || entryType === "combined") && questionsHeading !== -1) {
     const section = collectSectionLines(lines, questionsHeading);
     const rows = parseTableRows(section);
     if (rows.length === 0) {
@@ -227,5 +378,5 @@ export function parseDemoDataEntryMarkdown(source: string): IngestionParseResult
     }
   }
 
-  return { frontmatter, syllabus, questions, errors };
+  return { entryType, frontmatter, syllabus, questions, errors };
 }
