@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import AvatarRing from "@/components/AvatarRing";
-import { roleLabel } from "@/lib/roles";
+import { normalizeRole, roleLabel } from "@/lib/roles";
 
 export interface SidebarProfileResponse {
   id: string;
@@ -60,6 +60,7 @@ export default function RightSidebar({
   const displayName = profile?.name || profile?.username || userName || "Guest";
   const username = profile?.username ? `@${profile.username}` : null;
   const displayRole = roleLabel(profile?.role);
+  const normalizedRole = normalizeRole(profile?.role);
   const xoScore = profile?.xo ?? profile?.xp ?? 0;
   const rank = xoRank(xoScore);
   const streakDays = profile?.streak_days ?? 0;
@@ -74,7 +75,7 @@ export default function RightSidebar({
               displayName={displayName}
               avatarUrl={profile.avatar_url || undefined}
               streakDays={streakDays}
-              role={profile.role as import("@/types").UserRole}
+              role={normalizedRole}
               size={40}
             />
           ) : (

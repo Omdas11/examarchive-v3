@@ -37,7 +37,7 @@ The current parser (`src/lib/admin-md-ingestion.ts`) reads these frontmatter key
 | `course`              | `course`              | Same                                     |
 | `stream`              | `stream`              | Same                                     |
 | `entry_type`          | `entry_type`          | Same                                       |
-| `question_id`         | `id`                  | Persisted in `Questions_Table.id`           |
+| `question_id`         | `question_id`         | Persisted in the `question_id` field         |
 | `college`             | `college`             | Persisted when schema supports the field    |
 | `group`               | `group`               | Persisted when schema supports the field    |
 | `exam_year`           | `exam_year`           | Persisted when schema supports the field    |

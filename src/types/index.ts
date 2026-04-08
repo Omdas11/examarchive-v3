@@ -207,6 +207,7 @@ export interface AdminUser {
 
 /** Map an Appwrite document to our `AdminUser` type. */
 export function toAdminUser(doc: Record<string, unknown>): AdminUser {
+  const xoScore = (doc.xo ?? doc.xp ?? 0) as number;
   return {
     id: (doc.$id ?? doc.id) as string,
     email: (doc.email ?? "") as string,
@@ -219,8 +220,8 @@ export function toAdminUser(doc: Record<string, unknown>): AdminUser {
     tertiary_role: (doc.tertiary_role ?? null) as CustomRole,
     tier: ((doc.tier ?? "bronze") as string) as UserTier,
     upload_count: (doc.upload_count ?? 0) as number,
-    xo: (doc.xo ?? doc.xp ?? 0) as number,
-    xp: (doc.xp ?? 0) as number,
+    xo: xoScore,
+    xp: xoScore,
     streak_days: ((doc.streak_days ?? doc.streak ?? 0) as number),
     last_login: ((doc.last_login ?? doc.last_activity ?? "") as string),
     created_at: ((doc.$createdAt ?? doc.created_at) as string) ?? "",

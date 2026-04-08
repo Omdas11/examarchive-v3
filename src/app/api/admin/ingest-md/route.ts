@@ -336,6 +336,10 @@ async function resolveLinkedSyllabusEntryId(frontmatter: IngestionFrontmatter): 
   for (const doc of matches.documents) {
     const entryId = typeof doc.entry_id === "string" ? doc.entry_id.trim() : "";
     if (entryId) return entryId;
+    const canonicalId = typeof doc.id === "string" ? doc.id.trim() : "";
+    if (canonicalId) return canonicalId;
+    const docId = typeof doc.$id === "string" ? doc.$id.trim() : "";
+    if (docId) return docId;
   }
 
   return null;
