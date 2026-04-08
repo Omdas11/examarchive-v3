@@ -74,6 +74,7 @@ function deriveDeptCode(paperCode: string): string | null {
 
 // Cap generated question-paper PDFs to avoid runaway render sizes from malformed markdown uploads.
 const MAX_QUESTION_PDF_PAGES = 80;
+const MAX_QUESTION_ID_SLUG_LENGTH = 32;
 
 function normalizePaperCode(value: string): string {
   return value.trim().toUpperCase();
@@ -123,12 +124,7 @@ function buildQuestionMarkdown(frontmatter: IngestionFrontmatter, rows: Array<{
   lines.push("| No | Subpart | Year | Marks | Question | Tags |");
   lines.push("|---|---|---:|---:|---|---|");
   for (const row of rows) {
-    let year: number | string = "";
-    if (typeof row.year === "number") {
-      year = row.year;
-    } else if (typeof frontmatter.exam_year === "number") {
-      year = frontmatter.exam_year;
-    }
+    const year = resolveQuestionRowYear(row.year, frontmatter.exam_year);
     const marks = typeof row.marks === "number" ? row.marks : "";
     const subpart = row.question_subpart || "—";
     const tags = row.tags.length > 0 ? row.tags.join(", ") : "—";
@@ -145,10 +141,19 @@ function buildQuestionMarkdown(frontmatter: IngestionFrontmatter, rows: Array<{
 
 function questionPdfFilename(frontmatter: IngestionFrontmatter): string {
   const paperCode = normalizePaperCode(frontmatter.paper_code).replace(/[^A-Z0-9_-]+/g, "_");
-  const questionId = (frontmatter.question_id ?? "").trim().replace(/[^A-Za-z0-9_-]+/g, "_").slice(0, 32);
+  const questionId = (frontmatter.question_id ?? "")
+    .trim()
+    .replace(/[^A-Za-z0-9_-]+/g, "_")
+    .slice(0, MAX_QUESTION_ID_SLUG_LENGTH);
   const examYear = typeof frontmatter.exam_year === "number" ? String(frontmatter.exam_year) : "unknown";
   const suffix = questionId.length > 0 ? questionId : "ingestion";
   return `${paperCode}-questions-${examYear}-${suffix}.pdf`;
+}
+
+function resolveQuestionRowYear(rowYear: number | undefined, examYear: number | undefined): number | string {
+  if (typeof rowYear === "number") return rowYear;
+  if (typeof examYear === "number") return examYear;
+  return "";
 }
 
 async function ensureIngestionBuckets() {
@@ -359,8 +364,9 @@ async function upsertQuestionRows(args: {
     if (args.frontmatter.attempt_type) payload.attempt_type = args.frontmatter.attempt_type;
     if (args.frontmatter.semester_code) payload.semester_code = args.frontmatter.semester_code;
     if (typeof args.frontmatter.semester_no === "number") payload.semester_no = args.frontmatter.semester_no;
-    if (args.resolvedQuestionPdfUrl.trim().length > 0) {
-      payload.question_pdf_url = args.resolvedQuestionPdfUrl.trim();
+    const resolvedQuestionPdfUrl = args.resolvedQuestionPdfUrl.trim();
+    if (resolvedQuestionPdfUrl.length > 0) {
+      payload.question_pdf_url = resolvedQuestionPdfUrl;
     }
     if (args.frontmatter.source_reference) payload.source_reference = args.frontmatter.source_reference;
     if (args.frontmatter.status) payload.status = args.frontmatter.status;
