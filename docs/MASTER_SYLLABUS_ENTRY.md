@@ -70,7 +70,7 @@ The current parser (`src/lib/admin-md-ingestion.ts`) reads these frontmatter key
 | `semester_no`       | number | —                   | Derived semester number (1–8); v2 only                   |
 | `credits`           | number | —                   | Credit value of the paper; v2 metadata only              |
 | `marks_total`       | number | —                   | Total marks; v2 metadata only                            |
-| `syllabus_pdf_url`  | string | —                   | URL or relative path to the syllabus PDF                 |
+| `syllabus_pdf_url`  | string | —                   | Optional override; auto-generated if omitted             |
 | `source_reference`  | string | —                   | Source doc or file this entry was derived from           |
 | `status`            | string | —                   | `active`, `archived`, or `draft`                         |
 
@@ -113,7 +113,9 @@ semester_no: 1
 credits: 4
 marks_total: 100
 
-syllabus_pdf_url: "https://www.examarchive.dev/assets/syllabus/PHYDSC101T.pdf"
+# Optional: if omitted, ingestion auto-fills:
+# /api/syllabus/table?paperCode=PHYDSC101T&mode=pdf&university=...&course=...&stream=...&type=...
+syllabus_pdf_url: "/api/syllabus/table?paperCode=PHYDSC101T&mode=pdf&university=Assam%20University&course=FYUG&stream=Science&type=DSC"
 source_reference: "HAFLONG-GOVERNMENT-COLLEGE-SYLLABUS.md"
 status: "active"
 
@@ -161,7 +163,7 @@ last_updated: "2026-04-08"
 - [ ] `stream` is `Science`, `Arts`, or `Commerce`
 - [ ] Program/group present
 - [ ] Source reference present
-- [ ] URL/path non-empty
+- [ ] `syllabus_pdf_url` provided only when overriding the auto-generated value
 - [ ] `status` is one of: `active`, `archived`, `draft`
 
 ---

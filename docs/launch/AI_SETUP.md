@@ -121,7 +121,8 @@ Optional:
 What this reset does:
 - Truncates `Syllabus_Table` and `Questions_Table`; deletes legacy `syllabus_registry` collection if it exists
 - Recreates `ai_ingestions` collection with ingestion attributes
-- Recreates and clears `examarchive-md-ingestion` bucket
+- Deletes legacy `examarchive-md-ingestion` bucket if present
+- Recreates and clears `examarchive-syllabus-md-ingestion` and `examarchive-question-ingestion-assets` buckets
 
 ### Soft-launch quick cleanup (non-destructive)
 

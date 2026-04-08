@@ -15,7 +15,9 @@ const AI_INGESTIONS_COL_ID = "ai_ingestions";
 const SYLLABUS_TABLE_COL_ID = "Syllabus_Table";
 const QUESTIONS_TABLE_COL_ID = "Questions_Table";
 const SYLLABUS_REGISTRY_COL_ID = "syllabus_registry";
-const MD_BUCKET_ID = "examarchive-md-ingestion";
+const LEGACY_MD_BUCKET_ID = "examarchive-md-ingestion";
+const SYLLABUS_MD_BUCKET_ID = "examarchive-syllabus-md-ingestion";
+const QUESTION_ASSETS_BUCKET_ID = "examarchive-question-ingestion-assets";
 const LIST_PAGE_LIMIT = 100;
 const APPWRITE_PROPAGATION_DELAY_MS = Number(process.env.APPWRITE_PROPAGATION_DELAY_MS || 1500);
 const MAX_TRUNCATION_ITERATIONS = 1000;
@@ -164,18 +166,28 @@ async function recreateIngestionCollection() {
   console.log(`[hard-reset-ingestion] recreated ${INGESTION_ATTRIBUTES.length} ai_ingestions attributes`);
 }
 
-async function recreateMdIngestionBucket() {
+async function recreateBucket(bucketId: string, name: string) {
   try {
-    await storage.deleteBucket(MD_BUCKET_ID);
-    console.log(`[hard-reset-ingestion] deleted bucket ${MD_BUCKET_ID}`);
+    await storage.deleteBucket(bucketId);
+    console.log(`[hard-reset-ingestion] deleted bucket ${bucketId}`);
   } catch (error) {
     if (!isNotFoundError(error)) throw error;
-    console.log(`[hard-reset-ingestion] bucket ${MD_BUCKET_ID} not found, recreating fresh`);
+    console.log(`[hard-reset-ingestion] bucket ${bucketId} not found, recreating fresh`);
   }
 
   await new Promise((resolve) => setTimeout(resolve, APPWRITE_PROPAGATION_DELAY_MS));
-  const recreated = await storage.createBucket(MD_BUCKET_ID, "MD Ingestion Cache");
+  const recreated = await storage.createBucket(bucketId, name);
   console.log(`[hard-reset-ingestion] recreated bucket ${recreated.$id}`);
+}
+
+async function deleteLegacyMdIngestionBucket() {
+  try {
+    await storage.deleteBucket(LEGACY_MD_BUCKET_ID);
+    console.log(`[hard-reset-ingestion] deleted legacy bucket ${LEGACY_MD_BUCKET_ID}`);
+  } catch (error) {
+    if (!isNotFoundError(error)) throw error;
+    console.log(`[hard-reset-ingestion] legacy bucket ${LEGACY_MD_BUCKET_ID} already absent`);
+  }
 }
 
 async function deleteLegacySyllabusRegistryCollection() {
@@ -194,9 +206,11 @@ async function hardReset() {
   await truncateCollection(SYLLABUS_TABLE_COL_ID);
   await truncateCollection(QUESTIONS_TABLE_COL_ID);
   await deleteLegacySyllabusRegistryCollection();
+  await deleteLegacyMdIngestionBucket();
 
   await recreateIngestionCollection();
-  await recreateMdIngestionBucket();
+  await recreateBucket(SYLLABUS_MD_BUCKET_ID, "Syllabus MD Ingestion");
+  await recreateBucket(QUESTION_ASSETS_BUCKET_ID, "Question Ingestion Assets");
 
   console.log("🎉 RESET COMPLETE.");
   console.log("Next steps:");

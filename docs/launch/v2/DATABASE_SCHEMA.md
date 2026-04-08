@@ -455,12 +455,14 @@ Recommended index:
 | `papers`         | Exam question paper PDFs        | 20 MB         | `read("users")` — authenticated only |
 | `syllabus-files` | Syllabus PDFs                   | 20 MB         | `read("users")` — authenticated only |
 | `avatars`        | User avatar images              | 5 MB          | `read("users")`  |
-| `examarchive-md-ingestion` | Markdown ingestion cache | - | `read("any")` |
+| `examarchive-syllabus-md-ingestion` | Uploaded syllabus markdown ingestion files | 2 MB | server-side admin only |
+| `examarchive-question-ingestion-assets` | Question ingestion assets (markdown + rendered PDFs) | 5 MB | server-side admin only |
 
 All files are served via Next.js proxy routes that verify the user's session:
 - Papers: `/api/files/papers/[fileId]`
 - Syllabi: `/api/files/syllabus/[fileId]`
 - Avatars: `/api/files/avatars/[fileId]`
+- Ingestion-rendered question PDFs: `/api/files/ingestion-question/[fileId]`
 
 ---
 

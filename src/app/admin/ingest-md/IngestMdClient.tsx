@@ -247,6 +247,7 @@ export default function IngestMdClient() {
           <p className="mt-1 text-xs text-on-surface-variant">
             Only `.md` files are accepted. Upload syllabus-only or question-only markdown templates.
             Files containing both sections are rejected. Authoring spec: docs/MASTER_INGESTION_GUIDE.md.
+            `syllabus_pdf_url` and `question_pdf_url` are auto-populated when omitted.
           </p>
           {uploading && <p className="mt-3 text-sm text-primary">Processing ingestion…</p>}
         </label>

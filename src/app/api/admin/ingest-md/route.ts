@@ -11,11 +11,13 @@ import {
   COLLECTION,
   DATABASE_ID,
   ID,
-  MD_INGESTION_BUCKET_ID,
+  QUESTION_INGESTION_ASSETS_BUCKET_ID,
   Query,
+  SYLLABUS_MD_INGESTION_BUCKET_ID,
 } from "@/lib/appwrite";
 import { parseDemoDataEntryMarkdown, type IngestionFrontmatter } from "@/lib/admin-md-ingestion";
 import { FYUG_DEPT_CODES } from "@/lib/fyug-depts";
+import { generatePDF, markdownToHTML } from "@/lib/pdf-generator";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -70,33 +72,140 @@ function deriveDeptCode(paperCode: string): string | null {
   return FYUG_DEPT_CODES.has(prefix as Parameters<typeof FYUG_DEPT_CODES.has>[0]) ? prefix : null;
 }
 
-async function ensureMdIngestionBucket() {
-  const storage = adminStorage();
-  try {
-    await storage.getBucket({ bucketId: MD_INGESTION_BUCKET_ID });
-  } catch (error) {
-    const code = (error as { code?: number })?.code;
-    if (code !== 404) throw error;
-    await storage.createBucket({
-      bucketId: MD_INGESTION_BUCKET_ID,
-      name: "examarchive-md-ingestion",
-      permissions: [],
-      fileSecurity: false,
-      enabled: true,
-      maximumFileSize: 2 * 1024 * 1024,
-      allowedFileExtensions: ["md"],
-      compression: Compression.None,
-      encryption: true,
-      antivirus: true,
-      transformations: false,
-    });
+const MAX_QUESTION_PDF_PAGES = 80;
+
+function normalizePaperCode(value: string): string {
+  return value.trim().toUpperCase();
+}
+
+function buildSyllabusPdfUrl(frontmatter: IngestionFrontmatter): string {
+  const params = new URLSearchParams({
+    paperCode: normalizePaperCode(frontmatter.paper_code),
+    mode: "pdf",
+    university: frontmatter.university,
+    course: frontmatter.course,
+    stream: frontmatter.stream,
+    type: frontmatter.type,
+  });
+  return `/api/syllabus/table?${params.toString()}`;
+}
+
+function buildQuestionMarkdown(frontmatter: IngestionFrontmatter, rows: Array<{
+  question_no: string;
+  question_subpart: string;
+  year?: number;
+  question_content: string;
+  marks?: number;
+  tags: string[];
+}>): string {
+  const lines: string[] = [];
+  const paperCode = normalizePaperCode(frontmatter.paper_code);
+  const title = frontmatter.paper_name.trim() || paperCode;
+  const examYear = typeof frontmatter.exam_year === "number" ? String(frontmatter.exam_year) : "";
+  lines.push(`# ${title} — Question Paper`);
+  lines.push("");
+  lines.push(`**Paper Code:** ${paperCode}`);
+  lines.push(`**University:** ${frontmatter.university}`);
+  lines.push(`**Course:** ${frontmatter.course}`);
+  lines.push(`**Stream:** ${frontmatter.stream}`);
+  lines.push(`**Type:** ${frontmatter.type}`);
+  if (examYear) lines.push(`**Exam Year:** ${examYear}`);
+  if (frontmatter.exam_session) lines.push(`**Exam Session:** ${frontmatter.exam_session}`);
+  lines.push("");
+  lines.push("## Questions");
+  lines.push("");
+  lines.push("| No | Subpart | Year | Marks | Question | Tags |");
+  lines.push("|---|---|---:|---:|---|---|");
+  for (const row of rows) {
+    const year = typeof row.year === "number" ? row.year : (typeof frontmatter.exam_year === "number" ? frontmatter.exam_year : "");
+    const marks = typeof row.marks === "number" ? row.marks : "";
+    const subpart = row.question_subpart || "—";
+    const tags = row.tags.length > 0 ? row.tags.join(", ") : "—";
+    const question = row.question_content.replace(/\|/g, "\\|").replace(/\s+/g, " ").trim();
+    lines.push(`| ${row.question_no} | ${subpart} | ${year} | ${marks} | ${question} | ${tags} |`);
   }
+  lines.push("");
+  return lines.join("\n");
+}
+
+function questionPdfFilename(frontmatter: IngestionFrontmatter): string {
+  const paperCode = normalizePaperCode(frontmatter.paper_code).replace(/[^A-Z0-9_-]+/g, "_");
+  const examYear = typeof frontmatter.exam_year === "number" ? String(frontmatter.exam_year) : "unknown";
+  return `${paperCode}-questions-${examYear}.pdf`;
+}
+
+async function ensureIngestionBuckets() {
+  const storage = adminStorage();
+  const ensureBucket = async (
+    bucketId: string,
+    name: string,
+    allowedFileExtensions: string[],
+    maximumFileSizeBytes: number,
+  ) => {
+    try {
+      await storage.getBucket({ bucketId });
+    } catch (error) {
+      const code = (error as { code?: number })?.code;
+      if (code !== 404) throw error;
+      await storage.createBucket({
+        bucketId,
+        name,
+        permissions: [],
+        fileSecurity: false,
+        enabled: true,
+        maximumFileSize: maximumFileSizeBytes,
+        allowedFileExtensions,
+        compression: Compression.None,
+        encryption: true,
+        antivirus: true,
+        transformations: false,
+      });
+    }
+  };
+
+  await ensureBucket(
+    SYLLABUS_MD_INGESTION_BUCKET_ID,
+    "examarchive-syllabus-md-ingestion",
+    ["md"],
+    2 * 1024 * 1024,
+  );
+  await ensureBucket(
+    QUESTION_INGESTION_ASSETS_BUCKET_ID,
+    "examarchive-question-ingestion-assets",
+    ["md", "pdf"],
+    5 * 1024 * 1024,
+  );
+}
+
+async function renderAndStoreQuestionPdf(args: {
+  frontmatter: IngestionFrontmatter;
+  rows: ReturnType<typeof parseDemoDataEntryMarkdown>["questions"];
+}): Promise<{ fileId: string; fileUrl: string }> {
+  const markdown = buildQuestionMarkdown(args.frontmatter, args.rows);
+  const html = markdownToHTML(markdown);
+  const { buffer } = await generatePDF({
+    html,
+    maxPages: MAX_QUESTION_PDF_PAGES,
+    title: `${normalizePaperCode(args.frontmatter.paper_code)} Question Paper`,
+    meta: { topic: `${normalizePaperCode(args.frontmatter.paper_code)} Question Paper` },
+  });
+  const fileId = ID.unique();
+  await adminStorage().createFile(
+    QUESTION_INGESTION_ASSETS_BUCKET_ID,
+    fileId,
+    InputFile.fromBuffer(buffer, questionPdfFilename(args.frontmatter)),
+  );
+  return {
+    fileId,
+    fileUrl: `/api/files/ingestion-question/${encodeURIComponent(fileId)}`,
+  };
 }
 
 async function upsertSyllabusRows(args: {
   frontmatter: IngestionFrontmatter;
   semester: number | null;
   rows: ReturnType<typeof parseDemoDataEntryMarkdown>["syllabus"];
+  resolvedSyllabusPdfUrl: string;
 }) {
   const db = adminDatabases();
   let added = 0;
@@ -141,7 +250,7 @@ async function upsertSyllabusRows(args: {
     if (typeof args.frontmatter.semester_no === "number") payload.semester_no = args.frontmatter.semester_no;
     if (typeof args.frontmatter.credits === "number") payload.credits = args.frontmatter.credits;
     if (typeof args.frontmatter.marks_total === "number") payload.marks_total = args.frontmatter.marks_total;
-    if (args.frontmatter.syllabus_pdf_url) payload.syllabus_pdf_url = args.frontmatter.syllabus_pdf_url;
+    payload.syllabus_pdf_url = args.resolvedSyllabusPdfUrl;
     if (args.frontmatter.source_reference) payload.source_reference = args.frontmatter.source_reference;
     if (args.frontmatter.status) payload.status = args.frontmatter.status;
     if (Array.isArray(args.frontmatter.aliases)) payload.aliases = args.frontmatter.aliases;
@@ -181,6 +290,7 @@ async function upsertSyllabusRows(args: {
 async function upsertQuestionRows(args: {
   frontmatter: IngestionFrontmatter;
   rows: ReturnType<typeof parseDemoDataEntryMarkdown>["questions"];
+  resolvedQuestionPdfUrl: string;
 }) {
   const db = adminDatabases();
   const linkedSyllabusEntryId = await resolveLinkedSyllabusEntryId(args.frontmatter);
@@ -232,7 +342,7 @@ async function upsertQuestionRows(args: {
     if (args.frontmatter.attempt_type) payload.attempt_type = args.frontmatter.attempt_type;
     if (args.frontmatter.semester_code) payload.semester_code = args.frontmatter.semester_code;
     if (typeof args.frontmatter.semester_no === "number") payload.semester_no = args.frontmatter.semester_no;
-    if (args.frontmatter.question_pdf_url) payload.question_pdf_url = args.frontmatter.question_pdf_url;
+    if (args.resolvedQuestionPdfUrl) payload.question_pdf_url = args.resolvedQuestionPdfUrl;
     if (args.frontmatter.source_reference) payload.source_reference = args.frontmatter.source_reference;
     if (args.frontmatter.status) payload.status = args.frontmatter.status;
     if (linkedSyllabusEntryId) payload.linked_syllabus_entry_id = linkedSyllabusEntryId;
@@ -276,6 +386,7 @@ async function upsertQuestionRows(args: {
 async function createIngestionLog(payload: {
   fileName: string;
   fileId?: string;
+  sourceEntryType?: "syllabus" | "question";
   paperCode?: string;
   paperName?: string;
   subject?: string;
@@ -293,7 +404,10 @@ async function createIngestionLog(payload: {
       paper_code: payload.paperCode ?? "",
       source_label: payload.fileName,
       file_id: payload.fileId ?? "",
-      file_url: payload.fileId ? `/api/admin/ingest-md?fileId=${encodeURIComponent(payload.fileId)}` : "",
+      file_url:
+        payload.fileId && payload.sourceEntryType
+          ? `/api/admin/ingest-md?fileId=${encodeURIComponent(payload.fileId)}&entryType=${encodeURIComponent(payload.sourceEntryType)}`
+          : "",
       status: payload.status,
       model: "deterministic-md-parser",
       characters_ingested: payload.rowsAffected,
@@ -367,11 +481,16 @@ export async function GET(request: NextRequest) {
 
   const fileId = searchParams.get("fileId")?.trim();
   if (fileId) {
+    const entryType = searchParams.get("entryType")?.trim().toLowerCase();
+    const sourceBucketId =
+      entryType === "question"
+        ? QUESTION_INGESTION_ASSETS_BUCKET_ID
+        : SYLLABUS_MD_INGESTION_BUCKET_ID;
     try {
       const storage = adminStorage();
       const [fileBuffer, fileMeta] = await Promise.all([
-        storage.getFileDownload(MD_INGESTION_BUCKET_ID, fileId),
-        storage.getFile(MD_INGESTION_BUCKET_ID, fileId),
+        storage.getFileDownload(sourceBucketId, fileId),
+        storage.getFile(sourceBucketId, fileId),
       ]);
       const fileName = sanitizeDownloadFilename(fileMeta?.name || `${fileId}.md`);
       const encodedName = encodeURIComponent(fileName);
@@ -436,6 +555,7 @@ export async function POST(request: NextRequest) {
 
   let logFileName = "unknown.md";
   let logFileId: string | undefined;
+  let logSourceEntryType: "syllabus" | "question" | undefined;
   try {
     const form = await request.formData();
     const file = form.get("file");
@@ -447,23 +567,29 @@ export async function POST(request: NextRequest) {
     }
 
     logFileName = file.name;
-    await ensureMdIngestionBucket();
     const buffer = Buffer.from(await file.arrayBuffer());
+    const source = buffer.toString("utf8");
+    const parsed = parseDemoDataEntryMarkdown(source);
+    logSourceEntryType = parsed.entryType ?? "syllabus";
+
+    await ensureIngestionBuckets();
+    const sourceBucketId =
+      parsed.entryType === "question"
+        ? QUESTION_INGESTION_ASSETS_BUCKET_ID
+        : SYLLABUS_MD_INGESTION_BUCKET_ID;
     const fileId = ID.unique();
     logFileId = fileId;
     await adminStorage().createFile(
-      MD_INGESTION_BUCKET_ID,
+      sourceBucketId,
       fileId,
       InputFile.fromBuffer(buffer, file.name),
     );
-
-    const source = buffer.toString("utf8");
-    const parsed = parseDemoDataEntryMarkdown(source);
 
     if (!parsed.frontmatter || !parsed.entryType) {
       await createIngestionLog({
         fileName: file.name,
         fileId,
+        sourceEntryType: logSourceEntryType,
         entryType: parsed.entryType ?? undefined,
         status: "failed",
         rowsAffected: 0,
@@ -480,6 +606,20 @@ export async function POST(request: NextRequest) {
     let questionResult = { added: 0, updated: 0 };
     const dbErrors = [...parsed.errors];
     const semester = deriveSemesterFromCode(frontmatter.paper_code);
+    const resolvedSyllabusPdfUrl = (frontmatter.syllabus_pdf_url ?? "").trim() || buildSyllabusPdfUrl(frontmatter);
+    let resolvedQuestionPdfUrl = (frontmatter.question_pdf_url ?? "").trim();
+
+    if (parsed.entryType === "question" && !resolvedQuestionPdfUrl) {
+      try {
+        const renderedQuestionPdf = await renderAndStoreQuestionPdf({
+          frontmatter,
+          rows: parsed.questions,
+        });
+        resolvedQuestionPdfUrl = renderedQuestionPdf.fileUrl;
+      } catch (error) {
+        dbErrors.push({ line: 0, message: `Question PDF render failed: ${normalizeError(error)}` });
+      }
+    }
 
     try {
       if (parsed.entryType === "syllabus") {
@@ -487,6 +627,7 @@ export async function POST(request: NextRequest) {
           frontmatter,
           semester,
           rows: parsed.syllabus,
+          resolvedSyllabusPdfUrl,
         });
       }
     } catch (error) {
@@ -498,6 +639,7 @@ export async function POST(request: NextRequest) {
         questionResult = await upsertQuestionRows({
           frontmatter,
           rows: parsed.questions,
+          resolvedQuestionPdfUrl,
         });
       }
     } catch (error) {
@@ -513,6 +655,7 @@ export async function POST(request: NextRequest) {
     await createIngestionLog({
       fileName: file.name,
       fileId,
+      sourceEntryType: parsed.entryType,
       paperCode: frontmatter.paper_code,
       paperName: frontmatter.paper_name,
       subject: frontmatter.subject,
@@ -528,6 +671,8 @@ export async function POST(request: NextRequest) {
       fileName: file.name,
       paperCode: frontmatter.paper_code,
       entryType: parsed.entryType,
+      syllabusPdfUrl: parsed.entryType === "syllabus" ? resolvedSyllabusPdfUrl : undefined,
+      questionPdfUrl: parsed.entryType === "question" ? resolvedQuestionPdfUrl || null : undefined,
       added,
       updated,
       rowsAffected,
@@ -541,6 +686,7 @@ export async function POST(request: NextRequest) {
     await createIngestionLog({
       fileName: logFileName,
       fileId: logFileId,
+      sourceEntryType: logSourceEntryType,
       status: "failed",
       rowsAffected: 0,
       errors: [{ line: 0, message: normalizeError(error) }],

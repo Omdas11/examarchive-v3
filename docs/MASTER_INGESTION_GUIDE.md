@@ -47,6 +47,17 @@ Questions are linked to syllabus entries using `linked_syllabus_entry_id`:
 2. Upload question file(s) next (`*-questions-<year>.md`).
 3. Verify linkage from syllabus detail UI (linked questions section).
 
+## Dynamic URL behavior (no manual URL entry required)
+
+- `syllabus_pdf_url` is auto-filled during syllabus ingestion when omitted.
+  - Generated format:
+    `/api/syllabus/table?paperCode=<PAPER_CODE>&mode=pdf&university=<...>&course=<...>&stream=<...>&type=<...>`
+- `question_pdf_url` is auto-filled during question ingestion when omitted.
+  - The uploaded question markdown is rendered to PDF and stored in the question-ingestion assets bucket.
+  - Generated format:
+    `/api/files/ingestion-question/<generated-file-id>`
+- You may still provide either URL manually in frontmatter as an override.
+
 ## Canonical templates
 
 - Syllabus template/spec: `docs/MASTER_SYLLABUS_ENTRY.md`

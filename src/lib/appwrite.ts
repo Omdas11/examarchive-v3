@@ -77,7 +77,12 @@ export const AVATARS_BUCKET_ID = process.env.APPWRITE_AVATARS_BUCKET_ID ?? "avat
 
 /** Storage bucket for syllabus PDFs. */
 export const SYLLABUS_BUCKET_ID = process.env.APPWRITE_SYLLABUS_BUCKET_ID ?? "syllabus-files";
-export const MD_INGESTION_BUCKET_ID = process.env.APPWRITE_MD_INGESTION_BUCKET_ID ?? "examarchive-md-ingestion";
+/** Storage bucket for uploaded syllabus markdown ingestion files. */
+export const SYLLABUS_MD_INGESTION_BUCKET_ID =
+  process.env.APPWRITE_SYLLABUS_MD_INGESTION_BUCKET_ID ?? "examarchive-syllabus-md-ingestion";
+/** Storage bucket for question ingestion assets (source markdown + rendered PDFs). */
+export const QUESTION_INGESTION_ASSETS_BUCKET_ID =
+  process.env.APPWRITE_QUESTION_INGESTION_ASSETS_BUCKET_ID ?? "examarchive-question-ingestion-assets";
 /** Storage bucket for generated markdown cache payloads. */
 export const MARKDOWN_CACHE_BUCKET_ID =
   process.env.APPWRITE_MD_CACHE_BUCKET_ID ??

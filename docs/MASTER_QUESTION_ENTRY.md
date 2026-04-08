@@ -66,7 +66,7 @@ The current parser (`src/lib/admin-md-ingestion.ts`) reads these frontmatter key
 | `paper_type`         | string | `type`              | One of: `DSC`, `DSM`, `SEC`, `IDC`, `AEC`, `VAC`                 |
 | `semester_code`      | string | `semester_code`     | 3-digit semester code                                              |
 | `semester_no`        | number | `semester_no`       | Derived semester number (1–8)                                     |
-| `question_pdf_url`   | string | `question_pdf_url`  | URL or path to question PDF                                       |
+| `question_pdf_url`   | string | `question_pdf_url`  | Optional override; auto-generated from uploaded markdown          |
 | `source_reference`   | string | `source_reference`  | Source doc or upload batch this was ingested from                 |
 | `status`             | string | `status`            | `active`, `archived`, or `draft`                                  |
 
@@ -111,7 +111,8 @@ paper_type: "DSC"
 semester_code: "101"
 semester_no: 1
 
-question_pdf_url: "https://www.examarchive.dev/assets/questions/2024/PHYDSC101T-Nov-2024.pdf"
+# Optional: ingestion auto-renders a PDF and fills this URL when omitted.
+question_pdf_url: "/api/files/ingestion-question/<generated-file-id>"
 source_reference: "MASTER_QUESTION_ENTRY.md"
 status: "active"
 
@@ -166,7 +167,7 @@ After the YAML block, include individual questions in a table as shown below:
 
 - [ ] Paper code format valid (passes `PAPER_CODE_VALIDATION_RULES.md` checks)
 - [ ] `exam_year` present and numeric
-- [ ] `question_pdf_url` non-empty
+- [ ] `question_pdf_url` provided only when overriding the auto-generated value
 - [ ] `course` is `FYUG` or `CBCS`
 - [ ] `stream` is `Science`, `Arts`, or `Commerce`
 - [ ] Program/group set
