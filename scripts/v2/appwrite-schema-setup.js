@@ -2,7 +2,7 @@ const path = require("path");
 const { loadEnvConfig } = require("@next/env");
 
 function loadAppwriteEnv() {
-  loadEnvConfig(path.resolve(__dirname, ".."));
+  loadEnvConfig(path.resolve(__dirname, "../.."));
 
   const endpoint = process.env.APPWRITE_ENDPOINT || process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT;
   const projectId = process.env.APPWRITE_PROJECT_ID || process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID;

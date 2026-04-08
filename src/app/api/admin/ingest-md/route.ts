@@ -29,9 +29,11 @@ function normalizeError(error: unknown): string {
   return String(error);
 }
 
-function isUnknownAttributeError(error: unknown, attribute: string): boolean {
+function isUnknownAttributeError(error: unknown, attribute?: string): boolean {
   const message = normalizeError(error).toLowerCase();
-  return message.includes("unknown attribute") && message.includes(attribute.toLowerCase());
+  if (!message.includes("unknown attribute")) return false;
+  if (!attribute) return true;
+  return message.includes(attribute.toLowerCase());
 }
 
 /**
@@ -149,9 +151,8 @@ async function upsertSyllabusRows(args: {
         added += 1;
       }
     } catch (error) {
-      const shouldRetryWithoutNewFields =
-        isUnknownAttributeError(error, "paper_name") || isUnknownAttributeError(error, "semester");
-      if (!shouldRetryWithoutNewFields) throw error;
+      if (!isUnknownAttributeError(error)) throw error;
+      console.warn("[ingest-md] Syllabus_Table v2 field fallback to base payload:", normalizeError(error));
       if (existing.documents[0]) {
         await db.updateDocument(DATABASE_ID, COLLECTION.syllabus_table, existing.documents[0].$id, basePayload);
         updated += 1;

@@ -36,6 +36,7 @@ const INGESTION_ATTRIBUTES: IngestionAttribute[] = [
   { key: "digest", type: "string", size: 8192, required: false },
   // ── Syllabus-tracker fields ───────────────────────────────────────────
   { key: "paper_name", type: "string", size: 255, required: false },
+  { key: "entry_type", type: "string", size: 16, required: false },
   { key: "ingested_at", type: "datetime", required: false },
   { key: "row_count", type: "integer", required: false },
   { key: "error_summary", type: "string", size: 2000, required: false },
