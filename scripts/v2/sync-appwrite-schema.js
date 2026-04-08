@@ -389,6 +389,11 @@ function isAttributeAlreadyExistsError(error) {
   return (code === 409 && /already exist(s)?/i.test(message)) || type === "attribute_already_exists";
 }
 
+function isAttributeLimitExceeded(error) {
+  const type = error?.type ?? error?.response?.type;
+  return type === "attribute_limit_exceeded";
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -581,6 +586,13 @@ async function syncCollection(databases, databaseId, collection) {
       await createAttribute(databases, databaseId, collection.id, attribute);
       createdAttributes += 1;
     } catch (error) {
+      if (isAttributeLimitExceeded(error)) {
+        console.warn(
+          `[warn] attribute limit reached for ${collection.id} while creating ${attribute.key}; ` +
+            "skipping remaining attributes. Remove unused attributes in Appwrite and re-run sync if needed.",
+        );
+        break;
+      }
       if (!isAttributeAlreadyExistsError(error)) {
         throw error;
       }
@@ -725,6 +737,7 @@ module.exports = {
   getMissingAttributes,
   getAppwriteDefaultValue,
   isAttributeAlreadyExistsError,
+  isAttributeLimitExceeded,
   isNotFoundError,
   renderSchemaStatusSection,
   syncCollection,

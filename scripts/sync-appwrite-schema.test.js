@@ -3,6 +3,7 @@ const {
   getAppwriteDefaultValue,
   getMissingAttributes,
   isAttributeAlreadyExistsError,
+  isAttributeLimitExceeded,
   isNotFoundError,
   renderSchemaStatusSection,
   syncCollection,
@@ -163,6 +164,26 @@ describe("sync-appwrite-schema helpers", () => {
 
   test.each([
     {
+      description: "with top-level type",
+      error: { type: "attribute_limit_exceeded" },
+      expected: true,
+    },
+    {
+      description: "with nested response type",
+      error: { response: { type: "attribute_limit_exceeded" } },
+      expected: true,
+    },
+    {
+      description: "with unrelated error",
+      error: { code: 400, type: "attribute_invalid" },
+      expected: false,
+    },
+  ])("isAttributeLimitExceeded: $description", ({ error, expected }) => {
+    expect(isAttributeLimitExceeded(error)).toBe(expected);
+  });
+
+  test.each([
+    {
       description: "with numeric 404 code",
       error: { code: 404, message: "Collection not found" },
       expected: true,
@@ -211,6 +232,37 @@ describe("sync-appwrite-schema helpers", () => {
     expect(databases.getAttribute).toHaveBeenCalledWith("examarchive", "demo", "status");
     expect(warnSpy).toHaveBeenCalledWith(
       "[warn] demo.status already exists while creating. Proceeding to wait for attribute availability.",
+    );
+    warnSpy.mockRestore();
+  });
+
+  test("syncCollection skips remaining attributes when Appwrite reports attribute limit reached", async () => {
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const databases = {
+      getCollection: jest.fn().mockResolvedValue({ $id: "demo" }),
+      listAttributes: jest.fn().mockResolvedValue({ attributes: [] }),
+      createStringAttribute: jest
+        .fn()
+        .mockResolvedValueOnce({})
+        .mockRejectedValueOnce({ type: "attribute_limit_exceeded" }),
+      getAttribute: jest.fn().mockResolvedValue({ status: "available" }),
+    };
+
+    const result = await syncCollection(databases, "examarchive", {
+      id: "demo",
+      name: "demo",
+      attributes: [
+        { key: "status", type: "string", required: false, size: 32 },
+        { key: "notes", type: "string", required: false, size: 2048 },
+      ],
+    });
+
+    expect(result.createdAttributes).toBe(1);
+    expect(databases.createStringAttribute).toHaveBeenCalledTimes(2);
+    expect(databases.getAttribute).toHaveBeenCalledTimes(1);
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[warn] attribute limit reached for demo while creating notes; " +
+        "skipping remaining attributes. Remove unused attributes in Appwrite and re-run sync if needed.",
     );
     warnSpy.mockRestore();
   });
