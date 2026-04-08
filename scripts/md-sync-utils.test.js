@@ -53,6 +53,33 @@ describe("md-sync-utils", () => {
     );
   });
 
+  test("parseDatabaseSchemaMarkdown ignores invalid/system-managed attribute keys", () => {
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const markdown = `# DATABASE_SCHEMA
+
+## Collection: \`ai_usage\`
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| \`user_id\` | String | **Yes** | User |
+| \`$createdAt\` | Datetime | **Yes** | System |
+| \`valid_key-1\` | String | No | Valid |
+`;
+    const parsed = parseDatabaseSchemaMarkdown(markdown);
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0].attributes).toHaveLength(2);
+    expect(parsed[0].attributes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: "user_id", type: "string", required: true }),
+        expect.objectContaining({ key: "valid_key-1", type: "string", required: false }),
+      ])
+    );
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('skipping invalid markdown attribute key "$createdAt" in ai_usage'),
+    );
+    warnSpy.mockRestore();
+  });
+
   test("mergeCollectionDefinition keeps base sizes/defaults while applying markdown keys", () => {
     const base = {
       id: "Syllabus_Table",
