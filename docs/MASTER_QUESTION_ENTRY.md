@@ -36,13 +36,14 @@ The current parser (`src/lib/admin-md-ingestion.ts`) reads these frontmatter key
 | `university`          | `university`          | Same                                     |
 | `course`              | `course`              | Same                                     |
 | `stream`              | `stream`              | Same                                     |
-| `question_id`         | —                     | v2 metadata only; not in current ingestion |
-| `college`             | —                     | v2 metadata only; not in current ingestion |
-| `group`               | —                     | v2 metadata only; not in current ingestion |
-| `exam_year`           | —                     | v2 metadata only; not in current ingestion |
-| `exam_session`        | —                     | v2 metadata only; not in current ingestion |
-| `semester_code`       | —                     | v2 metadata only; not in current ingestion |
-| `semester_no`         | —                     | v2 metadata only; not in current ingestion |
+| `entry_type`          | `entry_type`          | Same                                     |
+| `question_id`         | `question_id`         | Same                                     |
+| `college`             | `college`             | Same                                     |
+| `group`               | `group`               | Same                                     |
+| `exam_year`           | `exam_year`           | Same                                     |
+| `exam_session`        | `exam_session`        | Same                                     |
+| `semester_code`       | `semester_code`       | Same                                     |
+| `semester_no`         | `semester_no`         | Same                                     |
 
 ---
 
@@ -50,24 +51,24 @@ The current parser (`src/lib/admin-md-ingestion.ts`) reads these frontmatter key
 
 | Field                | Type   | Maps to current key | Description                                                       |
 |----------------------|--------|---------------------|-------------------------------------------------------------------|
-| `entry_type`         | string | —                   | Always `question`; v2 metadata only                               |
-| `question_id`        | string | —                   | Unique ID: `QST-{college_short}-{paper_code}-{year}-{seq}`        |
-| `college`            | string | —                   | Full college name; v2 metadata only                               |
+| `entry_type`         | string | `entry_type`        | Always `question`                                                  |
+| `question_id`        | string | `question_id`       | Unique ID: `QST-{college_short}-{paper_code}-{year}-{seq}`        |
+| `college`            | string | `college`           | Full college name                                                  |
 | `university`         | string | `university`        | Affiliating university                                            |
 | `course`             | string | `course`            | `FYUG` or `CBCS`                                                  |
 | `stream`             | string | `stream`            | `Science`, `Arts`, `Commerce`                                     |
-| `group`              | string | —                   | Major subject group (e.g., `Physics Major`); v2 only              |
-| `exam_year`          | number | —                   | Year of the examination; v2 metadata only                         |
-| `exam_session`       | string | —                   | `Odd Semester` or `Even Semester`; v2 only                        |
+| `group`              | string | `group`             | Major subject group (e.g., `Physics Major`)                       |
+| `exam_year`          | number | `exam_year`         | Year of the examination                                            |
+| `exam_session`       | string | `exam_session`      | `Odd Semester` or `Even Semester`                                 |
 | `paper_code`         | string | `paper_code`        | Canonical code — must pass validator                              |
 | `paper_title`        | string | `paper_name`        | Official paper title                                              |
 | `subject_code`       | string | `subject`           | Derived first 3 chars of `paper_code`                             |
 | `paper_type`         | string | `type`              | One of: `DSC`, `DSM`, `SEC`, `IDC`, `AEC`, `VAC`                 |
-| `semester_code`      | string | —                   | 3-digit semester code; v2 metadata only                           |
-| `semester_no`        | number | —                   | Derived semester number (1–8); v2 metadata only                   |
-| `question_pdf_url`   | string | —                   | URL or path to question PDF                                       |
-| `source_reference`   | string | —                   | Source doc or upload batch this was ingested from                 |
-| `status`             | string | —                   | `active`, `archived`, or `draft`                                  |
+| `semester_code`      | string | `semester_code`     | 3-digit semester code                                              |
+| `semester_no`        | number | `semester_no`       | Derived semester number (1–8)                                     |
+| `question_pdf_url`   | string | `question_pdf_url`  | URL or path to question PDF                                       |
+| `source_reference`   | string | `source_reference`  | Source doc or upload batch this was ingested from                 |
+| `status`             | string | `status`            | `active`, `archived`, or `draft`                                  |
 
 ---
 

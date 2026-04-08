@@ -157,7 +157,12 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
 
   const first = rows[0];
   const paperName = first.paper_name?.trim() || derivePaperNameFromContent(first.syllabus_content, code);
-  const linkedSyllabusIds = new Set(rows.map((row) => row.entry_id).filter((entryId): entryId is string => Boolean(entryId)));
+  const linkedSyllabusIds = new Set(
+    rows.flatMap((row) => [row.entry_id, row.id]).filter((entryId): entryId is string => {
+      if (typeof entryId !== "string") return false;
+      return entryId.trim().length > 0;
+    }),
+  );
   const { rowsToShow: linkedQuestions, filteredOutCount, usedFallbackToAll } = await getLinkedQuestionRows(code, linkedSyllabusIds);
 
   return (

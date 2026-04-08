@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { InputFile } from "node-appwrite/file";
-import { Compression } from "node-appwrite";
+import { AppwriteException, Compression } from "node-appwrite";
 import path from "path";
 import { randomUUID } from "crypto";
 import { getServerUser } from "@/lib/auth";
@@ -35,6 +35,18 @@ function isUnknownAttributeError(error: unknown, attribute?: string): boolean {
   if (!message.includes("unknown attribute")) return false;
   if (!attribute) return true;
   return message.includes(attribute.toLowerCase());
+}
+
+function normalizeQuestionSubpart(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function sanitizeDownloadFilename(name: string): string {
+  const trimmed = name.trim();
+  const safe = trimmed.replace(/[\r\n"]/g, "").replace(/[\/\\:*?<>|]/g, "_");
+  return safe.length > 0 ? safe : "ingestion.md";
 }
 
 /**
@@ -176,6 +188,7 @@ async function upsertQuestionRows(args: {
   let added = 0;
   let updated = 0;
   for (const row of args.rows) {
+    const normalizedQuestionSubpart = normalizeQuestionSubpart(row.question_subpart);
     const existingByQuestionNo = await db.listDocuments(DATABASE_ID, COLLECTION.questions_table, [
       Query.equal("university", args.frontmatter.university),
       Query.equal("course", args.frontmatter.course),
@@ -186,10 +199,7 @@ async function upsertQuestionRows(args: {
       Query.limit(MAX_QUESTION_ROWS_PER_NUMBER),
     ]);
     const existing = existingByQuestionNo.documents.find(
-      (document) =>
-        document.question_subpart === row.question_subpart ||
-        ((document.question_subpart === null || document.question_subpart === undefined) &&
-          (row.question_subpart === null || row.question_subpart === undefined)),
+      (document) => normalizeQuestionSubpart(document.question_subpart) === normalizedQuestionSubpart,
     );
     const rowId =
       typeof existing?.id === "string" && existing.id.trim().length > 0
@@ -205,10 +215,12 @@ async function upsertQuestionRows(args: {
       paper_name: args.frontmatter.paper_name,
       subject: args.frontmatter.subject,
       question_no: row.question_no,
-      question_subpart: row.question_subpart,
       question_content: row.question_content,
       tags: row.tags,
     };
+    if (normalizedQuestionSubpart) {
+      basePayload.question_subpart = normalizedQuestionSubpart;
+    }
     const payload: Record<string, unknown> = { ...basePayload };
     if (args.frontmatter.entry_type) payload.entry_type = args.frontmatter.entry_type;
     if (args.frontmatter.question_id) payload.question_id = args.frontmatter.question_id;
@@ -324,13 +336,6 @@ async function resolveLinkedSyllabusEntryId(frontmatter: IngestionFrontmatter): 
   for (const doc of matches.documents) {
     const entryId = typeof doc.entry_id === "string" ? doc.entry_id.trim() : "";
     if (entryId) return entryId;
-
-    if (typeof doc.id === "string" && doc.id.trim().length > 0) {
-      return doc.id.trim();
-    }
-    if (typeof doc.$id === "string" && doc.$id.trim().length > 0) {
-      return doc.$id.trim();
-    }
   }
 
   return null;
@@ -354,6 +359,34 @@ export async function GET(request: NextRequest) {
       status: 200,
       headers: { "Content-Type": "text/markdown; charset=utf-8" },
     });
+  }
+
+  const fileId = searchParams.get("fileId")?.trim();
+  if (fileId) {
+    try {
+      const storage = adminStorage();
+      const [fileBuffer, fileMeta] = await Promise.all([
+        storage.getFileDownload(MD_INGESTION_BUCKET_ID, fileId),
+        storage.getFile(MD_INGESTION_BUCKET_ID, fileId),
+      ]);
+      const fileName = sanitizeDownloadFilename(fileMeta?.name || `${fileId}.md`);
+      const encodedName = encodeURIComponent(fileName);
+      const fallbackHeaderName = fileName.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+      return new NextResponse(fileBuffer, {
+        status: 200,
+        headers: {
+          "Content-Type": "text/markdown; charset=utf-8",
+          "Cache-Control": "private, max-age=300",
+          "Content-Disposition": `inline; filename="${fallbackHeaderName}"; filename*=UTF-8''${encodedName}`,
+        },
+      });
+    } catch (error: unknown) {
+      if (error instanceof AppwriteException && (error.code === 400 || error.code === 404)) {
+        return new NextResponse("Markdown file not found", { status: 404 });
+      }
+      console.error("[ingest-md] failed to serve markdown file", error);
+      return new NextResponse("Failed to fetch markdown file", { status: 500 });
+    }
   }
 
   const db = adminDatabases();
