@@ -2,7 +2,7 @@
 
 **Repository:** `Omdas11/examarchive-v3`
 **Plan start date:** April 8, 2026 (IST)
-**Primary launch window:** May 1, 2026
+**Primary launch window:** Apr 30, 2026
 **Fallback launch window:** June 1, 2026
 
 ## Objective
@@ -83,7 +83,7 @@ Make core student-facing pages useful, clean, and connected.
 
 ---
 
-## Phase 3 — Growth Readiness (Apr 23 → May 1)
+## Phase 3 — Growth Readiness (Apr 23 → Apr 30)
 
 ### Goal
 
@@ -140,5 +140,5 @@ Suggested 6-role setup:
 |----------|---------------------------------------------|
 | Apr 15   | Data pipeline stable                        |
 | Apr 22   | UX + AI quality stable                      |
-| May 1    | Launch candidate                            |
+| Apr 30   | Launch candidate                            |
 | Jun 1    | Full polish + scaling (fallback target)     |

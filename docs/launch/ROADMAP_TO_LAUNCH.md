@@ -1,4 +1,4 @@
-# ExamArchive v3 - 30 Day Master Plan (Target: May 1)
+# ExamArchive v3 - 30 Day Master Plan (Target: Apr 30)
 
 ## Team Recommendation (3-4 Members)
 To hit the aggressive late-April/early-May deadline, a team of **3 to 4 people** is ideal so tasks can be run in parallel:
