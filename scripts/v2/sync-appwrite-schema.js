@@ -375,8 +375,18 @@ const TARGET_SCHEMA = [
 ];
 
 function isNotFoundError(error) {
-  const code = error?.code ?? error?.response?.code;
-  return code === 404 || /not found/i.test(String(error?.message ?? ""));
+  const rawCode = error?.code ?? error?.response?.code;
+  const code = Number(rawCode);
+  const message = String(error?.message ?? error?.response?.message ?? "");
+  return code === 404 || /not found/i.test(message);
+}
+
+function isAttributeAlreadyExistsError(error) {
+  const rawCode = error?.code ?? error?.response?.code;
+  const code = Number(rawCode);
+  const type = error?.type ?? error?.response?.type;
+  const message = String(error?.message ?? error?.response?.message ?? "");
+  return (code === 409 && /already exist(s)?/i.test(message)) || type === "attribute_already_exists";
 }
 
 function sleep(ms) {
@@ -557,6 +567,7 @@ async function syncCollection(databases, databaseId, collection) {
   const missingAttributes = getMissingAttributes(collection.attributes, liveAttributes);
 
   let mismatchCount = 0;
+  let createdAttributes = 0;
   for (const attribute of collection.attributes) {
     const existing = liveByKey.get(attribute.key);
     if (existing) {
@@ -566,7 +577,18 @@ async function syncCollection(databases, databaseId, collection) {
 
   for (const attribute of missingAttributes) {
     console.log(`[create] attribute ${collection.id}.${attribute.key} (${formatType(attribute.type, attribute.array)})`);
-    await createAttribute(databases, databaseId, collection.id, attribute);
+    try {
+      await createAttribute(databases, databaseId, collection.id, attribute);
+      createdAttributes += 1;
+    } catch (error) {
+      if (!isAttributeAlreadyExistsError(error)) {
+        throw error;
+      }
+      console.warn(
+        `[warn] ${collection.id}.${attribute.key} already exists while creating. ` +
+          "Proceeding to wait for attribute availability.",
+      );
+    }
     await waitForAttributeAvailability(databases, databaseId, collection.id, attribute.key);
     console.log(`[ready] attribute ${collection.id}.${attribute.key}`);
   }
@@ -579,7 +601,7 @@ async function syncCollection(databases, databaseId, collection) {
     collectionId: collection.id,
     createdCollection: created,
     totalTargetAttributes: collection.attributes.length,
-    createdAttributes: missingAttributes.length,
+    createdAttributes,
     mismatchCount,
     connected: mismatchCount === 0,
   };
@@ -702,6 +724,7 @@ module.exports = {
   createAttribute,
   getMissingAttributes,
   getAppwriteDefaultValue,
+  isAttributeAlreadyExistsError,
   isNotFoundError,
   renderSchemaStatusSection,
   syncCollection,

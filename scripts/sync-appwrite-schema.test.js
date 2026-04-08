@@ -2,7 +2,10 @@ const {
   createAttribute,
   getAppwriteDefaultValue,
   getMissingAttributes,
+  isAttributeAlreadyExistsError,
+  isNotFoundError,
   renderSchemaStatusSection,
+  syncCollection,
   TARGET_SCHEMA,
   upsertSchemaStatusBlock,
   waitForAttributeAvailability,
@@ -111,6 +114,105 @@ describe("sync-appwrite-schema helpers", () => {
 
     expect(attribute.status).toBe("available");
     expect(databases.getAttribute).toHaveBeenCalledTimes(2);
+  });
+
+  test.each([
+    {
+      description: "with code and message 'exists'",
+      error: { code: 409, message: "Attribute already exists" },
+      expected: true,
+    },
+    {
+      description: "with code and message 'exist'",
+      error: { code: 409, message: "Attribute already exist" },
+      expected: true,
+    },
+    {
+      description: "with type",
+      error: { type: "attribute_already_exists" },
+      expected: true,
+    },
+    {
+      description: "with long message 'exists'",
+      error: { code: 409, message: "Attribute with the requested key already exists" },
+      expected: true,
+    },
+    {
+      description: "with nested response and message 'exist'",
+      error: { response: { code: 409, message: "Attribute with the requested key already exist" } },
+      expected: true,
+    },
+    {
+      description: "with string 409 code and message",
+      error: { code: "409", message: "already exists: attribute key conflict" },
+      expected: true,
+    },
+    {
+      description: "with non-409 code",
+      error: { code: 500, message: "Unexpected error" },
+      expected: false,
+    },
+    {
+      description: "with 409 code but wrong message",
+      error: { code: 409, message: "Permission denied" },
+      expected: false,
+    },
+  ])("isAttributeAlreadyExistsError: $description", ({ error, expected }) => {
+    expect(isAttributeAlreadyExistsError(error)).toBe(expected);
+  });
+
+  test.each([
+    {
+      description: "with numeric 404 code",
+      error: { code: 404, message: "Collection not found" },
+      expected: true,
+    },
+    {
+      description: "with string 404 code and no message",
+      error: { code: "404" },
+      expected: true,
+    },
+    {
+      description: "with nested response string 404 code",
+      error: { response: { code: "404" } },
+      expected: true,
+    },
+    {
+      description: "with nested response not-found message",
+      error: { response: { message: "Document not found" } },
+      expected: true,
+    },
+    {
+      description: "with non-404 code and unrelated message",
+      error: { code: 500, message: "Internal error" },
+      expected: false,
+    },
+  ])("isNotFoundError: $description", ({ error, expected }) => {
+    expect(isNotFoundError(error)).toBe(expected);
+  });
+
+  test("syncCollection tolerates duplicate-create race and continues", async () => {
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const databases = {
+      getCollection: jest.fn().mockResolvedValue({ $id: "demo" }),
+      listAttributes: jest.fn().mockResolvedValue({ attributes: [] }),
+      createStringAttribute: jest.fn().mockRejectedValue({ code: 409, type: "attribute_already_exists" }),
+      getAttribute: jest.fn().mockResolvedValue({ status: "available" }),
+    };
+
+    const result = await syncCollection(databases, "examarchive", {
+      id: "demo",
+      name: "demo",
+      attributes: [{ key: "status", type: "string", required: false, size: 32 }],
+    });
+
+    expect(result.createdAttributes).toBe(0);
+    expect(databases.createStringAttribute).toHaveBeenCalledTimes(1);
+    expect(databases.getAttribute).toHaveBeenCalledWith("examarchive", "demo", "status");
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[warn] demo.status already exists while creating. Proceeding to wait for attribute availability.",
+    );
+    warnSpy.mockRestore();
   });
 
   test("renderSchemaStatusSection includes perfectly connected status", () => {
