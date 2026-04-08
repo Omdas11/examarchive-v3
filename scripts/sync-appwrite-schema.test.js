@@ -2,7 +2,9 @@ const {
   createAttribute,
   getAppwriteDefaultValue,
   getMissingAttributes,
+  isAttributeAlreadyExistsError,
   renderSchemaStatusSection,
+  syncCollection,
   TARGET_SCHEMA,
   upsertSchemaStatusBlock,
   waitForAttributeAvailability,
@@ -111,6 +113,40 @@ describe("sync-appwrite-schema helpers", () => {
 
     expect(attribute.status).toBe("available");
     expect(databases.getAttribute).toHaveBeenCalledTimes(2);
+  });
+
+  test("isAttributeAlreadyExistsError detects duplicate attribute errors", () => {
+    expect(isAttributeAlreadyExistsError({ code: 409, message: "Attribute already exists" })).toBe(true);
+    expect(isAttributeAlreadyExistsError({ type: "attribute_already_exists" })).toBe(true);
+    expect(
+      isAttributeAlreadyExistsError({ code: 409, message: "Attribute with the requested key already exists" }),
+    ).toBe(true);
+    expect(isAttributeAlreadyExistsError({ code: 500, message: "Unexpected error" })).toBe(false);
+    expect(isAttributeAlreadyExistsError({ code: 409, message: "Permission denied" })).toBe(false);
+  });
+
+  test("syncCollection tolerates duplicate-create race and continues", async () => {
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const databases = {
+      getCollection: jest.fn().mockResolvedValue({ $id: "demo" }),
+      listAttributes: jest.fn().mockResolvedValue({ attributes: [] }),
+      createStringAttribute: jest.fn().mockRejectedValue({ code: 409, type: "attribute_already_exists" }),
+      getAttribute: jest.fn().mockResolvedValue({ status: "available" }),
+    };
+
+    const result = await syncCollection(databases, "examarchive", {
+      id: "demo",
+      name: "demo",
+      attributes: [{ key: "status", type: "string", required: false, size: 32 }],
+    });
+
+    expect(result.createdAttributes).toBe(0);
+    expect(databases.createStringAttribute).toHaveBeenCalledTimes(1);
+    expect(databases.getAttribute).toHaveBeenCalledWith("examarchive", "demo", "status");
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[warn] demo.status already exists while creating. Proceeding to wait for attribute availability.",
+    );
+    warnSpy.mockRestore();
   });
 
   test("renderSchemaStatusSection includes perfectly connected status", () => {
