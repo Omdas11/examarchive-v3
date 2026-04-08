@@ -117,9 +117,15 @@ describe("sync-appwrite-schema helpers", () => {
 
   test("isAttributeAlreadyExistsError detects duplicate attribute errors", () => {
     expect(isAttributeAlreadyExistsError({ code: 409, message: "Attribute already exists" })).toBe(true);
+    expect(isAttributeAlreadyExistsError({ code: 409, message: "Attribute already exist" })).toBe(true);
     expect(isAttributeAlreadyExistsError({ type: "attribute_already_exists" })).toBe(true);
     expect(
       isAttributeAlreadyExistsError({ code: 409, message: "Attribute with the requested key already exists" }),
+    ).toBe(true);
+    expect(
+      isAttributeAlreadyExistsError({
+        response: { code: 409, message: "Attribute with the requested key already exist" },
+      }),
     ).toBe(true);
     expect(isAttributeAlreadyExistsError({ code: 500, message: "Unexpected error" })).toBe(false);
     expect(isAttributeAlreadyExistsError({ code: 409, message: "Permission denied" })).toBe(false);
