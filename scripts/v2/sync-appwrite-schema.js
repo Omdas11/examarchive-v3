@@ -375,8 +375,10 @@ const TARGET_SCHEMA = [
 ];
 
 function isNotFoundError(error) {
-  const code = error?.code ?? error?.response?.code;
-  return code === 404 || /not found/i.test(String(error?.message ?? ""));
+  const rawCode = error?.code ?? error?.response?.code;
+  const code = Number(rawCode);
+  const message = String(error?.message ?? error?.response?.message ?? "");
+  return code === 404 || /not found/i.test(message);
 }
 
 function isAttributeAlreadyExistsError(error) {

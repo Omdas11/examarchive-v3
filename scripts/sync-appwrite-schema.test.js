@@ -3,6 +3,7 @@ const {
   getAppwriteDefaultValue,
   getMissingAttributes,
   isAttributeAlreadyExistsError,
+  isNotFoundError,
   renderSchemaStatusSection,
   syncCollection,
   TARGET_SCHEMA,
@@ -158,6 +159,36 @@ describe("sync-appwrite-schema helpers", () => {
     },
   ])("isAttributeAlreadyExistsError: $description", ({ error, expected }) => {
     expect(isAttributeAlreadyExistsError(error)).toBe(expected);
+  });
+
+  test.each([
+    {
+      description: "with numeric 404 code",
+      error: { code: 404, message: "Collection not found" },
+      expected: true,
+    },
+    {
+      description: "with string 404 code and no message",
+      error: { code: "404" },
+      expected: true,
+    },
+    {
+      description: "with nested response string 404 code",
+      error: { response: { code: "404" } },
+      expected: true,
+    },
+    {
+      description: "with nested response not-found message",
+      error: { response: { message: "Document not found" } },
+      expected: true,
+    },
+    {
+      description: "with non-404 code and unrelated message",
+      error: { code: 500, message: "Internal error" },
+      expected: false,
+    },
+  ])("isNotFoundError: $description", ({ error, expected }) => {
+    expect(isNotFoundError(error)).toBe(expected);
   });
 
   test("syncCollection tolerates duplicate-create race and continues", async () => {
