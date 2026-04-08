@@ -57,8 +57,8 @@ Phase-wise go-live checklist for ExamArchive v3 launch.
 | 18 | Anti-abuse rules enforced (spam, duplicates)      | Person B | Apr 26   | todo        | Role engine active               | pass: test uploads of duplicates rejected or flagged             |
 | 19 | Virtual currency earn flow working                | Person F | Apr 27   | todo        | —                                | pass: contributions credit correct coin amounts                  |
 | 20 | Virtual currency spend flow working               | Person F | Apr 27   | todo        | Earn flow done                   | pass: coin deduction and refund tested end-to-end                |
-| 21 | AI pricing tiers configured (Basic/Std/Premium)   | Person F | Apr 27   | todo        | Spend flow spec finalized        | pass: correct coin amounts charged per tier                      |
-| 22 | AI model fallback chain tested                    | Person E | Apr 22   | todo        | —                                | pass: fallback engages under simulated quota exhaustion          |
+| 21 | AI pricing tiers configured (Basic/Std/Premium)   | Person F | Apr 27   | todo        | Item 20 spend flow done (same-day handoff) | pass: correct coin amounts charged per tier          |
+| 22 | AI model fallback chain tested                    | Person E | Apr 22   | todo        | Item 15 fallback flow done (same-day handoff) | pass: fallback engages under simulated quota exhaustion |
 | 23 | SEO: meta + OG + Twitter card tags live           | Person E | Apr 29   | todo        | —                                | pass: tags present on all major pages; OG image renders          |
 | 24 | SEO: sitemap.xml and robots.txt deployed          | Person E | Apr 30   | todo        | —                                | pass: sitemap indexed by Google Search Console                   |
 | 25 | SEO: structured data (EducationalOrganization)    | Person E | Apr 30   | todo        | —                                | pass: no errors in Google Rich Results Test                      |
