@@ -7,7 +7,7 @@ Canonical schema for question paper ingestion into ExamArchive.
 This document defines the canonical **question paper authoring schema** supported by
 `src/lib/admin-md-ingestion.ts` and `/api/admin/ingest-md`.
 
-For the combined drafting guide (both syllabus and question formats, naming, and upload order), see:
+For the master drafting guide (both syllabus and question formats, naming, and upload order), see:
 `docs/MASTER_INGESTION_GUIDE.md`.
 
 ## Rules

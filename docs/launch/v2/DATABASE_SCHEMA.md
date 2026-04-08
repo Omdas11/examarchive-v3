@@ -240,7 +240,7 @@ Stores markdown ingestion records for AI content options.
 
 | Field                 | Type          | Required | Notes |
 |-----------------------|---------------|----------|-------|
-| `entry_type`          | String(32)    | No       | Current ingestion values: `syllabus` \| `question` \| `combined` (not DB-enforced enum) |
+| `entry_type`          | String(32)    | No       | Current ingestion values: `syllabus` \| `question` (split mode; not DB-enforced enum) |
 | `paper_code`          | String(256)   | No       | Ingestion paper code |
 | `source_label`        | String(256)   | No       | Source file label |
 | `file_id`             | String(64)    | No       | Appwrite Storage file ID |
