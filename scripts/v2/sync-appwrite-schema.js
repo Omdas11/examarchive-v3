@@ -613,23 +613,23 @@ async function syncCollection(databases, databaseId, collection) {
 
       if (attribute.type === "string") {
         stringComparison.existingCount += 1;
-        const hasStringDifference = mismatches.some((mismatch) => mismatch.kind === "type" || mismatch.kind === "size");
-        if (hasStringDifference) {
+        const stringMismatches = mismatches.filter((mismatch) =>
+          mismatch.kind === "type" ||
+          mismatch.kind === "required" ||
+          mismatch.kind === "array" ||
+          mismatch.kind === "size",
+        );
+        if (stringMismatches.length > 0) {
           stringComparison.differenceCount += 1;
-          const typeMismatch = mismatches.find((mismatch) => mismatch.kind === "type");
-          const sizeMismatch = mismatches.find((mismatch) => mismatch.kind === "size");
-          const exactParts = [];
-          if (typeMismatch) {
-            exactParts.push(
-              `type ${formatType(typeMismatch.live, typeMismatch.liveArray)} → ${formatType(
-                typeMismatch.target,
-                typeMismatch.targetArray,
-              )}`,
-            );
-          }
-          if (sizeMismatch) {
-            exactParts.push(`size ${String(sizeMismatch.live)} → ${String(sizeMismatch.target)}`);
-          }
+          const exactParts = stringMismatches.map((mismatch) => {
+            if (mismatch.kind === "type") {
+              return `type ${formatType(mismatch.live, mismatch.liveArray)} → ${formatType(
+                mismatch.target,
+                mismatch.targetArray,
+              )}`;
+            }
+            return `${mismatch.kind} ${String(mismatch.live)} → ${String(mismatch.target)}`;
+          });
           stringComparison.differenceDetails.push(
             `${attribute.key}: ${exactParts.join(", ")}`,
           );
@@ -651,7 +651,7 @@ async function syncCollection(databases, databaseId, collection) {
         console.warn(
           `[warn] attribute limit reached for ${collection.id} while creating ${attribute.key}; ` +
             "skipping remaining attributes. Appwrite collection schemas have practical per-collection limits, so " +
-            "remove unused attributes and prefer very-large string fields (size > 16383) for long free-text payloads.",
+            "remove unused attributes and prefer very-large string fields for long free-text payloads.",
         );
         break;
       }
@@ -694,27 +694,35 @@ function renderSchemaStatusSection(results) {
   ];
 
   for (const result of results) {
+    const stringComparison = result.stringComparison ?? {
+      existingCount: 0,
+      perfectCount: 0,
+      differenceCount: 0,
+      differenceDetails: [],
+    };
     const status = result.connected ? "✅ Perfectly connected" : "⚠️ Connected with differences";
     const createdInRun = result.createdAttributes + (result.createdCollection ? 1 : 0);
-    const stringSync = result.stringComparison.existingCount === 0
+    const stringSync = stringComparison.existingCount === 0
       ? "n/a"
-      : result.stringComparison.differenceCount === 0
-        ? `✅ ${result.stringComparison.perfectCount}/${result.stringComparison.existingCount} perfect`
-        : `⚠️ ${result.stringComparison.perfectCount}/${result.stringComparison.existingCount} perfect, ${result.stringComparison.differenceCount} different`;
+      : stringComparison.differenceCount === 0
+        ? `✅ ${stringComparison.perfectCount}/${stringComparison.existingCount} perfect`
+        : `⚠️ ${stringComparison.perfectCount}/${stringComparison.existingCount} perfect, ${stringComparison.differenceCount} different`;
     const notes = [
       result.createdCollection ? "collection created" : "collection existed",
       `${result.createdAttributes}/${result.totalTargetAttributes} missing attrs created`,
       result.mismatchCount > 0 ? `${result.mismatchCount} attr definition mismatch(es)` : "no mismatches detected",
-      result.stringComparison.differenceDetails.length > 0
-        ? `string diffs: ${result.stringComparison.differenceDetails.slice(0, 2).join(" | ")}${
-            result.stringComparison.differenceDetails.length > 2
-              ? ` (+${result.stringComparison.differenceDetails.length - 2} more)`
+      stringComparison.differenceDetails.length > 0
+        ? `string diffs: ${stringComparison.differenceDetails.slice(0, 2).join(" | ")}${
+            stringComparison.differenceDetails.length > 2
+              ? ` (+${stringComparison.differenceDetails.length - 2} more)`
               : ""
           }`
         : "string type/size aligned",
     ].join("; ");
+    const safeStringSync = stringSync.replaceAll("|", "\\|");
+    const safeNotes = notes.replaceAll("|", "\\|");
 
-    lines.push(`| \`${result.collectionId}\` | ${status} | ${createdInRun} | ${stringSync} | ${notes} |`);
+    lines.push(`| \`${result.collectionId}\` | ${status} | ${createdInRun} | ${safeStringSync} | ${safeNotes} |`);
   }
 
   lines.push("");
