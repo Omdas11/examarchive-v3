@@ -63,6 +63,10 @@ function parseMarkdownTable(tableMarkdown) {
   }).filter((row) => row.key);
 }
 
+function isValidAppwriteAttributeKey(key) {
+  return /^[A-Za-z0-9][A-Za-z0-9._-]{0,35}$/.test(key);
+}
+
 function toAttributeType(type) {
   if (type.includes("integer")) return "integer";
   if (type.includes("boolean")) return "boolean";
@@ -82,11 +86,22 @@ function parseDatabaseSchemaMarkdown(markdown) {
     if (!nameMatch) continue;
     const rawName = nameMatch[1].trim();
     const id = rawName;
-    const attributes = parseMarkdownTable(section).map((row) => ({
-      key: row.key,
-      type: toAttributeType(row.type),
-      required: row.required,
-    }));
+    const attributes = parseMarkdownTable(section)
+      .filter((row) => {
+        if (isValidAppwriteAttributeKey(row.key)) {
+          return true;
+        }
+        console.warn(
+          `[warn] skipping invalid markdown attribute key "${row.key}" in ${id}; ` +
+            "it cannot be created as an Appwrite user attribute.",
+        );
+        return false;
+      })
+      .map((row) => ({
+        key: row.key,
+        type: toAttributeType(row.type),
+        required: row.required,
+      }));
     tables.push({ id, name: rawName, attributes });
   }
 
