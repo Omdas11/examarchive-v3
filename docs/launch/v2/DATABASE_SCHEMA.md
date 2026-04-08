@@ -481,7 +481,7 @@ Use this checklist to wipe counters and storage before relaunch:
 <!-- SCHEMA_SYNC_STATUS_START -->
 ## Schema Sync Status (Auto-generated)
 
-_Last synced: 2026-04-07T11:58:20.350Z_
+_Last synced: 2026-04-08T14:42:35.780Z_
 
 ### Storage Buckets
 | Bucket | Status | ID |
@@ -490,7 +490,8 @@ _Last synced: 2026-04-07T11:58:20.350Z_
 | `avatars` | ✅ Connected | avatars |
 | `syllabus-files` | ✅ Connected | syllabus-files |
 | `generated-md-cache` | ✅ Connected | generated-md-cache |
-| `MD Ingestion Cache` | ✅ Connected | examarchive-md-ingestion |
+| `Syllabus MD Ingestion` | ✅ Connected | examarchive-syllabus-md-ingestion |
+| `examarchive_question_ingest_assets` | ✅ Connected | examarchive_question_ingest_assets |
 
 ### Database Collections
 | Collection | Status | Created in run | Notes |
@@ -506,13 +507,13 @@ _Last synced: 2026-04-07T11:58:20.350Z_
 | `ai_usage` | ✅ Perfectly connected | 0 | collection existed; 0 missing attrs created; 0 attr definition mismatch(es); 0 missing expected attr(s) |
 | `ai_embeddings` | ⚠️ Connected with differences | 0 | collection existed; 0 missing attrs created; 2 attr definition mismatch(es); 0 missing expected attr(s); mismatch: course_code, embedding |
 | `pdf_usage` | ✅ Perfectly connected | 0 | collection existed; 0 missing attrs created; 0 attr definition mismatch(es); 0 missing expected attr(s) |
-| `ai_ingestions` | ⚠️ Connected with differences | 0 | collection existed; 0 missing attrs created; 2 attr definition mismatch(es); 0 missing expected attr(s); mismatch: paper_code, file_id |
-| `ai_syllabus_maps` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from v2/DATABASE_SCHEMA.md |
-| `ai_flashcards` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from v2/DATABASE_SCHEMA.md |
-| `ai_admin_reports` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from v2/DATABASE_SCHEMA.md |
-| `Syllabus_Table` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from v2/DATABASE_SCHEMA.md |
-| `Questions_Table` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from v2/DATABASE_SCHEMA.md |
-| `Generated_Notes_Cache` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from v2/DATABASE_SCHEMA.md |
-| `User_Quotas` | ⚠️ Connected with differences | 0 | undocumented live collection; exists in Appwrite but missing from v2/DATABASE_SCHEMA.md |
+| `ai_ingestions` | ⚠️ Connected with differences | 0 | collection existed; 0 missing attrs created; 1 attr definition mismatch(es); 0 missing expected attr(s); mismatch: entry_type |
+| `ai_syllabus_maps` | ⚠️ Connected with differences | 0 | collection existed; 0 missing attrs created; 1 attr definition mismatch(es); 0 missing expected attr(s); mismatch: modules_json |
+| `ai_flashcards` | ⚠️ Connected with differences | 0 | collection existed; 0 missing attrs created; 1 attr definition mismatch(es); 0 missing expected attr(s); mismatch: payload |
+| `ai_admin_reports` | ⚠️ Connected with differences | 0 | collection existed; 0 missing attrs created; 0 attr definition mismatch(es); 2 missing expected attr(s); missing: risks_json, model |
+| `Syllabus_Table` | ⚠️ Connected with differences | 0 | collection existed; 0 missing attrs created; 1 attr definition mismatch(es); 18 missing expected attr(s); missing: entry_type, entry_id, college, group, session, year, semester_code, semester_no, credits, marks_total, syllabus_pdf_url, source_reference, status, aliases, keywords, notes, version, last_updated; mismatch: syllabus_content |
+| `Questions_Table` | ⚠️ Connected with differences | 0 | collection existed; 0 missing attrs created; 1 attr definition mismatch(es); 18 missing expected attr(s); missing: entry_type, question_id, college, group, exam_year, exam_session, exam_month, attempt_type, semester_code, semester_no, question_pdf_url, source_reference, status, linked_syllabus_entry_id, link_status, ocr_text_path, ai_summary_status, difficulty_estimate; mismatch: question_content |
+| `Generated_Notes_Cache` | ⚠️ Connected with differences | 0 | collection existed; 0 missing attrs created; 4 attr definition mismatch(es); 0 missing expected attr(s); mismatch: markdown_file_id, generated_markdown, syllabus_content, status |
+| `User_Quotas` | ✅ Perfectly connected | 0 | collection existed; 0 missing attrs created; 0 attr definition mismatch(es); 0 missing expected attr(s) |
 
 <!-- SCHEMA_SYNC_STATUS_END -->
