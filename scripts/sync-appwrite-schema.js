@@ -146,6 +146,7 @@ const TARGET_SCHEMA = [
   {
     id: "users",
     name: "users",
+    obsoleteAttributes: ["xp", "streak_days"],
     attributes: [
       { key: "email", type: "string", required: true, size: 320 },
       { key: "role", type: "string", required: true, size: 64 },
@@ -155,8 +156,8 @@ const TARGET_SCHEMA = [
       { key: "tier", type: "string", required: false, size: 32 },
       { key: "display_name", type: "string", required: false, size: 128 },
       { key: "username", type: "string", required: false, size: 64 },
-      { key: "xp", type: "integer", required: false },
-      { key: "streak_days", type: "integer", required: false },
+      { key: "xo", type: "integer", required: false },
+      { key: "streak", type: "integer", required: false },
       { key: "avatar_url", type: "string", required: false, size: 2048 },
       { key: "avatar_file_id", type: "string", required: false, size: 64 },
       { key: "last_activity", type: "datetime", required: false },
@@ -352,6 +353,12 @@ function getMissingAttributes(targetAttributes, liveAttributes) {
   return targetAttributes.filter((attribute) => !existingKeys.has(attribute.key));
 }
 
+function getObsoleteAttributes(collection, liveAttributes) {
+  const configuredObsolete = new Set(collection.obsoleteAttributes ?? []);
+  if (configuredObsolete.size === 0) return [];
+  return liveAttributes.filter((attribute) => configuredObsolete.has(attribute.key));
+}
+
 function formatType(type, array) {
   return array ? `${type}[]` : type;
 }
@@ -519,6 +526,7 @@ async function syncCollection(databases, databaseId, collection) {
   const liveAttributes = liveAttributesResponse.attributes;
   const liveByKey = new Map(liveAttributes.map((attribute) => [attribute.key, attribute]));
   const missingAttributes = getMissingAttributes(collection.attributes, liveAttributes);
+  const obsoleteAttributes = getObsoleteAttributes(collection, liveAttributes);
 
   let mismatchCount = 0;
   for (const attribute of collection.attributes) {
@@ -535,7 +543,12 @@ async function syncCollection(databases, databaseId, collection) {
     console.log(`[ready] attribute ${collection.id}.${attribute.key}`);
   }
 
-  if (missingAttributes.length === 0) {
+  for (const attribute of obsoleteAttributes) {
+    console.log(`[delete] attribute ${collection.id}.${attribute.key} (obsolete)`);
+    await databases.deleteAttribute(databaseId, collection.id, attribute.key);
+  }
+
+  if (missingAttributes.length === 0 && obsoleteAttributes.length === 0) {
     console.log(`[up-to-date] ${collection.id} has all required attributes`);
   }
 
@@ -544,6 +557,7 @@ async function syncCollection(databases, databaseId, collection) {
     createdCollection: created,
     totalTargetAttributes: collection.attributes.length,
     createdAttributes: missingAttributes.length,
+    removedAttributes: obsoleteAttributes.length,
     mismatchCount,
     connected: mismatchCount === 0,
   };
@@ -565,6 +579,7 @@ function renderSchemaStatusSection(results) {
     const notes = [
       result.createdCollection ? "collection created" : "collection existed",
       `${result.createdAttributes}/${result.totalTargetAttributes} missing attrs created`,
+      `${result.removedAttributes ?? 0} obsolete attrs removed`,
       result.mismatchCount > 0 ? `${result.mismatchCount} attr definition mismatch(es)` : "no mismatches detected",
     ].join("; ");
 
@@ -664,6 +679,7 @@ module.exports = {
   TARGET_SCHEMA,
   createAttribute,
   getMissingAttributes,
+  getObsoleteAttributes,
   getAppwriteDefaultValue,
   isNotFoundError,
   renderSchemaStatusSection,

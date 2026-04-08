@@ -88,6 +88,7 @@ export interface UserProfile {
   secondary_role?: CustomRole;
   /** Activity-based tier. */
   tier?: UserTier;
+  xo: number;
   xp: number;
   referral_code?: string;
   referred_by?: string | null;
@@ -161,6 +162,7 @@ export interface ExtendedUserProfile {
   tertiary_role: CustomRole;
   /** Activity-based tier. */
   tier: UserTier;
+  xo: number;
   xp: number;
   streak_days: number;
   last_activity: string;
@@ -195,6 +197,7 @@ export interface AdminUser {
   tertiary_role: CustomRole;
   tier: UserTier;
   upload_count: number;
+  xo: number;
   xp: number;
   streak_days: number;
   /** Last login / activity timestamp (ISO 8601). */
@@ -216,6 +219,7 @@ export function toAdminUser(doc: Record<string, unknown>): AdminUser {
     tertiary_role: (doc.tertiary_role ?? null) as CustomRole,
     tier: ((doc.tier ?? "bronze") as string) as UserTier,
     upload_count: (doc.upload_count ?? 0) as number,
+    xo: (doc.xo ?? doc.xp ?? 0) as number,
     xp: (doc.xp ?? 0) as number,
     streak_days: ((doc.streak_days ?? doc.streak ?? 0) as number),
     last_login: ((doc.last_login ?? doc.last_activity ?? "") as string),

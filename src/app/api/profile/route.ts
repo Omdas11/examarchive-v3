@@ -151,11 +151,13 @@ export async function GET() {
   let username_last_changed: string | null = null;
   let approved_upload_count = 0;
   let total_uploads = 0;
+  let dbXo = user.xo;
   try {
     const db = adminDatabases();
     const profile = await db.getDocument(DATABASE_ID, COLLECTION.users, user.id);
     username_last_changed = (profile.username_last_changed as string) ?? null;
     approved_upload_count = (profile.upload_count as number) ?? 0;
+    dbXo = (profile.xo as number) ?? (profile.xp as number) ?? user.xo;
     // Query.limit(1) keeps payload small while still allowing Appwrite to return
     // the collection-level `total` count for the filtered query.
     const { total } = await db.listDocuments(DATABASE_ID, COLLECTION.papers, [
@@ -176,8 +178,8 @@ export async function GET() {
     avatar_url: user.avatar_url,
     role: user.role,
     tier: user.tier ?? "bronze",
-    xp: user.xp,
-    xo: user.xp,
+    xp: dbXo,
+    xo: dbXo,
     streak_days: user.streak_days,
     last_activity: user.last_activity,
     created_at: user.created_at,

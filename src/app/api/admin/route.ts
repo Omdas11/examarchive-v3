@@ -10,13 +10,13 @@ import {
 } from "@/lib/appwrite";
 import { logActivity } from "@/lib/activity-log";
 
-/** XP awarded when a paper is approved. */
+/** XO awarded when a paper is approved. */
 const XP_PER_APPROVED_UPLOAD = 50;
-/** Bonus XP for the very first approved upload. */
+/** Bonus XO for the very first approved upload. */
 const XP_FIRST_UPLOAD_BONUS = 20;
-/** Bonus XP at 7-day streak. */
+/** Bonus XO at 7-day streak. */
 const XP_STREAK_7_DAY_BONUS = 100;
-/** Bonus XP at 30-day streak. */
+/** Bonus XO at 30-day streak. */
 const XP_STREAK_30_DAY_BONUS = 500;
 
 /** Role/XO thresholds (docs/ROLE_XO_RULEBOOK.md). */
@@ -28,7 +28,7 @@ const TIER_SILVER_UPLOAD_THRESHOLD = 20;
 
 /**
  * After a paper is approved, increment the uploader's `upload_count`,
- * grant XP (+50 per upload, +20 first-upload bonus), update streak,
+  * grant XO (+50 per upload, +20 first-upload bonus), update streak,
  * and auto-promote based on thresholds.
  */
 async function incrementUploadCount(
@@ -47,12 +47,10 @@ async function incrementUploadCount(
     const currentCount = ((profile.upload_count as number) ?? 0) + 1;
     const update: Record<string, unknown> = { upload_count: currentCount };
 
-    // ── XP grant ──────────────────────────────────────────────────────────
-    let xpGain = XP_PER_APPROVED_UPLOAD;
-    if (currentCount === 1) xpGain += XP_FIRST_UPLOAD_BONUS; // first upload bonus
-    const nextXo = ((profile.xo as number) ?? (profile.xp as number) ?? 0) + xpGain;
-    // Keep both fields in sync during migration while existing pages still read `xp`.
-    update.xp = nextXo;
+    // ── XO grant ──────────────────────────────────────────────────────────
+    let xoGain = XP_PER_APPROVED_UPLOAD;
+    if (currentCount === 1) xoGain += XP_FIRST_UPLOAD_BONUS; // first upload bonus
+    const nextXo = ((profile.xo as number) ?? (profile.xp as number) ?? 0) + xoGain;
     update.xo = nextXo;
 
     // ── Streak update ─────────────────────────────────────────────────────
@@ -74,11 +72,11 @@ async function incrementUploadCount(
       streak = 1;
     }
 
-    // Streak milestone XP bonuses — award when crossing the threshold
+    // Streak milestone XO bonuses — award when crossing the threshold
     if (prevStreak < 7 && streak >= 7) {
-      update.xp = (update.xp as number) + XP_STREAK_7_DAY_BONUS;
+      update.xo = (update.xo as number) + XP_STREAK_7_DAY_BONUS;
     } else if (prevStreak < 30 && streak >= 30) {
-      update.xp = (update.xp as number) + XP_STREAK_30_DAY_BONUS;
+      update.xo = (update.xo as number) + XP_STREAK_30_DAY_BONUS;
     }
 
     update.streak = streak;

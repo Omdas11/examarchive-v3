@@ -45,27 +45,27 @@ const steps = [
   { icon: STEP_ICONS[0], title: "Upload", desc: "Students upload past question papers and notes." },
   { icon: STEP_ICONS[1], title: "Review", desc: "Admins review and verify each submission." },
   { icon: STEP_ICONS[2], title: "Publish", desc: "Approved papers are published to the archive." },
-  { icon: STEP_ICONS[3], title: "Discover & Earn", desc: "Approved activity earns XP, cosmetic unlocks, and AI credits." },
+  { icon: STEP_ICONS[3], title: "Discover & Earn", desc: "Approved activity earns XO, cosmetic unlocks, and AI credits." },
 ];
 
 const contributions = [
   "Upload question papers you have access to.",
-  "Refer classmates to earn referral XP and AI credits.",
+  "Refer classmates to earn referral XO and AI credits.",
   "Report incorrect or duplicate papers.",
   "Share the platform with fellow students.",
   "Provide feedback to help us improve.",
   "Apply to become a moderator or admin.",
 ];
 
-/** XP tier progression data — matches the profile module exactly. */
-const XP_TIERS = [
-  { xp: 0,    level: 0,   title: "Visitor",     color: "#6b7280" },
-  { xp: 100,  level: 5,   title: "Explorer",    color: "#2563eb" },
-  { xp: 300,  level: 10,  title: "Contributor", color: "#16a34a" },
-  { xp: 800,  level: 25,  title: "Veteran",     color: "#d97706" },
-  { xp: 1500, level: 50,  title: "Senior",      color: "#9333ea" },
-  { xp: 3000, level: 90,  title: "Elite",       color: "#db2777" },
-  { xp: 5000, level: 100, title: "Legend",      color: "#dc2626" },
+/** XO tier progression data — matches the profile module exactly. */
+const XO_TIERS = [
+  { xo: 0,    level: 0,   title: "Visitor",     color: "#6b7280" },
+  { xo: 100,  level: 5,   title: "Explorer",    color: "#2563eb" },
+  { xo: 300,  level: 10,  title: "Contributor", color: "#16a34a" },
+  { xo: 800,  level: 25,  title: "Veteran",     color: "#d97706" },
+  { xo: 1500, level: 50,  title: "Senior",      color: "#9333ea" },
+  { xo: 3000, level: 90,  title: "Elite",       color: "#db2777" },
+  { xo: 5000, level: 100, title: "Legend",      color: "#dc2626" },
 ];
 
 /** System roles with descriptions. */
@@ -198,17 +198,17 @@ const COMMUNITY_ROLES = [
   },
 ];
 
-/** XP award amounts per event. */
-const XP_EVENTS = [
-  { event: "Paper approved by moderator", xp: "+50" },
-  { event: "First ever upload",           xp: "+20 bonus" },
-  { event: "7-day streak reached",        xp: "+100 bonus" },
-  { event: "30-day streak reached",       xp: "+500 bonus" },
-  { event: "Successful direct referral",  xp: "+40" },
+/** XO award amounts per event. */
+const XO_EVENTS = [
+  { event: "Paper approved by moderator", xo: "+50" },
+  { event: "First ever upload",           xo: "+20 bonus" },
+  { event: "7-day streak reached",        xo: "+100 bonus" },
+  { event: "30-day streak reached",       xo: "+500 bonus" },
+  { event: "Successful direct referral",  xo: "+40" },
 ];
 
 const COSMETIC_UNLOCKS = [
-  "XP rank title and profile ring colours are unlocked automatically by XP milestones.",
+  "XO rank title and profile ring colours are unlocked automatically by XO milestones.",
   "Secondary and tertiary community designations are assigned by contribution quality and trust signals.",
   "Role cosmetics are display-only and never grant moderation or admin permissions.",
 ];
@@ -226,11 +226,11 @@ const REFERRAL_CREDIT_EVENTS = [
 ];
 
 const REFERRAL_LEVELS = [
-  { level: "Level 1 (Direct)", referralCredit: "+10", referralXp: "+40" },
-  { level: "Level 2", referralCredit: "+5", referralXp: "+20" },
-  { level: "Level 3", referralCredit: "+3", referralXp: "+10" },
-  { level: "Level 4", referralCredit: "+2", referralXp: "+5" },
-  { level: "Level 5", referralCredit: "+1", referralXp: "+2" },
+  { level: "Level 1 (Direct)", referralCredit: "+10", xo: "+40" },
+  { level: "Level 2", referralCredit: "+5", xo: "+20" },
+  { level: "Level 3", referralCredit: "+3", xo: "+10" },
+  { level: "Level 4", referralCredit: "+2", xo: "+5" },
+  { level: "Level 5", referralCredit: "+1", xo: "+2" },
 ];
 
 /** Fetch live platform statistics from Appwrite. Falls back to 0 on error. */
@@ -299,7 +299,7 @@ export default async function AboutPage() {
           papers from various universities, programmes, and streams.
         </p>
         <p>
-          We are documenting current and planned progression with activity-based XP, cosmetic role
+          We are documenting current and planned progression with activity-based XO, cosmetic role
           designations, and an AI credit economy that includes a 5-level referral reward hierarchy.
         </p>
       </div>
@@ -421,25 +421,25 @@ export default async function AboutPage() {
         ))}
       </div>
 
-      {/* XP & Progression */}
-      <h2 className="mt-10 text-xl font-semibold">XP & Progression</h2>
+      {/* XO & Progression */}
+      <h2 className="mt-10 text-xl font-semibold">XO & Progression</h2>
       <p className="mt-2 text-sm" style={{ color: "var(--color-text-muted)" }}>
-        Earn XP by contributing to the archive. XP unlocks cosmetic rank titles and avatar ring
+        Earn XO by contributing to the archive. XO unlocks cosmetic rank titles and avatar ring
         colours on your profile — it does not affect permissions.
       </p>
 
-      {/* XP tier table */}
+      {/* XO tier table */}
       <div className="mt-4 overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="text-xs uppercase text-left" style={{ color: "var(--color-text-muted)" }}>
               <th className="pb-2 pr-4 font-medium">Rank</th>
-              <th className="pb-2 pr-4 font-medium">XP Required</th>
+              <th className="pb-2 pr-4 font-medium">XO Required</th>
               <th className="pb-2 font-medium">Level</th>
             </tr>
           </thead>
           <tbody>
-            {XP_TIERS.map((t) => (
+            {XO_TIERS.map((t) => (
               <tr
                 key={t.title}
                 className="border-t"
@@ -454,7 +454,7 @@ export default async function AboutPage() {
                   </span>
                 </td>
                 <td className="py-2 pr-4 text-xs" style={{ color: "var(--color-text-muted)" }}>
-                  {t.xp === 0 ? "0" : `${t.xp.toLocaleString()} XP`}
+                  {t.xo === 0 ? "0" : `${t.xo.toLocaleString()} XO`}
                 </td>
                 <td className="py-2 text-xs" style={{ color: "var(--color-text-muted)" }}>
                   {t.level}
@@ -465,10 +465,10 @@ export default async function AboutPage() {
         </table>
       </div>
 
-      {/* XP awards */}
-      <h3 className="mt-6 text-base font-semibold">How to Earn XP</h3>
+      {/* XO awards */}
+      <h3 className="mt-6 text-base font-semibold">How to Earn XO</h3>
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
-        {XP_EVENTS.map((e) => (
+        {XO_EVENTS.map((e) => (
           <div
             key={e.event}
             className="card flex items-center justify-between gap-3 px-4 py-3"
@@ -478,7 +478,7 @@ export default async function AboutPage() {
               className="shrink-0 rounded-full px-2.5 py-0.5 text-xs font-bold"
               style={{ background: "var(--color-accent-soft)", color: "var(--color-primary)" }}
             >
-              {e.xp}
+              {e.xo}
             </span>
           </div>
         ))}
@@ -531,7 +531,7 @@ export default async function AboutPage() {
             <tr className="text-xs uppercase text-left" style={{ color: "var(--color-text-muted)" }}>
               <th className="pb-2 pr-4 font-medium">Referral Level</th>
               <th className="pb-2 pr-4 font-medium">Credits to Referrer</th>
-              <th className="pb-2 font-medium">XP to Referrer</th>
+              <th className="pb-2 font-medium">XO to Referrer</th>
             </tr>
           </thead>
           <tbody>
@@ -542,7 +542,7 @@ export default async function AboutPage() {
                   {r.referralCredit}
                 </td>
                 <td className="py-2 text-xs" style={{ color: "var(--color-text-muted)" }}>
-                  {r.referralXp}
+                  {r.xo}
                 </td>
               </tr>
             ))}

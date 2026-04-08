@@ -1,17 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import AvatarRing from "@/components/AvatarRing";
 import { roleLabel } from "@/lib/roles";
 
-interface RightSidebarProps {
-  userName?: string;
-  userInitials?: string;
-  isLoggedIn?: boolean;
-}
-
-interface SidebarProfileResponse {
+export interface SidebarProfileResponse {
   id: string;
   email: string;
   name: string;
@@ -30,6 +24,13 @@ interface SidebarProfileResponse {
   ai_credits: number;
 }
 
+interface RightSidebarProps {
+  userName?: string;
+  userInitials?: string;
+  isLoggedIn?: boolean;
+  profileData?: SidebarProfileResponse | null;
+}
+
 function xoRank(xo: number): string {
   if (xo >= 5000) return "Legend";
   if (xo >= 3000) return "Elite";
@@ -44,27 +45,9 @@ export default function RightSidebar({
   userName = "Guest",
   userInitials = "GU",
   isLoggedIn = false,
+  profileData = null,
 }: RightSidebarProps) {
-  const [profile, setProfile] = useState<SidebarProfileResponse | null>(null);
-
-  useEffect(() => {
-    if (!isLoggedIn) return;
-    let cancelled = false;
-    async function loadProfile() {
-      try {
-        const res = await fetch("/api/profile", { credentials: "include" });
-        if (!res.ok) return;
-        const data = (await res.json()) as SidebarProfileResponse;
-        if (!cancelled) setProfile(data);
-      } catch {
-        // Ignore sidebar data fetch errors
-      }
-    }
-    void loadProfile();
-    return () => {
-      cancelled = true;
-    };
-  }, [isLoggedIn]);
+  const profile = profileData;
 
   const joinedDate = useMemo(() => {
     if (!profile?.created_at) return "—";

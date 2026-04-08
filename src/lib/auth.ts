@@ -177,8 +177,9 @@ export async function getServerUser(): Promise<UserProfile | null> {
       const lastActivity = (profile.last_activity as string) ?? "";
       // Update daily streak (no-op when already recorded today)
       void updateDailyStreak(db, profile.$id, currentStreak, lastActivity);
-      // Evaluate XP and auto-promotion on each login/page load
+      // Evaluate XO and auto-promotion on each login/page load
       void evaluateXpAndPromotion(db, profile as Record<string, unknown>);
+      const xo = ((profile.xo as number) ?? (profile.xp as number) ?? 0);
       return {
         id: profile.$id,
         email: (profile.email as string) ?? user.email,
@@ -190,7 +191,9 @@ export async function getServerUser(): Promise<UserProfile | null> {
         role: normalizeRole((profile.role as string) ?? "viewer"),
         secondary_role: isValidCustomRole(rawSecondary) ? rawSecondary : null,
         tier: isValidTier(rawTier) ? rawTier : "bronze",
-        xp: (profile.xp as number) ?? 0,
+        xo,
+        // Keep xp mirrored for backward-compatible consumers during XO rollout.
+        xp: xo,
         referral_code: referralCode,
         referred_by: (profile.referred_by as string) ?? null,
         referral_path: (profile.referral_path as string[]) ?? [],
@@ -230,8 +233,9 @@ export async function getServerUser(): Promise<UserProfile | null> {
       const lastActivity = (profile.last_activity as string) ?? "";
       // Update daily streak (no-op when already recorded today)
       void updateDailyStreak(db, profile.$id, currentStreak, lastActivity);
-      // Evaluate XP and auto-promotion on each login/page load
+      // Evaluate XO and auto-promotion on each login/page load
       void evaluateXpAndPromotion(db, profile as Record<string, unknown>);
+      const xo = ((profile.xo as number) ?? (profile.xp as number) ?? 0);
       // Return the actual document ID (which may differ from Auth user ID)
       return {
         id: profile.$id,
@@ -243,7 +247,9 @@ export async function getServerUser(): Promise<UserProfile | null> {
         role: normalizeRole((profile.role as string) ?? "viewer"),
         secondary_role: isValidCustomRole(rawSecondary) ? rawSecondary : null,
         tier: isValidTier(rawTier) ? rawTier : "bronze",
-        xp: (profile.xp as number) ?? 0,
+        xo,
+        // Keep xp mirrored for backward-compatible consumers during XO rollout.
+        xp: xo,
         referral_code: referralCode,
         referred_by: (profile.referred_by as string) ?? null,
         referral_path: (profile.referral_path as string[]) ?? [],
@@ -270,7 +276,7 @@ export async function getServerUser(): Promise<UserProfile | null> {
           role: "viewer",
           display_name: "",
           username: "",
-          xp: 0,
+          xo: 0,
           streak: 0,
           upload_count: 0,
           secondary_role: null,
@@ -299,6 +305,7 @@ export async function getServerUser(): Promise<UserProfile | null> {
         role: "viewer" as UserRole,
         secondary_role: null,
         tier: "bronze" as UserTier,
+        xo: 0,
         xp: 0,
         referral_code: referralCode,
         referred_by: referredBy,
@@ -316,6 +323,7 @@ export async function getServerUser(): Promise<UserProfile | null> {
         const existing = await db.getDocument(DATABASE_ID, COLLECTION.users, user.$id);
         const rawSecondary = existing.secondary_role ?? null;
         const rawTier = existing.tier ?? "bronze";
+        const xo = ((existing.xo as number) ?? (existing.xp as number) ?? 0);
         return {
           id: existing.$id,
           email: (existing.email as string) ?? user.email,
@@ -326,7 +334,9 @@ export async function getServerUser(): Promise<UserProfile | null> {
           role: normalizeRole((existing.role as string) ?? "viewer"),
           secondary_role: isValidCustomRole(rawSecondary) ? rawSecondary : null,
           tier: isValidTier(rawTier) ? rawTier : "bronze",
-          xp: (existing.xp as number) ?? 0,
+          xo,
+          // Keep xp mirrored for backward-compatible consumers during XO rollout.
+          xp: xo,
           referral_code: (existing.referral_code as string) ?? "",
           referred_by: (existing.referred_by as string) ?? null,
           referral_path: (existing.referral_path as string[]) ?? [],
@@ -416,7 +426,8 @@ export async function getExtendedServerUser(): Promise<ExtendedUserProfile | nul
       secondary_role: secondaryRole,
       tertiary_role: tertiaryRole,
       tier,
-      xp: (profile.xp as number) ?? 0,
+      xo: ((profile.xo as number) ?? (profile.xp as number) ?? 0),
+      xp: ((profile.xo as number) ?? (profile.xp as number) ?? 0),
       streak_days: (profile.streak as number) ?? 0,
       last_activity: (profile.last_activity as string) ?? "",
       achievements,

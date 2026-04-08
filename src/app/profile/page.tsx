@@ -15,7 +15,6 @@ import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import ReferralShareCard from "./ReferralShareCard";
 import ProfileRightSidebar from "./ProfileRightSidebar";
 import { normalizeRole, roleLabel } from "@/lib/roles";
-import type { UserProfile } from "@/types";
 
 export const metadata: Metadata = {
   title: "Profile",
@@ -151,7 +150,7 @@ export default async function ProfilePage() {
   });
 
   const tier = (user.tier ?? "bronze") as import("@/types").UserTier;
-  const xoScore = (user as UserProfile & { xo?: number }).xo ?? user.xp;
+  const xoScore = user.xo ?? user.xp;
   const { progress: xpPercent, nextXp: nextXo, nextLabel } = xpProgress(xoScore);
   const currentRank = xpRank(xoScore);
 

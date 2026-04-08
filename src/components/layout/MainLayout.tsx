@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Sidebar from './Sidebar';
 import Header, { type HeaderProps } from './Header';
 import Footer from '@/components/Footer';
-import RightSidebar from './RightSidebar';
+import RightSidebar, { type SidebarProfileResponse } from './RightSidebar';
 import { cn } from '@/lib/utils';
 
 const RIGHT_SIDEBAR_WIDTH = '300px';
@@ -41,6 +41,29 @@ export default function MainLayout({
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [sidebarProfile, setSidebarProfile] = useState<SidebarProfileResponse | null>(null);
+
+  useEffect(() => {
+    if (!isLoggedIn || !showRightColumn) {
+      setSidebarProfile(null);
+      return;
+    }
+    let cancelled = false;
+    async function loadSidebarProfile() {
+      try {
+        const res = await fetch('/api/profile', { credentials: 'include' });
+        if (!res.ok) return;
+        const data = (await res.json()) as SidebarProfileResponse;
+        if (!cancelled) setSidebarProfile(data);
+      } catch {
+        // Non-blocking; sidebar can render fallback values.
+      }
+    }
+    void loadSidebarProfile();
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoggedIn, showRightColumn]);
 
   const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
     setTouchStartX(event.touches[0]?.clientX ?? null);
@@ -126,6 +149,7 @@ export default function MainLayout({
               userName={headerProps.userName || "Guest"}
               userInitials={headerProps.userInitials || "GU"}
               isLoggedIn={isLoggedIn}
+              profileData={sidebarProfile}
             />
           </div>
         </aside>
@@ -153,6 +177,7 @@ export default function MainLayout({
                 userName={headerProps.userName || "Guest"}
                 userInitials={headerProps.userInitials || "GU"}
                 isLoggedIn={isLoggedIn}
+                profileData={sidebarProfile}
               />
             </div>
           </aside>
