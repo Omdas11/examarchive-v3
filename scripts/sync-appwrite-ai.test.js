@@ -20,7 +20,7 @@ jest.mock("./v2/sync-appwrite-schema", () => ({
 }));
 
 const { createAttribute, waitForAttributeAvailability } = require("./v2/sync-appwrite-schema");
-const { ensureFunctionExists, syncCollection } = require("./sync-appwrite-ai");
+const { ensureFunctionExists, syncCollection } = require("./v2/sync-appwrite-ai");
 
 describe("sync-appwrite-ai", () => {
   beforeEach(() => {

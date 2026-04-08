@@ -11,7 +11,7 @@ If automatic bucket creation fails (insufficient permissions), configure both in
    - Compression: `none`
    - Encryption: `true`
    - Antivirus: `true`
-3. Create `examarchive-question-ingestion-asset` with:
+3. Create `examarchive_question_ingest_assets` with:
    - Enabled: `true`
    - File Security: `false`
    - Max File Size: `5 MB`
