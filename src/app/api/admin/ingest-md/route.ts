@@ -73,11 +73,16 @@ function deriveDeptCode(paperCode: string): string | null {
 }
 
 // Cap generated question-paper PDFs to avoid runaway render sizes from malformed markdown uploads.
+// PDFs beyond this threshold are truncated by the renderer and ingestion continues with a partial warning.
 const MAX_QUESTION_PDF_PAGES = 80;
 const MAX_QUESTION_ID_SLUG_LENGTH = 32;
 
 function normalizePaperCode(value: string): string {
   return value.trim().toUpperCase();
+}
+
+function toPaperCodeSlug(value: string): string {
+  return normalizePaperCode(value).replace(/[^A-Z0-9_-]+/g, "_");
 }
 
 function buildSyllabusPdfUrl(frontmatter: IngestionFrontmatter): string {
@@ -140,7 +145,7 @@ function buildQuestionMarkdown(frontmatter: IngestionFrontmatter, rows: Array<{
 }
 
 function questionPdfFilename(frontmatter: IngestionFrontmatter): string {
-  const paperCode = normalizePaperCode(frontmatter.paper_code).replace(/[^A-Z0-9_-]+/g, "_");
+  const paperCode = toPaperCodeSlug(frontmatter.paper_code);
   const questionId = (frontmatter.question_id ?? "")
     .trim()
     .replace(/[^A-Za-z0-9_-]+/g, "_")
@@ -364,6 +369,7 @@ async function upsertQuestionRows(args: {
     if (args.frontmatter.attempt_type) payload.attempt_type = args.frontmatter.attempt_type;
     if (args.frontmatter.semester_code) payload.semester_code = args.frontmatter.semester_code;
     if (typeof args.frontmatter.semester_no === "number") payload.semester_no = args.frontmatter.semester_no;
+    // Keep existing DB value untouched when no URL was provided/generated in this run.
     const resolvedQuestionPdfUrl = args.resolvedQuestionPdfUrl.trim();
     if (resolvedQuestionPdfUrl.length > 0) {
       payload.question_pdf_url = resolvedQuestionPdfUrl;
