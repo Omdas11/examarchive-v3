@@ -24,6 +24,12 @@ const MAX_SEMESTER = 8;
 const DATABASE_SCHEMA_DOC_PATH = path.resolve(__dirname, "../../docs/launch/v2/DATABASE_SCHEMA.md");
 const STATUS_BLOCK_START = "<!-- SCHEMA_SYNC_STATUS_START -->";
 const STATUS_BLOCK_END = "<!-- SCHEMA_SYNC_STATUS_END -->";
+const EMPTY_STRING_COMPARISON = Object.freeze({
+  existingCount: 0,
+  perfectCount: 0,
+  differenceCount: 0,
+  differenceDetails: [],
+});
 const DEFAULT_DATABASE_SCHEMA_MARKDOWN = `# DATABASE_SCHEMA
 
 ## Table: \`Syllabus_Table\`
@@ -694,12 +700,7 @@ function renderSchemaStatusSection(results) {
   ];
 
   for (const result of results) {
-    const stringComparison = result.stringComparison ?? {
-      existingCount: 0,
-      perfectCount: 0,
-      differenceCount: 0,
-      differenceDetails: [],
-    };
+    const stringComparison = result.stringComparison ?? EMPTY_STRING_COMPARISON;
     const status = result.connected ? "✅ Perfectly connected" : "⚠️ Connected with differences";
     const createdInRun = result.createdAttributes + (result.createdCollection ? 1 : 0);
     const stringSync = stringComparison.existingCount === 0
@@ -719,14 +720,18 @@ function renderSchemaStatusSection(results) {
           }`
         : "string type/size aligned",
     ].join("; ");
-    const safeStringSync = stringSync.replaceAll("|", "\\|");
-    const safeNotes = notes.replaceAll("|", "\\|");
+    const safeStringSync = escapeMarkdownTableCell(stringSync);
+    const safeNotes = escapeMarkdownTableCell(notes);
 
     lines.push(`| \`${result.collectionId}\` | ${status} | ${createdInRun} | ${safeStringSync} | ${safeNotes} |`);
   }
 
   lines.push("");
   return lines.join("\n");
+}
+
+function escapeMarkdownTableCell(value) {
+  return String(value).replaceAll("|", "\\|");
 }
 
 function upsertSchemaStatusBlock(markdown, statusSection) {
