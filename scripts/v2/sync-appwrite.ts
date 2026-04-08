@@ -324,7 +324,7 @@ async function cleanupOrphanDatabases(databases: Databases): Promise<string[]> {
     if (db.$id === TARGET_DATABASE_ID || (!db.$id.startsWith("examarchive-") && !db.$id.startsWith("examarchive_"))) {
       continue;
     }
-    const collections = await databases.listCollections(db.$id);
+    const collections = await databases.listCollections(db.$id, [Query.limit(100)]);
     for (const collection of collections.collections) {
       await databases.deleteCollection(db.$id, collection.$id);
     }
