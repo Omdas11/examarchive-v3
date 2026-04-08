@@ -29,7 +29,7 @@ Phase-wise go-live checklist for ExamArchive v3 launch.
 | 4 | `MASTER_QUESTION_ENTRY.md` format finalized       | Person B | Apr 9    | todo        | —                              | pass: team confirms YAML structure                               |
 | 5 | Ingestion validation active (type + semester)     | Person B | Apr 12   | todo        | Parser must be done first      | pass: invalid entries rejected with error code                   |
 | 6 | Syllabus tracker shows valid/invalid/unmapped     | Person D | Apr 13   | todo        | Ingestion pipeline must be up  | pass: tracker page displays all four states correctly            |
-| 7 | Auto-linking: question ↔ syllabus by paper code   | Person B | Apr 13   | todo        | Item 6 tracker states must be green | pass: 95%+ of sample questions link to correct syllabus      |
+| 7 | Auto-linking: question ↔ syllabus by paper code   | Person B | Apr 13   | todo        | Tracker must be stable         | pass: 95%+ of sample questions link to correct syllabus          |
 | 8 | QA pass on 20+ historical paper codes             | Person D | Apr 13   | todo        | —                              | pass: zero false-accepts; all rejects have reason                |
 
 ---
@@ -57,7 +57,7 @@ Phase-wise go-live checklist for ExamArchive v3 launch.
 | 18 | Anti-abuse rules enforced (spam, duplicates)      | Person B | Apr 26   | todo        | Role engine active               | pass: test uploads of duplicates rejected or flagged             |
 | 19 | Virtual currency earn flow working                | Person F | Apr 27   | todo        | —                                | pass: contributions credit correct coin amounts                  |
 | 20 | Virtual currency spend flow working               | Person F | Apr 27   | todo        | Earn flow done                   | pass: coin deduction and refund tested end-to-end                |
-| 21 | AI pricing tiers configured (Basic/Std/Premium)   | Person F | Apr 27   | todo        | Spend flow done                  | pass: correct coin amounts charged per tier                      |
+| 21 | AI pricing tiers configured (Basic/Std/Premium)   | Person F | Apr 27   | todo        | Spend flow spec finalized        | pass: correct coin amounts charged per tier                      |
 | 22 | AI model fallback chain tested                    | Person E | Apr 22   | todo        | —                                | pass: fallback engages under simulated quota exhaustion          |
 | 23 | SEO: meta + OG + Twitter card tags live           | Person E | Apr 29   | todo        | —                                | pass: tags present on all major pages; OG image renders          |
 | 24 | SEO: sitemap.xml and robots.txt deployed          | Person E | Apr 30   | todo        | —                                | pass: sitemap indexed by Google Search Console                   |
