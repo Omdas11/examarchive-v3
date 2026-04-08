@@ -264,7 +264,8 @@ describe("sync-appwrite-schema helpers", () => {
     expect(result.attributeLimitExceeded).toBe(true);
     expect(warnSpy).toHaveBeenCalledWith(
       "[warn] attribute limit reached for demo while creating notes; " +
-        "skipping remaining attributes. Remove unused attributes in Appwrite and re-run sync if needed.",
+        "skipping remaining attributes. Appwrite collection schemas have practical per-collection limits, so " +
+        "remove unused attributes and prefer very-large string fields for long free-text payloads.",
     );
     warnSpy.mockRestore();
   });
@@ -278,12 +279,66 @@ describe("sync-appwrite-schema helpers", () => {
         createdAttributes: 0,
         mismatchCount: 0,
         connected: true,
+        stringComparison: {
+          existingCount: 0,
+          perfectCount: 0,
+          differenceCount: 0,
+          differenceDetails: [],
+        },
       },
     ]);
 
     expect(markdown).toContain("✅ Perfectly connected");
     expect(markdown).toContain("`papers`");
     expect(markdown).not.toContain("Last sync:");
+  });
+
+  test("syncCollection tracks required/array differences for existing string attributes", async () => {
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const databases = {
+      getCollection: jest.fn().mockResolvedValue({ $id: "users" }),
+      listAttributes: jest.fn().mockResolvedValue({
+        attributes: [{ key: "referral_path", type: "string", required: true, array: false, size: 64 }],
+      }),
+      getAttribute: jest.fn(),
+      createStringAttribute: jest.fn(),
+    };
+
+    const result = await syncCollection(databases, "examarchive", {
+      id: "users",
+      name: "users",
+      attributes: [{ key: "referral_path", type: "string", required: false, array: true, size: 64 }],
+    });
+
+    expect(result.stringComparison).toEqual({
+      existingCount: 1,
+      perfectCount: 0,
+      differenceCount: 1,
+      differenceDetails: ["referral_path: required true → false, array false → true"],
+    });
+    warnSpy.mockRestore();
+  });
+
+  test("renderSchemaStatusSection escapes pipe characters in notes", () => {
+    const markdown = renderSchemaStatusSection([
+      {
+        collectionId: "users",
+        createdCollection: false,
+        totalTargetAttributes: 1,
+        createdAttributes: 0,
+        mismatchCount: 1,
+        connected: false,
+        stringComparison: {
+          existingCount: 1,
+          perfectCount: 0,
+          differenceCount: 1,
+          differenceDetails: ["name: size 200 → 256", "alias: type string → string[]"],
+        },
+      },
+    ]);
+
+    expect(markdown).toContain("\\|");
+    expect(markdown).toContain("string diffs:");
   });
 
   test("upsertSchemaStatusBlock inserts and replaces tagged section", () => {
