@@ -2,12 +2,11 @@ const {
   createAttribute,
   getAppwriteDefaultValue,
   getMissingAttributes,
-  getObsoleteAttributes,
   renderSchemaStatusSection,
   TARGET_SCHEMA,
   upsertSchemaStatusBlock,
   waitForAttributeAvailability,
-} = require("./sync-appwrite-schema");
+} = require("./v2/sync-appwrite-schema");
 
 describe("sync-appwrite-schema helpers", () => {
   test("getMissingAttributes returns only attributes not present live", () => {
@@ -15,12 +14,6 @@ describe("sync-appwrite-schema helpers", () => {
     const live = [{ key: "email" }, { key: "xo" }];
 
     expect(getMissingAttributes(target, live)).toEqual([{ key: "role" }]);
-  });
-
-  test("getObsoleteAttributes returns configured legacy attributes", () => {
-    const collection = { obsoleteAttributes: ["xp", "streak_days"] };
-    const live = [{ key: "email" }, { key: "xp" }, { key: "streak_days" }, { key: "xo" }];
-    expect(getObsoleteAttributes(collection, live)).toEqual([{ key: "xp" }, { key: "streak_days" }]);
   });
 
   test("createAttribute routes to matching Appwrite create method", async () => {

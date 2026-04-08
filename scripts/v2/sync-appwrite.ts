@@ -3,7 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { loadEnvConfig } from "@next/env";
-import { Client, Databases, Storage } from "node-appwrite";
+import { Client, Databases, Query, Storage } from "node-appwrite";
 
 type BucketSpec = {
   id: string;
@@ -54,11 +54,17 @@ const SCHEMA_STATUS_END_TAG = "<!-- SCHEMA_SYNC_STATUS_END -->";
 const REQUIRED_BUCKETS: BucketSpec[] = [
   { id: "papers", name: "papers" },
   { id: "examarchive-syllabus-md-ingestion", name: "examarchive-syllabus-md-ingestion" },
-  { id: "examarchive-question-ingestion-assets", name: "examarchive-question-ingestion-assets" },
+  { id: "examarchive_question_ingest_assets", name: "examarchive_question_ingest_assets" },
   { id: "syllabus-files", name: "syllabus-files" },
   { id: "avatars", name: "avatars" },
   { id: "generated-md-cache", name: "generated-md-cache" },
 ];
+const LEGACY_BUCKET_IDS = new Set([
+  "examarchive-md-ingestion",
+  "examarchive-question-ingestion-assets",
+  // Transitional bucket id used during a short-lived migration attempt; keep for cleanup safety.
+  "examarchive-question-ingestion-asset",
+]);
 
 const TARGET_DATABASE_ID = "examarchive";
 const TARGET_DATABASE_NAME = "ExamArchive";
@@ -258,6 +264,77 @@ async function fetchLiveCollections(databases: Databases): Promise<LiveCollectio
   return response.collections.map((collection) => ({ $id: collection.$id, name: collection.name }));
 }
 
+function shouldDeleteOrphanBucket(bucketId: string, requiredBucketIds: Set<string>): boolean {
+  if (requiredBucketIds.has(bucketId)) {
+    return false;
+  }
+  if (LEGACY_BUCKET_IDS.has(bucketId)) {
+    return true;
+  }
+  // Treat non-required examarchive-prefixed buckets as managed and safe to prune.
+  return bucketId.startsWith("examarchive-") || bucketId.startsWith("examarchive_");
+}
+
+async function emptyBucket(storage: Storage, bucketId: string): Promise<void> {
+  while (true) {
+    const list = await storage.listFiles(bucketId, [Query.limit(100)]);
+    if (list.files.length === 0) {
+      break;
+    }
+    for (const file of list.files) {
+      await storage.deleteFile(bucketId, file.$id);
+    }
+    if (list.files.length < 100) {
+      break;
+    }
+  }
+}
+
+async function cleanupOrphanBuckets(storage: Storage, liveBuckets: LiveBucket[]): Promise<string[]> {
+  const requiredBucketIds = new Set(REQUIRED_BUCKETS.map((bucket) => bucket.id));
+  const deleted: string[] = [];
+  for (const bucket of liveBuckets) {
+    if (!shouldDeleteOrphanBucket(bucket.$id, requiredBucketIds)) {
+      continue;
+    }
+    try {
+      await storage.deleteBucket(bucket.$id);
+    } catch (error) {
+      const maybeError = error as { code?: number; response?: { code?: number }; message?: string };
+      const code = maybeError?.code ?? maybeError?.response?.code;
+      if (code === 409) {
+        await emptyBucket(storage, bucket.$id);
+        await storage.deleteBucket(bucket.$id);
+      } else if (isNotFoundError(error)) {
+        continue;
+      } else {
+        throw error;
+      }
+    }
+    deleted.push(bucket.$id);
+    console.log(`[delete] orphan bucket ${bucket.$id}`);
+  }
+  return deleted;
+}
+
+async function cleanupOrphanDatabases(databases: Databases): Promise<string[]> {
+  const deleted: string[] = [];
+  const response = await databases.list([Query.limit(100)]);
+  for (const db of response.databases) {
+    if (db.$id === TARGET_DATABASE_ID || (!db.$id.startsWith("examarchive-") && !db.$id.startsWith("examarchive_"))) {
+      continue;
+    }
+    const collections = await databases.listCollections(db.$id, [Query.limit(100)]);
+    for (const collection of collections.collections) {
+      await databases.deleteCollection(db.$id, collection.$id);
+    }
+    await databases.delete(db.$id);
+    deleted.push(db.$id);
+    console.log(`[delete] orphan database ${db.$id}`);
+  }
+  return deleted;
+}
+
 async function fetchLiveAttributes(databases: Databases, collectionId: string): Promise<LiveAttribute[]> {
   const response = await databases.listAttributes(TARGET_DATABASE_ID, collectionId);
   return response.attributes
@@ -367,8 +444,14 @@ async function syncInfrastructure() {
 
   const databaseResult = await ensureDatabase(databases, TARGET_DATABASE_ID, TARGET_DATABASE_NAME);
   const requiredCollectionResult = await ensureCollection(databases, TARGET_DATABASE_ID, REQUIRED_COLLECTION_ID);
-  const liveBucketsResponse = await storage.listBuckets();
-  const liveBuckets = liveBucketsResponse.buckets.map((bucket) => ({ $id: bucket.$id, name: bucket.name }));
+  const orphanDatabasesDeleted = await cleanupOrphanDatabases(databases);
+  const liveBucketsResponse = await storage.listBuckets([Query.limit(100)]);
+  const orphanBucketsDeleted = await cleanupOrphanBuckets(
+    storage,
+    liveBucketsResponse.buckets.map((bucket) => ({ $id: bucket.$id, name: bucket.name })),
+  );
+  const liveBucketsAfterCleanup = await storage.listBuckets([Query.limit(100)]);
+  const liveBuckets = liveBucketsAfterCleanup.buckets.map((bucket) => ({ $id: bucket.$id, name: bucket.name }));
   const docPath = path.resolve(__dirname, "../../docs/launch/v2/DATABASE_SCHEMA.md");
   const docContent = fs.existsSync(docPath) ? fs.readFileSync(docPath, "utf8") : "";
   const expectedSchemas = parseExpectedCollectionsFromDoc(docContent);
@@ -460,8 +543,12 @@ async function syncInfrastructure() {
   injectSchemaStatusIntoDatabaseDoc(statusTable);
   deleteLegacySchemaDoc();
 
-  const createdCount = [...bucketResults, databaseResult, requiredCollectionResult].filter((item) => item.status === "created").length;
-  console.log(`Appwrite infrastructure sync complete. created=${createdCount}`);
+  const createdCount = [...bucketResults, databaseResult, requiredCollectionResult].filter(
+    (item) => item.status === "created",
+  ).length;
+  console.log(
+    `Appwrite infrastructure sync complete. created=${createdCount}, orphanBucketsDeleted=${orphanBucketsDeleted.length}, orphanDatabasesDeleted=${orphanDatabasesDeleted.length}`,
+  );
 }
 
 syncInfrastructure().catch((error) => {

@@ -5,8 +5,7 @@ const {
   renderSyncRemarks,
   stripSyncRemarks,
   upsertSyncRemarks,
-} = require("./md-sync-utils");
-
+} = require("./v2/md-sync-utils");
 describe("md-sync-utils", () => {
   test("hashCoreContent ignores sync remarks section", () => {
     const base = "# Title\n\nBody\n";

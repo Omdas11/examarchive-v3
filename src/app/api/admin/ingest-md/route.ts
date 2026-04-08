@@ -198,7 +198,7 @@ async function ensureIngestionBuckets() {
   );
   await ensureBucket(
     QUESTION_INGESTION_ASSETS_BUCKET_ID,
-    "examarchive-question-ingestion-assets",
+    "examarchive_question_ingest_assets",
     ["md", "pdf"],
     5 * 1024 * 1024,
   );

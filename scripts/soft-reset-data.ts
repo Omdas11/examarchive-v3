@@ -47,7 +47,7 @@ const QUESTIONS_TABLE_COL_ID = "Questions_Table";
 const AI_INGESTIONS_COL_ID = "ai_ingestions";
 const SYLLABUS_REGISTRY_COL_ID = "syllabus_registry";
 const SYLLABUS_MD_BUCKET_ID = "examarchive-syllabus-md-ingestion";
-const QUESTION_ASSETS_BUCKET_ID = "examarchive-question-ingestion-assets";
+const QUESTION_ASSETS_BUCKET_ID = "examarchive_question_ingest_assets";
 const LIST_PAGE_LIMIT = 100;
 const MAX_TRUNCATION_ITERATIONS = 1000;
 
