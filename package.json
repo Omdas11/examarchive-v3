@@ -16,6 +16,7 @@
     "sync:appwrite-schema:status": "node scripts/v2/sync-appwrite-schema.js --update-schema-md",
     "watch:md-sync": "node scripts/v2/watch-md-sync.js",
     "sync:appwrite-ai": "node scripts/v2/sync-appwrite-ai.js",
+    "checklist:update": "node scripts/update-launch-checklist.mjs",
     "generate-limits": "node scripts/generate-model-limits.js",
     "soft-reset:data": "tsx scripts/soft-reset-data.ts",
     "soft-reset:data:skip-ingestions": "tsx scripts/soft-reset-data.ts --skip-ingestions",

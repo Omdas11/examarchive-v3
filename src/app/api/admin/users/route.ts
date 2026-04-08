@@ -39,7 +39,8 @@ export async function GET() {
 
 /**
  * PATCH /api/admin/users
- * Update a user's role, primary_role, secondary_role, tertiary_role, or tier.
+ * Update a user's role, primary_role, secondary_role, tertiary_role, tier,
+ * and/or perform manual AI credit top-up/debit.
  * Admin-only. Prevents self-demotion.
  */
 export async function PATCH(request: NextRequest) {
@@ -117,6 +118,46 @@ export async function PATCH(request: NextRequest) {
     }
     update.tier = body.tier;
     details.push(`tier → ${body.tier}`);
+  }
+
+  if (body.ai_credits !== undefined) {
+    const credits = Number(body.ai_credits);
+    if (!Number.isFinite(credits) || credits < 0 || !Number.isInteger(credits)) {
+      return NextResponse.json(
+        { error: "Invalid ai_credits value (must be a non-negative integer)" },
+        { status: 400 },
+      );
+    }
+    update.ai_credits = credits;
+    details.push(`ai_credits set → ${credits}`);
+  }
+
+  if (body.ai_credits_delta !== undefined) {
+    const delta = Number(body.ai_credits_delta);
+    if (!Number.isFinite(delta) || !Number.isInteger(delta) || delta === 0) {
+      return NextResponse.json(
+        { error: "Invalid ai_credits_delta value (must be a non-zero integer)" },
+        { status: 400 },
+      );
+    }
+
+    try {
+      const db = adminDatabases();
+      const existing = await db.getDocument(
+        DATABASE_ID,
+        COLLECTION.users,
+        userId,
+      );
+      const current = Number((existing.ai_credits as number | undefined) ?? 0);
+      const next = Math.max(0, current + delta);
+      update.ai_credits = next;
+      details.push(
+        `ai_credits ${delta > 0 ? "top-up" : "debit"} ${delta > 0 ? "+" : ""}${delta} (final ${next})`,
+      );
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      return NextResponse.json({ error: message }, { status: 500 });
+    }
   }
 
   if (Object.keys(update).length === 0) {
