@@ -1,7 +1,9 @@
 import {
+  AVAILABLE_SUBJECTS,
   matchesCoursePreferenceSelection,
   type CoursePreferences,
 } from "./course-selection-data";
+import { getAllSubjects } from "./syllabus-registry";
 
 describe("matchesCoursePreferenceSelection", () => {
   const prefs: CoursePreferences = {
@@ -31,5 +33,14 @@ describe("matchesCoursePreferenceSelection", () => {
         subjectFields: ["Computer Sciences"],
       }),
     ).toBe(false);
+  });
+});
+
+describe("AVAILABLE_SUBJECTS", () => {
+  it("only includes subjects that exist in syllabus registry", () => {
+    const registrySubjects = new Set(getAllSubjects());
+    for (const subject of AVAILABLE_SUBJECTS) {
+      expect(registrySubjects.has(subject)).toBe(true);
+    }
   });
 });

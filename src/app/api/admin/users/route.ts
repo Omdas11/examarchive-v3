@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse, type NextRequest } from "next/server";
+import { AppwriteException } from "node-appwrite";
 import { getServerUser } from "@/lib/auth";
 import { isAdmin } from "@/lib/roles";
 import {
@@ -59,6 +60,13 @@ export async function PATCH(request: NextRequest) {
   const { userId } = body;
   if (!userId || typeof userId !== "string") {
     return NextResponse.json({ error: "Missing userId" }, { status: 400 });
+  }
+
+  if (body.ai_credits !== undefined && body.ai_credits_delta !== undefined) {
+    return NextResponse.json(
+      { error: "Provide either ai_credits or ai_credits_delta, not both" },
+      { status: 400 },
+    );
   }
 
   // Prevent self-demotion: if target is the requester, don't allow role changes
@@ -155,8 +163,16 @@ export async function PATCH(request: NextRequest) {
         `ai_credits ${delta > 0 ? "top-up" : "debit"} ${delta > 0 ? "+" : ""}${delta} (final ${next})`,
       );
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      return NextResponse.json({ error: message }, { status: 500 });
+      if (err instanceof AppwriteException && err.code === 404) {
+        return NextResponse.json({ error: "User not found" }, { status: 404 });
+      }
+      if (err instanceof AppwriteException && err.code === 400) {
+        return NextResponse.json({ error: "Invalid userId" }, { status: 400 });
+      }
+      return NextResponse.json(
+        { error: "Failed to apply ai_credits_delta update" },
+        { status: 500 },
+      );
     }
   }
 
