@@ -62,6 +62,7 @@ const REQUIRED_BUCKETS: BucketSpec[] = [
 const LEGACY_BUCKET_IDS = new Set([
   "examarchive-md-ingestion",
   "examarchive-question-ingestion-assets",
+  // Transitional bucket id used during a short-lived migration attempt; keep for cleanup safety.
   "examarchive-question-ingestion-asset",
 ]);
 
@@ -270,7 +271,8 @@ function shouldDeleteOrphanBucket(bucketId: string, requiredBucketIds: Set<strin
   if (LEGACY_BUCKET_IDS.has(bucketId)) {
     return true;
   }
-  return /^examarchive[-_]/i.test(bucketId);
+  // Treat non-required examarchive-prefixed buckets as managed and safe to prune.
+  return bucketId.startsWith("examarchive-") || bucketId.startsWith("examarchive_");
 }
 
 async function emptyBucket(storage: Storage, bucketId: string): Promise<void> {
@@ -300,7 +302,7 @@ async function cleanupOrphanBuckets(storage: Storage, liveBuckets: LiveBucket[])
     } catch (error) {
       const maybeError = error as { code?: number; response?: { code?: number }; message?: string };
       const code = maybeError?.code ?? maybeError?.response?.code;
-      if (code === 409 || /file/i.test(String(maybeError?.message ?? ""))) {
+      if (code === 409) {
         await emptyBucket(storage, bucket.$id);
         await storage.deleteBucket(bucket.$id);
       } else if (isNotFoundError(error)) {
@@ -319,7 +321,7 @@ async function cleanupOrphanDatabases(databases: Databases): Promise<string[]> {
   const deleted: string[] = [];
   const response = await databases.list();
   for (const db of response.databases) {
-    if (db.$id === TARGET_DATABASE_ID || !/^examarchive[-_]/i.test(db.$id)) {
+    if (db.$id === TARGET_DATABASE_ID || (!db.$id.startsWith("examarchive-") && !db.$id.startsWith("examarchive_"))) {
       continue;
     }
     const collections = await databases.listCollections(db.$id);
