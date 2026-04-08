@@ -4,18 +4,20 @@ import type { UserRole, CustomRole, UserTier } from "@/types";
 
 /** Color map for user roles – kept subtle with soft backgrounds. */
 const ROLE_COLORS: Record<string, { bg: string; text: string }> = {
-  founder: { bg: "#ede9fe", text: "#5b21b6" },
   admin: { bg: "#fee2e2", text: "#991b1b" },
-  maintainer: { bg: "#f3e8ff", text: "#7e22ce" },
+  founder: { bg: "#fee2e2", text: "#991b1b" },
+  maintainer: { bg: "#fee2e2", text: "#991b1b" },
   moderator: { bg: "#ffedd5", text: "#9a3412" },
+  curator: { bg: "#e0e7ff", text: "#3730a3" },
   verified_contributor: { bg: "#e0e7ff", text: "#3730a3" },
   contributor: { bg: "#dbeafe", text: "#1e40af" },
-  explorer: { bg: "#e0f2fe", text: "#0369a1" },
+  viewer: { bg: "#f1f5f9", text: "#475569" },
+  guest: { bg: "#f1f5f9", text: "#475569" },
+  explorer: { bg: "#f1f5f9", text: "#475569" },
   visitor: { bg: "#f1f5f9", text: "#475569" },
   student: { bg: "#f1f5f9", text: "#475569" },   // legacy alias
   // Community / custom roles
   reviewer: { bg: "#f3e8ff", text: "#6b21a8" },
-  curator: { bg: "#d1fae5", text: "#065f46" },
   mentor: { bg: "#ede9fe", text: "#4c1d95" },
   archivist: { bg: "#e0f2fe", text: "#075985" },
   ambassador: { bg: "#dcfce7", text: "#14532d" },
@@ -34,15 +36,17 @@ const TIER_COLORS: Record<UserTier, { bg: string; text: string }> = {
 
 /** Human-readable label for each role. */
 export const ROLE_LABELS: Record<string, string> = {
-  founder: "Founder",
   admin: "Admin",
-  maintainer: "Maintainer",
+  founder: "Admin",
+  maintainer: "Admin",
   moderator: "Moderator",
-  verified_contributor: "Verified Contributor",
+  verified_contributor: "Curator (legacy verified contributor)",
   contributor: "Contributor",
-  explorer: "Explorer",
-  visitor: "Visitor",
-  student: "Visitor",   // legacy alias
+  viewer: "Viewer",
+  explorer: "Viewer",
+  visitor: "Viewer",
+  student: "Viewer",   // legacy alias
+  guest: "Guest",
   reviewer: "Reviewer",
   curator: "Curator",
   mentor: "Mentor",
@@ -77,4 +81,3 @@ export function TierBadge({ tier }: { tier: UserTier }) {
     </span>
   );
 }
-

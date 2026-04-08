@@ -210,32 +210,61 @@ export default function Header({
           )}
         </div>
 
-        {/* User Profile – navigates to /profile; shows Sign In for guests */}
+        {/* User Profile – opens profile sidebar when wired; otherwise navigates to /profile */}
         {userInitials ? (
           <div className="relative" ref={profileMenuRef}>
             <div className="flex items-center rounded-lg hover:bg-surface-container-low transition-all duration-200">
-              <Link
-                href="/profile"
-                className={cn(
-                  'flex items-center gap-3 px-3 py-2',
-                  'group'
-                )}
-                aria-label={`Profile: ${userName}`}
-                onClick={onProfileClick}
-              >
-                <div className="w-8 h-8 gradient-primary rounded-full flex items-center justify-center text-on-primary text-sm font-bold flex-shrink-0">
-                  {userInitials}
-                </div>
-                <div className="hidden sm:flex flex-col items-start">
-                  <span className="text-sm font-semibold text-on-surface truncate max-w-[120px]">{userName}</span>
-                  <span className="text-xs text-on-surface-variant">Scholar</span>
-                </div>
-              </Link>
+              {onProfileClick ? (
+                <button
+                  type="button"
+                  className={cn(
+                    'flex items-center gap-3 px-3 py-2',
+                    'group'
+                  )}
+                  aria-label={`Profile: ${userName}`}
+                  onClick={() => {
+                    setShowProfileMenu(false);
+                    onProfileClick();
+                  }}
+                >
+                  <div className="w-8 h-8 gradient-primary rounded-full flex items-center justify-center text-on-primary text-sm font-bold flex-shrink-0">
+                    {userInitials}
+                  </div>
+                  <div className="hidden sm:flex flex-col items-start">
+                    <span className="text-sm font-semibold text-on-surface truncate max-w-[120px]">{userName}</span>
+                    <span className="text-xs text-on-surface-variant">Scholar</span>
+                  </div>
+                </button>
+              ) : (
+                <Link
+                  href="/profile"
+                  className={cn(
+                    'flex items-center gap-3 px-3 py-2',
+                    'group'
+                  )}
+                  aria-label={`Profile: ${userName}`}
+                >
+                  <div className="w-8 h-8 gradient-primary rounded-full flex items-center justify-center text-on-primary text-sm font-bold flex-shrink-0">
+                    {userInitials}
+                  </div>
+                  <div className="hidden sm:flex flex-col items-start">
+                    <span className="text-sm font-semibold text-on-surface truncate max-w-[120px]">{userName}</span>
+                    <span className="text-xs text-on-surface-variant">Scholar</span>
+                  </div>
+                </Link>
+              )}
               <button
                 type="button"
                 className="pr-2 py-2 text-on-surface-variant"
                 aria-label="Open profile menu"
-                onClick={() => setShowProfileMenu((v) => !v)}
+                onClick={() => {
+                  if (onProfileClick) {
+                    setShowProfileMenu(false);
+                    onProfileClick();
+                    return;
+                  }
+                  setShowProfileMenu((v) => !v);
+                }}
               >
                 <span className="material-symbols-outlined text-sm">expand_more</span>
               </button>

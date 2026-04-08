@@ -314,7 +314,7 @@ async function createIngestionLog(payload: {
     if (deptCode) doc.dept_code = deptCode;
     await db.createDocument(DATABASE_ID, COLLECTION.ai_ingestions, ID.unique(), doc);
   } catch (error) {
-    console.warn("[ingest-md] failed to write ingestion log:", error);
+    console.warn("[ingest-md] failed to write ingestion log:", normalizeError(error));
   }
 }
 
