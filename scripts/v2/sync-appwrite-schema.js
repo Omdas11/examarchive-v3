@@ -407,6 +407,25 @@ function formatType(type, array) {
   return array ? `${type}[]` : type;
 }
 
+function formatMismatch(mismatch) {
+  switch (mismatch.kind) {
+    case "type":
+      return `type live=${formatType(mismatch.live, mismatch.liveArray)} target=${formatType(mismatch.target, mismatch.targetArray)}`;
+    case "required":
+      return `required live=${Boolean(mismatch.live)} target=${Boolean(mismatch.target)}`;
+    case "array":
+      return `array live=${Boolean(mismatch.live)} target=${Boolean(mismatch.target)}`;
+    case "size":
+      return `size live=${String(mismatch.live)} target=${String(mismatch.target)}`;
+    case "min":
+      return `min live=${String(mismatch.live)} target=${String(mismatch.target)}`;
+    case "max":
+      return `max live=${String(mismatch.live)} target=${String(mismatch.target)}`;
+    default:
+      return `${mismatch.kind} differs`;
+  }
+}
+
 function getAppwriteDefaultValue(collectionId, attribute) {
   if (attribute.required && typeof attribute.default !== "undefined") {
     console.warn(
@@ -423,39 +442,45 @@ function getAppwriteDefaultValue(collectionId, attribute) {
 function printMismatchWarning(collectionId, target, live) {
   const mismatches = [];
   if (live.type !== target.type) {
-    mismatches.push(`type live=${formatType(live.type, live.array)} target=${formatType(target.type, target.array)}`);
+    mismatches.push({
+      kind: "type",
+      live: live.type,
+      target: target.type,
+      liveArray: Boolean(live.array),
+      targetArray: Boolean(target.array),
+    });
   }
   if (Boolean(live.required) !== Boolean(target.required)) {
-    mismatches.push(`required live=${Boolean(live.required)} target=${Boolean(target.required)}`);
+    mismatches.push({ kind: "required", live: Boolean(live.required), target: Boolean(target.required) });
   }
   if (Boolean(live.array) !== Boolean(target.array)) {
-    mismatches.push(`array live=${Boolean(live.array)} target=${Boolean(target.array)}`);
+    mismatches.push({ kind: "array", live: Boolean(live.array), target: Boolean(target.array) });
   }
   if (target.type === "string" && typeof target.size === "number" && live.size !== target.size) {
-    mismatches.push(`size live=${live.size} target=${target.size}`);
+    mismatches.push({ kind: "size", live: live.size, target: target.size });
   }
   if (
     (target.type === "integer" || target.type === "float") &&
     typeof target.min !== "undefined" &&
     live.min !== target.min
   ) {
-    mismatches.push(`min live=${String(live.min)} target=${String(target.min)}`);
+    mismatches.push({ kind: "min", live: live.min, target: target.min });
   }
   if (
     (target.type === "integer" || target.type === "float") &&
     typeof target.max !== "undefined" &&
     live.max !== target.max
   ) {
-    mismatches.push(`max live=${String(live.max)} target=${String(target.max)}`);
+    mismatches.push({ kind: "max", live: live.max, target: target.max });
   }
   if (mismatches.length > 0) {
     console.warn(
-      `[warn] ${collectionId}.${target.key} exists but differs (${mismatches.join(", ")}). ` +
+      `[warn] ${collectionId}.${target.key} exists but differs (${mismatches.map(formatMismatch).join(", ")}). ` +
         "Script only creates missing attributes and does not mutate existing definitions.",
     );
-    return 1;
+    return { mismatchCount: 1, mismatches };
   }
-  return 0;
+  return { mismatchCount: 0, mismatches: [] };
 }
 
 async function waitForAttributeAvailability(
@@ -574,10 +599,44 @@ async function syncCollection(databases, databaseId, collection) {
   let mismatchCount = 0;
   let createdAttributes = 0;
   let attributeLimitExceeded = false;
+  const stringComparison = {
+    existingCount: 0,
+    perfectCount: 0,
+    differenceCount: 0,
+    differenceDetails: [],
+  };
   for (const attribute of collection.attributes) {
     const existing = liveByKey.get(attribute.key);
     if (existing) {
-      mismatchCount += printMismatchWarning(collection.id, attribute, existing);
+      const { mismatchCount: attributeMismatchCount, mismatches } = printMismatchWarning(collection.id, attribute, existing);
+      mismatchCount += attributeMismatchCount;
+
+      if (attribute.type === "string") {
+        stringComparison.existingCount += 1;
+        const hasStringDifference = mismatches.some((mismatch) => mismatch.kind === "type" || mismatch.kind === "size");
+        if (hasStringDifference) {
+          stringComparison.differenceCount += 1;
+          const typeMismatch = mismatches.find((mismatch) => mismatch.kind === "type");
+          const sizeMismatch = mismatches.find((mismatch) => mismatch.kind === "size");
+          const exactParts = [];
+          if (typeMismatch) {
+            exactParts.push(
+              `type ${formatType(typeMismatch.live, typeMismatch.liveArray)} → ${formatType(
+                typeMismatch.target,
+                typeMismatch.targetArray,
+              )}`,
+            );
+          }
+          if (sizeMismatch) {
+            exactParts.push(`size ${String(sizeMismatch.live)} → ${String(sizeMismatch.target)}`);
+          }
+          stringComparison.differenceDetails.push(
+            `${attribute.key}: ${exactParts.join(", ")}`,
+          );
+        } else {
+          stringComparison.perfectCount += 1;
+        }
+      }
     }
   }
 
@@ -591,7 +650,8 @@ async function syncCollection(databases, databaseId, collection) {
         attributeLimitExceeded = true;
         console.warn(
           `[warn] attribute limit reached for ${collection.id} while creating ${attribute.key}; ` +
-            "skipping remaining attributes. Remove unused attributes in Appwrite and re-run sync if needed.",
+            "skipping remaining attributes. Appwrite collection schemas have practical per-collection limits, so " +
+            "remove unused attributes and prefer very-large string fields (size > 16383) for long free-text payloads.",
         );
         break;
       }
@@ -619,6 +679,7 @@ async function syncCollection(databases, databaseId, collection) {
     mismatchCount,
     connected: mismatchCount === 0 && !attributeLimitExceeded,
     attributeLimitExceeded,
+    stringComparison,
   };
 }
 
@@ -628,20 +689,32 @@ function renderSchemaStatusSection(results) {
     "",
     "_This v2 schema section is updated by `scripts/v2/sync-appwrite-schema.js` when run with `--update-schema-md`._",
     "",
-    "| Collection | Status | Created in run | Notes |",
-    "|---|---|---:|---|",
+    "| Collection | Status | Created in run | String type sync | Notes |",
+    "|---|---|---:|---|---|",
   ];
 
   for (const result of results) {
     const status = result.connected ? "✅ Perfectly connected" : "⚠️ Connected with differences";
     const createdInRun = result.createdAttributes + (result.createdCollection ? 1 : 0);
+    const stringSync = result.stringComparison.existingCount === 0
+      ? "n/a"
+      : result.stringComparison.differenceCount === 0
+        ? `✅ ${result.stringComparison.perfectCount}/${result.stringComparison.existingCount} perfect`
+        : `⚠️ ${result.stringComparison.perfectCount}/${result.stringComparison.existingCount} perfect, ${result.stringComparison.differenceCount} different`;
     const notes = [
       result.createdCollection ? "collection created" : "collection existed",
       `${result.createdAttributes}/${result.totalTargetAttributes} missing attrs created`,
       result.mismatchCount > 0 ? `${result.mismatchCount} attr definition mismatch(es)` : "no mismatches detected",
+      result.stringComparison.differenceDetails.length > 0
+        ? `string diffs: ${result.stringComparison.differenceDetails.slice(0, 2).join(" | ")}${
+            result.stringComparison.differenceDetails.length > 2
+              ? ` (+${result.stringComparison.differenceDetails.length - 2} more)`
+              : ""
+          }`
+        : "string type/size aligned",
     ].join("; ");
 
-    lines.push(`| \`${result.collectionId}\` | ${status} | ${createdInRun} | ${notes} |`);
+    lines.push(`| \`${result.collectionId}\` | ${status} | ${createdInRun} | ${stringSync} | ${notes} |`);
   }
 
   lines.push("");

@@ -483,25 +483,33 @@ Use this checklist to wipe counters and storage before relaunch:
 
 _This v2 schema section is updated by `scripts/v2/sync-appwrite-schema.js` when run with `--update-schema-md`._
 
-| Collection | Status | Created in run | Notes |
-|---|---|---:|---|
-| `papers` | ⚠️ Connected with differences | 0 | collection existed; 0/21 missing attrs created; 10 attr definition mismatch(es) |
-| `syllabus` | ⚠️ Connected with differences | 0 | collection existed; 0/13 missing attrs created; 9 attr definition mismatch(es) |
-| `users` | ⚠️ Connected with differences | 0 | collection existed; 0/19 missing attrs created; 11 attr definition mismatch(es) |
-| `uploads` | ⚠️ Connected with differences | 0 | collection existed; 0/4 missing attrs created; 4 attr definition mismatch(es) |
-| `activity_logs` | ⚠️ Connected with differences | 0 | collection existed; 0/8 missing attrs created; 5 attr definition mismatch(es) |
-| `achievements` | ⚠️ Connected with differences | 0 | collection existed; 0/5 missing attrs created; 4 attr definition mismatch(es) |
-| `site_metrics` | ⚠️ Connected with differences | 0 | collection existed; 0/2 missing attrs created; 1 attr definition mismatch(es) |
-| `feedback` | ✅ Perfectly connected | 0 | collection existed; 0/4 missing attrs created; no mismatches detected |
-| `ai_usage` | ✅ Perfectly connected | 0 | collection existed; 0/2 missing attrs created; no mismatches detected |
-| `ai_embeddings` | ⚠️ Connected with differences | 0 | collection existed; 0/11 missing attrs created; 8 attr definition mismatch(es) |
-| `pdf_usage` | ✅ Perfectly connected | 0 | collection existed; 0/2 missing attrs created; no mismatches detected |
-| `Syllabus_Table` | ⚠️ Connected with differences | 0 | collection existed; 0/30 missing attrs created; 1 attr definition mismatch(es) |
-| `Questions_Table` | ⚠️ Connected with differences | 0 | collection existed; 0/31 missing attrs created; 1 attr definition mismatch(es) |
-| `Generated_Notes_Cache` | ⚠️ Connected with differences | 0 | collection existed; 0/17 missing attrs created; 4 attr definition mismatch(es) |
-| `User_Quotas` | ✅ Perfectly connected | 0 | collection existed; 0/4 missing attrs created; no mismatches detected |
+> `String type sync` now reports exact live vs target string definitions after sync (example: `course_code: size 200 → 256`).
+
+| Collection | Status | Created in run | String type sync | Notes |
+|---|---|---:|---|---|
+| `papers` | ⚠️ Connected with differences | 0 | pending re-run | collection existed; 0/21 missing attrs created; 10 attr definition mismatch(es) |
+| `syllabus` | ⚠️ Connected with differences | 0 | pending re-run | collection existed; 0/13 missing attrs created; 9 attr definition mismatch(es) |
+| `users` | ⚠️ Connected with differences | 0 | pending re-run | collection existed; 0/19 missing attrs created; 11 attr definition mismatch(es) |
+| `uploads` | ⚠️ Connected with differences | 0 | pending re-run | collection existed; 0/4 missing attrs created; 4 attr definition mismatch(es) |
+| `activity_logs` | ⚠️ Connected with differences | 0 | pending re-run | collection existed; 0/8 missing attrs created; 5 attr definition mismatch(es) |
+| `achievements` | ⚠️ Connected with differences | 0 | pending re-run | collection existed; 0/5 missing attrs created; 4 attr definition mismatch(es) |
+| `site_metrics` | ⚠️ Connected with differences | 0 | pending re-run | collection existed; 0/2 missing attrs created; 1 attr definition mismatch(es) |
+| `feedback` | ✅ Perfectly connected | 0 | pending re-run | collection existed; 0/4 missing attrs created; no mismatches detected |
+| `ai_usage` | ✅ Perfectly connected | 0 | pending re-run | collection existed; 0/2 missing attrs created; no mismatches detected |
+| `ai_embeddings` | ⚠️ Connected with differences | 0 | pending re-run | collection existed; 0/11 missing attrs created; 8 attr definition mismatch(es) |
+| `pdf_usage` | ✅ Perfectly connected | 0 | pending re-run | collection existed; 0/2 missing attrs created; no mismatches detected |
+| `Syllabus_Table` | ⚠️ Connected with differences | 0 | pending re-run | collection existed; 0/30 missing attrs created; 1 attr definition mismatch(es) |
+| `Questions_Table` | ⚠️ Connected with differences | 0 | pending re-run | collection existed; 0/31 missing attrs created; 1 attr definition mismatch(es) |
+| `Generated_Notes_Cache` | ⚠️ Connected with differences | 0 | pending re-run | collection existed; 0/17 missing attrs created; 4 attr definition mismatch(es) |
+| `User_Quotas` | ✅ Perfectly connected | 0 | pending re-run | collection existed; 0/4 missing attrs created; no mismatches detected |
 
 <!-- SCHEMA_SYNC_STATUS_END -->
+
+### Schema limit note (Appwrite)
+
+- Appwrite collections can hit practical attribute-count limits (often around 15–30 attributes depending on schema complexity/index pressure).
+- For very large free-text fields, prefer defining string attributes with size above `16383` so Appwrite can map them more like TEXT storage internally instead of tighter VARCHAR behavior.
+- If sync logs `attribute_limit_exceeded`, remove stale attributes first, then re-run sync.
 
 ---
 ### Sync Remarks (Auto-Generated)
