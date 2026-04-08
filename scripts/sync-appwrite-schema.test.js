@@ -115,20 +115,44 @@ describe("sync-appwrite-schema helpers", () => {
     expect(databases.getAttribute).toHaveBeenCalledTimes(2);
   });
 
-  test("isAttributeAlreadyExistsError detects duplicate attribute errors", () => {
-    expect(isAttributeAlreadyExistsError({ code: 409, message: "Attribute already exists" })).toBe(true);
-    expect(isAttributeAlreadyExistsError({ code: 409, message: "Attribute already exist" })).toBe(true);
-    expect(isAttributeAlreadyExistsError({ type: "attribute_already_exists" })).toBe(true);
-    expect(
-      isAttributeAlreadyExistsError({ code: 409, message: "Attribute with the requested key already exists" }),
-    ).toBe(true);
-    expect(
-      isAttributeAlreadyExistsError({
-        response: { code: 409, message: "Attribute with the requested key already exist" },
-      }),
-    ).toBe(true);
-    expect(isAttributeAlreadyExistsError({ code: 500, message: "Unexpected error" })).toBe(false);
-    expect(isAttributeAlreadyExistsError({ code: 409, message: "Permission denied" })).toBe(false);
+  test.each([
+    {
+      description: "with code and message 'exists'",
+      error: { code: 409, message: "Attribute already exists" },
+      expected: true,
+    },
+    {
+      description: "with code and message 'exist'",
+      error: { code: 409, message: "Attribute already exist" },
+      expected: true,
+    },
+    {
+      description: "with type",
+      error: { type: "attribute_already_exists" },
+      expected: true,
+    },
+    {
+      description: "with long message 'exists'",
+      error: { code: 409, message: "Attribute with the requested key already exists" },
+      expected: true,
+    },
+    {
+      description: "with nested response and message 'exist'",
+      error: { response: { code: 409, message: "Attribute with the requested key already exist" } },
+      expected: true,
+    },
+    {
+      description: "with non-409 code",
+      error: { code: 500, message: "Unexpected error" },
+      expected: false,
+    },
+    {
+      description: "with 409 code but wrong message",
+      error: { code: 409, message: "Permission denied" },
+      expected: false,
+    },
+  ])("isAttributeAlreadyExistsError: $description", ({ error, expected }) => {
+    expect(isAttributeAlreadyExistsError(error)).toBe(expected);
   });
 
   test("syncCollection tolerates duplicate-create race and continues", async () => {
