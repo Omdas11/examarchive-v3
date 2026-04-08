@@ -450,7 +450,7 @@ async function syncInfrastructure() {
     storage,
     liveBucketsResponse.buckets.map((bucket) => ({ $id: bucket.$id, name: bucket.name })),
   );
-  const liveBucketsAfterCleanup = await storage.listBuckets();
+  const liveBucketsAfterCleanup = await storage.listBuckets([Query.limit(100)]);
   const liveBuckets = liveBucketsAfterCleanup.buckets.map((bucket) => ({ $id: bucket.$id, name: bucket.name }));
   const docPath = path.resolve(__dirname, "../../docs/launch/v2/DATABASE_SCHEMA.md");
   const docContent = fs.existsSync(docPath) ? fs.readFileSync(docPath, "utf8") : "";
