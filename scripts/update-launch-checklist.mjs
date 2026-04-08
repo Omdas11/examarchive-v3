@@ -22,9 +22,8 @@ let progress;
 try {
   progress = JSON.parse(fs.readFileSync(progressPath, "utf8"));
 } catch (error) {
-  const message = error instanceof Error ? error.message : String(error);
   console.error(`Failed to read or parse progress file: ${progressPath}`);
-  console.error(message);
+  console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);
 }
 const itemStatus = progress.items ?? {};
