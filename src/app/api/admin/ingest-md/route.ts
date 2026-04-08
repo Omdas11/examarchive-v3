@@ -90,6 +90,11 @@ function buildSyllabusPdfUrl(frontmatter: IngestionFrontmatter): string {
   return `/api/syllabus/table?${params.toString()}`;
 }
 
+function resolveSyllabusPdfUrl(frontmatter: IngestionFrontmatter): string {
+  const explicit = (frontmatter.syllabus_pdf_url ?? "").trim();
+  return explicit.length > 0 ? explicit : buildSyllabusPdfUrl(frontmatter);
+}
+
 function buildQuestionMarkdown(frontmatter: IngestionFrontmatter, rows: Array<{
   question_no: string;
   question_subpart: string;
@@ -612,10 +617,10 @@ export async function POST(request: NextRequest) {
     let questionResult = { added: 0, updated: 0 };
     const dbErrors = [...parsed.errors];
     const semester = deriveSemesterFromCode(frontmatter.paper_code);
-    const resolvedSyllabusPdfUrl = (frontmatter.syllabus_pdf_url ?? "").trim() || buildSyllabusPdfUrl(frontmatter);
+    const resolvedSyllabusPdfUrl = resolveSyllabusPdfUrl(frontmatter);
     let resolvedQuestionPdfUrl = (frontmatter.question_pdf_url ?? "").trim();
 
-    if (parsed.entryType === "question" && !resolvedQuestionPdfUrl) {
+    if (parsed.entryType === "question" && resolvedQuestionPdfUrl.length === 0) {
       try {
         const renderedQuestionPdf = await renderAndStoreQuestionPdf({
           frontmatter,
