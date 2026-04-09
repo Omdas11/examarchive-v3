@@ -481,25 +481,40 @@ Use this checklist to wipe counters and storage before relaunch:
 <!-- SCHEMA_SYNC_STATUS_START -->
 ## Schema Sync Status (Auto-generated)
 
-_This v2 schema section is updated by `scripts/v2/sync-appwrite-schema.js` when run with `--update-schema-md`._
+_Last synced: 2026-04-09T08:58:47.439Z_
 
-| Collection | Status | Created in run | String type sync | Notes |
-|---|---|---:|---|---|
-| `papers` | ⚠️ Connected with differences | 0 | ⚠️ 5/15 perfect, 10 different | collection existed; 0/21 missing attrs created; 10 attr definition mismatch(es); string diffs: course_code: size 32 → 64 \| paper_name: size 255 → 256 (+8 more) |
-| `syllabus` | ⚠️ Connected with differences | 0 | ⚠️ 2/11 perfect, 9 different | collection existed; 0/13 missing attrs created; 9 attr definition mismatch(es); string diffs: university: size 100 → 256 \| subject: size 100 → 256 (+7 more) |
-| `users` | ⚠️ Connected with differences | 0 | ⚠️ 3/14 perfect, 11 different | collection existed; 0/19 missing attrs created; 11 attr definition mismatch(es); string diffs: email: type text → string, size undefined → 320 \| role: type text → string, size undefined → 64 (+9 more) |
-| `uploads` | ⚠️ Connected with differences | 0 | ⚠️ 0/4 perfect, 4 different | collection existed; 0/4 missing attrs created; 4 attr definition mismatch(es); string diffs: user_id: size 36 → 64 \| file_id: size 36 → 64 (+2 more) |
-| `activity_logs` | ⚠️ Connected with differences | 0 | ⚠️ 3/8 perfect, 5 different | collection existed; 0/8 missing attrs created; 5 attr definition mismatch(es); string diffs: admin_id: size 32 → 64 \| admin_email: size 32 → 320 (+3 more) |
-| `achievements` | ⚠️ Connected with differences | 0 | ⚠️ 0/4 perfect, 4 different | collection existed; 0/5 missing attrs created; 4 attr definition mismatch(es); string diffs: user_id: size 36 → 64 \| slug: size 100 → 128 (+2 more) |
-| `site_metrics` | ⚠️ Connected with differences | 0 | n/a | collection existed; 0/2 missing attrs created; 1 attr definition mismatch(es); string type/size aligned |
-| `feedback` | ✅ Perfectly connected | 0 | ✅ 3/3 perfect | collection existed; 0/4 missing attrs created; no mismatches detected; string type/size aligned |
-| `ai_usage` | ✅ Perfectly connected | 0 | ✅ 2/2 perfect | collection existed; 0/2 missing attrs created; no mismatches detected; string type/size aligned |
-| `ai_embeddings` | ⚠️ Connected with differences | 0 | ⚠️ 1/8 perfect, 7 different | collection existed; 0/11 missing attrs created; 8 attr definition mismatch(es); string diffs: source_type: size 128 → 32 \| source_label: size 1024 → 512 (+5 more) |
-| `pdf_usage` | ✅ Perfectly connected | 0 | ✅ 2/2 perfect | collection existed; 0/2 missing attrs created; no mismatches detected; string type/size aligned |
-| `Syllabus_Table` | ⚠️ Connected with differences | 0 | ⚠️ 16/17 perfect, 1 different | collection existed; 0/30 missing attrs created; 1 attr definition mismatch(es); string diffs: syllabus_content: size 65535 → 1000000 |
-| `Questions_Table` | ⚠️ Connected with differences | 0 | ⚠️ 19/20 perfect, 1 different | collection existed; 0/31 missing attrs created; 1 attr definition mismatch(es); string diffs: question_content: size 65535 → 1000000 |
-| `Generated_Notes_Cache` | ⚠️ Connected with differences | 0 | ⚠️ 9/13 perfect, 4 different | collection existed; 0/17 missing attrs created; 4 attr definition mismatch(es); string diffs: markdown_file_id: required false → true \| generated_markdown: required true → false, size 65535 → 1000000 (+2 more) |
-| `User_Quotas` | ✅ Perfectly connected | 0 | ✅ 2/2 perfect | collection existed; 0/4 missing attrs created; no mismatches detected; string type/size aligned |
+### Storage Buckets
+| Bucket | Status | ID |
+|---|---|---|
+| `papers` | ✅ Connected | papers |
+| `avatars` | ✅ Connected | avatars |
+| `syllabus-files` | ✅ Connected | syllabus-files |
+| `generated-md-cache` | ✅ Connected | generated-md-cache |
+| `Syllabus MD Ingestion` | ✅ Connected | examarchive-syllabus-md-ingestion |
+| `Question Ingestion Assets` | ✅ Connected | examarchive_question_ingest_assets |
+
+### Database Collections
+| Collection | Status | Created in run | Notes |
+|---|---|---:|---|
+| `papers` | ⚠️ Connected with differences | 0 | collection existed; 0 missing attrs created; 5 attr definition mismatch(es); 0 missing expected attr(s); mismatch: semester, department, exam_type, file_url, uploaded_by |
+| `syllabus` | ✅ Perfectly connected | 0 | collection existed; 0 missing attrs created; 0 attr definition mismatch(es); 0 missing expected attr(s) |
+| `users` | ⚠️ Connected with differences | 0 | collection existed; 0 missing attrs created; 6 attr definition mismatch(es); 0 missing expected attr(s); mismatch: email, role, primary_role, secondary_role, tertiary_role, tier |
+| `uploads` | ✅ Perfectly connected | 0 | collection existed; 0 missing attrs created; 0 attr definition mismatch(es); 0 missing expected attr(s) |
+| `activity_logs` | ✅ Perfectly connected | 0 | collection existed; 0 missing attrs created; 0 attr definition mismatch(es); 0 missing expected attr(s) |
+| `achievements` | ✅ Perfectly connected | 0 | collection existed; 0 missing attrs created; 0 attr definition mismatch(es); 0 missing expected attr(s) |
+| `site_metrics` | ⚠️ Connected with differences | 0 | collection existed; 0 missing attrs created; 1 attr definition mismatch(es); 0 missing expected attr(s); mismatch: visitor_count |
+| `feedback` | ✅ Perfectly connected | 0 | collection existed; 0 missing attrs created; 0 attr definition mismatch(es); 0 missing expected attr(s) |
+| `ai_usage` | ✅ Perfectly connected | 0 | collection existed; 0 missing attrs created; 0 attr definition mismatch(es); 0 missing expected attr(s) |
+| `ai_embeddings` | ⚠️ Connected with differences | 0 | collection existed; 0 missing attrs created; 2 attr definition mismatch(es); 0 missing expected attr(s); mismatch: course_code, embedding |
+| `pdf_usage` | ✅ Perfectly connected | 0 | collection existed; 0 missing attrs created; 0 attr definition mismatch(es); 0 missing expected attr(s) |
+| `ai_ingestions` | ⚠️ Connected with differences | 0 | collection existed; 0 missing attrs created; 1 attr definition mismatch(es); 0 missing expected attr(s); mismatch: entry_type |
+| `ai_syllabus_maps` | ⚠️ Connected with differences | 0 | collection existed; 0 missing attrs created; 1 attr definition mismatch(es); 0 missing expected attr(s); mismatch: modules_json |
+| `ai_flashcards` | ⚠️ Connected with differences | 0 | collection existed; 0 missing attrs created; 1 attr definition mismatch(es); 0 missing expected attr(s); mismatch: payload |
+| `ai_admin_reports` | ⚠️ Connected with differences | 0 | collection existed; 0 missing attrs created; 0 attr definition mismatch(es); 2 missing expected attr(s); missing: risks_json, model |
+| `Syllabus_Table` | ⚠️ Connected with differences | 0 | collection existed; 0 missing attrs created; 1 attr definition mismatch(es); 6 missing expected attr(s); missing: status, aliases, keywords, notes, version, last_updated; mismatch: syllabus_content |
+| `Questions_Table` | ⚠️ Connected with differences | 0 | collection existed; 0 missing attrs created; 1 attr definition mismatch(es); 7 missing expected attr(s); missing: source_reference, status, linked_syllabus_entry_id, link_status, ocr_text_path, ai_summary_status, difficulty_estimate; mismatch: question_content |
+| `Generated_Notes_Cache` | ⚠️ Connected with differences | 0 | collection existed; 0 missing attrs created; 4 attr definition mismatch(es); 0 missing expected attr(s); mismatch: markdown_file_id, generated_markdown, syllabus_content, status |
+| `User_Quotas` | ✅ Perfectly connected | 0 | collection existed; 0 missing attrs created; 0 attr definition mismatch(es); 0 missing expected attr(s) |
 
 <!-- SCHEMA_SYNC_STATUS_END -->
 
