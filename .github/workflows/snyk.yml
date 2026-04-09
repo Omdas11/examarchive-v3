@@ -38,8 +38,19 @@ jobs:
           command: test
           args: --severity-threshold=high --sarif-file-output=snyk.sarif
 
-      - name: Upload Snyk SARIF report
+      - name: Check for SARIF report
         if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        id: sarif-check
+        run: |
+          if [ -f snyk.sarif ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "No snyk.sarif report generated; skipping upload."
+          fi
+
+      - name: Upload Snyk SARIF report
+        if: always() && steps.sarif-check.outputs.exists == 'true'
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: snyk.sarif
