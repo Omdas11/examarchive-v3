@@ -9,9 +9,6 @@ on:
     - cron: '0 6 * * 1'
   workflow_dispatch:
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   snyk:
     runs-on: ubuntu-latest
@@ -30,8 +27,7 @@ jobs:
         run: npm ci
 
       - name: Run Snyk dependency test
-        uses: snyk/actions/node@master
-        continue-on-error: true
+        uses: snyk/actions/node@9adf32b1121593767fc3c057af55b55db032dc04 # v1.0.0
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
