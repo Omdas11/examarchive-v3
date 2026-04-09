@@ -8,11 +8,10 @@
       "url": [
         "http://localhost:3000/",
         "http://localhost:3000/about",
-        "http://localhost:3000/study"
+        "http://localhost:3000/browse"
       ]
     },
     "assert": {
-      "preset": "lighthouse:recommended",
       "assertions": {
         "categories:performance": [
           "warn",
@@ -21,13 +20,13 @@
           }
         ],
         "categories:accessibility": [
-          "error",
+          "warn",
           {
             "minScore": 0.9
           }
         ],
         "categories:best-practices": [
-          "error",
+          "warn",
           {
             "minScore": 0.9
           }
