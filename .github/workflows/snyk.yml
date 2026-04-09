@@ -27,7 +27,7 @@ jobs:
         run: npm ci
 
       - name: Run Snyk dependency test
-        uses: snyk/actions/node@9adf32b1121593767fc3c057af55b55db032dc04 # v1.0.0
+        uses: snyk/actions/node@master # Updated from the pinned hash to master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
