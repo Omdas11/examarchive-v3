@@ -10,5 +10,6 @@ Project documentation now lives in [`/docs`](./docs).
 - Launch progress automation: [`docs/launch/PROGRESS_AUTOMATION.md`](./docs/launch/PROGRESS_AUTOMATION.md)
 - Ingestion format guardrails: [`docs/MASTER_INGESTION_GUIDE.md`](./docs/MASTER_INGESTION_GUIDE.md)
 - Syllabus registry source of truth: [`docs/SYLLABUS_REGISTRY.md`](./docs/SYLLABUS_REGISTRY.md)
+- Snyk GitHub Actions workflow: [`.github/workflows/snyk.yml`](./.github/workflows/snyk.yml) (requires `SNYK_TOKEN` repository secret).
 
 Run scripts and workflows from the repository root as before.
