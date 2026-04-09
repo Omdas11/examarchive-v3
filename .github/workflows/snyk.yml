@@ -12,6 +12,12 @@ on:
 jobs:
   snyk:
     runs-on: ubuntu-latest
+    
+    # ADDED: These permissions are required to upload SARIF files to GitHub Security tab
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
 
     steps:
       - name: Checkout repository
