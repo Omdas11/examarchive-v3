@@ -8,10 +8,29 @@
  * - SEC (Skill Enhancement Course) is chosen from the DSC/DSM subject pool.
  */
 
-/** Subjects that are only available as DSM (not DSC). */
-export const DSM_ONLY_SUBJECTS: ReadonlyArray<string> = [
-  "Industrial Fish and Fisheries",
+/**
+ * Strictly supported subject set for course preference selection.
+ * This intentionally mirrors the currently available subjects in syllabus-registry
+ * so users only select tracks that have real papers/syllabus coverage.
+ */
+export const AVAILABLE_SUBJECTS: ReadonlyArray<string> = [
+  "Assamese",
+  "Bengali",
+  "Botany",
+  "Chemistry",
+  "Commerce",
+  "Economics",
+  "English",
+  "History",
+  "Mathematics",
+  "Philosophy",
+  "Physics",
+  "Political Science",
+  "Zoology",
 ];
+
+/** Subjects that are only available as DSM (not DSC). */
+export const DSM_ONLY_SUBJECTS: ReadonlyArray<string> = [];
 
 /** Literature subjects — applying to the literature constraint. */
 export const LITERATURE_SUBJECTS: ReadonlyArray<string> = [
@@ -27,58 +46,9 @@ export const LITERATURE_SUBJECTS: ReadonlyArray<string> = [
   "Persian",
 ];
 
-/** All subjects available per DSC/DSM cluster (Annexure III). */
+/** All subjects available per DSC/DSM cluster. */
 export const CLUSTERS: Record<string, ReadonlyArray<string>> = {
-  "Cluster-I": [
-    "Physics",
-    "Chemistry",
-    "Mathematics",
-    "Statistics",
-    "Geology",
-    "Computer Science",
-    "Computer Application",
-    "Economics",
-  ],
-  "Cluster-II": [
-    "Botany",
-    "Zoology",
-    "Anthropology",
-    "Chemistry",
-    "Statistics",
-    "Mathematics",
-    "Biotechnology",
-    "Computer Science",
-    "Computer Application",
-    "Industrial Fish and Fisheries",
-    "Ecology and Environmental Science",
-    "Information Technology",
-  ],
-  "Cluster-III": [
-    "Political Science",
-    "History",
-    "Economics",
-    "Philosophy",
-    "Geography",
-    "Sociology",
-    "Business Administration",
-    "English",
-    "Arabic",
-    "Bengali",
-    "Hindi",
-    "Sanskrit",
-    "Urdu",
-    "Manipuri",
-    "Bodo",
-    "Assamese",
-    "Education",
-    "Persian",
-    "Commerce",
-    "Ecology and Environmental Science",
-    "Computer Application",
-    "Statistics",
-    "Mathematics",
-    "Mass Communication",
-  ],
+  "Cluster-I": AVAILABLE_SUBJECTS,
 };
 
 export type ClusterName = keyof typeof CLUSTERS;
@@ -91,57 +61,9 @@ export const ALL_DSC_DSM_SUBJECTS: ReadonlyArray<string> = Array.from(
   new Set(Object.values(CLUSTERS).flat()),
 ).sort();
 
-/** Subjects available per IDC basket (Annexure II). */
+/** Subjects available per IDC basket. */
 export const IDC_BASKETS: Record<string, ReadonlyArray<string>> = {
-  "Natural Sciences (NS)": [
-    "Physics",
-    "Chemistry",
-    "Mathematics",
-    "Botany",
-    "Zoology",
-    "Geology",
-    "Anthropology",
-    "Ecology & Environmental Science",
-    "Biotechnology",
-    "Computer Science",
-    "Microbiology",
-    "Statistics",
-    "Geography",
-    "Computer Application (only Science component)",
-    "Industrial Fish and Fisheries",
-    "Information Technology",
-  ],
-  "Social Sciences (SS)": [
-    "Political Science",
-    "History",
-    "Sociology",
-    "Philosophy",
-    "Lib. Science",
-    "Economics",
-    "Geography",
-    "Education",
-    "Anthropology",
-  ],
-  "Humanities (HN)": [
-    "Sanskrit",
-    "Urdu",
-    "Arabic",
-    "English",
-    "Bengali",
-    "Hindi",
-    "Manipuri",
-    "Visual Arts",
-    "Performing Arts",
-    "Persian",
-    "Assamese",
-    "Bodo",
-    "Mass Communication",
-    "French",
-    "Hmar",
-    "Nepali",
-    "Mizo",
-  ],
-  "Commerce and Management (CM)": ["Commerce", "Business Administration"],
+  "Available Subjects": AVAILABLE_SUBJECTS,
 };
 
 export type IDCBasketName = keyof typeof IDC_BASKETS;

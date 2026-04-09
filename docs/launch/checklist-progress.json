@@ -1,0 +1,14 @@
+{
+  "items": {
+    "1": "todo",
+    "2": "todo",
+    "3": "todo"
+  },
+  "gates": {
+    "Data Gate": "pending",
+    "UX Gate": "pending",
+    "Monetization Gate": "pending",
+    "SEO Gate": "pending",
+    "Ops Gate": "pending"
+  }
+}

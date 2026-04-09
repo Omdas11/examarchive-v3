@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse, type NextRequest } from "next/server";
+import { AppwriteException } from "node-appwrite";
 import { getServerUser } from "@/lib/auth";
 import { isAdmin } from "@/lib/roles";
 import {
@@ -39,7 +40,8 @@ export async function GET() {
 
 /**
  * PATCH /api/admin/users
- * Update a user's role, primary_role, secondary_role, tertiary_role, or tier.
+ * Update a user's role, primary_role, secondary_role, tertiary_role, tier,
+ * and/or perform manual AI credit top-up/debit.
  * Admin-only. Prevents self-demotion.
  */
 export async function PATCH(request: NextRequest) {
@@ -58,6 +60,13 @@ export async function PATCH(request: NextRequest) {
   const { userId } = body;
   if (!userId || typeof userId !== "string") {
     return NextResponse.json({ error: "Missing userId" }, { status: 400 });
+  }
+
+  if (body.ai_credits !== undefined && body.ai_credits_delta !== undefined) {
+    return NextResponse.json(
+      { error: "Provide either ai_credits or ai_credits_delta, not both" },
+      { status: 400 },
+    );
   }
 
   // Prevent self-demotion: if target is the requester, don't allow role changes
@@ -117,6 +126,54 @@ export async function PATCH(request: NextRequest) {
     }
     update.tier = body.tier;
     details.push(`tier → ${body.tier}`);
+  }
+
+  if (body.ai_credits !== undefined) {
+    const credits = Number(body.ai_credits);
+    if (!Number.isFinite(credits) || credits < 0 || !Number.isInteger(credits)) {
+      return NextResponse.json(
+        { error: "Invalid ai_credits value (must be a non-negative integer)" },
+        { status: 400 },
+      );
+    }
+    update.ai_credits = credits;
+    details.push(`ai_credits set → ${credits}`);
+  }
+
+  if (body.ai_credits_delta !== undefined) {
+    const delta = Number(body.ai_credits_delta);
+    if (!Number.isFinite(delta) || !Number.isInteger(delta) || delta === 0) {
+      return NextResponse.json(
+        { error: "Invalid ai_credits_delta value (must be a non-zero integer)" },
+        { status: 400 },
+      );
+    }
+
+    try {
+      const db = adminDatabases();
+      const existing = await db.getDocument(
+        DATABASE_ID,
+        COLLECTION.users,
+        userId,
+      );
+      const current = Number((existing.ai_credits as number | undefined) ?? 0);
+      const next = Math.max(0, current + delta);
+      update.ai_credits = next;
+      details.push(
+        `ai_credits ${delta > 0 ? "top-up" : "debit"} ${delta > 0 ? "+" : ""}${delta} (final ${next})`,
+      );
+    } catch (err: unknown) {
+      if (err instanceof AppwriteException && err.code === 404) {
+        return NextResponse.json({ error: "User not found" }, { status: 404 });
+      }
+      if (err instanceof AppwriteException && err.code === 400) {
+        return NextResponse.json({ error: "Invalid userId" }, { status: 400 });
+      }
+      return NextResponse.json(
+        { error: "Failed to apply ai_credits_delta update" },
+        { status: 500 },
+      );
+    }
   }
 
   if (Object.keys(update).length === 0) {
