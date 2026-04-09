@@ -29,7 +29,7 @@ jobs:
       - name: Run Snyk dependency test
         uses: snyk/actions/node@master # Updated from the pinned hash to master
         env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN || secrets.SYNK_TOKEN }}
         with:
           command: test
           args: --severity-threshold=high --sarif-file-output=snyk.sarif
