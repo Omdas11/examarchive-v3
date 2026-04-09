@@ -35,7 +35,7 @@
     "marked": "^12.0.2",
     "node-appwrite": "22.1.3",
     "nodemailer": "^8.0.4",
-    "pdf-parse": "1.1.4",
+    "pdf-parse": "2.4.5",
     "puppeteer-core": "24.4.0",
     "react": "19.2.5",
     "react-dom": "19.2.5",
