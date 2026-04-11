@@ -235,20 +235,20 @@ function parseFrontmatter(data: Record<string, unknown>, errors: IngestionParseE
     difficulty_estimate: getOptionalString("difficulty_estimate"),
   };
 
-  const hasMissingRequiredField = (["university", "course", "stream", "type", "paper_code", "paper_name", "subject"] as const).some((key) => {
+  let hasMissingRequiredField = false;
+  (["university", "course", "stream", "type", "paper_code", "paper_name", "subject"] as const).forEach((key) => {
     if (!frontmatter[key] || String(frontmatter[key]).trim().length === 0) {
       errors.push({ line: 1, message: `Missing required frontmatter field: ${key}` });
-      return true;
+      hasMissingRequiredField = true;
     }
-    return false;
   });
 
   let hasScopeValidationError = false;
-  if (frontmatter.university !== FIXED_UNIVERSITY) {
+  if (frontmatter.university.trim().length > 0 && frontmatter.university !== FIXED_UNIVERSITY) {
     errors.push({ line: 1, message: `Invalid university. Expected "${FIXED_UNIVERSITY}".` });
     hasScopeValidationError = true;
   }
-  if (frontmatter.course !== FIXED_COURSE) {
+  if (frontmatter.course.trim().length > 0 && frontmatter.course !== FIXED_COURSE) {
     errors.push({ line: 1, message: `Invalid course. Expected "${FIXED_COURSE}".` });
     hasScopeValidationError = true;
   }
