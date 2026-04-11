@@ -22,7 +22,6 @@ const SOLVED_PAPER_PART_SIZE = 10;
 // Intentionally avoid 100% until backend confirms completion to keep the simulation believable.
 const NOTES_RERENDER_PROGRESS_CAP = 93;
 const NOTES_RERENDER_BASE_INCREMENT = 3;
-const NOTES_RERENDER_INCREMENT_VARIANCE = 5;
 const NOTES_RERENDER_STATUS_STEPS = [
   "Rehydrating cached notes payload...",
   "Applying personalized watermark...",
@@ -747,7 +746,7 @@ export default function AIContentClient() {
     const interval = setInterval(() => {
       setNotesRerenderProgress((prev) => {
         if (prev >= NOTES_RERENDER_PROGRESS_CAP) return NOTES_RERENDER_PROGRESS_CAP;
-        const increment = NOTES_RERENDER_BASE_INCREMENT + (prev % NOTES_RERENDER_INCREMENT_VARIANCE);
+        const increment = NOTES_RERENDER_BASE_INCREMENT;
         return Math.min(NOTES_RERENDER_PROGRESS_CAP, prev + increment);
       });
     }, 850);
