@@ -717,7 +717,8 @@ async function persistCachedNotesRecord(args: PersistCachedNotesRecordArgs): Pro
       `[generate-notes-stream] Truncating syllabus_content from ${rawSyllabus.length} to ${SYLLABUS_CONTENT_MAX_LEN} chars before cache write.`,
     );
   }
-  const cleanSyllabus = rawSyllabus.slice(0, SYLLABUS_CONTENT_MAX_LEN);
+  const cleanSyllabus =
+    rawSyllabus.length > SYLLABUS_CONTENT_MAX_LEN ? rawSyllabus.slice(0, SYLLABUS_CONTENT_MAX_LEN) : rawSyllabus;
   try {
     const existing = await db.listDocuments(DATABASE_ID, COLLECTION.generated_notes_cache, [
       Query.equal("markdown_file_id", args.markdownFileId),
