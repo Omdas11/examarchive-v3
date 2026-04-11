@@ -879,7 +879,7 @@ export async function GET(request: NextRequest) {
           : requestedStartIndex;
         const endIndex = Math.min(Math.max(startIndex, requestedEndIndex), allQuestions.length);
         const isLastPart = endIndex >= allQuestions.length;
-        // NOTE: When validating Groq free-tier TPM behavior, keep each part very small
+        // NOTE: When validating TPM behavior, keep each part very small
         // (ideally 1-2 questions) because prompt context can already be several thousand tokens.
         let checkpointId =
           (await upsertSolvedPaperCheckpoint({

@@ -385,7 +385,9 @@ function buildHeaderHtml(): string {
 </body></html>`;
 }
 
-function buildFooterHtml(): string {
+function buildFooterHtml(userEmail?: string): string {
+  const safeEmail = typeof userEmail === "string" ? userEmail.trim() : "";
+  const footerWatermark = safeEmail ? `Personalized copy for ${escapeHtml(safeEmail)}` : "";
   return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8" />
 <style>
@@ -397,10 +399,18 @@ function buildFooterHtml(): string {
     padding: 5px 10mm 0;
     width: 100%;
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
     box-sizing: border-box;
   }
+  .footer-watermark {
+    font-size: 9px;
+    opacity: 0.75;
+    letter-spacing: 0.02em;
+  }
 </style></head><body>
+  <span class="footer-watermark">${footerWatermark}</span>
   <span><span class="pageNumber"></span> / <span class="totalPages"></span></span>
 </body></html>`;
 }
@@ -433,6 +443,7 @@ export async function renderMarkdownPdfToAppwrite(args: {
   unitName?: string;
   year?: number;
   syllabusContent?: string;
+  userEmail?: string;
 }): Promise<{ fileId: string; fileUrl: string }> {
   const effectiveGotenbergUrl = args.gotenbergUrl || process.env.AZURE_GOTENBERG_URL;
   if (!effectiveGotenbergUrl) {
@@ -463,7 +474,7 @@ export async function renderMarkdownPdfToAppwrite(args: {
     syllabusContent: args.syllabusContent,
   });
   const headerHtml = buildHeaderHtml();
-  const footerHtml = buildFooterHtml();
+  const footerHtml = buildFooterHtml(args.userEmail);
   const buildFormData = () => {
     const formData = new FormData();
     formData.append("files", new Blob([html], { type: "text/html" }), "index.html");

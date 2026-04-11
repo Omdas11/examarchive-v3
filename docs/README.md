@@ -11,7 +11,7 @@ This repository contains the Next.js 15 + Appwrite implementation.
    npm install
    ```
 
-2. Copy `.env.example` to `.env.local` and fill required values (see [docs/ENVIRONMENT.md](./ENVIRONMENT.md)).
+2. Copy `.env.example` to `.env.local` and fill required values.
 
 3. Start the app:
 
@@ -47,6 +47,4 @@ The growth and monetization prep checklist is now split into focused docs:
 | [docs/SIMPLE_ANALYTICS_SETUP.md](./SIMPLE_ANALYTICS_SETUP.md) | Simple Analytics configuration steps and verification checklist |
 | [docs/launch/v2/DATABASE_SCHEMA.md](./launch/v2/DATABASE_SCHEMA.md) | Appwrite collection schemas |
 | [docs/UPLOAD_FLOW.md](./UPLOAD_FLOW.md) | End-to-end upload and moderation architecture |
-| [docs/launch/AI_SETUP.md](./launch/AI_SETUP.md) | OpenRouter-based AI setup, limits, and endpoint behavior |
-| [docs/launch/ENVIRONMENT.md](./launch/ENVIRONMENT.md) | Complete environment variable reference |
-| [docs/AI_EXTENSIONS_SETUP.md](./AI_EXTENSIONS_SETUP.md) | AI extensions and RAG setup |
+| [docs/payments/razorpay-integration.md](./payments/razorpay-integration.md) | Razorpay verification routes and Purchases schema architecture |
