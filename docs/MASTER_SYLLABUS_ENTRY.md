@@ -83,7 +83,6 @@ The current parser (`src/lib/admin-md-ingestion.ts`) reads these frontmatter key
 |-------------------|--------------|----------------------------------------------------|
 | `aliases`         | list[string] | Common alternate names for the paper               |
 | `keywords`        | list[string] | Search/filter tags                                 |
-| `unit_breakdown`  | list[object] | List of units with `unit_number`, `syllabus_content`, `lectures`, and `tags` |
 | `notes`           | string       | Reviewer notes or ingestion remarks                |
 | `version`         | number       | Schema version (increment on structural changes)   |
 | `last_updated`    | string       | ISO date of last update (`YYYY-MM-DD`)             |
@@ -128,20 +127,6 @@ keywords:
   - "physics"
   - "dsc"
   - "semester-1"
-
-unit_breakdown:
-  - unit_number: 1
-    syllabus_content: "Vectors and Kinematics"
-    lectures: 12
-    tags: "kinematics,vector,motion"
-  - unit_number: 2
-    syllabus_content: "Newtonian Mechanics"
-    lectures: 10
-    tags: "newtonian-mechanics,force,laws-of-motion"
-  - unit_number: 3
-    syllabus_content: "Properties of Matter"
-    lectures: 8
-    tags: "properties-of-matter,elasticity,surface-tension"
 
 notes: "Validated against Assam University coding guidelines"
 version: 1
