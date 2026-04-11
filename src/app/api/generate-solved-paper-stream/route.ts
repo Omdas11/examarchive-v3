@@ -39,6 +39,7 @@ const ATTRIBUTE_AVAILABILITY_POLL_INTERVAL_MS = 300;
 const ATTRIBUTE_AVAILABILITY_TIMEOUT_MS = 12000;
 const SOLVED_PAPER_CACHE_TYPE = "solved_paper";
 const GEMINI_MODEL = "gemini-3.1-flash-lite-preview";
+const SYLLABUS_CONTENT_MAX_LEN = 10_000;
 
 class GeminiRequestError extends Error {
   constructor(public readonly status: number, message: string) {
@@ -277,6 +278,37 @@ async function ensureSolvedPaperCacheSchema(): Promise<void> {
       COLLECTION.generated_notes_cache,
       "pdf_file_id",
       100,
+      false,
+      undefined,
+    ),
+  );
+  await ensureAttribute("paper_code", () =>
+    db.createStringAttribute(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      "paper_code",
+      128,
+      false,
+      undefined,
+    ),
+  );
+  await ensureAttribute("unit_number", () =>
+    db.createIntegerAttribute(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      "unit_number",
+      false,
+      0,
+      9999,
+      undefined,
+    ),
+  );
+  await ensureAttribute("syllabus_content", () =>
+    db.createStringAttribute(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      "syllabus_content",
+      SYLLABUS_CONTENT_MAX_LEN,
       false,
       undefined,
     ),

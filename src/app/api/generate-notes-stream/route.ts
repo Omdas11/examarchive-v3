@@ -34,6 +34,7 @@ const GEMINI_MODEL = "gemini-3.1-flash-lite-preview";
 const CACHE_NUMERIC_STRING_MAX_LEN = 10;
 const CACHE_FILE_NAME_MAX_LEN = 220;
 const GENERATED_MARKDOWN_MAX_LEN = 1_000_000;
+const SYLLABUS_CONTENT_MAX_LEN = 10_000;
 
 function isAdminPlus(role: string): boolean {
   return role === "admin" || role === "founder";
@@ -345,6 +346,37 @@ async function ensureNotesCacheSchema(): Promise<void> {
       COLLECTION.generated_notes_cache,
       "pdf_file_id",
       100,
+      false,
+      undefined,
+    ),
+  );
+  await ensureAttribute("paper_code", () =>
+    db.createStringAttribute(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      "paper_code",
+      128,
+      false,
+      undefined,
+    ),
+  );
+  await ensureAttribute("unit_number", () =>
+    db.createIntegerAttribute(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      "unit_number",
+      false,
+      0,
+      9999,
+      undefined,
+    ),
+  );
+  await ensureAttribute("syllabus_content", () =>
+    db.createStringAttribute(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      "syllabus_content",
+      SYLLABUS_CONTENT_MAX_LEN,
       false,
       undefined,
     ),
@@ -679,7 +711,14 @@ async function persistCachedNotesRecord(args: PersistCachedNotesRecordArgs): Pro
     console.warn("[generate-notes-stream] Skipping cache metadata write because markdown content is empty.");
     return null;
   }
-  const cleanSyllabus = typeof args.syllabusContent === "string" ? args.syllabusContent.trim() : "";
+  const rawSyllabus = typeof args.syllabusContent === "string" ? args.syllabusContent.trim() : "";
+  if (rawSyllabus.length > SYLLABUS_CONTENT_MAX_LEN) {
+    console.warn(
+      `[generate-notes-stream] Truncating syllabus_content from ${rawSyllabus.length} to ${SYLLABUS_CONTENT_MAX_LEN} chars before cache write.`,
+    );
+  }
+  const cleanSyllabus =
+    rawSyllabus.length > SYLLABUS_CONTENT_MAX_LEN ? rawSyllabus.slice(0, SYLLABUS_CONTENT_MAX_LEN) : rawSyllabus;
   try {
     const existing = await db.listDocuments(DATABASE_ID, COLLECTION.generated_notes_cache, [
       Query.equal("markdown_file_id", args.markdownFileId),

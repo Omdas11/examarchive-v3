@@ -14,6 +14,7 @@ For the master drafting guide (both syllabus and question formats, naming, and u
 
 - Keep fields consistent and machine-readable.
 - Use one YAML block per syllabus paper entry.
+- Current ingestion scope is fixed to `university: Assam University` and `course: FYUG` only.
 - `paper_code` must pass validation from `PAPER_CODE_VALIDATION_RULES.md`.
 - File should be named `{paper_code}-syllabus.md` (e.g., `PHYDSC101T-syllabus.md`).
   Since a paper code represents a canonical curriculum slot (not a year-specific record),
@@ -56,8 +57,8 @@ The current parser (`src/lib/admin-md-ingestion.ts`) reads these frontmatter key
 | `entry_type`        | string | —                   | Always `syllabus`; v2 metadata only                      |
 | `entry_id`          | string | —                   | Unique ID: `{college_short}-{program}-{paper_code}`      |
 | `college`           | string | —                   | Full college name; v2 metadata only                      |
-| `university`        | string | `university`        | Affiliating university                                   |
-| `course`            | string | `course`            | `FYUG` or `CBCS` (program structure only)                |
+| `university`        | string | `university`        | Must be `Assam University`                               |
+| `course`            | string | `course`            | Must be `FYUG`                                           |
 | `stream`            | string | `stream`            | `Science`, `Arts`, `Commerce`                            |
 | `group`             | string | —                   | Major subject group (e.g., `Physics Major`); v2 only     |
 | `session`           | string | —                   | Academic session (e.g., `2025-2026`); v2 only            |
@@ -159,7 +160,7 @@ last_updated: "2026-04-08"
 
 - [ ] Paper code format valid (regex + type + semester checks pass)
 - [ ] Semester mapping valid and `semester_no` derived correctly
-- [ ] `course` is `FYUG` or `CBCS` only
+- [ ] `course` is `FYUG` only
 - [ ] `stream` is `Science`, `Arts`, or `Commerce`
 - [ ] Program/group present
 - [ ] Source reference present
