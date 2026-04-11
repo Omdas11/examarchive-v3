@@ -244,11 +244,11 @@ function parseFrontmatter(data: Record<string, unknown>, errors: IngestionParseE
   });
 
   let hasScopeValidationError = false;
-  if (frontmatter.university.trim().length > 0 && frontmatter.university !== FIXED_UNIVERSITY) {
+  if ((frontmatter.university ?? "").trim().length > 0 && frontmatter.university !== FIXED_UNIVERSITY) {
     errors.push({ line: 1, message: `Invalid university. Expected "${FIXED_UNIVERSITY}".` });
     hasScopeValidationError = true;
   }
-  if (frontmatter.course.trim().length > 0 && frontmatter.course !== FIXED_COURSE) {
+  if ((frontmatter.course ?? "").trim().length > 0 && frontmatter.course !== FIXED_COURSE) {
     errors.push({ line: 1, message: `Invalid course. Expected "${FIXED_COURSE}".` });
     hasScopeValidationError = true;
   }
