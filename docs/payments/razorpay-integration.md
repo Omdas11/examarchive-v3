@@ -52,7 +52,7 @@ Recommended collection ID: `Purchases`
 | `order_id` | String | Yes | Razorpay order ID |
 | `payment_id` | String | No | Razorpay payment ID (set after payment success) |
 | `signature` | String | No | Optional stored signature hash/audit field |
-| `status` | String | Yes | `created` \| `captured` \| `failed` \| `refunded` \| `disputed` |
+| `status` | String | Yes | `created` \| `authorized` \| `captured` \| `failed` \| `refunded` \| `disputed` |
 | `product_code` | String | Yes | Internal SKU/plan code |
 | `amount` | Integer | Yes | Amount in paise |
 | `currency` | String | Yes | Typically `INR` |
