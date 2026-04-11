@@ -39,6 +39,7 @@ const ATTRIBUTE_AVAILABILITY_POLL_INTERVAL_MS = 300;
 const ATTRIBUTE_AVAILABILITY_TIMEOUT_MS = 12000;
 const SOLVED_PAPER_CACHE_TYPE = "solved_paper";
 const GEMINI_MODEL = "gemini-3.1-flash-lite-preview";
+const SYLLABUS_CONTENT_MAX_LEN = 10_000;
 
 class GeminiRequestError extends Error {
   constructor(public readonly status: number, message: string) {
@@ -307,7 +308,7 @@ async function ensureSolvedPaperCacheSchema(): Promise<void> {
       DATABASE_ID,
       COLLECTION.generated_notes_cache,
       "syllabus_content",
-      1_000_000,
+      SYLLABUS_CONTENT_MAX_LEN,
       false,
       undefined,
     ),

@@ -34,6 +34,7 @@ const GEMINI_MODEL = "gemini-3.1-flash-lite-preview";
 const CACHE_NUMERIC_STRING_MAX_LEN = 10;
 const CACHE_FILE_NAME_MAX_LEN = 220;
 const GENERATED_MARKDOWN_MAX_LEN = 1_000_000;
+const SYLLABUS_CONTENT_MAX_LEN = 10_000;
 
 function isAdminPlus(role: string): boolean {
   return role === "admin" || role === "founder";
@@ -375,7 +376,7 @@ async function ensureNotesCacheSchema(): Promise<void> {
       DATABASE_ID,
       COLLECTION.generated_notes_cache,
       "syllabus_content",
-      GENERATED_MARKDOWN_MAX_LEN,
+      SYLLABUS_CONTENT_MAX_LEN,
       false,
       undefined,
     ),
@@ -710,7 +711,8 @@ async function persistCachedNotesRecord(args: PersistCachedNotesRecordArgs): Pro
     console.warn("[generate-notes-stream] Skipping cache metadata write because markdown content is empty.");
     return null;
   }
-  const cleanSyllabus = typeof args.syllabusContent === "string" ? args.syllabusContent.trim() : "";
+  const cleanSyllabus =
+    typeof args.syllabusContent === "string" ? args.syllabusContent.trim().slice(0, SYLLABUS_CONTENT_MAX_LEN) : "";
   try {
     const existing = await db.listDocuments(DATABASE_ID, COLLECTION.generated_notes_cache, [
       Query.equal("markdown_file_id", args.markdownFileId),
