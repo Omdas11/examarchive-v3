@@ -35,7 +35,8 @@ const CACHE_NUMERIC_STRING_MAX_LEN = 10;
 const CACHE_FILE_NAME_MAX_LEN = 220;
 const GENERATED_MARKDOWN_MAX_LEN = 1_000_000;
 const SYLLABUS_CONTENT_MAX_LEN = 10_000;
-const PERSONALIZATION_TAGS = ["watermark:email_footer", "personalization:cache_rerender"];
+const DEFAULT_PERSONALIZATION_TAGS = ["watermark:email_footer", "personalization:enabled"];
+const MAX_PERSONALIZATION_TAGS = 20;
 
 function isAdminPlus(role: string): boolean {
   return role === "admin" || role === "founder";
@@ -732,10 +733,13 @@ async function persistCachedNotesRecord(args: PersistCachedNotesRecordArgs): Pro
   }
   const cleanSyllabus =
     rawSyllabus.length > SYLLABUS_CONTENT_MAX_LEN ? rawSyllabus.slice(0, SYLLABUS_CONTENT_MAX_LEN) : rawSyllabus;
-  const cleanPersonalizationTags = (Array.isArray(args.personalizationTags) ? args.personalizationTags : PERSONALIZATION_TAGS)
+  const sourcePersonalizationTags = Array.isArray(args.personalizationTags)
+    ? args.personalizationTags
+    : DEFAULT_PERSONALIZATION_TAGS;
+  const cleanPersonalizationTags = sourcePersonalizationTags
     .map((tag) => (typeof tag === "string" ? tag.trim() : ""))
     .filter(Boolean)
-    .slice(0, 20);
+    .slice(0, MAX_PERSONALIZATION_TAGS);
   try {
     const existing = await db.listDocuments(DATABASE_ID, COLLECTION.generated_notes_cache, [
       Query.equal("markdown_file_id", args.markdownFileId),
@@ -1066,7 +1070,7 @@ export async function GET(request: NextRequest) {
                 markdown: completedCache.markdown,
                 markdownFileId: completedCache.markdownFileId,
                 syllabusContent: cachedSyllabusContent,
-                personalizationTags: PERSONALIZATION_TAGS,
+                personalizationTags: DEFAULT_PERSONALIZATION_TAGS,
               });
               if (recoveredDocId) {
                 await updateCachedNotesPdfFileId(recoveredDocId, rendered.fileId);

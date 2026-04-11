@@ -19,10 +19,14 @@ const BACKEND_PAPERS_MAX_DURATION_SECONDS = 300;
 const RESUME_TIMEOUT_BUFFER_SECONDS = 5;
 const TIMEOUT_THRESHOLD_SECONDS = BACKEND_PAPERS_MAX_DURATION_SECONDS - RESUME_TIMEOUT_BUFFER_SECONDS;
 const SOLVED_PAPER_PART_SIZE = 10;
+// Intentionally avoid 100% until backend confirms completion to keep the simulation believable.
+const NOTES_RERENDER_PROGRESS_CAP = 93;
+const NOTES_RERENDER_BASE_INCREMENT = 3;
+const NOTES_RERENDER_INCREMENT_VARIANCE = 5;
 const NOTES_RERENDER_STATUS_STEPS = [
   "Rehydrating cached notes payload...",
   "Applying personalized watermark...",
-  "Compositing secure footer signature...",
+  "Composing personalized footer...",
   "Rendering pages in print-safe mode...",
   "Uploading personalized PDF...",
 ];
@@ -742,9 +746,9 @@ export default function AIContentClient() {
     if (!notesRerenderSimActive) return;
     const interval = setInterval(() => {
       setNotesRerenderProgress((prev) => {
-        if (prev >= 93) return 93;
-        const increment = 3 + Math.floor(Math.random() * 5);
-        return Math.min(93, prev + increment);
+        if (prev >= NOTES_RERENDER_PROGRESS_CAP) return NOTES_RERENDER_PROGRESS_CAP;
+        const increment = NOTES_RERENDER_BASE_INCREMENT + Math.floor(Math.random() * NOTES_RERENDER_INCREMENT_VARIANCE);
+        return Math.min(NOTES_RERENDER_PROGRESS_CAP, prev + increment);
       });
     }, 850);
     return () => clearInterval(interval);

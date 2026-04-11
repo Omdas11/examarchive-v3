@@ -76,7 +76,7 @@ Recommended collection ID: `Purchases`
 - Read operations:
   - Server routes: full read/write.
   - User dashboard: filtered by authenticated `user_id` through trusted API route.
-- Never expose provider secrets or verification logic to client components.
+- Never expose Razorpay `key_secret`, webhook secret, or signature verification logic to client components.
 
 ## Replacing quota checks
 
@@ -85,4 +85,3 @@ Recommended collection ID: `Purchases`
   - Derive generation allowance from purchase entitlements.
   - Reject requests when no active entitlement exists.
 - `user_quotas` can remain for temporary compatibility, but final gating should use `Purchases` as source of truth.
-
