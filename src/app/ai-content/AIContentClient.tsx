@@ -19,6 +19,13 @@ const BACKEND_PAPERS_MAX_DURATION_SECONDS = 300;
 const RESUME_TIMEOUT_BUFFER_SECONDS = 5;
 const TIMEOUT_THRESHOLD_SECONDS = BACKEND_PAPERS_MAX_DURATION_SECONDS - RESUME_TIMEOUT_BUFFER_SECONDS;
 const SOLVED_PAPER_PART_SIZE = 10;
+const NOTES_RERENDER_STATUS_STEPS = [
+  "Rehydrating cached notes payload...",
+  "Applying personalized watermark...",
+  "Compositing secure footer signature...",
+  "Rendering pages in print-safe mode...",
+  "Uploading personalized PDF...",
+];
 type StepStatus = "pending" | "loading" | "success" | "error";
 type TimelineStep = {
   key: string;
@@ -160,6 +167,8 @@ export default function AIContentClient() {
   const [etaMinutes, setEtaMinutes] = useState<number | null>(null);
   const [currentPart, setCurrentPart] = useState(1);
   const [totalParts, setTotalParts] = useState(1);
+  const [notesRerenderSimActive, setNotesRerenderSimActive] = useState(false);
+  const [notesRerenderProgress, setNotesRerenderProgress] = useState(0);
   const generationRunIdRef = useRef(0);
   const elapsedSecondsRef = useRef(0);
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -242,6 +251,13 @@ export default function AIContentClient() {
     const remainingMinutes = Math.max(0, etaMinutes - elapsedMinutes);
     return Math.max(1, Math.ceil(remainingMinutes));
   }, [activeTab, etaMinutes, elapsedSeconds, progressTotal]);
+  const notesRerenderStatus = useMemo(() => {
+    const stepIndex = Math.min(
+      NOTES_RERENDER_STATUS_STEPS.length - 1,
+      Math.floor((notesRerenderProgress / 100) * NOTES_RERENDER_STATUS_STEPS.length),
+    );
+    return NOTES_RERENDER_STATUS_STEPS[Math.max(0, stepIndex)] || NOTES_RERENDER_STATUS_STEPS[0];
+  }, [notesRerenderProgress]);
 
   function formatElapsedTime(totalSeconds: number): string {
     const minutes = Math.floor(totalSeconds / 60);
@@ -291,8 +307,24 @@ export default function AIContentClient() {
       normalized.includes("re-render requested")
     ) return "cache_decision";
     if (normalized.includes("ai generation") || normalized.includes("topic") || normalized.includes("gemini")) return "ai_generation";
-    if (normalized.includes("azure") || normalized.includes("gotenberg") || normalized.includes("pdf rendered")) return "pdf_render";
+    if (
+      normalized.includes("azure") ||
+      normalized.includes("gotenberg") ||
+      normalized.includes("pdf rendered") ||
+      normalized.includes("watermark") ||
+      normalized.includes("footer")
+    ) return "pdf_render";
     return "cache_lookup";
+  }
+
+  function startNotesRerenderSimulation() {
+    setNotesRerenderSimActive(true);
+    setNotesRerenderProgress((prev) => (prev > 0 ? prev : 6));
+  }
+
+  function stopNotesRerenderSimulation(markAsComplete: boolean) {
+    setNotesRerenderSimActive(false);
+    setNotesRerenderProgress(markAsComplete ? 100 : 0);
   }
 
   async function copyTimelineLogs(step: TimelineStep) {
@@ -345,6 +377,8 @@ export default function AIContentClient() {
     setProgressTotal(0);
     setElapsedSeconds(0);
     elapsedSecondsRef.current = 0;
+    setNotesRerenderSimActive(false);
+    setNotesRerenderProgress(0);
     closeEventSource();
   }
 
@@ -404,12 +438,17 @@ export default function AIContentClient() {
             setTimelineStatus("cache_lookup", "success", "Cache lookup completed.");
             setTimelineStatus("cache_decision", "success", "No reusable PDF found. Will continue with markdown.");
             setTimelineStatus("ai_generation", "loading", "Preparing generation from markdown cache.");
+            startNotesRerenderSimulation();
           }
           if (data.log.includes("Cache markdown found") || data.log.includes("Re-render requested")) {
             setTimelineStatus("cache_lookup", "success", "Cache lookup completed.");
             setTimelineStatus("cache_decision", "success", "Using cached markdown path.");
             setTimelineStatus("ai_generation", "success", "Skipped: rendering directly from cached markdown.");
             setTimelineStatus("pdf_render", "loading", "Rendering PDF from markdown...");
+            startNotesRerenderSimulation();
+          }
+          if (data.log.includes("Applying personalized watermark") || data.log.includes("Compositing personalized footer")) {
+            startNotesRerenderSimulation();
           }
           if (data.log.includes("AI generation complete")) {
             setTimelineStatus("ai_generation", "success", "AI generation completed.");
@@ -420,6 +459,7 @@ export default function AIContentClient() {
           }
           if (data.log.includes("PDF rendered and uploaded successfully") || data.log.includes("PDF rendered successfully from cached markdown")) {
             setTimelineStatus("pdf_render", "success", "PDF rendered and uploaded successfully.");
+            stopNotesRerenderSimulation(true);
           }
         }
       }
@@ -488,14 +528,17 @@ export default function AIContentClient() {
             setTimelineStatus("cache_decision", "success", "Existing PDF found in cache.");
             setTimelineStatus("ai_generation", "success", "Skipped: cached PDF path does not require AI generation.");
             setTimelineStatus("pdf_render", "success", "Skipped: reusing existing cached PDF.");
+            stopNotesRerenderSimulation(false);
           } else if (cacheSource === "markdown") {
             setTimelineStatus("cache_decision", "success", "Using cached markdown path.");
             setTimelineStatus("ai_generation", "success", "Skipped: rendering directly from cached markdown.");
             setTimelineStatus("pdf_render", "success", "PDF rendered successfully from cached markdown.");
+            stopNotesRerenderSimulation(true);
           } else {
             setTimelineStatus("cache_decision", "success", "No reusable cache hit. Continuing generation.");
             setTimelineStatus("ai_generation", "success", "AI generation completed.");
             setTimelineStatus("pdf_render", "success", "PDF rendered and uploaded successfully.");
+            stopNotesRerenderSimulation(false);
           }
           setTimelineStatus("completed", "success", cacheSource === "pdf"
             ? "Existing cached PDF is ready."
@@ -537,6 +580,7 @@ export default function AIContentClient() {
         setError(errorMessage);
         if (activeTab === "notes") {
           setTimelineStatus("completed", "error", errorMessage);
+          stopNotesRerenderSimulation(false);
         }
         if (shouldOfferResume) {
           setCanResumeGeneration(true);
@@ -552,6 +596,7 @@ export default function AIContentClient() {
         setError(failureMessage);
         if (activeTab === "notes") {
           setTimelineStatus("completed", "error", failureMessage);
+          stopNotesRerenderSimulation(false);
         }
         resetProgressState();
         return;
@@ -600,6 +645,8 @@ export default function AIContentClient() {
     setEtaMinutes(null);
     setElapsedSeconds(0);
     elapsedSecondsRef.current = 0;
+    setNotesRerenderSimActive(false);
+    setNotesRerenderProgress(0);
     if (activeTab === "notes") {
       setNotesPdfResult(null);
       const steps = initialNotesTimelineSteps();
@@ -690,6 +737,18 @@ export default function AIContentClient() {
     event.stopPropagation();
     abortGeneration();
   }
+
+  useEffect(() => {
+    if (!notesRerenderSimActive) return;
+    const interval = setInterval(() => {
+      setNotesRerenderProgress((prev) => {
+        if (prev >= 93) return 93;
+        const increment = 3 + Math.floor(Math.random() * 5);
+        return Math.min(93, prev + increment);
+      });
+    }, 850);
+    return () => clearInterval(interval);
+  }, [notesRerenderSimActive]);
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | undefined;
@@ -1128,6 +1187,19 @@ export default function AIContentClient() {
                   Estimated time remaining: ~{estimatedMinutesRemaining} minutes.
                 </p>
               )}
+              <p className="mt-1 text-xs text-on-surface-variant">⏱️ Elapsed Time: {formatElapsedTime(elapsedSeconds)}</p>
+            </div>
+          )}
+          {generating && activeTab === "notes" && notesRerenderSimActive && (
+            <div className="mt-4 rounded-xl border border-outline-variant/30 bg-surface-container-low p-3">
+              <p className="text-sm font-medium">{notesRerenderStatus}</p>
+              <p className="mt-1 text-xs text-on-surface-variant">
+                Personalizing your cached notes PDF for this account before delivery.
+              </p>
+              <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-outline-variant/30">
+                <div className="h-full bg-primary transition-all duration-500" style={{ width: `${notesRerenderProgress}%` }} />
+              </div>
+              <p className="mt-2 text-xs text-on-surface-variant">Finalization progress: {notesRerenderProgress}%</p>
               <p className="mt-1 text-xs text-on-surface-variant">⏱️ Elapsed Time: {formatElapsedTime(elapsedSeconds)}</p>
             </div>
           )}

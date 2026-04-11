@@ -26,6 +26,7 @@ const SYLLABUS_TEMPLATE_PATH = path.resolve(process.cwd(), "docs/MASTER_SYLLABUS
 const QUESTION_TEMPLATE_PATH = path.resolve(process.cwd(), "docs/MASTER_QUESTION_ENTRY.md");
 const MAX_QUESTION_ROWS_PER_NUMBER = 100;
 const MAX_SYLLABUS_MATCH_LIMIT = 200;
+const PERSONALIZATION_METADATA_TAGS = ["watermark:email_footer", "personalization:enabled"];
 
 function normalizeError(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -43,6 +44,13 @@ function normalizeQuestionSubpart(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : undefined;
+}
+
+function withPersonalizationTags(tags: unknown): string[] {
+  const existing = Array.isArray(tags)
+    ? tags.map((tag) => (typeof tag === "string" ? tag.trim() : "")).filter(Boolean)
+    : [];
+  return [...new Set([...existing, ...PERSONALIZATION_METADATA_TAGS])];
 }
 
 function sanitizeDownloadFilename(name: string): string {
@@ -261,7 +269,7 @@ async function upsertSyllabusRows(args: {
       subject: args.frontmatter.subject,
       unit_number: row.unit_number,
       syllabus_content: row.syllabus_content,
-      tags: row.tags,
+      tags: withPersonalizationTags(row.tags),
     };
     const payload: Record<string, unknown> = {
       ...basePayload,
@@ -353,7 +361,7 @@ async function upsertQuestionRows(args: {
       subject: args.frontmatter.subject,
       question_no: row.question_no,
       question_content: row.question_content,
-      tags: row.tags,
+      tags: withPersonalizationTags(row.tags),
     };
     if (normalizedQuestionSubpart) {
       basePayload.question_subpart = normalizedQuestionSubpart;
@@ -450,6 +458,7 @@ async function createIngestionLog(payload: {
       // ── New fields for syllabus tracker / mobile dashboard ──
       ingested_at: new Date().toISOString(),
       row_count: payload.rowsAffected,
+      tags: PERSONALIZATION_METADATA_TAGS,
     };
     if (payload.entryType) doc.entry_type = payload.entryType;
     if (payload.paperName) doc.paper_name = payload.paperName;

@@ -27,7 +27,7 @@ type SourceType = "paper" | "syllabus";
 const EMBEDDING_MODEL = "text-embedding-3-small";
 
 // NOTE: Currently using OpenAI for embeddings only. Consider migrating to:
-// - Groq embeddings (when available)
+// - Native Appwrite-compatible embeddings (when available)
 // - Voyage AI: https://www.voyageai.com/
 // - Cohere: https://cohere.com/
 // - Self-hosted: sentence-transformers with Ollama or local inference

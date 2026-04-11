@@ -35,6 +35,7 @@ const CACHE_NUMERIC_STRING_MAX_LEN = 10;
 const CACHE_FILE_NAME_MAX_LEN = 220;
 const GENERATED_MARKDOWN_MAX_LEN = 1_000_000;
 const SYLLABUS_CONTENT_MAX_LEN = 10_000;
+const PERSONALIZATION_TAGS = ["watermark:email_footer", "personalization:cache_rerender"];
 
 function isAdminPlus(role: string): boolean {
   return role === "admin" || role === "founder";
@@ -381,6 +382,17 @@ async function ensureNotesCacheSchema(): Promise<void> {
       undefined,
     ),
   );
+  await ensureAttribute("personalization_tags", () =>
+    db.createStringAttribute(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      "personalization_tags",
+      64,
+      false,
+      undefined,
+      true,
+    ),
+  );
 }
 
 async function ensureMarkdownCacheBucket(): Promise<void> {
@@ -701,6 +713,7 @@ type PersistCachedNotesRecordArgs = {
   markdownFileId: string;
   syllabusContent?: string | null;
   createdAt?: string;
+  personalizationTags?: string[];
 };
 
 async function persistCachedNotesRecord(args: PersistCachedNotesRecordArgs): Promise<string | null> {
@@ -719,6 +732,10 @@ async function persistCachedNotesRecord(args: PersistCachedNotesRecordArgs): Pro
   }
   const cleanSyllabus =
     rawSyllabus.length > SYLLABUS_CONTENT_MAX_LEN ? rawSyllabus.slice(0, SYLLABUS_CONTENT_MAX_LEN) : rawSyllabus;
+  const cleanPersonalizationTags = (Array.isArray(args.personalizationTags) ? args.personalizationTags : PERSONALIZATION_TAGS)
+    .map((tag) => (typeof tag === "string" ? tag.trim() : ""))
+    .filter(Boolean)
+    .slice(0, 20);
   try {
     const existing = await db.listDocuments(DATABASE_ID, COLLECTION.generated_notes_cache, [
       Query.equal("markdown_file_id", args.markdownFileId),
@@ -760,6 +777,7 @@ async function persistCachedNotesRecord(args: PersistCachedNotesRecordArgs): Pro
       created_at: createdAt,
     };
     if (cleanSyllabus) primaryPayload.syllabus_content = cleanSyllabus;
+    if (cleanPersonalizationTags.length > 0) primaryPayload.personalization_tags = cleanPersonalizationTags;
     mutateSemesterCompatFields(primaryPayload);
     return await tryCreate(primaryPayload);
   } catch (primaryError) {
@@ -775,6 +793,7 @@ async function persistCachedNotesRecord(args: PersistCachedNotesRecordArgs): Pro
         created_at: createdAt,
       };
       if (cleanSyllabus) fallbackPayload.syllabus_content = cleanSyllabus;
+      if (cleanPersonalizationTags.length > 0) fallbackPayload.personalization_tags = cleanPersonalizationTags;
       mutateSemesterCompatFields(fallbackPayload);
       return await tryCreate(fallbackPayload);
     } catch (fallbackError) {
@@ -789,6 +808,7 @@ async function persistCachedNotesRecord(args: PersistCachedNotesRecordArgs): Pro
           generated_markdown: cleanMarkdown.slice(0, GENERATED_MARKDOWN_MAX_LEN),
           created_at: createdAt,
         };
+        if (cleanPersonalizationTags.length > 0) finalFallbackPayload.personalization_tags = cleanPersonalizationTags;
         mutateSemesterCompatFields(finalFallbackPayload);
         return await tryCreate(finalFallbackPayload);
       } catch (finalFallbackError) {
@@ -952,6 +972,7 @@ export async function GET(request: NextRequest) {
   const semester = normalizeSemester(searchParams.get("semester"));
   const forceMarkdownRerender = searchParams.get("rerender") === "1";
   const azureGotenbergUrl = process.env.AZURE_GOTENBERG_URL;
+  const userEmail = typeof user.email === "string" ? user.email.trim() : "";
 
   if (!course || !streamName || !type || !paperCode || !Number.isInteger(unitNumber) || unitNumber < 1 || unitNumber > 5) {
     return NextResponse.json({ error: "Invalid selection. Please choose course, stream, type, paper code, and unit 1-5." }, { status: 400 });
@@ -1012,6 +1033,8 @@ export async function GET(request: NextRequest) {
                 ? "Re-render requested: rendering PDF from cached markdown."
                 : "Cache markdown found: rendering PDF from cached markdown.",
             }));
+            controller.enqueue(toSseData({ log: "Applying personalized watermark..." }));
+            controller.enqueue(toSseData({ log: "Compositing personalized footer for PDF rendering..." }));
             const dynamicPdfName = `${paperCode}_Unit_${unitNumber}_Notes.pdf`;
             const rendered = await renderMarkdownPdfToAppwrite({
               markdown: completedCache.markdown,
@@ -1026,6 +1049,7 @@ export async function GET(request: NextRequest) {
               unitNumber,
               unitName,
               syllabusContent: cachedSyllabusContent || undefined,
+              userEmail: userEmail || undefined,
             });
             pdfUrl = rendered.fileUrl;
             if (completedCache.id) {
@@ -1042,6 +1066,7 @@ export async function GET(request: NextRequest) {
                 markdown: completedCache.markdown,
                 markdownFileId: completedCache.markdownFileId,
                 syllabusContent: cachedSyllabusContent,
+                personalizationTags: PERSONALIZATION_TAGS,
               });
               if (recoveredDocId) {
                 await updateCachedNotesPdfFileId(recoveredDocId, rendered.fileId);
@@ -1321,6 +1346,7 @@ CRITICAL FORMAT CONSTRAINTS:
             unitNumber,
             unitName,
             syllabusContent,
+            userEmail: userEmail || undefined,
           });
           pdfUrl = rendered.fileUrl;
           controller.enqueue(toSseData({ log: "PDF rendered and uploaded successfully." }));

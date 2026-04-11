@@ -31,7 +31,7 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapability> = {
     speed: "medium",
     quality: "high",
     cost: "low",
-    description: "Full DeepSeek reasoning model offered in OpenRouter’s free tier.",
+    description: "Full DeepSeek reasoning model available in the free-tier model pool.",
     badge: "Free Tier",
   },
   "meta-llama/llama-3.2-1b-instruct:free": {
@@ -265,7 +265,7 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapability> = {
     speed: "fast",
     quality: "medium",
     cost: "low",
-    description: "Balanced text model frequently available in OpenRouter’s free tier.",
+    description: "Balanced text model frequently available in the free-tier model pool.",
   },
   "sourceful/riverflow-v2-fast:free": {
     id: "sourceful/riverflow-v2-fast:free",
