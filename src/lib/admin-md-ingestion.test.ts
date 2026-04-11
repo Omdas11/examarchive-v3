@@ -161,4 +161,50 @@ subject: Physics
     expect(parsed.syllabus).toHaveLength(0);
     expect(parsed.questions).toHaveLength(0);
   });
+
+  it("rejects non-Assam University frontmatter", () => {
+    const markdown = `---
+entry_type: syllabus
+university: Gauhati University
+course: FYUG
+stream: Science
+type: DSC
+paper_code: PHYDSC101T
+paper_name: Mechanics
+subject: Physics
+---
+
+## Syllabus
+| unit_number | syllabus_content | lectures | tags |
+|---|---|---|---|
+| 1 | Kinematics | 12 | motion |
+`;
+
+    const parsed = parseDemoDataEntryMarkdown(markdown);
+    expect(parsed.frontmatter).toBeNull();
+    expect(parsed.errors.some((err) => err.message.includes('Invalid university. Expected "Assam University".'))).toBe(true);
+  });
+
+  it("rejects non-FYUG course frontmatter", () => {
+    const markdown = `---
+entry_type: syllabus
+university: Assam University
+course: CBCS
+stream: Science
+type: DSC
+paper_code: PHYDSC101T
+paper_name: Mechanics
+subject: Physics
+---
+
+## Syllabus
+| unit_number | syllabus_content | lectures | tags |
+|---|---|---|---|
+| 1 | Kinematics | 12 | motion |
+`;
+
+    const parsed = parseDemoDataEntryMarkdown(markdown);
+    expect(parsed.frontmatter).toBeNull();
+    expect(parsed.errors.some((err) => err.message.includes('Invalid course. Expected "FYUG".'))).toBe(true);
+  });
 });
