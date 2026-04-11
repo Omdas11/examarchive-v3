@@ -10,6 +10,11 @@ Syllabus and question ingestion are separated by design:
 - do **not** put `## Syllabus` and `## Questions` in the same markdown file
 - mixed files are rejected
 
+## Current fixed scope
+
+- `university` must be `Assam University`
+- `course` must be `FYUG`
+
 ## File naming conventions
 
 ### 1) Syllabus file

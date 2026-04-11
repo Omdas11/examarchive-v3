@@ -13,6 +13,7 @@ For the master drafting guide (both syllabus and question formats, naming, and u
 ## Rules
 
 - YAML structure is a v2 schema; see mapping table for current ingestion equivalents.
+- Current ingestion scope is fixed to `university: Assam University` and `course: FYUG` only.
 - `paper_code` must match validation rules from `PAPER_CODE_VALIDATION_RULES.md`.
 - `exam_year` and `group` must be explicit for accurate auto-linking.
 - Each question PDF entry has a unique `question_id`.
@@ -54,8 +55,8 @@ The current parser (`src/lib/admin-md-ingestion.ts`) reads these frontmatter key
 | `entry_type`         | string | `entry_type`        | Always `question`                                                  |
 | `question_id`        | string | `question_id`       | Unique ID: `QST-{college_short}-{paper_code}-{year}-{seq}`        |
 | `college`            | string | `college`           | Full college name                                                  |
-| `university`         | string | `university`        | Affiliating university                                            |
-| `course`             | string | `course`            | `FYUG` or `CBCS`                                                  |
+| `university`         | string | `university`        | Must be `Assam University`                                        |
+| `course`             | string | `course`            | Must be `FYUG`                                                    |
 | `stream`             | string | `stream`            | `Science`, `Arts`, `Commerce`                                     |
 | `group`              | string | `group`             | Major subject group (e.g., `Physics Major`)                       |
 | `exam_year`          | number | `exam_year`         | Year of the examination                                            |
@@ -168,7 +169,7 @@ After the YAML block, include individual questions in a table as shown below:
 - [ ] Paper code format valid (passes `PAPER_CODE_VALIDATION_RULES.md` checks)
 - [ ] `exam_year` present and numeric
 - [ ] `question_pdf_url` provided only when overriding the auto-generated value
-- [ ] `course` is `FYUG` or `CBCS`
+- [ ] `course` is `FYUG`
 - [ ] `stream` is `Science`, `Arts`, or `Commerce`
 - [ ] Program/group set
 - [ ] Link status evaluated (`linked` or `unmapped`)

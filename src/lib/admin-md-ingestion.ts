@@ -95,6 +95,9 @@ function deriveSubjectFromPaperCode(paperCode: string): string {
   return /^[A-Z]{3}/.test(normalized) ? normalized.slice(0, 3) : "";
 }
 
+const FIXED_UNIVERSITY = "Assam University";
+const FIXED_COURSE = "FYUG";
+
 function findHeadingLine(lines: string[], title: string): number {
   const target = `## ${title}`.toLowerCase();
   return lines.findIndex((line) => line.trim().toLowerCase() === target);
@@ -232,13 +235,21 @@ function parseFrontmatter(data: Record<string, unknown>, errors: IngestionParseE
     difficulty_estimate: getOptionalString("difficulty_estimate"),
   };
 
+  const initialErrorCount = errors.length;
   (["university", "course", "stream", "type", "paper_code", "paper_name", "subject"] as const).forEach((key) => {
     if (!frontmatter[key] || String(frontmatter[key]).trim().length === 0) {
       errors.push({ line: 1, message: `Missing required frontmatter field: ${key}` });
     }
   });
 
-  return errors.some((err) => err.message.startsWith("Missing required frontmatter field"))
+  if ((frontmatter.university ?? "").trim().length > 0 && frontmatter.university !== FIXED_UNIVERSITY) {
+    errors.push({ line: 1, message: `Invalid university. Expected "${FIXED_UNIVERSITY}".` });
+  }
+  if ((frontmatter.course ?? "").trim().length > 0 && frontmatter.course !== FIXED_COURSE) {
+    errors.push({ line: 1, message: `Invalid course. Expected "${FIXED_COURSE}".` });
+  }
+
+  return errors.length > initialErrorCount
     ? null
     : frontmatter;
 }
