@@ -349,6 +349,37 @@ async function ensureNotesCacheSchema(): Promise<void> {
       undefined,
     ),
   );
+  await ensureAttribute("paper_code", () =>
+    db.createStringAttribute(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      "paper_code",
+      128,
+      false,
+      undefined,
+    ),
+  );
+  await ensureAttribute("unit_number", () =>
+    db.createIntegerAttribute(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      "unit_number",
+      false,
+      0,
+      9999,
+      undefined,
+    ),
+  );
+  await ensureAttribute("syllabus_content", () =>
+    db.createStringAttribute(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      "syllabus_content",
+      GENERATED_MARKDOWN_MAX_LEN,
+      false,
+      undefined,
+    ),
+  );
 }
 
 async function ensureMarkdownCacheBucket(): Promise<void> {
