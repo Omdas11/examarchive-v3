@@ -747,7 +747,7 @@ export default function AIContentClient() {
     const interval = setInterval(() => {
       setNotesRerenderProgress((prev) => {
         if (prev >= NOTES_RERENDER_PROGRESS_CAP) return NOTES_RERENDER_PROGRESS_CAP;
-        const increment = NOTES_RERENDER_BASE_INCREMENT + Math.floor(Math.random() * NOTES_RERENDER_INCREMENT_VARIANCE);
+        const increment = NOTES_RERENDER_BASE_INCREMENT + (prev % NOTES_RERENDER_INCREMENT_VARIANCE);
         return Math.min(NOTES_RERENDER_PROGRESS_CAP, prev + increment);
       });
     }, 850);
