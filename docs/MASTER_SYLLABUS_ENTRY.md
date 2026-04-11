@@ -55,7 +55,7 @@ The current parser (`src/lib/admin-md-ingestion.ts`) reads these frontmatter key
 | Field               | Type   | Maps to current key | Description                                              |
 |---------------------|--------|---------------------|----------------------------------------------------------|
 | `entry_type`        | string | —                   | Always `syllabus`; v2 metadata only                      |
-| `entry_id`          | string | —                   | Unique ID: `{college_short}-{program}-{paper_code}`      |
+| `entry_id`          | string | —                   | Unique ID: `{college_short}-{course}-{paper_code}`       |
 | `college`           | string | —                   | Full college name; v2 metadata only                      |
 | `university`        | string | `university`        | Must be `Assam University`                               |
 | `course`            | string | `course`            | Must be `FYUG`                                           |
@@ -83,7 +83,7 @@ The current parser (`src/lib/admin-md-ingestion.ts`) reads these frontmatter key
 |-------------------|--------------|----------------------------------------------------|
 | `aliases`         | list[string] | Common alternate names for the paper               |
 | `keywords`        | list[string] | Search/filter tags                                 |
-| `unit_breakdown`  | list[object] | List of units with `unit` number and `title`       |
+| `unit_breakdown`  | list[object] | List of units with `unit_number`, `syllabus_content`, `lectures`, and `tags` |
 | `notes`           | string       | Reviewer notes or ingestion remarks                |
 | `version`         | number       | Schema version (increment on structural changes)   |
 | `last_updated`    | string       | ISO date of last update (`YYYY-MM-DD`)             |
@@ -130,12 +130,18 @@ keywords:
   - "semester-1"
 
 unit_breakdown:
-  - unit: 1
-    title: "Vectors and Kinematics"
-  - unit: 2
-    title: "Newtonian Mechanics"
-  - unit: 3
-    title: "Properties of Matter"
+  - unit_number: 1
+    syllabus_content: "Vectors and Kinematics"
+    lectures: 12
+    tags: "kinematics,vector,motion"
+  - unit_number: 2
+    syllabus_content: "Newtonian Mechanics"
+    lectures: 10
+    tags: "newtonian-mechanics,force,laws-of-motion"
+  - unit_number: 3
+    syllabus_content: "Properties of Matter"
+    lectures: 8
+    tags: "properties-of-matter,elasticity,surface-tension"
 
 notes: "Validated against Assam University coding guidelines"
 version: 1
@@ -152,7 +158,7 @@ last_updated: "2026-04-08"
 4. Derive and cross-check: `subject_code`, `paper_type`, `semester_code`, `semester_no`.
 5. Store normalized canonical object in database.
 6. Index for browse filters and search.
-7. Auto-link any existing question entries that match `paper_code` + `group`.
+7. Auto-link any existing question entries that match `paper_code`.
 
 ---
 
@@ -162,7 +168,7 @@ last_updated: "2026-04-08"
 - [ ] Semester mapping valid and `semester_no` derived correctly
 - [ ] `course` is `FYUG` only
 - [ ] `stream` is `Science`, `Arts`, or `Commerce`
-- [ ] Program/group present
+- [ ] Major group present
 - [ ] Source reference present
 - [ ] `syllabus_pdf_url` provided only when overriding the auto-generated value
 - [ ] `status` is one of: `active`, `archived`, `draft`
