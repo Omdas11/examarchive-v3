@@ -182,7 +182,7 @@ subject: Physics
 
     const parsed = parseDemoDataEntryMarkdown(markdown);
     expect(parsed.frontmatter).toBeNull();
-    expect(parsed.errors.some((err) => err.message.includes('Invalid university. Expected "Assam University".'))).toBe(true);
+    expect(parsed.errors.some((err) => err.message.includes('Invalid university. Expected "Assam University"'))).toBe(true);
   });
 
   it("rejects non-FYUG course frontmatter", () => {
@@ -205,6 +205,6 @@ subject: Physics
 
     const parsed = parseDemoDataEntryMarkdown(markdown);
     expect(parsed.frontmatter).toBeNull();
-    expect(parsed.errors.some((err) => err.message.includes('Invalid course. Expected "FYUG".'))).toBe(true);
+    expect(parsed.errors.some((err) => err.message.includes('Invalid course. Expected "FYUG"'))).toBe(true);
   });
 });
