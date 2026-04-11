@@ -83,7 +83,7 @@ Primary UI + API path for unit notes
 
 Detailed flow
 1. Student opens AI Content page and selects:
-   university (fixed "Assam University"), course, stream, type, paperCode, semester, unitNumber.
+   university (fixed "Assam University"), course (currently fixed to "FYUG"), stream, type, paperCode, semester, unitNumber.
 2. Client starts SSE request to:
    GET /api/generate-notes-stream?...selection params...
 3. Server authenticates via getServerUser(); unauthenticated users get 401.
@@ -217,7 +217,27 @@ Paid-content protection status
   - Feature limits enforced in AI/PDF endpoints.
 
 ============================================================
-8) PRACTICAL ORIENTATION FOR FUTURE IMPLEMENTERS
+8) MARKDOWN INGESTION PIPELINE (ADMIN)
+============================================================
+Primary route
+- /src/app/api/admin/ingest-md/route.ts
+
+Scope + validation model
+- Frontmatter parsing is centralized in /src/lib/admin-md-ingestion.ts.
+- Ingestion is intentionally scoped to:
+  - university = "Assam University"
+  - course = "FYUG"
+- Required frontmatter/section validation returns structured errors for missing fields and malformed blocks.
+
+Storage + enrichment behavior
+- Source markdown ingestion bucket: examarchive-syllabus-md-ingestion
+- Generated/derived question asset bucket: examarchive_question_ingest_assets
+- If syllabus_pdf_url is omitted, ingestion attempts to hydrate it from /api/syllabus/table.
+- If question_pdf_url is omitted, ingestion can render markdown->PDF and store the generated file in ingestion assets.
+- Upsert logic includes compatibility fallback when optional v2 schema fields are missing in Appwrite.
+
+============================================================
+9) PRACTICAL ORIENTATION FOR FUTURE IMPLEMENTERS
 ============================================================
 If extending this architecture, start with:
 - /src/app/api/generate-notes-stream/route.ts (core cache+AI+Gotenberg flow)
@@ -225,4 +245,3 @@ If extending this architecture, start with:
 - /src/lib/appwrite.ts (all canonical collection/bucket IDs)
 - /src/lib/auth.ts + /src/middleware.ts (session and protection model)
 - /docs/launch/v2/DATABASE_SCHEMA.md (schema definitions and drift notes)
-
