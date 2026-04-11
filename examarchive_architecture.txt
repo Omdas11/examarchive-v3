@@ -1,0 +1,228 @@
+EXAMARCHIVE V3 — TECHNICAL ARCHITECTURE SPECIFICATION
+Generated for AI collaborator handoff
+
+============================================================
+1) PROJECT CORE
+============================================================
+Primary Purpose
+- ExamArchive is a student-first platform to discover, contribute, and study university exam papers and syllabi.
+- It provides archival access plus AI-assisted study workflows (unit notes, solved papers, PDF exports).
+
+Core Tech Stack (as implemented)
+- Next.js: 15.5.15 (App Router architecture under src/app)
+- TypeScript: 5.9.3
+- React: 19.2.5
+- Appwrite:
+  - node-appwrite (server): 22.1.3
+  - appwrite (client SDK): ^24.0.0
+- Tailwind CSS: 3.4.19
+- AI/PDF support:
+  - Gemini integration for generation
+  - Gotenberg on Azure VM for markdown->PDF rendering in AI stream routes
+  - Puppeteer-based PDF utility remains present for other routes (/api/ai/pdf, /api/syllabus/table?mode=pdf)
+
+============================================================
+2) FOLDER STRUCTURE (HIGH-LEVEL)
+============================================================
+Repository roots relevant to runtime
+- /src/app           -> App Router pages, layouts, route handlers
+- /src/components    -> UI and layout components
+- /src/lib           -> server/client shared logic, Appwrite/auth/AI/PDF helpers
+
+High-level tree
+src/
+  app/
+    api/
+      admin/
+      ai/
+      dashboard/
+      devtool/
+      files/
+      generate-notes/
+      generate-notes-stream/
+      generate-solved-paper-stream/
+      papers/
+      profile/
+      search/
+      study/
+      syllabus/
+      upload/
+      visitor/
+    ai-content/
+    auth/
+    browse/
+    dashboard/
+    paper/
+    profile/
+    syllabus/
+    ...
+  components/
+    layout/
+    dashboard/
+    ...
+  lib/
+    appwrite.ts
+    auth.ts
+    ai-pdf-pipeline.ts
+    user-quotas.ts
+    pdf-generator.ts
+    gemini.ts
+    ...
+
+Notes
+- There is no active /src/pages routing layer (App Router is primary).
+- API endpoints live in /src/app/api/** (route.ts files).
+
+============================================================
+3) DATA FLOW (UNIT SELECTION -> CACHE -> AI -> GOTENBERG)
+============================================================
+Primary UI + API path for unit notes
+- UI: /src/app/ai-content/AIContentClient.tsx
+- Streaming API: /src/app/api/generate-notes-stream/route.ts
+- PDF renderer utility: /src/lib/ai-pdf-pipeline.ts
+
+Detailed flow
+1. Student opens AI Content page and selects:
+   university (fixed "Assam University"), course, stream, type, paperCode, semester, unitNumber.
+2. Client starts SSE request to:
+   GET /api/generate-notes-stream?...selection params...
+3. Server authenticates via getServerUser(); unauthenticated users get 401.
+4. Server validates required params and checks AZURE_GOTENBERG_URL.
+5. Server ensures cache schema and markdown cache bucket exist:
+   - Collection: Generated_Notes_Cache
+   - Bucket: generated-md-cache
+6. Server checks Appwrite cache (Generated_Notes_Cache + markdown bucket):
+   - Lookup by selector fields (university/course/stream/selection_type/paper_code/unit/semester)
+   - status=completed, type=unit_notes
+   - Reads markdown_file_id from generated-md-cache
+7. Cache decision:
+   a) If cached PDF file exists (pdf_file_id in papers bucket): return that PDF URL immediately.
+   b) If cached markdown exists but PDF missing or rerender=1: render PDF from cached markdown via Gotenberg.
+8. If no usable cache:
+   - Read unit syllabus from Syllabus_Table
+   - Read related questions from Questions_Table
+   - Generate topic-by-topic markdown via Gemini
+   - Persist markdown to generated-md-cache bucket
+   - Persist cache metadata row in Generated_Notes_Cache
+9. Server renders markdown to PDF using renderMarkdownPdfToAppwrite():
+   - Builds HTML/CSS/header/footer from markdown
+   - Sends multipart FormData to Azure Gotenberg endpoint
+   - Receives PDF bytes and uploads result to Appwrite papers bucket
+10. SSE "done" event returns pdf_url (+ cache metadata). Client updates timeline and shows downloadable PDF.
+
+Solved paper flow mirrors this pattern
+- Route: /api/generate-solved-paper-stream
+- Uses checkpoint/part-based generation in Generated_Notes_Cache
+- Reuses cached markdown/PDF when available, otherwise generates and renders.
+
+============================================================
+4) DATABASE SCHEMA (MAIN APPWRITE COLLECTIONS)
+============================================================
+Database ID
+- examarchive
+
+Important collections in active flows
+
+A) papers
+- Purpose: approved exam paper metadata + Appwrite file references.
+- Typical fields: course_code, paper_name, year, semester, department, exam_type, file_id/file_url, approved/status, counters.
+- Used by browse/search and file proxy routes.
+
+B) users
+- Purpose: profile + role data linked to Appwrite Auth users.
+- Typical fields: email, role, display_name, username, avatar fields, xo/xp, streak, referral fields, ai_credits.
+- Used by auth/session-driven pages and API authorization checks.
+
+C) Generated_Notes_Cache (generated content cache)
+- Purpose: cache for generated markdown and rendered PDF file IDs.
+- Key fields: university, course, stream, selection_type, paper_code, type, semester/year, unit_number, part_number, markdown_file_id, generated_markdown, syllabus_content, pdf_file_id, status, created_at, last_processed_index.
+- Used heavily by /api/generate-notes-stream and /api/generate-solved-paper-stream.
+
+D) Syllabus_Table + Questions_Table
+- Syllabus_Table: unit-level syllabus segments keyed by university/course/stream/type/paper/unit.
+- Questions_Table: question corpus keyed by paper metadata/year/unit/question text.
+- These provide the source context for AI generation.
+
+E) Quota/usage collections
+- ai_usage: per-day AI generation tracking for daily limits.
+- pdf_usage: per-day PDF generation tracking for PDF endpoints.
+- User_Quotas: per-user counters for notes_generated_today and papers_solved_today.
+
+Payments collection status
+- No production Appwrite "Payments" collection is currently wired into runtime payment gateway code.
+- Monetization/payment docs exist, but gateway flow is not implemented in active backend routes.
+
+============================================================
+5) INTEGRATION POINTS (RAZORPAY, WEBHOOKS, CALLBACKS)
+============================================================
+Razorpay status (current codebase)
+- Razorpay SDK initialization: NOT IMPLEMENTED in runtime source.
+- Razorpay webhook route: NOT IMPLEMENTED.
+- Payment callback handler: NOT IMPLEMENTED.
+
+What exists instead
+- Auth callback route exists at /auth/callback (Appwrite session exchange), not payment callback.
+- Monetization docs mention future gateway/webhook plans, but active implementation currently uses quota/usage controls rather than payment settlement.
+
+============================================================
+6) PDF PIPELINE (GOTENBERG ON AZURE VM)
+============================================================
+Primary AI pipeline implementation
+- File: /src/lib/ai-pdf-pipeline.ts
+- Entry function: renderMarkdownPdfToAppwrite(...)
+
+How it works
+1. Accepts generated markdown + metadata (paper code, unit/year, model labels, timestamps).
+2. Converts markdown -> sanitized HTML (math rendering + HTML sanitization).
+3. Builds supplemental header.html and footer.html.
+4. Resolves Azure base URL from AZURE_GOTENBERG_URL.
+5. POSTs multipart FormData to Gotenberg:
+   - Primary: /forms/chromium/convert/html
+   - Fallback on 404: /convert/html
+   - Sends: index.html, header.html, footer.html + print options (margins, header/footer, printBackground, waitDelay).
+6. Receives PDF bytes, uploads to Appwrite papers bucket, and returns proxy download URL.
+
+Runtime callers
+- /api/generate-notes-stream
+- /api/generate-solved-paper-stream
+
+Secondary PDF subsystem (non-Gotenberg)
+- /src/lib/pdf-generator.ts uses Puppeteer + Chromium.
+- Used by /api/ai/pdf and /api/syllabus/table mode=pdf.
+- This is parallel to (not replacing) the Gotenberg path for streaming AI notes/papers.
+
+============================================================
+7) AUTH & MIDDLEWARE (PROTECTED ROUTES + PAID-CONTENT HANDLING)
+============================================================
+Authentication model
+- Session cookie: ea_session (httpOnly, secure, sameSite=lax).
+- Auth providers: Appwrite OAuth + magic link + email/password.
+- Server identity resolution: getServerUser() in /src/lib/auth.ts.
+
+Callback/auth routes
+- /auth/callback exchanges Appwrite userId+secret for session and sets ea_session cookie.
+- Login redirection with safe relative path validation is implemented.
+
+Middleware protections
+- /src/middleware.ts enforces session cookie on protected app/API paths.
+- Protected examples: /upload, /dashboard, /admin, /profile, /settings, /paper, /ai-content and related API prefixes.
+- Unauthenticated API requests return JSON 401; app pages redirect to /login?next=...
+
+Paid-content protection status
+- Monetary paid content guardrails are not yet implemented (no Razorpay/subscription validation middleware).
+- Current protection pattern is:
+  - Authentication gate via middleware + getServerUser()
+  - Role exemptions for admin/founder
+  - Daily usage quotas via ai_usage/pdf_usage/User_Quotas collections
+  - Feature limits enforced in AI/PDF endpoints.
+
+============================================================
+8) PRACTICAL ORIENTATION FOR FUTURE IMPLEMENTERS
+============================================================
+If extending this architecture, start with:
+- /src/app/api/generate-notes-stream/route.ts (core cache+AI+Gotenberg flow)
+- /src/lib/ai-pdf-pipeline.ts (Azure Gotenberg integration details)
+- /src/lib/appwrite.ts (all canonical collection/bucket IDs)
+- /src/lib/auth.ts + /src/middleware.ts (session and protection model)
+- /docs/launch/v2/DATABASE_SCHEMA.md (schema definitions and drift notes)
+
