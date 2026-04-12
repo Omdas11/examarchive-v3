@@ -14,11 +14,13 @@ on:
   push:
     branches: [ main ]
     paths:
-      - "docs/AI_UPGRADE.md"
+      - "docs/ai-note-worker.md"
       - "scripts/v2/sync-appwrite-ai.js"
       - "scripts/v2/appwrite-schema-setup.js"
       - "scripts/v2/sync-appwrite-schema.js"
       - "scripts/hard-reset-ingestion.ts"
+      - "appwrite/functions/ai-note-worker/**"
+      - "src/app/api/ai/jobs/execute/route.ts"
       - ".github/workflows/appwrite-ai-sync.yml"
 
 permissions:
@@ -50,4 +52,7 @@ jobs:
           APPWRITE_ENDPOINT: ${{ secrets.APPWRITE_ENDPOINT }}
           APPWRITE_PROJECT_ID: ${{ secrets.APPWRITE_PROJECT_ID }}
           APPWRITE_API_KEY: ${{ secrets.APPWRITE_API_KEY }}
+          NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+          APPWRITE_AI_WORKER_BASE_URL: ${{ secrets.APPWRITE_AI_WORKER_BASE_URL }}
+          APPWRITE_AI_WORKER_SHARED_SECRET: ${{ secrets.APPWRITE_AI_WORKER_SHARED_SECRET }}
         run: npm run sync:appwrite-ai

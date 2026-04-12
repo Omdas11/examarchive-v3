@@ -46,5 +46,6 @@ The growth and monetization prep checklist is now split into focused docs:
 | [docs/launch/GOOGLE_ANALYTICS_SETUP.md](./launch/GOOGLE_ANALYTICS_SETUP.md) | GA4 implementation and event taxonomy guide |
 | [docs/SIMPLE_ANALYTICS_SETUP.md](./SIMPLE_ANALYTICS_SETUP.md) | Simple Analytics configuration steps and verification checklist |
 | [docs/launch/v2/DATABASE_SCHEMA.md](./launch/v2/DATABASE_SCHEMA.md) | Appwrite collection schemas |
+| [docs/ai-note-worker.md](./ai-note-worker.md) | Appwrite AI worker deployment automation and website execution flow |
 | [docs/UPLOAD_FLOW.md](./UPLOAD_FLOW.md) | End-to-end upload and moderation architecture |
 | [docs/payments/razorpay-integration.md](./payments/razorpay-integration.md) | Razorpay verification routes and Purchases schema architecture |

@@ -11,6 +11,9 @@ jest.mock("node-appwrite", () => ({
     },
   })),
   Functions: jest.fn(),
+  InputFile: {
+    fromPath: jest.fn().mockReturnValue({ __file: true }),
+  },
 }));
 
 jest.mock("./v2/sync-appwrite-schema", () => ({
@@ -20,11 +23,23 @@ jest.mock("./v2/sync-appwrite-schema", () => ({
 }));
 
 const { createAttribute, waitForAttributeAvailability } = require("./v2/sync-appwrite-schema");
-const { ensureFunctionExists, syncCollection, assertRequiredFunctionsSynced } = require("./v2/sync-appwrite-ai");
+const {
+  ensureFunctionExists,
+  syncCollection,
+  assertRequiredFunctionsSynced,
+  resolveWorkerVariables,
+} = require("./v2/sync-appwrite-ai");
 
 describe("sync-appwrite-ai", () => {
+  const originalEnv = process.env;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    process.env = { ...originalEnv };
+  });
+
+  afterAll(() => {
+    process.env = originalEnv;
   });
 
   describe("ensureFunctionExists", () => {
@@ -32,6 +47,7 @@ describe("sync-appwrite-ai", () => {
       const functions = {
         get: jest.fn().mockResolvedValue({ $id: "ai-admin-report" }),
         create: jest.fn(),
+        update: jest.fn().mockResolvedValue({}),
       };
 
       const result = await ensureFunctionExists(functions, {
@@ -42,12 +58,25 @@ describe("sync-appwrite-ai", () => {
 
       expect(result).toEqual({ functionId: "ai-admin-report", created: false, runtime: "node-20.0" });
       expect(functions.create).not.toHaveBeenCalled();
+      expect(functions.update).toHaveBeenCalledWith({
+        functionId: "ai-admin-report",
+        name: "ai-admin-report",
+        runtime: "node-20.0",
+        execute: [],
+        events: undefined,
+        schedule: undefined,
+        entrypoint: undefined,
+        commands: undefined,
+        enabled: true,
+        logging: true,
+      });
     });
 
     test("creates missing function with positional args expected by SDK", async () => {
       const functions = {
         get: jest.fn().mockRejectedValue({ code: 404 }),
         create: jest.fn().mockResolvedValue({}),
+        update: jest.fn(),
       };
 
       const func = {
@@ -68,6 +97,11 @@ describe("sync-appwrite-ai", () => {
         ["role:admin"],
         undefined,
         "0 2 * * 1",
+        undefined,
+        true,
+        true,
+        undefined,
+        undefined,
       );
     });
   
@@ -78,6 +112,7 @@ describe("sync-appwrite-ai", () => {
           .fn()
           .mockRejectedValueOnce({ type: "runtime_not_found", message: "Runtime not found" })
           .mockResolvedValueOnce({}),
+        update: jest.fn(),
       };
 
       const func = {
@@ -98,6 +133,11 @@ describe("sync-appwrite-ai", () => {
         ["any"],
         undefined,
         undefined,
+        undefined,
+        true,
+        true,
+        undefined,
+        undefined,
       );
       expect(functions.create).toHaveBeenNthCalledWith(
         2,
@@ -107,7 +147,38 @@ describe("sync-appwrite-ai", () => {
         ["any"],
         undefined,
         undefined,
+        undefined,
+        true,
+        true,
+        undefined,
+        undefined,
       );
+    });
+  });
+
+  describe("resolveWorkerVariables", () => {
+    test("uses explicit AI worker env overrides", () => {
+      process.env.APPWRITE_AI_WORKER_BASE_URL = "https://example.com/";
+      process.env.APPWRITE_AI_WORKER_SHARED_SECRET = "worker-secret";
+
+      const vars = resolveWorkerVariables();
+
+      expect(vars).toEqual([
+        { key: "EXAMARCHIVE_BASE_URL", value: "https://example.com", secret: false },
+        { key: "EXAMARCHIVE_WORKER_SHARED_SECRET", value: "worker-secret", secret: true },
+      ]);
+    });
+
+    test("falls back to APPWRITE_API_KEY for worker secret", () => {
+      process.env.NEXT_PUBLIC_SITE_URL = "https://www.examarchive.dev/";
+      process.env.APPWRITE_API_KEY = "fallback-api-key";
+
+      const vars = resolveWorkerVariables();
+
+      expect(vars).toEqual([
+        { key: "EXAMARCHIVE_BASE_URL", value: "https://www.examarchive.dev", secret: false },
+        { key: "EXAMARCHIVE_WORKER_SHARED_SECRET", value: "fallback-api-key", secret: true },
+      ]);
     });
   });
 
