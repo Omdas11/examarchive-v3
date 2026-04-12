@@ -37,6 +37,7 @@ const GENERATED_MARKDOWN_MAX_LEN = 1_000_000;
 const SYLLABUS_CONTENT_MAX_LEN = 10_000;
 const DEFAULT_PERSONALIZATION_TAGS = ["watermark:email_footer", "personalization:enabled"];
 const MAX_PERSONALIZATION_TAGS = 20;
+const PERSONALIZATION_TAG_MAX_LEN = 64;
 
 function isAdminPlus(role: string): boolean {
   return role === "admin" || role === "founder";
@@ -388,7 +389,7 @@ async function ensureNotesCacheSchema(): Promise<void> {
       DATABASE_ID,
       COLLECTION.generated_notes_cache,
       "personalization_tags",
-      64,
+      PERSONALIZATION_TAG_MAX_LEN,
       false,
       undefined,
       true,
@@ -737,7 +738,7 @@ async function persistCachedNotesRecord(args: PersistCachedNotesRecordArgs): Pro
     ? args.personalizationTags
     : DEFAULT_PERSONALIZATION_TAGS;
   const cleanPersonalizationTags = sourcePersonalizationTags
-    .map((tag) => (typeof tag === "string" ? tag.trim() : ""))
+    .map((tag) => (typeof tag === "string" ? tag.trim().slice(0, PERSONALIZATION_TAG_MAX_LEN) : ""))
     .filter(Boolean)
     .slice(0, MAX_PERSONALIZATION_TAGS);
   try {
@@ -982,13 +983,29 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Invalid selection. Please choose course, stream, type, paper code, and unit 1-5." }, { status: 400 });
   }
   if (!azureGotenbergUrl) {
+    console.error("[generate-notes-stream] Missing required environment variable: AZURE_GOTENBERG_URL", {
+      route: "/api/generate-notes-stream",
+      userId: user.id,
+      hasGeminiKey: Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY),
+    });
     return NextResponse.json(
       { error: "Server misconfiguration: AZURE_GOTENBERG_URL is missing." },
       { status: 503 },
     );
   }
 
-  await ensureNotesCacheSchema();
+  try {
+    await ensureNotesCacheSchema();
+  } catch (error) {
+    console.error("[generate-notes-stream] Database Initialization Failed while ensuring notes cache schema:", error);
+    return NextResponse.json(
+      {
+        error: "Database Initialization Failed: Unable to initialize notes cache schema.",
+        code: "DATABASE_INITIALIZATION_FAILED",
+      },
+      { status: 503 },
+    );
+  }
   await ensureMarkdownCacheBucket();
   const completedCache = await readCachedNotes(university, course, streamName, type, paperCode, unitNumber, semester);
   if (completedCache) {
@@ -1122,7 +1139,13 @@ export async function GET(request: NextRequest) {
     }
   }
   const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-  if (!geminiApiKey) return NextResponse.json({ error: "Google Gemini is not configured." }, { status: 503 });
+  if (!geminiApiKey) {
+    console.error("[generate-notes-stream] Missing required environment variable: GEMINI_API_KEY/GOOGLE_API_KEY", {
+      route: "/api/generate-notes-stream",
+      userId: user.id,
+    });
+    return NextResponse.json({ error: "Google Gemini is not configured." }, { status: 503 });
+  }
 
   const stream = new ReadableStream<Uint8Array>({
     start: async (controller) => {

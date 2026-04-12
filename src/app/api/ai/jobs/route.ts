@@ -104,6 +104,19 @@ async function findByIdempotency(userId: string, idempotencyKey: string) {
   return existing.documents[0] ?? null;
 }
 
+async function pingAiWorkerFunctionService(): Promise<void> {
+  const functions = adminFunctions();
+  try {
+    await functions.get(AI_NOTE_WORKER_FUNCTION_ID);
+  } catch (error) {
+    console.error("[ai-jobs] Appwrite Functions ping failed before execution:", {
+      functionId: AI_NOTE_WORKER_FUNCTION_ID,
+      error,
+    });
+    throw new Error("AI worker service is currently unavailable. Please try again later.");
+  }
+}
+
 export async function POST(request: NextRequest) {
   const user = await getServerUser();
   if (!user) {
@@ -130,6 +143,15 @@ export async function POST(request: NextRequest) {
   if (!paperCode) return NextResponse.json({ error: "Invalid selection: paper code is required." }, { status: 400 });
   if (!Number.isInteger(unitNumber) || unitNumber < 1 || unitNumber > 5) {
     return NextResponse.json({ error: "Invalid selection: unit number must be between 1 and 5." }, { status: 400 });
+  }
+  if (!(process.env.AZURE_GOTENBERG_URL || "").trim()) {
+    return NextResponse.json(
+      {
+        error: "PDF Engine not configured (Missing GOTENBERG_URL)",
+        code: "SERVER_MISCONFIGURATION",
+      },
+      { status: 503 },
+    );
   }
 
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -171,6 +193,19 @@ export async function POST(request: NextRequest) {
       jobId: alreadyQueued.$id,
       job: mapJobResponse(alreadyQueued),
     });
+  }
+
+  try {
+    await pingAiWorkerFunctionService();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to reach AI worker service.";
+    return NextResponse.json(
+      {
+        error: message,
+        code: "SERVICE_UNAVAILABLE",
+      },
+      { status: 503 },
+    );
   }
 
   const db = adminDatabases();
