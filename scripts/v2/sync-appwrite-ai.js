@@ -156,7 +156,7 @@ function isAttributeLimitExceeded(error) {
 function runtimeErrorLooksRecoverable(error) {
   const type = `${error?.type ?? error?.response?.type ?? ""}`.toLowerCase();
   const message = `${error?.message ?? error?.response?.message ?? ""}`.toLowerCase();
-  return type.includes("runtime") || message.includes("runtime") || message.includes("not found");
+  return type.includes("runtime") || message.includes("runtime") || message.includes("runtime not found");
 }
 async function ensureCollectionExists(databases, collection) {
   try {
@@ -214,9 +214,9 @@ async function syncCollection(databases, collection) {
 
 async function ensureFunctionExists(functions, func) {
   try {
-    await functions.get(func.id);
+    const existing = await functions.get(func.id);
     console.log(`[exists] function ${func.id}`);
-    return { functionId: func.id, created: false, runtime: func.runtime };
+    return { functionId: func.id, created: false, runtime: existing.runtime };
   } catch (error) {
     if (!isNotFoundError(error)) {
       throw error;
