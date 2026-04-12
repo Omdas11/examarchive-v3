@@ -105,11 +105,14 @@ const AI_COLLECTIONS = [
   },
 ];
 
+const DEFAULT_FUNCTION_RUNTIME = process.env.APPWRITE_FUNCTION_RUNTIME || "node-22.0";
+const FALLBACK_FUNCTION_RUNTIMES = ["node-20.0", "node-18.0"];
+
 const TARGET_FUNCTIONS = [
   {
     id: "ai-admin-report",
     name: "ai-admin-report",
-    runtime: "node-18.0",
+    runtime: DEFAULT_FUNCTION_RUNTIME,
     description: "Weekly Gemini 2.5 Flash admin/security digest",
     schedule: "0 2 * * 1",
     execute: ["any"],
@@ -117,25 +120,26 @@ const TARGET_FUNCTIONS = [
   {
     id: "ai-syllabus-map",
     name: "ai-syllabus-map",
-    runtime: "node-18.0",
+    runtime: DEFAULT_FUNCTION_RUNTIME,
     description: "Gemini 3.1 Flash Lite syllabus to archive mapper",
     execute: ["any"],
   },
   {
     id: "ai-flashcards",
     name: "ai-flashcards",
-    runtime: "node-18.0",
+    runtime: DEFAULT_FUNCTION_RUNTIME,
     description: "Gemini 3.1 Flash Lite flashcard/quiz generator",
     execute: ["any"],
   },
   {
     id: "ai-note-worker",
     name: "ai-note-worker",
-    runtime: "node-18.0",
+    runtime: DEFAULT_FUNCTION_RUNTIME,
     description: "Async notes generation worker",
     execute: ["any"],
   },
 ];
+const REQUIRED_FUNCTION_IDS = ["ai-note-worker"];
 
 function createFunctionsClient() {
   const { endpoint, projectId, apiKey } = loadAppwriteEnv();
@@ -148,6 +152,13 @@ function isAttributeLimitExceeded(error) {
   return type === "attribute_limit_exceeded";
 }
 
+
+
+function runtimeErrorLooksRecoverable(error) {
+  const type = `${error?.type ?? error?.response?.type ?? ""}`.toLowerCase();
+  const message = `${error?.message ?? error?.response?.message ?? ""}`.toLowerCase();
+  return type.includes("runtime") || message.includes("runtime") || message.includes("not found");
+}
 async function ensureCollectionExists(databases, collection) {
   try {
     await databases.getCollection(DATABASE_ID, collection.id);
@@ -206,21 +217,53 @@ async function ensureFunctionExists(functions, func) {
   try {
     await functions.get(func.id);
     console.log(`[exists] function ${func.id}`);
-    return { functionId: func.id, created: false };
+    return { functionId: func.id, created: false, runtime: func.runtime };
   } catch (error) {
     if (!isNotFoundError(error)) {
       throw error;
     }
-    await functions.create(
-      func.id,
-      func.name,
-      func.runtime,
-      func.execute ?? [],
-      func.events,
-      func.schedule,
-    );
-    console.log(`[create] function ${func.id}`);
-    return { functionId: func.id, created: true };
+
+    const runtimesToTry = [func.runtime, ...FALLBACK_FUNCTION_RUNTIMES.filter((runtime) => runtime !== func.runtime)];
+    let lastError;
+
+    for (const runtime of runtimesToTry) {
+      try {
+        await functions.create(
+          func.id,
+          func.name,
+          runtime,
+          func.execute ?? [],
+          func.events,
+          func.schedule,
+        );
+        if (runtime !== func.runtime) {
+          console.warn(`[warn] function ${func.id} created with fallback runtime ${runtime} (requested ${func.runtime})`);
+        }
+        console.log(`[create] function ${func.id}`);
+        return { functionId: func.id, created: true, runtime };
+      } catch (createError) {
+        lastError = createError;
+        if (!runtimeErrorLooksRecoverable(createError) || runtime === runtimesToTry[runtimesToTry.length - 1]) {
+          throw createError;
+        }
+        console.warn(
+          `[warn] function ${func.id} runtime ${runtime} failed, retrying with fallback runtime...`,
+        );
+      }
+    }
+
+    throw lastError;
+  }
+}
+
+function assertRequiredFunctionsSynced(functionResults) {
+  const syncedIds = new Set(functionResults.map((result) => result.functionId));
+  for (const requiredId of REQUIRED_FUNCTION_IDS) {
+    if (!syncedIds.has(requiredId)) {
+      throw new Error(
+        `Required AI function "${requiredId}" was not synced. Check TARGET_FUNCTIONS and Appwrite credentials.`,
+      );
+    }
   }
 }
 
@@ -238,6 +281,7 @@ async function main() {
   for (const func of TARGET_FUNCTIONS) {
     functionResults.push(await ensureFunctionExists(functions, func));
   }
+  assertRequiredFunctionsSynced(functionResults);
 
   console.log("AI collections:");
   for (const result of collectionResults) {
@@ -251,7 +295,7 @@ async function main() {
 
   console.log("AI functions:");
   for (const result of functionResults) {
-    console.log(` ${result.created ? "[create]" : "[exists]"} ${result.functionId}`);
+    console.log(` ${result.created ? "[create]" : "[exists]"} ${result.functionId} (runtime=${result.runtime})`);
   }
 
   console.log("AI Appwrite sync complete.");
@@ -270,4 +314,5 @@ module.exports = {
   TARGET_FUNCTIONS,
   syncCollection,
   ensureFunctionExists,
+  assertRequiredFunctionsSynced,
 };

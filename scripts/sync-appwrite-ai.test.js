@@ -20,7 +20,7 @@ jest.mock("./v2/sync-appwrite-schema", () => ({
 }));
 
 const { createAttribute, waitForAttributeAvailability } = require("./v2/sync-appwrite-schema");
-const { ensureFunctionExists, syncCollection } = require("./v2/sync-appwrite-ai");
+const { ensureFunctionExists, syncCollection, assertRequiredFunctionsSynced } = require("./v2/sync-appwrite-ai");
 
 describe("sync-appwrite-ai", () => {
   beforeEach(() => {
@@ -40,7 +40,7 @@ describe("sync-appwrite-ai", () => {
         runtime: "node-20.0",
       });
 
-      expect(result).toEqual({ functionId: "ai-admin-report", created: false });
+      expect(result).toEqual({ functionId: "ai-admin-report", created: false, runtime: "node-20.0" });
       expect(functions.create).not.toHaveBeenCalled();
     });
 
@@ -60,7 +60,7 @@ describe("sync-appwrite-ai", () => {
 
       const result = await ensureFunctionExists(functions, func);
 
-      expect(result).toEqual({ functionId: "ai-admin-report", created: true });
+      expect(result).toEqual({ functionId: "ai-admin-report", created: true, runtime: "node-20.0" });
       expect(functions.create).toHaveBeenCalledWith(
         "ai-admin-report",
         "ai-admin-report",
@@ -68,6 +68,45 @@ describe("sync-appwrite-ai", () => {
         ["role:admin"],
         undefined,
         "0 2 * * 1",
+      );
+    });
+  
+    test("retries with fallback runtime when preferred runtime is unavailable", async () => {
+      const functions = {
+        get: jest.fn().mockRejectedValue({ code: 404 }),
+        create: jest
+          .fn()
+          .mockRejectedValueOnce({ type: "runtime_not_found", message: "Runtime not found" })
+          .mockResolvedValueOnce({}),
+      };
+
+      const func = {
+        id: "ai-note-worker",
+        name: "ai-note-worker",
+        runtime: "node-22.0",
+        execute: ["any"],
+      };
+
+      const result = await ensureFunctionExists(functions, func);
+
+      expect(result).toEqual({ functionId: "ai-note-worker", created: true, runtime: "node-20.0" });
+      expect(functions.create).toHaveBeenNthCalledWith(
+        1,
+        "ai-note-worker",
+        "ai-note-worker",
+        "node-22.0",
+        ["any"],
+        undefined,
+        undefined,
+      );
+      expect(functions.create).toHaveBeenNthCalledWith(
+        2,
+        "ai-note-worker",
+        "ai-note-worker",
+        "node-20.0",
+        ["any"],
+        undefined,
+        undefined,
       );
     });
   });
@@ -168,6 +207,23 @@ describe("sync-appwrite-ai", () => {
         attributeLimitExceeded: true,
       });
       expect(waitForAttributeAvailability).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("assertRequiredFunctionsSynced", () => {
+    test("passes when ai-note-worker is present", () => {
+      expect(() =>
+        assertRequiredFunctionsSynced([
+          { functionId: "ai-note-worker", created: true, runtime: "node-22.0" },
+          { functionId: "ai-admin-report", created: false, runtime: "node-22.0" },
+        ]),
+      ).not.toThrow();
+    });
+
+    test("throws when ai-note-worker is missing", () => {
+      expect(() =>
+        assertRequiredFunctionsSynced([{ functionId: "ai-admin-report", created: true, runtime: "node-22.0" }]),
+      ).toThrow('Required AI function "ai-note-worker" was not synced');
     });
   });
 });
