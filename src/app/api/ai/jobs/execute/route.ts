@@ -4,12 +4,7 @@ import { processAiGenerationJob } from "@/lib/ai-generation-worker";
 const MAX_JOB_ID_LENGTH = 128;
 
 function getWorkerSecret(): string {
-  return (
-    process.env.APPWRITE_AI_WORKER_SHARED_SECRET ||
-    process.env.APPWRITE_WORKER_SHARED_SECRET ||
-    process.env.APPWRITE_API_KEY ||
-    ""
-  ).trim();
+  return (process.env.APPWRITE_AI_WORKER_SHARED_SECRET || process.env.APPWRITE_WORKER_SHARED_SECRET || "").trim();
 }
 
 function normalizeJobId(raw: unknown): string {

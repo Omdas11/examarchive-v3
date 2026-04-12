@@ -36,7 +36,5 @@ Set in GitHub Actions/Appwrite environment:
 - `APPWRITE_ENDPOINT`
 - `APPWRITE_PROJECT_ID`
 - `APPWRITE_API_KEY`
-- `APPWRITE_AI_WORKER_SHARED_SECRET` (recommended dedicated secret)
+- `APPWRITE_AI_WORKER_SHARED_SECRET` (required dedicated secret)
 - `APPWRITE_AI_WORKER_BASE_URL` (or fallback `NEXT_PUBLIC_SITE_URL`)
-
-> If `APPWRITE_AI_WORKER_SHARED_SECRET` is absent, automation falls back to `APPWRITE_API_KEY` for compatibility.

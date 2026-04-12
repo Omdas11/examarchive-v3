@@ -230,18 +230,26 @@ async function syncCollection(databases, collection) {
 async function ensureFunctionExists(functions, func) {
   try {
     const existing = await functions.get(func.id);
-    await functions.update({
-      functionId: func.id,
-      name: func.name,
-      runtime: func.runtime,
-      execute: func.execute ?? [],
-      events: func.events,
-      schedule: func.schedule,
-      entrypoint: func.entrypoint,
-      commands: func.commands,
-      enabled: true,
-      logging: true,
-    });
+    try {
+      await functions.update({
+        functionId: func.id,
+        name: func.name,
+        runtime: func.runtime,
+        execute: func.execute ?? [],
+        events: func.events,
+        schedule: func.schedule,
+        entrypoint: func.entrypoint,
+        commands: func.commands,
+        enabled: true,
+        logging: true,
+      });
+    } catch (updateError) {
+      throw new Error(
+        `Failed to update function configuration for "${func.id}": ${
+          updateError instanceof Error ? updateError.message : String(updateError)
+        }`,
+      );
+    }
     console.log(`[exists] function ${func.id}`);
     return { functionId: func.id, created: false, runtime: existing.runtime || func.runtime };
   } catch (error) {
@@ -294,14 +302,10 @@ function normalizeBaseUrl(value) {
 }
 
 function resolveWorkerVariables() {
-  const sharedSecret =
-    process.env.APPWRITE_AI_WORKER_SHARED_SECRET ||
-    process.env.APPWRITE_WORKER_SHARED_SECRET ||
-    process.env.APPWRITE_API_KEY ||
-    "";
+  const sharedSecret = process.env.APPWRITE_AI_WORKER_SHARED_SECRET || process.env.APPWRITE_WORKER_SHARED_SECRET || "";
   if (!sharedSecret) {
     throw new Error(
-      "Missing APPWRITE_AI_WORKER_SHARED_SECRET/APPWRITE_WORKER_SHARED_SECRET/APPWRITE_API_KEY for ai-note-worker variable sync.",
+      "Missing APPWRITE_AI_WORKER_SHARED_SECRET/APPWRITE_WORKER_SHARED_SECRET for ai-note-worker variable sync.",
     );
   }
   return [
@@ -339,10 +343,21 @@ function createFunctionArchive(functionId, sourceDir) {
   }
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), `${functionId}-deployment-`));
   const archivePath = path.join(tmpDir, `${functionId}.tar.gz`);
-  execFileSync("tar", ["-czf", archivePath, "-C", sourceDir, "."], { stdio: "inherit" });
+  try {
+    execFileSync("tar", ["-czf", archivePath, "-C", sourceDir, "."], { stdio: "inherit" });
+  } catch (error) {
+    throw new Error(
+      `Failed to create deployment archive for "${functionId}" from "${sourceDir}": ${
+        error instanceof Error ? error.message : String(error)
+      }. Verify 'tar' is installed (if you see command-not-found) and source files are readable.`,
+    );
+  }
   const stats = fs.statSync(archivePath);
-  if (!stats.isFile() || stats.size <= 0) {
-    throw new Error(`Generated deployment archive is empty for ${functionId}: ${archivePath}`);
+  if (!stats.isFile()) {
+    throw new Error(`Generated deployment archive path is not a file for ${functionId}: ${archivePath}`);
+  }
+  if (stats.size <= 0) {
+    throw new Error(`Generated deployment archive has zero bytes for ${functionId}: ${archivePath}`);
   }
   return { tmpDir, archivePath, archiveSize: stats.size };
 }

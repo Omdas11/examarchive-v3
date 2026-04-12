@@ -169,16 +169,14 @@ describe("sync-appwrite-ai", () => {
       ]);
     });
 
-    test("falls back to APPWRITE_API_KEY for worker secret", () => {
+    test("throws when worker shared secret is missing", () => {
       process.env.NEXT_PUBLIC_SITE_URL = "https://www.examarchive.dev/";
-      process.env.APPWRITE_API_KEY = "fallback-api-key";
+      delete process.env.APPWRITE_AI_WORKER_SHARED_SECRET;
+      delete process.env.APPWRITE_WORKER_SHARED_SECRET;
 
-      const vars = resolveWorkerVariables();
-
-      expect(vars).toEqual([
-        { key: "EXAMARCHIVE_BASE_URL", value: "https://www.examarchive.dev", secret: false },
-        { key: "EXAMARCHIVE_WORKER_SHARED_SECRET", value: "fallback-api-key", secret: true },
-      ]);
+      expect(() => resolveWorkerVariables()).toThrow(
+        "Missing APPWRITE_AI_WORKER_SHARED_SECRET/APPWRITE_WORKER_SHARED_SECRET",
+      );
     });
   });
 

@@ -15,6 +15,8 @@ function normalizeBaseUrl(value) {
   return raw.replace(/\/+$/, "");
 }
 
+const MAX_ERROR_TEXT_LENGTH = 500;
+
 module.exports = async ({ req, res, log, error }) => {
   const payload = parseJobPayload(req?.body);
   const jobId = typeof payload.jobId === "string" ? payload.jobId.trim() : "";
@@ -42,7 +44,9 @@ module.exports = async ({ req, res, log, error }) => {
   });
 
   if (!response.ok) {
-    const text = (await response.text()).slice(0, 500);
+    const responseText = await response.text();
+    const isTruncated = responseText.length > MAX_ERROR_TEXT_LENGTH;
+    const text = responseText.slice(0, MAX_ERROR_TEXT_LENGTH) + (isTruncated ? "… (truncated)" : "");
     error(`Worker dispatch failed (${response.status}): ${text}`);
     return res.json(
       { ok: false, error: "Failed to dispatch job to website worker endpoint.", status: response.status },
