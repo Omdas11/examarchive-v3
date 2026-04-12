@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
+    return NextResponse.json({ error: "Request body must be valid JSON." }, { status: 400 });
   }
 
   const university = (body.university || "Assam University").trim();
