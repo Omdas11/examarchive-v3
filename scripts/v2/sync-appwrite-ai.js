@@ -8,7 +8,11 @@
  * node scripts/v2/sync-appwrite-ai.js
  */
 
-const { Client, Functions } = require("node-appwrite");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
+const { execFileSync } = require("node:child_process");
+const { Client, Functions, InputFile } = require("node-appwrite");
 const {
   createAppwriteDatabasesClient,
   loadAppwriteEnv,
@@ -21,6 +25,10 @@ const {
 } = require("./sync-appwrite-schema");
 
 const DATABASE_ID = "examarchive";
+const AI_NOTE_WORKER_FUNCTION_ID = "ai-note-worker";
+const AI_NOTE_WORKER_ENTRYPOINT = "index.js";
+const AI_NOTE_WORKER_SOURCE_DIR = path.resolve(__dirname, "../../appwrite/functions/ai-note-worker");
+const DEFAULT_SITE_URL = "https://www.examarchive.dev";
 
 const AI_COLLECTIONS = [
   {
@@ -109,7 +117,7 @@ const AI_COLLECTIONS = [
 let DEFAULT_FUNCTION_RUNTIME;
 const FALLBACK_FUNCTION_RUNTIMES = ["node-20.0", "node-18.0"];
 let TARGET_FUNCTIONS;
-const REQUIRED_FUNCTION_IDS = ["ai-note-worker"];
+const REQUIRED_FUNCTION_IDS = [AI_NOTE_WORKER_FUNCTION_ID];
 
 function initializeFunctionConfig() {
   DEFAULT_FUNCTION_RUNTIME = process.env.APPWRITE_FUNCTION_RUNTIME || "node-22.0";
@@ -137,11 +145,13 @@ function initializeFunctionConfig() {
       execute: ["any"],
     },
     {
-      id: "ai-note-worker",
-      name: "ai-note-worker",
+      id: AI_NOTE_WORKER_FUNCTION_ID,
+      name: AI_NOTE_WORKER_FUNCTION_ID,
       runtime: DEFAULT_FUNCTION_RUNTIME,
       description: "Async notes generation worker",
       execute: ["any"],
+      entrypoint: AI_NOTE_WORKER_ENTRYPOINT,
+      sourceDir: AI_NOTE_WORKER_SOURCE_DIR,
     },
   ];
 }
@@ -220,8 +230,20 @@ async function syncCollection(databases, collection) {
 async function ensureFunctionExists(functions, func) {
   try {
     const existing = await functions.get(func.id);
+    await functions.update({
+      functionId: func.id,
+      name: func.name,
+      runtime: func.runtime,
+      execute: func.execute ?? [],
+      events: func.events,
+      schedule: func.schedule,
+      entrypoint: func.entrypoint,
+      commands: func.commands,
+      enabled: true,
+      logging: true,
+    });
     console.log(`[exists] function ${func.id}`);
-    return { functionId: func.id, created: false, runtime: existing.runtime };
+    return { functionId: func.id, created: false, runtime: existing.runtime || func.runtime };
   } catch (error) {
     if (!isNotFoundError(error)) {
       throw error;
@@ -239,6 +261,11 @@ async function ensureFunctionExists(functions, func) {
           func.execute ?? [],
           func.events,
           func.schedule,
+          undefined,
+          true,
+          true,
+          func.entrypoint,
+          func.commands,
         );
         if (runtime !== func.runtime) {
           console.warn(`[warn] function ${func.id} created with fallback runtime ${runtime} (requested ${func.runtime})`);
@@ -257,6 +284,93 @@ async function ensureFunctionExists(functions, func) {
     }
 
     throw lastError;
+  }
+}
+
+function normalizeBaseUrl(value) {
+  const input = `${value || ""}`.trim();
+  if (!input) return DEFAULT_SITE_URL;
+  return input.replace(/\/+$/, "");
+}
+
+function resolveWorkerVariables() {
+  const sharedSecret =
+    process.env.APPWRITE_AI_WORKER_SHARED_SECRET ||
+    process.env.APPWRITE_WORKER_SHARED_SECRET ||
+    process.env.APPWRITE_API_KEY ||
+    "";
+  if (!sharedSecret) {
+    throw new Error(
+      "Missing APPWRITE_AI_WORKER_SHARED_SECRET/APPWRITE_WORKER_SHARED_SECRET/APPWRITE_API_KEY for ai-note-worker variable sync.",
+    );
+  }
+  return [
+    {
+      key: "EXAMARCHIVE_BASE_URL",
+      value: normalizeBaseUrl(process.env.APPWRITE_AI_WORKER_BASE_URL || process.env.NEXT_PUBLIC_SITE_URL),
+      secret: false,
+    },
+    {
+      key: "EXAMARCHIVE_WORKER_SHARED_SECRET",
+      value: sharedSecret,
+      secret: true,
+    },
+  ];
+}
+
+async function upsertFunctionVariables(functions, functionId, variables) {
+  const current = await functions.listVariables(functionId);
+  const byKey = new Map(current.variables.map((variable) => [variable.key, variable]));
+  for (const variable of variables) {
+    const existing = byKey.get(variable.key);
+    if (existing) {
+      await functions.updateVariable(functionId, existing.$id, variable.key, variable.value, variable.secret);
+      console.log(`[update] function variable ${functionId}.${variable.key}`);
+      continue;
+    }
+    await functions.createVariable(functionId, variable.key, variable.value, variable.secret);
+    console.log(`[create] function variable ${functionId}.${variable.key}`);
+  }
+}
+
+function createFunctionArchive(functionId, sourceDir) {
+  if (!fs.existsSync(sourceDir)) {
+    throw new Error(`Function source directory missing for ${functionId}: ${sourceDir}`);
+  }
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), `${functionId}-deployment-`));
+  const archivePath = path.join(tmpDir, `${functionId}.tar.gz`);
+  execFileSync("tar", ["-czf", archivePath, "-C", sourceDir, "."], { stdio: "inherit" });
+  const stats = fs.statSync(archivePath);
+  if (!stats.isFile() || stats.size <= 0) {
+    throw new Error(`Generated deployment archive is empty for ${functionId}: ${archivePath}`);
+  }
+  return { tmpDir, archivePath, archiveSize: stats.size };
+}
+
+async function deployFunctionSource(functions, func) {
+  if (!func.sourceDir) {
+    return null;
+  }
+  const { tmpDir, archivePath, archiveSize } = createFunctionArchive(func.id, func.sourceDir);
+  try {
+    const deployment = await functions.createDeployment(
+      func.id,
+      InputFile.fromPath(archivePath, `${func.id}.tar.gz`),
+      true,
+      func.entrypoint,
+      func.commands,
+    );
+    console.log(
+      `[deploy] function ${func.id} deployment=${deployment.$id} status=${deployment.status} archive_size=${archiveSize}B`,
+    );
+    return {
+      functionId: func.id,
+      deploymentId: deployment.$id,
+      status: deployment.status,
+      archiveSize,
+    };
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
   }
 }
 
@@ -287,8 +401,13 @@ async function main() {
   }
 
   const functionResults = [];
+  const deploymentResults = [];
   for (const func of TARGET_FUNCTIONS) {
     functionResults.push(await ensureFunctionExists(functions, func));
+    if (func.id === AI_NOTE_WORKER_FUNCTION_ID) {
+      await upsertFunctionVariables(functions, func.id, resolveWorkerVariables());
+    }
+    deploymentResults.push(await deployFunctionSource(functions, func));
   }
   assertRequiredFunctionsSynced(functionResults);
 
@@ -305,6 +424,11 @@ async function main() {
   console.log("AI functions:");
   for (const result of functionResults) {
     console.log(` ${result.created ? "[create]" : "[exists]"} ${result.functionId} (runtime=${result.runtime})`);
+  }
+  for (const deployment of deploymentResults.filter(Boolean)) {
+    console.log(
+      ` [deploy] ${deployment.functionId} -> ${deployment.deploymentId} (status=${deployment.status}, size=${deployment.archiveSize}B)`,
+    );
   }
 
   console.log("AI Appwrite sync complete.");
@@ -323,5 +447,9 @@ module.exports = {
   TARGET_FUNCTIONS,
   syncCollection,
   ensureFunctionExists,
+  createFunctionArchive,
+  deployFunctionSource,
+  resolveWorkerVariables,
+  upsertFunctionVariables,
   assertRequiredFunctionsSynced,
 };
