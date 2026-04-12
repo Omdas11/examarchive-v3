@@ -18,6 +18,7 @@ const BACKEND_PAPERS_MAX_DURATION_SECONDS = 300;
 const RESUME_TIMEOUT_BUFFER_SECONDS = 5;
 const TIMEOUT_THRESHOLD_SECONDS = BACKEND_PAPERS_MAX_DURATION_SECONDS - RESUME_TIMEOUT_BUFFER_SECONDS;
 const SOLVED_PAPER_PART_SIZE = 10;
+const NOTES_JOB_POLL_INTERVAL_MS = 3000;
 type AiGenerationJobStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
 type AiGenerationJob = {
   id: string;
@@ -88,6 +89,7 @@ export default function AIContentClient() {
   const eventSourceRef = useRef<EventSource | null>(null);
   const notesJobPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const notesIdempotencyKeysRef = useRef<Map<string, string>>(new Map());
+  const notesIdempotencyFallbackCounterRef = useRef(0);
   const hasPaperCode = paperCode.trim().length > 0;
   const availableUnits = useMemo(() => {
     const units = unitsByPaperCode[paperCode];
@@ -252,9 +254,16 @@ export default function AIContentClient() {
   function ensureNotesIdempotencyKey(): string {
     const existing = notesIdempotencyKeysRef.current.get(notesSelectionKey);
     if (existing) return existing;
-    const key = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-      ? crypto.randomUUID()
-      : `${Date.now()}-${notesSelectionKey}`;
+    let key = "";
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      key = crypto.randomUUID();
+    } else if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+      const entropy = new Uint32Array(2);
+      crypto.getRandomValues(entropy);
+      key = `${Date.now()}-${entropy[0].toString(36)}-${entropy[1].toString(36)}-${notesSelectionKey}`;
+    } else {
+      key = `${Date.now()}-${++notesIdempotencyFallbackCounterRef.current}-${notesSelectionKey}`;
+    }
     notesIdempotencyKeysRef.current.set(notesSelectionKey, key);
     return key;
   }
@@ -288,7 +297,7 @@ export default function AIContentClient() {
           console.error("[ai-content] Failed to poll notes job:", pollError);
         }
       })();
-    }, 3000);
+    }, NOTES_JOB_POLL_INTERVAL_MS);
   }
 
   async function submitNotesGenerationJob() {
@@ -329,7 +338,7 @@ export default function AIContentClient() {
       setProgressTotal(job.step.stepTotal);
     }
     startNotesJobPolling(jobId);
-    showToast("Your notes job is tracked. We will email you when the PDF is ready.", "success");
+    showToast("Your notes job has been submitted and is being tracked. We will email you when the PDF is ready.", "success");
   }
 
   function startGenerationStream(baseParams: URLSearchParams, part: number, runId: number) {
@@ -472,7 +481,7 @@ export default function AIContentClient() {
     generationRunIdRef.current = runId;
     setGenerating(true);
     setError(null);
-    setProgressStatus(activeTab === "notes" ? "Searching existing PDF and markdown cache..." : "Starting chunked generation...");
+    setProgressStatus("Starting chunked generation...");
     setProgressTopic("");
     setProgressIndex(0);
     setProgressTotal(0);
@@ -869,7 +878,7 @@ export default function AIContentClient() {
                       className="btn-primary inline-flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold animate-pulse"
                       type="button"
                     >
-                      Job tracked...
+                      Job in progress...
                       <LoadingDots />
                     </button>
                   </div>
@@ -971,7 +980,7 @@ export default function AIContentClient() {
                 Step {notesJob.step.stepIndex} of {notesJob.step.stepTotal}: {notesJob.step.stepLabel}
               </p>
               <p className="mt-1 text-xs text-on-surface-variant">
-                Your notes are being prepared! You can safely close this tab or leave the site. We will email the PDF link to your registered email when it's ready.
+                Your notes are being prepared! You can safely close this tab—the job continues on the server. We will email your PDF link when ready. You can also track and download it later from Dashboard → Job History.
               </p>
               <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-outline-variant/30">
                 <div className="h-full bg-primary transition-all duration-300" style={{ width: `${notesJob.progressPercent}%` }} />

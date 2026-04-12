@@ -103,6 +103,12 @@ function relativeTime(isoDate: string): string {
   }
 }
 
+function formatJobStatusLabel(job: GenerationJob): string {
+  if (job.status === 'completed') return 'Completed';
+  if (job.status === 'running') return `Running (${job.progressPercent}%)`;
+  return job.status;
+}
+
 export default function DigitalCuratorDashboard({
   userName = 'Scholar',
   userInitials,
@@ -358,7 +364,7 @@ export default function DigitalCuratorDashboard({
                         {job.paperCode} · Unit {job.unitNumber}
                       </p>
                       <p className="text-[11px] text-on-surface-variant">
-                        {job.status === 'completed' ? 'Completed' : job.status === 'running' ? `Running (${job.progressPercent}%)` : job.status}
+                        {formatJobStatusLabel(job)}
                       </p>
                       {job.resultPdfUrl ? (
                         <a className="mt-1 inline-block text-[11px] font-semibold text-primary hover:underline" href={job.resultPdfUrl}>

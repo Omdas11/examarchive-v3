@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getServerUser } from "@/lib/auth";
 import { getDailyLimit } from "@/lib/ai-limits";
 import { checkAndResetQuotas } from "@/lib/user-quotas";
+import { NOTES_DAILY_LIMIT } from "@/lib/quota-config";
 import {
   adminDatabases,
   adminFunctions,
@@ -13,6 +14,13 @@ import {
   getAppwriteFileDownloadUrl,
 } from "@/lib/appwrite";
 import { AI_NOTE_WORKER_FUNCTION_ID, mapJobDocument } from "@/lib/ai-generation-worker";
+
+const MIN_JOBS_LIMIT = 1;
+const MAX_JOBS_LIMIT = 50;
+const DEFAULT_JOBS_LIMIT = 20;
+const MAX_ERROR_MESSAGE_LENGTH = 2000;
+const MIN_SEMESTER = 1;
+const MAX_SEMESTER = 8;
 
 type CreateJobBody = {
   university?: string;
@@ -32,7 +40,7 @@ function isAdminPlus(role: string): boolean {
 function normalizeSemester(value: unknown): number | null {
   if (typeof value !== "number" && typeof value !== "string") return null;
   const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 8) return null;
+  if (!Number.isInteger(parsed) || parsed < MIN_SEMESTER || parsed > MAX_SEMESTER) return null;
   return parsed;
 }
 
@@ -116,16 +124,20 @@ export async function POST(request: NextRequest) {
   const paperCode = (body.paperCode || "").trim();
   const unitNumber = Number(body.unitNumber);
   const semester = normalizeSemester(body.semester);
-  if (!course || !stream || !type || !paperCode || !Number.isInteger(unitNumber) || unitNumber < 1 || unitNumber > 5) {
-    return NextResponse.json({ error: "Invalid selection. Please choose course, stream, type, paper code, and unit 1-5." }, { status: 400 });
+  if (!course) return NextResponse.json({ error: "Invalid selection: course is required." }, { status: 400 });
+  if (!stream) return NextResponse.json({ error: "Invalid selection: stream is required." }, { status: 400 });
+  if (!type) return NextResponse.json({ error: "Invalid selection: type is required." }, { status: 400 });
+  if (!paperCode) return NextResponse.json({ error: "Invalid selection: paper code is required." }, { status: 400 });
+  if (!Number.isInteger(unitNumber) || unitNumber < 1 || unitNumber > 5) {
+    return NextResponse.json({ error: "Invalid selection: unit number must be between 1 and 5." }, { status: 400 });
   }
 
   const todayStr = new Date().toISOString().slice(0, 10);
   if (!isAdminPlus(user.role)) {
     const quota = await checkAndResetQuotas(user.id);
-    if (quota.notes_generated_today >= 1) {
+    if (quota.notes_generated_today >= NOTES_DAILY_LIMIT) {
       return NextResponse.json(
-        { error: "Daily limit reached for Unit Notes (1/day).", code: "NOTES_DAILY_LIMIT_REACHED" },
+        { error: `Daily limit reached for Unit Notes (${NOTES_DAILY_LIMIT}/day).`, code: "NOTES_DAILY_LIMIT_REACHED" },
         { status: 403 },
       );
     }
@@ -198,7 +210,7 @@ export async function POST(request: NextRequest) {
     await db.updateDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, jobDoc.$id, {
       status: "failed",
       progress_percent: 100,
-      error_message: message.slice(0, 2000),
+      error_message: message.slice(0, MAX_ERROR_MESSAGE_LENGTH),
       completed_at: new Date().toISOString(),
     });
     return NextResponse.json({ error: "Failed to start job worker.", detail: message }, { status: 503 });
@@ -220,7 +232,9 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const requestedLimit = Number(searchParams.get("limit"));
-  const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(1, Math.floor(requestedLimit)), 50) : 20;
+  const limit = Number.isFinite(requestedLimit)
+    ? Math.min(Math.max(MIN_JOBS_LIMIT, Math.floor(requestedLimit)), MAX_JOBS_LIMIT)
+    : DEFAULT_JOBS_LIMIT;
 
   const db = adminDatabases();
   const res = await db.listDocuments(DATABASE_ID, COLLECTION.ai_generation_jobs, [

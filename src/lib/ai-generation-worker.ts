@@ -8,6 +8,7 @@ import { incrementQuotaCounter } from "@/lib/user-quotas";
 const GEMINI_MODEL = "gemini-3.1-flash-lite-preview";
 const TOPIC_RETRY_MAX = 3;
 const MIN_TOPIC_RESPONSE_CHARS = 50;
+const MAX_ERROR_MESSAGE_LENGTH = 2000;
 
 type JobStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
 
@@ -69,7 +70,7 @@ function normalizeTags(raw: unknown): string[] {
   return [];
 }
 
-const ABBREV_DOT_RE = /(?:\d+(?:st|nd|rd|th)|\b(?:vs|etc|i\.e|e\.g|cf|al|dr|prof|mr|mrs|ms|st|nd))\./gi;
+const ABBREV_DOT_RE = /\d+(?:st|nd|rd|th)\./gi;
 const ABBREV_PLACEHOLDER = "\x00";
 
 function splitSyllabusIntoSubTopics(syllabusContent: string): string[] {
@@ -280,7 +281,7 @@ All Questions for this Unit:
 ${formattedQuestions || "No related questions found."}
 
 CRITICAL FORMAT CONSTRAINTS:
-1. Do NOT write "Unit ${unitNumber}" or repeat the paper code as heading text.
+1. Do NOT write the unit number in heading text or repeat the paper code as heading text.
 2. Do NOT use numeric prefixes for main headings (e.g. avoid "1. Heading").
 3. Start directly with a ## or ### heading for this sub-topic.
 `;
@@ -371,7 +372,7 @@ CRITICAL FORMAT CONSTRAINTS:
       status: "failed",
       progress_percent: 100,
       completed_at: new Date().toISOString(),
-      error_message: message.slice(0, 2000),
+      error_message: message.slice(0, MAX_ERROR_MESSAGE_LENGTH),
     });
     throw error;
   }
