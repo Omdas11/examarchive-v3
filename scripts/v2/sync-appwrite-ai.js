@@ -156,7 +156,7 @@ function isAttributeLimitExceeded(error) {
 function runtimeErrorLooksRecoverable(error) {
   const type = `${error?.type ?? error?.response?.type ?? ""}`.toLowerCase();
   const message = `${error?.message ?? error?.response?.message ?? ""}`.toLowerCase();
-  return type.includes("runtime") || message.includes("runtime") || message.includes("runtime not found");
+  return type.includes("runtime") || message.includes("runtime");
 }
 async function ensureCollectionExists(databases, collection) {
   try {
