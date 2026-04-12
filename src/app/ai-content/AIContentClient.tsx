@@ -87,7 +87,8 @@ export default function AIContentClient() {
   const generationRunIdRef = useRef(0);
   const elapsedSecondsRef = useRef(0);
   const eventSourceRef = useRef<EventSource | null>(null);
-  const notesJobPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const notesJobPollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const notesJobPollTokenRef = useRef(0);
   const notesIdempotencyKeysRef = useRef<Map<string, string>>(new Map());
   const notesIdempotencyFallbackCounterRef = useRef(0);
   const hasPaperCode = paperCode.trim().length > 0;
@@ -192,8 +193,9 @@ export default function AIContentClient() {
   }
 
   function stopNotesJobPolling() {
+    notesJobPollTokenRef.current += 1;
     if (notesJobPollRef.current) {
-      clearInterval(notesJobPollRef.current);
+      clearTimeout(notesJobPollRef.current);
       notesJobPollRef.current = null;
     }
   }
@@ -254,50 +256,68 @@ export default function AIContentClient() {
   function ensureNotesIdempotencyKey(): string {
     const existing = notesIdempotencyKeysRef.current.get(notesSelectionKey);
     if (existing) return existing;
-    let key = "";
-    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-      key = crypto.randomUUID();
-    } else if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
-      const entropy = new Uint32Array(2);
-      crypto.getRandomValues(entropy);
-      key = `${Date.now()}-${entropy[0].toString(36)}-${entropy[1].toString(36)}-${notesSelectionKey}`;
-    } else {
-      key = `${Date.now()}-${++notesIdempotencyFallbackCounterRef.current}-${notesSelectionKey}`;
-    }
+    const key = (() => {
+      if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+        return crypto.randomUUID();
+      }
+      if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+        const entropy = new Uint32Array(2);
+        crypto.getRandomValues(entropy);
+        return `${Date.now()}-${entropy[0].toString(36)}-${entropy[1].toString(36)}-${notesSelectionKey}`;
+      }
+      return `${Date.now()}-${++notesIdempotencyFallbackCounterRef.current}-${notesSelectionKey}`;
+    })();
     notesIdempotencyKeysRef.current.set(notesSelectionKey, key);
     return key;
   }
 
   function startNotesJobPolling(jobId: string) {
     stopNotesJobPolling();
-    notesJobPollRef.current = setInterval(() => {
-      void (async () => {
-        try {
-          const job = await fetchNotesJobStatus(jobId);
-          setNotesJob(job);
-          setProgressStatus(`Step ${job.step.stepIndex} of ${job.step.stepTotal}: ${job.step.stepLabel}`);
-          setProgressIndex(job.step.stepIndex);
-          setProgressTotal(job.step.stepTotal);
+    const pollToken = notesJobPollTokenRef.current;
+    const pollOnce = async () => {
+      try {
+        const job = await fetchNotesJobStatus(jobId);
+        setNotesJob(job);
+        setProgressStatus(`Step ${job.step.stepIndex} of ${job.step.stepTotal}: ${job.step.stepLabel}`);
+        setProgressIndex(job.step.stepIndex);
+        setProgressTotal(job.step.stepTotal);
 
-          if (job.status === "completed" && job.resultPdfUrl) {
-            stopNotesJobPolling();
-            setGenerating(false);
-            setNotesPdfResult({
-              key: notesSelectionKey,
-              url: job.resultPdfUrl,
+        if (job.status === "completed" && job.resultPdfUrl) {
+          stopNotesJobPolling();
+          setGenerating(false);
+          setNotesPdfResult({
+            key: notesSelectionKey,
+            url: job.resultPdfUrl,
+          });
+          setNotesRemaining((prev) => (typeof prev === "number" ? Math.max(0, prev - 1) : prev));
+          notesIdempotencyKeysRef.current.delete(notesSelectionKey);
+          if ("Notification" in window && Notification.permission === "granted") {
+            new Notification("ExamArchive: Generation Complete!", {
+              body: "Your unit notes are ready. Download them from Job History or the AI Content page.",
+              icon: "/favicon.ico",
+              tag: "examarchive-generation-notes",
             });
-            setNotesRemaining((prev) => (typeof prev === "number" ? Math.max(0, prev - 1) : prev));
-            notesIdempotencyKeysRef.current.delete(notesSelectionKey);
-          } else if (job.status === "failed" || job.status === "cancelled") {
-            stopNotesJobPolling();
-            setGenerating(false);
-            setError(job.errorMessage || "Generation failed.");
           }
-        } catch (pollError) {
-          console.error("[ai-content] Failed to poll notes job:", pollError);
+          return;
         }
-      })();
-    }, NOTES_JOB_POLL_INTERVAL_MS);
+
+        if (job.status === "failed" || job.status === "cancelled") {
+          stopNotesJobPolling();
+          setGenerating(false);
+          setError(job.errorMessage || "Generation failed.");
+          notesIdempotencyKeysRef.current.delete(notesSelectionKey);
+          return;
+        }
+      } catch (pollError) {
+        console.error("[ai-content] Failed to poll notes job:", pollError);
+      }
+
+      if (pollToken !== notesJobPollTokenRef.current) return;
+      notesJobPollRef.current = setTimeout(() => {
+        void pollOnce();
+      }, NOTES_JOB_POLL_INTERVAL_MS);
+    };
+    void pollOnce();
   }
 
   async function submitNotesGenerationJob() {
@@ -324,11 +344,13 @@ export default function AIContentClient() {
     });
     const payload = await response.json();
     if (!response.ok) {
+      notesIdempotencyKeysRef.current.delete(notesSelectionKey);
       throw new Error(typeof payload?.error === "string" ? payload.error : "Failed to queue job.");
     }
     const job = payload?.job as AiGenerationJob | undefined;
     const jobId = typeof payload?.jobId === "string" ? payload.jobId : job?.id;
     if (!jobId) {
+      notesIdempotencyKeysRef.current.delete(notesSelectionKey);
       throw new Error("Job submission failed.");
     }
     if (job) {
@@ -464,6 +486,9 @@ export default function AIContentClient() {
 
   async function generate() {
     if (generating) return;
+    if ("Notification" in window && Notification.permission !== "granted") {
+      void Notification.requestPermission();
+    }
     if (activeTab === "notes") {
       try {
         await submitNotesGenerationJob();
