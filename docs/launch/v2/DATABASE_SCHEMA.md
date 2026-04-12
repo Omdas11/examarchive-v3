@@ -505,7 +505,7 @@ Use this checklist to wipe counters and storage before relaunch:
 <!-- SCHEMA_SYNC_STATUS_START -->
 ## Schema Sync Status (Auto-generated)
 
-_Last synced: 2026-04-11T17:12:33.228Z_
+_Last synced: 2026-04-12T06:53:53.622Z_
 
 ### Storage Buckets
 | Bucket | Status | ID |
@@ -529,6 +529,7 @@ _Last synced: 2026-04-11T17:12:33.228Z_
 | `site_metrics` | ⚠️ Connected with differences | 0 | collection existed; 0 missing attrs created; 1 attr definition mismatch(es); 0 missing expected attr(s); mismatch: visitor_count |
 | `feedback` | ✅ Perfectly connected | 0 | collection existed; 0 missing attrs created; 0 attr definition mismatch(es); 0 missing expected attr(s) |
 | `ai_usage` | ✅ Perfectly connected | 0 | collection existed; 0 missing attrs created; 0 attr definition mismatch(es); 0 missing expected attr(s) |
+| `ai_generation_jobs` | ✅ Perfectly connected | 0 | collection existed; 0 missing attrs created; 0 attr definition mismatch(es); 0 missing expected attr(s) |
 | `ai_embeddings` | ⚠️ Connected with differences | 0 | collection existed; 0 missing attrs created; 2 attr definition mismatch(es); 0 missing expected attr(s); mismatch: course_code, embedding |
 | `pdf_usage` | ✅ Perfectly connected | 0 | collection existed; 0 missing attrs created; 0 attr definition mismatch(es); 0 missing expected attr(s) |
 | `ai_ingestions` | ⚠️ Connected with differences | 0 | collection existed; 0 missing attrs created; 1 attr definition mismatch(es); 0 missing expected attr(s); mismatch: entry_type |
