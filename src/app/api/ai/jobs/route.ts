@@ -131,6 +131,15 @@ export async function POST(request: NextRequest) {
   if (!Number.isInteger(unitNumber) || unitNumber < 1 || unitNumber > 5) {
     return NextResponse.json({ error: "Invalid selection: unit number must be between 1 and 5." }, { status: 400 });
   }
+  if (!(process.env.AZURE_GOTENBERG_URL || "").trim()) {
+    return NextResponse.json(
+      {
+        error: "PDF Engine not configured (Missing GOTENBERG_URL). Expected env: AZURE_GOTENBERG_URL.",
+        code: "SERVER_MISCONFIGURATION",
+      },
+      { status: 503 },
+    );
+  }
 
   const todayStr = new Date().toISOString().slice(0, 10);
   if (!isAdminPlus(user.role)) {
