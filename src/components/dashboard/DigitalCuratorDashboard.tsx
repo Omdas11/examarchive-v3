@@ -35,6 +35,16 @@ interface DashboardStats {
   }>;
 }
 
+interface GenerationJob {
+  id: string;
+  status: "queued" | "running" | "completed" | "failed" | "cancelled";
+  progressPercent: number;
+  paperCode: string;
+  unitNumber: number;
+  resultPdfUrl: string | null;
+  createdAt: string;
+}
+
 interface DigitalCuratorDashboardProps {
   /** Real user name passed from the server */
   userName?: string;
@@ -101,6 +111,7 @@ export default function DigitalCuratorDashboard({
   const [searchQuery, setSearchQuery] = useState('');
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [generationJobs, setGenerationJobs] = useState<GenerationJob[]>([]);
 
   // Derive initials from name if not provided
   const displayInitials = userInitials || userName.slice(0, 2).toUpperCase();
@@ -113,6 +124,17 @@ export default function DigitalCuratorDashboard({
       .then((data: DashboardStats) => setStats(data))
       .catch((err) => { console.error('[Dashboard] Failed to load stats:', err); })
       .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/ai/jobs?limit=6')
+      .then((r) => r.json())
+      .then((data: { jobs?: GenerationJob[] }) => {
+        if (Array.isArray(data.jobs)) {
+          setGenerationJobs(data.jobs);
+        }
+      })
+      .catch((err) => { console.error('[Dashboard] Failed to load generation jobs:', err); });
   }, []);
 
   // Build activity items from real recent papers
@@ -323,6 +345,31 @@ export default function DigitalCuratorDashboard({
               isPro={true}
               columns={1}
             />
+
+            <div className="rounded-2xl border border-outline-variant/30 bg-surface-container p-4">
+              <h4 className="text-sm font-bold text-on-surface">Job History</h4>
+              {generationJobs.length === 0 ? (
+                <p className="mt-2 text-xs text-on-surface-variant">No generation jobs yet.</p>
+              ) : (
+                <ul className="mt-3 space-y-2">
+                  {generationJobs.map((job) => (
+                    <li key={job.id} className="rounded-lg border border-outline-variant/30 bg-surface p-2">
+                      <p className="text-xs font-semibold text-on-surface">
+                        {job.paperCode} · Unit {job.unitNumber}
+                      </p>
+                      <p className="text-[11px] text-on-surface-variant">
+                        {job.status === 'completed' ? 'Completed' : job.status === 'running' ? `Running (${job.progressPercent}%)` : job.status}
+                      </p>
+                      {job.resultPdfUrl ? (
+                        <a className="mt-1 inline-block text-[11px] font-semibold text-primary hover:underline" href={job.resultPdfUrl}>
+                          Download PDF
+                        </a>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
 
             {/* CTA Card */}
             <div
