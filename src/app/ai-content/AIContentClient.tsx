@@ -513,7 +513,7 @@ export default function AIContentClient() {
         if (errorWithMeta?.status === 503 && errorWithMeta?.code === "SERVER_MISCONFIGURATION") {
           setGenerating(false);
           setError(
-            "Server setup issue detected. Troubleshooting: Ask the admin to configure GOTENBERG_URL (PDF Engine) in environment variables, then retry.",
+            "Server setup issue detected. Troubleshooting: Ask the admin to configure AZURE_GOTENBERG_URL (PDF Engine) in environment variables, then retry.",
           );
           return;
         }

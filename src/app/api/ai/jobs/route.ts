@@ -113,7 +113,7 @@ async function pingAiWorkerFunctionService(): Promise<void> {
       functionId: AI_NOTE_WORKER_FUNCTION_ID,
       error,
     });
-    throw new Error("AI worker service is currently unavailable. Please try again later.");
+    throw new Error("AI worker service unreachable or misconfigured. Please try again later.");
   }
 }
 
@@ -147,7 +147,7 @@ export async function POST(request: NextRequest) {
   if (!(process.env.AZURE_GOTENBERG_URL || "").trim()) {
     return NextResponse.json(
       {
-        error: "PDF Engine not configured (Missing GOTENBERG_URL)",
+        error: "PDF Engine not configured (Missing GOTENBERG_URL). Expected env: AZURE_GOTENBERG_URL.",
         code: "SERVER_MISCONFIGURATION",
       },
       { status: 503 },
