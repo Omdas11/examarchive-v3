@@ -989,7 +989,10 @@ export async function GET(request: NextRequest) {
       hasGeminiKey: Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY),
     });
     return NextResponse.json(
-      { error: "Server misconfiguration: AZURE_GOTENBERG_URL is missing." },
+      {
+        error: "Server misconfiguration: AZURE_GOTENBERG_URL is missing.",
+        code: "SERVER_MISCONFIGURATION",
+      },
       { status: 503 },
     );
   }
