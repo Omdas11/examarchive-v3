@@ -105,41 +105,46 @@ const AI_COLLECTIONS = [
   },
 ];
 
-const DEFAULT_FUNCTION_RUNTIME = process.env.APPWRITE_FUNCTION_RUNTIME || "node-22.0";
+// These are initialized in main() after loadAppwriteEnv() to respect CLI/.env overrides
+let DEFAULT_FUNCTION_RUNTIME;
 const FALLBACK_FUNCTION_RUNTIMES = ["node-20.0", "node-18.0"];
-
-const TARGET_FUNCTIONS = [
-  {
-    id: "ai-admin-report",
-    name: "ai-admin-report",
-    runtime: DEFAULT_FUNCTION_RUNTIME,
-    description: "Weekly Gemini 2.5 Flash admin/security digest",
-    schedule: "0 2 * * 1",
-    execute: ["any"],
-  },
-  {
-    id: "ai-syllabus-map",
-    name: "ai-syllabus-map",
-    runtime: DEFAULT_FUNCTION_RUNTIME,
-    description: "Gemini 3.1 Flash Lite syllabus to archive mapper",
-    execute: ["any"],
-  },
-  {
-    id: "ai-flashcards",
-    name: "ai-flashcards",
-    runtime: DEFAULT_FUNCTION_RUNTIME,
-    description: "Gemini 3.1 Flash Lite flashcard/quiz generator",
-    execute: ["any"],
-  },
-  {
-    id: "ai-note-worker",
-    name: "ai-note-worker",
-    runtime: DEFAULT_FUNCTION_RUNTIME,
-    description: "Async notes generation worker",
-    execute: ["any"],
-  },
-];
+let TARGET_FUNCTIONS;
 const REQUIRED_FUNCTION_IDS = ["ai-note-worker"];
+
+function initializeFunctionConfig() {
+  DEFAULT_FUNCTION_RUNTIME = process.env.APPWRITE_FUNCTION_RUNTIME || "node-22.0";
+  TARGET_FUNCTIONS = [
+    {
+      id: "ai-admin-report",
+      name: "ai-admin-report",
+      runtime: DEFAULT_FUNCTION_RUNTIME,
+      description: "Weekly Gemini 2.5 Flash admin/security digest",
+      schedule: "0 2 * * 1",
+      execute: ["any"],
+    },
+    {
+      id: "ai-syllabus-map",
+      name: "ai-syllabus-map",
+      runtime: DEFAULT_FUNCTION_RUNTIME,
+      description: "Gemini 3.1 Flash Lite syllabus to archive mapper",
+      execute: ["any"],
+    },
+    {
+      id: "ai-flashcards",
+      name: "ai-flashcards",
+      runtime: DEFAULT_FUNCTION_RUNTIME,
+      description: "Gemini 3.1 Flash Lite flashcard/quiz generator",
+      execute: ["any"],
+    },
+    {
+      id: "ai-note-worker",
+      name: "ai-note-worker",
+      runtime: DEFAULT_FUNCTION_RUNTIME,
+      description: "Async notes generation worker",
+      execute: ["any"],
+    },
+  ];
+}
 
 function createFunctionsClient() {
   const { endpoint, projectId, apiKey } = loadAppwriteEnv();
@@ -267,6 +272,11 @@ function assertRequiredFunctionsSynced(functionResults) {
 }
 
 async function main() {
+  // Load environment variables first (including .env overrides)
+  loadAppwriteEnv();
+  // Initialize function configuration with the loaded environment
+  initializeFunctionConfig();
+
   const databases = createAppwriteDatabasesClient();
   const functions = createFunctionsClient();
 
