@@ -33,11 +33,6 @@ type AiGenerationJob = {
   };
 };
 
-type JobStartErrorPayload = {
-  error?: string;
-  code?: string;
-};
-
 function LoadingDots() {
   return (
     <span className="inline-flex items-end gap-1" aria-hidden="true">
@@ -347,21 +342,10 @@ export default function AIContentClient() {
         idempotencyKey: ensureNotesIdempotencyKey(),
       }),
     });
-    let payload: JobStartErrorPayload & { job?: AiGenerationJob; jobId?: string };
-    try {
-      payload = await response.json();
-    } catch {
-      payload = {};
-    }
+    const payload = await response.json();
     if (!response.ok) {
       notesIdempotencyKeysRef.current.delete(notesSelectionKey);
-      const error = new Error(typeof payload?.error === "string" ? payload.error : "Failed to queue job.") as Error & {
-        code?: string;
-        status?: number;
-      };
-      if (typeof payload?.code === "string") error.code = payload.code;
-      error.status = response.status;
-      throw error;
+      throw new Error(typeof payload?.error === "string" ? payload.error : "Failed to queue job.");
     }
     const job = payload?.job as AiGenerationJob | undefined;
     const jobId = typeof payload?.jobId === "string" ? payload.jobId : job?.id;
@@ -509,14 +493,6 @@ export default function AIContentClient() {
       try {
         await submitNotesGenerationJob();
       } catch (jobError) {
-        const errorWithMeta = jobError as Error & { code?: string; status?: number };
-        if (errorWithMeta?.status === 503 && errorWithMeta?.code === "SERVER_MISCONFIGURATION") {
-          setGenerating(false);
-          setError(
-            "Server setup issue detected. Troubleshooting: Ask the admin to configure AZURE_GOTENBERG_URL (PDF Engine) in environment variables, then retry.",
-          );
-          return;
-        }
         setGenerating(false);
         setError(jobError instanceof Error ? jobError.message : "Generation failed.");
       }
