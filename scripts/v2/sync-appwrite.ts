@@ -68,7 +68,10 @@ const LEGACY_BUCKET_IDS = new Set([
 
 const TARGET_DATABASE_ID = "examarchive";
 const TARGET_DATABASE_NAME = "ExamArchive";
-const REQUIRED_COLLECTION_ID = "Generated_Notes_Cache";
+const REQUIRED_COLLECTION_SPECS: Array<{ id: string; name: string }> = [
+  { id: "Generated_Notes_Cache", name: "Generated_Notes_Cache" },
+  { id: "ai_generation_jobs", name: "ai_generation_jobs" },
+];
 
 function loadAppwriteEnv() {
   loadEnvConfig(path.resolve(__dirname, "../.."));
@@ -141,7 +144,12 @@ async function ensureDatabase(databases: Databases, databaseId: string, database
   return { kind: "database", name: databaseName, id: created.$id, status: "created" };
 }
 
-async function ensureCollection(databases: Databases, databaseId: string, collectionId: string): Promise<SyncResourceResult> {
+async function ensureCollection(
+  databases: Databases,
+  databaseId: string,
+  collectionId: string,
+  collectionName: string,
+): Promise<SyncResourceResult> {
   try {
     const existing = await databases.getCollection(databaseId, collectionId);
     console.log(`[exists] collection ${collectionId} (${existing.$id})`);
@@ -152,7 +160,7 @@ async function ensureCollection(databases: Databases, databaseId: string, collec
     }
   }
 
-  const created = await databases.createCollection(databaseId, collectionId, collectionId);
+  const created = await databases.createCollection(databaseId, collectionId, collectionName);
   console.log(`[create] collection ${collectionId} (${created.$id})`);
   return { kind: "collection", name: collectionId, id: created.$id, status: "created" };
 }
@@ -443,7 +451,12 @@ async function syncInfrastructure() {
   }
 
   const databaseResult = await ensureDatabase(databases, TARGET_DATABASE_ID, TARGET_DATABASE_NAME);
-  const requiredCollectionResult = await ensureCollection(databases, TARGET_DATABASE_ID, REQUIRED_COLLECTION_ID);
+  const requiredCollectionResults: SyncResourceResult[] = [];
+  for (const collectionSpec of REQUIRED_COLLECTION_SPECS) {
+    requiredCollectionResults.push(
+      await ensureCollection(databases, TARGET_DATABASE_ID, collectionSpec.id, collectionSpec.name),
+    );
+  }
   const orphanDatabasesDeleted = await cleanupOrphanDatabases(databases);
   const liveBucketsResponse = await storage.listBuckets([Query.limit(100)]);
   const orphanBucketsDeleted = await cleanupOrphanBuckets(
@@ -543,7 +556,7 @@ async function syncInfrastructure() {
   injectSchemaStatusIntoDatabaseDoc(statusTable);
   deleteLegacySchemaDoc();
 
-  const createdCount = [...bucketResults, databaseResult, requiredCollectionResult].filter(
+  const createdCount = [...bucketResults, databaseResult, ...requiredCollectionResults].filter(
     (item) => item.status === "created",
   ).length;
   console.log(
