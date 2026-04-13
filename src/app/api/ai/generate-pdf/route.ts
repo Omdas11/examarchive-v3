@@ -33,6 +33,9 @@ const TAVILY_TIMEOUT_MS = 4000;
 const TOPIC_CONCURRENCY = 3;
 const QUESTION_CONCURRENCY = 3;
 const UNDICI_CONNECT_TIMEOUT_CODE = "UND_ERR_CONNECT_TIMEOUT";
+const EMAIL_DELIVERY_UNAVAILABLE_CODE = "EMAIL_DELIVERY_UNAVAILABLE";
+const EMAIL_DELIVERY_UNAVAILABLE_MESSAGE =
+  "Unable to send generation confirmation email. Request was not started. Please verify email settings and try again.";
 
 type GenerateBody = {
   jobType?: string;
@@ -626,8 +629,8 @@ export async function POST(request: NextRequest) {
     if (!startEmailSent) {
       return NextResponse.json(
         {
-          error: "Unable to send generation confirmation email. Request was not started. Please verify email settings and try again.",
-          code: "EMAIL_DELIVERY_UNAVAILABLE",
+          error: EMAIL_DELIVERY_UNAVAILABLE_MESSAGE,
+          code: EMAIL_DELIVERY_UNAVAILABLE_CODE,
         },
         { status: 503 },
       );
@@ -691,8 +694,8 @@ export async function POST(request: NextRequest) {
   if (!startEmailSent) {
     return NextResponse.json(
       {
-        error: "Unable to send generation confirmation email. Request was not started. Please verify email settings and try again.",
-        code: "EMAIL_DELIVERY_UNAVAILABLE",
+        error: EMAIL_DELIVERY_UNAVAILABLE_MESSAGE,
+        code: EMAIL_DELIVERY_UNAVAILABLE_CODE,
       },
       { status: 503 },
     );
