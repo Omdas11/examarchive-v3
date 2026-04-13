@@ -97,12 +97,13 @@ async function mapWithConcurrency<T, R>(
 
 const ABBREV_DOT_RE = /\b(?:\d+|[a-zA-Z])\.(?=\s|$)|(?:\d+(?:st|nd|rd|th)\.)/gi;
 const ABBREV_PLACEHOLDER = "\x00";
+const SYLLABUS_TOPIC_SPLIT_PATTERN = /(?:(?<=[.;])\s*|\n{2,})/;
 
 function splitSyllabusIntoSubTopics(syllabusContent: string): string[] {
   const protected_ = syllabusContent.replace(ABBREV_DOT_RE, (m) => m.slice(0, -1) + ABBREV_PLACEHOLDER);
   return protected_
     // Split on sentence-ending punctuation + whitespace, or on blank-line separators.
-    .split(/(?:(?<=[.;])\s*|\n{2,})/)
+    .split(SYLLABUS_TOPIC_SPLIT_PATTERN)
     .map((part) => part.replace(/\x00/g, ".").replace(/\s+/g, " ").trim())
     .filter(Boolean);
 }

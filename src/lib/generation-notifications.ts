@@ -2,6 +2,8 @@ import nodemailer from "nodemailer";
 import type SMTPTransport from "nodemailer/lib/smtp-transport";
 
 export class SmtpConfigurationError extends Error {}
+const DEFAULT_SMTP_PORT = 587;
+const SMTP_SECURE_PORT = 465;
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (ch) => {
@@ -61,7 +63,7 @@ function normalizeGmailAppPassword(value: string): string {
 }
 
 function parseSmtpPort(value: string | undefined): number {
-  const parsed = Number(value ?? "587");
+  const parsed = Number(value ?? String(DEFAULT_SMTP_PORT));
   if (!Number.isInteger(parsed) || parsed < 1 || parsed > 65535) {
     throw new SmtpConfigurationError("SMTP_PORT must be a valid integer between 1 and 65535.");
   }
@@ -70,7 +72,7 @@ function parseSmtpPort(value: string | undefined): number {
 
 function parseSmtpSecure(value: string | undefined, port: number): boolean {
   const normalized = (value || "").trim().toLowerCase();
-  if (!normalized) return port === 465;
+  if (!normalized) return port === SMTP_SECURE_PORT;
   return normalized === "true" || normalized === "1" || normalized === "yes";
 }
 
