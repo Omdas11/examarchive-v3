@@ -180,7 +180,7 @@ export default function AIContentClient() {
           : "Your PDF is being generated. We'll email it to you when ready.";
         setGenerationStatus({
           tone: "success",
-          message: `${successMessage} A confirmation email has been sent. You will receive another email when generation succeeds or fails.`,
+          message: "Generation started successfully. A confirmation email has been sent, and you will receive another email when generation succeeds or fails.",
         });
         showToast(successMessage, "success");
       }

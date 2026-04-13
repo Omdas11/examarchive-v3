@@ -22,6 +22,10 @@ function escapeHtml(value: string): string {
   });
 }
 
+function sanitizePlainText(value: string): string {
+  return value.replace(/[\r\n\t]+/g, " ").trim();
+}
+
 function getSiteUrl(): string {
   return (
     process.env.NEXT_PUBLIC_SITE_URL ||
@@ -81,13 +85,14 @@ export async function sendGenerationStartedEmail(args: {
   if (!from) {
     throw new SmtpConfigurationError("GMAIL_EMAIL_ADDRESS is missing.");
   }
+  const safeTitle = sanitizePlainText(args.title) || "PDF generation request";
   const transporter = await getTransporter();
   await transporter.sendMail({
     from,
     to,
-    subject: `ExamArchive: ${args.title} generation started`,
-    text: `Your request has been accepted and generation has started.\n\nTitle: ${args.title}\nYou will receive another email when the PDF is ready, or if generation fails.\n`,
-    html: "<p>Your request has been accepted and generation has started.</p><p>You will receive another email when the PDF is ready, or if generation fails.</p>",
+    subject: `ExamArchive: ${safeTitle} generation started`,
+    text: `Your request has been accepted and generation has started.\n\nTitle: ${safeTitle}\nYou will receive another email when the PDF is ready, or if generation fails.\n`,
+    html: "<p>Your PDF generation request has been accepted and generation has started.</p><p>You will receive another email when the PDF is ready, or if generation fails.</p>",
   });
 }
 
