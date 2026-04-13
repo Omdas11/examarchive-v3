@@ -100,7 +100,7 @@ const ABBREV_PLACEHOLDER = "\x00";
 function splitSyllabusIntoSubTopics(syllabusContent: string): string[] {
   const protected_ = syllabusContent.replace(ABBREV_DOT_RE, (m) => m.slice(0, -1) + ABBREV_PLACEHOLDER);
   return protected_
-    .split(/(?<=[.;])\s+/)
+    .split(/(?:(?<=[.;])\s+|\n+)/)
     .map((part) => part.replace(/\x00/g, ".").replace(/\s+/g, " ").trim())
     .filter(Boolean);
 }
@@ -204,12 +204,10 @@ async function runNotesBackground(params: {
   paperCode: string;
   unitNumber: number;
   semester: number | null;
-  isAdmin: boolean;
-  todayStr: string;
 }): Promise<void> {
   const {
     userId, userEmail, university, course, stream, type,
-    paperCode, unitNumber, semester, isAdmin, todayStr,
+    paperCode, unitNumber, semester,
   } = params;
 
   const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
@@ -322,7 +320,7 @@ CRITICAL FORMAT CONSTRAINTS:
   const dynamicPdfName = `${paperCode}_Unit_${unitNumber}_Notes.pdf`;
   const rendered = await renderMarkdownPdfToAppwrite({
     markdown: masterMarkdown,
-    fileBaseName: `${paperCode}_unit_${unitNumber}_${Date.now()}`,
+    fileBaseName: `${paperCode}_unit_${unitNumber}_${userId}_${Date.now()}`,
     fileName: dynamicPdfName,
     gotenbergUrl: azureGotenbergUrl,
     modelName: GEMINI_MODEL,
@@ -346,13 +344,7 @@ CRITICAL FORMAT CONSTRAINTS:
       console.error("[ai/generate-pdf] Failed to send notes email:", emailError);
     }
   }
-
-  if (!isAdmin) {
-    await recordGeneration(userId, todayStr);
-    await incrementQuotaCounter(userId, "notes_generated_today");
-  }
-
-  void semester; // used for quota key differentiation in future
+  void semester;
 }
 
 async function runSolvedPaperBackground(params: {
@@ -365,12 +357,10 @@ async function runSolvedPaperBackground(params: {
   paperCode: string;
   year: number;
   semester: number | null;
-  isAdmin: boolean;
-  todayStr: string;
 }): Promise<void> {
   const {
     userId, userEmail, university, course, stream, type,
-    paperCode, year, isAdmin, todayStr,
+    paperCode, year,
   } = params;
 
   const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
@@ -476,7 +466,7 @@ CRITICAL FORMAT CONSTRAINTS:
 
   const rendered = await renderMarkdownPdfToAppwrite({
     markdown: masterMarkdown.trim(),
-    fileBaseName: `${paperCode}_${year}_solved_${Date.now()}`,
+    fileBaseName: `${paperCode}_${year}_solved_${userId}_${Date.now()}`,
     fileName: `${paperCode}_${year}_solved_paper.pdf`,
     gotenbergUrl: azureGotenbergUrl,
     paperCode,
@@ -493,11 +483,6 @@ CRITICAL FORMAT CONSTRAINTS:
     } catch (emailError) {
       console.error("[ai/generate-pdf] Failed to send solved paper email:", emailError);
     }
-  }
-
-  if (!isAdmin) {
-    await recordGeneration(userId, todayStr);
-    await incrementQuotaCounter(userId, "papers_solved_today");
   }
 }
 
@@ -581,6 +566,8 @@ export async function POST(request: NextRequest) {
           { status: 403 },
         );
       }
+      await incrementQuotaCounter(user.id, "notes_generated_today");
+      await recordGeneration(user.id, todayStr);
     }
 
     after(async () => {
@@ -595,8 +582,6 @@ export async function POST(request: NextRequest) {
           paperCode,
           unitNumber,
           semester,
-          isAdmin: admin,
-          todayStr,
         });
       } catch (error) {
         console.error("[ai/generate-pdf] Notes background job failed:", error);
@@ -637,6 +622,8 @@ export async function POST(request: NextRequest) {
         { status: 403 },
       );
     }
+    await incrementQuotaCounter(user.id, "papers_solved_today");
+    await recordGeneration(user.id, todayStr);
   }
 
   after(async () => {
@@ -651,8 +638,6 @@ export async function POST(request: NextRequest) {
         paperCode,
         year,
         semester,
-        isAdmin: admin,
-        todayStr,
       });
     } catch (error) {
       console.error("[ai/generate-pdf] Solved paper background job failed:", error);
