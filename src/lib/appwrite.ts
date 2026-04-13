@@ -130,6 +130,9 @@ export function createSessionClient(session: string): Client {
 /**
  * Create an Appwrite client scoped to a user JWT.
  * Useful for mobile/native clients that authenticate with bearer JWTs.
+ *
+ * @param jwt - Appwrite user JWT token.
+ * @returns A JWT-authenticated Appwrite Client instance.
  */
 export function createJwtClient(jwt: string): Client {
   if (!APPWRITE_ENDPOINT || !APPWRITE_PROJECT_ID) {

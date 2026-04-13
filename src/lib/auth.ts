@@ -382,13 +382,29 @@ export async function getServerUser(): Promise<UserProfile | null> {
  * Resolve user profile from a bearer token (session secret or JWT) for mobile/native clients.
  */
 async function getAccountUserFromToken(authToken: string) {
+  let sessionError: unknown;
   try {
     return await new Account(createSessionClient(authToken)).get();
-  } catch {
+  } catch (error) {
+    sessionError = error;
+  }
+  try {
     return await new Account(createJwtClient(authToken)).get();
+  } catch (jwtError) {
+    const sessionMessage = sessionError instanceof Error ? sessionError.message : String(sessionError);
+    const jwtMessage = jwtError instanceof Error ? jwtError.message : String(jwtError);
+    throw new Error(
+      `Failed bearer authentication using session and JWT clients. session=${sessionMessage}; jwt=${jwtMessage}`,
+    );
   }
 }
 
+/**
+ * Resolve user profile from an Authorization bearer token for mobile/native clients.
+ *
+ * @param token - Bearer token value from the request Authorization header.
+ * @returns Authenticated user profile when token auth succeeds; otherwise null.
+ */
 export async function getServerUserFromBearerToken(token: string): Promise<UserProfile | null> {
   const authToken = token.trim();
   if (!authToken) return null;
@@ -426,7 +442,8 @@ export async function getServerUserFromBearerToken(token: string): Promise<UserP
     } catch {
       return null;
     }
-  } catch {
+  } catch (error) {
+    console.error("[auth] bearer token authentication failed:", error);
     return null;
   }
 }
