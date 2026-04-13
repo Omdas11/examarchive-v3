@@ -98,7 +98,10 @@ export async function sendGenerationFailureEmail(args: {
   if (!from) {
     throw new SmtpConfigurationError("GMAIL_EMAIL_ADDRESS is missing.");
   }
-  const reason = (args.reason || "Generation failed due to a temporary server issue.").trim();
+  const reason = (
+    args.reason ||
+    "Generation failed. Please check your selections and try again. If it keeps failing, contact support."
+  ).trim();
   const safeReason = escapeHtml(reason);
   const transporter = await getTransporter();
   await transporter.sendMail({
