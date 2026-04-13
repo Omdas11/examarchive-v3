@@ -14,7 +14,11 @@ import {
 import { runGeminiCompletion } from "@/lib/gemini";
 import { readDynamicSystemPrompt } from "@/lib/system-prompt";
 import { renderMarkdownPdfToAppwrite } from "@/lib/ai-pdf-pipeline";
-import { sendGenerationFailureEmail, sendGenerationPdfEmail } from "@/lib/generation-notifications";
+import {
+  sendGenerationFailureEmail,
+  sendGenerationPdfEmail,
+  sendGenerationStartedEmail,
+} from "@/lib/generation-notifications";
 import { formatSearchResults, runWebSearch } from "@/lib/web-search";
 
 export const maxDuration = 300;
@@ -204,6 +208,12 @@ async function notifyGenerationFailure(email: string, title: string, error: unkn
   });
 }
 
+async function notifyGenerationStarted(email: string, title: string): Promise<void> {
+  await sendGenerationStartedEmail({ email, title }).catch((mailError) => {
+    console.error("[ai/generate-pdf] Failed to send generation started email:", mailError);
+  });
+}
+
 async function runNotesBackground(params: {
   userEmail: string;
   university: string;
@@ -307,7 +317,7 @@ CRITICAL FORMAT CONSTRAINTS:
           await sleep(RETRY_ERROR_DELAY_MS);
         }
         if (retries >= TOPIC_RETRY_MAX - 1) {
-          console.error(`[ai/generate-pdf] Topic ${index + 1} failed after retries:`, error);
+          console.error("[ai/generate-pdf] Topic failed after retries.", { topicIndex: index + 1, error });
         }
       }
     }
@@ -454,7 +464,7 @@ CRITICAL FORMAT CONSTRAINTS:
           await sleep(RETRY_ERROR_DELAY_MS);
         }
         if (retries >= QUESTION_MAX_RETRIES - 1) {
-          console.error(`[ai/generate-pdf] Question ${qLabel} failed after retries:`, error);
+          console.error("[ai/generate-pdf] Question failed after retries.", { questionLabel: qLabel, error });
         }
       }
     }
@@ -574,6 +584,7 @@ export async function POST(request: NextRequest) {
       }
       await reserveQuotaForAcceptedRequest(user.id, todayStr, "notes_generated_today");
     }
+    await notifyGenerationStarted(userEmail, `Unit Notes (${paperCode} - Unit ${unitNumber})`);
 
     after(async () => {
       try {
@@ -627,6 +638,7 @@ export async function POST(request: NextRequest) {
     }
     await reserveQuotaForAcceptedRequest(user.id, todayStr, "papers_solved_today");
   }
+  await notifyGenerationStarted(userEmail, `Solved Paper (${paperCode} ${year})`);
 
   after(async () => {
     try {

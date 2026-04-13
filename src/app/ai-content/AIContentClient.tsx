@@ -51,6 +51,10 @@ export default function AIContentClient() {
   const [notesDailyLimit, setNotesDailyLimit] = useState<number | null>(null);
   const [papersDailyLimit, setPapersDailyLimit] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [generationStatus, setGenerationStatus] = useState<{
+    tone: "info" | "success" | "error";
+    message: string;
+  } | null>(null);
   const hasPaperCode = paperCode.trim().length > 0;
   const availableUnits = useMemo(() => {
     const units = unitsByPaperCode[paperCode];
@@ -121,6 +125,10 @@ export default function AIContentClient() {
   async function generate() {
     if (generating) return;
     setError(null);
+    setGenerationStatus({
+      tone: "info",
+      message: "Submitting your generation request. Please wait…",
+    });
     setGenerating(true);
 
     const body =
@@ -146,11 +154,15 @@ export default function AIContentClient() {
             semester: semester === "" ? null : semester,
           };
 
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
     try {
+      const controller = new AbortController();
+      timeoutId = setTimeout(() => controller.abort(), 60000);
       const response = await fetch("/api/ai/generate-pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
+        signal: controller.signal,
       });
       let data: { ok?: boolean; message?: string; error?: string };
       try {
@@ -159,18 +171,27 @@ export default function AIContentClient() {
         data = {};
       }
       if (!response.ok) {
-        setError(typeof data?.error === "string" ? data.error : "Failed to start generation.");
+        const failureMessage = typeof data?.error === "string" ? data.error : "Failed to start generation.";
+        setError(failureMessage);
+        setGenerationStatus({ tone: "error", message: failureMessage });
       } else {
-        showToast(
-          typeof data.message === "string" && data.message
-            ? data.message
-            : "Your PDF is being generated. We'll email it to you when ready.",
-          "success",
-        );
+        const successMessage = typeof data.message === "string" && data.message
+          ? data.message
+          : "Your PDF is being generated. We'll email it to you when ready.";
+        setGenerationStatus({
+          tone: "success",
+          message: `${successMessage} A confirmation email has been sent. You will receive another email when generation succeeds or fails.`,
+        });
+        showToast(successMessage, "success");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Network error. Please try again.");
+      const failureMessage = err instanceof DOMException && err.name === "AbortError"
+        ? "Request timed out while starting generation. Please try again."
+        : (err instanceof Error ? err.message : "Network error. Please try again.");
+      setError(failureMessage);
+      setGenerationStatus({ tone: "error", message: failureMessage });
     } finally {
+      if (timeoutId) clearTimeout(timeoutId);
       setGenerating(false);
     }
   }
@@ -458,7 +479,7 @@ export default function AIContentClient() {
                   className="btn-primary relative inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl px-5 py-3 text-sm font-semibold transition-all duration-300 before:absolute before:inset-0 before:-translate-x-full before:bg-gradient-to-r before:from-transparent before:via-white/30 before:to-transparent before:content-[''] hover:before:animate-[shimmer_1.4s_ease-in-out_infinite] disabled:cursor-not-allowed disabled:opacity-60"
                   type="button"
                 >
-                  {generating ? (<>Sending request...<LoadingDots /></>) : "Generate Unit Notes"}
+                  {generating ? (<>Starting generation...<LoadingDots /></>) : "Generate Unit Notes"}
                 </button>
               </div>
             ) : (
@@ -473,15 +494,31 @@ export default function AIContentClient() {
                     disabled={isGenerationDisabled}
                     aria-busy={generating}
                     aria-live="polite"
-                    className="btn-primary relative inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl px-5 py-3 text-sm font-semibold transition-all duration-300 before:absolute before:inset-0 before:-translate-x-full before:bg-gradient-to-r before:from-transparent before:via-white/30 before:to-transparent before:content-[''] hover:before:animate-[shimmer_1.4s_ease-in-out_infinite] disabled:cursor-not-allowed disabled:opacity-60"
-                    type="button"
-                  >
-                    {generating ? (<>Sending request...<LoadingDots /></>) : "Generate Solved Paper"}
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
+                     className="btn-primary relative inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl px-5 py-3 text-sm font-semibold transition-all duration-300 before:absolute before:inset-0 before:-translate-x-full before:bg-gradient-to-r before:from-transparent before:via-white/30 before:to-transparent before:content-[''] hover:before:animate-[shimmer_1.4s_ease-in-out_infinite] disabled:cursor-not-allowed disabled:opacity-60"
+                     type="button"
+                   >
+                     {generating ? (<>Starting generation...<LoadingDots /></>) : "Generate Solved Paper"}
+                   </button>
+                 )}
+               </div>
+             )}
+           </div>
+          {generationStatus ? (
+            <p
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+              className={`mt-3 text-sm ${
+                generationStatus.tone === "success"
+                  ? "text-green-700"
+                  : generationStatus.tone === "error"
+                    ? "text-error"
+                    : "text-on-surface-variant"
+              }`}
+            >
+              {generationStatus.message}
+            </p>
+          ) : null}
           {error && <p className="mt-3 text-sm text-error">⚠ {error}</p>}
         </section>
       </div>

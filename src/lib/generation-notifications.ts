@@ -29,6 +29,16 @@ function getSiteUrl(): string {
   ).replace(/\/+$/, "");
 }
 
+function normalizeGmailAppPassword(value: string): string {
+  const compact = value.replace(/[\s-]+/g, "");
+  if (!/^[a-zA-Z0-9]{16}$/.test(compact)) {
+    throw new SmtpConfigurationError(
+      "GMAIL_APP_PASSWORD must be a 16-character Gmail App Password (spaces or hyphens are allowed).",
+    );
+  }
+  return compact;
+}
+
 let cachedTransporter: nodemailer.Transporter<SMTPTransport.SentMessageInfo> | null = null;
 let transporterInitPromise: Promise<nodemailer.Transporter<SMTPTransport.SentMessageInfo>> | null = null;
 
@@ -38,13 +48,14 @@ async function getTransporter() {
 
   transporterInitPromise = (async () => {
     const gmailAddress = process.env.GMAIL_EMAIL_ADDRESS;
-    const gmailAppPassword = process.env.GMAIL_APP_PASSWORD;
-    const missing: string[] = [];
-    if (!gmailAddress) missing.push("GMAIL_EMAIL_ADDRESS");
-    if (!gmailAppPassword) missing.push("GMAIL_APP_PASSWORD");
-    if (missing.length > 0) {
+    const gmailAppPasswordRaw = process.env.GMAIL_APP_PASSWORD;
+    if (!gmailAddress || !gmailAppPasswordRaw) {
+      const missing: string[] = [];
+      if (!gmailAddress) missing.push("GMAIL_EMAIL_ADDRESS");
+      if (!gmailAppPasswordRaw) missing.push("GMAIL_APP_PASSWORD");
       throw new SmtpConfigurationError(`Gmail configuration incomplete: missing ${missing.join(", ")}`);
     }
+    const gmailAppPassword = normalizeGmailAppPassword(gmailAppPasswordRaw);
     cachedTransporter = nodemailer.createTransport({
       service: "gmail",
       auth: { user: gmailAddress, pass: gmailAppPassword },
@@ -58,6 +69,26 @@ async function getTransporter() {
   });
 
   return transporterInitPromise;
+}
+
+export async function sendGenerationStartedEmail(args: {
+  email: string;
+  title: string;
+}): Promise<void> {
+  const to = args.email.trim();
+  if (!to) return;
+  const from = (process.env.GMAIL_EMAIL_ADDRESS || "").trim();
+  if (!from) {
+    throw new SmtpConfigurationError("GMAIL_EMAIL_ADDRESS is missing.");
+  }
+  const transporter = await getTransporter();
+  await transporter.sendMail({
+    from,
+    to,
+    subject: `ExamArchive: ${args.title} generation started`,
+    text: `Your request has been accepted and generation has started.\n\nTitle: ${args.title}\nYou will receive another email when the PDF is ready, or if generation fails.\n`,
+    html: "<p>Your request has been accepted and generation has started.</p><p>You will receive another email when the PDF is ready, or if generation fails.</p>",
+  });
 }
 
 export async function sendGenerationPdfEmail(args: {
@@ -102,13 +133,12 @@ export async function sendGenerationFailureEmail(args: {
     args.reason ||
     "Generation failed. Please check your selections and try again. If it keeps failing, contact support."
   ).trim();
-  const safeReason = escapeHtml(reason);
   const transporter = await getTransporter();
   await transporter.sendMail({
     from,
     to,
     subject: `ExamArchive: ${args.title} generation failed`,
     text: `We couldn't complete your PDF generation request.\n\nReason: ${reason}\nPlease try again.\n`,
-    html: `<p>We couldn't complete your PDF generation request.</p><p><strong>Reason:</strong> ${safeReason}</p><p>Please try again.</p>`,
+    html: "<p>We couldn't complete your PDF generation request.</p><p>Please try again. Check the plain-text section of this email for failure details.</p>",
   });
 }
