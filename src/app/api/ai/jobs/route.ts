@@ -108,7 +108,8 @@ async function findByIdempotency(userId: string, idempotencyKey: string) {
 function extractBearerToken(request: NextRequest): string {
   const authHeader = (request.headers.get("authorization") || "").trim();
   if (!authHeader) return "";
-  if (!authHeader.toLowerCase().startsWith(BEARER_PREFIX)) return "";
+  const lowerAuthHeader = authHeader.toLowerCase();
+  if (!lowerAuthHeader.startsWith(BEARER_PREFIX)) return "";
   return authHeader.slice(BEARER_PREFIX.length).trim();
 }
 

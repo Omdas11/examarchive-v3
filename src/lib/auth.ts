@@ -439,7 +439,8 @@ export async function getServerUserFromBearerToken(token: string): Promise<UserP
         last_activity: lastActivity,
         created_at: profile.$createdAt,
       };
-    } catch {
+    } catch (error) {
+      console.error("[auth] bearer token profile lookup failed:", error);
       return null;
     }
   } catch (error) {
