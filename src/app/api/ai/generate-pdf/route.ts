@@ -90,6 +90,7 @@ async function mapWithConcurrency<T, R>(
       results[i] = await mapper(items[i], i);
     }
   });
+  await Promise.all(workers);
   return results;
 }
 
@@ -130,9 +131,18 @@ function sleep(ms: number): Promise<void> {
 
 function isRateLimitError(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
-  const status = "status" in error ? (error as { status?: unknown }).status : undefined;
-  const message = "message" in error ? String((error as { message?: unknown }).message ?? "") : "";
-  return status === 429 || message.includes("429");
+  const errObj = error as {
+    status?: unknown;
+    code?: unknown;
+    message?: unknown;
+    response?: { status?: unknown };
+    error?: { status?: unknown; code?: unknown };
+  };
+  const status = errObj.status ?? errObj.response?.status ?? errObj.error?.status;
+  const code = errObj.code ?? errObj.error?.code;
+  if (status === 429 || code === 429 || code === "429") return true;
+  const message = String(errObj.message ?? "").toLowerCase();
+  return message.includes("rate limit") || message.includes("resource exhausted");
 }
 
 async function getDailyCount(userId: string, todayStr: string): Promise<number> {
