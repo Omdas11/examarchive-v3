@@ -527,8 +527,8 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-  if (!geminiKey?.trim()) {
+  const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+  if (!geminiApiKey?.trim()) {
     return NextResponse.json(
       { error: "AI Service not configured (missing GEMINI_API_KEY).", code: "SERVER_MISCONFIGURATION" },
       { status: 503 },
