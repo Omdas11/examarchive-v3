@@ -91,7 +91,7 @@ const ABBREV_PLACEHOLDER = "\x00";
 function splitSyllabusIntoSubTopics(syllabusContent: string): string[] {
   const protected_ = syllabusContent.replace(ABBREV_DOT_RE, (m) => m.slice(0, -1) + ABBREV_PLACEHOLDER);
   return protected_
-    .split(/(?:(?<=[.;])\s+|\n+)/)
+    .split(/(?:(?<=[.;])\s+|\n{2,})/)
     .map((part) => part.replace(/\x00/g, ".").replace(/\s+/g, " ").trim())
     .filter(Boolean);
 }
@@ -186,7 +186,6 @@ async function notifyGenerationFailure(email: string, title: string, error: unkn
 }
 
 async function runNotesBackground(params: {
-  userId: string;
   userEmail: string;
   university: string;
   course: string;
@@ -196,7 +195,7 @@ async function runNotesBackground(params: {
   unitNumber: number;
 }): Promise<void> {
   const {
-    userId, userEmail, university, course, stream, type,
+    userEmail, university, course, stream, type,
     paperCode, unitNumber,
   } = params;
 
@@ -308,9 +307,10 @@ CRITICAL FORMAT CONSTRAINTS:
   const masterMarkdown = generatedChunks.join("\n\n---\n\n");
 
   const dynamicPdfName = `${paperCode}_Unit_${unitNumber}_Notes.pdf`;
+  const fileToken = ID.unique();
   const rendered = await renderMarkdownPdfToAppwrite({
     markdown: masterMarkdown,
-    fileBaseName: `${paperCode}_unit_${unitNumber}_${userId}_${Date.now()}`,
+    fileBaseName: `${paperCode}_unit_${unitNumber}_${fileToken}_${Date.now()}`,
     fileName: dynamicPdfName,
     gotenbergUrl: azureGotenbergUrl,
     modelName: GEMINI_MODEL,
@@ -337,7 +337,6 @@ CRITICAL FORMAT CONSTRAINTS:
 }
 
 async function runSolvedPaperBackground(params: {
-  userId: string;
   userEmail: string;
   university: string;
   course: string;
@@ -347,7 +346,7 @@ async function runSolvedPaperBackground(params: {
   year: number;
 }): Promise<void> {
   const {
-    userId, userEmail, university, course, stream, type,
+    userEmail, university, course, stream, type,
     paperCode, year,
   } = params;
 
@@ -452,9 +451,10 @@ CRITICAL FORMAT CONSTRAINTS:
   });
   const masterMarkdown = solvedChunks.join("\n\n---\n\n");
 
+  const fileToken = ID.unique();
   const rendered = await renderMarkdownPdfToAppwrite({
     markdown: masterMarkdown.trim(),
-    fileBaseName: `${paperCode}_${year}_solved_${userId}_${Date.now()}`,
+    fileBaseName: `${paperCode}_${year}_solved_${fileToken}_${Date.now()}`,
     fileName: `${paperCode}_${year}_solved_paper.pdf`,
     gotenbergUrl: azureGotenbergUrl,
     paperCode,
@@ -562,7 +562,6 @@ export async function POST(request: NextRequest) {
     after(async () => {
       try {
         await runNotesBackground({
-          userId: user.id,
           userEmail,
           university,
           course,
@@ -619,7 +618,6 @@ export async function POST(request: NextRequest) {
   after(async () => {
     try {
       await runSolvedPaperBackground({
-        userId: user.id,
         userEmail,
         university,
         course,
