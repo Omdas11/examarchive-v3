@@ -18,23 +18,17 @@ async function getTransporter() {
   if (transporterInitPromise) return transporterInitPromise;
 
   transporterInitPromise = (async () => {
-    const host = process.env.SMTP_HOST;
-    const port = Number(process.env.SMTP_PORT || "587");
-    const user = process.env.SMTP_USER;
-    const pass = process.env.SMTP_PASS;
+    const gmailAddress = process.env.GMAIL_EMAIL_ADDRESS;
+    const gmailAppPassword = process.env.GMAIL_APP_PASSWORD;
     const missing: string[] = [];
-    if (!host) missing.push("SMTP_HOST");
-    if (!user) missing.push("SMTP_USER");
-    if (!pass) missing.push("SMTP_PASS");
-    if (!Number.isFinite(port) || port <= 0) missing.push("SMTP_PORT");
+    if (!gmailAddress) missing.push("GMAIL_EMAIL_ADDRESS");
+    if (!gmailAppPassword) missing.push("GMAIL_APP_PASSWORD");
     if (missing.length > 0) {
-      throw new SmtpConfigurationError(`SMTP configuration incomplete: missing ${missing.join(", ")}`);
+      throw new SmtpConfigurationError(`Gmail configuration incomplete: missing ${missing.join(", ")}`);
     }
     cachedTransporter = nodemailer.createTransport({
-      host,
-      port,
-      secure: port === 465,
-      auth: { user, pass },
+      service: "gmail",
+      auth: { user: gmailAddress, pass: gmailAppPassword },
     });
     return cachedTransporter;
   })().catch((error) => {
@@ -54,9 +48,9 @@ export async function sendGenerationPdfEmail(args: {
 }): Promise<void> {
   const to = args.email.trim();
   if (!to) return;
-  const from = (process.env.SMTP_FROM || process.env.SMTP_USER || "").trim();
+  const from = (process.env.GMAIL_EMAIL_ADDRESS || "").trim();
   if (!from) {
-    throw new SmtpConfigurationError("SMTP_FROM and SMTP_USER are missing.");
+    throw new SmtpConfigurationError("GMAIL_EMAIL_ADDRESS is missing.");
   }
   const normalizedUrl = args.downloadUrl.trim();
   const downloadUrl = /^https?:\/\//i.test(normalizedUrl)

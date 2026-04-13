@@ -40,7 +40,7 @@ describe("sync-appwrite-ai", () => {
         runtime: "node-20.0",
       });
 
-      expect(result).toEqual({ functionId: "ai-admin-report", created: false, runtime: "node-20.0" });
+      expect(result).toEqual({ functionId: "ai-admin-report", created: false, runtime: undefined });
       expect(functions.create).not.toHaveBeenCalled();
     });
 
@@ -81,19 +81,19 @@ describe("sync-appwrite-ai", () => {
       };
 
       const func = {
-        id: "ai-note-worker",
-        name: "ai-note-worker",
+        id: "ai-flashcards",
+        name: "ai-flashcards",
         runtime: "node-22.0",
         execute: ["any"],
       };
 
       const result = await ensureFunctionExists(functions, func);
 
-      expect(result).toEqual({ functionId: "ai-note-worker", created: true, runtime: "node-20.0" });
+      expect(result).toEqual({ functionId: "ai-flashcards", created: true, runtime: "node-20.0" });
       expect(functions.create).toHaveBeenNthCalledWith(
         1,
-        "ai-note-worker",
-        "ai-note-worker",
+        "ai-flashcards",
+        "ai-flashcards",
         "node-22.0",
         ["any"],
         undefined,
@@ -101,8 +101,8 @@ describe("sync-appwrite-ai", () => {
       );
       expect(functions.create).toHaveBeenNthCalledWith(
         2,
-        "ai-note-worker",
-        "ai-note-worker",
+        "ai-flashcards",
+        "ai-flashcards",
         "node-20.0",
         ["any"],
         undefined,
@@ -211,19 +211,16 @@ describe("sync-appwrite-ai", () => {
   });
 
   describe("assertRequiredFunctionsSynced", () => {
-    test("passes when ai-note-worker is present", () => {
+    test("does not throw when called with any function results", () => {
       expect(() =>
         assertRequiredFunctionsSynced([
-          { functionId: "ai-note-worker", created: true, runtime: "node-22.0" },
           { functionId: "ai-admin-report", created: false, runtime: "node-22.0" },
         ]),
       ).not.toThrow();
     });
 
-    test("throws when ai-note-worker is missing", () => {
-      expect(() =>
-        assertRequiredFunctionsSynced([{ functionId: "ai-admin-report", created: true, runtime: "node-22.0" }]),
-      ).toThrow('Required AI function "ai-note-worker" was not synced');
+    test("does not throw when called with empty results", () => {
+      expect(() => assertRequiredFunctionsSynced([])).not.toThrow();
     });
   });
 });

@@ -101,23 +101,6 @@ const DEFAULT_DATABASE_SCHEMA_MARKDOWN = `# DATABASE_SCHEMA
 | \`papers_solved_today\` | Integer | **Yes** | Daily solved papers count |
 | \`last_generation_date\` | String | **Yes** | UTC date key (\`YYYY-MM-DD\`) |
 
-## Table: \`ai_generation_jobs\`
-
-| Field | Type | Required | Notes |
-|---|---|---|---|
-| \`id\` | String | **Yes** | Document ID |
-| \`user_id\` | String | **Yes** | Requesting user ID |
-| \`paper_code\` | String | **Yes** | Paper code |
-| \`unit_number\` | Integer | **Yes** | Unit number |
-| \`status\` | String | **Yes** | \`queued\` \| \`running\` \| \`completed\` \| \`failed\` \| \`cancelled\` |
-| \`progress_percent\` | Integer | No | Job progress percent (0-100) |
-| \`input_payload_json\` | String | **Yes** | Serialized input payload |
-| \`result_note_id\` | String | No | Generated PDF file ID |
-| \`error_message\` | String | No | Failure reason |
-| \`started_at\` | Datetime | No | Worker start time |
-| \`completed_at\` | Datetime | No | Worker completion time |
-| \`idempotency_key\` | String | **Yes** | Unique idempotency key |
-| \`created_at\` | Datetime | **Yes** | Enqueue timestamp |
 `;
 
 const TARGET_SCHEMA = [
@@ -260,24 +243,6 @@ const TARGET_SCHEMA = [
     attributes: [
       { key: "user_id", type: "string", required: true, size: 64 },
       { key: "date", type: "string", required: true, size: 10 },
-    ],
-  },
-  {
-    id: "ai_generation_jobs",
-    name: "ai_generation_jobs",
-    attributes: [
-      { key: "user_id", type: "string", required: true, size: 64 },
-      { key: "paper_code", type: "string", required: true, size: 128 },
-      { key: "unit_number", type: "integer", required: true },
-      { key: "status", type: "string", required: true, size: 32 },
-      { key: "progress_percent", type: "integer", required: false },
-      { key: "input_payload_json", type: "string", required: true, size: 20000 },
-      { key: "result_note_id", type: "string", required: false, size: 64 },
-      { key: "error_message", type: "string", required: false, size: 2000 },
-      { key: "started_at", type: "datetime", required: false },
-      { key: "completed_at", type: "datetime", required: false },
-      { key: "idempotency_key", type: "string", required: true, size: 128 },
-      { key: "created_at", type: "datetime", required: true },
     ],
   },
   {
