@@ -32,6 +32,7 @@ const RETRY_ERROR_DELAY_MS = 4000;
 const TAVILY_TIMEOUT_MS = 4000;
 const TOPIC_CONCURRENCY = 3;
 const QUESTION_CONCURRENCY = 3;
+const UNDICI_CONNECT_TIMEOUT_CODE = "UND_ERR_CONNECT_TIMEOUT";
 
 type GenerateBody = {
   jobType?: string;
@@ -223,7 +224,7 @@ function formatFailureReason(error: unknown): string {
   }
 
   const normalized = details.join(" | ");
-  if (normalized.includes("UND_ERR_CONNECT_TIMEOUT")) {
+  if (normalized.includes(UNDICI_CONNECT_TIMEOUT_CODE)) {
     return `${normalized} | The server timed out while connecting to a required upstream service.`;
   }
   return normalized || "Background generation failed.";
