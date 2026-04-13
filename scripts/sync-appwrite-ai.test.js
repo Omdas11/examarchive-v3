@@ -58,18 +58,19 @@ describe("sync-appwrite-ai", () => {
 
       expect(result).toEqual({ functionId: "ai-admin-report", created: false, runtime: "node-20.0" });
       expect(functions.create).not.toHaveBeenCalled();
-      expect(functions.update).toHaveBeenCalledWith({
-        functionId: "ai-admin-report",
-        name: "ai-admin-report",
-        runtime: "node-20.0",
-        execute: [],
-        events: undefined,
-        schedule: undefined,
-        entrypoint: undefined,
-        commands: undefined,
-        enabled: true,
-        logging: true,
-      });
+      expect(functions.update).toHaveBeenCalledWith(
+        "ai-admin-report",
+        "ai-admin-report",
+        "node-20.0",
+        [],
+        undefined,
+        undefined,
+        undefined,
+        true,
+        true,
+        undefined,
+        undefined,
+      );
     });
 
     test("creates missing function with positional args expected by SDK", async () => {
@@ -276,6 +277,51 @@ describe("sync-appwrite-ai", () => {
         attributeLimitExceeded: true,
       });
       expect(waitForAttributeAvailability).toHaveBeenCalledTimes(1);
+    });
+
+    test("continues when Appwrite reports attribute_already_exists", async () => {
+      const databases = {
+        getCollection: jest.fn().mockResolvedValue({ $id: "ai_generation_jobs" }),
+        createCollection: jest.fn(),
+        listAttributes: jest.fn().mockResolvedValue({ attributes: [] }),
+      };
+      createAttribute
+        .mockRejectedValueOnce({ type: "attribute_already_exists", code: 409, message: "already exists" })
+        .mockResolvedValueOnce({});
+
+      const collection = {
+        id: "ai_generation_jobs",
+        name: "ai_generation_jobs",
+        attributes: [
+          { key: "result_note_id", type: "string", required: false, size: 64 },
+          { key: "error_message", type: "string", required: false, size: 2000 },
+        ],
+      };
+
+      const result = await syncCollection(databases, collection);
+
+      expect(result).toEqual({
+        collectionId: "ai_generation_jobs",
+        createdCollection: false,
+        createdAttributes: 1,
+        totalTargetAttributes: 2,
+        connected: false,
+        attributeLimitExceeded: false,
+      });
+      expect(waitForAttributeAvailability).toHaveBeenNthCalledWith(
+        1,
+        databases,
+        "examarchive",
+        "ai_generation_jobs",
+        "result_note_id",
+      );
+      expect(waitForAttributeAvailability).toHaveBeenNthCalledWith(
+        2,
+        databases,
+        "examarchive",
+        "ai_generation_jobs",
+        "error_message",
+      );
     });
   });
 

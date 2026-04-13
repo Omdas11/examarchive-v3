@@ -1,7 +1,10 @@
+import { timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { processAiGenerationJob } from "@/lib/ai-generation-worker";
 
 const MAX_JOB_ID_LENGTH = 128;
+export const runtime = "nodejs";
+export const maxDuration = 300;
 
 function getWorkerSecret(): string {
   return (process.env.APPWRITE_AI_WORKER_SHARED_SECRET || process.env.APPWRITE_WORKER_SHARED_SECRET || "").trim();
@@ -16,10 +19,18 @@ function normalizeJobId(raw: unknown): string {
   return normalized;
 }
 
+function isValidWorkerSecret(providedSecret: string, workerSecret: string): boolean {
+  if (!providedSecret || !workerSecret) return false;
+  const providedBuffer = Buffer.from(providedSecret);
+  const expectedBuffer = Buffer.from(workerSecret);
+  if (providedBuffer.length !== expectedBuffer.length) return false;
+  return timingSafeEqual(providedBuffer, expectedBuffer);
+}
+
 export async function POST(request: NextRequest) {
   const workerSecret = getWorkerSecret();
   const providedSecret = (request.headers.get("x-worker-key") || "").trim();
-  if (!workerSecret || !providedSecret || providedSecret !== workerSecret) {
+  if (!isValidWorkerSecret(providedSecret, workerSecret)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

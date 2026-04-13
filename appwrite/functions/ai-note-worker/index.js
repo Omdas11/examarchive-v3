@@ -1,4 +1,5 @@
 function parseJobPayload(rawBody) {
+  if (typeof rawBody === "object" && rawBody !== null) return rawBody;
   const raw = `${rawBody || ""}`.trim();
   if (!raw) return { jobId: "" };
   try {

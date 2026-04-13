@@ -38,3 +38,19 @@ Set in GitHub Actions/Appwrite environment:
 - `APPWRITE_API_KEY`
 - `APPWRITE_AI_WORKER_SHARED_SECRET` (required dedicated secret)
 - `APPWRITE_AI_WORKER_BASE_URL` (or fallback `NEXT_PUBLIC_SITE_URL`)
+
+### Where to find/set these in Appwrite Console
+
+- **Project API key (`APPWRITE_API_KEY`)**
+  - Appwrite Console → **Project settings** → **API keys**.
+  - If you cannot view the old key value, create a new key and copy it once.
+- **Function runtime variables**
+  - Appwrite Console → **Functions** → `ai-note-worker` → **Variables**.
+  - Add/update:
+    - `EXAMARCHIVE_BASE_URL`
+    - `EXAMARCHIVE_WORKER_SHARED_SECRET`
+
+### Using existing Appwrite API automation
+
+You do not need to manually set function variables each time if CI secrets are configured.  
+`npm run sync:appwrite-ai` already uses Appwrite API (`createVariable` / `updateVariable`) to keep these variables in sync.

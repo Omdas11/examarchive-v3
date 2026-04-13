@@ -20,6 +20,7 @@ const {
 const {
   createAttribute,
   getMissingAttributes,
+  isAttributeAlreadyExistsError,
   waitForAttributeAvailability,
   isNotFoundError,
 } = require("./sync-appwrite-schema");
@@ -201,6 +202,14 @@ async function syncCollection(databases, collection) {
       await waitForAttributeAvailability(databases, DATABASE_ID, collection.id, attribute.key);
       createdAttributes += 1;
     } catch (error) {
+      if (isAttributeAlreadyExistsError(error)) {
+        console.warn(
+          `[warn] ${collection.id}.${attribute.key} already exists while creating. ` +
+            "Continuing after waiting for Appwrite metadata to settle.",
+        );
+        await waitForAttributeAvailability(databases, DATABASE_ID, collection.id, attribute.key);
+        continue;
+      }
       if (isAttributeLimitExceeded(error)) {
         attributeLimitExceeded = true;
         console.warn(
@@ -231,18 +240,19 @@ async function ensureFunctionExists(functions, func) {
   try {
     const existing = await functions.get(func.id);
     try {
-      await functions.update({
-        functionId: func.id,
-        name: func.name,
-        runtime: func.runtime,
-        execute: func.execute ?? [],
-        events: func.events,
-        schedule: func.schedule,
-        entrypoint: func.entrypoint,
-        commands: func.commands,
-        enabled: true,
-        logging: true,
-      });
+      await functions.update(
+        func.id,
+        func.name,
+        func.runtime,
+        func.execute ?? [],
+        func.events,
+        func.schedule,
+        undefined,
+        true,
+        true,
+        func.entrypoint,
+        func.commands,
+      );
     } catch (updateError) {
       throw new Error(
         `Failed to update function configuration for "${func.id}": ${
@@ -251,7 +261,7 @@ async function ensureFunctionExists(functions, func) {
       );
     }
     console.log(`[exists] function ${func.id}`);
-    return { functionId: func.id, created: false, runtime: existing.runtime || func.runtime };
+    return { functionId: func.id, created: false, runtime: func.runtime || existing.runtime };
   } catch (error) {
     if (!isNotFoundError(error)) {
       throw error;
