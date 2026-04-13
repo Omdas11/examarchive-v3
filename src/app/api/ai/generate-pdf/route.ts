@@ -91,6 +91,7 @@ const ABBREV_PLACEHOLDER = "\x00";
 function splitSyllabusIntoSubTopics(syllabusContent: string): string[] {
   const protected_ = syllabusContent.replace(ABBREV_DOT_RE, (m) => m.slice(0, -1) + ABBREV_PLACEHOLDER);
   return protected_
+    // Split on sentence-ending punctuation + whitespace, or on blank-line separators.
     .split(/(?:(?<=[.;])\s+|\n{2,})/)
     .map((part) => part.replace(/\x00/g, ".").replace(/\s+/g, " ").trim())
     .filter(Boolean);
@@ -158,6 +159,24 @@ async function recordGeneration(userId: string, todayStr: string): Promise<void>
     });
   } catch (error) {
     console.error("[ai/generate-pdf] Failed to record usage:", error);
+  }
+}
+
+async function reserveQuotaForAcceptedRequest(
+  userId: string,
+  todayStr: string,
+  counter: "notes_generated_today" | "papers_solved_today",
+): Promise<void> {
+  const [quotaResult, usageResult] = await Promise.allSettled([
+    incrementQuotaCounter(userId, counter),
+    recordGeneration(userId, todayStr),
+  ]);
+
+  if (quotaResult.status === "rejected") {
+    throw new Error(`[ai/generate-pdf] Failed to reserve ${counter}: ${String(quotaResult.reason)}`);
+  }
+  if (usageResult.status === "rejected") {
+    throw new Error(`[ai/generate-pdf] Failed to record usage: ${String(usageResult.reason)}`);
   }
 }
 
@@ -553,10 +572,7 @@ export async function POST(request: NextRequest) {
           { status: 403 },
         );
       }
-      await Promise.all([
-        incrementQuotaCounter(user.id, "notes_generated_today"),
-        recordGeneration(user.id, todayStr),
-      ]);
+      await reserveQuotaForAcceptedRequest(user.id, todayStr, "notes_generated_today");
     }
 
     after(async () => {
@@ -609,10 +625,7 @@ export async function POST(request: NextRequest) {
         { status: 403 },
       );
     }
-    await Promise.all([
-      incrementQuotaCounter(user.id, "papers_solved_today"),
-      recordGeneration(user.id, todayStr),
-    ]);
+    await reserveQuotaForAcceptedRequest(user.id, todayStr, "papers_solved_today");
   }
 
   after(async () => {
