@@ -155,6 +155,16 @@ async function fetchTavilyContext(query: string): Promise<string> {
   }
 }
 
+async function notifyGenerationFailure(email: string, title: string, error: unknown): Promise<void> {
+  await sendGenerationFailureEmail({
+    email,
+    title,
+    reason: error instanceof Error ? error.message : "Background generation failed.",
+  }).catch((mailError) => {
+    console.error("[ai/generate-pdf] Failed to send generation failure email:", mailError);
+  });
+}
+
 async function runNotesBackground(params: {
   userId: string;
   userEmail: string;
@@ -366,7 +376,9 @@ async function runSolvedPaperBackground(params: {
   const googleClient = new GoogleGenerativeAI(String(geminiApiKey));
   const systemPrompt = readDynamicSystemPrompt({ promptType: "solved_paper" });
   let masterMarkdown = "";
-  const paperWebContext = await fetchTavilyContext(`${university} ${course} ${paperCode} ${year} solved paper key points`);
+  const paperWebContext = allQuestions.length > 0
+    ? await fetchTavilyContext(`${university} ${course} ${paperCode} ${year} solved paper key points`)
+    : "";
 
   for (const [index, questionDoc] of allQuestions.entries()) {
     const qNo = String(questionDoc.question_no ?? index + 1).trim();
@@ -558,13 +570,7 @@ export async function POST(request: NextRequest) {
         });
       } catch (error) {
         console.error("[ai/generate-pdf] Notes background job failed:", error);
-        await sendGenerationFailureEmail({
-          email: userEmail,
-          title: `Unit Notes (${paperCode} - Unit ${unitNumber})`,
-          reason: error instanceof Error ? error.message : "Background generation failed.",
-        }).catch((mailError) => {
-          console.error("[ai/generate-pdf] Failed to send notes failure email:", mailError);
-        });
+        await notifyGenerationFailure(userEmail, `Unit Notes (${paperCode} - Unit ${unitNumber})`, error);
       }
     });
 
@@ -620,13 +626,7 @@ export async function POST(request: NextRequest) {
       });
     } catch (error) {
       console.error("[ai/generate-pdf] Solved paper background job failed:", error);
-      await sendGenerationFailureEmail({
-        email: userEmail,
-        title: `Solved Paper (${paperCode} ${year})`,
-        reason: error instanceof Error ? error.message : "Background generation failed.",
-      }).catch((mailError) => {
-        console.error("[ai/generate-pdf] Failed to send solved-paper failure email:", mailError);
-      });
+      await notifyGenerationFailure(userEmail, `Solved Paper (${paperCode} ${year})`, error);
     }
   });
 
