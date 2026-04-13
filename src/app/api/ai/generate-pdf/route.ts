@@ -198,20 +198,55 @@ async function fetchTavilyContext(query: string): Promise<string> {
   }
 }
 
+function formatFailureReason(error: unknown): string {
+  if (!(error instanceof Error)) return "Background generation failed.";
+
+  const details: string[] = [];
+  const visited = new Set<unknown>();
+  let current: unknown = error;
+  let depth = 0;
+
+  while (current && depth < 3 && !visited.has(current)) {
+    visited.add(current);
+    if (current instanceof Error) {
+      const message = current.message.trim();
+      if (message) details.push(message);
+      const status = (current as { status?: unknown }).status;
+      if (typeof status === "number") details.push(`status=${status}`);
+      const code = (current as { code?: unknown }).code;
+      if (typeof code === "string" && code) details.push(`code=${code}`);
+      current = (current as { cause?: unknown }).cause;
+      depth += 1;
+      continue;
+    }
+    break;
+  }
+
+  const normalized = details.join(" | ");
+  if (normalized.includes("UND_ERR_CONNECT_TIMEOUT")) {
+    return `${normalized} | The server timed out while connecting to a required upstream service.`;
+  }
+  return normalized || "Background generation failed.";
+}
+
 async function notifyGenerationFailure(email: string, title: string, error: unknown): Promise<void> {
   await sendGenerationFailureEmail({
     email,
     title,
-    reason: error instanceof Error ? error.message : "Background generation failed.",
+    reason: formatFailureReason(error),
   }).catch((mailError) => {
     console.error("[ai/generate-pdf] Failed to send generation failure email:", mailError);
   });
 }
 
-async function notifyGenerationStarted(email: string, title: string): Promise<void> {
-  await sendGenerationStartedEmail({ email, title }).catch((mailError) => {
+async function ensureGenerationStartedEmail(email: string, title: string): Promise<boolean> {
+  try {
+    await sendGenerationStartedEmail({ email, title });
+    return true;
+  } catch (mailError) {
     console.error("[ai/generate-pdf] Failed to send generation started email:", mailError);
-  });
+    return false;
+  }
 }
 
 async function runNotesBackground(params: {
@@ -582,9 +617,23 @@ export async function POST(request: NextRequest) {
           { status: 403 },
         );
       }
+    }
+    const startEmailSent = await ensureGenerationStartedEmail(
+      userEmail,
+      `Unit Notes (${paperCode} - Unit ${unitNumber})`,
+    );
+    if (!startEmailSent) {
+      return NextResponse.json(
+        {
+          error: "Unable to send generation confirmation email. Request was not started. Please verify email settings and try again.",
+          code: "EMAIL_DELIVERY_UNAVAILABLE",
+        },
+        { status: 503 },
+      );
+    }
+    if (!admin) {
       await reserveQuotaForAcceptedRequest(user.id, todayStr, "notes_generated_today");
     }
-    await notifyGenerationStarted(userEmail, `Unit Notes (${paperCode} - Unit ${unitNumber})`);
 
     after(async () => {
       try {
@@ -636,9 +685,20 @@ export async function POST(request: NextRequest) {
         { status: 403 },
       );
     }
+  }
+  const startEmailSent = await ensureGenerationStartedEmail(userEmail, `Solved Paper (${paperCode} ${year})`);
+  if (!startEmailSent) {
+    return NextResponse.json(
+      {
+        error: "Unable to send generation confirmation email. Request was not started. Please verify email settings and try again.",
+        code: "EMAIL_DELIVERY_UNAVAILABLE",
+      },
+      { status: 503 },
+    );
+  }
+  if (!admin) {
     await reserveQuotaForAcceptedRequest(user.id, todayStr, "papers_solved_today");
   }
-  await notifyGenerationStarted(userEmail, `Solved Paper (${paperCode} ${year})`);
 
   after(async () => {
     try {

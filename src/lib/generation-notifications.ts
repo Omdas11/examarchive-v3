@@ -37,6 +37,19 @@ function getSiteUrl(): string {
   ).replace(/\/+$/, "");
 }
 
+function getFromAddress(): string {
+  const fromAddress = (
+    process.env.GMAIL_FROM_ADDRESS ||
+    process.env.MAIL_FROM_ADDRESS ||
+    process.env.GMAIL_EMAIL_ADDRESS ||
+    ""
+  ).trim();
+  if (!fromAddress) {
+    throw new SmtpConfigurationError("GMAIL_EMAIL_ADDRESS is missing.");
+  }
+  return fromAddress;
+}
+
 function normalizeGmailAppPassword(value: string): string {
   const compact = value.replace(/[\s-]+/g, "");
   if (!/^[a-zA-Z0-9]{16}$/.test(compact)) {
@@ -85,10 +98,7 @@ export async function sendGenerationStartedEmail(args: {
 }): Promise<void> {
   const to = args.email.trim();
   if (!to) return;
-  const from = (process.env.GMAIL_EMAIL_ADDRESS || "").trim();
-  if (!from) {
-    throw new SmtpConfigurationError("GMAIL_EMAIL_ADDRESS is missing.");
-  }
+  const from = getFromAddress();
   const safeTitle = sanitizePlainText(args.title) || "PDF generation request";
   const transporter = await getTransporter();
   await transporter.sendMail({
@@ -107,10 +117,7 @@ export async function sendGenerationPdfEmail(args: {
 }): Promise<void> {
   const to = args.email.trim();
   if (!to) return;
-  const from = (process.env.GMAIL_EMAIL_ADDRESS || "").trim();
-  if (!from) {
-    throw new SmtpConfigurationError("GMAIL_EMAIL_ADDRESS is missing.");
-  }
+  const from = getFromAddress();
   const normalizedUrl = args.downloadUrl.trim();
   const downloadUrl = /^https?:\/\//i.test(normalizedUrl)
     ? normalizedUrl
@@ -134,10 +141,8 @@ export async function sendGenerationFailureEmail(args: {
 }): Promise<void> {
   const to = args.email.trim();
   if (!to) return;
-  const from = (process.env.GMAIL_EMAIL_ADDRESS || "").trim();
-  if (!from) {
-    throw new SmtpConfigurationError("GMAIL_EMAIL_ADDRESS is missing.");
-  }
+  const from = getFromAddress();
+  const safeTitle = sanitizePlainText(args.title) || "PDF generation request";
   const reason = (
     args.reason ||
     "Generation failed. Please check your selections and try again. If it keeps failing, contact support."
@@ -146,8 +151,8 @@ export async function sendGenerationFailureEmail(args: {
   await transporter.sendMail({
     from,
     to,
-    subject: `ExamArchive: ${args.title} generation failed`,
-    text: `We couldn't complete your PDF generation request.\n\nReason: ${reason}\nPlease try again.\n`,
-    html: "<p>We couldn't complete your PDF generation request.</p><p>Please try again. Check the plain-text section of this email for failure details.</p>",
+    subject: `ExamArchive: ${safeTitle} generation failed`,
+    text: `We couldn't complete your PDF generation request.\n\nTitle: ${safeTitle}\nReason: ${reason}\n\nWhat you can do:\n- Try again in a few minutes.\n- If the issue persists, contact support and include this reason.\n`,
+    html: "<p>We couldn't complete your PDF generation request.</p><p>Please try again in a few minutes. If the issue persists, contact support and include the detailed reason shown in the plain-text section of this email.</p>",
   });
 }
