@@ -14,6 +14,7 @@ const STREAM_TYPES: Record<string, string[]> = {
   Commerce: ["DSC", "DSM", "SEC", "AEC", "VAC", "IDC"],
 };
 const UNIT_OPTIONS = [1, 2, 3, 4, 5];
+const GENERATION_REQUEST_TIMEOUT_MS = 60_000;
 
 function LoadingDots() {
   return (
@@ -157,7 +158,7 @@ export default function AIContentClient() {
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
     try {
       const controller = new AbortController();
-      timeoutId = setTimeout(() => controller.abort(), 60000);
+      timeoutId = setTimeout(() => controller.abort(), GENERATION_REQUEST_TIMEOUT_MS);
       const response = await fetch("/api/ai/generate-pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -519,7 +520,7 @@ export default function AIContentClient() {
               {generationStatus.message}
             </p>
           ) : null}
-          {error && <p className="mt-3 text-sm text-error">⚠ {error}</p>}
+          {error && generationStatus?.tone !== "error" ? <p className="mt-3 text-sm text-error">⚠ {error}</p> : null}
         </section>
       </div>
     </div>

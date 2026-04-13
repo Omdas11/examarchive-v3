@@ -22,6 +22,10 @@ function escapeHtml(value: string): string {
   });
 }
 
+/**
+ * Normalizes plain-text user-provided fragments for email text bodies by stripping
+ * control whitespace that can break formatting or be abused for header-style injection.
+ */
 function sanitizePlainText(value: string): string {
   return value.replace(/[\r\n\t]+/g, " ").trim();
 }
