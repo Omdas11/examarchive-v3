@@ -28,8 +28,6 @@ const RETRY_ERROR_DELAY_MS = 4000;
 const TAVILY_TIMEOUT_MS = 4000;
 const TOPIC_CONCURRENCY = 3;
 const QUESTION_CONCURRENCY = 3;
-const MIN_SEMESTER = 1;
-const MAX_SEMESTER = 8;
 
 type GenerateBody = {
   jobType?: string;
@@ -45,13 +43,6 @@ type GenerateBody = {
 
 function isAdminPlus(role: string): boolean {
   return role === "admin" || role === "founder";
-}
-
-function normalizeSemester(value: unknown): number | null {
-  if (typeof value !== "number" && typeof value !== "string") return null;
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < MIN_SEMESTER || parsed > MAX_SEMESTER) return null;
-  return parsed;
 }
 
 function normalizeYear(value: unknown): number | null {
@@ -203,11 +194,10 @@ async function runNotesBackground(params: {
   type: string;
   paperCode: string;
   unitNumber: number;
-  semester: number | null;
 }): Promise<void> {
   const {
     userId, userEmail, university, course, stream, type,
-    paperCode, unitNumber, semester,
+    paperCode, unitNumber,
   } = params;
 
   const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
@@ -344,7 +334,6 @@ CRITICAL FORMAT CONSTRAINTS:
       console.error("[ai/generate-pdf] Failed to send notes email:", emailError);
     }
   }
-  void semester;
 }
 
 async function runSolvedPaperBackground(params: {
@@ -356,7 +345,6 @@ async function runSolvedPaperBackground(params: {
   type: string;
   paperCode: string;
   year: number;
-  semester: number | null;
 }): Promise<void> {
   const {
     userId, userEmail, university, course, stream, type,
@@ -509,7 +497,6 @@ export async function POST(request: NextRequest) {
   const stream = (body.stream || "").trim();
   const type = (body.type || "").trim();
   const paperCode = (body.paperCode || "").trim();
-  const semester = normalizeSemester(body.semester);
   const userEmail = typeof user.email === "string" ? user.email.trim() : "";
 
   if (!course) return NextResponse.json({ error: "Invalid selection: course is required." }, { status: 400 });
@@ -566,8 +553,10 @@ export async function POST(request: NextRequest) {
           { status: 403 },
         );
       }
-      await incrementQuotaCounter(user.id, "notes_generated_today");
-      await recordGeneration(user.id, todayStr);
+      await Promise.all([
+        incrementQuotaCounter(user.id, "notes_generated_today"),
+        recordGeneration(user.id, todayStr),
+      ]);
     }
 
     after(async () => {
@@ -581,7 +570,6 @@ export async function POST(request: NextRequest) {
           type,
           paperCode,
           unitNumber,
-          semester,
         });
       } catch (error) {
         console.error("[ai/generate-pdf] Notes background job failed:", error);
@@ -622,8 +610,10 @@ export async function POST(request: NextRequest) {
         { status: 403 },
       );
     }
-    await incrementQuotaCounter(user.id, "papers_solved_today");
-    await recordGeneration(user.id, todayStr);
+    await Promise.all([
+      incrementQuotaCounter(user.id, "papers_solved_today"),
+      recordGeneration(user.id, todayStr),
+    ]);
   }
 
   after(async () => {
@@ -637,7 +627,6 @@ export async function POST(request: NextRequest) {
         type,
         paperCode,
         year,
-        semester,
       });
     } catch (error) {
       console.error("[ai/generate-pdf] Solved paper background job failed:", error);
