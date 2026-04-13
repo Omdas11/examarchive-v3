@@ -127,6 +127,24 @@ export function createSessionClient(session: string): Client {
     .setSession(session);
 }
 
+/**
+ * Create an Appwrite client scoped to a user JWT.
+ * Useful for mobile/native clients that authenticate with bearer JWTs.
+ */
+export function createJwtClient(jwt: string): Client {
+  if (!APPWRITE_ENDPOINT || !APPWRITE_PROJECT_ID) {
+    throw new Error(
+      "Missing Appwrite environment variables: " +
+        "NEXT_PUBLIC_APPWRITE_ENDPOINT, NEXT_PUBLIC_APPWRITE_PROJECT_ID",
+    );
+  }
+
+  return new Client()
+    .setEndpoint(APPWRITE_ENDPOINT)
+    .setProject(APPWRITE_PROJECT_ID)
+    .setJWT(jwt);
+}
+
 // ── Convenience service factories ───────────────────────────────────────
 export function adminDatabases() {
   return new Databases(createAdminClient());

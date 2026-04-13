@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import {
   createSessionClient,
+  createJwtClient,
   adminDatabases,
   DATABASE_ID,
   COLLECTION,
@@ -371,6 +372,59 @@ export async function getServerUser(): Promise<UserProfile | null> {
         console.error("[auth] Retry fetch after conflict also failed:", fetchError);
         return null;
       }
+    }
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Resolve user profile from a bearer token (session secret or JWT) for mobile/native clients.
+ */
+async function getAccountUserFromToken(authToken: string) {
+  try {
+    return await new Account(createSessionClient(authToken)).get();
+  } catch {
+    return await new Account(createJwtClient(authToken)).get();
+  }
+}
+
+export async function getServerUserFromBearerToken(token: string): Promise<UserProfile | null> {
+  const authToken = token.trim();
+  if (!authToken) return null;
+  try {
+    const user = await getAccountUserFromToken(authToken);
+
+    const db = adminDatabases();
+    try {
+      const profile = await db.getDocument(DATABASE_ID, COLLECTION.users, user.$id);
+      const rawSecondary = profile.secondary_role ?? null;
+      const rawTier = profile.tier ?? "bronze";
+      const currentStreak = (profile.streak as number) ?? 0;
+      const lastActivity = (profile.last_activity as string) ?? "";
+      const xo = ((profile.xo as number) ?? (profile.xp as number) ?? 0);
+      return {
+        id: profile.$id,
+        email: (profile.email as string) ?? user.email,
+        name: (profile.display_name as string) ?? "",
+        username: (profile.username as string) ?? "",
+        avatar_url: (profile.avatar_url as string) ?? "",
+        avatar_file_id: (profile.avatar_file_id as string) ?? undefined,
+        role: normalizeRole((profile.role as string) ?? "viewer"),
+        secondary_role: isValidCustomRole(rawSecondary) ? rawSecondary : null,
+        tier: isValidTier(rawTier) ? rawTier : "bronze",
+        xo,
+        xp: xo,
+        referral_code: (profile.referral_code as string) ?? "",
+        referred_by: (profile.referred_by as string) ?? null,
+        referral_path: (profile.referral_path as string[]) ?? [],
+        ai_credits: (profile.ai_credits as number) ?? 0,
+        streak_days: currentStreak,
+        last_activity: lastActivity,
+        created_at: profile.$createdAt,
+      };
+    } catch {
+      return null;
     }
   } catch {
     return null;

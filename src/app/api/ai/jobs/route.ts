@@ -1,6 +1,6 @@
 import { createHash } from "crypto";
 import { NextResponse, type NextRequest } from "next/server";
-import { getServerUser } from "@/lib/auth";
+import { getServerUser, getServerUserFromBearerToken } from "@/lib/auth";
 import { getDailyLimit } from "@/lib/ai-limits";
 import { checkAndResetQuotas } from "@/lib/user-quotas";
 import { NOTES_DAILY_LIMIT } from "@/lib/quota-config";
@@ -21,6 +21,7 @@ const DEFAULT_JOBS_LIMIT = 20;
 const MAX_ERROR_MESSAGE_LENGTH = 2000;
 const MIN_SEMESTER = 1;
 const MAX_SEMESTER = 8;
+const BEARER_PREFIX = "bearer ";
 
 type CreateJobBody = {
   university?: string;
@@ -104,8 +105,23 @@ async function findByIdempotency(userId: string, idempotencyKey: string) {
   return existing.documents[0] ?? null;
 }
 
+function extractBearerToken(request: NextRequest): string {
+  const authHeader = (request.headers.get("authorization") || "").trim();
+  if (!authHeader) return "";
+  if (!authHeader.toLowerCase().startsWith(BEARER_PREFIX)) return "";
+  return authHeader.slice(BEARER_PREFIX.length).trim();
+}
+
+async function resolveRequestUser(request: NextRequest) {
+  const cookieUser = await getServerUser();
+  if (cookieUser) return cookieUser;
+  const bearerToken = extractBearerToken(request);
+  if (!bearerToken) return null;
+  return getServerUserFromBearerToken(bearerToken);
+}
+
 export async function POST(request: NextRequest) {
-  const user = await getServerUser();
+  const user = await resolveRequestUser(request);
   if (!user) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
@@ -234,7 +250,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  const user = await getServerUser();
+  const user = await resolveRequestUser(request);
   if (!user) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
