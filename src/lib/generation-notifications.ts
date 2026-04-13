@@ -63,7 +63,7 @@ function normalizeGmailAppPassword(value: string): string {
 }
 
 function parseSmtpPort(value: string | undefined): number {
-  const parsed = Number(value ?? String(DEFAULT_SMTP_PORT));
+  const parsed = Number(value ?? DEFAULT_SMTP_PORT);
   if (!Number.isInteger(parsed) || parsed < 1 || parsed > 65535) {
     throw new SmtpConfigurationError("SMTP_PORT must be a valid integer between 1 and 65535.");
   }
