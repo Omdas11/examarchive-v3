@@ -83,12 +83,8 @@ async function mapWithConcurrency<T, R>(
   if (items.length === 0) return [];
   const safeLimit = Math.max(1, Math.min(limit, items.length));
   const results: R[] = new Array(items.length);
-  let nextIndex = 0;
-  const workers = Array.from({ length: safeLimit }, async () => {
-    while (true) {
-      const current = nextIndex;
-      nextIndex += 1;
-      if (current >= items.length) return;
+  const workers = Array.from({ length: safeLimit }, async (_, workerIndex) => {
+    for (let current = workerIndex; current < items.length; current += safeLimit) {
       results[current] = await mapper(items[current], current);
     }
   });
@@ -531,7 +527,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (!((process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "").trim())) {
+  if (!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY)?.trim()) {
     return NextResponse.json(
       { error: "AI Service not configured (missing GEMINI_API_KEY).", code: "SERVER_MISCONFIGURATION" },
       { status: 503 },
