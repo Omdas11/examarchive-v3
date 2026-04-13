@@ -31,11 +31,13 @@ const MIN_SOLUTION_RESPONSE_CHARS = 10;
 const RETRY_ERROR_DELAY_MS = 4000;
 const TAVILY_TIMEOUT_MS = 4000;
 const TOPIC_CONCURRENCY = 3;
-const QUESTION_CONCURRENCY = 3;
+const QUESTION_CONCURRENCY = 2;
 const UNDICI_CONNECT_TIMEOUT_CODE = "UND_ERR_CONNECT_TIMEOUT";
 const EMAIL_DELIVERY_UNAVAILABLE_CODE = "EMAIL_DELIVERY_UNAVAILABLE";
 const EMAIL_DELIVERY_UNAVAILABLE_MESSAGE =
   "Unable to send generation confirmation email. Request was not started. Please verify email settings and try again.";
+const QUOTA_RESERVATION_FAILED_CODE = "QUOTA_RESERVATION_FAILED";
+const QUOTA_RESERVATION_FAILED_MESSAGE = "Failed to reserve generation quota. Please try again later.";
 
 type GenerateBody = {
   jobType?: string;
@@ -100,7 +102,7 @@ function splitSyllabusIntoSubTopics(syllabusContent: string): string[] {
   const protected_ = syllabusContent.replace(ABBREV_DOT_RE, (m) => m.slice(0, -1) + ABBREV_PLACEHOLDER);
   return protected_
     // Split on sentence-ending punctuation + whitespace, or on blank-line separators.
-    .split(/(?:(?<=[.;])\s+|\n{2,})/)
+    .split(/(?:(?<=[.;])\s*|\n{2,})/)
     .map((part) => part.replace(/\x00/g, ".").replace(/\s+/g, " ").trim())
     .filter(Boolean);
 }
@@ -636,7 +638,18 @@ export async function POST(request: NextRequest) {
       );
     }
     if (!admin) {
-      await reserveQuotaForAcceptedRequest(user.id, todayStr, "notes_generated_today");
+      try {
+        await reserveQuotaForAcceptedRequest(user.id, todayStr, "notes_generated_today");
+      } catch (error) {
+        console.error("[ai/generate-pdf] Failed to reserve notes quota for accepted request.", {
+          userId: user.id,
+          error,
+        });
+        return NextResponse.json(
+          { error: QUOTA_RESERVATION_FAILED_MESSAGE, code: QUOTA_RESERVATION_FAILED_CODE },
+          { status: 503 },
+        );
+      }
     }
 
     after(async () => {
@@ -701,7 +714,18 @@ export async function POST(request: NextRequest) {
     );
   }
   if (!admin) {
-    await reserveQuotaForAcceptedRequest(user.id, todayStr, "papers_solved_today");
+    try {
+      await reserveQuotaForAcceptedRequest(user.id, todayStr, "papers_solved_today");
+    } catch (error) {
+      console.error("[ai/generate-pdf] Failed to reserve solved-paper quota for accepted request.", {
+        userId: user.id,
+        error,
+      });
+      return NextResponse.json(
+        { error: QUOTA_RESERVATION_FAILED_MESSAGE, code: QUOTA_RESERVATION_FAILED_CODE },
+        { status: 503 },
+      );
+    }
   }
 
   after(async () => {

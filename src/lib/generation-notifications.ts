@@ -60,6 +60,20 @@ function normalizeGmailAppPassword(value: string): string {
   return compact;
 }
 
+function parseSmtpPort(value: string | undefined): number {
+  const parsed = Number(value ?? "587");
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 65535) {
+    throw new SmtpConfigurationError("SMTP_PORT must be a valid integer between 1 and 65535.");
+  }
+  return parsed;
+}
+
+function parseSmtpSecure(value: string | undefined, port: number): boolean {
+  const normalized = (value || "").trim().toLowerCase();
+  if (!normalized) return port === 465;
+  return normalized === "true" || normalized === "1" || normalized === "yes";
+}
+
 let cachedTransporter: nodemailer.Transporter<SMTPTransport.SentMessageInfo> | null = null;
 let transporterInitPromise: Promise<nodemailer.Transporter<SMTPTransport.SentMessageInfo>> | null = null;
 
@@ -68,6 +82,27 @@ async function getTransporter() {
   if (transporterInitPromise) return transporterInitPromise;
 
   transporterInitPromise = (async () => {
+    const smtpHost = (process.env.SMTP_HOST || "").trim();
+    if (smtpHost) {
+      const smtpPort = parseSmtpPort(process.env.SMTP_PORT);
+      const smtpSecure = parseSmtpSecure(process.env.SMTP_SECURE, smtpPort);
+      const smtpUser = (process.env.SMTP_USER || "").trim();
+      const smtpPass = (process.env.SMTP_PASS || process.env.RESEND_API_KEY || "").trim();
+      if (!smtpUser || !smtpPass) {
+        const missing: string[] = [];
+        if (!smtpUser) missing.push("SMTP_USER");
+        if (!smtpPass) missing.push("SMTP_PASS/RESEND_API_KEY");
+        throw new SmtpConfigurationError(`SMTP configuration incomplete: missing ${missing.join(", ")}`);
+      }
+      cachedTransporter = nodemailer.createTransport({
+        host: smtpHost,
+        port: smtpPort,
+        secure: smtpSecure,
+        auth: { user: smtpUser, pass: smtpPass },
+      });
+      return cachedTransporter;
+    }
+
     const gmailAddress = process.env.GMAIL_EMAIL_ADDRESS;
     const gmailAppPasswordRaw = process.env.GMAIL_APP_PASSWORD;
     if (!gmailAddress || !gmailAppPasswordRaw) {
