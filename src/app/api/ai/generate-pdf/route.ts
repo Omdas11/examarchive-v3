@@ -16,7 +16,6 @@ import { readDynamicSystemPrompt } from "@/lib/system-prompt";
 import { renderMarkdownPdfToAppwrite } from "@/lib/ai-pdf-pipeline";
 import { sendGenerationFailureEmail, sendGenerationPdfEmail } from "@/lib/generation-notifications";
 import { formatSearchResults, runWebSearch } from "@/lib/web-search";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export const maxDuration = 300;
 
@@ -27,6 +26,8 @@ const QUESTION_MAX_RETRIES = 4;
 const MIN_SOLUTION_RESPONSE_CHARS = 10;
 const RETRY_ERROR_DELAY_MS = 4000;
 const TAVILY_TIMEOUT_MS = 4000;
+const TOPIC_CONCURRENCY = 3;
+const QUESTION_CONCURRENCY = 3;
 const MIN_SEMESTER = 1;
 const MAX_SEMESTER = 8;
 
@@ -74,6 +75,27 @@ function normalizeTags(raw: unknown): string[] {
   return [];
 }
 
+async function mapWithConcurrency<T, R>(
+  items: readonly T[],
+  limit: number,
+  mapper: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  if (items.length === 0) return [];
+  const safeLimit = Math.max(1, Math.min(limit, items.length));
+  const results: R[] = new Array(items.length);
+  let nextIndex = 0;
+  const workers = Array.from({ length: safeLimit }, async () => {
+    while (true) {
+      const current = nextIndex;
+      nextIndex += 1;
+      if (current >= items.length) return;
+      results[current] = await mapper(items[current], current);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
 const ABBREV_DOT_RE = /\d+(?:st|nd|rd|th)\./gi;
 const ABBREV_PLACEHOLDER = "\x00";
 
@@ -94,7 +116,7 @@ function formatQuestionsForPrompt(questions: Array<Record<string, unknown>>, uni
         const parsed = Number(unitRaw);
         return Number.isInteger(parsed) ? parsed === unitNumber : false;
       }
-      return true;
+      return false;
     })
     .map((doc, idx) => {
       const content = typeof doc.question_content === "string" ? doc.question_content.trim() : "";
@@ -229,9 +251,7 @@ async function runNotesBackground(params: {
   const syllabusTags = normalizeTags(syllabusDoc.tags);
   const formattedQuestions = formatQuestionsForPrompt(questionsRes.documents, unitNumber);
   const systemPrompt = readDynamicSystemPrompt({ promptType: "unit_notes" });
-  let masterMarkdown = "";
-
-  for (const [index, topic] of subTopics.entries()) {
+  const generatedChunks = await mapWithConcurrency(subTopics, TOPIC_CONCURRENCY, async (topic, index) => {
     const promptBody = `University: ${university}
 Course: ${course}
 Stream: ${stream}
@@ -280,19 +300,17 @@ CRITICAL FORMAT CONSTRAINTS:
     }
 
     if (!aiResponseText) {
-      const fallbackMarkdown = [
+      return [
         `## ${topic}`,
         "",
         `> *Note: ExamArchive could not generate notes for this sub-topic after retries. Please refer to standard texts for: ${topic}*`,
       ].join("\n");
-      if (masterMarkdown) masterMarkdown += "\n\n---\n\n";
-      masterMarkdown += fallbackMarkdown;
-      continue;
     }
 
-    if (masterMarkdown) masterMarkdown += "\n\n---\n\n";
-    masterMarkdown += aiResponseText;
-  }
+    return aiResponseText;
+  });
+
+  const masterMarkdown = generatedChunks.join("\n\n---\n\n");
 
   const dynamicPdfName = `${paperCode}_Unit_${unitNumber}_Notes.pdf`;
   const rendered = await renderMarkdownPdfToAppwrite({
@@ -373,14 +391,11 @@ async function runSolvedPaperBackground(params: {
 
   if (allQuestions.length === 0) throw new Error("No questions found for the selected paper/year.");
 
-  const googleClient = new GoogleGenerativeAI(String(geminiApiKey));
   const systemPrompt = readDynamicSystemPrompt({ promptType: "solved_paper" });
-  let masterMarkdown = "";
   const paperWebContext = allQuestions.length > 0
     ? await fetchTavilyContext(`${university} ${course} ${paperCode} ${year} solved paper key points`)
     : "";
-
-  for (const [index, questionDoc] of allQuestions.entries()) {
+  const solvedChunks = await mapWithConcurrency(allQuestions, QUESTION_CONCURRENCY, async (questionDoc, index) => {
     const qNo = String(questionDoc.question_no ?? index + 1).trim();
     const qSub = typeof questionDoc.question_subpart === "string" ? questionDoc.question_subpart.trim() : "";
     const qLabel = `Q${qNo}${qSub ? `(${qSub})` : ""}`;
@@ -415,15 +430,16 @@ CRITICAL FORMAT CONSTRAINTS:
 `;
 
     let aiResponseText = "";
-    let retries = 0;
-    while (retries < QUESTION_MAX_RETRIES) {
+    for (let retries = 0; retries < QUESTION_MAX_RETRIES; retries += 1) {
       try {
-        const aiModel = googleClient.getGenerativeModel({
+        const result = await runGeminiCompletion({
+          apiKey: String(geminiApiKey),
+          prompt: `${systemPrompt}\n\n${questionText}`,
+          maxTokens: 4000,
+          temperature: 0.4,
           model: GEMINI_MODEL,
-          systemInstruction: systemPrompt,
         });
-        const result = await aiModel.generateContent(questionText);
-        const candidate = String(result.response.text?.() ?? "").trim();
+        const candidate = String(result.content ?? "").trim();
         if (candidate.length > MIN_SOLUTION_RESPONSE_CHARS) {
           aiResponseText = candidate;
           break;
@@ -438,7 +454,6 @@ CRITICAL FORMAT CONSTRAINTS:
           console.error(`[ai/generate-pdf] Question ${qLabel} failed after retries:`, error);
         }
       }
-      retries += 1;
     }
 
     const solvedChunk = aiResponseText || "_No solution generated after retries._";
@@ -448,9 +463,9 @@ CRITICAL FORMAT CONSTRAINTS:
         ? questionDoc.year
         : (Number(String(questionDoc.year ?? "")) || year);
     const header = `### Q${qNo}(${displaySubpart}) [${questionYear}] [${marks ?? "N/A"} Marks]\n**${questionContent}**\n\n`;
-    if (masterMarkdown) masterMarkdown += "\n\n";
-    masterMarkdown += `${header}${solvedChunk}\n\n---\n`;
-  }
+    return `${header}${solvedChunk}`;
+  });
+  const masterMarkdown = solvedChunks.join("\n\n---\n\n");
 
   const rendered = await renderMarkdownPdfToAppwrite({
     markdown: masterMarkdown.trim(),
@@ -513,6 +528,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { error: "A valid account email is required to receive generated PDFs." },
       { status: 400 },
+    );
+  }
+
+  if (!((process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "").trim())) {
+    return NextResponse.json(
+      { error: "AI Service not configured (missing GEMINI_API_KEY).", code: "SERVER_MISCONFIGURATION" },
+      { status: 503 },
     );
   }
 
