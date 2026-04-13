@@ -138,7 +138,7 @@ export function createJwtClient(jwt: string): Client {
   if (!APPWRITE_ENDPOINT || !APPWRITE_PROJECT_ID) {
     throw new Error(
       "Missing Appwrite environment variables: " +
-        "NEXT_PUBLIC_APPWRITE_ENDPOINT, NEXT_PUBLIC_APPWRITE_PROJECT_ID",
+        "APPWRITE_ENDPOINT, APPWRITE_PROJECT_ID",
     );
   }
 

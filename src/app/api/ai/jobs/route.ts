@@ -21,7 +21,6 @@ const DEFAULT_JOBS_LIMIT = 20;
 const MAX_ERROR_MESSAGE_LENGTH = 2000;
 const MIN_SEMESTER = 1;
 const MAX_SEMESTER = 8;
-const BEARER_PREFIX = "bearer ";
 
 type CreateJobBody = {
   university?: string;
@@ -108,9 +107,9 @@ async function findByIdempotency(userId: string, idempotencyKey: string) {
 function extractBearerToken(request: NextRequest): string {
   const authHeader = (request.headers.get("authorization") || "").trim();
   if (!authHeader) return "";
-  const lowerAuthHeader = authHeader.toLowerCase();
-  if (!lowerAuthHeader.startsWith(BEARER_PREFIX)) return "";
-  return authHeader.slice(BEARER_PREFIX.length).trim();
+  const match = /^bearer\s+(.+)$/i.exec(authHeader);
+  if (!match) return "";
+  return match[1].trim();
 }
 
 async function resolveRequestUser(request: NextRequest) {
