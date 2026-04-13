@@ -178,17 +178,21 @@ async function reserveQuotaForAcceptedRequest(
   todayStr: string,
   counter: "notes_generated_today" | "papers_solved_today",
 ): Promise<void> {
-  const [quotaResult, usageResult] = await Promise.allSettled([
-    incrementQuotaCounter(userId, counter),
-    recordGeneration(userId, todayStr),
-  ]);
+  try {
+    await incrementQuotaCounter(userId, counter);
+  } catch (error) {
+    throw new Error(`[ai/generate-pdf] Failed to reserve ${counter}: ${String(error)}`);
+  }
 
-  if (quotaResult.status === "rejected") {
-    throw new Error(`[ai/generate-pdf] Failed to reserve ${counter}: ${String(quotaResult.reason)}`);
-  }
-  if (usageResult.status === "rejected") {
-    throw new Error(`[ai/generate-pdf] Failed to record usage: ${String(usageResult.reason)}`);
-  }
+  // Metrics recording is non-critical and should not block accepted requests.
+  void recordGeneration(userId, todayStr).catch((error) => {
+    console.error("[ai/generate-pdf] Failed to record usage metrics after quota reservation.", {
+      userId,
+      todayStr,
+      counter,
+      error,
+    });
+  });
 }
 
 async function fetchTavilyContext(query: string): Promise<string> {
@@ -625,19 +629,6 @@ export async function POST(request: NextRequest) {
         );
       }
     }
-    const startEmailSent = await ensureGenerationStartedEmail(
-      userEmail,
-      `Unit Notes (${paperCode} - Unit ${unitNumber})`,
-    );
-    if (!startEmailSent) {
-      return NextResponse.json(
-        {
-          error: EMAIL_DELIVERY_UNAVAILABLE_MESSAGE,
-          code: EMAIL_DELIVERY_UNAVAILABLE_CODE,
-        },
-        { status: 503 },
-      );
-    }
     if (!admin) {
       try {
         await reserveQuotaForAcceptedRequest(user.id, todayStr, "notes_generated_today");
@@ -651,6 +642,19 @@ export async function POST(request: NextRequest) {
           { status: 503 },
         );
       }
+    }
+    const startEmailSent = await ensureGenerationStartedEmail(
+      userEmail,
+      `Unit Notes (${paperCode} - Unit ${unitNumber})`,
+    );
+    if (!startEmailSent) {
+      return NextResponse.json(
+        {
+          error: EMAIL_DELIVERY_UNAVAILABLE_MESSAGE,
+          code: EMAIL_DELIVERY_UNAVAILABLE_CODE,
+        },
+        { status: 503 },
+      );
     }
 
     after(async () => {
@@ -704,16 +708,6 @@ export async function POST(request: NextRequest) {
       );
     }
   }
-  const startEmailSent = await ensureGenerationStartedEmail(userEmail, `Solved Paper (${paperCode} ${year})`);
-  if (!startEmailSent) {
-    return NextResponse.json(
-      {
-        error: EMAIL_DELIVERY_UNAVAILABLE_MESSAGE,
-        code: EMAIL_DELIVERY_UNAVAILABLE_CODE,
-      },
-      { status: 503 },
-    );
-  }
   if (!admin) {
     try {
       await reserveQuotaForAcceptedRequest(user.id, todayStr, "papers_solved_today");
@@ -727,6 +721,16 @@ export async function POST(request: NextRequest) {
         { status: 503 },
       );
     }
+  }
+  const startEmailSent = await ensureGenerationStartedEmail(userEmail, `Solved Paper (${paperCode} ${year})`);
+  if (!startEmailSent) {
+    return NextResponse.json(
+      {
+        error: EMAIL_DELIVERY_UNAVAILABLE_MESSAGE,
+        code: EMAIL_DELIVERY_UNAVAILABLE_CODE,
+      },
+      { status: 503 },
+    );
   }
 
   after(async () => {
