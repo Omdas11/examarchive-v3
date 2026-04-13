@@ -92,7 +92,7 @@ async function mapWithConcurrency<T, R>(
   return results;
 }
 
-const ABBREV_DOT_RE = /\d+(?:st|nd|rd|th)\./gi;
+const ABBREV_DOT_RE = /\b(?:\d+|[a-zA-Z])\.(?=\s|$)|(?:\d+(?:st|nd|rd|th)\.)/gi;
 const ABBREV_PLACEHOLDER = "\x00";
 
 function splitSyllabusIntoSubTopics(syllabusContent: string): string[] {
