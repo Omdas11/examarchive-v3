@@ -3,6 +3,25 @@ import type SMTPTransport from "nodemailer/lib/smtp-transport";
 
 export class SmtpConfigurationError extends Error {}
 
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (ch) => {
+    switch (ch) {
+      case "&":
+        return "&amp;";
+      case "<":
+        return "&lt;";
+      case ">":
+        return "&gt;";
+      case '"':
+        return "&quot;";
+      case "'":
+        return "&#39;";
+      default:
+        return ch;
+    }
+  });
+}
+
 function getSiteUrl(): string {
   return (
     process.env.NEXT_PUBLIC_SITE_URL ||
@@ -56,22 +75,7 @@ export async function sendGenerationPdfEmail(args: {
   const downloadUrl = /^https?:\/\//i.test(normalizedUrl)
     ? normalizedUrl
     : `${getSiteUrl()}/${normalizedUrl.replace(/^\/+/, "")}`;
-  const safeDownloadUrl = downloadUrl.replace(/[&<>"']/g, (ch) => {
-    switch (ch) {
-      case "&":
-        return "&amp;";
-      case "<":
-        return "&lt;";
-      case ">":
-        return "&gt;";
-      case '"':
-        return "&quot;";
-      case "'":
-        return "&#39;";
-      default:
-        return ch;
-    }
-  });
+  const safeDownloadUrl = escapeHtml(downloadUrl);
 
   const transporter = await getTransporter();
   await transporter.sendMail({
@@ -80,5 +84,28 @@ export async function sendGenerationPdfEmail(args: {
     subject: `ExamArchive: ${args.title} PDF is ready`,
     text: `Your generated PDF is ready.\n\nDownload: ${downloadUrl}\n`,
     html: `<p>Your generated PDF is ready.</p><p><a href="${safeDownloadUrl}">Download PDF</a></p>`,
+  });
+}
+
+export async function sendGenerationFailureEmail(args: {
+  email: string;
+  title: string;
+  reason?: string;
+}): Promise<void> {
+  const to = args.email.trim();
+  if (!to) return;
+  const from = (process.env.GMAIL_EMAIL_ADDRESS || "").trim();
+  if (!from) {
+    throw new SmtpConfigurationError("GMAIL_EMAIL_ADDRESS is missing.");
+  }
+  const reason = (args.reason || "Generation failed due to a temporary server issue.").trim();
+  const safeReason = escapeHtml(reason);
+  const transporter = await getTransporter();
+  await transporter.sendMail({
+    from,
+    to,
+    subject: `ExamArchive: ${args.title} generation failed`,
+    text: `We couldn't complete your PDF generation request.\n\nReason: ${reason}\nPlease try again.\n`,
+    html: `<p>We couldn't complete your PDF generation request.</p><p><strong>Reason:</strong> ${safeReason}</p><p>Please try again.</p>`,
   });
 }

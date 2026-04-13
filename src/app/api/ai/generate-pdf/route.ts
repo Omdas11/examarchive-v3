@@ -14,7 +14,7 @@ import {
 import { runGeminiCompletion } from "@/lib/gemini";
 import { readDynamicSystemPrompt } from "@/lib/system-prompt";
 import { renderMarkdownPdfToAppwrite } from "@/lib/ai-pdf-pipeline";
-import { sendGenerationPdfEmail } from "@/lib/generation-notifications";
+import { sendGenerationFailureEmail, sendGenerationPdfEmail } from "@/lib/generation-notifications";
 import { formatSearchResults, runWebSearch } from "@/lib/web-search";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
@@ -25,8 +25,6 @@ const TOPIC_RETRY_MAX = 3;
 const MIN_TOPIC_RESPONSE_CHARS = 50;
 const QUESTION_MAX_RETRIES = 4;
 const MIN_SOLUTION_RESPONSE_CHARS = 10;
-const TOPIC_LOOP_DELAY_MS = 5000;
-const QUESTION_LOOP_DELAY_MS = 5000;
 const RETRY_ERROR_DELAY_MS = 4000;
 const TAVILY_TIMEOUT_MS = 4000;
 const MIN_SEMESTER = 1;
@@ -62,6 +60,10 @@ function normalizeYear(value: unknown): number | null {
   return Math.floor(parsed);
 }
 
+function isValidEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
 function normalizeTags(raw: unknown): string[] {
   if (Array.isArray(raw)) {
     return raw.map((tag) => (typeof tag === "string" ? tag.trim() : "")).filter(Boolean);
@@ -90,7 +92,7 @@ function formatQuestionsForPrompt(questions: Array<Record<string, unknown>>, uni
       if (typeof unitRaw === "number") return unitRaw === unitNumber;
       if (typeof unitRaw === "string") {
         const parsed = Number(unitRaw);
-        return Number.isInteger(parsed) ? parsed === unitNumber : true;
+        return Number.isInteger(parsed) ? parsed === unitNumber : false;
       }
       return true;
     })
@@ -275,14 +277,11 @@ CRITICAL FORMAT CONSTRAINTS:
       ].join("\n");
       if (masterMarkdown) masterMarkdown += "\n\n---\n\n";
       masterMarkdown += fallbackMarkdown;
-      await sleep(TOPIC_LOOP_DELAY_MS);
       continue;
     }
 
     if (masterMarkdown) masterMarkdown += "\n\n---\n\n";
     masterMarkdown += aiResponseText;
-
-    await sleep(TOPIC_LOOP_DELAY_MS);
   }
 
   const dynamicPdfName = `${paperCode}_Unit_${unitNumber}_Notes.pdf`;
@@ -367,6 +366,7 @@ async function runSolvedPaperBackground(params: {
   const googleClient = new GoogleGenerativeAI(String(geminiApiKey));
   const systemPrompt = readDynamicSystemPrompt({ promptType: "solved_paper" });
   let masterMarkdown = "";
+  const paperWebContext = await fetchTavilyContext(`${university} ${course} ${paperCode} ${year} solved paper key points`);
 
   for (const [index, questionDoc] of allQuestions.entries()) {
     const qNo = String(questionDoc.question_no ?? index + 1).trim();
@@ -377,8 +377,6 @@ async function runSolvedPaperBackground(params: {
       typeof questionDoc.marks === "number"
         ? questionDoc.marks
         : (typeof questionDoc.marks === "string" ? Number(questionDoc.marks) || null : null);
-
-    const tavilyContext = await fetchTavilyContext(questionContent);
 
     const questionText = `University: ${university}
 Course: ${course}
@@ -394,8 +392,8 @@ CRITICAL LENGTH CONSTRAINT: This question is worth ${marks ?? "N/A"} marks. If i
 Question:
 ${questionContent}
 
-Tavily Web Context:
-${tavilyContext}
+Paper-level Web Context:
+${paperWebContext || "No external web context available."}
 
 CRITICAL FORMAT CONSTRAINTS:
 1. Do NOT write a document title.
@@ -440,8 +438,6 @@ CRITICAL FORMAT CONSTRAINTS:
     const header = `### Q${qNo}(${displaySubpart}) [${questionYear}] [${marks ?? "N/A"} Marks]\n**${questionContent}**\n\n`;
     if (masterMarkdown) masterMarkdown += "\n\n";
     masterMarkdown += `${header}${solvedChunk}\n\n---\n`;
-
-    await sleep(QUESTION_LOOP_DELAY_MS);
   }
 
   const rendered = await renderMarkdownPdfToAppwrite({
@@ -495,11 +491,18 @@ export async function POST(request: NextRequest) {
   const type = (body.type || "").trim();
   const paperCode = (body.paperCode || "").trim();
   const semester = normalizeSemester(body.semester);
+  const userEmail = typeof user.email === "string" ? user.email.trim() : "";
 
   if (!course) return NextResponse.json({ error: "Invalid selection: course is required." }, { status: 400 });
   if (!stream) return NextResponse.json({ error: "Invalid selection: stream is required." }, { status: 400 });
   if (!type) return NextResponse.json({ error: "Invalid selection: type is required." }, { status: 400 });
   if (!paperCode) return NextResponse.json({ error: "Invalid selection: paper code is required." }, { status: 400 });
+  if (!isValidEmail(userEmail)) {
+    return NextResponse.json(
+      { error: "A valid account email is required to receive generated PDFs." },
+      { status: 400 },
+    );
+  }
 
   if (!(process.env.AZURE_GOTENBERG_URL || "").trim()) {
     return NextResponse.json(
@@ -538,7 +541,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const userEmail = typeof user.email === "string" ? user.email.trim() : "";
     after(async () => {
       try {
         await runNotesBackground({
@@ -556,6 +558,13 @@ export async function POST(request: NextRequest) {
         });
       } catch (error) {
         console.error("[ai/generate-pdf] Notes background job failed:", error);
+        await sendGenerationFailureEmail({
+          email: userEmail,
+          title: `Unit Notes (${paperCode} - Unit ${unitNumber})`,
+          reason: error instanceof Error ? error.message : "Background generation failed.",
+        }).catch((mailError) => {
+          console.error("[ai/generate-pdf] Failed to send notes failure email:", mailError);
+        });
       }
     });
 
@@ -594,7 +603,6 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const userEmail = typeof user.email === "string" ? user.email.trim() : "";
   after(async () => {
     try {
       await runSolvedPaperBackground({
@@ -612,6 +620,13 @@ export async function POST(request: NextRequest) {
       });
     } catch (error) {
       console.error("[ai/generate-pdf] Solved paper background job failed:", error);
+      await sendGenerationFailureEmail({
+        email: userEmail,
+        title: `Solved Paper (${paperCode} ${year})`,
+        reason: error instanceof Error ? error.message : "Background generation failed.",
+      }).catch((mailError) => {
+        console.error("[ai/generate-pdf] Failed to send solved-paper failure email:", mailError);
+      });
     }
   });
 
