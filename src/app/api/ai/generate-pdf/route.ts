@@ -83,12 +83,13 @@ async function mapWithConcurrency<T, R>(
   if (items.length === 0) return [];
   const safeLimit = Math.max(1, Math.min(limit, items.length));
   const results: R[] = new Array(items.length);
-  const workers = Array.from({ length: safeLimit }, async (_, workerIndex) => {
-    for (let current = workerIndex; current < items.length; current += safeLimit) {
-      results[current] = await mapper(items[current], current);
+  let nextIndex = 0;
+  const workers = Array.from({ length: safeLimit }, async () => {
+    while (nextIndex < items.length) {
+      const i = nextIndex++;
+      results[i] = await mapper(items[i], i);
     }
   });
-  await Promise.all(workers);
   return results;
 }
 
