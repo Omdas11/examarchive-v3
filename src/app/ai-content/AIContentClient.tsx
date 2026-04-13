@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
 import "katex/dist/katex.min.css";
 import { useToast } from "@/components/ToastContext";
 import CustomDropdown, { type CustomDropdownOption } from "@/components/CustomDropdown";
@@ -14,29 +14,6 @@ const STREAM_TYPES: Record<string, string[]> = {
   Commerce: ["DSC", "DSM", "SEC", "AEC", "VAC", "IDC"],
 };
 const UNIT_OPTIONS = [1, 2, 3, 4, 5];
-const BACKEND_PAPERS_MAX_DURATION_SECONDS = 300;
-const RESUME_TIMEOUT_BUFFER_SECONDS = 5;
-const TIMEOUT_THRESHOLD_SECONDS = BACKEND_PAPERS_MAX_DURATION_SECONDS - RESUME_TIMEOUT_BUFFER_SECONDS;
-const SOLVED_PAPER_PART_SIZE = 10;
-const NOTES_JOB_POLL_INTERVAL_MS = 3000;
-type AiGenerationJobStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
-type AiGenerationJob = {
-  id: string;
-  status: AiGenerationJobStatus;
-  progressPercent: number;
-  resultPdfUrl: string | null;
-  errorMessage: string | null;
-  step: {
-    stepIndex: number;
-    stepTotal: number;
-    stepLabel: string;
-  };
-};
-
-type JobStartErrorPayload = {
-  error?: string;
-  code?: string;
-};
 
 function LoadingDots() {
   return (
@@ -67,11 +44,6 @@ export default function AIContentClient() {
   const [availableSemesters, setAvailableSemesters] = useState<number[]>([]);
   const [paperCodeLoading, setPaperCodeLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
-  const [notesPdfResult, setNotesPdfResult] = useState<{
-    key: string;
-    url: string;
-  } | null>(null);
-  const [papersPdfResult, setPapersPdfResult] = useState<{ key: string; url: string } | null>(null);
   const [remaining, setRemaining] = useState<number | null>(null);
   const [limit, setLimit] = useState<number | null>(null);
   const [notesRemaining, setNotesRemaining] = useState<number | null>(null);
@@ -79,23 +51,6 @@ export default function AIContentClient() {
   const [notesDailyLimit, setNotesDailyLimit] = useState<number | null>(null);
   const [papersDailyLimit, setPapersDailyLimit] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [progressStatus, setProgressStatus] = useState("");
-  const [progressTopic, setProgressTopic] = useState("");
-  const [progressIndex, setProgressIndex] = useState(0);
-  const [progressTotal, setProgressTotal] = useState(0);
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [canResumeGeneration, setCanResumeGeneration] = useState(false);
-  const [etaMinutes, setEtaMinutes] = useState<number | null>(null);
-  const [currentPart, setCurrentPart] = useState(1);
-  const [totalParts, setTotalParts] = useState(1);
-  const [notesJob, setNotesJob] = useState<AiGenerationJob | null>(null);
-  const generationRunIdRef = useRef(0);
-  const elapsedSecondsRef = useRef(0);
-  const eventSourceRef = useRef<EventSource | null>(null);
-  const notesJobPollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const notesJobPollTokenRef = useRef(0);
-  const notesIdempotencyKeysRef = useRef<Map<string, string>>(new Map());
-  const notesIdempotencyFallbackCounterRef = useRef(0);
   const hasPaperCode = paperCode.trim().length > 0;
   const availableUnits = useMemo(() => {
     const units = unitsByPaperCode[paperCode];
@@ -154,33 +109,6 @@ export default function AIContentClient() {
     () => availableSemestersForSelection.map((entry) => ({ label: `SEMESTER ${entry}`, value: String(entry) })),
     [availableSemestersForSelection],
   );
-  const progressPercent = progressTotal > 0 ? Math.min(100, Math.round((progressIndex / progressTotal) * 100)) : 0;
-  const notesSelectionKey = useMemo(
-    () => [university, course, stream, type, String(semester), paperCode.trim(), String(unitNumber)].join("|"),
-    [university, course, stream, type, semester, paperCode, unitNumber],
-  );
-  const papersSelectionKey = useMemo(
-    () => [university, course, stream, type, String(semester), paperCode.trim(), String(selectedYear)].join("|"),
-    [university, course, stream, type, semester, paperCode, selectedYear],
-  );
-  const activePdfUrl =
-    activeTab === "notes"
-      ? (notesPdfResult?.key === notesSelectionKey ? notesPdfResult.url : "")
-      : (papersPdfResult?.key === papersSelectionKey ? papersPdfResult.url : "");
-  const estimatedMinutesRemaining = useMemo(() => {
-    if (activeTab !== "papers") return null;
-    const fallbackByQuestions = Math.max(1, Math.ceil((Math.max(0, progressTotal || 0) * 16) / 60));
-    if (etaMinutes === null) return fallbackByQuestions;
-    const elapsedMinutes = elapsedSeconds / 60;
-    const remainingMinutes = Math.max(0, etaMinutes - elapsedMinutes);
-    return Math.max(1, Math.ceil(remainingMinutes));
-  }, [activeTab, etaMinutes, elapsedSeconds, progressTotal]);
-  function formatElapsedTime(totalSeconds: number): string {
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-  }
-
   function getQuotaSummaryLabel(): string {
     // Prefer strict per-feature quotas when available; fallback to legacy aggregate quota response.
     if (notesDailyLimit !== null && papersDailyLimit !== null) {
@@ -190,437 +118,62 @@ export default function AIContentClient() {
     return `Remaining generations: ${remaining}${typeof limit === "number" ? ` / ${limit}` : ""}`;
   }
 
-  function closeEventSource() {
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-      eventSourceRef.current = null;
-    }
-  }
-
-  function stopNotesJobPolling() {
-    notesJobPollTokenRef.current += 1;
-    if (notesJobPollRef.current) {
-      clearTimeout(notesJobPollRef.current);
-      notesJobPollRef.current = null;
-    }
-  }
-
-  function abortGeneration() {
-    if (!generating) return;
-    generationRunIdRef.current += 1;
-    closeEventSource();
-    stopNotesJobPolling();
-    setNotesPdfResult(null);
-    setPapersPdfResult(null);
-    setCanResumeGeneration(false);
-    setError("Generation aborted.");
-    resetProgressState();
-  }
-
-  function resetProgressState() {
-    setGenerating(false);
-    setProgressStatus("");
-    setProgressTopic("");
-    setProgressIndex(0);
-    setProgressTotal(0);
-    setElapsedSeconds(0);
-    elapsedSecondsRef.current = 0;
-    closeEventSource();
-  }
-
-  async function fetchSolvedPaperMeta(params: URLSearchParams): Promise<{ totalQuestions: number; totalParts: number; etaMinutes: number }> {
-    const res = await fetch(`/api/generate-solved-paper-stream?${params.toString()}&meta=1`, { cache: "no-store" });
-    if (!res.ok) throw new Error(`Failed to calculate ETA (status ${res.status}).`);
-    const data = await res.json();
-    const totalQuestions = typeof data.totalQuestions === "number" ? data.totalQuestions : 0;
-    const computedParts =
-      typeof data.totalParts === "number" && data.totalParts > 0
-        ? data.totalParts
-        : Math.max(1, Math.ceil(totalQuestions / SOLVED_PAPER_PART_SIZE));
-    const safeTotalQuestions = totalQuestions || 0;
-    const computedEta =
-      typeof data.etaMinutes === "number" && data.etaMinutes > 0
-        ? data.etaMinutes
-        : Math.ceil((safeTotalQuestions * 16) / 60);
-    return { totalQuestions, totalParts: computedParts, etaMinutes: computedEta };
-  }
-
-  async function fetchNotesJobStatus(jobId: string): Promise<AiGenerationJob> {
-    const response = await fetch(`/api/ai/jobs/${encodeURIComponent(jobId)}`, { cache: "no-store" });
-    if (!response.ok) {
-      throw new Error(`Failed to fetch job status (status ${response.status}).`);
-    }
-    const payload = await response.json();
-    const job = payload?.job as AiGenerationJob | undefined;
-    if (!job || typeof job.id !== "string") {
-      throw new Error("Invalid job payload.");
-    }
-    return job;
-  }
-
-  function ensureNotesIdempotencyKey(): string {
-    const existing = notesIdempotencyKeysRef.current.get(notesSelectionKey);
-    if (existing) return existing;
-    const key = (() => {
-      if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-        return crypto.randomUUID();
-      }
-      if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
-        const entropy = new Uint32Array(2);
-        crypto.getRandomValues(entropy);
-        return `${Date.now()}-${entropy[0].toString(36)}-${entropy[1].toString(36)}-${notesSelectionKey}`;
-      }
-      return `${Date.now()}-${++notesIdempotencyFallbackCounterRef.current}-${notesSelectionKey}`;
-    })();
-    notesIdempotencyKeysRef.current.set(notesSelectionKey, key);
-    return key;
-  }
-
-  function startNotesJobPolling(jobId: string) {
-    stopNotesJobPolling();
-    const pollToken = notesJobPollTokenRef.current;
-    const pollOnce = async () => {
-      try {
-        const job = await fetchNotesJobStatus(jobId);
-        setNotesJob(job);
-        setProgressStatus(`Step ${job.step.stepIndex} of ${job.step.stepTotal}: ${job.step.stepLabel}`);
-        setProgressIndex(job.step.stepIndex);
-        setProgressTotal(job.step.stepTotal);
-
-        if (job.status === "completed" && job.resultPdfUrl) {
-          stopNotesJobPolling();
-          setGenerating(false);
-          setNotesPdfResult({
-            key: notesSelectionKey,
-            url: job.resultPdfUrl,
-          });
-          setNotesRemaining((prev) => (typeof prev === "number" ? Math.max(0, prev - 1) : prev));
-          notesIdempotencyKeysRef.current.delete(notesSelectionKey);
-          if ("Notification" in window && Notification.permission === "granted") {
-            new Notification("ExamArchive: Generation Complete!", {
-              body: "Your unit notes are ready. Download them from Job History or the AI Content page.",
-              icon: "/favicon.ico",
-              tag: "examarchive-generation-notes",
-            });
-          }
-          return;
-        }
-
-        if (job.status === "failed" || job.status === "cancelled") {
-          stopNotesJobPolling();
-          setGenerating(false);
-          setError(job.errorMessage || "Generation failed.");
-          notesIdempotencyKeysRef.current.delete(notesSelectionKey);
-          return;
-        }
-      } catch (pollError) {
-        console.error("[ai-content] Failed to poll notes job:", pollError);
-      }
-
-      if (pollToken !== notesJobPollTokenRef.current) return;
-      notesJobPollRef.current = setTimeout(() => {
-        void pollOnce();
-      }, NOTES_JOB_POLL_INTERVAL_MS);
-    };
-    void pollOnce();
-  }
-
-  async function submitNotesGenerationJob() {
-    setError(null);
-    setNotesPdfResult(null);
-    setProgressStatus("Job queued...");
-    setProgressIndex(1);
-    setProgressTotal(5);
-    setGenerating(true);
-
-    const response = await fetch("/api/ai/jobs", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        university,
-        course,
-        stream,
-        type,
-        paperCode,
-        unitNumber,
-        semester: semester === "" ? null : semester,
-        idempotencyKey: ensureNotesIdempotencyKey(),
-      }),
-    });
-    let payload: JobStartErrorPayload & { job?: AiGenerationJob; jobId?: string };
-    try {
-      payload = await response.json();
-    } catch {
-      payload = {};
-    }
-    if (!response.ok) {
-      notesIdempotencyKeysRef.current.delete(notesSelectionKey);
-      const error = new Error(typeof payload?.error === "string" ? payload.error : "Failed to queue job.") as Error & {
-        code?: string;
-        status?: number;
-      };
-      if (typeof payload?.code === "string") error.code = payload.code;
-      error.status = response.status;
-      throw error;
-    }
-    const job = payload?.job as AiGenerationJob | undefined;
-    const jobId = typeof payload?.jobId === "string" ? payload.jobId : job?.id;
-    if (!jobId) {
-      notesIdempotencyKeysRef.current.delete(notesSelectionKey);
-      throw new Error("Job submission failed.");
-    }
-    if (job) {
-      setNotesJob(job);
-      setProgressStatus(`Step ${job.step.stepIndex} of ${job.step.stepTotal}: ${job.step.stepLabel}`);
-      setProgressIndex(job.step.stepIndex);
-      setProgressTotal(job.step.stepTotal);
-    }
-    startNotesJobPolling(jobId);
-    showToast("Your notes job has been submitted and is being tracked. We will email you when the PDF is ready.", "success");
-  }
-
-  function startGenerationStream(baseParams: URLSearchParams, part: number, runId: number) {
-    if (runId !== generationRunIdRef.current) return;
-    setCurrentPart(part);
-    const streamParams = new URLSearchParams(baseParams.toString());
-    streamParams.set("part", String(part));
-    const source = new EventSource(`/api/generate-solved-paper-stream?${streamParams.toString()}`);
-    eventSourceRef.current = source;
-    let finished = false;
-
-    source.onmessage = (event) => {
-      if (runId !== generationRunIdRef.current) return;
-      let data: Record<string, unknown>;
-      try {
-        data = JSON.parse(event.data);
-      } catch {
-        return;
-      }
-
-      const eventType = typeof data.event === "string" ? data.event : "";
-      if (eventType === "progress") {
-        setProgressStatus(typeof data.status === "string" ? data.status : "Generating...");
-        const topic = typeof data.topic === "string" ? data.topic : "";
-        const question = typeof data.question === "string" ? data.question : "";
-        setProgressTopic(topic.length > 0 ? topic : question);
-        setProgressIndex(typeof data.index === "number" ? data.index : 0);
-        setProgressTotal(typeof data.total === "number" ? data.total : 0);
-        if (typeof data.part === "number") setCurrentPart(data.part);
-        if (typeof data.totalParts === "number") setTotalParts(data.totalParts);
-        return;
-      }
-
-      if (eventType === "handoff" && data.action === "auto_continue") {
-        const sequentialNextPart = part + 1;
-        let nextPart = sequentialNextPart;
-        if (typeof data.nextPart === "number") {
-          if (data.nextPart > part) {
-            nextPart = data.nextPart;
-          } else {
-            console.warn("[ai-content] Invalid nextPart in auto_continue event. Falling back to sequential chaining.");
-          }
-        }
-        if (typeof data.totalParts === "number") setTotalParts(data.totalParts);
-        closeEventSource();
-        startGenerationStream(baseParams, nextPart, runId);
-        return;
-      }
-
-      if (eventType === "done") {
-        const incomingPdfUrl = typeof data.pdf_url === "string" ? data.pdf_url.trim() : "";
-        if (!incomingPdfUrl) {
-          finished = true;
-          setError("PDF generation failed. Please try again.");
-          resetProgressState();
-          return;
-        }
-        finished = true;
-        setPapersPdfResult({ key: papersSelectionKey, url: incomingPdfUrl });
-        if (typeof data.remaining === "number" || data.remaining === null) {
-          setRemaining(data.remaining);
-        }
-        if (typeof data.totalParts === "number") setTotalParts(data.totalParts);
-        if (typeof data.part === "number") setCurrentPart(data.part);
-        const isCached = typeof data.cached === "boolean" && data.cached;
-        if ("Notification" in window && Notification.permission === "granted") {
-          const title = "ExamArchive: Generation Complete!";
-          const body =
-            activeTab === "notes"
-              ? "Your unit notes are ready. Return to ExamArchive to view and render your PDF."
-              : "Your solved paper is ready. Return to ExamArchive to view and render your PDF.";
-          new Notification(title, {
-            body,
-            icon: "/favicon.ico",
-            tag: `examarchive-generation-${activeTab}`,
-          });
-        }
-        if (!isCached) {
-          setPapersRemaining((prev) => (typeof prev === "number" ? Math.max(0, prev - 1) : prev));
-        }
-        resetProgressState();
-        return;
-      }
-
-      if (eventType === "error") {
-        finished = true;
-        const errorMessage = typeof data.error === "string" ? data.error : "Generation failed.";
-        const shouldOfferResume = /timeout/i.test(errorMessage);
-        setError(errorMessage);
-        if (shouldOfferResume) {
-          setCanResumeGeneration(true);
-          showToast("Server timeout reached. Click Resume to continue from where it left off.", "warning");
-        }
-        resetProgressState();
-        return;
-      }
-
-      if (data.action === "error") {
-        finished = true;
-        const failureMessage = typeof data.error === "string" ? data.error : "Generation failed.";
-        setError(failureMessage);
-        resetProgressState();
-        return;
-      }
-    };
-
-    source.onerror = () => {
-      if (runId !== generationRunIdRef.current) return;
-      if (finished) return;
-      const timeoutError = elapsedSecondsRef.current >= TIMEOUT_THRESHOLD_SECONDS;
-      setError(
-        timeoutError
-          ? "Server timeout reached. Click Resume to continue from where it left off."
-          : "Network error. Please try again.",
-      );
-      if (timeoutError) {
-        setCanResumeGeneration(true);
-        showToast("Server timeout reached. Click Resume to continue from where it left off.", "warning");
-      }
-      resetProgressState();
-    };
-  }
-
   async function generate() {
     if (generating) return;
-    if ("Notification" in window && Notification.permission !== "granted") {
-      void Notification.requestPermission();
-    }
-    if (activeTab === "notes") {
-      try {
-        await submitNotesGenerationJob();
-      } catch (jobError) {
-        const errorWithMeta = jobError as Error & { code?: string; status?: number };
-        if (errorWithMeta?.status === 503 && errorWithMeta?.code === "SERVER_MISCONFIGURATION") {
-          setGenerating(false);
-          setError(
-            "Server setup issue detected. Troubleshooting: Ask the admin to configure AZURE_GOTENBERG_URL (PDF Engine) in environment variables, then retry.",
-          );
-          return;
-        }
-        setGenerating(false);
-        setError(jobError instanceof Error ? jobError.message : "Generation failed.");
-      }
-      return;
-    }
-    if ("Notification" in window && Notification.permission !== "granted") {
-      void Notification.requestPermission();
-    }
-    closeEventSource();
-    const runId = generationRunIdRef.current + 1;
-    generationRunIdRef.current = runId;
+    setError(null);
     setGenerating(true);
-    setError(null);
-    setProgressStatus("Starting chunked generation...");
-    setProgressTopic("");
-    setProgressIndex(0);
-    setProgressTotal(0);
-    setCanResumeGeneration(false);
-    setCurrentPart(1);
-    setTotalParts(1);
-    setEtaMinutes(null);
-    setElapsedSeconds(0);
-    elapsedSecondsRef.current = 0;
-    setPapersPdfResult(null);
-    const params = new URLSearchParams({
-      university,
-      course,
-      stream,
-      type,
-      paperCode,
-      year: String(selectedYear),
-      ...(semester !== "" ? { semester: String(semester) } : {}),
-    });
-    try {
-      const meta = await fetchSolvedPaperMeta(params);
-      setTotalParts(meta.totalParts);
-      setEtaMinutes(meta.etaMinutes);
-      startGenerationStream(params, 1, runId);
-    } catch (streamError) {
-      setError(streamError instanceof Error ? streamError.message : "Generation failed.");
-      resetProgressState();
-    }
-  }
 
-  function handleDownloadPdfClick(event?: MouseEvent<HTMLButtonElement>) {
-    event?.preventDefault();
-    event?.stopPropagation();
-    if (!activePdfUrl) return;
-    setError(null);
-    let downloadUrl = activePdfUrl;
+    const body =
+      activeTab === "notes"
+        ? {
+            jobType: "notes",
+            university,
+            course,
+            stream,
+            type,
+            paperCode,
+            unitNumber,
+            semester: semester === "" ? null : semester,
+          }
+        : {
+            jobType: "solved-paper",
+            university,
+            course,
+            stream,
+            type,
+            paperCode,
+            year: selectedYear === "" ? null : selectedYear,
+            semester: semester === "" ? null : semester,
+          };
+
     try {
-      const parsed = new URL(activePdfUrl, window.location.origin);
-      if (parsed.searchParams.get("download") !== "1") {
-        parsed.searchParams.set("download", "1");
+      const response = await fetch("/api/ai/generate-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      let data: { ok?: boolean; message?: string; error?: string };
+      try {
+        data = await response.json();
+      } catch {
+        data = {};
       }
-      downloadUrl = `${parsed.pathname}${parsed.search}${parsed.hash}`;
-    } catch {
-      downloadUrl = `${activePdfUrl}${activePdfUrl.includes("?") ? "&" : "?"}download=1`;
+      if (!response.ok) {
+        setError(typeof data?.error === "string" ? data.error : "Failed to start generation.");
+      } else {
+        showToast(
+          typeof data.message === "string" && data.message
+            ? data.message
+            : "Your PDF is being generated. We'll email it to you when ready.",
+          "success",
+        );
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Network error. Please try again.");
+    } finally {
+      setGenerating(false);
     }
-    const anchor = document.createElement("a");
-    anchor.href = downloadUrl;
-    anchor.download = "";
-    anchor.rel = "noopener noreferrer";
-    document.body.appendChild(anchor);
-    anchor.click();
-    document.body.removeChild(anchor);
   }
-
-  function handlePreviewPdfClick(event: MouseEvent<HTMLButtonElement>) {
-    event.preventDefault();
-    event.stopPropagation();
-    if (!activePdfUrl) return;
-    setError(null);
-    const previewUrl = activePdfUrl.replace(/\?download=1$/, "");
-    window.open(previewUrl, "_blank", "noopener,noreferrer");
-  }
-
-  function handleGenerateClick(event: MouseEvent<HTMLButtonElement>) {
-    event.preventDefault();
-    event.stopPropagation();
-    void generate();
-  }
-
-  function handleAbortClick(event: MouseEvent<HTMLButtonElement>) {
-    event.preventDefault();
-    event.stopPropagation();
-    abortGeneration();
-  }
-
-  useEffect(() => {
-    let interval: ReturnType<typeof setInterval> | undefined;
-    if (generating) {
-      interval = setInterval(() => {
-        setElapsedSeconds((prev) => {
-          const next = prev + 1;
-          elapsedSecondsRef.current = next;
-          return next;
-        });
-      }, 1000);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [generating]);
 
   useEffect(() => {
     setPaperCodeLoading(true);
@@ -763,13 +316,6 @@ export default function AIContentClient() {
     }
   }, [course, stream, type]);
 
-  useEffect(() => {
-    return () => {
-      closeEventSource();
-      stopNotesJobPolling();
-    };
-  }, []);
-
   const canGenerateByLegacyLimit = generating ? false : remaining === null || remaining > 0;
   const notesQuotaAllowed = notesRemaining === null || notesRemaining > 0;
   const papersQuotaAllowed = papersRemaining === null || papersRemaining > 0;
@@ -794,8 +340,6 @@ export default function AIContentClient() {
     !canGenerate ||
     (activeTab === "papers" && selectedYear === "") ||
     (activeTab === "notes" && !hasAvailableUnitsForPaper);
-  const isNotesGenerationFinished = activeTab === "notes" && !generating && Boolean(activePdfUrl);
-  const isPapersGenerationFinished = activeTab === "papers" && !generating && Boolean(activePdfUrl);
 
   return (
     <div className="relative min-h-screen bg-surface px-4 py-8 text-on-surface">
@@ -906,44 +450,16 @@ export default function AIContentClient() {
           <div className="mt-4">
             {activeTab === "notes" ? (
               <div className="space-y-3">
-                {!generating && !isNotesGenerationFinished && (
-                  <button
-                    onClick={handleGenerateClick}
-                    disabled={isGenerationDisabled}
-                    aria-busy={generating}
-                    aria-live="polite"
-                    className="btn-primary relative inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl px-5 py-3 text-sm font-semibold transition-all duration-300 before:absolute before:inset-0 before:-translate-x-full before:bg-gradient-to-r before:from-transparent before:via-white/30 before:to-transparent before:content-[''] hover:before:animate-[shimmer_1.4s_ease-in-out_infinite] disabled:cursor-not-allowed disabled:opacity-60"
-                    type="button"
-                  >
-                    Generate Unit Notes
-                  </button>
-                )}
-                {generating && (
-                  <div className="space-y-2">
-                    <button
-                      disabled
-                      aria-busy="true"
-                      aria-live="polite"
-                      className="btn-primary inline-flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold animate-pulse"
-                      type="button"
-                    >
-                      Job in progress...
-                      <LoadingDots />
-                    </button>
-                  </div>
-                )}
-                {!generating && isNotesGenerationFinished && (
-                  <div className="space-y-2">
-                    <div className="flex gap-3">
-                      <button onClick={handlePreviewPdfClick} className="btn w-full" type="button">
-                        Preview
-                      </button>
-                      <button onClick={handleDownloadPdfClick} className="btn w-full" type="button">
-                        Download
-                      </button>
-                    </div>
-                  </div>
-                )}
+                <button
+                  onClick={() => void generate()}
+                  disabled={isGenerationDisabled}
+                  aria-busy={generating}
+                  aria-live="polite"
+                  className="btn-primary relative inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl px-5 py-3 text-sm font-semibold transition-all duration-300 before:absolute before:inset-0 before:-translate-x-full before:bg-gradient-to-r before:from-transparent before:via-white/30 before:to-transparent before:content-[''] hover:before:animate-[shimmer_1.4s_ease-in-out_infinite] disabled:cursor-not-allowed disabled:opacity-60"
+                  type="button"
+                >
+                  {generating ? (<>Sending request...<LoadingDots /></>) : "Generate Unit Notes"}
+                </button>
               </div>
             ) : (
               <div className="flex items-center gap-3">
@@ -951,92 +467,21 @@ export default function AIContentClient() {
                   <div className="w-full rounded-xl border border-outline-variant/40 bg-surface-container px-4 py-3 text-sm text-on-surface-variant opacity-70">
                     Solved paper generation is unavailable for this paper code because no questions are ingested yet.
                   </div>
-                ) : null}
-                {isPapersGenerationFinished && !generating ? (
-                  <div className="w-full space-y-2">
-                    <div className="flex gap-3">
-                      <button onClick={handlePreviewPdfClick} className="btn w-full" type="button">
-                        Preview
-                      </button>
-                      <button onClick={handleDownloadPdfClick} className="btn w-full" type="button">
-                        Download
-                      </button>
-                    </div>
-                  </div>
                 ) : (
-                  <>
-                    <button
-                      onClick={handleGenerateClick}
-                      disabled={isGenerationDisabled}
-                      aria-busy={generating}
-                      aria-live="polite"
-                      className="btn-primary relative inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl px-5 py-3 text-sm font-semibold transition-all duration-300 before:absolute before:inset-0 before:-translate-x-full before:bg-gradient-to-r before:from-transparent before:via-white/30 before:to-transparent before:content-[''] hover:before:animate-[shimmer_1.4s_ease-in-out_infinite] disabled:cursor-not-allowed disabled:opacity-60"
-                      type="button"
-                    >
-                      {generating ? (
-                        <>
-                          Generating Solved Paper <LoadingDots />
-                        </>
-                      ) : canResumeGeneration ? (
-                        "Resume Generation"
-                      ) : (
-                        "Generate Solved Paper"
-                      )}
-                    </button>
-                    {generating && (
-                      <button
-                        onClick={handleAbortClick}
-                        className="btn rounded-xl px-4 py-3 text-sm font-semibold"
-                        type="button"
-                      >
-                        Abort Generation
-                      </button>
-                    )}
-                    {generating && <span className="text-xs text-on-surface-variant">Generation in progress — please wait.</span>}
-                  </>
+                  <button
+                    onClick={() => void generate()}
+                    disabled={isGenerationDisabled}
+                    aria-busy={generating}
+                    aria-live="polite"
+                    className="btn-primary relative inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl px-5 py-3 text-sm font-semibold transition-all duration-300 before:absolute before:inset-0 before:-translate-x-full before:bg-gradient-to-r before:from-transparent before:via-white/30 before:to-transparent before:content-[''] hover:before:animate-[shimmer_1.4s_ease-in-out_infinite] disabled:cursor-not-allowed disabled:opacity-60"
+                    type="button"
+                  >
+                    {generating ? (<>Sending request...<LoadingDots /></>) : "Generate Solved Paper"}
+                  </button>
                 )}
               </div>
             )}
           </div>
-          {generating && activeTab === "papers" && (
-            <div className="mt-4 rounded-xl border border-outline-variant/30 bg-surface-container-low p-3">
-              <p className="text-sm font-medium">{progressStatus || "Generating..."}</p>
-              {progressTopic && <p className="mt-1 text-xs text-on-surface-variant">Current topic: {progressTopic}</p>}
-              <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-outline-variant/30">
-                <div className="h-full bg-primary transition-all duration-300" style={{ width: `${progressPercent}%` }} />
-              </div>
-              <p className="mt-2 text-xs text-on-surface-variant">
-                {progressTotal > 0
-                  ? `Progress: ${progressIndex} / ${progressTotal}`
-                  : "Preparing generation chunks..."}
-              </p>
-              {activeTab === "papers" && (
-                <p className="mt-1 text-xs text-on-surface-variant">
-                  Part: {currentPart} / {Math.max(1, totalParts)}
-                </p>
-              )}
-              {activeTab === "papers" && estimatedMinutesRemaining !== null && (
-                <p className="mt-1 text-xs text-on-surface-variant">
-                  Estimated time remaining: ~{estimatedMinutesRemaining} minutes.
-                </p>
-              )}
-              <p className="mt-1 text-xs text-on-surface-variant">⏱️ Elapsed Time: {formatElapsedTime(elapsedSeconds)}</p>
-            </div>
-          )}
-          {activeTab === "notes" && notesJob && (
-            <div className="mt-4 rounded-xl border border-outline-variant/30 bg-surface-container-low p-3">
-              <p className="text-sm font-medium">
-                Step {notesJob.step.stepIndex} of {notesJob.step.stepTotal}: {notesJob.step.stepLabel}
-              </p>
-              <p className="mt-1 text-xs text-on-surface-variant">
-                Your notes are being prepared! You can safely close this tab—the job continues on the server. We will email your PDF link when ready. You can also track and download it later from Dashboard → Job History.
-              </p>
-              <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-outline-variant/30">
-                <div className="h-full bg-primary transition-all duration-300" style={{ width: `${notesJob.progressPercent}%` }} />
-              </div>
-              <p className="mt-2 text-xs text-on-surface-variant">Progress: {notesJob.progressPercent}%</p>
-            </div>
-          )}
           {error && <p className="mt-3 text-sm text-error">⚠ {error}</p>}
         </section>
       </div>
