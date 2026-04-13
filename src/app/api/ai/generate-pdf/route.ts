@@ -141,8 +141,8 @@ function isRateLimitError(error: unknown): boolean {
   const status = errObj.status ?? errObj.response?.status ?? errObj.error?.status;
   const code = errObj.code ?? errObj.error?.code;
   if (status === 429 || code === 429 || code === "429") return true;
-  const message = String(errObj.message ?? "").toLowerCase();
-  return message.includes("rate limit") || message.includes("resource exhausted");
+  const message = String(errObj.message ?? "");
+  return /rate limit|resource exhausted/i.test(message);
 }
 
 async function getDailyCount(userId: string, todayStr: string): Promise<number> {
