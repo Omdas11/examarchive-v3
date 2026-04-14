@@ -325,11 +325,43 @@ function formatFailureReason(error: unknown): string {
   return normalized || "Background generation failed.";
 }
 
+function formatFailureDiagnostics(error: unknown): string {
+  if (!error) return "No additional diagnostics available.";
+  if (!(error instanceof Error)) return String(error);
+
+  const lines: string[] = [];
+  const visited = new Set<unknown>();
+  let current: unknown = error;
+  let depth = 0;
+
+  while (current && depth < 3 && !visited.has(current)) {
+    visited.add(current);
+    if (!(current instanceof Error)) break;
+    const prefix = depth === 0 ? "error" : `cause_${depth}`;
+    lines.push(`${prefix}.name=${current.name || "Error"}`);
+    if (current.message?.trim()) lines.push(`${prefix}.message=${current.message.trim()}`);
+    const status = (current as { status?: unknown }).status;
+    if (typeof status !== "undefined") lines.push(`${prefix}.status=${String(status)}`);
+    const code = (current as { code?: unknown }).code;
+    if (typeof code !== "undefined") lines.push(`${prefix}.code=${String(code)}`);
+    if (current.stack?.trim()) {
+      lines.push(`${prefix}.stack=`);
+      lines.push(...current.stack.trim().split("\n").slice(0, 30));
+    }
+    current = (current as { cause?: unknown }).cause;
+    depth += 1;
+  }
+
+  const text = lines.join("\n").trim();
+  return text || "No additional diagnostics available.";
+}
+
 async function notifyGenerationFailure(email: string, title: string, error: unknown): Promise<void> {
   await sendGenerationFailureEmail({
     email,
     title,
     reason: formatFailureReason(error),
+    diagnostics: formatFailureDiagnostics(error),
   }).catch((mailError) => {
     console.error("[ai/generate-pdf] Failed to send generation failure email:", mailError);
   });

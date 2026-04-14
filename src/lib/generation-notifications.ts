@@ -175,6 +175,7 @@ export async function sendGenerationFailureEmail(args: {
   email: string;
   title: string;
   reason?: string;
+  diagnostics?: string;
 }): Promise<void> {
   const to = args.email.trim();
   if (!to) return;
@@ -184,12 +185,15 @@ export async function sendGenerationFailureEmail(args: {
     args.reason ||
     "Generation failed. Please check your selections and try again. If it keeps failing, contact support."
   ).trim();
+  const diagnostics = (args.diagnostics || "").trim().slice(0, 8_000);
+  const diagnosticsText = diagnostics ? `\nDiagnostics:\n${diagnostics}\n` : "";
+  const diagnosticsHtml = diagnostics ? `<p><strong>Diagnostics</strong></p><pre>${escapeHtml(diagnostics)}</pre>` : "";
   const transporter = await getTransporter();
   await transporter.sendMail({
     from,
     to,
     subject: `ExamArchive: ${safeTitle} generation failed`,
-    text: `We couldn't complete your PDF generation request.\n\nTitle: ${safeTitle}\nReason: ${reason}\n\nWhat you can do:\n- Try again in a few minutes.\n- If the issue persists, contact support and include this reason.\n`,
-    html: "<p>We couldn't complete your PDF generation request.</p><p>Please try again in a few minutes. If the issue persists, contact support and include the detailed reason shown in the plain-text section of this email.</p>",
+    text: `We couldn't complete your PDF generation request.\n\nTitle: ${safeTitle}\nReason: ${reason}${diagnosticsText}\nWhat you can do:\n- Try again in a few minutes.\n- If the issue persists, contact support and include the reason and diagnostics from this email.\n`,
+    html: `<p>We couldn't complete your PDF generation request.</p><p><strong>Reason:</strong> ${escapeHtml(reason)}</p>${diagnosticsHtml}<p>Please try again in a few minutes. If the issue persists, contact support and include these details.</p>`,
   });
 }

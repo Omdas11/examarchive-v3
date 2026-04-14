@@ -11,6 +11,57 @@ import {
 import { formatIstDateTime } from "@/lib/datetime";
 
 const DEFAULT_PDF_MODEL_NAME = "Gemini 3.1 Flash Lite";
+const DEFAULT_GOTENBERG_REQUEST_TIMEOUT_MS = 45_000;
+const DEFAULT_GOTENBERG_MAX_ATTEMPTS = 3;
+const DEFAULT_GOTENBERG_RETRY_DELAY_MS = 1_500;
+const GOTENBERG_REQUEST_TIMEOUT_MS = Number.isFinite(Number(process.env.GOTENBERG_REQUEST_TIMEOUT_MS))
+  ? Math.max(1_000, Number(process.env.GOTENBERG_REQUEST_TIMEOUT_MS))
+  : DEFAULT_GOTENBERG_REQUEST_TIMEOUT_MS;
+const GOTENBERG_MAX_ATTEMPTS = Number.isInteger(Number(process.env.GOTENBERG_MAX_ATTEMPTS))
+  ? Math.max(1, Number(process.env.GOTENBERG_MAX_ATTEMPTS))
+  : DEFAULT_GOTENBERG_MAX_ATTEMPTS;
+const GOTENBERG_RETRY_DELAY_MS = Number.isFinite(Number(process.env.GOTENBERG_RETRY_DELAY_MS))
+  ? Math.max(250, Number(process.env.GOTENBERG_RETRY_DELAY_MS))
+  : DEFAULT_GOTENBERG_RETRY_DELAY_MS;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function postToGotenbergWithRetry(args: {
+  endpoint: string;
+  headers?: HeadersInit;
+  buildFormData: () => FormData;
+}): Promise<Response> {
+  for (let attempt = 1; attempt <= GOTENBERG_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      const response = await fetch(args.endpoint, {
+        method: "POST",
+        headers: args.headers,
+        body: args.buildFormData(),
+        signal: AbortSignal.timeout(GOTENBERG_REQUEST_TIMEOUT_MS),
+      });
+      if (response.status >= 500 && attempt < GOTENBERG_MAX_ATTEMPTS) {
+        const errorPreview = (await response.text()).trim().slice(0, 500);
+        console.warn(`[ai-pdf-pipeline] Gotenberg returned ${response.status} (${args.endpoint}) on attempt ${attempt}/${GOTENBERG_MAX_ATTEMPTS}; retrying.`, {
+          error: errorPreview || response.statusText || "Unknown error",
+        });
+        await sleep(GOTENBERG_RETRY_DELAY_MS * attempt);
+        continue;
+      }
+      return response;
+    } catch (error) {
+      if (attempt < GOTENBERG_MAX_ATTEMPTS) {
+        console.warn(`[ai-pdf-pipeline] Gotenberg request failed (${args.endpoint}) on attempt ${attempt}/${GOTENBERG_MAX_ATTEMPTS}; retrying.`, { error });
+        await sleep(GOTENBERG_RETRY_DELAY_MS * attempt);
+        continue;
+      }
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Gotenberg request failed after ${GOTENBERG_MAX_ATTEMPTS} attempts at ${args.endpoint}: ${message}`);
+    }
+  }
+  throw new Error(`Gotenberg request failed after ${GOTENBERG_MAX_ATTEMPTS} attempts at ${args.endpoint}.`);
+}
 
 function escapeHtml(text: string): string {
   return text.replace(/[&<>"'`]/g, (ch) => {
@@ -496,18 +547,18 @@ export async function renderMarkdownPdfToAppwrite(args: {
   };
 
   let gotenbergEndpoint = primaryEndpoint;
-  let response = await fetch(gotenbergEndpoint, {
-    method: "POST",
+  let response = await postToGotenbergWithRetry({
+    endpoint: gotenbergEndpoint,
     headers: requestHeaders,
-    body: buildFormData(),
+    buildFormData,
   });
   if (response.status === 404) {
     console.warn(`[ai-pdf-pipeline] Primary Gotenberg endpoint returned 404 (${primaryEndpoint}). Retrying fallback endpoint.`);
     gotenbergEndpoint = fallbackEndpoint;
-    response = await fetch(gotenbergEndpoint, {
-      method: "POST",
+    response = await postToGotenbergWithRetry({
+      endpoint: gotenbergEndpoint,
       headers: requestHeaders,
-      body: buildFormData(),
+      buildFormData,
     });
   }
   if (!response.ok) {
