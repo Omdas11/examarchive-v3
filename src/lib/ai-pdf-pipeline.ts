@@ -433,7 +433,8 @@ export async function renderMarkdownPdfToAppwrite(args: {
   markdown: string;
   fileBaseName: string;
   fileName?: string;
-  gotenbergUrl?: string;
+  gotenbergUrl: string;
+  gotenbergAuthToken?: string;
   modelName?: string;
   generatedAtIso?: string;
   reRenderedAtIso?: string;
@@ -445,19 +446,23 @@ export async function renderMarkdownPdfToAppwrite(args: {
   syllabusContent?: string;
   userEmail?: string;
 }): Promise<{ fileId: string; fileUrl: string }> {
-  const effectiveGotenbergUrl = args.gotenbergUrl || process.env.AZURE_GOTENBERG_URL;
+  const effectiveGotenbergUrl = args.gotenbergUrl.trim();
   if (!effectiveGotenbergUrl) {
-    throw new Error("AZURE_GOTENBERG_URL is required.");
+    throw new Error("gotenbergUrl is required.");
   }
-  const normalizedBaseUrl = effectiveGotenbergUrl.trim().replace(/\/+$/, "");
+  const normalizedBaseUrl = effectiveGotenbergUrl.replace(/\/+$/, "");
+  const gotenbergAuthToken = (args.gotenbergAuthToken ?? process.env.GOTENBERG_AUTH_TOKEN ?? "").trim();
+  const requestHeaders = gotenbergAuthToken
+    ? { Authorization: `Bearer ${gotenbergAuthToken}` }
+    : undefined;
   let gotenbergUrl: URL;
   try {
     gotenbergUrl = new URL(normalizedBaseUrl);
   } catch {
-    throw new Error("Invalid AZURE_GOTENBERG_URL.");
+    throw new Error("Invalid gotenbergUrl.");
   }
   if (!/^https?:$/.test(gotenbergUrl.protocol)) {
-    throw new Error("AZURE_GOTENBERG_URL must use HTTP or HTTPS.");
+    throw new Error("gotenbergUrl must use HTTP or HTTPS.");
   }
   const primaryEndpoint = buildGotenbergEndpoint(gotenbergUrl.toString(), "/forms/chromium/convert/html");
   const fallbackEndpoint = buildGotenbergEndpoint(gotenbergUrl.toString(), "/convert/html");
@@ -493,6 +498,7 @@ export async function renderMarkdownPdfToAppwrite(args: {
   let gotenbergEndpoint = primaryEndpoint;
   let response = await fetch(gotenbergEndpoint, {
     method: "POST",
+    headers: requestHeaders,
     body: buildFormData(),
   });
   if (response.status === 404) {
@@ -500,6 +506,7 @@ export async function renderMarkdownPdfToAppwrite(args: {
     gotenbergEndpoint = fallbackEndpoint;
     response = await fetch(gotenbergEndpoint, {
       method: "POST",
+      headers: requestHeaders,
       body: buildFormData(),
     });
   }

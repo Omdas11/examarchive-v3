@@ -120,6 +120,10 @@ function normalizeTags(raw: unknown): string[] {
   return [];
 }
 
+function resolveGotenbergUrl(): string {
+  return (process.env.GOTENBERG_URL?.trim() || process.env.AZURE_GOTENBERG_URL?.trim() || "");
+}
+
 async function mapWithConcurrency<T, R>(
   items: readonly T[],
   limit: number,
@@ -351,10 +355,10 @@ async function runNotesBackground(params: {
   } = params;
 
   const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-  const azureGotenbergUrl = process.env.AZURE_GOTENBERG_URL;
+  const gotenbergUrl = resolveGotenbergUrl();
 
   if (!geminiApiKey) throw new Error("Google Gemini is not configured.");
-  if (!azureGotenbergUrl) throw new Error("Server misconfiguration: AZURE_GOTENBERG_URL is missing.");
+  if (!gotenbergUrl) throw new Error("Server misconfiguration: missing GOTENBERG_URL; legacy fallback AZURE_GOTENBERG_URL also not set.");
 
   const db = adminDatabases();
 
@@ -464,7 +468,7 @@ CRITICAL FORMAT CONSTRAINTS:
     markdown: masterMarkdown,
     fileBaseName: `${paperCode}_unit_${unitNumber}_${fileToken}_${Date.now()}`,
     fileName: dynamicPdfName,
-    gotenbergUrl: azureGotenbergUrl,
+    gotenbergUrl,
     modelName: model,
     generatedAtIso: new Date().toISOString(),
     paperCode,
@@ -504,10 +508,10 @@ async function runSolvedPaperBackground(params: {
   } = params;
 
   const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-  const azureGotenbergUrl = process.env.AZURE_GOTENBERG_URL;
+  const gotenbergUrl = resolveGotenbergUrl();
 
   if (!geminiApiKey) throw new Error("Google Gemini is not configured.");
-  if (!azureGotenbergUrl) throw new Error("Server misconfiguration: AZURE_GOTENBERG_URL is missing.");
+  if (!gotenbergUrl) throw new Error("Server misconfiguration: missing GOTENBERG_URL; legacy fallback AZURE_GOTENBERG_URL also not set.");
 
   const db = adminDatabases();
 
@@ -610,7 +614,7 @@ CRITICAL FORMAT CONSTRAINTS:
     markdown: masterMarkdown.trim(),
     fileBaseName: `${paperCode}_${year}_solved_${fileToken}_${Date.now()}`,
     fileName: `${paperCode}_${year}_solved_paper.pdf`,
-    gotenbergUrl: azureGotenbergUrl,
+    gotenbergUrl,
     paperCode,
     year,
   });
@@ -682,9 +686,12 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (!(process.env.AZURE_GOTENBERG_URL || "").trim()) {
+  if (!resolveGotenbergUrl()) {
     return NextResponse.json(
-      { error: "PDF Engine not configured (missing AZURE_GOTENBERG_URL).", code: "SERVER_MISCONFIGURATION" },
+      {
+        error: "PDF Engine not configured (missing GOTENBERG_URL; legacy fallback AZURE_GOTENBERG_URL also not set).",
+        code: "SERVER_MISCONFIGURATION",
+      },
       { status: 503 },
     );
   }
