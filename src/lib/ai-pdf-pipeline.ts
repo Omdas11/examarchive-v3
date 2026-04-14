@@ -33,6 +33,7 @@ async function postToGotenbergWithRetry(args: {
   headers?: HeadersInit;
   buildFormData: () => FormData;
 }): Promise<Response> {
+  let lastErrorMessage = "Unknown error";
   for (let attempt = 1; attempt <= GOTENBERG_MAX_ATTEMPTS; attempt += 1) {
     try {
       const response = await fetch(args.endpoint, {
@@ -43,6 +44,7 @@ async function postToGotenbergWithRetry(args: {
       });
       if (response.status >= 500 && attempt < GOTENBERG_MAX_ATTEMPTS) {
         const errorPreview = (await response.text()).trim().slice(0, 500);
+        lastErrorMessage = `${response.status} ${errorPreview || response.statusText || "Unknown error"}`.trim();
         console.warn(`[ai-pdf-pipeline] Gotenberg returned ${response.status} (${args.endpoint}) on attempt ${attempt}/${GOTENBERG_MAX_ATTEMPTS}; retrying.`, {
           error: errorPreview || response.statusText || "Unknown error",
         });
@@ -51,16 +53,15 @@ async function postToGotenbergWithRetry(args: {
       }
       return response;
     } catch (error) {
+      lastErrorMessage = error instanceof Error ? error.message : String(error);
       if (attempt < GOTENBERG_MAX_ATTEMPTS) {
         console.warn(`[ai-pdf-pipeline] Gotenberg request failed (${args.endpoint}) on attempt ${attempt}/${GOTENBERG_MAX_ATTEMPTS}; retrying.`, { error });
         await sleep(GOTENBERG_RETRY_DELAY_MS * attempt);
         continue;
       }
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Gotenberg request failed after ${GOTENBERG_MAX_ATTEMPTS} attempts at ${args.endpoint}: ${message}`);
     }
   }
-  throw new Error(`Gotenberg request failed after ${GOTENBERG_MAX_ATTEMPTS} attempts at ${args.endpoint}.`);
+  throw new Error(`Gotenberg request failed after ${GOTENBERG_MAX_ATTEMPTS} attempts at ${args.endpoint}: ${lastErrorMessage}`);
 }
 
 function escapeHtml(text: string): string {
