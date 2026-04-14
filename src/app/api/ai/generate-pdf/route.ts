@@ -199,7 +199,11 @@ async function rollbackQuotaReservation(
   }
 }
 
-function recordGenerationAsync(userId: string, todayStr: string, counter: "notes_generated_today" | "papers_solved_today"): void {
+function queueGenerationRecording(
+  userId: string,
+  todayStr: string,
+  counter: "notes_generated_today" | "papers_solved_today",
+): void {
   // Metrics recording is non-critical and should not block accepted requests.
   void recordGeneration(userId, todayStr).catch((error) => {
     console.error("[ai/generate-pdf] Failed to record usage metrics after quota reservation.", {
@@ -676,7 +680,7 @@ export async function POST(request: NextRequest) {
       );
     }
     if (!admin) {
-      recordGenerationAsync(user.id, todayStr, "notes_generated_today");
+      queueGenerationRecording(user.id, todayStr, "notes_generated_today");
     }
 
     after(async () => {
@@ -758,7 +762,7 @@ export async function POST(request: NextRequest) {
     );
   }
   if (!admin) {
-    recordGenerationAsync(user.id, todayStr, "papers_solved_today");
+    queueGenerationRecording(user.id, todayStr, "papers_solved_today");
   }
 
   after(async () => {
