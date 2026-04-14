@@ -445,19 +445,22 @@ export async function renderMarkdownPdfToAppwrite(args: {
   syllabusContent?: string;
   userEmail?: string;
 }): Promise<{ fileId: string; fileUrl: string }> {
-  const effectiveGotenbergUrl = args.gotenbergUrl || process.env.AZURE_GOTENBERG_URL;
+  const effectiveGotenbergUrl = args.gotenbergUrl
+    || process.env.GOTENBERG_URL
+    || process.env.HF_GOTENBERG_URL
+    || process.env.AZURE_GOTENBERG_URL;
   if (!effectiveGotenbergUrl) {
-    throw new Error("AZURE_GOTENBERG_URL is required.");
+    throw new Error("GOTENBERG_URL is required.");
   }
   const normalizedBaseUrl = effectiveGotenbergUrl.trim().replace(/\/+$/, "");
   let gotenbergUrl: URL;
   try {
     gotenbergUrl = new URL(normalizedBaseUrl);
   } catch {
-    throw new Error("Invalid AZURE_GOTENBERG_URL.");
+    throw new Error("Invalid GOTENBERG_URL.");
   }
   if (!/^https?:$/.test(gotenbergUrl.protocol)) {
-    throw new Error("AZURE_GOTENBERG_URL must use HTTP or HTTPS.");
+    throw new Error("GOTENBERG_URL must use HTTP or HTTPS.");
   }
   const primaryEndpoint = buildGotenbergEndpoint(gotenbergUrl.toString(), "/forms/chromium/convert/html");
   const fallbackEndpoint = buildGotenbergEndpoint(gotenbergUrl.toString(), "/convert/html");

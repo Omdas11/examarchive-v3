@@ -295,10 +295,10 @@ async function runNotesBackground(params: {
   } = params;
 
   const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-  const azureGotenbergUrl = process.env.AZURE_GOTENBERG_URL;
+  const gotenbergUrl = process.env.GOTENBERG_URL || process.env.HF_GOTENBERG_URL || process.env.AZURE_GOTENBERG_URL;
 
   if (!geminiApiKey) throw new Error("Google Gemini is not configured.");
-  if (!azureGotenbergUrl) throw new Error("Server misconfiguration: AZURE_GOTENBERG_URL is missing.");
+  if (!gotenbergUrl) throw new Error("Server misconfiguration: GOTENBERG_URL is missing.");
 
   const db = adminDatabases();
 
@@ -407,7 +407,7 @@ CRITICAL FORMAT CONSTRAINTS:
     markdown: masterMarkdown,
     fileBaseName: `${paperCode}_unit_${unitNumber}_${fileToken}_${Date.now()}`,
     fileName: dynamicPdfName,
-    gotenbergUrl: azureGotenbergUrl,
+    gotenbergUrl,
     modelName: GEMINI_MODEL,
     generatedAtIso: new Date().toISOString(),
     paperCode,
@@ -446,10 +446,10 @@ async function runSolvedPaperBackground(params: {
   } = params;
 
   const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-  const azureGotenbergUrl = process.env.AZURE_GOTENBERG_URL;
+  const gotenbergUrl = process.env.GOTENBERG_URL || process.env.HF_GOTENBERG_URL || process.env.AZURE_GOTENBERG_URL;
 
   if (!geminiApiKey) throw new Error("Google Gemini is not configured.");
-  if (!azureGotenbergUrl) throw new Error("Server misconfiguration: AZURE_GOTENBERG_URL is missing.");
+  if (!gotenbergUrl) throw new Error("Server misconfiguration: GOTENBERG_URL is missing.");
 
   const db = adminDatabases();
 
@@ -551,7 +551,7 @@ CRITICAL FORMAT CONSTRAINTS:
     markdown: masterMarkdown.trim(),
     fileBaseName: `${paperCode}_${year}_solved_${fileToken}_${Date.now()}`,
     fileName: `${paperCode}_${year}_solved_paper.pdf`,
-    gotenbergUrl: azureGotenbergUrl,
+    gotenbergUrl,
     paperCode,
     year,
   });
@@ -613,9 +613,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (!(process.env.AZURE_GOTENBERG_URL || "").trim()) {
+  if (!((process.env.GOTENBERG_URL || process.env.HF_GOTENBERG_URL || process.env.AZURE_GOTENBERG_URL || "").trim())) {
     return NextResponse.json(
-      { error: "PDF Engine not configured (missing AZURE_GOTENBERG_URL).", code: "SERVER_MISCONFIGURATION" },
+      { error: "PDF Engine not configured (missing GOTENBERG_URL).", code: "SERVER_MISCONFIGURATION" },
       { status: 503 },
     );
   }

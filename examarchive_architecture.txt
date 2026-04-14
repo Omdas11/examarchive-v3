@@ -87,7 +87,7 @@ Detailed flow
 2. Client starts SSE request to:
    GET /api/generate-notes-stream?...selection params...
 3. Server authenticates via getServerUser(); unauthenticated users get 401.
-4. Server validates required params and checks AZURE_GOTENBERG_URL.
+4. Server validates required params and checks GOTENBERG_URL (with legacy fallback support).
 5. Server ensures cache schema and markdown cache bucket exist:
    - Collection: Generated_Notes_Cache
    - Bucket: generated-md-cache
@@ -106,7 +106,7 @@ Detailed flow
    - Persist cache metadata row in Generated_Notes_Cache
 9. Server renders markdown to PDF using renderMarkdownPdfToAppwrite():
    - Builds HTML/CSS/header/footer from markdown
-   - Sends multipart FormData to Azure Gotenberg endpoint
+   - Sends multipart FormData to configured Gotenberg endpoint (HF Space recommended)
    - Receives PDF bytes and uploads result to Appwrite papers bucket
 10. SSE "done" event returns pdf_url (+ cache metadata). Client updates timeline and shows downloadable PDF.
 
@@ -165,7 +165,7 @@ What exists instead
 - Monetization docs mention future gateway/webhook plans, but active implementation currently uses quota/usage controls rather than payment settlement.
 
 ============================================================
-6) PDF PIPELINE (GOTENBERG ON AZURE VM)
+6) PDF PIPELINE (GOTENBERG, HF SPACE READY)
 ============================================================
 Primary AI pipeline implementation
 - File: /src/lib/ai-pdf-pipeline.ts
@@ -175,7 +175,7 @@ How it works
 1. Accepts generated markdown + metadata (paper code, unit/year, model labels, timestamps).
 2. Converts markdown -> sanitized HTML (math rendering + HTML sanitization).
 3. Builds supplemental header.html and footer.html.
-4. Resolves Azure base URL from AZURE_GOTENBERG_URL.
+4. Resolves base URL from GOTENBERG_URL (with legacy fallback support).
 5. POSTs multipart FormData to Gotenberg:
    - Primary: /forms/chromium/convert/html
    - Fallback on 404: /convert/html

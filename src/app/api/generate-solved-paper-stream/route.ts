@@ -624,7 +624,7 @@ export async function GET(request: NextRequest) {
   const paperCode = (searchParams.get("paperCode") || "").trim();
   const year = normalizeNumber(searchParams.get("year"));
   const semester = normalizeSemester(searchParams.get("semester"));
-  const azureGotenbergUrl = process.env.AZURE_GOTENBERG_URL;
+  const gotenbergUrl = process.env.GOTENBERG_URL || process.env.HF_GOTENBERG_URL || process.env.AZURE_GOTENBERG_URL;
 
   if (!course || !streamName || !type || !paperCode || year === null) {
     return NextResponse.json(
@@ -632,9 +632,9 @@ export async function GET(request: NextRequest) {
       { status: 400 },
     );
   }
-  if (!azureGotenbergUrl) {
+  if (!gotenbergUrl) {
     return NextResponse.json(
-      { error: "Server misconfiguration: AZURE_GOTENBERG_URL is missing." },
+      { error: "Server misconfiguration: GOTENBERG_URL is missing." },
       { status: 503 },
     );
   }
@@ -692,7 +692,7 @@ export async function GET(request: NextRequest) {
               markdown: completedCache.markdown,
               fileBaseName: `${paperCode}_${year}_solved_cache`,
               fileName: `${paperCode}_${year}_solved_paper.pdf`,
-              gotenbergUrl: azureGotenbergUrl,
+              gotenbergUrl,
               paperCode,
               year,
             });
@@ -832,7 +832,7 @@ export async function GET(request: NextRequest) {
                 markdown: checkpoint.markdown.trim(),
                 fileBaseName: `${paperCode}_${year}_solved_cache`,
                 fileName: `${paperCode}_${year}_solved_paper.pdf`,
-                gotenbergUrl: azureGotenbergUrl,
+                gotenbergUrl,
                 paperCode,
                 year,
               });
@@ -916,7 +916,7 @@ export async function GET(request: NextRequest) {
                 markdown: masterMarkdown.trim(),
                 fileBaseName: `${paperCode}_${year}_solved_cache`,
                 fileName: `${paperCode}_${year}_solved_paper.pdf`,
-                gotenbergUrl: azureGotenbergUrl,
+                gotenbergUrl,
                 paperCode,
                 year,
               });
@@ -1115,7 +1115,7 @@ CRITICAL FORMAT CONSTRAINTS:
             markdown: masterMarkdown.trim(),
             fileBaseName: `${paperCode}_${year}_solved_${Date.now()}`,
             fileName: `${paperCode}_${year}_solved_paper.pdf`,
-            gotenbergUrl: azureGotenbergUrl,
+            gotenbergUrl,
             paperCode,
             year,
           });
