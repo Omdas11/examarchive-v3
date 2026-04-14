@@ -189,12 +189,11 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // Mark as applied before mutating the user balance so retries cannot double-credit
-      // if the process fails after the balance update but before final purchase status write.
-      // If balance mutation fails, this flag is rolled back to false in the catch below.
+      // Mark transition into credit application while keeping credits_applied=false
+      // until the user balance update succeeds.
       await db.updateDocument(DATABASE_ID, COLLECTION.purchases, resolvedPurchaseDocumentId, {
         status: "credit_applying",
-        credits_applied: true,
+        credits_applied: false,
       });
 
       try {
