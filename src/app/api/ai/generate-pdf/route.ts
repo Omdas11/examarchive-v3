@@ -77,7 +77,7 @@ function normalizeTags(raw: unknown): string[] {
 }
 
 function resolveGotenbergUrl(): string {
-  return (process.env.GOTENBERG_URL || process.env.AZURE_GOTENBERG_URL || "").trim();
+  return (process.env.GOTENBERG_URL?.trim() || process.env.AZURE_GOTENBERG_URL?.trim() || "");
 }
 
 async function mapWithConcurrency<T, R>(
