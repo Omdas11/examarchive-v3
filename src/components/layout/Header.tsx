@@ -74,7 +74,16 @@ export default function Header({
       }
     }
     void loadBalance();
-    return () => { cancelled = true; };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void loadBalance();
+    };
+    window.addEventListener('focus', onVisibilityChange);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('focus', onVisibilityChange);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
   }, []);
 
   useEffect(() => {

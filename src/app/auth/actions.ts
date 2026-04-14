@@ -29,6 +29,12 @@ import {
   REFERRAL_SUCCESS_CAP,
 } from "@/lib/economy";
 
+function getNewUserElectronBalance(hasValidReferrer: boolean): number {
+  return hasValidReferrer
+    ? DEFAULT_ELECTRONS + REFERRAL_NEW_USER_BONUS_ELECTRONS
+    : DEFAULT_ELECTRONS;
+}
+
 /**
  * Server Action – initiate Google OAuth sign-in via Appwrite.
  * Redirects the user to the Google consent screen; on success Appwrite
@@ -185,7 +191,7 @@ export async function signUp(formData: FormData) {
       }
       referredBy = referrer.$id;
       rewardedReferrerDocId = referrer.$id;
-      referralPath = buildReferralPath(referredBy, []);
+      referralPath = buildReferralPath(referredBy);
     }
 
     // Create the account
@@ -215,7 +221,7 @@ export async function signUp(formData: FormData) {
           referred_by: referredBy,
           referral_path: referralPath,
           referred_users_count: 0,
-          ai_credits: referredBy ? DEFAULT_ELECTRONS + REFERRAL_NEW_USER_BONUS_ELECTRONS : DEFAULT_ELECTRONS,
+          ai_credits: getNewUserElectronBalance(Boolean(referredBy)),
         },
         [
           Permission.read(Role.user(created.$id)),

@@ -201,6 +201,7 @@ const TARGET_SCHEMA = [
       { key: "amount", type: "integer", required: true },
       { key: "currency", type: "string", required: true, size: 8 },
       { key: "credits_granted", type: "integer", required: false },
+      { key: "credits_applied", type: "boolean", required: false, default: false },
       { key: "raw_payload", type: "string", required: false, size: LARGE_STRING_SIZE },
       { key: "verified_at", type: "datetime", required: false },
     ],

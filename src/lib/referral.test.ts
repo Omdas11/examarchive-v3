@@ -23,6 +23,6 @@ describe("referral helpers", () => {
   });
 
   it("builds a one-level referral path", () => {
-    expect(buildReferralPath("U1", ["U2", "U3", "U4", "U5", "U6"])).toEqual(["U1"]);
+    expect(buildReferralPath("U1")).toEqual(["U1"]);
   });
 });

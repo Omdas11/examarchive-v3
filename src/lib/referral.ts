@@ -18,10 +18,6 @@ export function generateReferralCode(): string {
   return code;
 }
 
-export function buildReferralPath(
-  directReferrerId: string,
-  referrerPath: string[] | null | undefined,
-): string[] {
-  void referrerPath;
+export function buildReferralPath(directReferrerId: string): string[] {
   return [directReferrerId];
 }
