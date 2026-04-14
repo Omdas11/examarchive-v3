@@ -217,9 +217,9 @@ export default function Header({
           <div
             className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold"
             style={{
-              borderColor: "#f59e0b66",
-              background: "#fffbeb",
-              color: "#b45309",
+              borderColor: "var(--electron-pill-border, #f59e0b66)",
+              background: "var(--electron-pill-bg, #fffbeb)",
+              color: "var(--electron-pill-fg, #b45309)",
             }}
             aria-label={`Electron balance ${electronBalance}`}
             title={`Electron balance: ${electronBalance}`}
