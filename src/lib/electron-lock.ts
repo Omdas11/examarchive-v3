@@ -17,7 +17,7 @@ function lockDocumentId(userId: string): string {
     throw new Error("ELECTRON_BALANCE_LOCK_INVALID_USER_ID");
   }
   const normalized =
-    userId.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, MAX_LOCK_ID_USER_SEGMENT_LENGTH);
+    userId.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, MAX_LOCK_ID_USER_SEGMENT_LENGTH);
   return `${LOCK_PREFIX}${normalized}`;
 }
 

@@ -97,8 +97,9 @@ async function rollbackElectronCost(userId: string, cost: number): Promise<void>
       const db = adminDatabases();
       const profile = await db.getDocument(DATABASE_ID, COLLECTION.users, userId);
       const current = Number(profile.ai_credits ?? 0);
+      const safeCurrent = Number.isFinite(current) ? current : 0;
       await db.updateDocument(DATABASE_ID, COLLECTION.users, userId, {
-        ai_credits: Math.max(0, current + cost),
+        ai_credits: Math.max(0, safeCurrent + cost),
       });
     });
   } catch (error) {

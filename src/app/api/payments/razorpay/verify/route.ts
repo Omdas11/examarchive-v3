@@ -15,22 +15,22 @@ type VerifyBody = {
 const MAX_PAYMENT_ID_LENGTH = 36;
 
 /**
- * Current sanitizer aligned with Appwrite document ID constraints:
- * allows letters, digits, underscores and dashes (no periods).
+ * Current sanitizer for new purchase IDs:
+ * allows letters, digits, underscores, periods and dashes.
  */
-function sanitizePaymentIdV2(paymentId: string): string {
+function sanitizePaymentIdCurrent(paymentId: string): string {
   return paymentId
-    .replace(/[^a-zA-Z0-9_-]/g, "_")
+    .replace(/[^a-zA-Z0-9._-]/g, "_")
     .slice(0, MAX_PAYMENT_ID_LENGTH);
 }
 
 /**
- * Legacy sanitizer kept for backward-lookup compatibility with
- * earlier IDs that allowed periods.
+ * Legacy sanitizer kept for backward-lookup compatibility with IDs
+ * generated before period support was enabled.
  */
-function sanitizePaymentIdLegacy(paymentId: string): string {
+function sanitizePaymentIdLegacyNoDot(paymentId: string): string {
   return paymentId
-    .replace(/[^a-zA-Z0-9._-]/g, "_")
+    .replace(/[^a-zA-Z0-9_-]/g, "_")
     .slice(0, MAX_PAYMENT_ID_LENGTH);
 }
 
@@ -123,8 +123,8 @@ export async function POST(request: NextRequest) {
 
   try {
     const db = adminDatabases();
-    const sanitizedPaymentId = sanitizePaymentIdV2(paymentId);
-    const legacySanitizedPaymentId = sanitizePaymentIdLegacy(paymentId);
+    const sanitizedPaymentId = sanitizePaymentIdCurrent(paymentId);
+    const legacySanitizedPaymentId = sanitizePaymentIdLegacyNoDot(paymentId);
     const purchaseDocumentId = sanitizedPaymentId.length > 0 ? sanitizedPaymentId : ID.unique();
     const nowIso = new Date().toISOString();
 
@@ -179,15 +179,35 @@ export async function POST(request: NextRequest) {
       const purchase = await db.getDocument(DATABASE_ID, COLLECTION.purchases, resolvedPurchaseDocumentId);
       const userDoc = await db.getDocument(DATABASE_ID, COLLECTION.users, user.id);
       const currentCredits = Number(userDoc.ai_credits ?? 0);
-      const updatedCredits = Math.max(0, currentCredits + pack.credits);
+      if (!Number.isFinite(currentCredits)) {
+        throw new Error("INVALID_USER_CREDITS_BALANCE");
+      }
+      const purchaseStatus = typeof purchase.status === "string" ? purchase.status : "";
+      const purchaseCreditsApplied = purchase.credits_applied === true;
 
-      if (purchase.credits_applied === true) {
+      if (purchaseCreditsApplied) {
         return NextResponse.json({
           ok: true,
           message: "Payment already verified.",
           ai_credits: currentCredits,
         });
       }
+
+      if (purchaseStatus === "credit_applying") {
+        return NextResponse.json(
+          { error: "Payment credit reconciliation is in progress. Please retry shortly." },
+          { status: 409 },
+        );
+      }
+      const packCredits = Number(pack.credits);
+      if (!Number.isFinite(packCredits)) {
+        throw new Error("INVALID_PACK_CREDITS_VALUE");
+      }
+      const nextCredits = currentCredits + packCredits;
+      if (!Number.isFinite(nextCredits)) {
+        throw new Error("INVALID_CREDITS_BALANCE_COMPUTATION");
+      }
+      const updatedCredits = Math.max(0, nextCredits);
 
       // Mark transition into credit application while keeping credits_applied=false
       // until the user balance update succeeds.
@@ -228,7 +248,7 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         ok: true,
-        message: `Added ${pack.credits}e to your balance.`,
+        message: `Added ${packCredits}e to your balance.`,
         ai_credits: updatedCredits,
       });
     });
