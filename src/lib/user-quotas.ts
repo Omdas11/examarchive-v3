@@ -147,7 +147,7 @@ export async function incrementQuotaCounter(
   return payload;
 }
 
-export async function decrementQuotaCounter(
+export async function rollbackQuotaCounter(
   userId: string,
   counter: "notes_generated_today" | "papers_solved_today",
 ): Promise<UserQuotaRecord | null> {

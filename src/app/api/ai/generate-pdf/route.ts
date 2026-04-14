@@ -2,7 +2,7 @@ import { after } from "next/server";
 import { NextResponse, type NextRequest } from "next/server";
 import { getServerUser } from "@/lib/auth";
 import { getDailyLimit } from "@/lib/ai-limits";
-import { checkAndResetQuotas, decrementQuotaCounter, incrementQuotaCounter } from "@/lib/user-quotas";
+import { checkAndResetQuotas, incrementQuotaCounter, rollbackQuotaCounter } from "@/lib/user-quotas";
 import { NOTES_DAILY_LIMIT } from "@/lib/quota-config";
 import {
   adminDatabases,
@@ -189,7 +189,7 @@ async function rollbackQuotaReservation(
   counter: "notes_generated_today" | "papers_solved_today",
 ): Promise<void> {
   try {
-    await decrementQuotaCounter(userId, counter);
+    await rollbackQuotaCounter(userId, counter);
   } catch (error) {
     console.error("[ai/generate-pdf] Failed to rollback reserved quota after email failure.", {
       userId,
@@ -201,9 +201,9 @@ async function rollbackQuotaReservation(
 
 function queueGenerationRecording(
   userId: string,
-  todayStr: string,
   counter: "notes_generated_today" | "papers_solved_today",
 ): void {
+  const todayStr = new Date().toISOString().slice(0, 10);
   // Metrics recording is non-critical and should not block accepted requests.
   void recordGeneration(userId, todayStr).catch((error) => {
     console.error("[ai/generate-pdf] Failed to record usage metrics after quota reservation.", {
@@ -680,7 +680,7 @@ export async function POST(request: NextRequest) {
       );
     }
     if (!admin) {
-      queueGenerationRecording(user.id, todayStr, "notes_generated_today");
+      queueGenerationRecording(user.id, "notes_generated_today");
     }
 
     after(async () => {
@@ -762,7 +762,7 @@ export async function POST(request: NextRequest) {
     );
   }
   if (!admin) {
-    queueGenerationRecording(user.id, todayStr, "papers_solved_today");
+    queueGenerationRecording(user.id, "papers_solved_today");
   }
 
   after(async () => {
