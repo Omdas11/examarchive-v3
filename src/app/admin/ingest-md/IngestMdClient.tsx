@@ -35,6 +35,11 @@ export default function IngestMdClient() {
   const [statusFilter, setStatusFilter] = useState<"all" | "success" | "partial" | "failed">("all");
   const [query, setQuery] = useState("");
   const [autoTrackerFlow, setAutoTrackerFlow] = useState(true);
+  const ingestStatusPresentation: Record<string, { toastType: "success" | "warning" | "error"; label: string; icon: string }> = {
+    success: { toastType: "success", label: "ingested", icon: "✓" },
+    partial: { toastType: "warning", label: "ingestion partial", icon: "⚠" },
+    failed: { toastType: "error", label: "ingestion failed", icon: "⚠" },
+  };
 
   useEffect(() => {
     try {
@@ -144,11 +149,10 @@ export default function IngestMdClient() {
           }
         }
         if (paperCode) {
-          const toastType = status === "success" ? "success" : status === "partial" ? "warning" : "error";
-          const toastLabel = status === "success" ? "ingested" : `ingestion ${status}`;
+          const presentation = ingestStatusPresentation[status] ?? ingestStatusPresentation.failed;
           showToast(
-            `${status === "success" ? "✓" : "⚠"} ${paperCode} ${toastLabel} — view in Syllabus Tracker`,
-            toastType,
+            `${presentation.icon} ${paperCode} ${presentation.label} — view in Syllabus Tracker`,
+            presentation.toastType,
           );
         }
       }
