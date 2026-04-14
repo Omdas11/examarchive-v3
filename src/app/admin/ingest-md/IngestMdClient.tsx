@@ -97,6 +97,15 @@ export default function IngestMdClient() {
     setLastResult(null);
     const outcomes: Array<{ paperCode: string; status: string; rowsAffected: number; added: number; updated: number }> = [];
     const errors: string[] = [];
+    const extractErrorMessages = (data: unknown): string[] => {
+      if (!data || typeof data !== "object" || !("errors" in data)) return [];
+      const rawErrors = (data as { errors?: unknown }).errors;
+      if (!Array.isArray(rawErrors)) return [];
+      return rawErrors
+        .filter((entry) => typeof entry === "object" && entry !== null && "message" in entry)
+        .map((entry) => String((entry as { message?: unknown }).message ?? ""))
+        .filter(Boolean);
+    };
     try {
       for (const file of files) {
         const form = new FormData();
@@ -106,29 +115,40 @@ export default function IngestMdClient() {
           body: form,
         });
         const data = await res.json();
+        const parsedErrors = extractErrorMessages(data);
         if (!res.ok) {
-          const fallbackErrors = Array.isArray(data.errors)
-            ? data.errors
-                .filter((entry: unknown) => typeof entry === "object" && entry !== null && "message" in entry)
-                .map((entry: unknown) => String((entry as { message?: unknown }).message ?? ""))
-                .filter(Boolean)
-            : [];
-          errors.push(`${file.name}: ${data.error ?? (fallbackErrors.join("; ") || "Upload/ingestion failed.")}`);
+          errors.push(
+            `${file.name}: ${
+              (typeof data === "object" && data !== null && "error" in data && typeof data.error === "string")
+                ? data.error
+                : (parsedErrors.join("; ") || "Upload/ingestion failed.")
+            }`,
+          );
           continue;
         }
 
         const paperCode = String(data.paperCode ?? "");
+        const status = String(data.status ?? "failed").toLowerCase();
         outcomes.push({
           paperCode,
-          status: String(data.status ?? "failed"),
+          status,
           rowsAffected: Number(data.rowsAffected ?? 0),
           added: Number(data.added ?? 0),
           updated: Number(data.updated ?? 0),
         });
+        if (status !== "success") {
+          if (parsedErrors.length > 0) {
+            errors.push(`${file.name}: ${parsedErrors.join("; ")}`);
+          } else {
+            errors.push(`${file.name}: Ingestion ${status}.`);
+          }
+        }
         if (paperCode) {
+          const toastType = status === "success" ? "success" : status === "partial" ? "warning" : "error";
+          const toastLabel = status === "success" ? "ingested" : `ingestion ${status}`;
           showToast(
-            `✓ ${paperCode} ingested — view in Syllabus Tracker`,
-            data.status === "success" ? "success" : "warning",
+            `${status === "success" ? "✓" : "⚠"} ${paperCode} ${toastLabel} — view in Syllabus Tracker`,
+            toastType,
           );
         }
       }
@@ -149,6 +169,7 @@ export default function IngestMdClient() {
 
       if (autoTrackerFlow) {
         const paperCodes = outcomes
+          .filter((item) => item.status !== "failed")
           .map((item) => item.paperCode)
           .filter((code) => code.length > 0);
         const lastPaperCode = paperCodes.length > 0 ? paperCodes[paperCodes.length - 1] : null;
