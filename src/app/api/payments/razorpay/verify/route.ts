@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { AppwriteException } from "node-appwrite";
 import { getServerUser } from "@/lib/auth";
 import { adminDatabases, COLLECTION, DATABASE_ID, ID } from "@/lib/appwrite";
-import { getCreditPackByCode } from "@/lib/payments";
+import { getCreditPackByCode, getRazorpayClient } from "@/lib/payments";
 import { withElectronBalanceLock } from "@/lib/electron-lock";
 
 type VerifyBody = {
@@ -52,14 +52,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const packCode = typeof body.packCode === "string" ? body.packCode : "";
+  const requestedPackCode = typeof body.packCode === "string" ? body.packCode : "";
   const orderId = typeof body.razorpay_order_id === "string" ? body.razorpay_order_id : "";
   const paymentId = typeof body.razorpay_payment_id === "string" ? body.razorpay_payment_id : "";
   const signature = typeof body.razorpay_signature === "string" ? body.razorpay_signature : "";
-  const pack = getCreditPackByCode(packCode);
   const secret = process.env.RAZORPAY_KEY_SECRET ?? "";
 
-  if (!pack) return NextResponse.json({ error: "Invalid credit pack selected." }, { status: 400 });
   if (!orderId || !paymentId || !signature) {
     return NextResponse.json({ error: "Missing Razorpay verification fields." }, { status: 400 });
   }
@@ -73,6 +71,42 @@ export async function POST(request: NextRequest) {
     .digest("hex");
   if (!timingSafeEqual(expectedSignature, signature)) {
     return NextResponse.json({ error: "Payment signature verification failed." }, { status: 400 });
+  }
+
+  let pack: ReturnType<typeof getCreditPackByCode> | null = null;
+  try {
+    const razorpay = getRazorpayClient();
+    const order = await razorpay.orders.fetch(orderId);
+    const orderPackCode = typeof order.notes?.pack_code === "string" ? order.notes.pack_code : "";
+    const orderUserId = typeof order.notes?.user_id === "string" ? order.notes.user_id : "";
+
+    if (!orderPackCode) {
+      return NextResponse.json({ error: "Order is missing pack metadata." }, { status: 400 });
+    }
+    if (!orderUserId) {
+      return NextResponse.json({ error: "Order is missing user metadata." }, { status: 400 });
+    }
+    if (orderUserId !== user.id) {
+      return NextResponse.json({ error: "Order user does not match authenticated user." }, { status: 403 });
+    }
+
+    const orderPack = getCreditPackByCode(orderPackCode);
+    if (!orderPack) {
+      return NextResponse.json({ error: "Invalid order pack metadata." }, { status: 400 });
+    }
+
+    if (order.amount !== orderPack.amountInPaise || order.currency !== "INR") {
+      return NextResponse.json({ error: "Order amount validation failed." }, { status: 400 });
+    }
+
+    pack = orderPack;
+  } catch (error) {
+    const err = error as { statusCode?: unknown; message?: unknown } | undefined;
+    const statusCode = typeof err?.statusCode === "number" ? err.statusCode : undefined;
+    let message = err && typeof err.message === "string" ? err.message : "Unable to validate Razorpay order metadata.";
+    if (statusCode === 404) message = "Razorpay order not found.";
+    if (statusCode === 401 || statusCode === 403) message = "Razorpay authentication failed while validating order.";
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 
   try {
@@ -160,10 +194,23 @@ export async function POST(request: NextRequest) {
           ai_credits: updatedCredits,
         });
       } catch (creditApplyError) {
-        await db.updateDocument(DATABASE_ID, COLLECTION.purchases, resolvedPurchaseDocumentId, {
-          status: "captured_pending_credit",
-          credits_applied: false,
-        }).catch(() => undefined);
+        try {
+          await db.updateDocument(DATABASE_ID, COLLECTION.purchases, resolvedPurchaseDocumentId, {
+            status: "captured_pending_credit",
+            credits_applied: false,
+          });
+        } catch (rollbackError) {
+          console.error("[payments.razorpay.verify] CRITICAL rollback failure after credit apply error.", {
+            userId: user.id,
+            orderId,
+            paymentId,
+            purchaseDocumentId: resolvedPurchaseDocumentId,
+            requestedPackCode,
+            appliedPackCode: pack.code,
+            creditApplyError,
+            rollbackError,
+          });
+        }
         throw creditApplyError;
       }
 
