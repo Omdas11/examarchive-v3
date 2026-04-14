@@ -12,6 +12,27 @@ type VerifyBody = {
   razorpay_payment_id?: string;
   razorpay_signature?: string;
 };
+const MAX_PAYMENT_ID_LENGTH = 36;
+
+/**
+ * Current sanitizer aligned with Appwrite document ID constraints:
+ * allows letters, digits, underscores and dashes (no periods).
+ */
+function sanitizePaymentIdV2(paymentId: string): string {
+  return paymentId
+    .replace(/[^a-zA-Z0-9_-]/g, "_")
+    .slice(0, MAX_PAYMENT_ID_LENGTH);
+}
+
+/**
+ * Legacy sanitizer kept for backward-lookup compatibility with
+ * earlier IDs that allowed periods.
+ */
+function sanitizePaymentIdLegacy(paymentId: string): string {
+  return paymentId
+    .replace(/[^a-zA-Z0-9._-]/g, "_")
+    .slice(0, MAX_PAYMENT_ID_LENGTH);
+}
 
 function timingSafeEqual(a: string, b: string): boolean {
   const ab = Buffer.from(a, "utf8");
@@ -56,7 +77,8 @@ export async function POST(request: NextRequest) {
 
   try {
     const db = adminDatabases();
-    const sanitizedPaymentId = paymentId.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 36);
+    const sanitizedPaymentId = sanitizePaymentIdV2(paymentId);
+    const legacySanitizedPaymentId = sanitizePaymentIdLegacy(paymentId);
     const purchaseDocumentId = sanitizedPaymentId.length > 0 ? sanitizedPaymentId : ID.unique();
     const nowIso = new Date().toISOString();
 
@@ -85,8 +107,34 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    let resolvedPurchaseDocumentId = purchaseDocumentId;
+    let existingPurchase = await db
+      .getDocument(DATABASE_ID, COLLECTION.purchases, resolvedPurchaseDocumentId)
+      .catch(() => null);
+
+    const canUseLegacyPurchaseId =
+      Boolean(legacySanitizedPaymentId) && legacySanitizedPaymentId !== purchaseDocumentId;
+    if (!existingPurchase && canUseLegacyPurchaseId) {
+      const legacyPurchase = await db
+        .getDocument(DATABASE_ID, COLLECTION.purchases, legacySanitizedPaymentId)
+        .catch(() => null);
+      if (legacyPurchase) {
+        resolvedPurchaseDocumentId = legacySanitizedPaymentId;
+        existingPurchase = legacyPurchase;
+      }
+    }
+
+    if (existingPurchase?.credits_applied === true) {
+      const userDoc = await db.getDocument(DATABASE_ID, COLLECTION.users, user.id);
+      return NextResponse.json({
+        ok: true,
+        message: "Payment already verified.",
+        ai_credits: Number(userDoc.ai_credits ?? 0),
+      });
+    }
+
     return await withElectronBalanceLock(user.id, async () => {
-      const purchase = await db.getDocument(DATABASE_ID, COLLECTION.purchases, purchaseDocumentId);
+      const purchase = await db.getDocument(DATABASE_ID, COLLECTION.purchases, resolvedPurchaseDocumentId);
       const userDoc = await db.getDocument(DATABASE_ID, COLLECTION.users, user.id);
       const currentCredits = Number(userDoc.ai_credits ?? 0);
       const updatedCredits = Math.max(0, currentCredits + pack.credits);
@@ -99,7 +147,10 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      await db.updateDocument(DATABASE_ID, COLLECTION.purchases, purchaseDocumentId, {
+      // Mark as applied before mutating the user balance so retries cannot double-credit
+      // if the process fails after the balance update but before final purchase status write.
+      // If balance mutation fails, this flag is rolled back to false in the catch below.
+      await db.updateDocument(DATABASE_ID, COLLECTION.purchases, resolvedPurchaseDocumentId, {
         status: "credit_applying",
         credits_applied: true,
       });
@@ -109,14 +160,14 @@ export async function POST(request: NextRequest) {
           ai_credits: updatedCredits,
         });
       } catch (creditApplyError) {
-        await db.updateDocument(DATABASE_ID, COLLECTION.purchases, purchaseDocumentId, {
+        await db.updateDocument(DATABASE_ID, COLLECTION.purchases, resolvedPurchaseDocumentId, {
           status: "captured_pending_credit",
           credits_applied: false,
         }).catch(() => undefined);
         throw creditApplyError;
       }
 
-      await db.updateDocument(DATABASE_ID, COLLECTION.purchases, purchaseDocumentId, {
+      await db.updateDocument(DATABASE_ID, COLLECTION.purchases, resolvedPurchaseDocumentId, {
         status: "captured",
         credits_applied: true,
       });

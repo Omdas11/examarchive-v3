@@ -1,17 +1,23 @@
 import { AppwriteException } from "node-appwrite";
-import { adminDatabases, COLLECTION, DATABASE_ID, ID } from "@/lib/appwrite";
+import { adminDatabases, COLLECTION, DATABASE_ID } from "@/lib/appwrite";
 
 const LOCK_PREFIX = "electron_lock_";
 const LOCK_USER_PREFIX = "__electron_lock__";
-const LOCK_DATE = "1970-01-01";
+// Sentinel date used only for synthetic lock rows in ai_usage.
+const LOCK_MARKER_DATE = "1970-01-01";
 const LOCK_TTL_MS = 30_000;
+const MAX_LOCK_ID_USER_SEGMENT_LENGTH = 30;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function lockDocumentId(userId: string): string {
-  const normalized = userId.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 30) || ID.unique();
+  if (!userId.trim()) {
+    throw new Error("ELECTRON_BALANCE_LOCK_INVALID_USER_ID");
+  }
+  const normalized =
+    userId.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, MAX_LOCK_ID_USER_SEGMENT_LENGTH);
   return `${LOCK_PREFIX}${normalized}`;
 }
 
@@ -27,7 +33,7 @@ export async function withElectronBalanceLock<T>(
     try {
       await db.createDocument(DATABASE_ID, COLLECTION.ai_usage, lockId, {
         user_id: `${LOCK_USER_PREFIX}${userId}`,
-        date: LOCK_DATE,
+        date: LOCK_MARKER_DATE,
       });
       try {
         return await fn();
@@ -41,7 +47,9 @@ export async function withElectronBalanceLock<T>(
 
       try {
         const existingLock = await db.getDocument(DATABASE_ID, COLLECTION.ai_usage, lockId);
-        const lockAgeMs = Date.now() - Date.parse(String(existingLock.$createdAt ?? ""));
+        const createdAtRaw = typeof existingLock.$createdAt === "string" ? existingLock.$createdAt : "";
+        const createdAtMs = createdAtRaw ? Date.parse(createdAtRaw) : NaN;
+        const lockAgeMs = Number.isFinite(createdAtMs) ? Date.now() - createdAtMs : NaN;
         if (Number.isFinite(lockAgeMs) && lockAgeMs > LOCK_TTL_MS) {
           await db.deleteDocument(DATABASE_ID, COLLECTION.ai_usage, lockId).catch(() => undefined);
           continue;
