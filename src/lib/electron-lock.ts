@@ -1,12 +1,13 @@
+import crypto from "crypto";
 import { AppwriteException } from "node-appwrite";
 import { adminDatabases, COLLECTION, DATABASE_ID } from "@/lib/appwrite";
 
-const LOCK_PREFIX = "electron_lock_";
+const LOCK_PREFIX = "el_";
 const LOCK_USER_PREFIX = "__electron_lock__";
 // Sentinel date used only for synthetic lock rows in ai_usage.
 const LOCK_MARKER_DATE = "1970-01-01";
 const LOCK_TTL_MS = 30_000;
-const MAX_LOCK_ID_USER_SEGMENT_LENGTH = 36 - LOCK_PREFIX.length;
+const LOCK_HASH_LENGTH = 36 - LOCK_PREFIX.length;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -16,9 +17,8 @@ function lockDocumentId(userId: string): string {
   if (!userId.trim()) {
     throw new Error("ELECTRON_BALANCE_LOCK_INVALID_USER_ID");
   }
-  const normalized =
-    userId.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, MAX_LOCK_ID_USER_SEGMENT_LENGTH);
-  return `${LOCK_PREFIX}${normalized}`;
+  const hash = crypto.createHash("sha256").update(userId.trim()).digest("hex").slice(0, LOCK_HASH_LENGTH);
+  return `${LOCK_PREFIX}${hash}`;
 }
 
 export async function withElectronBalanceLock<T>(

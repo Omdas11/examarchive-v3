@@ -13,6 +13,7 @@ type VerifyBody = {
   razorpay_signature?: string;
 };
 const MAX_PAYMENT_ID_LENGTH = 36;
+const CREDIT_APPLYING_STALE_MS = 5 * 60 * 1000;
 
 /**
  * Current sanitizer for new purchase IDs:
@@ -24,21 +25,19 @@ function sanitizePaymentIdCurrent(paymentId: string): string {
     .slice(0, MAX_PAYMENT_ID_LENGTH);
 }
 
-/**
- * Legacy sanitizer kept for backward-lookup compatibility with IDs
- * generated before period support was enabled.
- */
-function sanitizePaymentIdLegacyNoDot(paymentId: string): string {
-  return paymentId
-    .replace(/[^a-zA-Z0-9_-]/g, "_")
-    .slice(0, MAX_PAYMENT_ID_LENGTH);
-}
-
 function timingSafeEqual(a: string, b: string): boolean {
   const ab = Buffer.from(a, "utf8");
   const bb = Buffer.from(b, "utf8");
   if (ab.length !== bb.length) return false;
   return crypto.timingSafeEqual(ab, bb);
+}
+
+function safeJsonStringify(value: unknown): string {
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return JSON.stringify({ error: "PAYLOAD_SERIALIZATION_FAILED" });
+  }
 }
 
 async function getPurchaseByIdOrNull(
@@ -86,9 +85,11 @@ export async function POST(request: NextRequest) {
   }
 
   let pack: ReturnType<typeof getCreditPackByCode> | null = null;
+  let razorpayOrderPayload: Record<string, unknown> | null = null;
   try {
     const razorpay = getRazorpayClient();
     const order = await razorpay.orders.fetch(orderId);
+    razorpayOrderPayload = order as unknown as Record<string, unknown>;
     const orderPackCode = typeof order.notes?.pack_code === "string" ? order.notes.pack_code : "";
     const orderUserId = typeof order.notes?.user_id === "string" ? order.notes.user_id : "";
 
@@ -124,7 +125,6 @@ export async function POST(request: NextRequest) {
   try {
     const db = adminDatabases();
     const sanitizedPaymentId = sanitizePaymentIdCurrent(paymentId);
-    const legacySanitizedPaymentId = sanitizePaymentIdLegacyNoDot(paymentId);
     const purchaseDocumentId = sanitizedPaymentId.length > 0 ? sanitizedPaymentId : ID.unique();
     const nowIso = new Date().toISOString();
 
@@ -142,9 +142,10 @@ export async function POST(request: NextRequest) {
         credits_granted: pack.credits,
         credits_applied: false,
         verified_at: nowIso,
-        raw_payload: JSON.stringify({
-          razorpay_order_id: orderId,
-          razorpay_payment_id: paymentId,
+        raw_payload: safeJsonStringify({
+          request_body: body,
+          razorpay_order_payload: razorpayOrderPayload,
+          verified_signature: signature,
         }),
       });
     } catch (error) {
@@ -153,18 +154,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    let resolvedPurchaseDocumentId = purchaseDocumentId;
-    let existingPurchase = await getPurchaseByIdOrNull(db, resolvedPurchaseDocumentId);
-
-    const canUseLegacyPurchaseId =
-      Boolean(legacySanitizedPaymentId) && legacySanitizedPaymentId !== purchaseDocumentId;
-    if (!existingPurchase && canUseLegacyPurchaseId) {
-      const legacyPurchase = await getPurchaseByIdOrNull(db, legacySanitizedPaymentId);
-      if (legacyPurchase) {
-        resolvedPurchaseDocumentId = legacySanitizedPaymentId;
-        existingPurchase = legacyPurchase;
-      }
-    }
+    const resolvedPurchaseDocumentId = purchaseDocumentId;
+    const existingPurchase = await getPurchaseByIdOrNull(db, resolvedPurchaseDocumentId);
 
     if (existingPurchase?.credits_applied === true) {
       const userDoc = await db.getDocument(DATABASE_ID, COLLECTION.users, user.id);
@@ -182,6 +173,10 @@ export async function POST(request: NextRequest) {
       if (!Number.isFinite(currentCredits)) {
         throw new Error("INVALID_USER_CREDITS_BALANCE");
       }
+      const packCredits = Number(pack.credits);
+      if (!Number.isFinite(packCredits)) {
+        throw new Error("INVALID_PACK_CREDITS_VALUE");
+      }
       const purchaseStatus = typeof purchase.status === "string" ? purchase.status : "";
       const purchaseCreditsApplied = purchase.credits_applied === true;
 
@@ -194,26 +189,50 @@ export async function POST(request: NextRequest) {
       }
 
       if (purchaseStatus === "credit_applying") {
-        return NextResponse.json(
-          { error: "Payment credit reconciliation is in progress. Please retry shortly." },
-          { status: 409 },
-        );
+        const applyingAtRaw =
+          typeof purchase.credit_applying_at === "string" ? purchase.credit_applying_at : "";
+        const applyingAtMs = applyingAtRaw ? Date.parse(applyingAtRaw) : NaN;
+        const lockAgeMs = Number.isFinite(applyingAtMs) ? Date.now() - applyingAtMs : NaN;
+        if (!Number.isFinite(lockAgeMs) || lockAgeMs < CREDIT_APPLYING_STALE_MS) {
+          return NextResponse.json(
+            { error: "Payment credit reconciliation is in progress. Please retry shortly." },
+            { status: 409 },
+          );
+        }
+
+        const preCreditBalance = Number(purchase.pre_credit_balance ?? NaN);
+        if (Number.isFinite(preCreditBalance) && currentCredits === preCreditBalance + packCredits) {
+          await db.updateDocument(DATABASE_ID, COLLECTION.purchases, resolvedPurchaseDocumentId, {
+            status: "captured",
+            credits_applied: true,
+          });
+          return NextResponse.json({
+            ok: true,
+            message: "Payment already verified.",
+            ai_credits: currentCredits,
+          });
+        }
+
+        await db.updateDocument(DATABASE_ID, COLLECTION.purchases, resolvedPurchaseDocumentId, {
+          status: "captured_pending_credit",
+          credits_applied: false,
+        });
       }
-      const packCredits = Number(pack.credits);
-      if (!Number.isFinite(packCredits)) {
-        throw new Error("INVALID_PACK_CREDITS_VALUE");
-      }
+
       const nextCredits = currentCredits + packCredits;
       if (!Number.isFinite(nextCredits)) {
         throw new Error("INVALID_CREDITS_BALANCE_COMPUTATION");
       }
       const updatedCredits = Math.max(0, nextCredits);
+      const creditApplyingAtIso = new Date().toISOString();
 
       // Mark transition into credit application while keeping credits_applied=false
       // until the user balance update succeeds.
       await db.updateDocument(DATABASE_ID, COLLECTION.purchases, resolvedPurchaseDocumentId, {
         status: "credit_applying",
         credits_applied: false,
+        credit_applying_at: creditApplyingAtIso,
+        pre_credit_balance: currentCredits,
       });
 
       try {

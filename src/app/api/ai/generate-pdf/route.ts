@@ -30,7 +30,6 @@ import { withElectronBalanceLock } from "@/lib/electron-lock";
 export const maxDuration = 300;
 
 const DEFAULT_AI_MODEL = "gemini-3.1-flash-lite";
-const LEGACY_GEMINI_PREVIEW_MODEL = "gemini-3.1-flash-lite-preview";
 const GEMMA_UNLIMITED_TPM_MODEL = "gemma-4-31b";
 const TOPIC_RETRY_MAX = 3;
 const MIN_TOPIC_RESPONSE_CHARS = 50;
@@ -63,7 +62,7 @@ type GenerateBody = {
 };
 
 function isAdminPlus(role: string): boolean {
-  return role === "moderator" || role === "admin" || role === "founder" || role === "maintainer";
+  return role === "moderator" || role === "admin" || role === "founder";
 }
 
 function normalizeYear(value: unknown): number | null {
@@ -191,10 +190,6 @@ function isRateLimitError(error: unknown): boolean {
   if (status === 429 || code === 429 || code === "429") return true;
   const message = String(errObj.message ?? "");
   return /rate limit|resource exhausted/i.test(message);
-}
-
-function normalizeSelectedModel(model: string): string {
-  return model === LEGACY_GEMINI_PREVIEW_MODEL ? DEFAULT_AI_MODEL : model;
 }
 
 function getModelConcurrency(model: string): { topic: number; question: number } {
@@ -657,7 +652,7 @@ export async function POST(request: NextRequest) {
   const type = (body.type || "").trim();
   const paperCode = (body.paperCode || "").trim();
   const selectedModelRaw = typeof body.model === "string" ? body.model.trim() : "";
-  const selectedModel = normalizeSelectedModel(selectedModelRaw || DEFAULT_AI_MODEL);
+  const selectedModel = selectedModelRaw || DEFAULT_AI_MODEL;
   const userEmail = typeof user.email === "string" ? user.email.trim() : "";
 
   if (!course) return NextResponse.json({ error: "Invalid selection: course is required." }, { status: 400 });
@@ -667,7 +662,7 @@ export async function POST(request: NextRequest) {
   if (!isSupportedAiModel(selectedModel)) {
     return NextResponse.json(
       {
-        error: `Unsupported model. Allowed values: ${SUPPORTED_AI_MODELS.join(", ")}. Legacy '${LEGACY_GEMINI_PREVIEW_MODEL}' is auto-mapped to '${DEFAULT_AI_MODEL}'.`,
+        error: `Unsupported model. Allowed values: ${SUPPORTED_AI_MODELS.join(", ")}.`,
       },
       { status: 400 },
     );
@@ -723,16 +718,18 @@ export async function POST(request: NextRequest) {
         );
       }
     }
-    try {
-      await reserveElectronCost(user.id, GENERATION_COST_ELECTRONS);
-    } catch (error) {
-      if (error instanceof Error && error.message === "INSUFFICIENT_ELECTRONS") {
-        return NextResponse.json(
-          { error: `Not enough electrons. Each generation costs ${GENERATION_COST_ELECTRONS}e.` },
-          { status: 403 },
-        );
+    if (!admin) {
+      try {
+        await reserveElectronCost(user.id, GENERATION_COST_ELECTRONS);
+      } catch (error) {
+        if (error instanceof Error && error.message === "INSUFFICIENT_ELECTRONS") {
+          return NextResponse.json(
+            { error: `Not enough electrons. Each generation costs ${GENERATION_COST_ELECTRONS}e.` },
+            { status: 403 },
+          );
+        }
+        return NextResponse.json({ error: "Unable to reserve electrons. Please try again." }, { status: 503 });
       }
-      return NextResponse.json({ error: "Unable to reserve electrons. Please try again." }, { status: 503 });
     }
     if (!admin) {
       try {
@@ -742,7 +739,9 @@ export async function POST(request: NextRequest) {
           userId: user.id,
           error,
         });
-        await rollbackElectronCost(user.id, GENERATION_COST_ELECTRONS);
+        if (!admin) {
+          await rollbackElectronCost(user.id, GENERATION_COST_ELECTRONS);
+        }
         return NextResponse.json(
           { error: QUOTA_RESERVATION_FAILED_MESSAGE, code: QUOTA_RESERVATION_FAILED_CODE },
           { status: 503 },
@@ -757,7 +756,9 @@ export async function POST(request: NextRequest) {
       if (!admin) {
         await rollbackQuotaReservation(user.id, "notes_generated_today");
       }
-      await rollbackElectronCost(user.id, GENERATION_COST_ELECTRONS);
+      if (!admin) {
+        await rollbackElectronCost(user.id, GENERATION_COST_ELECTRONS);
+      }
       return NextResponse.json(
         {
           error: EMAIL_DELIVERY_UNAVAILABLE_MESSAGE,
@@ -822,16 +823,18 @@ export async function POST(request: NextRequest) {
       );
     }
   }
-  try {
-    await reserveElectronCost(user.id, GENERATION_COST_ELECTRONS);
-  } catch (error) {
-    if (error instanceof Error && error.message === "INSUFFICIENT_ELECTRONS") {
-      return NextResponse.json(
-        { error: `Not enough electrons. Each generation costs ${GENERATION_COST_ELECTRONS}e.` },
-        { status: 403 },
-      );
+  if (!admin) {
+    try {
+      await reserveElectronCost(user.id, GENERATION_COST_ELECTRONS);
+    } catch (error) {
+      if (error instanceof Error && error.message === "INSUFFICIENT_ELECTRONS") {
+        return NextResponse.json(
+          { error: `Not enough electrons. Each generation costs ${GENERATION_COST_ELECTRONS}e.` },
+          { status: 403 },
+        );
+      }
+      return NextResponse.json({ error: "Unable to reserve electrons. Please try again." }, { status: 503 });
     }
-    return NextResponse.json({ error: "Unable to reserve electrons. Please try again." }, { status: 503 });
   }
   if (!admin) {
     try {
@@ -841,7 +844,9 @@ export async function POST(request: NextRequest) {
         userId: user.id,
         error,
       });
-      await rollbackElectronCost(user.id, GENERATION_COST_ELECTRONS);
+      if (!admin) {
+        await rollbackElectronCost(user.id, GENERATION_COST_ELECTRONS);
+      }
       return NextResponse.json(
         { error: QUOTA_RESERVATION_FAILED_MESSAGE, code: QUOTA_RESERVATION_FAILED_CODE },
         { status: 503 },
@@ -853,7 +858,9 @@ export async function POST(request: NextRequest) {
     if (!admin) {
       await rollbackQuotaReservation(user.id, "papers_solved_today");
     }
-    await rollbackElectronCost(user.id, GENERATION_COST_ELECTRONS);
+    if (!admin) {
+      await rollbackElectronCost(user.id, GENERATION_COST_ELECTRONS);
+    }
     return NextResponse.json(
       {
         error: EMAIL_DELIVERY_UNAVAILABLE_MESSAGE,

@@ -80,11 +80,11 @@ const DEFAULT_DATABASE_SCHEMA_MARKDOWN = `# DATABASE_SCHEMA
 | \`paper_code\` | String | **Yes** | Paper code |
 | \`type\` | String | **Yes** | Cache type (\`solved_paper\` or \`unit_notes\`) |
 | \`year\` | String | No | Solved-paper exam year |
-| \`semester\` | String | No | Semester selector (legacy compatibility also mirrors \`year\`) |
+| \`semester\` | String | No | Semester selector |
 | \`unit_number\` | Integer | **Yes** | Unit number |
 | \`part_number\` | Integer | No | Current part index for long generations |
 | \`markdown_file_id\` | String | **Yes** | Appwrite Storage file ID for cached markdown |
-| \`generated_markdown\` | String | No | Cached markdown text for compatibility with legacy required schemas |
+| \`generated_markdown\` | String | No | Cached markdown text |
 | \`syllabus_content\` | String | No | Cached syllabus bullets text for print cover |
 | \`pdf_file_id\` | String | No | Cached rendered PDF file id for direct reuse |
 | \`created_at\` | Datetime | **Yes** | Cache creation timestamp |
@@ -202,6 +202,8 @@ const TARGET_SCHEMA = [
       { key: "currency", type: "string", required: true, size: 8 },
       { key: "credits_granted", type: "integer", required: false },
       { key: "credits_applied", type: "boolean", required: false, default: false },
+      { key: "credit_applying_at", type: "datetime", required: false },
+      { key: "pre_credit_balance", type: "integer", required: false },
       { key: "raw_payload", type: "string", required: false, size: LARGE_STRING_SIZE },
       { key: "verified_at", type: "datetime", required: false },
     ],
