@@ -218,9 +218,8 @@ function isTimeoutError(error: unknown): boolean {
   if (status === 408 || status === 504) return true;
   if (status === 503 && /timeout/i.test(message)) return true;
   if (/aborted due to timeout|timed out|timeout/i.test(message)) return true;
-  const causeMessage = typeof (errObj.cause as { message?: unknown } | undefined)?.message === "string"
-    ? String((errObj.cause as { message?: unknown }).message)
-    : "";
+  const cause = errObj.cause as { message?: unknown } | undefined;
+  const causeMessage = typeof cause?.message === "string" ? cause.message : "";
   return /timeout/i.test(causeMessage);
 }
 
@@ -446,10 +445,7 @@ function collectGeneratePdfEnvChecks(): {
       continue;
     }
     const parsed = Number(raw);
-    const isInteger = Number.isInteger(parsed);
-    const isValid = envName === "GOTENBERG_MAX_ATTEMPTS"
-      ? isInteger && parsed >= 1
-      : Number.isFinite(parsed) && parsed >= 1;
+    const isValid = Number.isInteger(parsed) && parsed >= 1;
     checks.push({
       name: envName,
       ok: isValid,
@@ -601,7 +597,12 @@ CRITICAL FORMAT CONSTRAINTS:
       }
     }
 
-    if (!aiResponseText && fallbackModel && lastTopicError && isTimeoutError(lastTopicError)) {
+    if (
+      !aiResponseText
+      && fallbackModel
+      && lastTopicError
+      && (isTimeoutError(lastTopicError) || isRateLimitError(lastTopicError))
+    ) {
       try {
         console.warn("[ai/generate-pdf] Retrying timed-out topic on fallback model.", {
           topicIndex: index + 1,
