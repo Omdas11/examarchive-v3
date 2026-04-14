@@ -23,6 +23,12 @@ function xoMilestones(xo: number): string[] {
   return milestones;
 }
 
+function resolveXoTotal(user: AdminUser): number {
+  if (Number.isFinite(user.xo)) return user.xo;
+  if (Number.isFinite(user.xp)) return user.xp;
+  return 0;
+}
+
 /**
  * Generate a deterministic neutral background colour for avatar initials
  * based on the user's display name so each user gets a consistent but varied
@@ -88,7 +94,7 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
           </thead>
           <tbody>
             {list.map((u) => {
-              const xoTotal = Number.isFinite(u.xo) ? u.xo : u.xp;
+              const xoTotal = resolveXoTotal(u);
               const milestones = xoMilestones(xoTotal);
               const displayName = u.name || u.username || u.email;
 

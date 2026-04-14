@@ -229,6 +229,11 @@ export async function POST(request: NextRequest) {
       if (!Number.isFinite(packCredits)) {
         throw new Error("INVALID_PACK_CREDITS_VALUE");
       }
+      const preCreditBalanceRaw = purchase.pre_credit_balance;
+      const preCreditBalance =
+        typeof preCreditBalanceRaw === "number" && Number.isFinite(preCreditBalanceRaw)
+          ? preCreditBalanceRaw
+          : null;
       const purchaseStatus = typeof purchase.status === "string" ? purchase.status : "";
       const purchaseCreditsApplied = purchase.credits_applied === true;
 
@@ -252,8 +257,7 @@ export async function POST(request: NextRequest) {
           );
         }
 
-        const preCreditBalance = Number(purchase.pre_credit_balance ?? NaN);
-        if (Number.isFinite(preCreditBalance) && currentCredits === preCreditBalance + packCredits) {
+        if (preCreditBalance !== null && currentCredits === preCreditBalance + packCredits) {
           await db.updateDocument(DATABASE_ID, COLLECTION.purchases, resolvedPurchaseDocumentId, {
             status: "captured",
             credits_applied: true,
@@ -264,12 +268,18 @@ export async function POST(request: NextRequest) {
             ai_credits: currentCredits,
           });
         }
-        if (Number.isFinite(preCreditBalance) && currentCredits === preCreditBalance) {
+        if (preCreditBalance !== null && currentCredits === preCreditBalance) {
           await db.updateDocument(DATABASE_ID, COLLECTION.purchases, resolvedPurchaseDocumentId, {
             status: "captured_pending_credit",
             credits_applied: false,
           });
         } else {
+          if (preCreditBalance === null) {
+            return NextResponse.json(
+              { error: "Payment reconciliation is missing state metadata. Please contact support." },
+              { status: 409 },
+            );
+          }
           return NextResponse.json(
             { error: "Payment reconciliation requires manual verification. Please contact support." },
             { status: 409 },
