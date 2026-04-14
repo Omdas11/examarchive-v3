@@ -85,31 +85,12 @@ const AI_COLLECTIONS = [
       { key: "model", type: "string", required: false, size: 64 },
     ],
   },
-  {
-    id: "ai_generation_jobs",
-    name: "ai_generation_jobs",
-    attributes: [
-      { key: "user_id", type: "string", required: true, size: 64 },
-      { key: "paper_code", type: "string", required: true, size: 128 },
-      { key: "unit_number", type: "integer", required: true },
-      { key: "status", type: "string", required: true, size: 32 },
-      { key: "progress_percent", type: "integer", required: false },
-      { key: "input_payload_json", type: "string", required: true, size: 20000 },
-      { key: "result_note_id", type: "string", required: false, size: 64 },
-      { key: "error_message", type: "string", required: false, size: 2000 },
-      { key: "started_at", type: "datetime", required: false },
-      { key: "completed_at", type: "datetime", required: false },
-      { key: "idempotency_key", type: "string", required: true, size: 128 },
-      { key: "created_at", type: "datetime", required: true },
-    ],
-  },
 ];
 
 // These are initialized in main() after loadAppwriteEnv() to respect CLI/.env overrides
 let DEFAULT_FUNCTION_RUNTIME;
 const FALLBACK_FUNCTION_RUNTIMES = ["node-20.0", "node-18.0"];
 let TARGET_FUNCTIONS;
-const REQUIRED_FUNCTION_IDS = ["ai-note-worker"];
 
 function initializeFunctionConfig() {
   DEFAULT_FUNCTION_RUNTIME = process.env.APPWRITE_FUNCTION_RUNTIME || "node-22.0";
@@ -134,13 +115,6 @@ function initializeFunctionConfig() {
       name: "ai-flashcards",
       runtime: DEFAULT_FUNCTION_RUNTIME,
       description: "Gemini 3.1 Flash Lite flashcard/quiz generator",
-      execute: ["any"],
-    },
-    {
-      id: "ai-note-worker",
-      name: "ai-note-worker",
-      runtime: DEFAULT_FUNCTION_RUNTIME,
-      description: "Async notes generation worker",
       execute: ["any"],
     },
   ];
@@ -261,14 +235,8 @@ async function ensureFunctionExists(functions, func) {
 }
 
 function assertRequiredFunctionsSynced(functionResults) {
-  const syncedIds = new Set(functionResults.map((result) => result.functionId));
-  for (const requiredId of REQUIRED_FUNCTION_IDS) {
-    if (!syncedIds.has(requiredId)) {
-      throw new Error(
-        `Required AI function "${requiredId}" was not synced. Check TARGET_FUNCTIONS and Appwrite credentials.`,
-      );
-    }
-  }
+  // No required functions to check after removing ai-note-worker.
+  void functionResults;
 }
 
 async function main() {
@@ -290,7 +258,6 @@ async function main() {
   for (const func of TARGET_FUNCTIONS) {
     functionResults.push(await ensureFunctionExists(functions, func));
   }
-  assertRequiredFunctionsSynced(functionResults);
 
   console.log("AI collections:");
   for (const result of collectionResults) {

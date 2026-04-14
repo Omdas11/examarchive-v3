@@ -6,7 +6,7 @@ on:
       force_sync:
         description: "Force AI schema sync even if no files changed"
         required: false
-        default: "true"
+        default: "false"
         type: choice
         options:
           - "false"
@@ -30,7 +30,7 @@ concurrency:
 
 jobs:
   sync-ai:
-    if: github.actor != 'github-actions[bot]'
+    if: github.actor != 'github-actions[bot]' && (github.event_name != 'workflow_dispatch' || github.event.inputs.force_sync == 'true')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

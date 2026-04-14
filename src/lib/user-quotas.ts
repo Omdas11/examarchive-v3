@@ -146,3 +146,26 @@ export async function incrementQuotaCounter(
   await db.updateDocument(DATABASE_ID, COLLECTION.user_quotas, existing.$id, payload);
   return payload;
 }
+
+export async function rollbackQuotaCounter(
+  userId: string,
+  counter: "notes_generated_today" | "papers_solved_today",
+): Promise<UserQuotaRecord | null> {
+  const db = adminDatabases();
+  const existing = await getQuotaDocument(userId);
+  if (!existing) return null;
+
+  const today = getTodayDateKey();
+  const lastGenerationDate = normalizeDate(existing.last_generation_date);
+  const baseNotes = lastGenerationDate < today ? 0 : toInt(existing.notes_generated_today);
+  const basePapers = lastGenerationDate < today ? 0 : toInt(existing.papers_solved_today);
+
+  const payload = {
+    notes_generated_today: counter === "notes_generated_today" ? Math.max(0, baseNotes - 1) : baseNotes,
+    papers_solved_today: counter === "papers_solved_today" ? Math.max(0, basePapers - 1) : basePapers,
+    last_generation_date: lastGenerationDate < today ? today : lastGenerationDate,
+  };
+
+  await db.updateDocument(DATABASE_ID, COLLECTION.user_quotas, existing.$id, payload);
+  return payload;
+}
