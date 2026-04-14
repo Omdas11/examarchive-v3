@@ -2,7 +2,7 @@ import { after } from "next/server";
 import { NextResponse, type NextRequest } from "next/server";
 import { getServerUser } from "@/lib/auth";
 import { getDailyLimit } from "@/lib/ai-limits";
-import { checkAndResetQuotas, incrementQuotaCounter } from "@/lib/user-quotas";
+import { checkAndResetQuotas, decrementQuotaCounter, incrementQuotaCounter } from "@/lib/user-quotas";
 import { NOTES_DAILY_LIMIT } from "@/lib/quota-config";
 import {
   adminDatabases,
@@ -175,7 +175,6 @@ async function recordGeneration(userId: string, todayStr: string): Promise<void>
 
 async function reserveQuotaForAcceptedRequest(
   userId: string,
-  todayStr: string,
   counter: "notes_generated_today" | "papers_solved_today",
 ): Promise<void> {
   try {
@@ -183,7 +182,24 @@ async function reserveQuotaForAcceptedRequest(
   } catch (error) {
     throw new Error(`[ai/generate-pdf] Failed to reserve ${counter}: ${String(error)}`);
   }
+}
 
+async function rollbackQuotaReservation(
+  userId: string,
+  counter: "notes_generated_today" | "papers_solved_today",
+): Promise<void> {
+  try {
+    await decrementQuotaCounter(userId, counter);
+  } catch (error) {
+    console.error("[ai/generate-pdf] Failed to rollback reserved quota after email failure.", {
+      userId,
+      counter,
+      error,
+    });
+  }
+}
+
+function recordGenerationAsync(userId: string, todayStr: string, counter: "notes_generated_today" | "papers_solved_today"): void {
   // Metrics recording is non-critical and should not block accepted requests.
   void recordGeneration(userId, todayStr).catch((error) => {
     console.error("[ai/generate-pdf] Failed to record usage metrics after quota reservation.", {
@@ -631,7 +647,7 @@ export async function POST(request: NextRequest) {
     }
     if (!admin) {
       try {
-        await reserveQuotaForAcceptedRequest(user.id, todayStr, "notes_generated_today");
+        await reserveQuotaForAcceptedRequest(user.id, "notes_generated_today");
       } catch (error) {
         console.error("[ai/generate-pdf] Failed to reserve notes quota for accepted request.", {
           userId: user.id,
@@ -648,6 +664,9 @@ export async function POST(request: NextRequest) {
       `Unit Notes (${paperCode} - Unit ${unitNumber})`,
     );
     if (!startEmailSent) {
+      if (!admin) {
+        await rollbackQuotaReservation(user.id, "notes_generated_today");
+      }
       return NextResponse.json(
         {
           error: EMAIL_DELIVERY_UNAVAILABLE_MESSAGE,
@@ -655,6 +674,9 @@ export async function POST(request: NextRequest) {
         },
         { status: 503 },
       );
+    }
+    if (!admin) {
+      recordGenerationAsync(user.id, todayStr, "notes_generated_today");
     }
 
     after(async () => {
@@ -710,7 +732,7 @@ export async function POST(request: NextRequest) {
   }
   if (!admin) {
     try {
-      await reserveQuotaForAcceptedRequest(user.id, todayStr, "papers_solved_today");
+      await reserveQuotaForAcceptedRequest(user.id, "papers_solved_today");
     } catch (error) {
       console.error("[ai/generate-pdf] Failed to reserve solved-paper quota for accepted request.", {
         userId: user.id,
@@ -724,6 +746,9 @@ export async function POST(request: NextRequest) {
   }
   const startEmailSent = await ensureGenerationStartedEmail(userEmail, `Solved Paper (${paperCode} ${year})`);
   if (!startEmailSent) {
+    if (!admin) {
+      await rollbackQuotaReservation(user.id, "papers_solved_today");
+    }
     return NextResponse.json(
       {
         error: EMAIL_DELIVERY_UNAVAILABLE_MESSAGE,
@@ -731,6 +756,9 @@ export async function POST(request: NextRequest) {
       },
       { status: 503 },
     );
+  }
+  if (!admin) {
+    recordGenerationAsync(user.id, todayStr, "papers_solved_today");
   }
 
   after(async () => {
