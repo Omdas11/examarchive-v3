@@ -1,6 +1,6 @@
 # Hugging Face Gotenberg Setup (Next.js)
 
-This guide migrates PDF rendering from Azure-hosted Gotenberg to a free Hugging Face Docker Space for this Next.js app.
+This guide explains how to configure PDF rendering for this Next.js app using a Hugging Face Docker Space instead of Azure-hosted Gotenberg.
 
 ## 1) Deploy your Hugging Face Space
 
