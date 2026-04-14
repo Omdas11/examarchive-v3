@@ -20,18 +20,27 @@ import {
   sendGenerationStartedEmail,
 } from "@/lib/generation-notifications";
 import { formatSearchResults, runWebSearch } from "@/lib/web-search";
+import {
+  GENERATION_COST_ELECTRONS,
+  SUPPORTED_AI_MODELS,
+  isSupportedAiModel,
+} from "@/lib/economy";
+import { withElectronBalanceLock } from "@/lib/electron-lock";
 
 export const maxDuration = 300;
 
-const GEMINI_MODEL = "gemini-3.1-flash-lite-preview";
+const DEFAULT_AI_MODEL = "gemini-3.1-flash-lite";
+const GEMMA_UNLIMITED_TPM_MODEL = "gemma-4-31b";
 const TOPIC_RETRY_MAX = 3;
 const MIN_TOPIC_RESPONSE_CHARS = 50;
 const QUESTION_MAX_RETRIES = 4;
 const MIN_SOLUTION_RESPONSE_CHARS = 10;
 const RETRY_ERROR_DELAY_MS = 4000;
 const TAVILY_TIMEOUT_MS = 4000;
-const TOPIC_CONCURRENCY = 3;
-const QUESTION_CONCURRENCY = 2;
+const DEFAULT_TOPIC_CONCURRENCY = 3;
+const DEFAULT_QUESTION_CONCURRENCY = 2;
+const GEMMA_TOPIC_CONCURRENCY = 6;
+const GEMMA_QUESTION_CONCURRENCY = 4;
 const UNDICI_CONNECT_TIMEOUT_CODE = "UND_ERR_CONNECT_TIMEOUT";
 const EMAIL_DELIVERY_UNAVAILABLE_CODE = "EMAIL_DELIVERY_UNAVAILABLE";
 const EMAIL_DELIVERY_UNAVAILABLE_MESSAGE =
@@ -49,10 +58,11 @@ type GenerateBody = {
   unitNumber?: number;
   semester?: number | null;
   year?: number | null;
+  model?: string;
 };
 
 function isAdminPlus(role: string): boolean {
-  return role === "admin" || role === "founder";
+  return role === "moderator" || role === "admin" || role === "founder";
 }
 
 function normalizeYear(value: unknown): number | null {
@@ -64,6 +74,40 @@ function normalizeYear(value: unknown): number | null {
 
 function isValidEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+async function reserveElectronCost(userId: string, cost: number): Promise<void> {
+  await withElectronBalanceLock(userId, async () => {
+    const db = adminDatabases();
+    const profile = await db.getDocument(DATABASE_ID, COLLECTION.users, userId);
+    const current = Number(profile.ai_credits ?? 0);
+    if (!Number.isFinite(current) || current < cost) {
+      throw new Error("INSUFFICIENT_ELECTRONS");
+    }
+    await db.updateDocument(DATABASE_ID, COLLECTION.users, userId, {
+      ai_credits: current - cost,
+    });
+  });
+}
+
+async function rollbackElectronCost(userId: string, cost: number): Promise<void> {
+  try {
+    await withElectronBalanceLock(userId, async () => {
+      const db = adminDatabases();
+      const profile = await db.getDocument(DATABASE_ID, COLLECTION.users, userId);
+      const current = Number(profile.ai_credits ?? 0);
+      const safeCurrent = Number.isFinite(current) ? current : 0;
+      await db.updateDocument(DATABASE_ID, COLLECTION.users, userId, {
+        ai_credits: Math.max(0, safeCurrent + cost),
+      });
+    });
+  } catch (error) {
+    console.error("[ai/generate-pdf] Failed to rollback electrons after start-email failure.", {
+      userId,
+      cost,
+      error,
+    });
+  }
 }
 
 function normalizeTags(raw: unknown): string[] {
@@ -146,6 +190,17 @@ function isRateLimitError(error: unknown): boolean {
   if (status === 429 || code === 429 || code === "429") return true;
   const message = String(errObj.message ?? "");
   return /rate limit|resource exhausted/i.test(message);
+}
+
+function getModelConcurrency(model: string): { topic: number; question: number } {
+  if (model === GEMMA_UNLIMITED_TPM_MODEL) {
+    return { topic: GEMMA_TOPIC_CONCURRENCY, question: GEMMA_QUESTION_CONCURRENCY };
+  }
+  return { topic: DEFAULT_TOPIC_CONCURRENCY, question: DEFAULT_QUESTION_CONCURRENCY };
+}
+
+function getRateLimitBackoffMs(model: string, limitedModelMultiplier: number): number {
+  return model === GEMMA_UNLIMITED_TPM_MODEL ? RETRY_ERROR_DELAY_MS : RETRY_ERROR_DELAY_MS * limitedModelMultiplier;
 }
 
 async function getDailyCount(userId: string, todayStr: string): Promise<number> {
@@ -288,10 +343,11 @@ async function runNotesBackground(params: {
   type: string;
   paperCode: string;
   unitNumber: number;
+  model: string;
 }): Promise<void> {
   const {
     userEmail, university, course, stream, type,
-    paperCode, unitNumber,
+    paperCode, unitNumber, model,
   } = params;
 
   const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
@@ -340,7 +396,8 @@ async function runNotesBackground(params: {
   const syllabusTags = normalizeTags(syllabusDoc.tags);
   const formattedQuestions = formatQuestionsForPrompt(questionsRes.documents, unitNumber);
   const systemPrompt = readDynamicSystemPrompt({ promptType: "unit_notes" });
-  const generatedChunks = await mapWithConcurrency(subTopics, TOPIC_CONCURRENCY, async (topic, index) => {
+  const { topic: topicConcurrency } = getModelConcurrency(model);
+  const generatedChunks = await mapWithConcurrency(subTopics, topicConcurrency, async (topic, index) => {
     const promptBody = `University: ${university}
 Course: ${course}
 Stream: ${stream}
@@ -369,7 +426,7 @@ CRITICAL FORMAT CONSTRAINTS:
           prompt: `${systemPrompt}\n\n${promptBody}`,
           maxTokens: 4000,
           temperature: 0.4,
-          model: GEMINI_MODEL,
+          model,
         });
         const candidate = String(result.content ?? "").trim();
         if (candidate.length > MIN_TOPIC_RESPONSE_CHARS) {
@@ -378,7 +435,7 @@ CRITICAL FORMAT CONSTRAINTS:
         }
       } catch (error) {
         if (isRateLimitError(error)) {
-          await sleep(RETRY_ERROR_DELAY_MS * 3);
+          await sleep(getRateLimitBackoffMs(model, 3));
         } else {
           await sleep(RETRY_ERROR_DELAY_MS);
         }
@@ -408,7 +465,7 @@ CRITICAL FORMAT CONSTRAINTS:
     fileBaseName: `${paperCode}_unit_${unitNumber}_${fileToken}_${Date.now()}`,
     fileName: dynamicPdfName,
     gotenbergUrl: azureGotenbergUrl,
-    modelName: GEMINI_MODEL,
+    modelName: model,
     generatedAtIso: new Date().toISOString(),
     paperCode,
     paperName,
@@ -439,10 +496,11 @@ async function runSolvedPaperBackground(params: {
   type: string;
   paperCode: string;
   year: number;
+  model: string;
 }): Promise<void> {
   const {
     userEmail, university, course, stream, type,
-    paperCode, year,
+    paperCode, year, model,
   } = params;
 
   const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
@@ -474,7 +532,8 @@ async function runSolvedPaperBackground(params: {
   const paperWebContext = allQuestions.length > 0
     ? await fetchTavilyContext(`${university} ${course} ${paperCode} ${year} solved paper key points`)
     : "";
-  const solvedChunks = await mapWithConcurrency(allQuestions, QUESTION_CONCURRENCY, async (questionDoc, index) => {
+  const { question: questionConcurrency } = getModelConcurrency(model);
+  const solvedChunks = await mapWithConcurrency(allQuestions, questionConcurrency, async (questionDoc, index) => {
     const qNo = String(questionDoc.question_no ?? index + 1).trim();
     const qSub = typeof questionDoc.question_subpart === "string" ? questionDoc.question_subpart.trim() : "";
     const qLabel = `Q${qNo}${qSub ? `(${qSub})` : ""}`;
@@ -516,7 +575,7 @@ CRITICAL FORMAT CONSTRAINTS:
           prompt: `${systemPrompt}\n\n${questionText}`,
           maxTokens: 4000,
           temperature: 0.4,
-          model: GEMINI_MODEL,
+          model,
         });
         const candidate = String(result.content ?? "").trim();
         if (candidate.length > MIN_SOLUTION_RESPONSE_CHARS) {
@@ -525,7 +584,7 @@ CRITICAL FORMAT CONSTRAINTS:
         }
       } catch (error) {
         if (isRateLimitError(error)) {
-          await sleep(RETRY_ERROR_DELAY_MS * 5);
+          await sleep(getRateLimitBackoffMs(model, 5));
         } else {
           await sleep(RETRY_ERROR_DELAY_MS);
         }
@@ -592,12 +651,22 @@ export async function POST(request: NextRequest) {
   const stream = (body.stream || "").trim();
   const type = (body.type || "").trim();
   const paperCode = (body.paperCode || "").trim();
+  const selectedModelRaw = typeof body.model === "string" ? body.model.trim() : "";
+  const selectedModel = selectedModelRaw || DEFAULT_AI_MODEL;
   const userEmail = typeof user.email === "string" ? user.email.trim() : "";
 
   if (!course) return NextResponse.json({ error: "Invalid selection: course is required." }, { status: 400 });
   if (!stream) return NextResponse.json({ error: "Invalid selection: stream is required." }, { status: 400 });
   if (!type) return NextResponse.json({ error: "Invalid selection: type is required." }, { status: 400 });
   if (!paperCode) return NextResponse.json({ error: "Invalid selection: paper code is required." }, { status: 400 });
+  if (!isSupportedAiModel(selectedModel)) {
+    return NextResponse.json(
+      {
+        error: `Unsupported model. Allowed values: ${SUPPORTED_AI_MODELS.join(", ")}.`,
+      },
+      { status: 400 },
+    );
+  }
   if (!isValidEmail(userEmail)) {
     return NextResponse.json(
       { error: "A valid account email is required to receive generated PDFs." },
@@ -651,12 +720,28 @@ export async function POST(request: NextRequest) {
     }
     if (!admin) {
       try {
+        await reserveElectronCost(user.id, GENERATION_COST_ELECTRONS);
+      } catch (error) {
+        if (error instanceof Error && error.message === "INSUFFICIENT_ELECTRONS") {
+          return NextResponse.json(
+            { error: `Not enough electrons. Each generation costs ${GENERATION_COST_ELECTRONS}e.` },
+            { status: 403 },
+          );
+        }
+        return NextResponse.json({ error: "Unable to reserve electrons. Please try again." }, { status: 503 });
+      }
+    }
+    if (!admin) {
+      try {
         await reserveQuotaForAcceptedRequest(user.id, "notes_generated_today");
       } catch (error) {
         console.error("[ai/generate-pdf] Failed to reserve notes quota for accepted request.", {
           userId: user.id,
           error,
         });
+        if (!admin) {
+          await rollbackElectronCost(user.id, GENERATION_COST_ELECTRONS);
+        }
         return NextResponse.json(
           { error: QUOTA_RESERVATION_FAILED_MESSAGE, code: QUOTA_RESERVATION_FAILED_CODE },
           { status: 503 },
@@ -670,6 +755,9 @@ export async function POST(request: NextRequest) {
     if (!startEmailSent) {
       if (!admin) {
         await rollbackQuotaReservation(user.id, "notes_generated_today");
+      }
+      if (!admin) {
+        await rollbackElectronCost(user.id, GENERATION_COST_ELECTRONS);
       }
       return NextResponse.json(
         {
@@ -693,6 +781,7 @@ export async function POST(request: NextRequest) {
           type,
           paperCode,
           unitNumber,
+          model: selectedModel,
         });
       } catch (error) {
         console.error("[ai/generate-pdf] Notes background job failed:", error);
@@ -736,12 +825,28 @@ export async function POST(request: NextRequest) {
   }
   if (!admin) {
     try {
+      await reserveElectronCost(user.id, GENERATION_COST_ELECTRONS);
+    } catch (error) {
+      if (error instanceof Error && error.message === "INSUFFICIENT_ELECTRONS") {
+        return NextResponse.json(
+          { error: `Not enough electrons. Each generation costs ${GENERATION_COST_ELECTRONS}e.` },
+          { status: 403 },
+        );
+      }
+      return NextResponse.json({ error: "Unable to reserve electrons. Please try again." }, { status: 503 });
+    }
+  }
+  if (!admin) {
+    try {
       await reserveQuotaForAcceptedRequest(user.id, "papers_solved_today");
     } catch (error) {
       console.error("[ai/generate-pdf] Failed to reserve solved-paper quota for accepted request.", {
         userId: user.id,
         error,
       });
+      if (!admin) {
+        await rollbackElectronCost(user.id, GENERATION_COST_ELECTRONS);
+      }
       return NextResponse.json(
         { error: QUOTA_RESERVATION_FAILED_MESSAGE, code: QUOTA_RESERVATION_FAILED_CODE },
         { status: 503 },
@@ -752,6 +857,9 @@ export async function POST(request: NextRequest) {
   if (!startEmailSent) {
     if (!admin) {
       await rollbackQuotaReservation(user.id, "papers_solved_today");
+    }
+    if (!admin) {
+      await rollbackElectronCost(user.id, GENERATION_COST_ELECTRONS);
     }
     return NextResponse.json(
       {
@@ -775,6 +883,7 @@ export async function POST(request: NextRequest) {
         type,
         paperCode,
         year,
+        model: selectedModel,
       });
     } catch (error) {
       console.error("[ai/generate-pdf] Solved paper background job failed:", error);

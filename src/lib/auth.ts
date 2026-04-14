@@ -17,6 +17,7 @@ import {
   ROLE_XO_THRESHOLDS,
 } from "./roles";
 import { generateUniqueReferralCode } from "./referral-server";
+import { DEFAULT_ELECTRONS } from "./economy";
 import type {
   Achievement,
   CustomRole,
@@ -76,8 +77,8 @@ async function updateDailyStreak(
  * Runs silently — any failure is ignored so it never blocks page rendering.
  *
  * Role thresholds (ROLE_XO_RULEBOOK.md):
- *  - viewer → contributor: xo>=30, approved uploads>=2, account age>=3 days
- *  - contributor → curator: xo>=150, approved uploads>=10, no active abuse flag
+ *  - student → contributor: xo>=30, approved uploads>=2, account age>=3 days
+ *  - contributor → specialist: xo>=150, approved uploads>=10, no active abuse flag
  */
 async function evaluateXpAndPromotion(
   db: ReturnType<typeof adminDatabases>,
@@ -85,7 +86,7 @@ async function evaluateXpAndPromotion(
 ): Promise<void> {
   try {
     const uploadCount = (profile.upload_count as number) ?? 0;
-    const currentRole = normalizeRole((profile.role as string) ?? "viewer");
+    const currentRole = normalizeRole((profile.role as string) ?? "student");
     const currentTier = (profile.tier as string) ?? "bronze";
     const currentXo = ((profile.xo as number) ?? (profile.xp as number) ?? 0);
     const createdAt = typeof profile.$createdAt === "string" ? profile.$createdAt : "";
@@ -96,7 +97,7 @@ async function evaluateXpAndPromotion(
     const update: Record<string, unknown> = {};
 
     if (
-      currentRole === "viewer" &&
+      currentRole === "student" &&
       currentXo >= ROLE_XO_THRESHOLDS.contributor &&
       uploadCount >= 2 &&
       accountAgeDays >= 3
@@ -106,11 +107,11 @@ async function evaluateXpAndPromotion(
 
     if (
       currentRole === "contributor" &&
-      currentXo >= ROLE_XO_THRESHOLDS.curator &&
+      currentXo >= ROLE_XO_THRESHOLDS.specialist &&
       uploadCount >= 10 &&
       !hasActiveAbuseFlag
     ) {
-      update.role = "curator";
+      update.role = "specialist";
     }
 
     // Keep existing tier progression.
@@ -204,7 +205,7 @@ export async function getServerUser(): Promise<UserProfile | null> {
         username: (profile.username as string) ?? "",
         avatar_url: (profile.avatar_url as string) ?? "",
         avatar_file_id: (profile.avatar_file_id as string) ?? undefined,
-        role: normalizeRole((profile.role as string) ?? "viewer"),
+        role: normalizeRole((profile.role as string) ?? "student"),
         secondary_role: isValidCustomRole(rawSecondary) ? rawSecondary : null,
         tier: isValidTier(rawTier) ? rawTier : "bronze",
         xo,
@@ -213,6 +214,9 @@ export async function getServerUser(): Promise<UserProfile | null> {
         referral_code: referralCode,
         referred_by: (profile.referred_by as string) ?? null,
         referral_path: (profile.referral_path as string[]) ?? [],
+        referred_users_count: (profile.referred_users_count as number) ?? 0,
+        specialist_subject: (profile.specialist_subject as string) ?? null,
+        subject_admin_subject: (profile.subject_admin_subject as string) ?? null,
         ai_credits: (profile.ai_credits as number) ?? 0,
         // DB field is `streak`; TypeScript property is `streak_days`
         streak_days: currentStreak,
@@ -260,7 +264,7 @@ export async function getServerUser(): Promise<UserProfile | null> {
         username: (profile.username as string) ?? "",
         avatar_url: (profile.avatar_url as string) ?? "",
         avatar_file_id: (profile.avatar_file_id as string) ?? undefined,
-        role: normalizeRole((profile.role as string) ?? "viewer"),
+        role: normalizeRole((profile.role as string) ?? "student"),
         secondary_role: isValidCustomRole(rawSecondary) ? rawSecondary : null,
         tier: isValidTier(rawTier) ? rawTier : "bronze",
         xo,
@@ -269,6 +273,9 @@ export async function getServerUser(): Promise<UserProfile | null> {
         referral_code: referralCode,
         referred_by: (profile.referred_by as string) ?? null,
         referral_path: (profile.referral_path as string[]) ?? [],
+        referred_users_count: (profile.referred_users_count as number) ?? 0,
+        specialist_subject: (profile.specialist_subject as string) ?? null,
+        subject_admin_subject: (profile.subject_admin_subject as string) ?? null,
         ai_credits: (profile.ai_credits as number) ?? 0,
         streak_days: currentStreak,
         last_activity: lastActivity,
@@ -289,7 +296,7 @@ export async function getServerUser(): Promise<UserProfile | null> {
         user.$id,
         {
           email: user.email,
-          role: "viewer",
+          role: "student",
           display_name: "",
           username: "",
           xo: 0,
@@ -303,7 +310,8 @@ export async function getServerUser(): Promise<UserProfile | null> {
           referral_code: referralCode,
           referred_by: referredBy,
           referral_path: referralPath,
-          ai_credits: 0,
+          referred_users_count: 0,
+          ai_credits: DEFAULT_ELECTRONS,
         },
         [
           Permission.read(Role.user(user.$id)),
@@ -318,7 +326,7 @@ export async function getServerUser(): Promise<UserProfile | null> {
         username: "",
         avatar_url: "",
         avatar_file_id: undefined,
-        role: "viewer" as UserRole,
+        role: "student" as UserRole,
         secondary_role: null,
         tier: "bronze" as UserTier,
         xo: 0,
@@ -326,7 +334,10 @@ export async function getServerUser(): Promise<UserProfile | null> {
         referral_code: referralCode,
         referred_by: referredBy,
         referral_path: referralPath,
-        ai_credits: 0,
+        referred_users_count: 0,
+        specialist_subject: null,
+        subject_admin_subject: null,
+        ai_credits: DEFAULT_ELECTRONS,
         streak_days: 0,
         last_activity: "",
         created_at: newProfile.$createdAt,
@@ -347,7 +358,7 @@ export async function getServerUser(): Promise<UserProfile | null> {
           username: (existing.username as string) ?? "",
           avatar_url: (existing.avatar_url as string) ?? "",
           avatar_file_id: (existing.avatar_file_id as string) ?? undefined,
-          role: normalizeRole((existing.role as string) ?? "viewer"),
+          role: normalizeRole((existing.role as string) ?? "student"),
           secondary_role: isValidCustomRole(rawSecondary) ? rawSecondary : null,
           tier: isValidTier(rawTier) ? rawTier : "bronze",
           xo,
@@ -356,6 +367,9 @@ export async function getServerUser(): Promise<UserProfile | null> {
           referral_code: (existing.referral_code as string) ?? "",
           referred_by: (existing.referred_by as string) ?? null,
           referral_path: (existing.referral_path as string[]) ?? [],
+          referred_users_count: (existing.referred_users_count as number) ?? 0,
+          specialist_subject: (existing.specialist_subject as string) ?? null,
+          subject_admin_subject: (existing.subject_admin_subject as string) ?? null,
           ai_credits: (existing.ai_credits as number) ?? 0,
           streak_days: (existing.streak as number) ?? 0,
           last_activity: (existing.last_activity as string) ?? "",
@@ -404,7 +418,7 @@ export async function getExtendedServerUser(): Promise<ExtendedUserProfile | nul
     const rawPrimary = profile.role;
     const primaryRole: UserRole = isValidUserRole(rawPrimary)
       ? normalizeRole(rawPrimary)
-      : "viewer";
+      : "student";
 
     const rawSecondary = profile.secondary_role ?? null;
     const secondaryRole: CustomRole = isValidCustomRole(rawSecondary)

@@ -70,7 +70,7 @@ function roleRingColor(role: string | null | undefined): string | null {
     return ROLE_RING_COLORS[role as UserRole];
   }
   // Community custom roles use a uniform blue tint
-  const communityRoles = new Set(["reviewer", "curator", "mentor", "archivist", "ambassador", "pioneer", "researcher"]);
+  const communityRoles = new Set(["supporter", "mentor", "archivist", "ambassador"]);
   if (communityRoles.has(role)) return "#3b82f6"; // blue-500
   return null;
 }

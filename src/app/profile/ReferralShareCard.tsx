@@ -30,7 +30,7 @@ export default function ReferralShareCard({
     <div className="card p-6">
       <h2 className="text-base font-semibold mb-2">Referral</h2>
       <p className="text-sm mb-4" style={{ color: "var(--color-text-muted)" }}>
-        Share your referral link with new users. You earn XP and AI credits when valid referrals become active.
+        Share your referral link with new users. Referred users get +10e and you get +20e (up to 10 successful referrals).
       </p>
 
       <div className="space-y-3">

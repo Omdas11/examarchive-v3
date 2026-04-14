@@ -15,6 +15,7 @@ const PROTECTED_PATHS = [
   "/stats",
   "/paper",
   "/ai-content",
+  "/store",
   // API routes
   "/api/upload",
   "/api/admin",

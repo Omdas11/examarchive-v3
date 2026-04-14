@@ -22,6 +22,19 @@ import {
   buildReferralPath,
 } from "@/lib/referral";
 import { generateUniqueReferralCode } from "@/lib/referral-server";
+import {
+  DEFAULT_ELECTRONS,
+  REFERRAL_NEW_USER_BONUS_ELECTRONS,
+  REFERRAL_REFERRER_BONUS_ELECTRONS,
+  REFERRAL_SUCCESS_CAP,
+} from "@/lib/economy";
+import { withElectronBalanceLock } from "@/lib/electron-lock";
+
+function getNewUserElectronBalance(hasValidReferrer: boolean): number {
+  return hasValidReferrer
+    ? DEFAULT_ELECTRONS + REFERRAL_NEW_USER_BONUS_ELECTRONS
+    : DEFAULT_ELECTRONS;
+}
 
 /**
  * Server Action – initiate Google OAuth sign-in via Appwrite.
@@ -159,6 +172,7 @@ export async function signUp(formData: FormData) {
 
     let referredBy: string | null = null;
     let referralPath: string[] = [];
+    let rewardedReferrerDocId: string | null = null;
     if (referralCode) {
       if (!isValidReferralCode(referralCode)) {
         redirect("/login?mode=signup&error=invalid_referral_code");
@@ -171,11 +185,14 @@ export async function signUp(formData: FormData) {
       if (documents.length === 0) {
         redirect("/login?mode=signup&error=invalid_referral_code");
       }
-      referredBy = documents[0].$id;
-      referralPath = buildReferralPath(
-        referredBy,
-        (documents[0].referral_path as string[] | undefined) ?? [],
-      );
+      const referrer = documents[0];
+      const referrerReferralCount = Number(referrer.referred_users_count ?? 0);
+      if (referrerReferralCount >= REFERRAL_SUCCESS_CAP) {
+        redirect("/login?mode=signup&error=referral_limit_reached");
+      }
+      referredBy = referrer.$id;
+      rewardedReferrerDocId = referrer.$id;
+      referralPath = buildReferralPath(referredBy);
     }
 
     // Create the account
@@ -190,7 +207,7 @@ export async function signUp(formData: FormData) {
         created.$id,
         {
           email,
-          role: "viewer",
+          role: "student",
           display_name: "",
           username: "",
           xo: 0,
@@ -204,13 +221,32 @@ export async function signUp(formData: FormData) {
           referral_code: referralCodeForNewUser,
           referred_by: referredBy,
           referral_path: referralPath,
-          ai_credits: 0,
+          referred_users_count: 0,
+          ai_credits: getNewUserElectronBalance(Boolean(referredBy)),
         },
         [
           Permission.read(Role.user(created.$id)),
           Permission.update(Role.user(created.$id)),
         ],
       );
+
+      if (rewardedReferrerDocId) {
+        try {
+          await withElectronBalanceLock(rewardedReferrerDocId, async () => {
+            const referrer = await db.getDocument(DATABASE_ID, COLLECTION.users, rewardedReferrerDocId);
+            const currentCredits = Number(referrer.ai_credits ?? 0);
+            const currentReferredCount = Number(referrer.referred_users_count ?? 0);
+            if (currentReferredCount < REFERRAL_SUCCESS_CAP) {
+              await db.updateDocument(DATABASE_ID, COLLECTION.users, rewardedReferrerDocId, {
+                ai_credits: currentCredits + REFERRAL_REFERRER_BONUS_ELECTRONS,
+                referred_users_count: currentReferredCount + 1,
+              });
+            }
+          });
+        } catch (referralRewardError) {
+          console.error("[auth] Referrer reward update failed:", referralRewardError);
+        }
+      }
     } catch (profileError) {
       // Non-fatal: getServerUser has fallback profile creation on first request.
       console.error("[auth] Profile creation during signup failed:", profileError);

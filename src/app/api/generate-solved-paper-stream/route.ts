@@ -38,7 +38,7 @@ const INITIAL_LAST_PROCESSED_INDEX = -1;
 const ATTRIBUTE_AVAILABILITY_POLL_INTERVAL_MS = 300;
 const ATTRIBUTE_AVAILABILITY_TIMEOUT_MS = 12000;
 const SOLVED_PAPER_CACHE_TYPE = "solved_paper";
-const GEMINI_MODEL = "gemini-3.1-flash-lite-preview";
+const GEMINI_MODEL = "gemini-3.1-flash-lite";
 const SYLLABUS_CONTENT_MAX_LEN = 10_000;
 
 class GeminiRequestError extends Error {

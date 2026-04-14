@@ -105,8 +105,9 @@ export default function UserManagement({
           }}
         >
           <option value="all">All Roles</option>
-          <option value="admin">Admin</option>
           <option value="moderator">Moderator</option>
+          <option value="subject_admin">Subject Administrator</option>
+          <option value="specialist">Specialist</option>
           <option value="contributor">Contributor</option>
           <option value="student">Student</option>
         </select>
@@ -184,7 +185,7 @@ export default function UserManagement({
               </span>
               {u.xp > 0 && (
                 <span className="inline-flex items-center gap-1">
-                  <IconLightning size={11} aria-hidden="true" /> {u.xp} XP
+                  <IconLightning size={11} aria-hidden="true" /> {u.xp} XO
                 </span>
               )}
               {u.streak_days > 0 && (
@@ -233,7 +234,7 @@ export default function UserManagement({
               <th className="hidden md:table-cell">Badges</th>
               <th className="hidden lg:table-cell">Tier</th>
               <th className="hidden lg:table-cell">Uploads</th>
-              <th className="hidden xl:table-cell">XP</th>
+               <th className="hidden xl:table-cell">XO</th>
               <th className="hidden md:table-cell">Joined</th>
               <th style={{ textAlign: "right" }}>Actions</th>
             </tr>

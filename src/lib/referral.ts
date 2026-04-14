@@ -18,9 +18,6 @@ export function generateReferralCode(): string {
   return code;
 }
 
-export function buildReferralPath(
-  directReferrerId: string,
-  referrerPath: string[] | null | undefined,
-): string[] {
-  return [directReferrerId, ...(referrerPath ?? [])].slice(0, 5);
+export function buildReferralPath(directReferrerId: string): string[] {
+  return [directReferrerId];
 }

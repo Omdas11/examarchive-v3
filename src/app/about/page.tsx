@@ -43,18 +43,18 @@ const STEP_ICONS = [
 
 const steps = [
   { icon: STEP_ICONS[0], title: "Upload", desc: "Students upload past question papers and notes." },
-  { icon: STEP_ICONS[1], title: "Review", desc: "Admins review and verify each submission." },
+  { icon: STEP_ICONS[1], title: "Review", desc: "Moderators review and verify each submission." },
   { icon: STEP_ICONS[2], title: "Publish", desc: "Approved papers are published to the archive." },
-  { icon: STEP_ICONS[3], title: "Discover & Earn", desc: "Approved activity earns XO, cosmetic unlocks, and AI credits." },
+  { icon: STEP_ICONS[3], title: "Discover & Earn", desc: "Approved activity earns XO, cosmetic unlocks, and electrons." },
 ];
 
 const contributions = [
   "Upload question papers you have access to.",
-  "Refer classmates to earn referral XO and AI credits.",
+  "Refer classmates to earn referral XO and electrons.",
   "Report incorrect or duplicate papers.",
   "Share the platform with fellow students.",
   "Provide feedback to help us improve.",
-  "Apply to become a moderator or admin.",
+  "Apply to become a moderator.",
 ];
 
 /** XO tier progression data — matches the profile module exactly. */
@@ -79,7 +79,37 @@ const SYSTEM_ROLES = [
       </svg>
     ),
     color: "#6b7280",
-    desc: "Default role for all registered users. Can upload papers and syllabi pending admin approval.",
+    desc: "Default role for all registered users.",
+  },
+  {
+    name: "Contributor",
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+      </svg>
+    ),
+    color: "#2563eb",
+    desc: "Trusted uploader with a track record of approved contributions.",
+  },
+  {
+    name: "Specialist",
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="9"/><path d="M8 12h8M12 8v8"/>
+      </svg>
+    ),
+    color: "#6366f1",
+    desc: "Subject-focused contributor with specialist review responsibilities.",
+  },
+  {
+    name: "Subject Administrator",
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>
+      </svg>
+    ),
+    color: "#0891b2",
+    desc: "Manages quality and moderation workflows within assigned subjects.",
   },
   {
     name: "Moderator",
@@ -89,18 +119,7 @@ const SYSTEM_ROLES = [
       </svg>
     ),
     color: "#e65100",
-    desc: "Trusted community members who can approve or reject paper and syllabus submissions.",
-  },
-  {
-    name: "Admin",
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <circle cx="12" cy="12" r="3"/>
-        <path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/>
-      </svg>
-    ),
-    color: "#d32f2f",
-    desc: "Full platform management including user roles, paper moderation, and activity logs.",
+    desc: "Global moderation and platform policy enforcement role.",
   },
   {
     name: "Founder",
@@ -110,39 +129,19 @@ const SYSTEM_ROLES = [
       </svg>
     ),
     color: "#7c3aed",
-    desc: "Platform creator with full access including developer tools and system-level operations.",
+    desc: "Founder override role with full system-level access.",
   },
 ];
 
 /** Community (custom) roles that can be assigned alongside the primary role. */
 const COMMUNITY_ROLES = [
   {
-    name: "Contributor",
-    desc: "Consistently uploads high-quality papers",
-    color: "#2563eb",
+    name: "Supporter",
+    desc: "Actively helps peers and platform operations",
+    color: "#d97706",
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
-      </svg>
-    ),
-  },
-  {
-    name: "Reviewer",
-    desc: "Helps review and verify uploaded content",
-    color: "#0891b2",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
-      </svg>
-    ),
-  },
-  {
-    name: "Curator",
-    desc: "Organises and categorises the archive",
-    color: "#7c3aed",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+        <path d="M20 12v7a2 2 0 01-2 2H6a2 2 0 01-2-2v-7"/><path d="M12 3l8 5-8 5-8-5 8-5z"/>
       </svg>
     ),
   },
@@ -176,26 +175,6 @@ const COMMUNITY_ROLES = [
       </svg>
     ),
   },
-  {
-    name: "Pioneer",
-    desc: "Among the earliest active contributors",
-    color: "#9333ea",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-      </svg>
-    ),
-  },
-  {
-    name: "Researcher",
-    desc: "Contributes to platform research & development",
-    color: "#16a34a",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-      </svg>
-    ),
-  },
 ];
 
 /** XO award amounts per event. */
@@ -215,22 +194,27 @@ const COSMETIC_UNLOCKS = [
 
 const ROLE_ASSIGNMENT_RULES = [
   "Student is the default role for new accounts.",
-  "Verified contributors and moderators are promoted after consistent approved activity and moderation history.",
-  "Community designations (Contributor, Mentor, Archivist, etc.) are assigned from activity patterns and quality of contributions.",
+  "Promotion follows the canonical ladder: Student → Contributor → Specialist → Subject Administrator → Moderator.",
+  "Community designations (Supporter, Mentor, Archivist, Ambassador) are assigned from activity patterns and quality signals.",
 ];
 
-const REFERRAL_CREDIT_EVENTS = [
-  { event: "First approved upload", credit: "+5 credits" },
-  { event: "First approved syllabus", credit: "+3 credits" },
-  { event: "Constructive report accepted by moderators", credit: "+1 credit" },
+const ELECTRON_REWARD_EVENTS = [
+  { event: "Successful direct referral (new user)", reward: "+10e to new user" },
+  { event: "Successful direct referral (referrer)", reward: "+20e to referrer" },
+  { event: "Razorpay top-up (store)", reward: "Pack amount credited as electrons" },
 ];
 
-const REFERRAL_LEVELS = [
-  { level: "Level 1 (Direct)", referralCredit: "+10", xo: "+40" },
-  { level: "Level 2", referralCredit: "+5", xo: "+20" },
-  { level: "Level 3", referralCredit: "+3", xo: "+10" },
-  { level: "Level 4", referralCredit: "+2", xo: "+5" },
-  { level: "Level 5", referralCredit: "+1", xo: "+2" },
+const REFERRAL_RULES = [
+  { rule: "Direct referrals only", value: "1 level" },
+  { rule: "Successful referral cap per referrer", value: "10 users max" },
+  { rule: "Generation spend", value: "10e per generation" },
+  { rule: "Starting balance", value: "100e (moderator/founder: 1000e)" },
+];
+
+const XO_TO_ELECTRON_POLICY = [
+  { event: "Referral milestone conversion", rule: "XO tracks reputation; electron reward is fixed by referral rules." },
+  { event: "Anti-farming guardrails", rule: "Self-referral and abuse checks are enforced; referral cap limits payout volume." },
+  { event: "Moderation dependency", rule: "Only valid successful referrals grant electron rewards." },
 ];
 
 /** Fetch live platform statistics from Appwrite. Falls back to 0 on error. */
@@ -299,8 +283,8 @@ export default async function AboutPage() {
           papers from various universities, programmes, and streams.
         </p>
         <p>
-          We are documenting current and planned progression with activity-based XO, cosmetic role
-          designations, and an AI credit economy that includes a 5-level referral reward hierarchy.
+            We are documenting progression with activity-based XO, cosmetic role designations, and an
+            electron economy with direct referral rewards.
         </p>
       </div>
 
@@ -500,59 +484,61 @@ export default async function AboutPage() {
         ))}
       </div>
 
-      <h2 className="mt-10 text-xl font-semibold">AI Credits & Referrals</h2>
+      <h2 className="mt-10 text-xl font-semibold">Electrons & Referrals</h2>
       <p className="mt-2 text-sm" style={{ color: "var(--color-text-muted)" }}>
-        AI Credits are used for AI generation features. Credits are earned from approved activity and
-        referral growth, and spending controls are designed to keep usage fair and transparent.
+        Electrons are the virtual currency used for AI generation and store top-ups.
+        Referral rewards and spend rules are intentionally simple and capped.
       </p>
 
-      <h3 className="mt-6 text-base font-semibold">How to Earn AI Credits</h3>
+      <h3 className="mt-6 text-base font-semibold">How to Earn Electrons</h3>
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
-        {REFERRAL_CREDIT_EVENTS.map((e) => (
+        {ELECTRON_REWARD_EVENTS.map((e) => (
           <div key={e.event} className="card flex items-center justify-between gap-3 px-4 py-3">
             <p className="text-sm">{e.event}</p>
             <span
               className="shrink-0 rounded-full px-2.5 py-0.5 text-xs font-bold"
               style={{ background: "var(--color-accent-soft)", color: "var(--color-primary)" }}
             >
-              {e.credit}
+              {e.reward}
             </span>
           </div>
         ))}
       </div>
 
-      <h3 className="mt-6 text-base font-semibold">5-Level Referral Rewards</h3>
+      <h3 className="mt-6 text-base font-semibold">Referral Rules</h3>
       <p className="mt-1 text-xs" style={{ color: "var(--color-text-muted)" }}>
-        When a referred user becomes active, rewards flow up to five hierarchy levels.
+        Referral rewards are direct-only and include anti-abuse controls.
       </p>
       <div className="mt-3 overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="text-xs uppercase text-left" style={{ color: "var(--color-text-muted)" }}>
-              <th className="pb-2 pr-4 font-medium">Referral Level</th>
-              <th className="pb-2 pr-4 font-medium">Credits to Referrer</th>
-              <th className="pb-2 font-medium">XO to Referrer</th>
+              <th className="pb-2 pr-4 font-medium">Rule</th>
+              <th className="pb-2 font-medium">Value</th>
             </tr>
           </thead>
           <tbody>
-            {REFERRAL_LEVELS.map((r) => (
-              <tr key={r.level} className="border-t" style={{ borderColor: "var(--color-border)" }}>
-                <td className="py-2 pr-4">{r.level}</td>
-                <td className="py-2 pr-4 text-xs" style={{ color: "var(--color-text-muted)" }}>
-                  {r.referralCredit}
-                </td>
+            {REFERRAL_RULES.map((r) => (
+              <tr key={r.rule} className="border-t" style={{ borderColor: "var(--color-border)" }}>
+                <td className="py-2 pr-4">{r.rule}</td>
                 <td className="py-2 text-xs" style={{ color: "var(--color-text-muted)" }}>
-                  {r.xo}
+                  {r.value}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <p className="mt-3 text-xs" style={{ color: "var(--color-text-muted)" }}>
-        Future provision: users will be able to purchase additional AI Credits, while keeping earned
-        credits and referral rewards fully available.
-      </p>
+
+      <h3 className="mt-6 text-base font-semibold">XO → Electron Policy</h3>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        {XO_TO_ELECTRON_POLICY.map((item) => (
+          <div key={item.event} className="card flex flex-col gap-1 px-4 py-3">
+            <p className="text-sm font-semibold">{item.event}</p>
+            <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>{item.rule}</p>
+          </div>
+        ))}
+      </div>
 
       {/* How to Contribute */}
       <h2 className="mt-10 text-xl font-semibold">How to Contribute</h2>
