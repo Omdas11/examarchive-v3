@@ -27,18 +27,21 @@ jobs:
           BASE_URL="${GOTENBERG_URL%/}"
           HEALTH_URL="${BASE_URL}/health"
 
-          AUTH_ARGS=()
           if [ -n "${GOTENBERG_AUTH_TOKEN:-}" ]; then
-            AUTH_ARGS=(-H "Authorization: Bearer ${GOTENBERG_AUTH_TOKEN}")
+            health_status="$(curl -sS -o /tmp/gotenberg-health.out -w "%{http_code}" -H "Authorization: Bearer ${GOTENBERG_AUTH_TOKEN}" "${HEALTH_URL}" || true)"
+          else
+            health_status="$(curl -sS -o /tmp/gotenberg-health.out -w "%{http_code}" "${HEALTH_URL}" || true)"
           fi
-
-          health_status="$(curl -sS -o /tmp/gotenberg-health.out -w "%{http_code}" "${AUTH_ARGS[@]}" "${HEALTH_URL}" || true)"
           if [ "${health_status}" -ge 200 ] && [ "${health_status}" -lt 300 ]; then
             echo "Gotenberg keepalive ok via /health (status=${health_status})"
             exit 0
           fi
 
-          root_status="$(curl -sS -o /tmp/gotenberg-root.out -w "%{http_code}" "${AUTH_ARGS[@]}" "${BASE_URL}" || true)"
+          if [ -n "${GOTENBERG_AUTH_TOKEN:-}" ]; then
+            root_status="$(curl -sS -o /tmp/gotenberg-root.out -w "%{http_code}" -H "Authorization: Bearer ${GOTENBERG_AUTH_TOKEN}" "${BASE_URL}" || true)"
+          else
+            root_status="$(curl -sS -o /tmp/gotenberg-root.out -w "%{http_code}" "${BASE_URL}" || true)"
+          fi
           if [ "${root_status}" -ge 200 ] && [ "${root_status}" -lt 300 ]; then
             echo "Gotenberg keepalive ok via / (status=${root_status})"
             exit 0
