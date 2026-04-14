@@ -433,7 +433,8 @@ export async function renderMarkdownPdfToAppwrite(args: {
   markdown: string;
   fileBaseName: string;
   fileName?: string;
-  gotenbergUrl?: string;
+  gotenbergUrl: string;
+  gotenbergAuthToken?: string;
   modelName?: string;
   generatedAtIso?: string;
   reRenderedAtIso?: string;
@@ -445,16 +446,12 @@ export async function renderMarkdownPdfToAppwrite(args: {
   syllabusContent?: string;
   userEmail?: string;
 }): Promise<{ fileId: string; fileUrl: string }> {
-  // Precedence: explicit runtime arg > primary env > legacy env.
-  const effectiveGotenbergUrl = (args.gotenbergUrl
-    || process.env.GOTENBERG_URL
-    || process.env.AZURE_GOTENBERG_URL
-    || "").trim();
+  const effectiveGotenbergUrl = args.gotenbergUrl.trim();
   if (!effectiveGotenbergUrl) {
-    throw new Error("GOTENBERG_URL is required.");
+    throw new Error("gotenbergUrl is required.");
   }
   const normalizedBaseUrl = effectiveGotenbergUrl.replace(/\/+$/, "");
-  const gotenbergAuthToken = (process.env.GOTENBERG_AUTH_TOKEN || "").trim();
+  const gotenbergAuthToken = (args.gotenbergAuthToken || process.env.GOTENBERG_AUTH_TOKEN || "").trim();
   const requestHeaders = gotenbergAuthToken
     ? { Authorization: `Bearer ${gotenbergAuthToken}` }
     : undefined;
