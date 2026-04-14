@@ -244,4 +244,4 @@ If extending this architecture, start with:
 - /src/lib/ai-pdf-pipeline.ts (Azure Gotenberg integration details)
 - /src/lib/appwrite.ts (all canonical collection/bucket IDs)
 - /src/lib/auth.ts + /src/middleware.ts (session and protection model)
-- /docs/launch/v2/DATABASE_SCHEMA.md (schema definitions and drift notes)
+- /docs/DATABASE_SCHEMA.md (schema definitions and drift notes)

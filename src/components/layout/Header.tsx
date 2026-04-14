@@ -5,10 +5,9 @@
 
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
-import { ELECTRON_SYMBOL } from '@/lib/economy';
 
 export interface HeaderProps {
   title?: string;
@@ -38,26 +37,13 @@ export default function Header({
 }: HeaderProps & React.HTMLAttributes<HTMLElement>) {
   const [searchQuery, setSearchQuery] = useState('');
   const [showNotifications, setShowNotifications] = useState(false);
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [electronBalance, setElectronBalance] = useState<number | null>(null);
-  const profileMenuRef = useRef<HTMLDivElement | null>(null);
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const query = e.target.value;
     setSearchQuery(query);
     onSearch?.(query);
   };
-
-  useEffect(() => {
-    const onDocumentClick = (event: MouseEvent) => {
-      if (!profileMenuRef.current) return;
-      if (!profileMenuRef.current.contains(event.target as Node)) {
-        setShowProfileMenu(false);
-      }
-    };
-    document.addEventListener('mousedown', onDocumentClick);
-    return () => document.removeEventListener('mousedown', onDocumentClick);
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -85,18 +71,6 @@ export default function Header({
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
   }, []);
-
-  useEffect(() => {
-    if (!showProfileMenu) return;
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setShowProfileMenu(false);
-      }
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [showProfileMenu]);
 
   return (
     <header
@@ -152,7 +126,7 @@ export default function Header({
       </div>
 
       {/* Right: Search, Notifications, Profile */}
-      <div className="flex items-center gap-3 ml-4">
+      <div className="flex items-center gap-2 ml-2 md:ml-0">
         {/* Search Bar */}
         {showSearch && (
           <div className="hidden md:flex items-center">
@@ -241,93 +215,73 @@ export default function Header({
 
         {electronBalance !== null && (
           <div
-            className="inline-flex items-center gap-1 rounded-full border border-outline-variant/30 bg-surface-container-low px-2.5 py-1 text-xs font-semibold text-on-surface"
-            aria-label={`Electron balance ${electronBalance}${ELECTRON_SYMBOL}`}
-            title={`Electron balance: ${electronBalance}${ELECTRON_SYMBOL}`}
+            className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold"
+            style={{
+              borderColor: "#f59e0b66",
+              background: "#fffbeb",
+              color: "#b45309",
+            }}
+            aria-label={`Electron balance ${electronBalance}`}
+            title={`Electron balance: ${electronBalance}`}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5" />
-              <path d="M15 7h-6v10h6M9 12h5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+              <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.6" />
+              <text
+                x="12"
+                y="15.2"
+                textAnchor="middle"
+                fontSize="11"
+                fontFamily="Inter, system-ui, sans-serif"
+                fontWeight="700"
+                fill="currentColor"
+              >
+                e
+              </text>
             </svg>
-            <span>{electronBalance}{ELECTRON_SYMBOL}</span>
+            <span>{electronBalance}</span>
           </div>
         )}
 
         {/* User Profile – opens profile sidebar when wired; otherwise navigates to /profile */}
         {userInitials ? (
-          <div className="relative" ref={profileMenuRef}>
-            <div className="flex items-center rounded-lg hover:bg-surface-container-low transition-all duration-200">
-              {onProfileClick ? (
-                <button
-                  type="button"
-                  className={cn(
-                    'flex items-center gap-3 px-3 py-2',
-                    'group'
-                  )}
-                  aria-label={`Profile: ${userName}`}
-                  onClick={() => {
-                    setShowProfileMenu(false);
-                    onProfileClick();
-                  }}
-                >
-                  <div className="w-8 h-8 gradient-primary rounded-full flex items-center justify-center text-on-primary text-sm font-bold flex-shrink-0">
-                    {userInitials}
-                  </div>
-                  <div className="hidden sm:flex flex-col items-start">
-                    <span className="text-sm font-semibold text-on-surface truncate max-w-[120px]">{userName}</span>
-                    <span className="text-xs text-on-surface-variant">Scholar</span>
-                  </div>
-                </button>
-              ) : (
-                <Link
-                  href="/profile"
-                  className={cn(
-                    'flex items-center gap-3 px-3 py-2',
-                    'group'
-                  )}
-                  aria-label={`Profile: ${userName}`}
-                >
-                  <div className="w-8 h-8 gradient-primary rounded-full flex items-center justify-center text-on-primary text-sm font-bold flex-shrink-0">
-                    {userInitials}
-                  </div>
-                  <div className="hidden sm:flex flex-col items-start">
-                    <span className="text-sm font-semibold text-on-surface truncate max-w-[120px]">{userName}</span>
-                    <span className="text-xs text-on-surface-variant">Scholar</span>
-                  </div>
-                </Link>
+          onProfileClick ? (
+            <button
+              type="button"
+              className={cn(
+                'flex items-center gap-3 px-3 py-2 rounded-lg',
+                'hover:bg-surface-container-low transition-all duration-200',
+                'group'
               )}
-              <button
-                type="button"
-                className="pr-2 py-2 text-on-surface-variant"
-                aria-label="Open profile menu"
-                onClick={() => {
-                  if (onProfileClick) {
-                    setShowProfileMenu(false);
-                    onProfileClick();
-                    return;
-                  }
-                  setShowProfileMenu((v) => !v);
-                }}
-              >
-                <span className="material-symbols-outlined text-sm">expand_more</span>
-              </button>
-            </div>
-
-            {showProfileMenu && (
-              <div className="absolute right-0 mt-2 w-56 rounded-xl border border-outline-variant/20 bg-surface shadow-ambient z-50 p-3">
-                <p className="text-sm font-semibold text-on-surface truncate">{userName}</p>
-                <p className="text-xs text-on-surface-variant mt-0.5">Scholar profile</p>
-                <div className="mt-3 space-y-1">
-                  <Link href="/profile" className="block rounded-lg px-2 py-1.5 text-sm hover:bg-surface-container-low">
-                    View profile
-                  </Link>
-                  <Link href="/settings" className="block rounded-lg px-2 py-1.5 text-sm hover:bg-surface-container-low">
-                    Settings
-                  </Link>
-                </div>
+              aria-label={`Profile: ${userName}`}
+              onClick={onProfileClick}
+            >
+              <div className="w-8 h-8 gradient-primary rounded-full flex items-center justify-center text-on-primary text-sm font-bold flex-shrink-0">
+                {userInitials}
               </div>
-            )}
-          </div>
+              <div className="hidden sm:flex flex-col items-start">
+                <span className="text-sm font-semibold text-on-surface truncate max-w-[120px]">{userName}</span>
+                <span className="text-xs text-on-surface-variant">Scholar</span>
+              </div>
+            </button>
+          ) : (
+            <Link
+              href="/profile"
+              className={cn(
+                'flex items-center gap-3 px-3 py-2 rounded-lg',
+                'hover:bg-surface-container-low transition-all duration-200',
+                'group'
+              )}
+              aria-label={`Profile: ${userName}`}
+            >
+              <div className="w-8 h-8 gradient-primary rounded-full flex items-center justify-center text-on-primary text-sm font-bold flex-shrink-0">
+                {userInitials}
+              </div>
+              <div className="hidden sm:flex flex-col items-start">
+                <span className="text-sm font-semibold text-on-surface truncate max-w-[120px]">{userName}</span>
+                <span className="text-xs text-on-surface-variant">Scholar</span>
+              </div>
+            </Link>
+          )
         ) : (
           <Link
             href="/login"

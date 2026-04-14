@@ -21,7 +21,7 @@ const MARKDOWN_FILE_ID_SIZE = 100;
 /** NEP 2020 FYUG semester range (1–8). */
 const MIN_SEMESTER = 1;
 const MAX_SEMESTER = 8;
-const DATABASE_SCHEMA_DOC_PATH = path.resolve(__dirname, "../../docs/launch/v2/DATABASE_SCHEMA.md");
+const DATABASE_SCHEMA_DOC_PATH = path.resolve(__dirname, "../../docs/DATABASE_SCHEMA.md");
 const STATUS_BLOCK_START = "<!-- SCHEMA_SYNC_STATUS_START -->";
 const STATUS_BLOCK_END = "<!-- SCHEMA_SYNC_STATUS_END -->";
 const EMPTY_STRING_COMPARISON = Object.freeze({

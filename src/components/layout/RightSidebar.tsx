@@ -145,7 +145,7 @@ export default function RightSidebar({
             </div>
             <div className="flex justify-between gap-2">
               <dt className="text-on-surface-variant">Electrons</dt>
-              <dd className="font-medium">{profile?.ai_credits ?? 0}e</dd>
+              <dd className="font-medium">{profile?.ai_credits ?? 0}</dd>
             </div>
           </dl>
         )}
