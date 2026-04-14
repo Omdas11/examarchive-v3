@@ -9,7 +9,7 @@ export const REFERRAL_REFERRER_BONUS_ELECTRONS = 20;
 export const REFERRAL_SUCCESS_CAP = 10;
 
 export const SUPPORTED_AI_MODELS = [
-  "gemini-3.1-flash-lite-preview",
+  "gemini-3.1-flash-lite",
   "gemma-4-31b",
 ] as const;
 

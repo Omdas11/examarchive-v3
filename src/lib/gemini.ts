@@ -1,5 +1,5 @@
 const GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta";
-const DEFAULT_GEMINI_MODEL = process.env.GEMINI_MODEL_ID || "gemini-3.1-flash-lite-preview";
+const DEFAULT_GEMINI_MODEL = process.env.GEMINI_MODEL_ID || "gemini-3.1-flash-lite";
 const REQUEST_TIMEOUT_MS = 20_000;
 
 export class GeminiServiceError extends Error {

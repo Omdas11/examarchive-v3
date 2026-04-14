@@ -29,15 +29,19 @@ import { withElectronBalanceLock } from "@/lib/electron-lock";
 
 export const maxDuration = 300;
 
-const DEFAULT_AI_MODEL = "gemini-3.1-flash-lite-preview";
+const DEFAULT_AI_MODEL = "gemini-3.1-flash-lite";
+const LEGACY_GEMINI_PREVIEW_MODEL = "gemini-3.1-flash-lite-preview";
+const GEMMA_UNLIMITED_TPM_MODEL = "gemma-4-31b";
 const TOPIC_RETRY_MAX = 3;
 const MIN_TOPIC_RESPONSE_CHARS = 50;
 const QUESTION_MAX_RETRIES = 4;
 const MIN_SOLUTION_RESPONSE_CHARS = 10;
 const RETRY_ERROR_DELAY_MS = 4000;
 const TAVILY_TIMEOUT_MS = 4000;
-const TOPIC_CONCURRENCY = 3;
-const QUESTION_CONCURRENCY = 2;
+const DEFAULT_TOPIC_CONCURRENCY = 3;
+const DEFAULT_QUESTION_CONCURRENCY = 2;
+const GEMMA_TOPIC_CONCURRENCY = 6;
+const GEMMA_QUESTION_CONCURRENCY = 4;
 const UNDICI_CONNECT_TIMEOUT_CODE = "UND_ERR_CONNECT_TIMEOUT";
 const EMAIL_DELIVERY_UNAVAILABLE_CODE = "EMAIL_DELIVERY_UNAVAILABLE";
 const EMAIL_DELIVERY_UNAVAILABLE_MESSAGE =
@@ -186,6 +190,21 @@ function isRateLimitError(error: unknown): boolean {
   if (status === 429 || code === 429 || code === "429") return true;
   const message = String(errObj.message ?? "");
   return /rate limit|resource exhausted/i.test(message);
+}
+
+function normalizeSelectedModel(model: string): string {
+  return model === LEGACY_GEMINI_PREVIEW_MODEL ? DEFAULT_AI_MODEL : model;
+}
+
+function getModelConcurrency(model: string): { topic: number; question: number } {
+  if (model === GEMMA_UNLIMITED_TPM_MODEL) {
+    return { topic: GEMMA_TOPIC_CONCURRENCY, question: GEMMA_QUESTION_CONCURRENCY };
+  }
+  return { topic: DEFAULT_TOPIC_CONCURRENCY, question: DEFAULT_QUESTION_CONCURRENCY };
+}
+
+function getRateLimitBackoffMs(model: string, limitedModelMultiplier: number): number {
+  return model === GEMMA_UNLIMITED_TPM_MODEL ? RETRY_ERROR_DELAY_MS : RETRY_ERROR_DELAY_MS * limitedModelMultiplier;
 }
 
 async function getDailyCount(userId: string, todayStr: string): Promise<number> {
@@ -381,7 +400,8 @@ async function runNotesBackground(params: {
   const syllabusTags = normalizeTags(syllabusDoc.tags);
   const formattedQuestions = formatQuestionsForPrompt(questionsRes.documents, unitNumber);
   const systemPrompt = readDynamicSystemPrompt({ promptType: "unit_notes" });
-  const generatedChunks = await mapWithConcurrency(subTopics, TOPIC_CONCURRENCY, async (topic, index) => {
+  const { topic: topicConcurrency } = getModelConcurrency(model);
+  const generatedChunks = await mapWithConcurrency(subTopics, topicConcurrency, async (topic, index) => {
     const promptBody = `University: ${university}
 Course: ${course}
 Stream: ${stream}
@@ -419,7 +439,7 @@ CRITICAL FORMAT CONSTRAINTS:
         }
       } catch (error) {
         if (isRateLimitError(error)) {
-          await sleep(RETRY_ERROR_DELAY_MS * 3);
+          await sleep(getRateLimitBackoffMs(model, 3));
         } else {
           await sleep(RETRY_ERROR_DELAY_MS);
         }
@@ -516,7 +536,8 @@ async function runSolvedPaperBackground(params: {
   const paperWebContext = allQuestions.length > 0
     ? await fetchTavilyContext(`${university} ${course} ${paperCode} ${year} solved paper key points`)
     : "";
-  const solvedChunks = await mapWithConcurrency(allQuestions, QUESTION_CONCURRENCY, async (questionDoc, index) => {
+  const { question: questionConcurrency } = getModelConcurrency(model);
+  const solvedChunks = await mapWithConcurrency(allQuestions, questionConcurrency, async (questionDoc, index) => {
     const qNo = String(questionDoc.question_no ?? index + 1).trim();
     const qSub = typeof questionDoc.question_subpart === "string" ? questionDoc.question_subpart.trim() : "";
     const qLabel = `Q${qNo}${qSub ? `(${qSub})` : ""}`;
@@ -567,7 +588,7 @@ CRITICAL FORMAT CONSTRAINTS:
         }
       } catch (error) {
         if (isRateLimitError(error)) {
-          await sleep(RETRY_ERROR_DELAY_MS * 5);
+          await sleep(getRateLimitBackoffMs(model, 5));
         } else {
           await sleep(RETRY_ERROR_DELAY_MS);
         }
@@ -635,7 +656,7 @@ export async function POST(request: NextRequest) {
   const type = (body.type || "").trim();
   const paperCode = (body.paperCode || "").trim();
   const selectedModelRaw = typeof body.model === "string" ? body.model.trim() : "";
-  const selectedModel = selectedModelRaw || DEFAULT_AI_MODEL;
+  const selectedModel = normalizeSelectedModel(selectedModelRaw || DEFAULT_AI_MODEL);
   const userEmail = typeof user.email === "string" ? user.email.trim() : "";
 
   if (!course) return NextResponse.json({ error: "Invalid selection: course is required." }, { status: 400 });
@@ -645,7 +666,7 @@ export async function POST(request: NextRequest) {
   if (!isSupportedAiModel(selectedModel)) {
     return NextResponse.json(
       {
-        error: `Unsupported model. Allowed values: ${SUPPORTED_AI_MODELS.join(", ")}`,
+        error: `Unsupported model. Allowed values: ${SUPPORTED_AI_MODELS.join(", ")}. Legacy '${LEGACY_GEMINI_PREVIEW_MODEL}' is auto-mapped to '${DEFAULT_AI_MODEL}'.`,
       },
       { status: 400 },
     );

@@ -418,7 +418,7 @@ ${formattedQuestions || "No related questions found."}
       prompt,
       maxTokens: 8192,
       temperature: 0.4,
-      model: "gemini-3.1-flash-lite-preview",
+      model: "gemini-3.1-flash-lite",
     });
 
     if (!isAdminPlus(user.role)) {

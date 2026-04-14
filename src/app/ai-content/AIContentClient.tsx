@@ -17,7 +17,7 @@ const STREAM_TYPES: Record<string, string[]> = {
 const UNIT_OPTIONS = [1, 2, 3, 4, 5];
 const GENERATION_REQUEST_TIMEOUT_MS = 60_000;
 const MODEL_OPTIONS: CustomDropdownOption[] = [
-  { label: "Gemini 3.1 Flash Lite Preview", value: "gemini-3.1-flash-lite-preview" },
+  { label: "Gemini 3.1 Flash Lite", value: "gemini-3.1-flash-lite" },
   { label: "Gemma 4 31B", value: "gemma-4-31b" },
 ];
 
@@ -38,7 +38,7 @@ export default function AIContentClient() {
   const [course, setCourse] = useState("FYUG");
   const [stream, setStream] = useState("Arts");
   const [type, setType] = useState("DSC");
-  const [model, setModel] = useState("gemini-3.1-flash-lite-preview");
+  const [model, setModel] = useState("gemini-3.1-flash-lite");
   const [paperCode, setPaperCode] = useState("");
   const [semester, setSemester] = useState<number | "">("");
   const [unitNumber, setUnitNumber] = useState(1);
@@ -428,6 +428,9 @@ export default function AIContentClient() {
             <div>
               <label className="mb-1 block text-sm font-semibold">AI Model</label>
               <CustomDropdown options={MODEL_OPTIONS} value={model} onChange={setModel} disabled={generating} />
+              <p className="mt-2 text-xs text-on-surface/70">
+                Tip: choose Gemma 4 31B for high-throughput generation.
+              </p>
             </div>
             <div>
               <label className="mb-1 block text-sm font-semibold">Semester</label>

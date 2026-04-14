@@ -44,7 +44,7 @@ export default function PrintableNotesDocument({
           <h1 className="print-brand-title">EXAMARCHIVE</h1>
           <h2 className="print-paper-title">{paperName || paperCode || "Untitled Paper"}</h2>
           <p className="print-doc-meta">
-            Generated {generatedAt} | Model: {model || "gemini-3.1-flash-lite-preview"}
+            Generated {generatedAt} | Model: {model || "gemini-3.1-flash-lite"}
           </p>
           {syllabusItems.length > 0 && (
             <div className="print-syllabus-block">
