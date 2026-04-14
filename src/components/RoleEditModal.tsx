@@ -8,14 +8,16 @@ import type { AdminUser, UserRole, CustomRole, UserTier } from "@/types";
  * Founders can assign any role; admins can assign up to "admin".
  */
 const ROLES: UserRole[] = [
-  "admin",
-  "moderator",
-  "curator",
-  "contributor",
-  "viewer",
-  // legacy values for compatibility while records are migrated
   "founder",
+  "moderator",
+  "subject_admin",
+  "specialist",
+  "contributor",
+  "student",
+  // legacy values for compatibility while records are migrated
+  "admin",
   "maintainer",
+  "curator",
   "verified_contributor",
   "explorer",
   "visitor",
@@ -23,31 +25,45 @@ const ROLES: UserRole[] = [
 
 /** Human-readable labels for the role dropdown. */
 const ROLE_LABELS: Record<UserRole, string> = {
-  admin: "Admin",
-  founder: "Admin (legacy founder)",
-  maintainer: "Admin (legacy maintainer)",
+  founder: "Founder",
   moderator: "Moderator",
-  curator: "Curator",
-  verified_contributor: "Curator (legacy verified contributor)",
+  subject_admin: "Subject Administrator",
+  specialist: "Specialist",
   contributor: "Contributor",
-  viewer: "Viewer",
-  explorer: "Viewer (legacy explorer)",
-  visitor: "Viewer (legacy visitor)",
-  student: "Viewer (legacy student)",
-  guest: "Guest",
+  student: "Student",
+  admin: "Moderator (legacy admin)",
+  maintainer: "Moderator (legacy maintainer)",
+  curator: "Specialist (legacy curator)",
+  verified_contributor: "Specialist (legacy verified contributor)",
+  viewer: "Student (legacy viewer)",
+  explorer: "Student (legacy explorer)",
+  visitor: "Student (legacy visitor)",
+  guest: "Student (legacy guest)",
 };
 
 const CUSTOM_ROLES: string[] = [
   "none",
-  "reviewer",
-  "curator",
+  "supporter",
   "mentor",
   "archivist",
   "ambassador",
-  "pioneer",
-  "researcher",
 ];
 const TIERS: UserTier[] = ["bronze", "silver", "gold", "platinum", "diamond"];
+const SUBJECT_OPTIONS = [
+  "Assamese",
+  "Bengali",
+  "English",
+  "Hindi",
+  "Economics",
+  "Education",
+  "History",
+  "Political Science",
+  "Philosophy",
+  "Mathematics",
+  "Physics",
+  "Chemistry",
+  "Zoology",
+];
 
 interface RoleEditModalProps {
   user: AdminUser;
@@ -62,9 +78,7 @@ export default function RoleEditModal({
   onClose,
   onSaved,
 }: RoleEditModalProps) {
-  // Normalize legacy "student" role (not in the selectable ROLES list) to "viewer"
-  // so the dropdown never defaults to the first option ("founder") for regular users.
-  const initialRole: UserRole = ROLES.includes(user.role) ? user.role : "viewer";
+  const initialRole: UserRole = ROLES.includes(user.role) ? user.role : "student";
   const [role, setRole] = useState<UserRole>(initialRole);
   const [secondaryRole, setSecondaryRole] = useState<CustomRole | "none">(
     user.secondary_role ?? "none",
@@ -73,6 +87,8 @@ export default function RoleEditModal({
     user.tertiary_role ?? "none",
   );
   const [tier, setTier] = useState<UserTier>(user.tier);
+  const [specialistSubject, setSpecialistSubject] = useState<string>(user.specialist_subject ?? "");
+  const [subjectAdminSubject, setSubjectAdminSubject] = useState<string>(user.subject_admin_subject ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -98,6 +114,8 @@ export default function RoleEditModal({
           primary_role: role,
           secondary_role: secondaryRole === "none" ? null : secondaryRole,
           tertiary_role: tertiaryRole === "none" ? null : tertiaryRole,
+          specialist_subject: specialistSubject || null,
+          subject_admin_subject: subjectAdminSubject || null,
           tier,
         }),
       });
@@ -113,6 +131,8 @@ export default function RoleEditModal({
         primary_role: role,
         secondary_role: secondaryRole === "none" ? null : secondaryRole,
         tertiary_role: tertiaryRole === "none" ? null : tertiaryRole,
+        specialist_subject: specialistSubject || null,
+        subject_admin_subject: subjectAdminSubject || null,
         tier,
       });
     } catch (err) {
@@ -232,6 +252,38 @@ export default function RoleEditModal({
               {CUSTOM_ROLES.map((r) => (
                 <option key={r} value={r}>
                   {r === "none" ? "None" : r.charAt(0).toUpperCase() + r.slice(1)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium mb-1">Specialist Subject</label>
+            <select
+              className="input-field"
+              value={specialistSubject}
+              onChange={(e) => setSpecialistSubject(e.target.value)}
+            >
+              <option value="">None</option>
+              {SUBJECT_OPTIONS.map((subject) => (
+                <option key={subject} value={subject}>
+                  {subject}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium mb-1">Subject Admin Subject</label>
+            <select
+              className="input-field"
+              value={subjectAdminSubject}
+              onChange={(e) => setSubjectAdminSubject(e.target.value)}
+            >
+              <option value="">None</option>
+              {SUBJECT_OPTIONS.map((subject) => (
+                <option key={subject} value={subject}>
+                  {subject}
                 </option>
               ))}
             </select>

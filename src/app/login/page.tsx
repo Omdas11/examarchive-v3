@@ -25,6 +25,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   invalid_credentials: "Invalid email or password. Please try again.",
   oauth_failed: "Google sign-in failed. Please try again.",
   invalid_referral_code: "Referral code is invalid. Please check and try again.",
+  referral_limit_reached: "This referral code has reached the maximum number of successful referrals.",
 };
 
 const VALID_MODES: Mode[] = ["magic", "signin", "signup"];

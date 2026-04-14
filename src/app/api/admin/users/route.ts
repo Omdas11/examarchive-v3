@@ -128,6 +128,22 @@ export async function PATCH(request: NextRequest) {
     details.push(`tier → ${body.tier}`);
   }
 
+  if (body.specialist_subject !== undefined) {
+    if (body.specialist_subject !== null && typeof body.specialist_subject !== "string") {
+      return NextResponse.json({ error: "Invalid specialist_subject value" }, { status: 400 });
+    }
+    update.specialist_subject = body.specialist_subject ? String(body.specialist_subject).trim() : null;
+    details.push(`specialist_subject → ${update.specialist_subject ?? "none"}`);
+  }
+
+  if (body.subject_admin_subject !== undefined) {
+    if (body.subject_admin_subject !== null && typeof body.subject_admin_subject !== "string") {
+      return NextResponse.json({ error: "Invalid subject_admin_subject value" }, { status: 400 });
+    }
+    update.subject_admin_subject = body.subject_admin_subject ? String(body.subject_admin_subject).trim() : null;
+    details.push(`subject_admin_subject → ${update.subject_admin_subject ?? "none"}`);
+  }
+
   if (body.ai_credits !== undefined) {
     const credits = Number(body.ai_credits);
     if (!Number.isFinite(credits) || credits < 0 || !Number.isInteger(credits)) {

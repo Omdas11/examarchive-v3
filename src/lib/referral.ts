@@ -22,5 +22,6 @@ export function buildReferralPath(
   directReferrerId: string,
   referrerPath: string[] | null | undefined,
 ): string[] {
-  return [directReferrerId, ...(referrerPath ?? [])].slice(0, 5);
+  void referrerPath;
+  return [directReferrerId];
 }

@@ -189,6 +189,9 @@ export async function GET() {
     approval_pct,
     referral_code: user.referral_code ?? "",
     ai_credits: user.ai_credits ?? 0,
+    referred_users_count: user.referred_users_count ?? 0,
+    specialist_subject: user.specialist_subject ?? null,
+    subject_admin_subject: user.subject_admin_subject ?? null,
     username_last_changed,
   });
 }

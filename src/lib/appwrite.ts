@@ -67,6 +67,7 @@ export const COLLECTION = {
    * Fields include file_id, source_type, source_label, text_chunk, embedding[], and metadata.
    */
   ai_embeddings: "ai_embeddings",
+  purchases: "purchases",
 } as const;
 
 /** Storage bucket for uploaded PDFs and files. */

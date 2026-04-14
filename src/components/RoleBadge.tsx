@@ -4,25 +4,26 @@ import type { UserRole, CustomRole, UserTier } from "@/types";
 
 /** Color map for user roles – kept subtle with soft backgrounds. */
 const ROLE_COLORS: Record<string, { bg: string; text: string }> = {
-  admin: { bg: "#fee2e2", text: "#991b1b" },
   founder: { bg: "#fee2e2", text: "#991b1b" },
-  maintainer: { bg: "#fee2e2", text: "#991b1b" },
+  subject_admin: { bg: "#cffafe", text: "#155e75" },
+  specialist: { bg: "#e0e7ff", text: "#3730a3" },
   moderator: { bg: "#ffedd5", text: "#9a3412" },
+  contributor: { bg: "#dbeafe", text: "#1e40af" },
+  student: { bg: "#f1f5f9", text: "#475569" },
+  // legacy aliases
+  admin: { bg: "#ffedd5", text: "#9a3412" },
+  maintainer: { bg: "#fee2e2", text: "#991b1b" },
   curator: { bg: "#e0e7ff", text: "#3730a3" },
   verified_contributor: { bg: "#e0e7ff", text: "#3730a3" },
-  contributor: { bg: "#dbeafe", text: "#1e40af" },
   viewer: { bg: "#f1f5f9", text: "#475569" },
   guest: { bg: "#f1f5f9", text: "#475569" },
   explorer: { bg: "#f1f5f9", text: "#475569" },
   visitor: { bg: "#f1f5f9", text: "#475569" },
-  student: { bg: "#f1f5f9", text: "#475569" },   // legacy alias
   // Community / custom roles
-  reviewer: { bg: "#f3e8ff", text: "#6b21a8" },
+  supporter: { bg: "#fef3c7", text: "#92400e" },
   mentor: { bg: "#ede9fe", text: "#4c1d95" },
   archivist: { bg: "#e0f2fe", text: "#075985" },
   ambassador: { bg: "#dcfce7", text: "#14532d" },
-  pioneer: { bg: "#fef3c7", text: "#92400e" },
-  researcher: { bg: "#f1f5f9", text: "#334155" },
 };
 
 /** Tier color map – soft pastel backgrounds, legible text. */
@@ -36,24 +37,25 @@ const TIER_COLORS: Record<UserTier, { bg: string; text: string }> = {
 
 /** Human-readable label for each role. */
 export const ROLE_LABELS: Record<string, string> = {
-  admin: "Admin",
-  founder: "Admin",
-  maintainer: "Admin",
+  founder: "Founder",
   moderator: "Moderator",
-  verified_contributor: "Curator (legacy verified contributor)",
+  subject_admin: "Subject Administrator",
+  specialist: "Specialist",
   contributor: "Contributor",
-  viewer: "Viewer",
-  explorer: "Viewer",
-  visitor: "Viewer",
-  student: "Viewer",   // legacy alias
-  guest: "Guest",
-  reviewer: "Reviewer",
-  curator: "Curator",
+  student: "Student",
+  // legacy labels
+  admin: "Moderator",
+  maintainer: "Moderator",
+  verified_contributor: "Specialist",
+  viewer: "Student",
+  explorer: "Student",
+  visitor: "Student",
+  guest: "Student",
+  curator: "Specialist",
+  supporter: "Supporter",
   mentor: "Mentor",
   archivist: "Archivist",
   ambassador: "Ambassador",
-  pioneer: "Pioneer",
-  researcher: "Researcher",
 };
 
 export function RoleBadge({ role }: { role: UserRole | CustomRole }) {

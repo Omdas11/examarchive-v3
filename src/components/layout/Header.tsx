@@ -8,6 +8,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { ELECTRON_SYMBOL } from '@/lib/economy';
 
 export interface HeaderProps {
   title?: string;
@@ -38,6 +39,7 @@ export default function Header({
   const [searchQuery, setSearchQuery] = useState('');
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [electronBalance, setElectronBalance] = useState<number | null>(null);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -55,6 +57,24 @@ export default function Header({
     };
     document.addEventListener('mousedown', onDocumentClick);
     return () => document.removeEventListener('mousedown', onDocumentClick);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadBalance() {
+      try {
+        const res = await fetch('/api/profile', { credentials: 'include' });
+        if (!res.ok) return;
+        const data = await res.json() as { ai_credits?: number };
+        if (!cancelled && typeof data.ai_credits === 'number') {
+          setElectronBalance(data.ai_credits);
+        }
+      } catch {
+        // non-blocking
+      }
+    }
+    void loadBalance();
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
@@ -209,6 +229,20 @@ export default function Header({
             </div>
           )}
         </div>
+
+        {electronBalance !== null && (
+          <div
+            className="inline-flex items-center gap-1 rounded-full border border-outline-variant/30 bg-surface-container-low px-2.5 py-1 text-xs font-semibold text-on-surface"
+            aria-label={`Electron balance ${electronBalance}${ELECTRON_SYMBOL}`}
+            title={`Electron balance: ${electronBalance}${ELECTRON_SYMBOL}`}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5" />
+              <path d="M15 7h-6v10h6M9 12h5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+            </svg>
+            <span>{electronBalance}{ELECTRON_SYMBOL}</span>
+          </div>
+        )}
 
         {/* User Profile – opens profile sidebar when wired; otherwise navigates to /profile */}
         {userInitials ? (

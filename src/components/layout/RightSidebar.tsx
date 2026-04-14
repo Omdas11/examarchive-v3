@@ -143,10 +143,10 @@ export default function RightSidebar({
               <dt className="text-on-surface-variant">Streak</dt>
               <dd className="font-medium">{streakDays}d</dd>
             </div>
-            <div className="flex justify-between gap-2">
-              <dt className="text-on-surface-variant">AI Credits</dt>
-              <dd className="font-medium">{profile?.ai_credits ?? 0}</dd>
-            </div>
+             <div className="flex justify-between gap-2">
+               <dt className="text-on-surface-variant">Electrons</dt>
+               <dd className="font-medium">{profile?.ai_credits ?? 0}e</dd>
+             </div>
           </dl>
         )}
 

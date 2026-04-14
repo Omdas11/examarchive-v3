@@ -20,10 +20,15 @@ import {
   sendGenerationStartedEmail,
 } from "@/lib/generation-notifications";
 import { formatSearchResults, runWebSearch } from "@/lib/web-search";
+import {
+  GENERATION_COST_ELECTRONS,
+  SUPPORTED_AI_MODELS,
+  isSupportedAiModel,
+} from "@/lib/economy";
 
 export const maxDuration = 300;
 
-const GEMINI_MODEL = "gemini-3.1-flash-lite-preview";
+const DEFAULT_AI_MODEL = "gemini-3.1-flash-lite-preview";
 const TOPIC_RETRY_MAX = 3;
 const MIN_TOPIC_RESPONSE_CHARS = 50;
 const QUESTION_MAX_RETRIES = 4;
@@ -49,10 +54,11 @@ type GenerateBody = {
   unitNumber?: number;
   semester?: number | null;
   year?: number | null;
+  model?: string;
 };
 
 function isAdminPlus(role: string): boolean {
-  return role === "admin" || role === "founder";
+  return role === "moderator" || role === "admin" || role === "founder" || role === "maintainer";
 }
 
 function normalizeYear(value: unknown): number | null {
@@ -64,6 +70,35 @@ function normalizeYear(value: unknown): number | null {
 
 function isValidEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+async function reserveElectronCost(userId: string, cost: number): Promise<void> {
+  const db = adminDatabases();
+  const profile = await db.getDocument(DATABASE_ID, COLLECTION.users, userId);
+  const current = Number(profile.ai_credits ?? 0);
+  if (!Number.isFinite(current) || current < cost) {
+    throw new Error("INSUFFICIENT_ELECTRONS");
+  }
+  await db.updateDocument(DATABASE_ID, COLLECTION.users, userId, {
+    ai_credits: current - cost,
+  });
+}
+
+async function rollbackElectronCost(userId: string, cost: number): Promise<void> {
+  try {
+    const db = adminDatabases();
+    const profile = await db.getDocument(DATABASE_ID, COLLECTION.users, userId);
+    const current = Number(profile.ai_credits ?? 0);
+    await db.updateDocument(DATABASE_ID, COLLECTION.users, userId, {
+      ai_credits: Math.max(0, current + cost),
+    });
+  } catch (error) {
+    console.error("[ai/generate-pdf] Failed to rollback electrons after start-email failure.", {
+      userId,
+      cost,
+      error,
+    });
+  }
 }
 
 function normalizeTags(raw: unknown): string[] {
@@ -288,10 +323,11 @@ async function runNotesBackground(params: {
   type: string;
   paperCode: string;
   unitNumber: number;
+  model: string;
 }): Promise<void> {
   const {
     userEmail, university, course, stream, type,
-    paperCode, unitNumber,
+    paperCode, unitNumber, model,
   } = params;
 
   const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
@@ -369,7 +405,7 @@ CRITICAL FORMAT CONSTRAINTS:
           prompt: `${systemPrompt}\n\n${promptBody}`,
           maxTokens: 4000,
           temperature: 0.4,
-          model: GEMINI_MODEL,
+          model,
         });
         const candidate = String(result.content ?? "").trim();
         if (candidate.length > MIN_TOPIC_RESPONSE_CHARS) {
@@ -408,7 +444,7 @@ CRITICAL FORMAT CONSTRAINTS:
     fileBaseName: `${paperCode}_unit_${unitNumber}_${fileToken}_${Date.now()}`,
     fileName: dynamicPdfName,
     gotenbergUrl: azureGotenbergUrl,
-    modelName: GEMINI_MODEL,
+    modelName: model,
     generatedAtIso: new Date().toISOString(),
     paperCode,
     paperName,
@@ -439,10 +475,11 @@ async function runSolvedPaperBackground(params: {
   type: string;
   paperCode: string;
   year: number;
+  model: string;
 }): Promise<void> {
   const {
     userEmail, university, course, stream, type,
-    paperCode, year,
+    paperCode, year, model,
   } = params;
 
   const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
@@ -516,7 +553,7 @@ CRITICAL FORMAT CONSTRAINTS:
           prompt: `${systemPrompt}\n\n${questionText}`,
           maxTokens: 4000,
           temperature: 0.4,
-          model: GEMINI_MODEL,
+          model,
         });
         const candidate = String(result.content ?? "").trim();
         if (candidate.length > MIN_SOLUTION_RESPONSE_CHARS) {
@@ -592,12 +629,22 @@ export async function POST(request: NextRequest) {
   const stream = (body.stream || "").trim();
   const type = (body.type || "").trim();
   const paperCode = (body.paperCode || "").trim();
+  const selectedModelRaw = typeof body.model === "string" ? body.model.trim() : "";
+  const selectedModel = selectedModelRaw || DEFAULT_AI_MODEL;
   const userEmail = typeof user.email === "string" ? user.email.trim() : "";
 
   if (!course) return NextResponse.json({ error: "Invalid selection: course is required." }, { status: 400 });
   if (!stream) return NextResponse.json({ error: "Invalid selection: stream is required." }, { status: 400 });
   if (!type) return NextResponse.json({ error: "Invalid selection: type is required." }, { status: 400 });
   if (!paperCode) return NextResponse.json({ error: "Invalid selection: paper code is required." }, { status: 400 });
+  if (!isSupportedAiModel(selectedModel)) {
+    return NextResponse.json(
+      {
+        error: `Unsupported model. Allowed values: ${SUPPORTED_AI_MODELS.join(", ")}`,
+      },
+      { status: 400 },
+    );
+  }
   if (!isValidEmail(userEmail)) {
     return NextResponse.json(
       { error: "A valid account email is required to receive generated PDFs." },
@@ -649,6 +696,17 @@ export async function POST(request: NextRequest) {
         );
       }
     }
+    try {
+      await reserveElectronCost(user.id, GENERATION_COST_ELECTRONS);
+    } catch (error) {
+      if (error instanceof Error && error.message === "INSUFFICIENT_ELECTRONS") {
+        return NextResponse.json(
+          { error: `Not enough electrons. Each generation costs ${GENERATION_COST_ELECTRONS}e.` },
+          { status: 403 },
+        );
+      }
+      return NextResponse.json({ error: "Unable to reserve electrons. Please try again." }, { status: 503 });
+    }
     if (!admin) {
       try {
         await reserveQuotaForAcceptedRequest(user.id, "notes_generated_today");
@@ -657,6 +715,7 @@ export async function POST(request: NextRequest) {
           userId: user.id,
           error,
         });
+        await rollbackElectronCost(user.id, GENERATION_COST_ELECTRONS);
         return NextResponse.json(
           { error: QUOTA_RESERVATION_FAILED_MESSAGE, code: QUOTA_RESERVATION_FAILED_CODE },
           { status: 503 },
@@ -671,6 +730,7 @@ export async function POST(request: NextRequest) {
       if (!admin) {
         await rollbackQuotaReservation(user.id, "notes_generated_today");
       }
+      await rollbackElectronCost(user.id, GENERATION_COST_ELECTRONS);
       return NextResponse.json(
         {
           error: EMAIL_DELIVERY_UNAVAILABLE_MESSAGE,
@@ -693,6 +753,7 @@ export async function POST(request: NextRequest) {
           type,
           paperCode,
           unitNumber,
+          model: selectedModel,
         });
       } catch (error) {
         console.error("[ai/generate-pdf] Notes background job failed:", error);
@@ -734,6 +795,17 @@ export async function POST(request: NextRequest) {
       );
     }
   }
+  try {
+    await reserveElectronCost(user.id, GENERATION_COST_ELECTRONS);
+  } catch (error) {
+    if (error instanceof Error && error.message === "INSUFFICIENT_ELECTRONS") {
+      return NextResponse.json(
+        { error: `Not enough electrons. Each generation costs ${GENERATION_COST_ELECTRONS}e.` },
+        { status: 403 },
+      );
+    }
+    return NextResponse.json({ error: "Unable to reserve electrons. Please try again." }, { status: 503 });
+  }
   if (!admin) {
     try {
       await reserveQuotaForAcceptedRequest(user.id, "papers_solved_today");
@@ -742,6 +814,7 @@ export async function POST(request: NextRequest) {
         userId: user.id,
         error,
       });
+      await rollbackElectronCost(user.id, GENERATION_COST_ELECTRONS);
       return NextResponse.json(
         { error: QUOTA_RESERVATION_FAILED_MESSAGE, code: QUOTA_RESERVATION_FAILED_CODE },
         { status: 503 },
@@ -753,6 +826,7 @@ export async function POST(request: NextRequest) {
     if (!admin) {
       await rollbackQuotaReservation(user.id, "papers_solved_today");
     }
+    await rollbackElectronCost(user.id, GENERATION_COST_ELECTRONS);
     return NextResponse.json(
       {
         error: EMAIL_DELIVERY_UNAVAILABLE_MESSAGE,
@@ -775,6 +849,7 @@ export async function POST(request: NextRequest) {
         type,
         paperCode,
         year,
+        model: selectedModel,
       });
     } catch (error) {
       console.error("[ai/generate-pdf] Solved paper background job failed:", error);

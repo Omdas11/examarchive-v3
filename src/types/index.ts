@@ -93,6 +93,9 @@ export interface UserProfile {
   referral_code?: string;
   referred_by?: string | null;
   referral_path?: string[];
+  referred_users_count?: number;
+  specialist_subject?: string | null;
+  subject_admin_subject?: string | null;
   ai_credits?: number;
   streak_days: number;
   last_activity: string;
@@ -102,36 +105,37 @@ export interface UserProfile {
 /**
  * Supported user roles.
  *
- * v2 canonical hierarchy:
- * Guest → Viewer → Contributor → Curator → Moderator → Admin
+ * Canonical hierarchy:
+ * Student → Contributor → Specialist → Subject Administrator → Moderator
+ * Founder is a super-admin override outside the regular ladder.
  *
  * Legacy v1 role values are retained for backward compatibility and are
  * normalized by src/lib/roles.ts.
  */
 export type UserRole =
+  | "student"
+  | "contributor"
+  | "specialist"
+  | "subject_admin"
+  | "moderator"
+  | "founder"
+  // legacy aliases (v1)
   | "guest"
   | "viewer"
-  | "contributor"
-  | "curator"
-  | "moderator"
-  | "admin"
-  // legacy aliases (v1)
   | "visitor"
-  | "student"
   | "explorer"
+  | "curator"
   | "verified_contributor"
+  | "admin"
   | "maintainer"
-  | "founder";
+  ;
 
 /** Community/cosmetic custom roles (display-only, never grant permissions). */
 export type CustomRole =
-  | "reviewer"
-  | "curator"
+  | "supporter"
   | "mentor"
   | "archivist"
   | "ambassador"
-  | "pioneer"
-  | "researcher"
   | null;
 
 /** User tier based on activity and achievements. */
@@ -195,6 +199,8 @@ export interface AdminUser {
   primary_role: UserRole;
   secondary_role: CustomRole;
   tertiary_role: CustomRole;
+  specialist_subject?: string | null;
+  subject_admin_subject?: string | null;
   tier: UserTier;
   upload_count: number;
   xo: number;
@@ -214,10 +220,12 @@ export function toAdminUser(doc: Record<string, unknown>): AdminUser {
     name: (doc.display_name ?? doc.name ?? "") as string,
     username: (doc.username ?? "") as string,
     avatar_url: (doc.avatar_url ?? "") as string,
-    role: ((doc.role as string) ?? "viewer") as UserRole,
-    primary_role: ((doc.primary_role ?? doc.role ?? "viewer") as string) as UserRole,
+    role: ((doc.role as string) ?? "student") as UserRole,
+    primary_role: ((doc.primary_role ?? doc.role ?? "student") as string) as UserRole,
     secondary_role: (doc.secondary_role ?? null) as CustomRole,
     tertiary_role: (doc.tertiary_role ?? null) as CustomRole,
+    specialist_subject: (doc.specialist_subject ?? null) as string | null,
+    subject_admin_subject: (doc.subject_admin_subject ?? null) as string | null,
     tier: ((doc.tier ?? "bronze") as string) as UserTier,
     upload_count: (doc.upload_count ?? 0) as number,
     xo: xoScore,

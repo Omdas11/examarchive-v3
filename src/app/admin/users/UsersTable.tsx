@@ -12,14 +12,14 @@ interface UsersTableProps {
   currentAdminRole: string;
 }
 
-/** Return the XP milestone label(s) earned for a given XP total. */
-function xpMilestones(xp: number): string[] {
+/** Return the XO milestone label(s) earned for a given score total. */
+function xoMilestones(xo: number): string[] {
   const milestones: string[] = [];
-  if (xp >= 1000) milestones.push("1,000 XP");
-  else if (xp >= 500) milestones.push("500 XP");
-  else if (xp >= 300) milestones.push("300 XP");
-  else if (xp >= 150) milestones.push("150 XP");
-  else if (xp >= 50) milestones.push("50 XP");
+  if (xo >= 1000) milestones.push("1,000 XO");
+  else if (xo >= 500) milestones.push("500 XO");
+  else if (xo >= 300) milestones.push("300 XO");
+  else if (xo >= 150) milestones.push("150 XO");
+  else if (xo >= 50) milestones.push("50 XO");
   return milestones;
 }
 
@@ -80,7 +80,7 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
               <th className="whitespace-nowrap text-left text-xs font-semibold">Role</th>
               <th className="whitespace-nowrap text-left text-xs font-semibold">Community Badges</th>
               <th className="whitespace-nowrap text-right text-xs font-semibold">Uploads</th>
-              <th className="whitespace-nowrap text-right text-xs font-semibold">XP</th>
+              <th className="whitespace-nowrap text-right text-xs font-semibold">XO</th>
               <th className="whitespace-nowrap text-left text-xs font-semibold">Achievements</th>
               <th className="whitespace-nowrap text-right text-xs font-semibold">Streak</th>
               <th className="whitespace-nowrap text-center text-xs font-semibold">Actions</th>
@@ -88,7 +88,7 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
           </thead>
           <tbody>
             {list.map((u) => {
-              const milestones = xpMilestones(u.xp);
+              const milestones = xoMilestones(u.xp);
               const displayName = u.name || u.username || u.email;
 
               return (
@@ -136,12 +136,12 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
                     {u.upload_count}
                   </td>
 
-                  {/* XP */}
+                  {/* XO */}
                   <td className="whitespace-nowrap text-right font-medium text-sm">
                     {u.xp.toLocaleString()}
                   </td>
 
-                  {/* Achievements / XP milestones */}
+                  {/* Achievements / XO milestones */}
                   <td>
                     {milestones.length > 0 || u.streak_days >= 30 ? (
                       <div className="flex flex-wrap gap-1">
@@ -178,7 +178,7 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
 
                   {/* Actions */}
                   <td className="whitespace-nowrap text-center">
-                    {(currentAdminRole === "admin" || currentAdminRole === "founder") && u.id !== currentAdminId && (
+                    {(currentAdminRole === "moderator" || currentAdminRole === "admin" || currentAdminRole === "founder") && u.id !== currentAdminId && (
                       <button
                         onClick={() => setEditingUser(u)}
                         className="btn text-xs px-2 py-1"
