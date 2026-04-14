@@ -505,7 +505,7 @@ Use this checklist to wipe counters and storage before relaunch:
 <!-- SCHEMA_SYNC_STATUS_START -->
 ## Schema Sync Status (Auto-generated)
 
-_Last synced: 2026-04-12T16:47:36.230Z_
+_Last synced: 2026-04-14T04:36:15.817Z_
 
 ### Storage Buckets
 | Bucket | Status | ID |
