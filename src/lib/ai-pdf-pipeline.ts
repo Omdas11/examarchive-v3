@@ -445,6 +445,7 @@ export async function renderMarkdownPdfToAppwrite(args: {
   syllabusContent?: string;
   userEmail?: string;
 }): Promise<{ fileId: string; fileUrl: string }> {
+  // Precedence: explicit runtime arg > primary env > legacy env.
   const effectiveGotenbergUrl = args.gotenbergUrl
     || process.env.GOTENBERG_URL
     || process.env.AZURE_GOTENBERG_URL;

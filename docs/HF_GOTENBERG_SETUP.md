@@ -14,6 +14,11 @@ Version note:
 
 - This project is tested against Gotenberg v8 endpoints (`/forms/chromium/convert/html` with fallback `/convert/html`).
 - If you change major versions, verify endpoint compatibility before rollout.
+- On version upgrades, test these behaviors end-to-end:
+  - HTML conversion endpoint compatibility (`/forms/chromium/convert/html`, fallback `/convert/html`)
+  - Header/footer rendering (`displayHeaderFooter=true`)
+  - Wait-delay rendering behavior (`waitDelay`)
+  - Successful PDF upload back into Appwrite storage
 
 After deploy, your Space URL should look like:
 
