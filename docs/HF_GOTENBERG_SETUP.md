@@ -42,7 +42,7 @@ In production (Vercel/hosting), set:
 Notes:
 
 - Do not add trailing slashes (the app normalizes, but keep it clean).
-- HTTPS is required.
+- HTTPS is recommended (HTTP can be used for local/dev environments).
 - `AZURE_GOTENBERG_URL` is still accepted as a legacy fallback, but `GOTENBERG_URL` is the new primary variable.
 - For private Spaces, ensure the token has permission to access the private Space.
 

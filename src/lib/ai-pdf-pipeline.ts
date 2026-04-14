@@ -459,10 +459,10 @@ export async function renderMarkdownPdfToAppwrite(args: {
   try {
     gotenbergUrl = new URL(normalizedBaseUrl);
   } catch {
-    throw new Error("Invalid GOTENBERG_URL.");
+    throw new Error("Invalid gotenbergUrl.");
   }
   if (!/^https?:$/.test(gotenbergUrl.protocol)) {
-    throw new Error("GOTENBERG_URL must use HTTP or HTTPS.");
+    throw new Error("gotenbergUrl must use HTTP or HTTPS.");
   }
   const primaryEndpoint = buildGotenbergEndpoint(gotenbergUrl.toString(), "/forms/chromium/convert/html");
   const fallbackEndpoint = buildGotenbergEndpoint(gotenbergUrl.toString(), "/convert/html");
