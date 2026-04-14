@@ -553,8 +553,8 @@ export async function renderMarkdownPdfToAppwrite(args: {
     headers: requestHeaders,
     buildFormData,
   });
-  if (response.status === 404) {
-    console.warn(`[ai-pdf-pipeline] Primary Gotenberg endpoint returned 404 (${primaryEndpoint}). Retrying fallback endpoint.`);
+  if (response.status === 404 || response.status >= 500) {
+    console.warn(`[ai-pdf-pipeline] Primary Gotenberg endpoint returned ${response.status} (${primaryEndpoint}). Retrying fallback endpoint.`);
     gotenbergEndpoint = fallbackEndpoint;
     response = await postToGotenbergWithRetry({
       endpoint: gotenbergEndpoint,

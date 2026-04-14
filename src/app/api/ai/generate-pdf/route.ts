@@ -33,6 +33,7 @@ const DEFAULT_AI_MODEL = "gemini-3.1-flash-lite-preview";
 const GEMMA_UNLIMITED_TPM_MODEL = "gemma-4-31b-it";
 const TOPIC_RETRY_MAX = 3;
 const MIN_TOPIC_RESPONSE_CHARS = 50;
+const TOPIC_FALLBACK_MAX_TOKENS = 3000;
 const QUESTION_MAX_RETRIES = 4;
 const MIN_SOLUTION_RESPONSE_CHARS = 10;
 const RETRY_ERROR_DELAY_MS = 4000;
@@ -202,6 +203,33 @@ function isRateLimitError(error: unknown): boolean {
   return /rate limit|resource exhausted/i.test(message);
 }
 
+function isTimeoutError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const errObj = error as {
+    status?: unknown;
+    code?: unknown;
+    message?: unknown;
+    cause?: unknown;
+  };
+  const status = errObj.status;
+  const code = errObj.code;
+  const message = String(errObj.message ?? "");
+  if (code === UNDICI_CONNECT_TIMEOUT_CODE) return true;
+  if (status === 408 || status === 504) return true;
+  if (status === 503 && /timeout/i.test(message)) return true;
+  if (/aborted due to timeout|timed out|timeout/i.test(message)) return true;
+  const causeMessage = typeof (errObj.cause as { message?: unknown } | undefined)?.message === "string"
+    ? String((errObj.cause as { message?: unknown }).message)
+    : "";
+  return /timeout/i.test(causeMessage);
+}
+
+function getModelFallback(primaryModel: string): string | null {
+  if (primaryModel === DEFAULT_AI_MODEL) return GEMMA_UNLIMITED_TPM_MODEL;
+  if (primaryModel === GEMMA_UNLIMITED_TPM_MODEL) return DEFAULT_AI_MODEL;
+  return null;
+}
+
 function getModelConcurrency(model: string): { topic: number; question: number } {
   if (model === GEMMA_UNLIMITED_TPM_MODEL) {
     return { topic: GEMMA_TOPIC_CONCURRENCY, question: GEMMA_QUESTION_CONCURRENCY };
@@ -356,6 +384,85 @@ function formatFailureDiagnostics(error: unknown): string {
   return text || "No additional diagnostics available.";
 }
 
+type EnvCheckResult = {
+  name: string;
+  ok: boolean;
+  detail: string;
+};
+
+function collectGeneratePdfEnvChecks(): {
+  ok: boolean;
+  errors: string[];
+  warnings: string[];
+  checks: EnvCheckResult[];
+} {
+  const checks: EnvCheckResult[] = [];
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  const geminiApiKey = (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "").trim();
+  const gotenbergUrlRaw = resolveGotenbergUrl();
+
+  checks.push({
+    name: "GEMINI_API_KEY|GOOGLE_API_KEY",
+    ok: !!geminiApiKey,
+    detail: geminiApiKey ? "configured" : "missing",
+  });
+  if (!geminiApiKey) {
+    errors.push("Missing GEMINI_API_KEY (or GOOGLE_API_KEY fallback).");
+  }
+
+  let gotenbergUrlValid = false;
+  if (gotenbergUrlRaw) {
+    try {
+      const parsed = new URL(gotenbergUrlRaw);
+      gotenbergUrlValid = /^https?:$/.test(parsed.protocol);
+    } catch {
+      gotenbergUrlValid = false;
+    }
+  }
+  checks.push({
+    name: "GOTENBERG_URL|AZURE_GOTENBERG_URL",
+    ok: gotenbergUrlValid,
+    detail: gotenbergUrlRaw
+      ? gotenbergUrlValid ? "configured" : "invalid URL format/protocol"
+      : "missing",
+  });
+  if (!gotenbergUrlRaw) {
+    errors.push("Missing GOTENBERG_URL (and legacy AZURE_GOTENBERG_URL fallback).");
+  } else if (!gotenbergUrlValid) {
+    errors.push("GOTENBERG_URL (or AZURE_GOTENBERG_URL) is not a valid HTTP/HTTPS URL.");
+  }
+
+  const numericChecks = [
+    "GEMINI_REQUEST_TIMEOUT_MS",
+    "GOTENBERG_REQUEST_TIMEOUT_MS",
+    "GOTENBERG_MAX_ATTEMPTS",
+    "GOTENBERG_RETRY_DELAY_MS",
+  ] as const;
+  for (const envName of numericChecks) {
+    const raw = process.env[envName];
+    if (!raw || !raw.trim()) {
+      checks.push({ name: envName, ok: true, detail: "not set (default in use)" });
+      continue;
+    }
+    const parsed = Number(raw);
+    const isInteger = Number.isInteger(parsed);
+    const isValid = envName === "GOTENBERG_MAX_ATTEMPTS"
+      ? isInteger && parsed >= 1
+      : Number.isFinite(parsed) && parsed >= 1;
+    checks.push({
+      name: envName,
+      ok: isValid,
+      detail: isValid ? `configured (${raw.trim()})` : `invalid numeric value (${raw.trim()})`,
+    });
+    if (!isValid) {
+      warnings.push(`${envName} has invalid value "${raw.trim()}"; default runtime value will be used.`);
+    }
+  }
+
+  return { ok: errors.length === 0, errors, warnings, checks };
+}
+
 async function notifyGenerationFailure(email: string, title: string, error: unknown): Promise<void> {
   await sendGenerationFailureEmail({
     email,
@@ -438,6 +545,7 @@ async function runNotesBackground(params: {
   const syllabusTags = normalizeTags(syllabusDoc.tags);
   const formattedQuestions = formatQuestionsForPrompt(questionsRes.documents, unitNumber);
   const systemPrompt = readDynamicSystemPrompt({ promptType: "unit_notes" });
+  const fallbackModel = getModelFallback(model);
   const { topic: topicConcurrency } = getModelConcurrency(model);
   const generatedChunks = await mapWithConcurrency(subTopics, topicConcurrency, async (topic, index) => {
     const promptBody = `University: ${university}
@@ -461,6 +569,7 @@ CRITICAL FORMAT CONSTRAINTS:
 `;
 
     let aiResponseText = "";
+    let lastTopicError: unknown = null;
     for (let retries = 0; retries < TOPIC_RETRY_MAX; retries += 1) {
       try {
         const result = await runGeminiCompletion({
@@ -476,14 +585,46 @@ CRITICAL FORMAT CONSTRAINTS:
           break;
         }
       } catch (error) {
+        lastTopicError = error;
         if (isRateLimitError(error)) {
           await sleep(getRateLimitBackoffMs(model, 3));
         } else {
           await sleep(RETRY_ERROR_DELAY_MS);
         }
         if (retries >= TOPIC_RETRY_MAX - 1) {
-          console.error("[ai/generate-pdf] Topic failed after retries.", { topicIndex: index + 1, error });
+          console.warn("[ai/generate-pdf] Topic failed after retries on primary model.", {
+            topicIndex: index + 1,
+            model,
+            error,
+          });
         }
+      }
+    }
+
+    if (!aiResponseText && fallbackModel && lastTopicError && isTimeoutError(lastTopicError)) {
+      try {
+        console.warn("[ai/generate-pdf] Retrying timed-out topic on fallback model.", {
+          topicIndex: index + 1,
+          fromModel: model,
+          toModel: fallbackModel,
+        });
+        const fallbackResult = await runGeminiCompletion({
+          apiKey: String(geminiApiKey),
+          prompt: `${systemPrompt}\n\n${promptBody}`,
+          maxTokens: TOPIC_FALLBACK_MAX_TOKENS,
+          temperature: 0.4,
+          model: fallbackModel,
+        });
+        const fallbackCandidate = String(fallbackResult.content ?? "").trim();
+        if (fallbackCandidate.length > MIN_TOPIC_RESPONSE_CHARS) {
+          aiResponseText = fallbackCandidate;
+        }
+      } catch (fallbackError) {
+        console.warn("[ai/generate-pdf] Topic fallback model retry failed.", {
+          topicIndex: index + 1,
+          model: fallbackModel,
+          error: fallbackError,
+        });
       }
     }
 
@@ -670,6 +811,23 @@ CRITICAL FORMAT CONSTRAINTS:
   }
 }
 
+export async function GET() {
+  const user = await getServerUser();
+  if (!user) {
+    return NextResponse.json({ error: "Login required." }, { status: 401 });
+  }
+  if (!isAdminPlus(user.role)) {
+    return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+  }
+  const envChecks = collectGeneratePdfEnvChecks();
+  return NextResponse.json({
+    ok: envChecks.ok,
+    errors: envChecks.errors,
+    warnings: envChecks.warnings,
+    checks: envChecks.checks,
+  });
+}
+
 export async function POST(request: NextRequest) {
   const user = await getServerUser();
   if (!user) {
@@ -716,22 +874,28 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-  if (!geminiApiKey?.trim()) {
-    return NextResponse.json(
-      { error: "AI Service not configured (missing GEMINI_API_KEY).", code: "SERVER_MISCONFIGURATION" },
-      { status: 503 },
-    );
-  }
-
-  if (!resolveGotenbergUrl()) {
+  const envChecks = collectGeneratePdfEnvChecks();
+  if (!envChecks.ok) {
+    console.error("[ai/generate-pdf] Environment check failed.", {
+      errors: envChecks.errors,
+      warnings: envChecks.warnings,
+      checks: envChecks.checks,
+    });
     return NextResponse.json(
       {
-        error: "PDF Engine not configured (missing GOTENBERG_URL; legacy fallback AZURE_GOTENBERG_URL also not set).",
+        error: "Server misconfiguration for AI PDF generation.",
         code: "SERVER_MISCONFIGURATION",
+        checks: envChecks.checks,
+        errors: envChecks.errors,
       },
       { status: 503 },
     );
+  }
+  if (envChecks.warnings.length > 0) {
+    console.warn("[ai/generate-pdf] Environment check warnings.", {
+      warnings: envChecks.warnings,
+      checks: envChecks.checks,
+    });
   }
 
   const admin = isAdminPlus(user.role);
