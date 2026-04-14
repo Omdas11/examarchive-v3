@@ -5,7 +5,7 @@ import type { AdminUser, UserRole, CustomRole, UserTier } from "@/types";
 
 /**
  * Roles available for assignment, in descending privilege order.
- * Founders can assign any role; admins can assign up to "admin".
+ * Founders can assign any role; moderator is the highest canonical non-founder role.
  */
 const ROLES: UserRole[] = [
   "founder",

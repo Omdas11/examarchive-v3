@@ -88,7 +88,8 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
           </thead>
           <tbody>
             {list.map((u) => {
-              const milestones = xoMilestones(u.xp);
+              const xoTotal = Number.isFinite(u.xo) ? u.xo : u.xp;
+              const milestones = xoMilestones(xoTotal);
               const displayName = u.name || u.username || u.email;
 
               return (
@@ -138,7 +139,7 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
 
                   {/* XO */}
                   <td className="whitespace-nowrap text-right font-medium text-sm">
-                    {u.xp.toLocaleString()}
+                    {xoTotal.toLocaleString()}
                   </td>
 
                   {/* Achievements / XO milestones */}

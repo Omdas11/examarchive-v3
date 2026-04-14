@@ -40,6 +40,27 @@ function safeJsonStringify(value: unknown): string {
   }
 }
 
+function purchaseMatchesVerifiedPayment(
+  purchase: Record<string, unknown>,
+  expected: {
+    userId: string;
+    orderId: string;
+    paymentId: string;
+    productCode: string;
+    amount: number;
+    currency: string;
+  },
+): boolean {
+  return (
+    purchase.user_id === expected.userId &&
+    purchase.order_id === expected.orderId &&
+    purchase.payment_id === expected.paymentId &&
+    purchase.product_code === expected.productCode &&
+    Number(purchase.amount) === expected.amount &&
+    purchase.currency === expected.currency
+  );
+}
+
 async function getPurchaseByIdOrNull(
   db: ReturnType<typeof adminDatabases>,
   purchaseId: string,
@@ -156,6 +177,22 @@ export async function POST(request: NextRequest) {
 
     const resolvedPurchaseDocumentId = purchaseDocumentId;
     const existingPurchase = await getPurchaseByIdOrNull(db, resolvedPurchaseDocumentId);
+    if (
+      existingPurchase &&
+      !purchaseMatchesVerifiedPayment(existingPurchase, {
+        userId: user.id,
+        orderId,
+        paymentId,
+        productCode: pack.code,
+        amount: pack.amountInPaise,
+        currency: "INR",
+      })
+    ) {
+      return NextResponse.json(
+        { error: "Purchase record conflict detected. Please contact support for reconciliation." },
+        { status: 409 },
+      );
+    }
 
     if (existingPurchase?.credits_applied === true) {
       const userDoc = await db.getDocument(DATABASE_ID, COLLECTION.users, user.id);
@@ -168,6 +205,21 @@ export async function POST(request: NextRequest) {
 
     return await withElectronBalanceLock(user.id, async () => {
       const purchase = await db.getDocument(DATABASE_ID, COLLECTION.purchases, resolvedPurchaseDocumentId);
+      if (
+        !purchaseMatchesVerifiedPayment(purchase as Record<string, unknown>, {
+          userId: user.id,
+          orderId,
+          paymentId,
+          productCode: pack.code,
+          amount: pack.amountInPaise,
+          currency: "INR",
+        })
+      ) {
+        return NextResponse.json(
+          { error: "Purchase record conflict detected. Please contact support for reconciliation." },
+          { status: 409 },
+        );
+      }
       const userDoc = await db.getDocument(DATABASE_ID, COLLECTION.users, user.id);
       const currentCredits = Number(userDoc.ai_credits ?? 0);
       if (!Number.isFinite(currentCredits)) {
@@ -212,11 +264,17 @@ export async function POST(request: NextRequest) {
             ai_credits: currentCredits,
           });
         }
-
-        await db.updateDocument(DATABASE_ID, COLLECTION.purchases, resolvedPurchaseDocumentId, {
-          status: "captured_pending_credit",
-          credits_applied: false,
-        });
+        if (Number.isFinite(preCreditBalance) && currentCredits === preCreditBalance) {
+          await db.updateDocument(DATABASE_ID, COLLECTION.purchases, resolvedPurchaseDocumentId, {
+            status: "captured_pending_credit",
+            credits_applied: false,
+          });
+        } else {
+          return NextResponse.json(
+            { error: "Payment reconciliation requires manual verification. Please contact support." },
+            { status: 409 },
+          );
+        }
       }
 
       const nextCredits = currentCredits + packCredits;
