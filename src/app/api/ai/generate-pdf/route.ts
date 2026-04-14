@@ -76,6 +76,10 @@ function normalizeTags(raw: unknown): string[] {
   return [];
 }
 
+function resolveGotenbergUrl(): string {
+  return (process.env.GOTENBERG_URL || process.env.AZURE_GOTENBERG_URL || "").trim();
+}
+
 async function mapWithConcurrency<T, R>(
   items: readonly T[],
   limit: number,
@@ -295,7 +299,7 @@ async function runNotesBackground(params: {
   } = params;
 
   const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-  const gotenbergUrl = (process.env.GOTENBERG_URL || process.env.AZURE_GOTENBERG_URL || "").trim();
+  const gotenbergUrl = resolveGotenbergUrl();
 
   if (!geminiApiKey) throw new Error("Google Gemini is not configured.");
   if (!gotenbergUrl) throw new Error("Server misconfiguration: missing GOTENBERG_URL; legacy fallback AZURE_GOTENBERG_URL also not set.");
@@ -446,7 +450,7 @@ async function runSolvedPaperBackground(params: {
   } = params;
 
   const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-  const gotenbergUrl = (process.env.GOTENBERG_URL || process.env.AZURE_GOTENBERG_URL || "").trim();
+  const gotenbergUrl = resolveGotenbergUrl();
 
   if (!geminiApiKey) throw new Error("Google Gemini is not configured.");
   if (!gotenbergUrl) throw new Error("Server misconfiguration: missing GOTENBERG_URL; legacy fallback AZURE_GOTENBERG_URL also not set.");
@@ -613,7 +617,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (!((process.env.GOTENBERG_URL || process.env.AZURE_GOTENBERG_URL || "").trim())) {
+  if (!resolveGotenbergUrl()) {
     return NextResponse.json(
       {
         error: "PDF Engine not configured (missing GOTENBERG_URL; legacy fallback AZURE_GOTENBERG_URL also not set).",

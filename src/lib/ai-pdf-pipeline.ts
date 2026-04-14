@@ -451,7 +451,7 @@ export async function renderMarkdownPdfToAppwrite(args: {
     throw new Error("gotenbergUrl is required.");
   }
   const normalizedBaseUrl = effectiveGotenbergUrl.replace(/\/+$/, "");
-  const gotenbergAuthToken = (args.gotenbergAuthToken || process.env.GOTENBERG_AUTH_TOKEN || "").trim();
+  const gotenbergAuthToken = (args.gotenbergAuthToken ?? process.env.GOTENBERG_AUTH_TOKEN ?? "").trim();
   const requestHeaders = gotenbergAuthToken
     ? { Authorization: `Bearer ${gotenbergAuthToken}` }
     : undefined;
