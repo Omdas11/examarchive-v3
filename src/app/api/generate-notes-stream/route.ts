@@ -43,6 +43,10 @@ function isAdminPlus(role: string): boolean {
   return role === "admin" || role === "founder";
 }
 
+function resolveGotenbergUrl(): string {
+  return (process.env.GOTENBERG_URL || process.env.AZURE_GOTENBERG_URL || "").trim();
+}
+
 function normalizeTags(raw: unknown): string[] {
   if (Array.isArray(raw)) {
     return raw

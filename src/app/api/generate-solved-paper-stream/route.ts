@@ -68,6 +68,10 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function resolveGotenbergUrl(): string {
+  return (process.env.GOTENBERG_URL || process.env.AZURE_GOTENBERG_URL || "").trim();
+}
+
 function isRateLimitError(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
   const status = "status" in error ? (error as { status?: unknown }).status : undefined;
