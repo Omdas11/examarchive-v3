@@ -7,16 +7,16 @@ function googleFreeModels() {
   return [
     {
       provider: "Google",
-      id: "gemini-3.1-flash-lite",
-      name: "Gemini 3.1 Flash Lite",
+      id: "gemini-3.1-flash-lite-preview",
+      name: "Gemini 3.1 Flash Lite Preview",
       context: "N/A",
       promptPricing: "0",
       completionPricing: "0",
     },
     {
       provider: "Google",
-      id: "gemma-4-31b",
-      name: "Gemma 4 31B",
+      id: "gemma-4-31b-it",
+      name: "Gemma 4 31B IT",
       context: "N/A",
       promptPricing: "0",
       completionPricing: "0",

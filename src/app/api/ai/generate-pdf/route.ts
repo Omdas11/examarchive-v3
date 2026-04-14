@@ -29,8 +29,8 @@ import { withElectronBalanceLock } from "@/lib/electron-lock";
 
 export const maxDuration = 300;
 
-const DEFAULT_AI_MODEL = "gemini-3.1-flash-lite";
-const GEMMA_UNLIMITED_TPM_MODEL = "gemma-4-31b";
+const DEFAULT_AI_MODEL = "gemini-3.1-flash-lite-preview";
+const GEMMA_UNLIMITED_TPM_MODEL = "gemma-4-31b-it";
 const TOPIC_RETRY_MAX = 3;
 const MIN_TOPIC_RESPONSE_CHARS = 50;
 const QUESTION_MAX_RETRIES = 4;
@@ -122,6 +122,12 @@ function normalizeTags(raw: unknown): string[] {
 
 function resolveGotenbergUrl(): string {
   return (process.env.GOTENBERG_URL?.trim() || process.env.AZURE_GOTENBERG_URL?.trim() || "");
+}
+
+function normalizeSelectedModel(value: string): string {
+  if (value === "gemini-3.1-flash-lite") return DEFAULT_AI_MODEL;
+  if (value === "gemma-4-31b") return GEMMA_UNLIMITED_TPM_MODEL;
+  return value;
 }
 
 async function mapWithConcurrency<T, R>(
@@ -656,7 +662,7 @@ export async function POST(request: NextRequest) {
   const type = (body.type || "").trim();
   const paperCode = (body.paperCode || "").trim();
   const selectedModelRaw = typeof body.model === "string" ? body.model.trim() : "";
-  const selectedModel = selectedModelRaw || DEFAULT_AI_MODEL;
+  const selectedModel = normalizeSelectedModel(selectedModelRaw || DEFAULT_AI_MODEL);
   const userEmail = typeof user.email === "string" ? user.email.trim() : "";
 
   if (!course) return NextResponse.json({ error: "Invalid selection: course is required." }, { status: 400 });
