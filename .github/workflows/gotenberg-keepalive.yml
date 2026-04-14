@@ -1,0 +1,53 @@
+name: Gotenberg Keepalive
+
+on:
+  schedule:
+    - cron: "0 */24 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Gotenberg health endpoint
+        env:
+          GOTENBERG_URL: ${{ secrets.GOTENBERG_URL }}
+          GOTENBERG_AUTH_TOKEN: ${{ secrets.GOTENBERG_AUTH_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${GOTENBERG_URL:-}" ]; then
+            echo "Missing required secret: GOTENBERG_URL"
+            exit 1
+          fi
+
+          BASE_URL="${GOTENBERG_URL%/}"
+          HEALTH_URL="${BASE_URL}/health"
+
+          AUTH_ARGS=()
+          if [ -n "${GOTENBERG_AUTH_TOKEN:-}" ]; then
+            AUTH_ARGS=(-H "Authorization: Bearer ${GOTENBERG_AUTH_TOKEN}")
+          fi
+
+          health_status="$(curl -sS -o /tmp/gotenberg-health.out -w "%{http_code}" "${AUTH_ARGS[@]}" "${HEALTH_URL}" || true)"
+          if [ "${health_status}" -ge 200 ] && [ "${health_status}" -lt 300 ]; then
+            echo "Gotenberg keepalive ok via /health (status=${health_status})"
+            exit 0
+          fi
+
+          root_status="$(curl -sS -o /tmp/gotenberg-root.out -w "%{http_code}" "${AUTH_ARGS[@]}" "${BASE_URL}" || true)"
+          if [ "${root_status}" -ge 200 ] && [ "${root_status}" -lt 300 ]; then
+            echo "Gotenberg keepalive ok via / (status=${root_status})"
+            exit 0
+          fi
+
+          echo "Gotenberg keepalive failed. /health=${health_status}, /=${root_status}"
+          echo "--- /health body (tail) ---"
+          tail -c 500 /tmp/gotenberg-health.out || true
+          echo
+          echo "--- / body (tail) ---"
+          tail -c 500 /tmp/gotenberg-root.out || true
+          exit 1

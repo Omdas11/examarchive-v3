@@ -446,13 +446,18 @@ export async function renderMarkdownPdfToAppwrite(args: {
   userEmail?: string;
 }): Promise<{ fileId: string; fileUrl: string }> {
   // Precedence: explicit runtime arg > primary env > legacy env.
-  const effectiveGotenbergUrl = args.gotenbergUrl
+  const effectiveGotenbergUrl = (args.gotenbergUrl
     || process.env.GOTENBERG_URL
-    || process.env.AZURE_GOTENBERG_URL;
+    || process.env.AZURE_GOTENBERG_URL
+    || "").trim();
   if (!effectiveGotenbergUrl) {
     throw new Error("GOTENBERG_URL is required.");
   }
-  const normalizedBaseUrl = effectiveGotenbergUrl.trim().replace(/\/+$/, "");
+  const normalizedBaseUrl = effectiveGotenbergUrl.replace(/\/+$/, "");
+  const gotenbergAuthToken = (process.env.GOTENBERG_AUTH_TOKEN || "").trim();
+  const requestHeaders = gotenbergAuthToken
+    ? { Authorization: `Bearer ${gotenbergAuthToken}` }
+    : undefined;
   let gotenbergUrl: URL;
   try {
     gotenbergUrl = new URL(normalizedBaseUrl);
@@ -496,6 +501,7 @@ export async function renderMarkdownPdfToAppwrite(args: {
   let gotenbergEndpoint = primaryEndpoint;
   let response = await fetch(gotenbergEndpoint, {
     method: "POST",
+    headers: requestHeaders,
     body: buildFormData(),
   });
   if (response.status === 404) {
@@ -503,6 +509,7 @@ export async function renderMarkdownPdfToAppwrite(args: {
     gotenbergEndpoint = fallbackEndpoint;
     response = await fetch(gotenbergEndpoint, {
       method: "POST",
+      headers: requestHeaders,
       body: buildFormData(),
     });
   }

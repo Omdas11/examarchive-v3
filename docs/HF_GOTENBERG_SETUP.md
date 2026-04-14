@@ -30,17 +30,21 @@ In local development (`.env.local`):
 
 ```bash
 GOTENBERG_URL=https://<username>-<space-name>.hf.space
+# Required only if your HF Space is private:
+# GOTENBERG_AUTH_TOKEN=hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
 In production (Vercel/hosting), set:
 
 - `GOTENBERG_URL` = your HF Space URL
+- `GOTENBERG_AUTH_TOKEN` = HF token (required if Space is private)
 
 Notes:
 
 - Do not add trailing slashes (the app normalizes, but keep it clean).
 - HTTPS is required.
 - `AZURE_GOTENBERG_URL` is still accepted as a legacy fallback, but `GOTENBERG_URL` is the new primary variable.
+- For private Spaces, ensure the token has permission to access the private Space.
 
 ## 3) Verify from your Next.js app
 
@@ -55,8 +59,24 @@ Notes:
 
 - Error: `missing GOTENBERG_URL`
   - Set `GOTENBERG_URL` in environment and restart app.
+- Error: `401 Unauthorized` from Gotenberg
+  - Set `GOTENBERG_AUTH_TOKEN` (HF token) in your runtime environment.
+  - Confirm the token can access the private Space.
 - Error: `Invalid GOTENBERG_URL`
   - Ensure full URL format (`https://...hf.space`).
 - Error: Gotenberg non-200 response
   - Check Space build status and logs in Hugging Face.
   - Ensure the Space is not sleeping/failing startup.
+
+## 5) Keep your Space warm (every 24h)
+
+This repository includes a scheduled workflow:
+
+- `.github/workflows/gotenberg-keepalive.yml`
+
+Set these repository secrets:
+
+- `GOTENBERG_URL` (required) — your HF Space URL
+- `GOTENBERG_AUTH_TOKEN` (optional, required for private Space)
+
+The workflow pings your Gotenberg endpoint every 24 hours and can also be run manually.

@@ -976,14 +976,14 @@ export async function GET(request: NextRequest) {
   const unitNumber = Number(searchParams.get("unitNumber"));
   const semester = normalizeSemester(searchParams.get("semester"));
   const forceMarkdownRerender = searchParams.get("rerender") === "1";
-  const gotenbergUrl = process.env.GOTENBERG_URL || process.env.AZURE_GOTENBERG_URL;
+  const gotenbergUrl = (process.env.GOTENBERG_URL || process.env.AZURE_GOTENBERG_URL || "").trim();
   const userEmail = typeof user.email === "string" ? user.email.trim() : "";
 
   if (!course || !streamName || !type || !paperCode || !Number.isInteger(unitNumber) || unitNumber < 1 || unitNumber > 5) {
     return NextResponse.json({ error: "Invalid selection. Please choose course, stream, type, paper code, and unit 1-5." }, { status: 400 });
   }
   if (!gotenbergUrl) {
-    console.error("[generate-notes-stream] Missing required environment variable: GOTENBERG_URL", {
+    console.error("[generate-notes-stream] Missing required environment variable: GOTENBERG_URL (and legacy AZURE_GOTENBERG_URL)", {
       route: "/api/generate-notes-stream",
       userId: user.id,
       hasGeminiKey: Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY),
