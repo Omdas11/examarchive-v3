@@ -976,7 +976,7 @@ export async function GET(request: NextRequest) {
   const unitNumber = Number(searchParams.get("unitNumber"));
   const semester = normalizeSemester(searchParams.get("semester"));
   const forceMarkdownRerender = searchParams.get("rerender") === "1";
-  const gotenbergUrl = process.env.GOTENBERG_URL || process.env.HF_GOTENBERG_URL || process.env.AZURE_GOTENBERG_URL;
+  const gotenbergUrl = process.env.GOTENBERG_URL || process.env.AZURE_GOTENBERG_URL;
   const userEmail = typeof user.email === "string" ? user.email.trim() : "";
 
   if (!course || !streamName || !type || !paperCode || !Number.isInteger(unitNumber) || unitNumber < 1 || unitNumber > 5) {

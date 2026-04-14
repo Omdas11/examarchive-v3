@@ -624,7 +624,7 @@ export async function GET(request: NextRequest) {
   const paperCode = (searchParams.get("paperCode") || "").trim();
   const year = normalizeNumber(searchParams.get("year"));
   const semester = normalizeSemester(searchParams.get("semester"));
-  const gotenbergUrl = process.env.GOTENBERG_URL || process.env.HF_GOTENBERG_URL || process.env.AZURE_GOTENBERG_URL;
+  const gotenbergUrl = process.env.GOTENBERG_URL || process.env.AZURE_GOTENBERG_URL;
 
   if (!course || !streamName || !type || !paperCode || year === null) {
     return NextResponse.json(

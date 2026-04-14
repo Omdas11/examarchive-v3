@@ -10,6 +10,11 @@ Use a Docker Space with:
 - `app_port: 7860` in `README.md` frontmatter
 - `PORT=7860` in container environment
 
+Version note:
+
+- This project is tested against Gotenberg v8 endpoints (`/forms/chromium/convert/html` with fallback `/convert/html`).
+- If you change major versions, verify endpoint compatibility before rollout.
+
 After deploy, your Space URL should look like:
 
 `https://<username>-<space-name>.hf.space`
@@ -50,4 +55,3 @@ Notes:
 - Error: Gotenberg non-200 response
   - Check Space build status and logs in Hugging Face.
   - Ensure the Space is not sleeping/failing startup.
-

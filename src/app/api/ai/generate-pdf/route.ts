@@ -295,7 +295,7 @@ async function runNotesBackground(params: {
   } = params;
 
   const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-  const gotenbergUrl = process.env.GOTENBERG_URL || process.env.HF_GOTENBERG_URL || process.env.AZURE_GOTENBERG_URL;
+  const gotenbergUrl = process.env.GOTENBERG_URL || process.env.AZURE_GOTENBERG_URL;
 
   if (!geminiApiKey) throw new Error("Google Gemini is not configured.");
   if (!gotenbergUrl) throw new Error("Server misconfiguration: GOTENBERG_URL is missing.");
@@ -446,7 +446,7 @@ async function runSolvedPaperBackground(params: {
   } = params;
 
   const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-  const gotenbergUrl = process.env.GOTENBERG_URL || process.env.HF_GOTENBERG_URL || process.env.AZURE_GOTENBERG_URL;
+  const gotenbergUrl = process.env.GOTENBERG_URL || process.env.AZURE_GOTENBERG_URL;
 
   if (!geminiApiKey) throw new Error("Google Gemini is not configured.");
   if (!gotenbergUrl) throw new Error("Server misconfiguration: GOTENBERG_URL is missing.");
@@ -613,7 +613,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (!((process.env.GOTENBERG_URL || process.env.HF_GOTENBERG_URL || process.env.AZURE_GOTENBERG_URL || "").trim())) {
+  if (!((process.env.GOTENBERG_URL || process.env.AZURE_GOTENBERG_URL || "").trim())) {
     return NextResponse.json(
       { error: "PDF Engine not configured (missing GOTENBERG_URL).", code: "SERVER_MISCONFIGURATION" },
       { status: 503 },

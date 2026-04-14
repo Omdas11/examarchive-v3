@@ -447,7 +447,6 @@ export async function renderMarkdownPdfToAppwrite(args: {
 }): Promise<{ fileId: string; fileUrl: string }> {
   const effectiveGotenbergUrl = args.gotenbergUrl
     || process.env.GOTENBERG_URL
-    || process.env.HF_GOTENBERG_URL
     || process.env.AZURE_GOTENBERG_URL;
   if (!effectiveGotenbergUrl) {
     throw new Error("GOTENBERG_URL is required.");
