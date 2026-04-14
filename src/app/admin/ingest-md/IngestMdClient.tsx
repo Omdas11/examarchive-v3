@@ -19,6 +19,22 @@ type IngestionLog = {
   errors: IngestionError[];
 };
 
+const INGEST_STATUS_PRESENTATION: Record<string, { toastType: "success" | "warning" | "error"; label: string; icon: string }> = {
+  success: { toastType: "success", label: "ingested", icon: "✓" },
+  partial: { toastType: "warning", label: "ingestion partial", icon: "⚠" },
+  failed: { toastType: "error", label: "ingestion failed", icon: "⚠" },
+};
+
+function extractErrorMessages(data: unknown): string[] {
+  if (!data || typeof data !== "object" || !("errors" in data)) return [];
+  const rawErrors = (data as { errors?: unknown }).errors;
+  if (!Array.isArray(rawErrors)) return [];
+  return rawErrors
+    .filter((entry) => typeof entry === "object" && entry !== null && "message" in entry)
+    .map((entry) => String((entry as { message?: unknown }).message ?? ""))
+    .filter(Boolean);
+}
+
 function isMarkdownFile(file: File): boolean {
   return file.name.toLowerCase().endsWith(".md");
 }
@@ -35,11 +51,6 @@ export default function IngestMdClient() {
   const [statusFilter, setStatusFilter] = useState<"all" | "success" | "partial" | "failed">("all");
   const [query, setQuery] = useState("");
   const [autoTrackerFlow, setAutoTrackerFlow] = useState(true);
-  const ingestStatusPresentation: Record<string, { toastType: "success" | "warning" | "error"; label: string; icon: string }> = {
-    success: { toastType: "success", label: "ingested", icon: "✓" },
-    partial: { toastType: "warning", label: "ingestion partial", icon: "⚠" },
-    failed: { toastType: "error", label: "ingestion failed", icon: "⚠" },
-  };
 
   useEffect(() => {
     try {
@@ -102,15 +113,6 @@ export default function IngestMdClient() {
     setLastResult(null);
     const outcomes: Array<{ paperCode: string; status: string; rowsAffected: number; added: number; updated: number }> = [];
     const errors: string[] = [];
-    const extractErrorMessages = (data: unknown): string[] => {
-      if (!data || typeof data !== "object" || !("errors" in data)) return [];
-      const rawErrors = (data as { errors?: unknown }).errors;
-      if (!Array.isArray(rawErrors)) return [];
-      return rawErrors
-        .filter((entry) => typeof entry === "object" && entry !== null && "message" in entry)
-        .map((entry) => String((entry as { message?: unknown }).message ?? ""))
-        .filter(Boolean);
-    };
     try {
       for (const file of files) {
         const form = new FormData();
@@ -149,7 +151,7 @@ export default function IngestMdClient() {
           }
         }
         if (paperCode) {
-          const presentation = ingestStatusPresentation[status] ?? ingestStatusPresentation.failed;
+          const presentation = INGEST_STATUS_PRESENTATION[status] ?? INGEST_STATUS_PRESENTATION.failed;
           showToast(
             `${presentation.icon} ${paperCode} ${presentation.label} — view in Syllabus Tracker`,
             presentation.toastType,
