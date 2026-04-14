@@ -25,6 +25,7 @@ import {
   SUPPORTED_AI_MODELS,
   isSupportedAiModel,
 } from "@/lib/economy";
+import { withElectronBalanceLock } from "@/lib/electron-lock";
 
 export const maxDuration = 300;
 
@@ -73,24 +74,28 @@ function isValidEmail(value: string): boolean {
 }
 
 async function reserveElectronCost(userId: string, cost: number): Promise<void> {
-  const db = adminDatabases();
-  const profile = await db.getDocument(DATABASE_ID, COLLECTION.users, userId);
-  const current = Number(profile.ai_credits ?? 0);
-  if (!Number.isFinite(current) || current < cost) {
-    throw new Error("INSUFFICIENT_ELECTRONS");
-  }
-  await db.updateDocument(DATABASE_ID, COLLECTION.users, userId, {
-    ai_credits: current - cost,
+  await withElectronBalanceLock(userId, async () => {
+    const db = adminDatabases();
+    const profile = await db.getDocument(DATABASE_ID, COLLECTION.users, userId);
+    const current = Number(profile.ai_credits ?? 0);
+    if (!Number.isFinite(current) || current < cost) {
+      throw new Error("INSUFFICIENT_ELECTRONS");
+    }
+    await db.updateDocument(DATABASE_ID, COLLECTION.users, userId, {
+      ai_credits: current - cost,
+    });
   });
 }
 
 async function rollbackElectronCost(userId: string, cost: number): Promise<void> {
   try {
-    const db = adminDatabases();
-    const profile = await db.getDocument(DATABASE_ID, COLLECTION.users, userId);
-    const current = Number(profile.ai_credits ?? 0);
-    await db.updateDocument(DATABASE_ID, COLLECTION.users, userId, {
-      ai_credits: Math.max(0, current + cost),
+    await withElectronBalanceLock(userId, async () => {
+      const db = adminDatabases();
+      const profile = await db.getDocument(DATABASE_ID, COLLECTION.users, userId);
+      const current = Number(profile.ai_credits ?? 0);
+      await db.updateDocument(DATABASE_ID, COLLECTION.users, userId, {
+        ai_credits: Math.max(0, current + cost),
+      });
     });
   } catch (error) {
     console.error("[ai/generate-pdf] Failed to rollback electrons after start-email failure.", {

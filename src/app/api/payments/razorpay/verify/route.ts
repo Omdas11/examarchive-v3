@@ -4,6 +4,7 @@ import { AppwriteException } from "node-appwrite";
 import { getServerUser } from "@/lib/auth";
 import { adminDatabases, COLLECTION, DATABASE_ID, ID } from "@/lib/appwrite";
 import { getCreditPackByCode } from "@/lib/payments";
+import { withElectronBalanceLock } from "@/lib/electron-lock";
 
 type VerifyBody = {
   packCode?: string;
@@ -55,10 +56,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const db = adminDatabases();
-    const userDoc = await db.getDocument(DATABASE_ID, COLLECTION.users, user.id);
-    const currentCredits = Number(userDoc.ai_credits ?? 0);
-    const updatedCredits = Math.max(0, currentCredits + pack.credits);
-    const sanitizedPaymentId = paymentId.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 36);
+    const sanitizedPaymentId = paymentId.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 36);
     const purchaseDocumentId = sanitizedPaymentId.length > 0 ? sanitizedPaymentId : ID.unique();
     const nowIso = new Date().toISOString();
 
@@ -85,36 +83,50 @@ export async function POST(request: NextRequest) {
       if (!(error instanceof AppwriteException && error.code === 409)) {
         throw error;
       }
-      const existing = await db.getDocument(DATABASE_ID, COLLECTION.purchases, purchaseDocumentId);
-      if (existing.credits_applied === true) {
+    }
+
+    return await withElectronBalanceLock(user.id, async () => {
+      const purchase = await db.getDocument(DATABASE_ID, COLLECTION.purchases, purchaseDocumentId);
+      const userDoc = await db.getDocument(DATABASE_ID, COLLECTION.users, user.id);
+      const currentCredits = Number(userDoc.ai_credits ?? 0);
+      const updatedCredits = Math.max(0, currentCredits + pack.credits);
+
+      if (purchase.credits_applied === true) {
         return NextResponse.json({
           ok: true,
           message: "Payment already verified.",
           ai_credits: currentCredits,
         });
       }
-    }
 
-    try {
-      await db.updateDocument(DATABASE_ID, COLLECTION.users, user.id, {
-        ai_credits: updatedCredits,
+      await db.updateDocument(DATABASE_ID, COLLECTION.purchases, purchaseDocumentId, {
+        status: "credit_applying",
+        credits_applied: true,
       });
+
+      try {
+        await db.updateDocument(DATABASE_ID, COLLECTION.users, user.id, {
+          ai_credits: updatedCredits,
+        });
+      } catch (creditApplyError) {
+        await db.updateDocument(DATABASE_ID, COLLECTION.purchases, purchaseDocumentId, {
+          status: "captured_pending_credit",
+          credits_applied: false,
+        }).catch(() => undefined);
+        throw creditApplyError;
+      }
+
       await db.updateDocument(DATABASE_ID, COLLECTION.purchases, purchaseDocumentId, {
         status: "captured",
         credits_applied: true,
       });
+
       return NextResponse.json({
         ok: true,
         message: `Added ${pack.credits}e to your balance.`,
         ai_credits: updatedCredits,
       });
-    } catch (creditApplyError) {
-      await db.updateDocument(DATABASE_ID, COLLECTION.purchases, purchaseDocumentId, {
-        status: "captured_pending_credit",
-        credits_applied: false,
-      }).catch(() => undefined);
-      throw creditApplyError;
-    }
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to verify payment";
     return NextResponse.json({ error: message }, { status: 500 });

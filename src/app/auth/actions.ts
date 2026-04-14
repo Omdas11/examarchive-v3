@@ -28,6 +28,7 @@ import {
   REFERRAL_REFERRER_BONUS_ELECTRONS,
   REFERRAL_SUCCESS_CAP,
 } from "@/lib/economy";
+import { withElectronBalanceLock } from "@/lib/electron-lock";
 
 function getNewUserElectronBalance(hasValidReferrer: boolean): number {
   return hasValidReferrer
@@ -231,15 +232,17 @@ export async function signUp(formData: FormData) {
 
       if (rewardedReferrerDocId) {
         try {
-          const referrer = await db.getDocument(DATABASE_ID, COLLECTION.users, rewardedReferrerDocId);
-          const currentCredits = Number(referrer.ai_credits ?? 0);
-          const currentReferredCount = Number(referrer.referred_users_count ?? 0);
-          if (currentReferredCount < REFERRAL_SUCCESS_CAP) {
-            await db.updateDocument(DATABASE_ID, COLLECTION.users, rewardedReferrerDocId, {
-              ai_credits: currentCredits + REFERRAL_REFERRER_BONUS_ELECTRONS,
-              referred_users_count: currentReferredCount + 1,
-            });
-          }
+          await withElectronBalanceLock(rewardedReferrerDocId, async () => {
+            const referrer = await db.getDocument(DATABASE_ID, COLLECTION.users, rewardedReferrerDocId);
+            const currentCredits = Number(referrer.ai_credits ?? 0);
+            const currentReferredCount = Number(referrer.referred_users_count ?? 0);
+            if (currentReferredCount < REFERRAL_SUCCESS_CAP) {
+              await db.updateDocument(DATABASE_ID, COLLECTION.users, rewardedReferrerDocId, {
+                ai_credits: currentCredits + REFERRAL_REFERRER_BONUS_ELECTRONS,
+                referred_users_count: currentReferredCount + 1,
+              });
+            }
+          });
         } catch (referralRewardError) {
           console.error("[auth] Referrer reward update failed:", referralRewardError);
         }
