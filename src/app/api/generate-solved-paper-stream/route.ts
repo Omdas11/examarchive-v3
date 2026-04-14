@@ -634,7 +634,7 @@ export async function GET(request: NextRequest) {
   }
   if (!gotenbergUrl) {
     return NextResponse.json(
-      { error: "Server misconfiguration: GOTENBERG_URL is missing." },
+      { error: "Server misconfiguration: missing GOTENBERG_URL (legacy fallback AZURE_GOTENBERG_URL not set)." },
       { status: 503 },
     );
   }
