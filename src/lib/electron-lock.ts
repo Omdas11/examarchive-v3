@@ -6,7 +6,7 @@ const LOCK_USER_PREFIX = "__electron_lock__";
 // Sentinel date used only for synthetic lock rows in ai_usage.
 const LOCK_MARKER_DATE = "1970-01-01";
 const LOCK_TTL_MS = 30_000;
-const MAX_LOCK_ID_USER_SEGMENT_LENGTH = 30;
+const MAX_LOCK_ID_USER_SEGMENT_LENGTH = 36 - LOCK_PREFIX.length;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));

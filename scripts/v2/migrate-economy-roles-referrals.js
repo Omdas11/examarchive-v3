@@ -33,6 +33,16 @@ function getInitialCreditsByRole(role) {
   return role === "moderator" || role === "founder" ? 1000 : 100;
 }
 
+/**
+ * Initialize AI credits when the field is missing/invalid, or for first-time
+ * migrations where legacy accounts still have a placeholder zero balance.
+ */
+function shouldInitializeAiCredits(doc, currentAiCredits) {
+  const hasPrimaryRole = typeof doc.primary_role === "string" && doc.primary_role.trim().length > 0;
+  const hasNonNullAiCreditsField = doc.ai_credits !== undefined && doc.ai_credits !== null;
+  return currentAiCredits === null || (!hasPrimaryRole && hasNonNullAiCreditsField && currentAiCredits === 0);
+}
+
 async function main() {
   const endpoint = getEnv("NEXT_PUBLIC_APPWRITE_ENDPOINT");
   const project = getEnv("NEXT_PUBLIC_APPWRITE_PROJECT_ID");
@@ -64,7 +74,9 @@ async function main() {
       const patch = {};
       if (role !== doc.role) patch.role = role;
       if (doc.primary_role !== role) patch.primary_role = role;
-      if (aiCredits === null) patch.ai_credits = getInitialCreditsByRole(role);
+      if (shouldInitializeAiCredits(doc, aiCredits)) {
+        patch.ai_credits = getInitialCreditsByRole(role);
+      }
       if (!Array.isArray(doc.referral_path) || referralPath.length > 1) patch.referral_path = oneLevelPath;
       if (doc.referred_users_count === undefined || doc.referred_users_count === null) {
         patch.referred_users_count = referredUsersCount;

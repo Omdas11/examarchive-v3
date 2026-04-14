@@ -41,6 +41,18 @@ function timingSafeEqual(a: string, b: string): boolean {
   return crypto.timingSafeEqual(ab, bb);
 }
 
+async function getPurchaseByIdOrNull(
+  db: ReturnType<typeof adminDatabases>,
+  purchaseId: string,
+): Promise<Record<string, unknown> | null> {
+  try {
+    return await db.getDocument(DATABASE_ID, COLLECTION.purchases, purchaseId);
+  } catch (error) {
+    if (error instanceof AppwriteException && error.code === 404) return null;
+    throw error;
+  }
+}
+
 export async function POST(request: NextRequest) {
   const user = await getServerUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -142,16 +154,12 @@ export async function POST(request: NextRequest) {
     }
 
     let resolvedPurchaseDocumentId = purchaseDocumentId;
-    let existingPurchase = await db
-      .getDocument(DATABASE_ID, COLLECTION.purchases, resolvedPurchaseDocumentId)
-      .catch(() => null);
+    let existingPurchase = await getPurchaseByIdOrNull(db, resolvedPurchaseDocumentId);
 
     const canUseLegacyPurchaseId =
       Boolean(legacySanitizedPaymentId) && legacySanitizedPaymentId !== purchaseDocumentId;
     if (!existingPurchase && canUseLegacyPurchaseId) {
-      const legacyPurchase = await db
-        .getDocument(DATABASE_ID, COLLECTION.purchases, legacySanitizedPaymentId)
-        .catch(() => null);
+      const legacyPurchase = await getPurchaseByIdOrNull(db, legacySanitizedPaymentId);
       if (legacyPurchase) {
         resolvedPurchaseDocumentId = legacySanitizedPaymentId;
         existingPurchase = legacyPurchase;
