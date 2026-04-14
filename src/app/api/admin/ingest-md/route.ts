@@ -458,7 +458,6 @@ async function createIngestionLog(payload: {
       // ── New fields for syllabus tracker / mobile dashboard ──
       ingested_at: new Date().toISOString(),
       row_count: payload.rowsAffected,
-      tags: PERSONALIZATION_METADATA_TAGS,
     };
     if (payload.entryType) doc.entry_type = payload.entryType;
     if (payload.paperName) doc.paper_name = payload.paperName;
@@ -721,7 +720,7 @@ export async function POST(request: NextRequest) {
         questions: questionResult,
       },
       errors: dbErrors,
-    });
+    }, { status: status === "failed" ? 400 : 200 });
   } catch (error) {
     await createIngestionLog({
       fileName: logFileName,
