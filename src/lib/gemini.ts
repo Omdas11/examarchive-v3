@@ -6,7 +6,11 @@ const REQUEST_TIMEOUT_MS = Number.isFinite(Number(process.env.GEMINI_REQUEST_TIM
   : DEFAULT_REQUEST_TIMEOUT_MS;
 
 export class GeminiServiceError extends Error {
-  constructor(public readonly status: number, message: string) {
+  constructor(
+    public readonly status: number,
+    message: string,
+    public readonly responseBody?: string,
+  ) {
     super(message);
   }
 }
@@ -48,8 +52,9 @@ export async function runGeminiCompletion(args: {
   }
 
   if (!response.ok) {
+    const responseBody = await response.text().catch(() => "");
     const message = `Gemini request failed (status ${response.status})`;
-    throw new GeminiServiceError(response.status, message);
+    throw new GeminiServiceError(response.status, message, responseBody);
   }
 
   const payload = (await response.json()) as {

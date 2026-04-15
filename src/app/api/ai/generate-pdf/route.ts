@@ -18,7 +18,7 @@ import {
   ID,
   Query,
 } from "@/lib/appwrite";
-import { runGeminiCompletion } from "@/lib/gemini";
+import { GeminiServiceError, runGeminiCompletion } from "@/lib/gemini";
 import { readDynamicSystemPrompt } from "@/lib/system-prompt";
 import { renderMarkdownPdfToAppwrite } from "@/lib/ai-pdf-pipeline";
 import {
@@ -42,11 +42,15 @@ const GEMMA_UNLIMITED_TPM_MODEL = "gemma-4-31b-it";
 const MIN_TOPIC_RESPONSE_CHARS = 50;
 const TOPIC_FALLBACK_MAX_TOKENS = 3000;
 const MIN_SOLUTION_RESPONSE_CHARS = 10;
-const RETRY_ERROR_DELAY_MS = 4000;
+const RETRY_BASE_DELAY_MS = 2000;
 const TAVILY_TIMEOUT_MS = 4000;
 const LOGICAL_CHUNK_COUNT = 5;
-const CHUNK_START_DELAY_MS = 4000;
+const GEMINI_CALL_COOLDOWN_MS = 3000;
 const CHUNK_MAX_ATTEMPTS = 3;
+const DEFAULT_BACKGROUND_JOB_TIMEOUT_MS = 12 * 60 * 1000;
+const BACKGROUND_JOB_TIMEOUT_MS = Number.isFinite(Number(process.env.AI_PDF_BACKGROUND_JOB_TIMEOUT_MS))
+  ? Math.max(60_000, Number(process.env.AI_PDF_BACKGROUND_JOB_TIMEOUT_MS))
+  : DEFAULT_BACKGROUND_JOB_TIMEOUT_MS;
 const MIN_SEMESTER = 1;
 const MAX_SEMESTER = 8;
 const CACHE_HASH_PREFIX_LENGTH = 16;
@@ -357,8 +361,62 @@ function getModelFallback(primaryModel: string): string | null {
   return null;
 }
 
-function getRateLimitBackoffMs(model: string, limitedModelMultiplier: number): number {
-  return model === GEMMA_UNLIMITED_TPM_MODEL ? RETRY_ERROR_DELAY_MS : RETRY_ERROR_DELAY_MS * limitedModelMultiplier;
+function getExponentialBackoffMs(attempt: number): number {
+  return RETRY_BASE_DELAY_MS * (2 ** Math.max(0, attempt - 1));
+}
+
+type GeminiCooldownState = { lastCallStartedAt: number };
+
+async function runGeminiWithCooldown(
+  args: Parameters<typeof runGeminiCompletion>[0],
+  cooldownState: GeminiCooldownState,
+): Promise<Awaited<ReturnType<typeof runGeminiCompletion>>> {
+  if (cooldownState.lastCallStartedAt > 0) {
+    const elapsed = Date.now() - cooldownState.lastCallStartedAt;
+    const waitMs = Math.max(0, GEMINI_CALL_COOLDOWN_MS - elapsed);
+    if (waitMs > 0) {
+      await sleep(waitMs);
+    }
+  }
+
+  cooldownState.lastCallStartedAt = Date.now();
+  return runGeminiCompletion(args);
+}
+
+function buildGeminiErrorContext(error: unknown): Record<string, unknown> {
+  if (error instanceof GeminiServiceError) {
+    const details: Record<string, unknown> = {
+      status: error.status,
+      message: error.message,
+    };
+    if ((error.status === 429 || error.status === 503) && typeof error.responseBody === "string") {
+      details.responseBody = error.responseBody;
+    }
+    return details;
+  }
+  if (error instanceof Error) {
+    return {
+      message: error.message,
+      cause: (error as { cause?: unknown }).cause,
+    };
+  }
+  return { error };
+}
+
+async function withGlobalJobTimeout<T>(label: string, fn: () => Promise<T>): Promise<T> {
+  let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+  try {
+    return await Promise.race([
+      fn(),
+      new Promise<T>((_, reject) => {
+        timeoutHandle = setTimeout(() => {
+          reject(new Error(`[ai/generate-pdf] ${label} exceeded timeout after ${BACKGROUND_JOB_TIMEOUT_MS}ms.`));
+        }, BACKGROUND_JOB_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timeoutHandle) clearTimeout(timeoutHandle);
+  }
 }
 
 async function getDailyCount(userId: string, todayStr: string): Promise<number> {
@@ -792,10 +850,9 @@ async function runNotesBackground(params: {
   const systemPrompt = readDynamicSystemPrompt({ promptType: "unit_notes" });
   const fallbackModel = getModelFallback(model);
   const logicalChunks = splitIntoLogicalChunks(subTopics, LOGICAL_CHUNK_COUNT);
-  const generatedChunks = await Promise.all(logicalChunks.map(async (topicsChunk, index) => {
-    if (index > 0) {
-      await sleep(index * CHUNK_START_DELAY_MS);
-    }
+  const cooldownState: GeminiCooldownState = { lastCallStartedAt: 0 };
+  const generatedChunks: string[] = [];
+  for (const [index, topicsChunk] of logicalChunks.entries()) {
     const promptBody = `University: ${university}
 Course: ${course}
 Stream: ${stream}
@@ -820,13 +877,13 @@ CRITICAL FORMAT CONSTRAINTS:
     let lastChunkError: unknown = null;
     for (let attempt = 1; attempt <= CHUNK_MAX_ATTEMPTS; attempt += 1) {
       try {
-        const result = await runGeminiCompletion({
+        const result = await runGeminiWithCooldown({
           apiKey: String(geminiApiKey),
           prompt: `${systemPrompt}\n\n${promptBody}`,
           maxTokens: 4000,
           temperature: 0.4,
           model,
-        });
+        }, cooldownState);
         const candidate = String(result.content ?? "").trim();
         if (candidate.length > MIN_TOPIC_RESPONSE_CHARS) {
           aiResponseText = candidate;
@@ -839,12 +896,10 @@ CRITICAL FORMAT CONSTRAINTS:
           attempt,
           maxAttempts: CHUNK_MAX_ATTEMPTS,
           model,
-          error,
+          error: buildGeminiErrorContext(error),
         });
-        if (isRateLimitError(error)) {
-          await sleep(getRateLimitBackoffMs(model, 3));
-        } else {
-          await sleep(RETRY_ERROR_DELAY_MS);
+        if (attempt < CHUNK_MAX_ATTEMPTS) {
+          await sleep(getExponentialBackoffMs(attempt));
         }
       }
     }
@@ -861,13 +916,13 @@ CRITICAL FORMAT CONSTRAINTS:
           fromModel: model,
           toModel: fallbackModel,
         });
-        const fallbackResult = await runGeminiCompletion({
+        const fallbackResult = await runGeminiWithCooldown({
           apiKey: String(geminiApiKey),
           prompt: `${systemPrompt}\n\n${promptBody}`,
           maxTokens: TOPIC_FALLBACK_MAX_TOKENS,
           temperature: 0.4,
           model: fallbackModel,
-        });
+        }, cooldownState);
         const fallbackCandidate = String(fallbackResult.content ?? "").trim();
         if (fallbackCandidate.length > MIN_TOPIC_RESPONSE_CHARS) {
           aiResponseText = fallbackCandidate;
@@ -876,17 +931,19 @@ CRITICAL FORMAT CONSTRAINTS:
         console.warn("[ai/generate-pdf] Chunk fallback model retry failed.", {
           chunkIndex: index + 1,
           model: fallbackModel,
-          error: fallbackError,
+          error: buildGeminiErrorContext(fallbackError),
         });
       }
     }
 
     if (!aiResponseText) {
-      throw new Error(`Failed to generate chunk ${index + 1} after retries.`);
+      throw new Error(`Failed to generate chunk ${index + 1} after retries.`, {
+        cause: lastChunkError instanceof Error ? lastChunkError : undefined,
+      });
     }
 
-    return aiResponseText;
-  }));
+    generatedChunks.push(aiResponseText);
+  }
 
   const masterMarkdown = generatedChunks.join("\n\n---\n\n");
 
@@ -1026,10 +1083,9 @@ async function runSolvedPaperBackground(params: {
     ? await fetchTavilyContext(`${university} ${course} ${paperCode} ${year} solved paper key points`)
     : "";
   const questionChunks = splitIntoLogicalChunks(allQuestions, LOGICAL_CHUNK_COUNT);
-  const solvedChunks = await Promise.all(questionChunks.map(async (questionsChunk, index) => {
-    if (index > 0) {
-      await sleep(index * CHUNK_START_DELAY_MS);
-    }
+  const cooldownState: GeminiCooldownState = { lastCallStartedAt: 0 };
+  const solvedChunks: string[] = [];
+  for (const [index, questionsChunk] of questionChunks.entries()) {
     const questionText = `University: ${university}
 Course: ${course}
 Stream: ${stream}
@@ -1060,40 +1116,43 @@ CRITICAL FORMAT CONSTRAINTS:
 `;
 
     let aiResponseText = "";
+    let lastChunkError: unknown = null;
     for (let attempt = 1; attempt <= CHUNK_MAX_ATTEMPTS; attempt += 1) {
       try {
-        const result = await runGeminiCompletion({
+        const result = await runGeminiWithCooldown({
           apiKey: String(geminiApiKey),
           prompt: `${systemPrompt}\n\n${questionText}`,
           maxTokens: 4000,
           temperature: 0.4,
           model,
-        });
+        }, cooldownState);
         const candidate = String(result.content ?? "").trim();
         if (candidate.length > MIN_SOLUTION_RESPONSE_CHARS) {
           aiResponseText = candidate;
           break;
         }
       } catch (error) {
+        lastChunkError = error;
         console.warn("[ai/generate-pdf] Solved-paper chunk failed; retrying.", {
           chunkIndex: index + 1,
           attempt,
           maxAttempts: CHUNK_MAX_ATTEMPTS,
-          error,
+          model,
+          error: buildGeminiErrorContext(error),
         });
-        if (isRateLimitError(error)) {
-          await sleep(getRateLimitBackoffMs(model, 5));
-        } else {
-          await sleep(RETRY_ERROR_DELAY_MS);
+        if (attempt < CHUNK_MAX_ATTEMPTS) {
+          await sleep(getExponentialBackoffMs(attempt));
         }
       }
     }
 
     if (!aiResponseText) {
-      throw new Error(`Failed to generate solved-paper chunk ${index + 1} after retries.`);
+      throw new Error(`Failed to generate solved-paper chunk ${index + 1} after retries.`, {
+        cause: lastChunkError instanceof Error ? lastChunkError : undefined,
+      });
     }
-    return aiResponseText;
-  }));
+    solvedChunks.push(aiResponseText);
+  }
   const masterMarkdown = solvedChunks.join("\n\n---\n\n");
 
   const fileToken = ID.unique();
@@ -1281,7 +1340,7 @@ export async function POST(request: NextRequest) {
 
     after(async () => {
       try {
-        await runNotesBackground({
+        await withGlobalJobTimeout("Notes background job", () => runNotesBackground({
           userEmail,
           university,
           course,
@@ -1291,7 +1350,7 @@ export async function POST(request: NextRequest) {
           unitNumber,
           semester: parsedSemester,
           model: selectedModel,
-        });
+        }));
       } catch (error) {
         console.error("[ai/generate-pdf] Notes background job failed:", error);
         await notifyGenerationFailure(userEmail, `Unit Notes (${paperCode} - Unit ${unitNumber})`, error);
@@ -1360,7 +1419,7 @@ export async function POST(request: NextRequest) {
 
   after(async () => {
     try {
-        await runSolvedPaperBackground({
+      await withGlobalJobTimeout("Solved-paper background job", () => runSolvedPaperBackground({
           userEmail,
           university,
           course,
@@ -1370,7 +1429,7 @@ export async function POST(request: NextRequest) {
           year,
           semester: parsedSemester,
           model: selectedModel,
-        });
+      }));
     } catch (error) {
       console.error("[ai/generate-pdf] Solved paper background job failed:", error);
       await notifyGenerationFailure(userEmail, `Solved Paper (${paperCode} ${year})`, error);
