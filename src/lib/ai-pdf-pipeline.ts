@@ -14,6 +14,7 @@ const DEFAULT_PDF_MODEL_NAME = "Gemini 3.1 Flash Lite";
 const DEFAULT_GOTENBERG_REQUEST_TIMEOUT_MS = 45_000;
 const DEFAULT_GOTENBERG_MAX_ATTEMPTS = 3;
 const DEFAULT_GOTENBERG_RETRY_DELAY_MS = 1_500;
+const GOTENBERG_CONVERT_ENDPOINT_PATH = "/forms/chromium/convert/html";
 const GOTENBERG_REQUEST_TIMEOUT_MS = Number.isFinite(Number(process.env.GOTENBERG_REQUEST_TIMEOUT_MS))
   ? Math.max(1_000, Number(process.env.GOTENBERG_REQUEST_TIMEOUT_MS))
   : DEFAULT_GOTENBERG_REQUEST_TIMEOUT_MS;
@@ -37,6 +38,7 @@ function isLoopbackHostname(hostname: string): boolean {
 
 async function postToGotenbergWithRetry(args: {
   endpoint: string;
+  allowedHosts: string[];
   headers?: HeadersInit;
   buildFormData: () => FormData;
 }): Promise<Response> {
@@ -52,6 +54,16 @@ async function postToGotenbergWithRetry(args: {
   if (!isAllowedProtocol) {
     throw new Error(`Refusing insecure or unsupported Gotenberg endpoint: ${endpointUrl.toString()}`);
   }
+  if (endpointUrl.pathname !== GOTENBERG_CONVERT_ENDPOINT_PATH) {
+    throw new Error("Refusing unexpected Gotenberg endpoint path.");
+  }
+  const normalizedEndpointHost = endpointUrl.hostname.toLowerCase();
+  const allowedHostSet = new Set(
+    args.allowedHosts.map((host) => host.trim().toLowerCase()).filter(Boolean),
+  );
+  if (!isLocalhost && !allowedHostSet.has(normalizedEndpointHost)) {
+    throw new Error("Refusing non-whitelisted Gotenberg host.");
+  }
 
   let lastErrorMessage = "Unknown error";
   for (let attempt = 1; attempt <= GOTENBERG_MAX_ATTEMPTS; attempt += 1) {
@@ -66,7 +78,11 @@ async function postToGotenbergWithRetry(args: {
         const errorPreview = (await response.text()).trim().slice(0, 500);
         lastErrorMessage = `${response.status} ${errorPreview || response.statusText || "Unknown error"}`.trim();
         console.error("[ai-pdf-pipeline] Gotenberg Error Body:", errorPreview || response.statusText || "Unknown error");
-        console.warn(`[ai-pdf-pipeline] Gotenberg returned ${response.status} (${args.endpoint}) on attempt ${attempt}/${GOTENBERG_MAX_ATTEMPTS}; retrying.`, {
+        console.warn("[ai-pdf-pipeline] Gotenberg returned retryable 5xx response; retrying.", {
+          status: response.status,
+          endpoint: endpointUrl.toString(),
+          attempt,
+          maxAttempts: GOTENBERG_MAX_ATTEMPTS,
           error: errorPreview || response.statusText || "Unknown error",
         });
         await sleep(GOTENBERG_RETRY_DELAY_MS * attempt);
@@ -76,7 +92,12 @@ async function postToGotenbergWithRetry(args: {
     } catch (error) {
       lastErrorMessage = error instanceof Error ? error.message : String(error);
       if (attempt < GOTENBERG_MAX_ATTEMPTS) {
-        console.warn(`[ai-pdf-pipeline] Gotenberg request failed (${args.endpoint}) on attempt ${attempt}/${GOTENBERG_MAX_ATTEMPTS}; retrying.`, { error });
+        console.warn("[ai-pdf-pipeline] Gotenberg request failed; retrying.", {
+          endpoint: endpointUrl.toString(),
+          attempt,
+          maxAttempts: GOTENBERG_MAX_ATTEMPTS,
+          error,
+        });
         await sleep(GOTENBERG_RETRY_DELAY_MS * attempt);
         continue;
       }
@@ -502,6 +523,19 @@ function buildGotenbergEndpoint(baseUrl: string, endpointPath: string): string {
   return new URL(endpointPath, baseUrl).toString();
 }
 
+function getConfiguredGotenbergHosts(): string[] {
+  const configuredUrls = [process.env.GOTENBERG_URL, process.env.AZURE_GOTENBERG_URL];
+  return configuredUrls.flatMap((candidate) => {
+    const value = (candidate || "").trim();
+    if (!value) return [];
+    try {
+      return [new URL(value).hostname];
+    } catch {
+      return [];
+    }
+  });
+}
+
 function normalizeGotenbergAuthToken(rawToken: string): string {
   const trimmed = rawToken.trim();
   const isWrappedInDoubleQuotes = trimmed.length >= 2 && trimmed.startsWith("\"") && trimmed.endsWith("\"");
@@ -551,7 +585,7 @@ export async function renderMarkdownPdfToAppwrite(args: {
   if (!/^https?:$/.test(gotenbergUrl.protocol)) {
     throw new Error("gotenbergUrl must use HTTP or HTTPS.");
   }
-  const primaryEndpoint = buildGotenbergEndpoint(gotenbergUrl.toString(), "/forms/chromium/convert/html");
+  const primaryEndpoint = buildGotenbergEndpoint(gotenbergUrl.toString(), GOTENBERG_CONVERT_ENDPOINT_PATH);
   const html = buildPdfHtml({
     markdown: args.markdown,
     modelName: args.modelName,
@@ -584,6 +618,7 @@ export async function renderMarkdownPdfToAppwrite(args: {
   const gotenbergEndpoint = primaryEndpoint;
   const response = await postToGotenbergWithRetry({
     endpoint: gotenbergEndpoint,
+    allowedHosts: [gotenbergUrl.hostname, ...getConfiguredGotenbergHosts()],
     headers: requestHeaders,
     buildFormData,
   });

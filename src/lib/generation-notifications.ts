@@ -39,6 +39,21 @@ function getSiteUrl(): string {
   ).replace(/\/+$/, "");
 }
 
+function toSafeHttpUrl(rawUrl: string): string {
+  const siteUrl = getSiteUrl();
+  const normalized = rawUrl.trim();
+  if (!normalized) return siteUrl;
+  try {
+    const url = /^https?:\/\//i.test(normalized)
+      ? new URL(normalized)
+      : new URL(normalized.replace(/^\/+/, ""), `${siteUrl}/`);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return siteUrl;
+    return url.toString();
+  } catch {
+    return siteUrl;
+  }
+}
+
 function getFromAddress(): string {
   const fromAddress = (
     process.env.GMAIL_FROM_ADDRESS ||
@@ -155,17 +170,15 @@ export async function sendGenerationPdfEmail(args: {
   const to = args.email.trim();
   if (!to) return;
   const from = getFromAddress();
-  const normalizedUrl = args.downloadUrl.trim();
-  const downloadUrl = /^https?:\/\//i.test(normalizedUrl)
-    ? normalizedUrl
-    : `${getSiteUrl()}/${normalizedUrl.replace(/^\/+/, "")}`;
+  const safeTitle = sanitizePlainText(args.title) || "PDF generation request";
+  const downloadUrl = toSafeHttpUrl(args.downloadUrl);
   const safeDownloadUrl = escapeHtml(downloadUrl);
 
   const transporter = await getTransporter();
   await transporter.sendMail({
     from,
     to,
-    subject: `ExamArchive: ${args.title} PDF is ready`,
+    subject: `ExamArchive: ${safeTitle} PDF is ready`,
     text: `Your generated PDF is ready.\n\nDownload: ${downloadUrl}\n`,
     html: `<p>Your generated PDF is ready.</p><p><a href="${safeDownloadUrl}">Download PDF</a></p>`,
   });
