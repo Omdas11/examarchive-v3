@@ -284,7 +284,7 @@ async function enqueueAndDispatchPdfJob(params: {
     Query.orderDesc("$createdAt"),
     Query.limit(1),
   ]);
-  if (typeof existingBeforeCreate.documents[0]?.$id === "string") {
+  if (typeof existingBeforeCreate.documents[0]?.$id === "string" && existingBeforeCreate.documents[0].$id) {
     return { jobId: existingBeforeCreate.documents[0].$id };
   }
 
@@ -313,7 +313,7 @@ async function enqueueAndDispatchPdfJob(params: {
     if (!Array.isArray(existing.documents) || existing.documents.length === 0) {
       throw new Error("Job idempotency conflict detected but no existing job could be found.");
     }
-    if (typeof existing.documents[0]?.$id === "string") {
+    if (typeof existing.documents[0]?.$id === "string" && existing.documents[0].$id) {
       return { jobId: existing.documents[0].$id };
     }
     throw error;
