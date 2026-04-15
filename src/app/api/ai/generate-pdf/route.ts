@@ -63,7 +63,7 @@ const EMAIL_DELIVERY_UNAVAILABLE_MESSAGE =
 const QUOTA_RESERVATION_FAILED_CODE = "QUOTA_RESERVATION_FAILED";
 const QUOTA_RESERVATION_FAILED_MESSAGE = "Failed to reserve generation quota. Please try again later.";
 const GOTENBERG_AUTH_DEBUG_LOG_ENABLED = process.env.GOTENBERG_AUTH_DEBUG_LOG === "1";
-const DEFAULT_PDF_GENERATOR_FUNCTION_ID = "pdf-generator";
+const PDF_GENERATOR_FUNCTION_ID = "pdf-generator";
 
 type GenerateBody = {
   jobType?: string;
@@ -161,7 +161,7 @@ function resolveGotenbergUrl(): string {
 }
 
 function resolvePdfGeneratorFunctionId(): string {
-  return process.env.APPWRITE_PDF_GENERATOR_FUNCTION_ID?.trim() || DEFAULT_PDF_GENERATOR_FUNCTION_ID;
+  return process.env.APPWRITE_PDF_GENERATOR_FUNCTION_ID?.trim() || PDF_GENERATOR_FUNCTION_ID;
 }
 
 function normalizeSelectedModel(value: string): string {
@@ -447,6 +447,7 @@ function buildGeminiErrorContext(error: unknown): Record<string, unknown> {
   return { error };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function withGlobalJobTimeout<T>(
   label: string,
   fn: (signal: AbortSignal) => Promise<T>,
@@ -830,7 +831,7 @@ function collectGeneratePdfEnvChecks(): {
   checks.push({
     name: "DISPATCHER_MODE",
     ok: true,
-    detail: `enabled (legacy-inline-handlers=${LEGACY_INLINE_BACKGROUND_HANDLERS.length})`,
+    detail: "enabled (Appwrite function dispatcher)",
   });
 
   return { ok: errors.length === 0, errors, warnings, checks };
@@ -857,6 +858,7 @@ async function ensureGenerationStartedEmail(email: string, title: string): Promi
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function runNotesBackground(params: {
   userEmail: string;
   university: string;
@@ -1117,6 +1119,7 @@ CRITICAL FORMAT CONSTRAINTS:
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function runSolvedPaperBackground(params: {
   userEmail: string;
   university: string;
@@ -1320,12 +1323,6 @@ CRITICAL FORMAT CONSTRAINTS:
     }
   }
 }
-
-const LEGACY_INLINE_BACKGROUND_HANDLERS = [
-  withGlobalJobTimeout,
-  runNotesBackground,
-  runSolvedPaperBackground,
-] as const;
 
 export async function GET() {
   const user = await getServerUser();

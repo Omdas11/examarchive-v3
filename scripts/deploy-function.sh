@@ -52,14 +52,22 @@ const functionEnv = {
   GOTENBERG_URL: gotenbergUrl,
   GOTENBERG_AUTH_TOKEN: gotenbergAuthToken,
   GEMINI_API_KEY: geminiApiKey,
+  GOOGLE_API_KEY: geminiApiKey,
   APPWRITE_ENDPOINT: endpoint,
   APPWRITE_PROJECT_ID: projectId,
   APPWRITE_API_KEY: process.env.FUNCTION_APPWRITE_API_KEY || apiKey,
   DATABASE_ID: process.env.DATABASE_ID || "examarchive",
   AI_JOBS_COLLECTION_ID: process.env.AI_JOBS_COLLECTION_ID || "ai_generation_jobs",
   SYLLABUS_TABLE_COLLECTION_ID: process.env.SYLLABUS_TABLE_COLLECTION_ID || "Syllabus_Table",
+  QUESTIONS_TABLE_COLLECTION_ID: process.env.QUESTIONS_TABLE_COLLECTION_ID || "Questions_Table",
   APPWRITE_BUCKET_ID: process.env.APPWRITE_BUCKET_ID || "papers",
 };
+const SECRET_ENV_KEYS = new Set([
+  "GOTENBERG_AUTH_TOKEN",
+  "GEMINI_API_KEY",
+  "GOOGLE_API_KEY",
+  "APPWRITE_API_KEY",
+]);
 
 function isNotFound(error) {
   return error?.code === 404 || error?.response?.code === 404 || error?.type === "function_not_found";
@@ -101,7 +109,7 @@ async function upsertVariables(functions) {
   const byKey = new Map((listed.variables || []).map((v) => [v.key, v]));
   for (const [key, value] of Object.entries(functionEnv)) {
     if (!value) continue;
-    const secret = key === "GOTENBERG_AUTH_TOKEN" || key === "GEMINI_API_KEY" || key === "APPWRITE_API_KEY";
+    const secret = SECRET_ENV_KEYS.has(key);
     const existing = byKey.get(key);
     if (existing) {
       await functions.updateVariable({

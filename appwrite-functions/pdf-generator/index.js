@@ -10,6 +10,7 @@ const LOGICAL_CHUNK_COUNT = 5;
 const DATABASE_ID = process.env.DATABASE_ID || "examarchive";
 const JOB_COLLECTION_ID = process.env.AI_JOBS_COLLECTION_ID || "ai_generation_jobs";
 const SYLLABUS_TABLE_COLLECTION_ID = process.env.SYLLABUS_TABLE_COLLECTION_ID || "Syllabus_Table";
+const QUESTIONS_TABLE_COLLECTION_ID = process.env.QUESTIONS_TABLE_COLLECTION_ID || "Questions_Table";
 const PAPERS_BUCKET_ID = process.env.APPWRITE_BUCKET_ID || "papers";
 
 function sleep(ms) {
@@ -55,6 +56,12 @@ function markdownToSimpleHtml(markdown, title) {
   return `<!doctype html><html><head><meta charset="utf-8"/><title>${escapeHtml(title)}</title></head><body>${paragraphs}</body></html>`;
 }
 
+function normalizeBearerToken(rawToken) {
+  const token = String(rawToken || "").trim();
+  if (!token) return "";
+  return /^Bearer\s+/i.test(token) ? token : `Bearer ${token}`;
+}
+
 async function runGeminiCompletion({ apiKey, prompt, model }) {
   const response = await fetch(
     `${GEMINI_ENDPOINT}/models/${encodeURIComponent(model || DEFAULT_MODEL)}:generateContent?key=${encodeURIComponent(apiKey)}`,
@@ -97,7 +104,7 @@ async function renderWithGotenberg(markdown, fileName) {
   const form = new FormData();
   form.append("files", new Blob([html], { type: "text/html" }), "index.html");
 
-  const headers = { Authorization: `Bearer ${gotenbergAuthToken.replace(/^Bearer\s+/i, "").trim()}` };
+  const headers = { Authorization: normalizeBearerToken(gotenbergAuthToken) };
   const response = await fetch(`${gotenbergUrl.replace(/\/+$/, "")}/forms/chromium/convert/html`, {
     method: "POST",
     headers,
@@ -106,7 +113,7 @@ async function renderWithGotenberg(markdown, fileName) {
 
   if (!response.ok) {
     const bodyText = await response.text().catch(() => "");
-    throw new Error(`Gotenberg request failed (${response.status}): ${bodyText.slice(0, 1200)}`);
+    throw new Error(`Gotenberg request failed (${response.status}): ${bodyText.slice(0, 2000)}`);
   }
 
   const pdfArrayBuffer = await response.arrayBuffer();
@@ -154,7 +161,25 @@ async function generateNotesPayload(db, payload) {
     if (index > 0) {
       await sleep(GEMINI_COOLDOWN_MS);
     }
-    const prompt = `Generate study notes in markdown for these topics:\n${topicsChunk.map((topic, i) => `${i + 1}. ${topic}`).join("\n")}`;
+    const prompt = `Create high-quality markdown notes for this university syllabus chunk.
+
+University: ${payload.university}
+Course: ${payload.course}
+Stream: ${payload.stream}
+Type: ${payload.type}
+Paper Code: ${payload.paperCode}
+Unit Number: ${payload.unitNumber}
+Chunk: ${index + 1}/${chunks.length}
+
+Sub-topics:
+${topicsChunk.map((topic, i) => `${i + 1}. ${topic}`).join("\n")}
+
+Formatting requirements:
+1. Use markdown headings and subheadings.
+2. Include concise explanations with examples where relevant.
+3. Keep content exam-focused and syllabus-aligned.
+4. Do not include a standalone document title.
+`;
     const responseText = await runGeminiCompletion({
       apiKey: geminiApiKey,
       prompt,
@@ -164,6 +189,68 @@ async function generateNotesPayload(db, payload) {
   }
 
   return generated.join("\n\n---\n\n");
+}
+
+async function generateSolvedPaperPayload(db, payload) {
+  const questionsRes = await db.listDocuments(DATABASE_ID, QUESTIONS_TABLE_COLLECTION_ID, [
+    Query.equal("university", payload.university),
+    Query.equal("course", payload.course),
+    Query.equal("stream", payload.stream),
+    Query.equal("type", payload.type),
+    Query.equal("paper_code", payload.paperCode),
+    Query.equal("year", payload.year),
+    Query.orderAsc("question_no"),
+    Query.limit(500),
+  ]);
+  const questions = (questionsRes.documents || []).filter(
+    (doc) => typeof doc.question_content === "string" && doc.question_content.trim().length > 0,
+  );
+  if (questions.length === 0) {
+    throw new Error("No questions found for this paper/year.");
+  }
+
+  const chunks = splitIntoLogicalChunks(questions, LOGICAL_CHUNK_COUNT);
+  const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+  if (!geminiApiKey) throw new Error("Missing GEMINI_API_KEY.");
+
+  const solved = [];
+  for (const [index, questionsChunk] of chunks.entries()) {
+    if (index > 0) {
+      await sleep(GEMINI_COOLDOWN_MS);
+    }
+    const prompt = `Answer all questions below in markdown.
+
+University: ${payload.university}
+Course: ${payload.course}
+Stream: ${payload.stream}
+Type: ${payload.type}
+Paper Code: ${payload.paperCode}
+Year: ${payload.year}
+Chunk: ${index + 1}/${chunks.length}
+
+Questions:
+${questionsChunk.map((questionDoc, qIndex) => {
+  const qNo = String(questionDoc.question_no || qIndex + 1).trim();
+  const qSub = typeof questionDoc.question_subpart === "string" ? questionDoc.question_subpart.trim() : "";
+  const marks = questionDoc.marks ?? "N/A";
+  const content = String(questionDoc.question_content || "").trim();
+  return `Q${qNo}${qSub ? `(${qSub})` : ""} [${marks} marks]\n${content}`;
+}).join("\n\n")}
+
+Formatting requirements:
+1. Answer every question in this chunk.
+2. Use clear markdown headings by question.
+3. Keep explanations exam-focused and concise.
+4. Do not add a top-level document title.
+`;
+    const responseText = await runGeminiCompletion({
+      apiKey: geminiApiKey,
+      prompt,
+      model: payload.model || DEFAULT_MODEL,
+    });
+    solved.push(responseText);
+  }
+  return solved.join("\n\n---\n\n");
 }
 
 async function processGenerationJob(rawInput) {
@@ -193,10 +280,15 @@ async function processGenerationJob(rawInput) {
   });
 
   try {
-    if (payload.jobType !== "notes") {
-      throw new Error(`Unsupported jobType "${payload.jobType}". Current worker expects "notes".`);
+    const normalizedJobType = String(payload.jobType || "").trim().toLowerCase();
+    let markdown = "";
+    if (normalizedJobType === "notes") {
+      markdown = await generateNotesPayload(db, payload);
+    } else if (normalizedJobType === "solved-paper") {
+      markdown = await generateSolvedPaperPayload(db, payload);
+    } else {
+      throw new Error(`Unsupported jobType "${payload.jobType}".`);
     }
-    const markdown = await generateNotesPayload(db, payload);
     await updateJob(db, jobId, { progress_percent: 80 });
 
     const fileName = buildJobTitle(payload);
