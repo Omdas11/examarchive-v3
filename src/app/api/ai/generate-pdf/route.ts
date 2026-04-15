@@ -36,7 +36,6 @@ const EMAIL_DELIVERY_UNAVAILABLE_MESSAGE =
   "Unable to send generation confirmation email. Request was not started. Please verify email settings and try again.";
 const QUOTA_RESERVATION_FAILED_CODE = "QUOTA_RESERVATION_FAILED";
 const QUOTA_RESERVATION_FAILED_MESSAGE = "Failed to reserve generation quota. Please try again later.";
-const PDF_GENERATOR_FUNCTION_ID = "pdf-generator";
 const APPWRITE_DOC_ID_HASH_LENGTH = 31;
 
 type GenerateBody = {
@@ -111,7 +110,7 @@ async function rollbackElectronCost(userId: string, cost: number): Promise<void>
 }
 
 function resolvePdfGeneratorFunctionId(): string {
-  return process.env.APPWRITE_PDF_GENERATOR_FUNCTION_ID?.trim() || PDF_GENERATOR_FUNCTION_ID;
+  return process.env.APPWRITE_PDF_GENERATOR_FUNCTION_ID?.trim() || "";
 }
 
 function normalizeSelectedModel(value: string): string {
@@ -322,16 +321,44 @@ async function enqueueAndDispatchPdfJob(params: {
   }
 
   const jobId = String(job.$id);
+  console.info("[ai/generate-pdf] Dispatching Appwrite function execution.", {
+    FUNCTION_ID: functionId,
+    jobId,
+    mode: "async",
+  });
   try {
-    await functions.createExecution(
+    const execution = await functions.createExecution({
       functionId,
-      JSON.stringify({
+      body: JSON.stringify({
         jobId,
         payload: params.payload,
       }),
-      true,
-    );
+      async: true,
+    });
+    console.info("[ai/generate-pdf] Appwrite function execution trigger response.", execution);
+    if (![201, 202].includes(Number(execution.responseStatusCode))) {
+      throw new Error(
+        `Function dispatch rejected with responseStatusCode=${String(execution.responseStatusCode)} for FUNCTION_ID=${functionId}`,
+      );
+    }
   } catch (error) {
+    const appwriteError = error as {
+      message?: unknown;
+      status?: unknown;
+      code?: unknown;
+      type?: unknown;
+      response?: unknown;
+    };
+    console.error("[ai/generate-pdf] Appwrite function execution trigger failed.", {
+      FUNCTION_ID: functionId,
+      jobId,
+      message: appwriteError?.message,
+      status: appwriteError?.status,
+      code: appwriteError?.code,
+      type: appwriteError?.type,
+      response: appwriteError?.response,
+      error,
+    });
     const safeMessage = error instanceof Error ? error.message.slice(0, 1000) : "Function dispatch failed.";
     await db.updateDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, jobId, {
       status: "failed",
@@ -456,20 +483,12 @@ function collectGeneratePdfEnvChecks(): {
   }
 
   const pdfGeneratorFunctionId = resolvePdfGeneratorFunctionId();
-  const explicitPdfGeneratorFunctionId = process.env.APPWRITE_PDF_GENERATOR_FUNCTION_ID?.trim() || "";
-  const pdfGeneratorFunctionIdDetail = !pdfGeneratorFunctionId
-    ? "missing"
-    : (explicitPdfGeneratorFunctionId ? `configured (${pdfGeneratorFunctionId})` : `default (${pdfGeneratorFunctionId})`);
+  const pdfGeneratorFunctionIdDetail = pdfGeneratorFunctionId ? `configured (${pdfGeneratorFunctionId})` : "missing";
   checks.push({
     name: "APPWRITE_PDF_GENERATOR_FUNCTION_ID (resolved)",
     ok: !!pdfGeneratorFunctionId,
     detail: pdfGeneratorFunctionIdDetail,
   });
-  if (!explicitPdfGeneratorFunctionId) {
-    warnings.push(
-      `APPWRITE_PDF_GENERATOR_FUNCTION_ID is not set; using default "${PDF_GENERATOR_FUNCTION_ID}".`,
-    );
-  }
   if (!pdfGeneratorFunctionId) {
     errors.push("Missing APPWRITE_PDF_GENERATOR_FUNCTION_ID.");
   }
