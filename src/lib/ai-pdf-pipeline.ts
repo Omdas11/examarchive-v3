@@ -38,7 +38,7 @@ async function postToGotenbergWithRetry(args: {
 }): Promise<Response> {
   const gotenbergBase = args.baseUrl.trim();
   if (!gotenbergBase) {
-    throw new Error("GOTENBERG_URL is required.");
+    throw new Error("Gotenberg base URL is required.");
   }
 
   let baseUrl: URL;
@@ -562,7 +562,7 @@ export async function renderMarkdownPdfToAppwrite(args: {
 }): Promise<{ fileId: string; fileUrl: string }> {
   const configuredGotenbergUrl = args.gotenbergUrl.trim();
   if (!configuredGotenbergUrl) {
-    throw new Error("Missing GOTENBERG_URL for private Gotenberg Space.");
+    throw new Error("Missing gotenbergUrl for private Gotenberg Space.");
   }
   const gotenbergAuthToken = normalizeGotenbergAuthToken(
     args.gotenbergAuthToken ?? process.env.GOTENBERG_AUTH_TOKEN ?? "",
