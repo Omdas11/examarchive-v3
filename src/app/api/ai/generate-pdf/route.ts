@@ -1,6 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createHash } from "node:crypto";
-import { InputFile } from "node-appwrite/file";
 import { getServerUser } from "@/lib/auth";
 import { getDailyLimit } from "@/lib/ai-limits";
 import { checkAndResetQuotas, incrementQuotaCounter, rollbackQuotaCounter } from "@/lib/user-quotas";
@@ -8,25 +7,15 @@ import { NOTES_DAILY_LIMIT } from "@/lib/quota-config";
 import {
   adminDatabases,
   adminFunctions,
-  adminStorage,
-  BUCKET_ID,
-  CACHED_SOLVED_PAPERS_BUCKET_ID,
-  CACHED_UNIT_NOTES_BUCKET_ID,
   COLLECTION,
   DATABASE_ID,
-  getAppwriteFileDownloadUrl,
   ID,
   Query,
 } from "@/lib/appwrite";
-import { GeminiServiceError, runGeminiCompletion } from "@/lib/gemini";
-import { readDynamicSystemPrompt } from "@/lib/system-prompt";
-import { renderMarkdownPdfToAppwrite } from "@/lib/ai-pdf-pipeline";
 import {
   sendGenerationFailureEmail,
-  sendGenerationPdfEmail,
   sendGenerationStartedEmail,
 } from "@/lib/generation-notifications";
-import { formatSearchResults, runWebSearch } from "@/lib/web-search";
 import {
   GENERATION_COST_ELECTRONS,
   SUPPORTED_AI_MODELS,
@@ -39,30 +28,14 @@ export const maxDuration = 60;
 
 const DEFAULT_AI_MODEL = "gemini-3.1-flash-lite-preview";
 const GEMMA_UNLIMITED_TPM_MODEL = "gemma-4-31b-it";
-const MIN_TOPIC_RESPONSE_CHARS = 50;
-const TOPIC_FALLBACK_MAX_TOKENS = 3000;
-const MIN_SOLUTION_RESPONSE_CHARS = 10;
-const RETRY_BASE_DELAY_MS = 2000;
-const TAVILY_TIMEOUT_MS = 4000;
-const LOGICAL_CHUNK_COUNT = 5;
-const GEMINI_CALL_COOLDOWN_MS = 3000;
-const CHUNK_MAX_ATTEMPTS = 3;
-const DEFAULT_BACKGROUND_JOB_TIMEOUT_MS = 12 * 60 * 1000;
-const envBackgroundJobTimeoutMs = Number(process.env.AI_PDF_BACKGROUND_JOB_TIMEOUT_MS);
-const BACKGROUND_JOB_TIMEOUT_MS = Number.isFinite(envBackgroundJobTimeoutMs)
-  ? Math.max(60_000, envBackgroundJobTimeoutMs)
-  : DEFAULT_BACKGROUND_JOB_TIMEOUT_MS;
 const MIN_SEMESTER = 1;
 const MAX_SEMESTER = 8;
-const CACHE_HASH_PREFIX_LENGTH = 16;
-const TRUSTED_GOTENBERG_HOST_SUFFIX = ".hf.space";
 const UNDICI_CONNECT_TIMEOUT_CODE = "UND_ERR_CONNECT_TIMEOUT";
 const EMAIL_DELIVERY_UNAVAILABLE_CODE = "EMAIL_DELIVERY_UNAVAILABLE";
 const EMAIL_DELIVERY_UNAVAILABLE_MESSAGE =
   "Unable to send generation confirmation email. Request was not started. Please verify email settings and try again.";
 const QUOTA_RESERVATION_FAILED_CODE = "QUOTA_RESERVATION_FAILED";
 const QUOTA_RESERVATION_FAILED_MESSAGE = "Failed to reserve generation quota. Please try again later.";
-const GOTENBERG_AUTH_DEBUG_LOG_ENABLED = process.env.GOTENBERG_AUTH_DEBUG_LOG === "1";
 const PDF_GENERATOR_FUNCTION_ID = "pdf-generator";
 
 type GenerateBody = {
@@ -77,8 +50,6 @@ type GenerateBody = {
   year?: number | null;
   model?: string;
 };
-
-type CacheType = "notes" | "solved-paper";
 
 function isAdminPlus(role: string): boolean {
   return role === "moderator" || role === "admin" || role === "founder";
@@ -138,28 +109,6 @@ async function rollbackElectronCost(userId: string, cost: number): Promise<void>
   }
 }
 
-function normalizeTags(raw: unknown): string[] {
-  if (Array.isArray(raw)) {
-    return raw.map((tag) => (typeof tag === "string" ? tag.trim() : "")).filter(Boolean);
-  }
-  if (typeof raw === "string") {
-    return raw.split(",").map((tag) => tag.trim()).filter(Boolean);
-  }
-  return [];
-}
-
-function logGotenbergAuthDebug(): void {
-  if (!GOTENBERG_AUTH_DEBUG_LOG_ENABLED) return;
-  console.log("[ai/generate-pdf] GOTENBERG_AUTH_TOKEN loaded:", {
-    present: Boolean(process.env.GOTENBERG_AUTH_TOKEN?.trim()),
-    looksLikeHfToken: process.env.GOTENBERG_AUTH_TOKEN?.trim().startsWith("hf_") ?? false,
-  });
-}
-
-function resolveGotenbergUrl(): string {
-  return process.env.GOTENBERG_URL?.trim() || "";
-}
-
 function resolvePdfGeneratorFunctionId(): string {
   return process.env.APPWRITE_PDF_GENERATOR_FUNCTION_ID?.trim() || PDF_GENERATOR_FUNCTION_ID;
 }
@@ -170,310 +119,11 @@ function normalizeSelectedModel(value: string): string {
   return value;
 }
 
-const ABBREV_DOT_RE = /\b(?:\d+|[a-zA-Z])\.(?=\s|$)|(?:\d+(?:st|nd|rd|th)\.)/gi;
-const ABBREV_PLACEHOLDER = "\x00";
-const SYLLABUS_TOPIC_SPLIT_PATTERN = /(?:(?<=[.;])\s*|\n{2,})/;
-
-function splitSyllabusIntoSubTopics(syllabusContent: string): string[] {
-  const protected_ = syllabusContent.replace(ABBREV_DOT_RE, (m) => m.slice(0, -1) + ABBREV_PLACEHOLDER);
-  return protected_
-    // Split on sentence-ending punctuation + whitespace, or on blank-line separators.
-    .split(SYLLABUS_TOPIC_SPLIT_PATTERN)
-    .map((part) => part.replace(/\x00/g, ".").replace(/\s+/g, " ").trim())
-    .filter(Boolean);
-}
-
-function formatQuestionsForPrompt(questions: Array<Record<string, unknown>>, unitNumber: number): string {
-  return questions
-    .filter((doc) => {
-      const unitRaw = doc.unit_number;
-      if (typeof unitRaw === "number") return unitRaw === unitNumber;
-      if (typeof unitRaw === "string") {
-        const parsed = Number(unitRaw);
-        return Number.isInteger(parsed) ? parsed === unitNumber : false;
-      }
-      return false;
-    })
-    .map((doc, idx) => {
-      const content = typeof doc.question_content === "string" ? doc.question_content.trim() : "";
-      const marks = typeof doc.marks === "number" ? ` [${doc.marks} marks]` : "";
-      return `${idx + 1}. ${content}${marks}`;
-    })
-    .filter((q) => q.trim().length > 2)
-    .join("\n");
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function abortError(signal: AbortSignal): Error {
-  const reason = signal.reason;
-  if (reason instanceof Error) return reason;
-  if (typeof reason === "string" && reason.trim()) return new Error(reason);
-  return new Error("Operation aborted");
-}
-
-function throwIfAborted(signal?: AbortSignal): void {
-  if (signal?.aborted) {
-    throw abortError(signal);
-  }
-}
-
-async function sleepWithAbort(ms: number, signal?: AbortSignal): Promise<void> {
-  if (ms <= 0) return;
-  if (!signal) {
-    await sleep(ms);
-    return;
-  }
-  throwIfAborted(signal);
-  await new Promise<void>((resolve, reject) => {
-    const onAbort = () => {
-      clearTimeout(timeoutHandle);
-      signal.removeEventListener("abort", onAbort);
-      reject(abortError(signal));
-    };
-    const timeoutHandle = setTimeout(() => {
-      signal.removeEventListener("abort", onAbort);
-      resolve();
-    }, ms);
-    signal.addEventListener("abort", onAbort, { once: true });
-  });
-}
-
-function splitIntoLogicalChunks<T>(items: readonly T[], chunkCount: number): T[][] {
-  if (items.length === 0) return [];
-  const safeChunkCount = Math.max(1, Math.min(chunkCount, items.length));
-  const baseSize = Math.floor(items.length / safeChunkCount);
-  const remainder = items.length % safeChunkCount;
-  const chunks: T[][] = [];
-  let start = 0;
-  for (let index = 0; index < safeChunkCount; index += 1) {
-    const size = baseSize + (index < remainder ? 1 : 0);
-    const end = start + size;
-    chunks.push(items.slice(start, end));
-    start = end;
-  }
-  return chunks.filter((chunk) => chunk.length > 0);
-}
-
 function buildContentHash(parts: Array<string | number | null | undefined>): string {
   const normalized = parts
     .map((part) => (part === null || typeof part === "undefined" ? "" : String(part).trim().toLowerCase()))
     .join("::");
   return createHash("sha256").update(normalized).digest("hex");
-}
-
-async function hasCachedPdf(fileId: string): Promise<boolean> {
-  const trimmed = fileId.trim();
-  if (!trimmed) return false;
-  const storage = adminStorage();
-  try {
-    await storage.getFile(BUCKET_ID, trimmed);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function readCachedMarkdown(params: {
-  contentHash: string;
-  cacheType: CacheType;
-  defaultBucketId: string;
-}): Promise<{ cacheId: string; markdown: string; pdfFileId: string | null } | null> {
-  const db = adminDatabases();
-  const storage = adminStorage();
-  try {
-    const result = await db.listDocuments(DATABASE_ID, COLLECTION.ai_cache_index, [
-      Query.equal("content_hash", params.contentHash),
-      Query.equal("cache_type", params.cacheType),
-      Query.equal("status", "completed"),
-      Query.orderDesc("$createdAt"),
-      Query.limit(1),
-    ]);
-    const doc = result.documents[0];
-    if (!doc) return null;
-    const markdownFileId = typeof doc.markdown_file_id === "string" ? doc.markdown_file_id.trim() : "";
-    if (!markdownFileId) return null;
-    const bucketId = typeof doc.bucket_id === "string" && doc.bucket_id.trim()
-      ? doc.bucket_id.trim()
-      : params.defaultBucketId;
-    const markdownBuffer = await storage.getFileDownload(bucketId, markdownFileId);
-    const markdown = Buffer.from(markdownBuffer).toString("utf-8").trim();
-    if (!markdown) return null;
-    const pdfFileId = typeof doc.pdf_file_id === "string" && doc.pdf_file_id.trim()
-      ? doc.pdf_file_id.trim()
-      : null;
-    return {
-      cacheId: String(doc.$id),
-      markdown,
-      pdfFileId,
-    };
-  } catch (error) {
-    console.warn("[ai/generate-pdf] Cache lookup unavailable, continuing with fresh generation.", { error });
-    return null;
-  }
-}
-
-async function upsertCacheEntry(params: {
-  contentHash: string;
-  cacheType: CacheType;
-  bucketId: string;
-  markdown: string;
-  pdfFileId: string;
-}): Promise<void> {
-  const db = adminDatabases();
-  const storage = adminStorage();
-  try {
-    const hashPrefixLength = Math.min(CACHE_HASH_PREFIX_LENGTH, params.contentHash.length || CACHE_HASH_PREFIX_LENGTH);
-    const markdownInput = InputFile.fromBuffer(
-      Buffer.from(params.markdown, "utf-8"),
-      `${params.cacheType}-${params.contentHash.slice(0, hashPrefixLength)}.md`,
-    );
-    const markdownUpload = await storage.createFile(params.bucketId, ID.unique(), markdownInput);
-    const markdownFileId = String(markdownUpload.$id);
-    const existing = await db.listDocuments(DATABASE_ID, COLLECTION.ai_cache_index, [
-      Query.equal("content_hash", params.contentHash),
-      Query.equal("cache_type", params.cacheType),
-      Query.orderDesc("$createdAt"),
-      Query.limit(1),
-    ]);
-    const existingId = typeof existing.documents[0]?.$id === "string" ? existing.documents[0].$id : "";
-    const payload = {
-      content_hash: params.contentHash,
-      cache_type: params.cacheType,
-      status: "completed",
-      bucket_id: params.bucketId,
-      markdown_file_id: markdownFileId,
-      pdf_file_id: params.pdfFileId,
-      created_at: new Date().toISOString(),
-    };
-    if (existingId) {
-      await db.updateDocument(DATABASE_ID, COLLECTION.ai_cache_index, existingId, payload);
-    } else {
-      const docId = ID.unique();
-      await db.createDocument(DATABASE_ID, COLLECTION.ai_cache_index, docId, payload);
-    }
-  } catch (error) {
-    console.warn("[ai/generate-pdf] Failed to persist ai_cache_index entry.", { error });
-  }
-}
-
-function isRateLimitError(error: unknown): boolean {
-  if (!error || typeof error !== "object") return false;
-  const errObj = error as {
-    status?: unknown;
-    code?: unknown;
-    message?: unknown;
-    response?: { status?: unknown };
-    error?: { status?: unknown; code?: unknown };
-  };
-  const status = errObj.status ?? errObj.response?.status ?? errObj.error?.status;
-  const code = errObj.code ?? errObj.error?.code;
-  if (status === 429 || code === 429 || code === "429") return true;
-  const message = String(errObj.message ?? "");
-  return /rate limit|resource exhausted/i.test(message);
-}
-
-function isTimeoutError(error: unknown): boolean {
-  if (!error || typeof error !== "object") return false;
-  const errObj = error as {
-    status?: unknown;
-    code?: unknown;
-    message?: unknown;
-    cause?: unknown;
-  };
-  const status = errObj.status;
-  const code = errObj.code;
-  const message = String(errObj.message ?? "");
-  if (code === UNDICI_CONNECT_TIMEOUT_CODE) return true;
-  if (status === 408 || status === 504) return true;
-  if (status === 503 && /timeout/i.test(message)) return true;
-  if (/aborted due to timeout|timed out|timeout/i.test(message)) return true;
-  const cause = errObj.cause as { message?: unknown } | undefined;
-  const causeMessage = typeof cause?.message === "string" ? cause.message : "";
-  return /timeout/i.test(causeMessage);
-}
-
-function getModelFallback(primaryModel: string): string | null {
-  if (primaryModel === DEFAULT_AI_MODEL) return GEMMA_UNLIMITED_TPM_MODEL;
-  if (primaryModel === GEMMA_UNLIMITED_TPM_MODEL) return DEFAULT_AI_MODEL;
-  return null;
-}
-
-function getExponentialBackoffMs(attempt: number): number {
-  const exponent = Math.min(Math.max(0, attempt - 1), 4);
-  return RETRY_BASE_DELAY_MS * (2 ** exponent);
-}
-
-type GeminiCooldownState = { lastCallStartedAt: number };
-
-async function runGeminiWithCooldown(
-  args: Parameters<typeof runGeminiCompletion>[0],
-  cooldownState: GeminiCooldownState,
-  signal?: AbortSignal,
-): Promise<Awaited<ReturnType<typeof runGeminiCompletion>>> {
-  throwIfAborted(signal);
-  if (cooldownState.lastCallStartedAt > 0) {
-    const elapsed = Date.now() - cooldownState.lastCallStartedAt;
-    const waitMs = Math.max(0, GEMINI_CALL_COOLDOWN_MS - elapsed);
-    if (waitMs > 0) {
-      await sleepWithAbort(waitMs, signal);
-    }
-  }
-
-  throwIfAborted(signal);
-  cooldownState.lastCallStartedAt = Date.now();
-  return runGeminiCompletion({ ...args, signal });
-}
-
-function buildGeminiErrorContext(error: unknown): Record<string, unknown> {
-  if (error instanceof GeminiServiceError) {
-    const details: Record<string, unknown> = {
-      status: error.status,
-      message: error.message,
-    };
-    if ((error.status === 429 || error.status === 503) && typeof error.responseBody === "string") {
-      details.responseBody = error.responseBody;
-    }
-    return details;
-  }
-  if (error instanceof Error) {
-    return {
-      message: error.message,
-      cause: (error as { cause?: unknown }).cause,
-    };
-  }
-  return { error };
-}
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function withGlobalJobTimeout<T>(
-  label: string,
-  fn: (signal: AbortSignal) => Promise<T>,
-): Promise<T> {
-  let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
-  let settled = false;
-  const timeoutMessage = `[ai/generate-pdf] ${label} exceeded timeout after ${BACKGROUND_JOB_TIMEOUT_MS}ms.`;
-  const abortController = new AbortController();
-  try {
-    const jobPromise = fn(abortController.signal).finally(() => {
-      settled = true;
-      if (timeoutHandle) clearTimeout(timeoutHandle);
-    });
-    return await Promise.race([
-      jobPromise,
-      new Promise<T>((_, reject) => {
-        timeoutHandle = setTimeout(() => {
-          if (settled) return;
-          abortController.abort(new Error(timeoutMessage));
-          reject(new Error(timeoutMessage));
-        }, BACKGROUND_JOB_TIMEOUT_MS);
-      }),
-    ]);
-  } finally {
-    if (timeoutHandle) clearTimeout(timeoutHandle);
-  }
 }
 
 async function getDailyCount(userId: string, todayStr: string): Promise<number> {
@@ -651,20 +301,6 @@ async function enqueueAndDispatchPdfJob(params: {
   return { jobId };
 }
 
-async function fetchTavilyContext(query: string): Promise<string> {
-  try {
-    const results = await Promise.race([
-      runWebSearch(query, 2),
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("Tavily timeout")), TAVILY_TIMEOUT_MS),
-      ),
-    ]);
-    return formatSearchResults(results);
-  } catch {
-    return "";
-  }
-}
-
 function formatFailureReason(error: unknown): string {
   if (!(error instanceof Error)) return "Background generation failed.";
 
@@ -742,57 +378,33 @@ function collectGeneratePdfEnvChecks(): {
   const checks: EnvCheckResult[] = [];
   const errors: string[] = [];
   const warnings: string[] = [];
-  const geminiApiKey = (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "").trim();
-  const gotenbergUrlRaw = resolveGotenbergUrl();
-  const gotenbergAuthToken = (process.env.GOTENBERG_AUTH_TOKEN || "").trim();
+  const appwriteEndpoint = (process.env.APPWRITE_ENDPOINT || process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT || "").trim();
+  const appwriteProjectId = (process.env.APPWRITE_PROJECT_ID || process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID || "").trim();
+  const appwriteApiKey = (process.env.APPWRITE_API_KEY || "").trim();
 
   checks.push({
-    name: "GEMINI_API_KEY|GOOGLE_API_KEY",
-    ok: !!geminiApiKey,
-    detail: geminiApiKey ? "configured" : "missing",
+    name: "APPWRITE_ENDPOINT|NEXT_PUBLIC_APPWRITE_ENDPOINT",
+    ok: !!appwriteEndpoint,
+    detail: appwriteEndpoint ? "configured" : "missing",
   });
-  if (!geminiApiKey) {
-    errors.push("Missing GEMINI_API_KEY (or GOOGLE_API_KEY fallback).");
-  }
-
-  let gotenbergUrlValid = false;
-  let gotenbergUrlDetail = "missing";
-  if (gotenbergUrlRaw) {
-    try {
-      const parsed = new URL(gotenbergUrlRaw);
-      const usesHttps = parsed.protocol === "https:";
-      const isTrustedHost = parsed.hostname.toLowerCase().endsWith(TRUSTED_GOTENBERG_HOST_SUFFIX);
-      gotenbergUrlValid = usesHttps && isTrustedHost;
-      if (!usesHttps) {
-        gotenbergUrlDetail = "must use HTTPS";
-      } else if (!isTrustedHost) {
-        gotenbergUrlDetail = `must be a trusted ${TRUSTED_GOTENBERG_HOST_SUFFIX} host`;
-      } else {
-        gotenbergUrlDetail = "configured";
-      }
-    } catch {
-      gotenbergUrlValid = false;
-      gotenbergUrlDetail = "invalid URL format";
-    }
+  if (!appwriteEndpoint) {
+    errors.push("Missing APPWRITE_ENDPOINT (or NEXT_PUBLIC_APPWRITE_ENDPOINT fallback).");
   }
   checks.push({
-    name: "GOTENBERG_URL",
-    ok: gotenbergUrlValid,
-    detail: gotenbergUrlDetail,
+    name: "APPWRITE_PROJECT_ID|NEXT_PUBLIC_APPWRITE_PROJECT_ID",
+    ok: !!appwriteProjectId,
+    detail: appwriteProjectId ? "configured" : "missing",
   });
-  if (!gotenbergUrlRaw) {
-    errors.push("Missing GOTENBERG_URL.");
-  } else if (!gotenbergUrlValid) {
-    errors.push(`GOTENBERG_URL must be an HTTPS ${TRUSTED_GOTENBERG_HOST_SUFFIX} URL.`);
+  if (!appwriteProjectId) {
+    errors.push("Missing APPWRITE_PROJECT_ID (or NEXT_PUBLIC_APPWRITE_PROJECT_ID fallback).");
   }
-
   checks.push({
-    name: "GOTENBERG_AUTH_TOKEN",
-    ok: !!gotenbergAuthToken,
-    detail: gotenbergAuthToken ? "configured" : "missing",
+    name: "APPWRITE_API_KEY",
+    ok: !!appwriteApiKey,
+    detail: appwriteApiKey ? "configured" : "missing",
   });
-  if (!gotenbergAuthToken) {
-    errors.push("Missing GOTENBERG_AUTH_TOKEN for private Hugging Face Space.");
+  if (!appwriteApiKey) {
+    errors.push("Missing APPWRITE_API_KEY.");
   }
 
   const pdfGeneratorFunctionId = resolvePdfGeneratorFunctionId();
@@ -805,27 +417,21 @@ function collectGeneratePdfEnvChecks(): {
     errors.push("Missing APPWRITE_PDF_GENERATOR_FUNCTION_ID.");
   }
 
-  const numericChecks = [
-    "GEMINI_REQUEST_TIMEOUT_MS",
-    "GOTENBERG_REQUEST_TIMEOUT_MS",
-    "GOTENBERG_MAX_ATTEMPTS",
-    "GOTENBERG_RETRY_DELAY_MS",
+  const workerOnlyChecks = [
+    "GEMINI_API_KEY|GOOGLE_API_KEY",
+    "GOTENBERG_URL",
+    "GOTENBERG_AUTH_TOKEN",
   ] as const;
-  for (const envName of numericChecks) {
-    const raw = process.env[envName];
-    if (!raw || !raw.trim()) {
-      checks.push({ name: envName, ok: true, detail: "not set (default in use)" });
-      continue;
-    }
-    const parsed = Number(raw);
-    const isValid = Number.isInteger(parsed) && parsed >= 1;
+  for (const checkName of workerOnlyChecks) {
+    const [primary, fallback] = checkName.split("|");
+    const raw = ((primary && process.env[primary]) || (fallback && process.env[fallback]) || "").trim();
     checks.push({
-      name: envName,
-      ok: isValid,
-      detail: isValid ? `configured (${raw.trim()})` : `invalid numeric value (${raw.trim()})`,
+      name: checkName,
+      ok: !!raw,
+      detail: raw ? "configured (route env)" : "not set on route (expected in Appwrite function env)",
     });
-    if (!isValid) {
-      warnings.push(`${envName} has invalid value "${raw.trim()}"; default runtime value will be used.`);
+    if (!raw) {
+      warnings.push(`${checkName} is not set on route runtime; ensure it is configured in Appwrite function variables.`);
     }
   }
   checks.push({

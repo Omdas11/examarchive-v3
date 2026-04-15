@@ -108,7 +108,7 @@ const AI_COLLECTIONS = [
       { key: "status", type: "string", required: true, size: 32 },
       { key: "progress_percent", type: "integer", required: false },
       { key: "input_payload_json", type: "string", required: true, size: 10000 },
-      { key: "result_note_id", type: "string", required: false, size: 128 },
+      { key: "result_file_id", type: "string", required: false, size: 128 },
       { key: "error_message", type: "string", required: false, size: 2000 },
       { key: "started_at", type: "datetime", required: false },
       { key: "completed_at", type: "datetime", required: false },

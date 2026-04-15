@@ -78,69 +78,62 @@ function isNotFound(error) {
 
 async function upsertFunction(functions) {
   try {
-    const existing = await functions.get({ functionId });
-    await functions.update({
+    const existing = await functions.get(functionId);
+    await functions.update(
       functionId,
-      name: existing.name || functionName,
+      existing.name || functionName,
       runtime,
-      execute: existing.execute || ["any"],
-      timeout: timeoutSeconds,
-      enabled: true,
-      logging: true,
-      entrypoint: "index.js",
-      commands: "npm install --omit=dev",
-    });
+      existing.execute || ["any"],
+      undefined,
+      undefined,
+      timeoutSeconds,
+      true,
+      true,
+      "index.js",
+      "npm install --omit=dev",
+    );
     return existing;
   } catch (error) {
     if (!isNotFound(error)) throw error;
-    return functions.create({
+    return functions.create(
       functionId,
-      name: functionName,
+      functionName,
       runtime,
-      execute: ["any"],
-      timeout: timeoutSeconds,
-      enabled: true,
-      logging: true,
-      entrypoint: "index.js",
-      commands: "npm install --omit=dev",
-    });
+      ["any"],
+      undefined,
+      undefined,
+      timeoutSeconds,
+      true,
+      true,
+      "index.js",
+      "npm install --omit=dev",
+    );
   }
 }
 
 async function upsertVariables(functions) {
-  const listed = await functions.listVariables({ functionId });
+  const listed = await functions.listVariables(functionId);
   const byKey = new Map((listed.variables || []).map((v) => [v.key, v]));
   for (const [key, value] of Object.entries(functionEnv)) {
     if (!value) continue;
     const secret = SECRET_ENV_KEYS.has(key);
     const existing = byKey.get(key);
     if (existing) {
-      await functions.updateVariable({
-        functionId,
-        variableId: existing.$id,
-        key,
-        value,
-        secret,
-      });
+      await functions.updateVariable(functionId, existing.$id, key, value, secret);
     } else {
-      await functions.createVariable({
-        functionId,
-        key,
-        value,
-        secret,
-      });
+      await functions.createVariable(functionId, key, value, secret);
     }
   }
 }
 
 async function deployCode(functions) {
-  const deployment = await functions.createDeployment({
+  const deployment = await functions.createDeployment(
     functionId,
-    code: InputFile.fromPath(bundlePath, "pdf-generator-function.tgz"),
-    activate: true,
-    entrypoint: "index.js",
-    commands: "npm install --omit=dev",
-  });
+    InputFile.fromPath(bundlePath, "pdf-generator-function.tgz"),
+    true,
+    "index.js",
+    "npm install --omit=dev",
+  );
   return deployment;
 }
 

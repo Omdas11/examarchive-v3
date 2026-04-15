@@ -10,12 +10,29 @@ const GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta";
 const DEFAULT_MODEL = process.env.GEMINI_MODEL_ID || "gemini-3.1-flash-lite-preview";
 const GEMINI_COOLDOWN_MS = 3000;
 const LOGICAL_CHUNK_COUNT = 5;
+const GEMINI_REQUEST_TIMEOUT_MS = Number.isFinite(Number(process.env.GEMINI_REQUEST_TIMEOUT_MS))
+  ? Math.max(1_000, Number(process.env.GEMINI_REQUEST_TIMEOUT_MS))
+  : 45_000;
 const DEFAULT_GEMINI_MAX_ATTEMPTS = Number.isInteger(Number(process.env.GEMINI_MAX_ATTEMPTS))
   ? Math.max(1, Number(process.env.GEMINI_MAX_ATTEMPTS))
   : 3;
 const DEFAULT_GEMINI_BASE_BACKOFF_MS = Number.isFinite(Number(process.env.GEMINI_BASE_BACKOFF_MS))
   ? Math.max(250, Number(process.env.GEMINI_BASE_BACKOFF_MS))
   : 1500;
+const GOTENBERG_ENDPOINT_PATH = "/forms/chromium/convert/html";
+const TRUSTED_GOTENBERG_HOST_SUFFIX = ".hf.space";
+const GOTENBERG_REQUEST_TIMEOUT_MS = Number.isFinite(Number(process.env.GOTENBERG_REQUEST_TIMEOUT_MS))
+  ? Math.max(1_000, Number(process.env.GOTENBERG_REQUEST_TIMEOUT_MS))
+  : 45_000;
+const GOTENBERG_MAX_ATTEMPTS = Number.isInteger(Number(process.env.GOTENBERG_MAX_ATTEMPTS))
+  ? Math.max(1, Number(process.env.GOTENBERG_MAX_ATTEMPTS))
+  : 3;
+const GOTENBERG_BASE_BACKOFF_MS = Number.isFinite(Number(process.env.GOTENBERG_BASE_BACKOFF_MS))
+  ? Math.max(250, Number(process.env.GOTENBERG_BASE_BACKOFF_MS))
+  : 1500;
+const TAVILY_TIMEOUT_MS = Number.isFinite(Number(process.env.TAVILY_TIMEOUT_MS))
+  ? Math.max(1_000, Number(process.env.TAVILY_TIMEOUT_MS))
+  : 8_000;
 
 const DATABASE_ID = process.env.DATABASE_ID || "examarchive";
 const JOB_COLLECTION_ID = process.env.AI_JOBS_COLLECTION_ID || "ai_generation_jobs";
@@ -128,7 +145,10 @@ function sanitizeGeneratedHtml(input) {
       math: ["xmlns", "display"],
       annotation: ["encoding"],
     },
-    allowedSchemes: ["http", "https", "mailto"],
+    allowedSchemes: ["http", "https", "mailto", "data"],
+    allowedSchemesByTag: {
+      img: ["data"],
+    },
     allowedSchemesAppliedToAttributes: ["href", "src"],
     allowProtocolRelative: false,
   });
@@ -169,17 +189,30 @@ function normalizeBearerToken(rawToken) {
 }
 
 async function runGeminiCompletion({ apiKey, prompt, model }) {
-  const response = await fetch(
-    `${GEMINI_ENDPOINT}/models/${encodeURIComponent(model || DEFAULT_MODEL)}:generateContent?key=${encodeURIComponent(apiKey)}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: 4000, temperature: 0.4 },
-      }),
-    },
-  );
+  let response;
+  try {
+    response = await fetch(
+      `${GEMINI_ENDPOINT}/models/${encodeURIComponent(model || DEFAULT_MODEL)}:generateContent?key=${encodeURIComponent(apiKey)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: { maxOutputTokens: 4000, temperature: 0.4 },
+        }),
+        signal: AbortSignal.timeout(GEMINI_REQUEST_TIMEOUT_MS),
+      },
+    );
+  } catch (error) {
+    const isTimeout = error && typeof error === "object" && error.name === "TimeoutError";
+    const requestError = new Error(
+      isTimeout
+        ? `Gemini request timed out after ${GEMINI_REQUEST_TIMEOUT_MS}ms.`
+        : `Gemini request failed: ${String(error?.message || error)}`,
+    );
+    requestError.code = isTimeout ? "GEMINI_TIMEOUT" : "GEMINI_REQUEST_FAILED";
+    throw requestError;
+  }
   const bodyText = await response.text();
   if (!response.ok) {
     const error = new Error(`Gemini request failed (status ${response.status})`);
@@ -248,18 +281,24 @@ async function fetchTavilyContext(query) {
     return "";
   }
 
-  const response = await fetch("https://api.tavily.com/search", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      api_key: tavilyApiKey,
-      query,
-      search_depth: "advanced",
-      max_results: 5,
-      include_answer: true,
-      include_raw_content: false,
-    }),
-  });
+  let response;
+  try {
+    response = await fetch("https://api.tavily.com/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        api_key: tavilyApiKey,
+        query,
+        search_depth: "advanced",
+        max_results: 5,
+        include_answer: true,
+        include_raw_content: false,
+      }),
+      signal: AbortSignal.timeout(TAVILY_TIMEOUT_MS),
+    });
+  } catch {
+    return "";
+  }
   if (!response.ok) {
     return "";
   }
@@ -282,30 +321,97 @@ async function fetchTavilyContext(query) {
     .join("\n\n");
 }
 
+function validateGotenbergUrl(raw) {
+  let baseUrl;
+  try {
+    baseUrl = new URL(raw);
+  } catch {
+    throw new Error("Invalid GOTENBERG_URL in function environment.");
+  }
+  if (baseUrl.protocol !== "https:") {
+    throw new Error("GOTENBERG_URL must use HTTPS.");
+  }
+  if (!baseUrl.hostname.toLowerCase().endsWith(TRUSTED_GOTENBERG_HOST_SUFFIX)) {
+    throw new Error(`GOTENBERG_URL must target a trusted ${TRUSTED_GOTENBERG_HOST_SUFFIX} host.`);
+  }
+  const endpointUrl = new URL(GOTENBERG_ENDPOINT_PATH, `${baseUrl.origin}/`);
+  if (endpointUrl.pathname !== GOTENBERG_ENDPOINT_PATH) {
+    throw new Error("Invalid Gotenberg endpoint path.");
+  }
+  return endpointUrl.toString();
+}
+
+function shouldRetryGotenberg(status) {
+  return status === 408 || status === 425 || status === 429 || status >= 500;
+}
+
 async function renderWithGotenberg(markdown, fileName) {
   const gotenbergUrl = String(process.env.GOTENBERG_URL || "").trim();
   const gotenbergAuthToken = String(process.env.GOTENBERG_AUTH_TOKEN || "").trim();
   if (!gotenbergUrl) throw new Error("Missing GOTENBERG_URL in function environment.");
   if (!gotenbergAuthToken) throw new Error("Missing GOTENBERG_AUTH_TOKEN in function environment.");
+  const endpointUrl = validateGotenbergUrl(gotenbergUrl);
 
   const html = markdownToSimpleHtml(markdown, fileName);
-  const form = new FormData();
-  form.append("files", new Blob([html], { type: "text/html" }), "index.html");
-
   const headers = { Authorization: normalizeBearerToken(gotenbergAuthToken) };
-  const response = await fetch(`${gotenbergUrl.replace(/\/+$/, "")}/forms/chromium/convert/html`, {
-    method: "POST",
-    headers,
-    body: form,
-  });
 
-  if (!response.ok) {
-    const bodyText = await response.text().catch(() => "");
-    throw new Error(`Gotenberg request failed (${response.status}): ${bodyText.slice(0, 2000)}`);
+  let lastError = null;
+  for (let attempt = 1; attempt <= GOTENBERG_MAX_ATTEMPTS; attempt += 1) {
+    const form = new FormData();
+    form.append("files", new Blob([html], { type: "text/html" }), "index.html");
+    try {
+      const response = await fetch(endpointUrl, {
+        method: "POST",
+        headers,
+        body: form,
+        signal: AbortSignal.timeout(GOTENBERG_REQUEST_TIMEOUT_MS),
+      });
+      if (!response.ok) {
+        const bodyText = await response.text().catch(() => "");
+        const msg = `Gotenberg request failed (${response.status}): ${bodyText.slice(0, 2000)}`;
+        if (attempt < GOTENBERG_MAX_ATTEMPTS && shouldRetryGotenberg(response.status)) {
+          console.error(`[pdf-generator] ${msg}`);
+          await sleep(GOTENBERG_BASE_BACKOFF_MS * (2 ** (attempt - 1)));
+          continue;
+        }
+        throw new Error(msg);
+      }
+      const pdfArrayBuffer = await response.arrayBuffer();
+      return Buffer.from(pdfArrayBuffer);
+    } catch (error) {
+      lastError = error;
+      const isTimeout = error && typeof error === "object" && error.name === "TimeoutError";
+      if (attempt >= GOTENBERG_MAX_ATTEMPTS) {
+        break;
+      }
+      if (isTimeout) {
+        console.error(`[pdf-generator] Gotenberg timeout at attempt ${attempt}/${GOTENBERG_MAX_ATTEMPTS}`);
+        await sleep(GOTENBERG_BASE_BACKOFF_MS * (2 ** (attempt - 1)));
+        continue;
+      }
+      if (error instanceof Error && /Gotenberg request failed \((\d+)\)/.test(error.message)) {
+        const status = Number(error.message.match(/\((\d+)\)/)?.[1] || 0);
+        if (shouldRetryGotenberg(status)) {
+          await sleep(GOTENBERG_BASE_BACKOFF_MS * (2 ** (attempt - 1)));
+          continue;
+        }
+      }
+      throw error;
+    }
   }
+  throw lastError || new Error("Gotenberg request failed.");
+}
 
-  const pdfArrayBuffer = await response.arrayBuffer();
-  return Buffer.from(pdfArrayBuffer);
+function formatWorkerErrorMessage(error) {
+  if (!(error instanceof Error)) return String(error).slice(0, 2000);
+  const details = [error.message];
+  if (typeof error.code !== "undefined") details.push(`code=${String(error.code)}`);
+  if (typeof error.status !== "undefined") details.push(`status=${String(error.status)}`);
+  const cause = error.cause;
+  if (cause instanceof Error && cause.message) {
+    details.push(`cause=${cause.message}`);
+  }
+  return details.filter(Boolean).join(" | ").slice(0, 2000);
 }
 
 async function updateJob(db, jobId, payload) {
@@ -482,7 +588,7 @@ async function processGenerationJob(rawInput) {
     await updateJob(db, jobId, {
       status: "completed",
       progress_percent: 100,
-      result_note_id: String(created.$id),
+      result_file_id: String(created.$id),
       completed_at: new Date().toISOString(),
     });
 
@@ -491,7 +597,7 @@ async function processGenerationJob(rawInput) {
     await updateJob(db, jobId, {
       status: "failed",
       completed_at: new Date().toISOString(),
-      error_message: String(error?.message || error).slice(0, 2000),
+      error_message: formatWorkerErrorMessage(error),
     }).catch(() => {});
     throw error;
   }
