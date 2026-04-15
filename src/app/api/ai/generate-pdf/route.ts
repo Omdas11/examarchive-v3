@@ -47,6 +47,9 @@ const TAVILY_TIMEOUT_MS = 4000;
 const LOGICAL_CHUNK_COUNT = 5;
 const CHUNK_START_DELAY_MS = 4000;
 const CHUNK_MAX_ATTEMPTS = 3;
+const MIN_SEMESTER = 1;
+const MAX_SEMESTER = 8;
+const CACHE_HASH_PREFIX_LENGTH = 16;
 const UNDICI_CONNECT_TIMEOUT_CODE = "UND_ERR_CONNECT_TIMEOUT";
 const EMAIL_DELIVERY_UNAVAILABLE_CODE = "EMAIL_DELIVERY_UNAVAILABLE";
 const EMAIL_DELIVERY_UNAVAILABLE_MESSAGE =
@@ -85,7 +88,7 @@ function normalizeSemester(value: unknown): number | null {
   if (value === null || typeof value === "undefined" || value === "") return null;
   if (typeof value !== "number" && typeof value !== "string") return null;
   const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 8) return null;
+  if (!Number.isInteger(parsed) || parsed < MIN_SEMESTER || parsed > MAX_SEMESTER) return null;
   return parsed;
 }
 
@@ -278,7 +281,7 @@ async function upsertCacheEntry(params: {
   try {
     const markdownInput = InputFile.fromBuffer(
       Buffer.from(params.markdown, "utf-8"),
-      `${params.cacheType}-${params.contentHash.slice(0, 16)}.md`,
+      `${params.cacheType}-${params.contentHash.slice(0, CACHE_HASH_PREFIX_LENGTH)}.md`,
     );
     const markdownUpload = await storage.createFile(params.bucketId, ID.unique(), markdownInput);
     const markdownFileId = String(markdownUpload.$id);
@@ -678,7 +681,7 @@ async function runNotesBackground(params: {
     defaultBucketId: notesCacheBucketId,
   });
   if (cachedNotes) {
-    const cachedPdfFileId = typeof cachedNotes.pdfFileId === "string" ? cachedNotes.pdfFileId : "";
+    const cachedPdfFileId = cachedNotes.pdfFileId ?? "";
     const cachedPdfAvailable = cachedPdfFileId ? await hasCachedPdf(cachedPdfFileId) : false;
     const cachedRender = cachedPdfAvailable
       ? { fileId: cachedPdfFileId, fileUrl: getAppwriteFileDownloadUrl(cachedPdfFileId) }
@@ -927,7 +930,7 @@ async function runSolvedPaperBackground(params: {
     defaultBucketId: solvedCacheBucketId,
   });
   if (cachedSolved) {
-    const cachedPdfFileId = typeof cachedSolved.pdfFileId === "string" ? cachedSolved.pdfFileId : "";
+    const cachedPdfFileId = cachedSolved.pdfFileId ?? "";
     const cachedPdfAvailable = cachedPdfFileId ? await hasCachedPdf(cachedPdfFileId) : false;
     const cachedRender = cachedPdfAvailable
       ? { fileId: cachedPdfFileId, fileUrl: getAppwriteFileDownloadUrl(cachedPdfFileId) }
