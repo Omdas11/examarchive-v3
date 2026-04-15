@@ -1,6 +1,7 @@
 /* eslint-disable no-console */
 const { Client, Databases, Storage, Query, ID } = require("node-appwrite");
 const { InputFile } = require("node-appwrite/file");
+const he = require("he");
 
 const GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta";
 const DEFAULT_MODEL = process.env.GEMINI_MODEL_ID || "gemini-3.1-flash-lite-preview";
@@ -40,20 +41,42 @@ function splitSyllabusIntoSubTopics(syllabusContent) {
     .filter(Boolean);
 }
 
-function escapeHtml(text) {
-  return String(text || "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
+function sanitizeHtmlText(value) {
+  return he.encode(value ?? "", {
+    useNamedReferences: true,
+    allowUnsafeSymbols: true,
+  });
+}
+
+function renderHtmlDocument({ safeTitle, safeParagraphsHtml }) {
+  return [
+    "<!doctype html>",
+    "<html>",
+    "<head>",
+    '<meta charset="utf-8"/>',
+    `<title>${safeTitle}</title>`,
+    "</head>",
+    "<body>",
+    safeParagraphsHtml,
+    "</body>",
+    "</html>",
+  ].join("");
 }
 
 function markdownToSimpleHtml(markdown, title) {
-  const paragraphs = String(markdown || "")
+  const safeParagraphsHtml = String(markdown || "")
     .split(/\n{2,}/)
-    .map((block) => `<p>${escapeHtml(block).replaceAll("\n", "<br/>")}</p>`)
+    .map((block) => {
+      const escapedBlock = sanitizeHtmlText(block);
+      const withSafeLineBreaks = escapedBlock.replaceAll("\n", "<br/>");
+      return `<p>${withSafeLineBreaks}</p>`;
+    })
     .join("\n");
-  return `<!doctype html><html><head><meta charset="utf-8"/><title>${escapeHtml(title)}</title></head><body>${paragraphs}</body></html>`;
+
+  return renderHtmlDocument({
+    safeTitle: sanitizeHtmlText(title),
+    safeParagraphsHtml,
+  });
 }
 
 function normalizeBearerToken(rawToken) {

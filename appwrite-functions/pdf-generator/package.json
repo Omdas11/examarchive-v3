@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "dependencies": {
+    "he": "^1.2.0",
     "node-appwrite": "22.1.3"
   }
 }
