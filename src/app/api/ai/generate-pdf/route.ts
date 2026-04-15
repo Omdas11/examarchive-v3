@@ -1,4 +1,3 @@
-import { after } from "next/server";
 import { NextResponse, type NextRequest } from "next/server";
 import { createHash } from "node:crypto";
 import { InputFile } from "node-appwrite/file";
@@ -8,6 +7,7 @@ import { checkAndResetQuotas, incrementQuotaCounter, rollbackQuotaCounter } from
 import { NOTES_DAILY_LIMIT } from "@/lib/quota-config";
 import {
   adminDatabases,
+  adminFunctions,
   adminStorage,
   BUCKET_ID,
   CACHED_SOLVED_PAPERS_BUCKET_ID,
@@ -63,6 +63,7 @@ const EMAIL_DELIVERY_UNAVAILABLE_MESSAGE =
 const QUOTA_RESERVATION_FAILED_CODE = "QUOTA_RESERVATION_FAILED";
 const QUOTA_RESERVATION_FAILED_MESSAGE = "Failed to reserve generation quota. Please try again later.";
 const GOTENBERG_AUTH_DEBUG_LOG_ENABLED = process.env.GOTENBERG_AUTH_DEBUG_LOG === "1";
+const DEFAULT_PDF_GENERATOR_FUNCTION_ID = "pdf-generator";
 
 type GenerateBody = {
   jobType?: string;
@@ -157,6 +158,10 @@ function logGotenbergAuthDebug(): void {
 
 function resolveGotenbergUrl(): string {
   return process.env.GOTENBERG_URL?.trim() || "";
+}
+
+function resolvePdfGeneratorFunctionId(): string {
+  return process.env.APPWRITE_PDF_GENERATOR_FUNCTION_ID?.trim() || DEFAULT_PDF_GENERATOR_FUNCTION_ID;
 }
 
 function normalizeSelectedModel(value: string): string {
@@ -587,6 +592,64 @@ async function rollbackReservedGenerationResources(params: {
   await rollbackElectronCost(params.userId, GENERATION_COST_ELECTRONS);
 }
 
+async function enqueueAndDispatchPdfJob(params: {
+  userId: string;
+  paperCode: string;
+  unitNumber: number;
+  payload: Record<string, unknown>;
+  title: string;
+}): Promise<{ jobId: string }> {
+  const nowIso = new Date().toISOString();
+  const db = adminDatabases();
+  const functions = adminFunctions();
+  const functionId = resolvePdfGeneratorFunctionId();
+  const idempotencyKey = buildContentHash([
+    params.userId,
+    params.paperCode,
+    params.unitNumber,
+    params.title,
+    JSON.stringify(params.payload),
+  ]);
+
+  const job = await db.createDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, ID.unique(), {
+    user_id: params.userId,
+    paper_code: params.paperCode,
+    unit_number: params.unitNumber,
+    status: "queued",
+    progress_percent: 0,
+    input_payload_json: JSON.stringify(params.payload),
+    idempotency_key: idempotencyKey,
+    created_at: nowIso,
+  });
+
+  const jobId = String(job.$id);
+  try {
+    await functions.createExecution(
+      functionId,
+      JSON.stringify({
+        jobId,
+        payload: params.payload,
+      }),
+      true,
+    );
+  } catch (error) {
+    const safeMessage = error instanceof Error ? error.message.slice(0, 1000) : "Function dispatch failed.";
+    await db.updateDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, jobId, {
+      status: "failed",
+      error_message: safeMessage,
+      completed_at: new Date().toISOString(),
+    }).catch((updateError) => {
+      console.error("[ai/generate-pdf] Failed to mark job as failed after dispatch error.", {
+        jobId,
+        updateError,
+      });
+    });
+    throw error;
+  }
+
+  return { jobId };
+}
+
 async function fetchTavilyContext(query: string): Promise<string> {
   try {
     const results = await Promise.race([
@@ -731,6 +794,16 @@ function collectGeneratePdfEnvChecks(): {
     errors.push("Missing GOTENBERG_AUTH_TOKEN for private Hugging Face Space.");
   }
 
+  const pdfGeneratorFunctionId = resolvePdfGeneratorFunctionId();
+  checks.push({
+    name: "APPWRITE_PDF_GENERATOR_FUNCTION_ID",
+    ok: !!pdfGeneratorFunctionId,
+    detail: pdfGeneratorFunctionId || "missing",
+  });
+  if (!pdfGeneratorFunctionId) {
+    errors.push("Missing APPWRITE_PDF_GENERATOR_FUNCTION_ID.");
+  }
+
   const numericChecks = [
     "GEMINI_REQUEST_TIMEOUT_MS",
     "GOTENBERG_REQUEST_TIMEOUT_MS",
@@ -754,6 +827,11 @@ function collectGeneratePdfEnvChecks(): {
       warnings.push(`${envName} has invalid value "${raw.trim()}"; default runtime value will be used.`);
     }
   }
+  checks.push({
+    name: "DISPATCHER_MODE",
+    ok: true,
+    detail: `enabled (legacy-inline-handlers=${LEGACY_INLINE_BACKGROUND_HANDLERS.length})`,
+  });
 
   return { ok: errors.length === 0, errors, warnings, checks };
 }
@@ -1243,6 +1321,12 @@ CRITICAL FORMAT CONSTRAINTS:
   }
 }
 
+const LEGACY_INLINE_BACKGROUND_HANDLERS = [
+  withGlobalJobTimeout,
+  runNotesBackground,
+  runSolvedPaperBackground,
+] as const;
+
 export async function GET() {
   const user = await getServerUser();
   if (!user) {
@@ -1394,10 +1478,16 @@ export async function POST(request: NextRequest) {
     if (!admin) {
       queueGenerationRecording(user.id, "notes_generated_today");
     }
-
-    after(async () => {
-      try {
-        await withGlobalJobTimeout("Notes background job", (signal) => runNotesBackground({
+    let notesJobId = "";
+    try {
+      const dispatched = await enqueueAndDispatchPdfJob({
+        userId: user.id,
+        paperCode,
+        unitNumber,
+        title: `Unit Notes (${paperCode} - Unit ${unitNumber})`,
+        payload: {
+          jobType: "notes",
+          userId: user.id,
           userEmail,
           university,
           course,
@@ -1407,16 +1497,34 @@ export async function POST(request: NextRequest) {
           unitNumber,
           semester: parsedSemester,
           model: selectedModel,
-          signal,
-        }));
-      } catch (error) {
-        console.error("[ai/generate-pdf] Notes background job failed:", error);
-        await notifyGenerationFailure(userEmail, `Unit Notes (${paperCode} - Unit ${unitNumber})`, error);
-      }
-    });
+        },
+      });
+      notesJobId = dispatched.jobId;
+    } catch (error) {
+      console.error("[ai/generate-pdf] Failed to dispatch notes job.", {
+        userId: user.id,
+        paperCode,
+        unitNumber,
+        error,
+      });
+      await rollbackReservedGenerationResources({
+        admin,
+        userId: user.id,
+        counter: "notes_generated_today",
+      });
+      await notifyGenerationFailure(userEmail, `Unit Notes (${paperCode} - Unit ${unitNumber})`, error);
+      return NextResponse.json(
+        {
+          error: "Unable to start background generation right now. Please try again.",
+          code: "JOB_DISPATCH_FAILED",
+        },
+        { status: 503 },
+      );
+    }
 
     return NextResponse.json({
       ok: true,
+      jobId: notesJobId,
       message: userEmail
         ? `Your notes are being generated. We'll email the PDF to ${userEmail} when ready. You can safely close this tab.`
         : "Your notes are being generated. The PDF will be ready shortly.",
@@ -1474,29 +1582,53 @@ export async function POST(request: NextRequest) {
   if (!admin) {
     queueGenerationRecording(user.id, "papers_solved_today");
   }
-
-  after(async () => {
-    try {
-      await withGlobalJobTimeout("Solved-paper background job", (signal) => runSolvedPaperBackground({
-          userEmail,
-          university,
-          course,
-          stream,
-          type,
-          paperCode,
-          year,
-          semester: parsedSemester,
-          model: selectedModel,
-          signal,
-      }));
-    } catch (error) {
-      console.error("[ai/generate-pdf] Solved paper background job failed:", error);
-      await notifyGenerationFailure(userEmail, `Solved Paper (${paperCode} ${year})`, error);
-    }
-  });
+  let solvedJobId = "";
+  try {
+    const dispatched = await enqueueAndDispatchPdfJob({
+      userId: user.id,
+      paperCode,
+      unitNumber: 0,
+      title: `Solved Paper (${paperCode} ${year})`,
+      payload: {
+        jobType: "solved-paper",
+        userId: user.id,
+        userEmail,
+        university,
+        course,
+        stream,
+        type,
+        paperCode,
+        year,
+        semester: parsedSemester,
+        model: selectedModel,
+      },
+    });
+    solvedJobId = dispatched.jobId;
+  } catch (error) {
+    console.error("[ai/generate-pdf] Failed to dispatch solved-paper job.", {
+      userId: user.id,
+      paperCode,
+      year,
+      error,
+    });
+    await rollbackReservedGenerationResources({
+      admin,
+      userId: user.id,
+      counter: "papers_solved_today",
+    });
+    await notifyGenerationFailure(userEmail, `Solved Paper (${paperCode} ${year})`, error);
+    return NextResponse.json(
+      {
+        error: "Unable to start background generation right now. Please try again.",
+        code: "JOB_DISPATCH_FAILED",
+      },
+      { status: 503 },
+    );
+  }
 
   return NextResponse.json({
     ok: true,
+    jobId: solvedJobId,
     message: userEmail
       ? `Your solved paper is being generated. We'll email the PDF to ${userEmail} when ready. You can safely close this tab.`
       : "Your solved paper is being generated. The PDF will be ready shortly.",
