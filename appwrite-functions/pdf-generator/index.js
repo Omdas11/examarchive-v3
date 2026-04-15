@@ -405,7 +405,6 @@ async function renderWithGotenberg(markdown, fileName) {
         );
       }
       await sleep(GOTENBERG_BASE_BACKOFF_MS * (2 ** (attempt - 1)));
-      continue;
     }
   }
   throw lastError || new Error("Gotenberg request failed.");

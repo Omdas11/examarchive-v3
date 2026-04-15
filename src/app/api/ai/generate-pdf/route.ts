@@ -457,12 +457,13 @@ function collectGeneratePdfEnvChecks(): {
 
   const pdfGeneratorFunctionId = resolvePdfGeneratorFunctionId();
   const explicitPdfGeneratorFunctionId = process.env.APPWRITE_PDF_GENERATOR_FUNCTION_ID?.trim() || "";
+  const pdfGeneratorFunctionIdDetail = !pdfGeneratorFunctionId
+    ? "missing"
+    : (explicitPdfGeneratorFunctionId ? `configured (${pdfGeneratorFunctionId})` : `default (${pdfGeneratorFunctionId})`);
   checks.push({
     name: "APPWRITE_PDF_GENERATOR_FUNCTION_ID (resolved)",
     ok: !!pdfGeneratorFunctionId,
-    detail: pdfGeneratorFunctionId
-      ? (explicitPdfGeneratorFunctionId ? `configured (${pdfGeneratorFunctionId})` : `default (${pdfGeneratorFunctionId})`)
-      : "missing",
+    detail: pdfGeneratorFunctionIdDetail,
   });
   if (!explicitPdfGeneratorFunctionId) {
     warnings.push(
