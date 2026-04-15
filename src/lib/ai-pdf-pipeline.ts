@@ -42,11 +42,9 @@ async function postToGotenbergWithRetry(args: {
   const isLocalhost = endpointUrl.hostname === "localhost"
     || endpointUrl.hostname === "127.0.0.1"
     || endpointUrl.hostname === "::1";
-  if (endpointUrl.protocol === "https:") {
-    // allowed
-  } else if (endpointUrl.protocol === "http:" && isLocalhost) {
-    // allowed for local development only
-  } else {
+  const isAllowedProtocol = endpointUrl.protocol === "https:"
+    || (endpointUrl.protocol === "http:" && isLocalhost);
+  if (!isAllowedProtocol) {
     throw new Error(`Refusing insecure or unsupported Gotenberg endpoint: ${endpointUrl.toString()}`);
   }
 
