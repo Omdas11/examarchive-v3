@@ -45,6 +45,7 @@ async function postToGotenbergWithRetry(args: {
       if (response.status >= 500 && attempt < GOTENBERG_MAX_ATTEMPTS) {
         const errorPreview = (await response.text()).trim().slice(0, 500);
         lastErrorMessage = `${response.status} ${errorPreview || response.statusText || "Unknown error"}`.trim();
+        console.error("[ai-pdf-pipeline] Gotenberg Error Body:", errorPreview || response.statusText || "Unknown error");
         console.warn(`[ai-pdf-pipeline] Gotenberg returned ${response.status} (${args.endpoint}) on attempt ${attempt}/${GOTENBERG_MAX_ATTEMPTS}; retrying.`, {
           error: errorPreview || response.statusText || "Unknown error",
         });
@@ -568,6 +569,7 @@ export async function renderMarkdownPdfToAppwrite(args: {
   });
   if (response.status !== 200) {
     const errorText = (await response.text()).trim().slice(0, 2000);
+    console.error("[ai-pdf-pipeline] Gotenberg Error Body:", errorText || response.statusText || "Unknown error");
     console.error("[ai-pdf-pipeline] Gotenberg non-200 response.", {
       status: response.status,
       endpoint: gotenbergEndpoint,

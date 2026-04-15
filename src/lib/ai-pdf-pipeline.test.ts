@@ -217,7 +217,10 @@ describe("ai-pdf-pipeline", () => {
 
     const fetchCall = (global.fetch as jest.Mock).mock.calls[0]?.[1] as { body?: FormData } | undefined;
     expect(fetchCall?.body).toBeInstanceOf(FormData);
-    expect(fetchCall?.body?.getAll("files")).toHaveLength(3);
+    const files = fetchCall?.body?.getAll("files") as File[] | undefined;
+    expect(files).toHaveLength(3);
+    expect(files?.[0]?.name).toBe("index.html");
+    expect(files?.[0]?.type).toBe("text/html");
     expect((global.fetch as jest.Mock).mock.calls[0]?.[1]?.headers).not.toHaveProperty("Content-Type");
   });
 
