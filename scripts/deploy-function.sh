@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FUNCTION_DIR="${ROOT_DIR}/appwrite-functions/pdf-generator"
-BUNDLE_PATH="${ROOT_DIR}/.tmp-pdf-generator-function.tgz"
+BUNDLE_PATH="${ROOT_DIR}/.tmp-pdf-generator-function.tar.gz"
 
 : "${APPWRITE_ENDPOINT:?Missing APPWRITE_ENDPOINT}"
 : "${APPWRITE_PROJECT_ID:?Missing APPWRITE_PROJECT_ID}"
@@ -173,7 +173,7 @@ async function upsertVariables(functions) {
 async function deployCode(functions) {
   const deployment = await functions.createDeployment(
     functionId,
-    InputFile.fromPath(bundlePath, "pdf-generator-function.tgz"),
+    InputFile.fromPath(bundlePath, "pdf-generator-function.tar.gz"),
     true,
     "index.js",
     "npm install --omit=dev",
