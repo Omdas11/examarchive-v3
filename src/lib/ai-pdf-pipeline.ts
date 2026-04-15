@@ -33,10 +33,25 @@ async function postToGotenbergWithRetry(args: {
   headers?: HeadersInit;
   buildFormData: () => FormData;
 }): Promise<Response> {
+  let endpointUrl: URL;
+  try {
+    endpointUrl = new URL(args.endpoint);
+  } catch {
+    throw new Error(`Invalid Gotenberg endpoint: ${args.endpoint}`);
+  }
+  if (endpointUrl.protocol !== "https:") {
+    const isLocalhost = endpointUrl.hostname === "localhost"
+      || endpointUrl.hostname === "127.0.0.1"
+      || endpointUrl.hostname === "::1";
+    if (!isLocalhost) {
+      throw new Error(`Refusing non-HTTPS Gotenberg endpoint: ${endpointUrl.toString()}`);
+    }
+  }
+
   let lastErrorMessage = "Unknown error";
   for (let attempt = 1; attempt <= GOTENBERG_MAX_ATTEMPTS; attempt += 1) {
     try {
-      const response = await fetch(args.endpoint, {
+      const response = await fetch(endpointUrl, {
         method: "POST",
         headers: args.headers,
         body: args.buildFormData(),
