@@ -378,22 +378,31 @@ async function renderWithGotenberg(markdown, fileName) {
           await sleep(GOTENBERG_BASE_BACKOFF_MS * (2 ** (attempt - 1)));
           continue;
         }
-        throw new Error(msg);
+        const httpError = new Error(msg);
+        httpError.name = "GotenbergHttpError";
+        throw httpError;
       }
       const pdfArrayBuffer = await response.arrayBuffer();
       return Buffer.from(pdfArrayBuffer);
     } catch (error) {
       lastError = error;
       const isTimeout = error && typeof error === "object" && error.name === "TimeoutError";
+      const isHttpError = error && typeof error === "object" && error.name === "GotenbergHttpError";
       if (attempt >= GOTENBERG_MAX_ATTEMPTS) {
         break;
       }
+      if (isHttpError) {
+        throw error;
+      }
       if (isTimeout) {
         console.error(`[pdf-generator] Gotenberg timeout at attempt ${attempt}/${GOTENBERG_MAX_ATTEMPTS}`);
-        await sleep(GOTENBERG_BASE_BACKOFF_MS * (2 ** (attempt - 1)));
-        continue;
+      } else {
+        console.error(
+          `[pdf-generator] Gotenberg request error at attempt ${attempt}/${GOTENBERG_MAX_ATTEMPTS}: ${formatWorkerErrorMessage(error)}`,
+        );
       }
-      throw error;
+      await sleep(GOTENBERG_BASE_BACKOFF_MS * (2 ** (attempt - 1)));
+      continue;
     }
   }
   throw lastError || new Error("Gotenberg request failed.");

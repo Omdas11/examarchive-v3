@@ -41,6 +41,10 @@ const apiKey = process.env.APPWRITE_API_KEY;
 const functionId = process.env.FUNCTION_ID;
 const functionName = process.env.FUNCTION_NAME;
 const runtime = process.env.FUNCTION_RUNTIME;
+const fallbackRuntimes = (process.env.APPWRITE_FUNCTION_RUNTIME_FALLBACKS || "node-20.0,node-18.0")
+  .split(",")
+  .map((value) => value.trim())
+  .filter(Boolean);
 const timeoutSeconds = Number(process.env.FUNCTION_TIMEOUT_SECONDS || 300);
 const bundlePath = process.env.BUNDLE_PATH;
 
@@ -76,41 +80,79 @@ function isNotFound(error) {
   return error?.code === 404 || error?.response?.code === 404 || error?.type === "function_not_found";
 }
 
+function isRuntimeNotFound(error) {
+  const type = `${error?.type ?? error?.response?.type ?? ""}`.toLowerCase();
+  const message = `${error?.message ?? error?.response?.message ?? ""}`.toLowerCase();
+  return type.includes("runtime") || message.includes("runtime");
+}
+
+async function updateFunctionWithRuntime(functions, selectedRuntime) {
+  const existing = await functions.get(functionId);
+  await functions.update(
+    functionId,
+    existing.name || functionName,
+    selectedRuntime,
+    existing.execute || ["any"],
+    undefined,
+    undefined,
+    timeoutSeconds,
+    true,
+    true,
+    "index.js",
+    "npm install --omit=dev",
+  );
+  return { existing, runtime: selectedRuntime };
+}
+
+async function createFunctionWithRuntime(functions, selectedRuntime) {
+  await functions.create(
+    functionId,
+    functionName,
+    selectedRuntime,
+    ["any"],
+    undefined,
+    undefined,
+    timeoutSeconds,
+    true,
+    true,
+    "index.js",
+    "npm install --omit=dev",
+  );
+  return { runtime: selectedRuntime };
+}
+
 async function upsertFunction(functions) {
-  const events = undefined;
-  const schedule = undefined;
+  const runtimeCandidates = [runtime, ...fallbackRuntimes.filter((value) => value !== runtime)];
   try {
-    const existing = await functions.get(functionId);
-    await functions.update(
-      functionId,
-      existing.name || functionName,
-      runtime,
-      existing.execute || ["any"],
-      events,
-      schedule,
-      timeoutSeconds,
-      true,
-      true,
-      "index.js",
-      "npm install --omit=dev",
-    );
-    return existing;
+    for (const selectedRuntime of runtimeCandidates) {
+      try {
+        return await updateFunctionWithRuntime(functions, selectedRuntime);
+      } catch (error) {
+        if (isNotFound(error)) break;
+        if (isRuntimeNotFound(error) && selectedRuntime !== runtimeCandidates[runtimeCandidates.length - 1]) {
+          console.warn(`[deploy-function] runtime ${selectedRuntime} unavailable for update; trying fallback`);
+          continue;
+        }
+        throw error;
+      }
+    }
   } catch (error) {
     if (!isNotFound(error)) throw error;
-    return functions.create(
-      functionId,
-      functionName,
-      runtime,
-      ["any"],
-      events,
-      schedule,
-      timeoutSeconds,
-      true,
-      true,
-      "index.js",
-      "npm install --omit=dev",
-    );
   }
+
+  for (const selectedRuntime of runtimeCandidates) {
+    try {
+      return await createFunctionWithRuntime(functions, selectedRuntime);
+    } catch (error) {
+      if (isRuntimeNotFound(error) && selectedRuntime !== runtimeCandidates[runtimeCandidates.length - 1]) {
+        console.warn(`[deploy-function] runtime ${selectedRuntime} unavailable for create; trying fallback`);
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  throw new Error("No Appwrite function runtime available for deployment.");
 }
 
 async function upsertVariables(functions) {

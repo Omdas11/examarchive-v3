@@ -199,7 +199,7 @@ represents one generation invocation.
 
 ## Collection: `ai_generation_jobs`
 
-Tracks async AI notes generation jobs (`POST /api/ai/jobs`) and worker progress.
+Tracks async AI PDF generation jobs (`POST /api/ai/generate-pdf`) and worker progress.
 
 | Field              | Type     | Required | Notes |
 |--------------------|----------|----------|-------|

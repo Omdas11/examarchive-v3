@@ -278,6 +278,7 @@ async function enqueueAndDispatchPdfJob(params: {
     params.title,
     JSON.stringify(params.payload),
   ]);
+  const deterministicJobId = `j${createHash("sha1").update(idempotencyKey).digest("hex").slice(0, 31)}`;
   const existingBeforeCreate = await db.listDocuments(DATABASE_ID, COLLECTION.ai_generation_jobs, [
     Query.equal("idempotency_key", idempotencyKey),
     Query.equal("user_id", params.userId),
@@ -290,7 +291,7 @@ async function enqueueAndDispatchPdfJob(params: {
 
   let job;
   try {
-    job = await db.createDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, ID.unique(), {
+    job = await db.createDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, deterministicJobId, {
       user_id: params.userId,
       paper_code: params.paperCode,
       unit_number: params.unitNumber,
@@ -454,11 +455,19 @@ function collectGeneratePdfEnvChecks(): {
   }
 
   const pdfGeneratorFunctionId = resolvePdfGeneratorFunctionId();
+  const explicitPdfGeneratorFunctionId = process.env.APPWRITE_PDF_GENERATOR_FUNCTION_ID?.trim() || "";
   checks.push({
-    name: "APPWRITE_PDF_GENERATOR_FUNCTION_ID",
+    name: "APPWRITE_PDF_GENERATOR_FUNCTION_ID (resolved)",
     ok: !!pdfGeneratorFunctionId,
-    detail: pdfGeneratorFunctionId || "missing",
+    detail: pdfGeneratorFunctionId
+      ? (explicitPdfGeneratorFunctionId ? `configured (${pdfGeneratorFunctionId})` : `default (${pdfGeneratorFunctionId})`)
+      : "missing",
   });
+  if (!explicitPdfGeneratorFunctionId) {
+    warnings.push(
+      `APPWRITE_PDF_GENERATOR_FUNCTION_ID is not set; using default "${PDF_GENERATOR_FUNCTION_ID}".`,
+    );
+  }
   if (!pdfGeneratorFunctionId) {
     errors.push("Missing APPWRITE_PDF_GENERATOR_FUNCTION_ID.");
   }
