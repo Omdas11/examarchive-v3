@@ -123,6 +123,14 @@ function normalizeTags(raw: unknown): string[] {
   return [];
 }
 
+function logGotenbergAuthDebug(): void {
+  if (!GOTENBERG_AUTH_DEBUG_LOG_ENABLED) return;
+  console.log("[ai/generate-pdf] GOTENBERG_AUTH_TOKEN loaded:", {
+    present: Boolean(process.env.GOTENBERG_AUTH_TOKEN?.trim()),
+    looksLikeHfToken: process.env.GOTENBERG_AUTH_TOKEN?.trim().startsWith("hf_") ?? false,
+  });
+}
+
 function resolveGotenbergUrl(): string {
   return process.env.GOTENBERG_URL?.trim() || "";
 }
@@ -514,12 +522,7 @@ async function runNotesBackground(params: {
   if (!geminiApiKey) throw new Error("Google Gemini is not configured.");
   if (!gotenbergUrl) throw new Error("Server misconfiguration: missing GOTENBERG_URL.");
   if (!gotenbergAuthToken) throw new Error("Server misconfiguration: missing GOTENBERG_AUTH_TOKEN.");
-  if (GOTENBERG_AUTH_DEBUG_LOG_ENABLED) {
-    console.log("[ai/generate-pdf] GOTENBERG_AUTH_TOKEN loaded:", {
-      present: Boolean(process.env.GOTENBERG_AUTH_TOKEN?.trim()),
-      looksLikeHfToken: process.env.GOTENBERG_AUTH_TOKEN?.trim().startsWith("hf_") ?? false,
-    });
-  }
+  logGotenbergAuthDebug();
 
   const db = adminDatabases();
 
@@ -715,12 +718,7 @@ async function runSolvedPaperBackground(params: {
   if (!geminiApiKey) throw new Error("Google Gemini is not configured.");
   if (!gotenbergUrl) throw new Error("Server misconfiguration: missing GOTENBERG_URL.");
   if (!gotenbergAuthToken) throw new Error("Server misconfiguration: missing GOTENBERG_AUTH_TOKEN.");
-  if (GOTENBERG_AUTH_DEBUG_LOG_ENABLED) {
-    console.log("[ai/generate-pdf] GOTENBERG_AUTH_TOKEN loaded:", {
-      present: Boolean(process.env.GOTENBERG_AUTH_TOKEN?.trim()),
-      looksLikeHfToken: process.env.GOTENBERG_AUTH_TOKEN?.trim().startsWith("hf_") ?? false,
-    });
-  }
+  logGotenbergAuthDebug();
 
   const db = adminDatabases();
 
