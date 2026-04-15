@@ -33,21 +33,8 @@ export async function runGeminiCompletion(args: {
   const url = `${GEMINI_ENDPOINT}/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(args.apiKey)}`;
 
   let response: Response;
-  const requestController = new AbortController();
-  const timeoutHandle = setTimeout(() => {
-    requestController.abort(new Error("Gemini request timed out"));
-  }, REQUEST_TIMEOUT_MS);
-  const externalAbortHandler = () => {
-    requestController.abort(args.signal?.reason ?? new Error("Gemini request aborted"));
-  };
-
-  if (args.signal) {
-    if (args.signal.aborted) {
-      externalAbortHandler();
-    } else {
-      args.signal.addEventListener("abort", externalAbortHandler, { once: true });
-    }
-  }
+  const timeoutSignal = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
+  const requestSignal = args.signal ? AbortSignal.any([timeoutSignal, args.signal]) : timeoutSignal;
 
   try {
     response = await fetch(url, {
@@ -62,15 +49,10 @@ export async function runGeminiCompletion(args: {
           temperature: args.temperature,
         },
       }),
-      signal: requestController.signal,
+      signal: requestSignal,
     });
   } catch (error) {
     throw new GeminiServiceError(503, error instanceof Error ? error.message : "Network error");
-  } finally {
-    clearTimeout(timeoutHandle);
-    if (args.signal) {
-      args.signal.removeEventListener("abort", externalAbortHandler);
-    }
   }
 
   if (!response.ok) {

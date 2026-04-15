@@ -243,6 +243,23 @@ async function rollbackReservedGenerationResources(params: {
   await rollbackElectronCost(params.userId, GENERATION_COST_ELECTRONS);
 }
 
+function isConflictError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const err = error as {
+    code?: unknown;
+    status?: unknown;
+    type?: unknown;
+    message?: unknown;
+    response?: { code?: unknown; status?: unknown; type?: unknown; message?: unknown };
+  };
+  const status = Number(err.status ?? err.code ?? err.response?.status ?? err.response?.code ?? 0);
+  if (status === 409) return true;
+  const type = String(err.type ?? err.response?.type ?? "").toLowerCase();
+  if (type.includes("conflict") || type.includes("already_exists") || type.includes("already exists")) return true;
+  const message = String(err.message ?? err.response?.message ?? "").toLowerCase();
+  return message.includes("conflict") || message.includes("already exists");
+}
+
 async function enqueueAndDispatchPdfJob(params: {
   userId: string;
   paperCode: string;
@@ -262,16 +279,34 @@ async function enqueueAndDispatchPdfJob(params: {
     JSON.stringify(params.payload),
   ]);
 
-  const job = await db.createDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, ID.unique(), {
-    user_id: params.userId,
-    paper_code: params.paperCode,
-    unit_number: params.unitNumber,
-    status: "queued",
-    progress_percent: 0,
-    input_payload_json: JSON.stringify(params.payload),
-    idempotency_key: idempotencyKey,
-    created_at: nowIso,
-  });
+  let job;
+  try {
+    job = await db.createDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, ID.unique(), {
+      user_id: params.userId,
+      paper_code: params.paperCode,
+      unit_number: params.unitNumber,
+      status: "queued",
+      progress_percent: 0,
+      input_payload_json: JSON.stringify(params.payload),
+      idempotency_key: idempotencyKey,
+      created_at: nowIso,
+    });
+  } catch (error) {
+    if (!isConflictError(error)) {
+      throw error;
+    }
+    const existing = await db.listDocuments(DATABASE_ID, COLLECTION.ai_generation_jobs, [
+      Query.equal("idempotency_key", idempotencyKey),
+      Query.equal("user_id", params.userId),
+      Query.orderDesc("$createdAt"),
+      Query.limit(1),
+    ]);
+    const existingJobId = typeof existing.documents[0]?.$id === "string" ? existing.documents[0].$id : "";
+    if (existingJobId) {
+      return { jobId: existingJobId };
+    }
+    throw error;
+  }
 
   const jobId = String(job.$id);
   try {
@@ -612,9 +647,6 @@ export async function POST(request: NextRequest) {
         { status: 503 },
       );
     }
-    if (!admin) {
-      queueGenerationRecording(user.id, "notes_generated_today");
-    }
     let notesJobId = "";
     try {
       const dispatched = await enqueueAndDispatchPdfJob({
@@ -637,6 +669,9 @@ export async function POST(request: NextRequest) {
         },
       });
       notesJobId = dispatched.jobId;
+      if (!admin) {
+        queueGenerationRecording(user.id, "notes_generated_today");
+      }
     } catch (error) {
       console.error("[ai/generate-pdf] Failed to dispatch notes job.", {
         userId: user.id,
@@ -663,7 +698,7 @@ export async function POST(request: NextRequest) {
       ok: true,
       jobId: notesJobId,
       message: userEmail
-        ? `Your notes are being generated. We'll email the PDF to ${userEmail} when ready. You can safely close this tab.`
+        ? `Your notes are being generated for ${userEmail}. You can safely close this tab and check back shortly.`
         : "Your notes are being generated. The PDF will be ready shortly.",
     });
   }
@@ -716,9 +751,6 @@ export async function POST(request: NextRequest) {
       { status: 503 },
     );
   }
-  if (!admin) {
-    queueGenerationRecording(user.id, "papers_solved_today");
-  }
   let solvedJobId = "";
   try {
     const dispatched = await enqueueAndDispatchPdfJob({
@@ -741,6 +773,9 @@ export async function POST(request: NextRequest) {
       },
     });
     solvedJobId = dispatched.jobId;
+    if (!admin) {
+      queueGenerationRecording(user.id, "papers_solved_today");
+    }
   } catch (error) {
     console.error("[ai/generate-pdf] Failed to dispatch solved-paper job.", {
       userId: user.id,
@@ -767,7 +802,7 @@ export async function POST(request: NextRequest) {
     ok: true,
     jobId: solvedJobId,
     message: userEmail
-      ? `Your solved paper is being generated. We'll email the PDF to ${userEmail} when ready. You can safely close this tab.`
+      ? `Your solved paper is being generated for ${userEmail}. You can safely close this tab and check back shortly.`
       : "Your solved paper is being generated. The PDF will be ready shortly.",
   });
 }

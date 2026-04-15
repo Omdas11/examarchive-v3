@@ -168,7 +168,7 @@ function renderHtmlDocument({ safeTitle, safeParagraphsHtml }) {
     "<head>",
     '<meta charset="utf-8"/>',
     wrapHtmlTag("title", safeTitle),
-    `<style>${PDF_DOCUMENT_STYLES}</style>`,
+    wrapHtmlTag("style", PDF_DOCUMENT_STYLES),
     "</head>",
     "<body>",
     safeParagraphsHtml,
@@ -411,6 +411,21 @@ function formatWorkerErrorMessage(error) {
   return details.filter(Boolean).join(" | ").slice(0, 2000);
 }
 
+function parseFunctionInput(rawInput) {
+  if (rawInput === null || typeof rawInput === "undefined") return {};
+  if (typeof rawInput === "object") return rawInput;
+  if (typeof rawInput !== "string") {
+    throw new Error("Function payload must be an object or JSON string.");
+  }
+  const trimmed = rawInput.trim();
+  if (!trimmed) return {};
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    throw new Error("Function payload must be valid JSON.");
+  }
+}
+
 async function updateJob(db, jobId, payload) {
   await db.updateDocument(DATABASE_ID, JOB_COLLECTION_ID, jobId, payload);
 }
@@ -548,11 +563,21 @@ async function processGenerationJob(rawInput) {
   const db = new Databases(client);
   const storage = new Storage(client);
 
-  const parsed = typeof rawInput === "string" && rawInput.trim()
-    ? JSON.parse(rawInput)
-    : (rawInput || {});
+  const outer = parseFunctionInput(rawInput);
+  const parsed = (
+    outer
+    && typeof outer === "object"
+    && !Array.isArray(outer)
+    && !outer.jobId
+    && !outer.payload
+    && Object.prototype.hasOwnProperty.call(outer, "body")
+  )
+    ? parseFunctionInput(outer.body)
+    : outer;
   const jobId = String(parsed.jobId || "").trim();
-  const payload = parsed.payload && typeof parsed.payload === "object" ? parsed.payload : parsed;
+  const payload = typeof parsed.payload === "string"
+    ? parseFunctionInput(parsed.payload)
+    : (parsed.payload && typeof parsed.payload === "object" ? parsed.payload : parsed);
   if (!jobId) throw new Error("Missing jobId in function payload.");
 
   await updateJob(db, jobId, {

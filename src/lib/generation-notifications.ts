@@ -169,8 +169,8 @@ export async function sendGenerationStartedEmail(args: {
     from,
     to,
     subject: `ExamArchive: ${safeTitle} generation started`,
-    text: `Your request has been accepted and generation has started.\n\nTitle: ${safeTitle}\nYou will receive another email when the PDF is ready, or if generation fails.\n`,
-    html: "<p>Your PDF generation request has been accepted and generation has started.</p><p>You will receive another email when the PDF is ready, or if generation fails.</p>",
+    text: `Your request has been accepted and generation has started.\n\nTitle: ${safeTitle}\nYou can safely close this tab and check back shortly for completion.\n`,
+    html: "<p>Your PDF generation request has been accepted and generation has started.</p><p>You can safely close this tab and check back shortly for completion.</p>",
   });
 }
 
