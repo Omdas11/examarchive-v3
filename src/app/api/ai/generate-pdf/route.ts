@@ -427,6 +427,56 @@ function queueGenerationRecording(
   });
 }
 
+type UsageCounter = "notes_generated_today" | "papers_solved_today";
+
+async function reserveGenerationResources(params: {
+  admin: boolean;
+  userId: string;
+  counter: UsageCounter;
+  quotaLogContext: string;
+}): Promise<NextResponse | null> {
+  if (params.admin) return null;
+
+  try {
+    await reserveElectronCost(params.userId, GENERATION_COST_ELECTRONS);
+  } catch (error) {
+    if (error instanceof Error && error.message === "INSUFFICIENT_ELECTRONS") {
+      return NextResponse.json(
+        { error: `Not enough electrons. Each generation costs ${GENERATION_COST_ELECTRONS}e.` },
+        { status: 403 },
+      );
+    }
+    return NextResponse.json({ error: "Unable to reserve electrons. Please try again." }, { status: 503 });
+  }
+
+  try {
+    await reserveQuotaForAcceptedRequest(params.userId, params.counter);
+  } catch (error) {
+    console.error(params.quotaLogContext, {
+      userId: params.userId,
+      counter: params.counter,
+      error,
+    });
+    await rollbackElectronCost(params.userId, GENERATION_COST_ELECTRONS);
+    return NextResponse.json(
+      { error: QUOTA_RESERVATION_FAILED_MESSAGE, code: QUOTA_RESERVATION_FAILED_CODE },
+      { status: 503 },
+    );
+  }
+
+  return null;
+}
+
+async function rollbackReservedGenerationResources(params: {
+  admin: boolean;
+  userId: string;
+  counter: UsageCounter;
+}): Promise<void> {
+  if (params.admin) return;
+  await rollbackQuotaReservation(params.userId, params.counter);
+  await rollbackElectronCost(params.userId, GENERATION_COST_ELECTRONS);
+}
+
 async function fetchTavilyContext(query: string): Promise<string> {
   try {
     const results = await Promise.race([
@@ -1190,47 +1240,23 @@ export async function POST(request: NextRequest) {
         );
       }
     }
-    if (!admin) {
-      try {
-        await reserveElectronCost(user.id, GENERATION_COST_ELECTRONS);
-      } catch (error) {
-        if (error instanceof Error && error.message === "INSUFFICIENT_ELECTRONS") {
-          return NextResponse.json(
-            { error: `Not enough electrons. Each generation costs ${GENERATION_COST_ELECTRONS}e.` },
-            { status: 403 },
-          );
-        }
-        return NextResponse.json({ error: "Unable to reserve electrons. Please try again." }, { status: 503 });
-      }
-    }
-    if (!admin) {
-      try {
-        await reserveQuotaForAcceptedRequest(user.id, "notes_generated_today");
-      } catch (error) {
-        console.error("[ai/generate-pdf] Failed to reserve notes quota for accepted request.", {
-          userId: user.id,
-          error,
-        });
-        if (!admin) {
-          await rollbackElectronCost(user.id, GENERATION_COST_ELECTRONS);
-        }
-        return NextResponse.json(
-          { error: QUOTA_RESERVATION_FAILED_MESSAGE, code: QUOTA_RESERVATION_FAILED_CODE },
-          { status: 503 },
-        );
-      }
-    }
+    const notesReservationError = await reserveGenerationResources({
+      admin,
+      userId: user.id,
+      counter: "notes_generated_today",
+      quotaLogContext: "[ai/generate-pdf] Failed to reserve notes quota for accepted request.",
+    });
+    if (notesReservationError) return notesReservationError;
     const startEmailSent = await ensureGenerationStartedEmail(
       userEmail,
       `Unit Notes (${paperCode} - Unit ${unitNumber})`,
     );
     if (!startEmailSent) {
-      if (!admin) {
-        await rollbackQuotaReservation(user.id, "notes_generated_today");
-      }
-      if (!admin) {
-        await rollbackElectronCost(user.id, GENERATION_COST_ELECTRONS);
-      }
+      await rollbackReservedGenerationResources({
+        admin,
+        userId: user.id,
+        counter: "notes_generated_today",
+      });
       return NextResponse.json(
         {
           error: EMAIL_DELIVERY_UNAVAILABLE_MESSAGE,
@@ -1296,44 +1322,20 @@ export async function POST(request: NextRequest) {
       );
     }
   }
-  if (!admin) {
-    try {
-      await reserveElectronCost(user.id, GENERATION_COST_ELECTRONS);
-    } catch (error) {
-      if (error instanceof Error && error.message === "INSUFFICIENT_ELECTRONS") {
-        return NextResponse.json(
-          { error: `Not enough electrons. Each generation costs ${GENERATION_COST_ELECTRONS}e.` },
-          { status: 403 },
-        );
-      }
-      return NextResponse.json({ error: "Unable to reserve electrons. Please try again." }, { status: 503 });
-    }
-  }
-  if (!admin) {
-    try {
-      await reserveQuotaForAcceptedRequest(user.id, "papers_solved_today");
-    } catch (error) {
-      console.error("[ai/generate-pdf] Failed to reserve solved-paper quota for accepted request.", {
-        userId: user.id,
-        error,
-      });
-      if (!admin) {
-        await rollbackElectronCost(user.id, GENERATION_COST_ELECTRONS);
-      }
-      return NextResponse.json(
-        { error: QUOTA_RESERVATION_FAILED_MESSAGE, code: QUOTA_RESERVATION_FAILED_CODE },
-        { status: 503 },
-      );
-    }
-  }
+  const solvedReservationError = await reserveGenerationResources({
+    admin,
+    userId: user.id,
+    counter: "papers_solved_today",
+    quotaLogContext: "[ai/generate-pdf] Failed to reserve solved-paper quota for accepted request.",
+  });
+  if (solvedReservationError) return solvedReservationError;
   const startEmailSent = await ensureGenerationStartedEmail(userEmail, `Solved Paper (${paperCode} ${year})`);
   if (!startEmailSent) {
-    if (!admin) {
-      await rollbackQuotaReservation(user.id, "papers_solved_today");
-    }
-    if (!admin) {
-      await rollbackElectronCost(user.id, GENERATION_COST_ELECTRONS);
-    }
+    await rollbackReservedGenerationResources({
+      admin,
+      userId: user.id,
+      counter: "papers_solved_today",
+    });
     return NextResponse.json(
       {
         error: EMAIL_DELIVERY_UNAVAILABLE_MESSAGE,

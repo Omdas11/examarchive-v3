@@ -12,6 +12,7 @@ type VerifyBody = {
   razorpay_payment_id?: string;
   razorpay_signature?: string;
 };
+type CreditPack = NonNullable<ReturnType<typeof getCreditPackByCode>>;
 const MAX_PAYMENT_ID_LENGTH = 36;
 const CREDIT_APPLYING_STALE_MS = 5 * 60 * 1000;
 
@@ -71,6 +72,161 @@ async function getPurchaseByIdOrNull(
     if (error instanceof AppwriteException && error.code === 404) return null;
     throw error;
   }
+}
+
+function purchaseConflictResponse(message = "Purchase record conflict detected. Please contact support for reconciliation.") {
+  return NextResponse.json({ error: message }, { status: 409 });
+}
+
+function alreadyVerifiedResponse(aiCredits: number) {
+  return NextResponse.json({
+    ok: true,
+    message: "Payment already verified.",
+    ai_credits: aiCredits,
+  });
+}
+
+async function applyCreditsUnderLock(params: {
+  db: ReturnType<typeof adminDatabases>;
+  userId: string;
+  orderId: string;
+  paymentId: string;
+  requestedPackCode: string;
+  purchaseDocumentId: string;
+  pack: CreditPack;
+}): Promise<NextResponse> {
+  const {
+    db,
+    userId,
+    orderId,
+    paymentId,
+    requestedPackCode,
+    purchaseDocumentId,
+    pack,
+  } = params;
+
+  const purchase = await db.getDocument(DATABASE_ID, COLLECTION.purchases, purchaseDocumentId);
+  if (
+    !purchaseMatchesVerifiedPayment(purchase as Record<string, unknown>, {
+      userId,
+      orderId,
+      paymentId,
+      productCode: pack.code,
+      amount: pack.amountInPaise,
+      currency: "INR",
+    })
+  ) {
+    return purchaseConflictResponse();
+  }
+
+  const userDoc = await db.getDocument(DATABASE_ID, COLLECTION.users, userId);
+  const currentCredits = Number(userDoc.ai_credits ?? 0);
+  if (!Number.isFinite(currentCredits)) {
+    throw new Error("INVALID_USER_CREDITS_BALANCE");
+  }
+  const packCredits = Number(pack.credits);
+  if (!Number.isFinite(packCredits)) {
+    throw new Error("INVALID_PACK_CREDITS_VALUE");
+  }
+  const preCreditBalanceRaw = purchase.pre_credit_balance;
+  const preCreditBalance =
+    typeof preCreditBalanceRaw === "number" && Number.isFinite(preCreditBalanceRaw)
+      ? preCreditBalanceRaw
+      : null;
+  const purchaseStatus = typeof purchase.status === "string" ? purchase.status : "";
+  const purchaseCreditsApplied = purchase.credits_applied === true;
+
+  if (purchaseCreditsApplied) {
+    return alreadyVerifiedResponse(currentCredits);
+  }
+
+  if (purchaseStatus === "credit_applying") {
+    const applyingAtRaw =
+      typeof purchase.credit_applying_at === "string" ? purchase.credit_applying_at : "";
+    const applyingAtMs = applyingAtRaw ? Date.parse(applyingAtRaw) : NaN;
+    const lockAgeMs = Number.isFinite(applyingAtMs) ? Date.now() - applyingAtMs : NaN;
+    if (!Number.isFinite(lockAgeMs) || lockAgeMs < CREDIT_APPLYING_STALE_MS) {
+      return NextResponse.json(
+        { error: "Payment credit reconciliation is in progress. Please retry shortly." },
+        { status: 409 },
+      );
+    }
+
+    if (preCreditBalance !== null && currentCredits === preCreditBalance + packCredits) {
+      await db.updateDocument(DATABASE_ID, COLLECTION.purchases, purchaseDocumentId, {
+        status: "captured",
+        credits_applied: true,
+      });
+      return alreadyVerifiedResponse(currentCredits);
+    }
+    if (preCreditBalance !== null && currentCredits === preCreditBalance) {
+      await db.updateDocument(DATABASE_ID, COLLECTION.purchases, purchaseDocumentId, {
+        status: "captured_pending_credit",
+        credits_applied: false,
+      });
+    } else {
+      if (preCreditBalance === null) {
+        return NextResponse.json(
+          { error: "Payment reconciliation is missing state metadata. Please contact support." },
+          { status: 409 },
+        );
+      }
+      return NextResponse.json(
+        { error: "Payment reconciliation requires manual verification. Please contact support." },
+        { status: 409 },
+      );
+    }
+  }
+
+  const nextCredits = currentCredits + packCredits;
+  if (!Number.isFinite(nextCredits)) {
+    throw new Error("INVALID_CREDITS_BALANCE_COMPUTATION");
+  }
+  const updatedCredits = Math.max(0, nextCredits);
+  const creditApplyingAtIso = new Date().toISOString();
+
+  await db.updateDocument(DATABASE_ID, COLLECTION.purchases, purchaseDocumentId, {
+    status: "credit_applying",
+    credits_applied: false,
+    credit_applying_at: creditApplyingAtIso,
+    pre_credit_balance: currentCredits,
+  });
+
+  try {
+    await db.updateDocument(DATABASE_ID, COLLECTION.users, userId, {
+      ai_credits: updatedCredits,
+    });
+  } catch (creditApplyError) {
+    try {
+      await db.updateDocument(DATABASE_ID, COLLECTION.purchases, purchaseDocumentId, {
+        status: "captured_pending_credit",
+        credits_applied: false,
+      });
+    } catch (rollbackError) {
+      console.error("[payments.razorpay.verify] CRITICAL rollback failure after credit apply error.", {
+        userId,
+        orderId,
+        paymentId,
+        purchaseDocumentId,
+        requestedPackCode,
+        appliedPackCode: pack.code,
+        creditApplyError,
+        rollbackError,
+      });
+    }
+    throw creditApplyError;
+  }
+
+  await db.updateDocument(DATABASE_ID, COLLECTION.purchases, purchaseDocumentId, {
+    status: "captured",
+    credits_applied: true,
+  });
+
+  return NextResponse.json({
+    ok: true,
+    message: `Added ${packCredits} electrons to your balance.`,
+    ai_credits: updatedCredits,
+  });
 }
 
 export async function POST(request: NextRequest) {
@@ -145,6 +301,9 @@ export async function POST(request: NextRequest) {
 
   try {
     const db = adminDatabases();
+    if (!pack) {
+      return NextResponse.json({ error: "Invalid order pack metadata." }, { status: 400 });
+    }
     const sanitizedPaymentId = sanitizePaymentIdCurrent(paymentId);
     const purchaseDocumentId = sanitizedPaymentId.length > 0 ? sanitizedPaymentId : ID.unique();
     const nowIso = new Date().toISOString();
@@ -185,158 +344,26 @@ export async function POST(request: NextRequest) {
         paymentId,
         productCode: pack.code,
         amount: pack.amountInPaise,
-        currency: "INR",
-      })
+          currency: "INR",
+        })
     ) {
-      return NextResponse.json(
-        { error: "Purchase record conflict detected. Please contact support for reconciliation." },
-        { status: 409 },
-      );
+      return purchaseConflictResponse();
     }
 
     if (existingPurchase?.credits_applied === true) {
       const userDoc = await db.getDocument(DATABASE_ID, COLLECTION.users, user.id);
-      return NextResponse.json({
-        ok: true,
-        message: "Payment already verified.",
-        ai_credits: Number(userDoc.ai_credits ?? 0),
-      });
+      return alreadyVerifiedResponse(Number(userDoc.ai_credits ?? 0));
     }
 
     return await withElectronBalanceLock(user.id, async () => {
-      const purchase = await db.getDocument(DATABASE_ID, COLLECTION.purchases, resolvedPurchaseDocumentId);
-      if (
-        !purchaseMatchesVerifiedPayment(purchase as Record<string, unknown>, {
-          userId: user.id,
-          orderId,
-          paymentId,
-          productCode: pack.code,
-          amount: pack.amountInPaise,
-          currency: "INR",
-        })
-      ) {
-        return NextResponse.json(
-          { error: "Purchase record conflict detected. Please contact support for reconciliation." },
-          { status: 409 },
-        );
-      }
-      const userDoc = await db.getDocument(DATABASE_ID, COLLECTION.users, user.id);
-      const currentCredits = Number(userDoc.ai_credits ?? 0);
-      if (!Number.isFinite(currentCredits)) {
-        throw new Error("INVALID_USER_CREDITS_BALANCE");
-      }
-      const packCredits = Number(pack.credits);
-      if (!Number.isFinite(packCredits)) {
-        throw new Error("INVALID_PACK_CREDITS_VALUE");
-      }
-      const preCreditBalanceRaw = purchase.pre_credit_balance;
-      const preCreditBalance =
-        typeof preCreditBalanceRaw === "number" && Number.isFinite(preCreditBalanceRaw)
-          ? preCreditBalanceRaw
-          : null;
-      const purchaseStatus = typeof purchase.status === "string" ? purchase.status : "";
-      const purchaseCreditsApplied = purchase.credits_applied === true;
-
-      if (purchaseCreditsApplied) {
-        return NextResponse.json({
-          ok: true,
-          message: "Payment already verified.",
-          ai_credits: currentCredits,
-        });
-      }
-
-      if (purchaseStatus === "credit_applying") {
-        const applyingAtRaw =
-          typeof purchase.credit_applying_at === "string" ? purchase.credit_applying_at : "";
-        const applyingAtMs = applyingAtRaw ? Date.parse(applyingAtRaw) : NaN;
-        const lockAgeMs = Number.isFinite(applyingAtMs) ? Date.now() - applyingAtMs : NaN;
-        if (!Number.isFinite(lockAgeMs) || lockAgeMs < CREDIT_APPLYING_STALE_MS) {
-          return NextResponse.json(
-            { error: "Payment credit reconciliation is in progress. Please retry shortly." },
-            { status: 409 },
-          );
-        }
-
-        if (preCreditBalance !== null && currentCredits === preCreditBalance + packCredits) {
-          await db.updateDocument(DATABASE_ID, COLLECTION.purchases, resolvedPurchaseDocumentId, {
-            status: "captured",
-            credits_applied: true,
-          });
-          return NextResponse.json({
-            ok: true,
-            message: "Payment already verified.",
-            ai_credits: currentCredits,
-          });
-        }
-        if (preCreditBalance !== null && currentCredits === preCreditBalance) {
-          await db.updateDocument(DATABASE_ID, COLLECTION.purchases, resolvedPurchaseDocumentId, {
-            status: "captured_pending_credit",
-            credits_applied: false,
-          });
-        } else {
-          if (preCreditBalance === null) {
-            return NextResponse.json(
-              { error: "Payment reconciliation is missing state metadata. Please contact support." },
-              { status: 409 },
-            );
-          }
-          return NextResponse.json(
-            { error: "Payment reconciliation requires manual verification. Please contact support." },
-            { status: 409 },
-          );
-        }
-      }
-
-      const nextCredits = currentCredits + packCredits;
-      if (!Number.isFinite(nextCredits)) {
-        throw new Error("INVALID_CREDITS_BALANCE_COMPUTATION");
-      }
-      const updatedCredits = Math.max(0, nextCredits);
-      const creditApplyingAtIso = new Date().toISOString();
-
-      // Mark transition into credit application while keeping credits_applied=false
-      // until the user balance update succeeds.
-      await db.updateDocument(DATABASE_ID, COLLECTION.purchases, resolvedPurchaseDocumentId, {
-        status: "credit_applying",
-        credits_applied: false,
-        credit_applying_at: creditApplyingAtIso,
-        pre_credit_balance: currentCredits,
-      });
-
-      try {
-        await db.updateDocument(DATABASE_ID, COLLECTION.users, user.id, {
-          ai_credits: updatedCredits,
-        });
-      } catch (creditApplyError) {
-        try {
-          await db.updateDocument(DATABASE_ID, COLLECTION.purchases, resolvedPurchaseDocumentId, {
-            status: "captured_pending_credit",
-            credits_applied: false,
-          });
-        } catch (rollbackError) {
-          console.error("[payments.razorpay.verify] CRITICAL rollback failure after credit apply error.", {
-            userId: user.id,
-            orderId,
-            paymentId,
-            purchaseDocumentId: resolvedPurchaseDocumentId,
-            requestedPackCode,
-            appliedPackCode: pack.code,
-            creditApplyError,
-            rollbackError,
-          });
-        }
-        throw creditApplyError;
-      }
-
-      await db.updateDocument(DATABASE_ID, COLLECTION.purchases, resolvedPurchaseDocumentId, {
-        status: "captured",
-        credits_applied: true,
-      });
-
-      return NextResponse.json({
-        ok: true,
-        message: `Added ${packCredits}e to your balance.`,
-        ai_credits: updatedCredits,
+      return applyCreditsUnderLock({
+        db,
+        userId: user.id,
+        orderId,
+        paymentId,
+        requestedPackCode,
+        purchaseDocumentId: resolvedPurchaseDocumentId,
+        pack,
       });
     });
   } catch (error) {

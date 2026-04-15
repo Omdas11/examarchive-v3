@@ -40,6 +40,10 @@ function sanitizeEmailHtmlInput(value: string): string {
   }).replace(/\u0000/g, "").trim();
 }
 
+function sanitizeAndEncodeHtmlInterpolation(value: string): string {
+  return escapeHtml(sanitizeEmailHtmlInput(value));
+}
+
 function getSiteUrl(): string {
   return (
     process.env.NEXT_PUBLIC_SITE_URL ||
@@ -209,8 +213,8 @@ export async function sendGenerationFailureEmail(args: {
   const diagnosticsRaw = (args.diagnostics || "").slice(0, 8_000);
   const reasonText = sanitizePlainText(sanitizeEmailHtmlInput(reasonRaw));
   const diagnosticsTextValue = sanitizePlainText(sanitizeEmailHtmlInput(diagnosticsRaw));
-  const reasonHtml = escapeHtml(sanitizeEmailHtmlInput(reasonRaw));
-  const diagnosticsHtmlValue = escapeHtml(sanitizeEmailHtmlInput(diagnosticsRaw));
+  const reasonHtmlValue = sanitizeAndEncodeHtmlInterpolation(reasonRaw);
+  const diagnosticsHtmlValue = sanitizeAndEncodeHtmlInterpolation(diagnosticsRaw);
   const diagnosticsText = diagnosticsTextValue ? `\nDiagnostics:\n${diagnosticsTextValue}\n` : "";
   const diagnosticsHtml = diagnosticsHtmlValue
     ? `<p><strong>Diagnostics</strong></p><pre>${diagnosticsHtmlValue}</pre>`
@@ -221,6 +225,6 @@ export async function sendGenerationFailureEmail(args: {
     to,
     subject: `ExamArchive: ${safeTitle} generation failed`,
     text: `We couldn't complete your PDF generation request.\n\nTitle: ${safeTitle}\nReason: ${reasonText}${diagnosticsText}\nWhat you can do:\n- Try again in a few minutes.\n- If the issue persists, contact support and include the reason and diagnostics from this email.\n`,
-    html: `<p>We couldn't complete your PDF generation request.</p><p><strong>Reason:</strong> ${reasonHtml}</p>${diagnosticsHtml}<p>Please try again in a few minutes. If the issue persists, contact support and include these details.</p>`,
+    html: `<p>We couldn't complete your PDF generation request.</p><p><strong>Reason:</strong> ${reasonHtmlValue}</p>${diagnosticsHtml}<p>Please try again in a few minutes. If the issue persists, contact support and include these details.</p>`,
   });
 }
