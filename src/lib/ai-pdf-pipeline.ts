@@ -504,9 +504,10 @@ export async function renderMarkdownPdfToAppwrite(args: {
   }
   const normalizedBaseUrl = effectiveGotenbergUrl.replace(/\/+$/, "");
   const gotenbergAuthToken = (args.gotenbergAuthToken ?? process.env.GOTENBERG_AUTH_TOKEN ?? "").trim();
-  const requestHeaders = gotenbergAuthToken
-    ? { Authorization: `Bearer ${gotenbergAuthToken}` }
-    : undefined;
+  if (!gotenbergAuthToken) {
+    throw new Error("Missing GOTENBERG_AUTH_TOKEN for private Gotenberg Space.");
+  }
+  const requestHeaders = { Authorization: `Bearer ${gotenbergAuthToken}` };
   let gotenbergUrl: URL;
   try {
     gotenbergUrl = new URL(normalizedBaseUrl);
@@ -517,7 +518,6 @@ export async function renderMarkdownPdfToAppwrite(args: {
     throw new Error("gotenbergUrl must use HTTP or HTTPS.");
   }
   const primaryEndpoint = buildGotenbergEndpoint(gotenbergUrl.toString(), "/forms/chromium/convert/html");
-  const fallbackEndpoint = buildGotenbergEndpoint(gotenbergUrl.toString(), "/convert/html");
   const html = buildPdfHtml({
     markdown: args.markdown,
     modelName: args.modelName,
@@ -547,23 +547,19 @@ export async function renderMarkdownPdfToAppwrite(args: {
     return formData;
   };
 
-  let gotenbergEndpoint = primaryEndpoint;
-  let response = await postToGotenbergWithRetry({
+  const gotenbergEndpoint = primaryEndpoint;
+  const response = await postToGotenbergWithRetry({
     endpoint: gotenbergEndpoint,
     headers: requestHeaders,
     buildFormData,
   });
-  if (response.status === 404 || response.status >= 500) {
-    console.warn(`[ai-pdf-pipeline] Primary Gotenberg endpoint returned ${response.status} (${primaryEndpoint}). Retrying fallback endpoint.`);
-    gotenbergEndpoint = fallbackEndpoint;
-    response = await postToGotenbergWithRetry({
-      endpoint: gotenbergEndpoint,
-      headers: requestHeaders,
-      buildFormData,
-    });
-  }
-  if (!response.ok) {
+  if (response.status !== 200) {
     const errorText = (await response.text()).trim().slice(0, 2000);
+    console.error("[ai-pdf-pipeline] Gotenberg non-200 response.", {
+      status: response.status,
+      endpoint: gotenbergEndpoint,
+      error: errorText || response.statusText || "Unknown error",
+    });
     throw new Error(
       `Gotenberg Error (${response.status}) at ${gotenbergEndpoint}: ${errorText || response.statusText || "Unknown error"}`,
     );

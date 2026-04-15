@@ -110,9 +110,12 @@ describe("ai-pdf-pipeline", () => {
         headers: { Authorization: "Bearer secret-token" },
       }),
     );
+    const fetchCall = (global.fetch as jest.Mock).mock.calls[0]?.[1] as { body?: FormData } | undefined;
+    expect(fetchCall?.body).toBeInstanceOf(FormData);
+    expect(fetchCall?.body?.getAll("files")).toHaveLength(3);
   });
 
-  it("omits Authorization header when no gotenbergAuthToken is provided", async () => {
+  it("throws when no gotenbergAuthToken is provided", async () => {
     const createFile = jest.fn().mockResolvedValue(undefined);
     (adminStorage as jest.Mock).mockReturnValue({ createFile });
     (InputFile.fromBuffer as jest.Mock).mockReturnValue({ mocked: true });
@@ -124,19 +127,11 @@ describe("ai-pdf-pipeline", () => {
       text: async () => "",
     }) as unknown as typeof fetch;
 
-    await renderMarkdownPdfToAppwrite({
+    await expect(renderMarkdownPdfToAppwrite({
       markdown: "# Title",
       fileBaseName: "test",
       gotenbergUrl: "https://example-gotenberg.local",
-    });
-
-    expect(global.fetch).toHaveBeenCalledTimes(1);
-    expect(global.fetch).toHaveBeenCalledWith(
-      "https://example-gotenberg.local/forms/chromium/convert/html",
-      expect.objectContaining({
-        method: "POST",
-        headers: undefined,
-      }),
-    );
+    })).rejects.toThrow("Missing GOTENBERG_AUTH_TOKEN");
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 });

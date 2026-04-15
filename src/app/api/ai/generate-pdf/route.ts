@@ -27,7 +27,7 @@ import {
 } from "@/lib/economy";
 import { withElectronBalanceLock } from "@/lib/electron-lock";
 
-export const maxDuration = 300;
+export const maxDuration = 60;
 
 const DEFAULT_AI_MODEL = "gemini-3.1-flash-lite-preview";
 const GEMMA_UNLIMITED_TPM_MODEL = "gemma-4-31b-it";
@@ -122,7 +122,7 @@ function normalizeTags(raw: unknown): string[] {
 }
 
 function resolveGotenbergUrl(): string {
-  return (process.env.GOTENBERG_URL?.trim() || process.env.AZURE_GOTENBERG_URL?.trim() || "");
+  return process.env.GOTENBERG_URL?.trim() || "";
 }
 
 function normalizeSelectedModel(value: string): string {
@@ -400,6 +400,7 @@ function collectGeneratePdfEnvChecks(): {
   const warnings: string[] = [];
   const geminiApiKey = (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "").trim();
   const gotenbergUrlRaw = resolveGotenbergUrl();
+  const gotenbergAuthToken = (process.env.GOTENBERG_AUTH_TOKEN || "").trim();
 
   checks.push({
     name: "GEMINI_API_KEY|GOOGLE_API_KEY",
@@ -420,16 +421,25 @@ function collectGeneratePdfEnvChecks(): {
     }
   }
   checks.push({
-    name: "GOTENBERG_URL|AZURE_GOTENBERG_URL",
+    name: "GOTENBERG_URL",
     ok: gotenbergUrlValid,
     detail: gotenbergUrlRaw
       ? gotenbergUrlValid ? "configured" : "invalid URL format/protocol"
       : "missing",
   });
   if (!gotenbergUrlRaw) {
-    errors.push("Missing GOTENBERG_URL (and legacy AZURE_GOTENBERG_URL fallback).");
+    errors.push("Missing GOTENBERG_URL.");
   } else if (!gotenbergUrlValid) {
-    errors.push("GOTENBERG_URL (or AZURE_GOTENBERG_URL) is not a valid HTTP/HTTPS URL.");
+    errors.push("GOTENBERG_URL is not a valid HTTP/HTTPS URL.");
+  }
+
+  checks.push({
+    name: "GOTENBERG_AUTH_TOKEN",
+    ok: !!gotenbergAuthToken,
+    detail: gotenbergAuthToken ? "configured" : "missing",
+  });
+  if (!gotenbergAuthToken) {
+    errors.push("Missing GOTENBERG_AUTH_TOKEN for private Hugging Face Space.");
   }
 
   const numericChecks = [
@@ -497,9 +507,11 @@ async function runNotesBackground(params: {
 
   const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   const gotenbergUrl = resolveGotenbergUrl();
+  const gotenbergAuthToken = (process.env.GOTENBERG_AUTH_TOKEN || "").trim();
 
   if (!geminiApiKey) throw new Error("Google Gemini is not configured.");
-  if (!gotenbergUrl) throw new Error("Server misconfiguration: missing GOTENBERG_URL; legacy fallback AZURE_GOTENBERG_URL also not set.");
+  if (!gotenbergUrl) throw new Error("Server misconfiguration: missing GOTENBERG_URL.");
+  if (!gotenbergAuthToken) throw new Error("Server misconfiguration: missing GOTENBERG_AUTH_TOKEN.");
 
   const db = adminDatabases();
 
@@ -649,6 +661,7 @@ CRITICAL FORMAT CONSTRAINTS:
     fileBaseName: `${paperCode}_unit_${unitNumber}_${fileToken}_${Date.now()}`,
     fileName: dynamicPdfName,
     gotenbergUrl,
+    gotenbergAuthToken,
     modelName: model,
     generatedAtIso: new Date().toISOString(),
     paperCode,
@@ -689,9 +702,11 @@ async function runSolvedPaperBackground(params: {
 
   const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   const gotenbergUrl = resolveGotenbergUrl();
+  const gotenbergAuthToken = (process.env.GOTENBERG_AUTH_TOKEN || "").trim();
 
   if (!geminiApiKey) throw new Error("Google Gemini is not configured.");
-  if (!gotenbergUrl) throw new Error("Server misconfiguration: missing GOTENBERG_URL; legacy fallback AZURE_GOTENBERG_URL also not set.");
+  if (!gotenbergUrl) throw new Error("Server misconfiguration: missing GOTENBERG_URL.");
+  if (!gotenbergAuthToken) throw new Error("Server misconfiguration: missing GOTENBERG_AUTH_TOKEN.");
 
   const db = adminDatabases();
 
@@ -795,6 +810,7 @@ CRITICAL FORMAT CONSTRAINTS:
     fileBaseName: `${paperCode}_${year}_solved_${fileToken}_${Date.now()}`,
     fileName: `${paperCode}_${year}_solved_paper.pdf`,
     gotenbergUrl,
+    gotenbergAuthToken,
     paperCode,
     year,
   });

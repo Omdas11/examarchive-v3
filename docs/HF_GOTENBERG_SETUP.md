@@ -12,10 +12,10 @@ Use a Docker Space with:
 
 Version note:
 
-- This project is tested against Gotenberg v8 endpoints (`/forms/chromium/convert/html` with fallback `/convert/html`).
+- This project is tested against Gotenberg v8 endpoint `/forms/chromium/convert/html`.
 - If you change major versions, verify endpoint compatibility before rollout.
 - On version upgrades, test these behaviors end-to-end:
-  - HTML conversion endpoint compatibility (`/forms/chromium/convert/html`, fallback `/convert/html`)
+  - HTML conversion endpoint compatibility (`/forms/chromium/convert/html`)
   - Header/footer rendering (`displayHeaderFooter=true`)
   - Wait-delay rendering behavior (`waitDelay`)
   - Successful PDF upload back into Appwrite storage
@@ -30,20 +30,18 @@ In local development (`.env.local`):
 
 ```bash
 GOTENBERG_URL=https://<username>-<space-name>.hf.space
-# Required only if your HF Space is private:
-# GOTENBERG_AUTH_TOKEN=hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+GOTENBERG_AUTH_TOKEN=hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
 In production (Vercel/hosting), set:
 
 - `GOTENBERG_URL` = your HF Space URL
-- `GOTENBERG_AUTH_TOKEN` = HF token (required if Space is private)
+- `GOTENBERG_AUTH_TOKEN` = HF token
 
 Notes:
 
 - Do not add trailing slashes (the app normalizes, but keep it clean).
 - HTTPS is recommended (HTTP can be used for local/dev environments).
-- `AZURE_GOTENBERG_URL` is still accepted as a legacy fallback, but `GOTENBERG_URL` is the new primary variable.
 - For private Spaces, ensure the token has permission to access the private Space.
 
 ## 3) Verify from your Next.js app
@@ -77,6 +75,6 @@ This repository includes a scheduled workflow:
 Set these repository secrets:
 
 - `GOTENBERG_URL` (required) — your HF Space URL
-- `GOTENBERG_AUTH_TOKEN` (optional, required for private Space)
+- `GOTENBERG_AUTH_TOKEN` (required for private Space)
 
 The workflow pings your Gotenberg endpoint every 24 hours and can also be run manually.
