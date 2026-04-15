@@ -88,6 +88,7 @@ function normalizeSemester(value: unknown): number | null {
   if (value === null || typeof value === "undefined" || value === "") return null;
   if (typeof value !== "number" && typeof value !== "string") return null;
   const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return null;
   if (!Number.isInteger(parsed) || parsed < MIN_SEMESTER || parsed > MAX_SEMESTER) return null;
   return parsed;
 }
@@ -279,9 +280,10 @@ async function upsertCacheEntry(params: {
   const db = adminDatabases();
   const storage = adminStorage();
   try {
+    const hashPrefixLength = Math.min(CACHE_HASH_PREFIX_LENGTH, params.contentHash.length || CACHE_HASH_PREFIX_LENGTH);
     const markdownInput = InputFile.fromBuffer(
       Buffer.from(params.markdown, "utf-8"),
-      `${params.cacheType}-${params.contentHash.slice(0, CACHE_HASH_PREFIX_LENGTH)}.md`,
+      `${params.cacheType}-${params.contentHash.slice(0, hashPrefixLength)}.md`,
     );
     const markdownUpload = await storage.createFile(params.bucketId, ID.unique(), markdownInput);
     const markdownFileId = String(markdownUpload.$id);
@@ -983,9 +985,10 @@ ${questionsChunk.map((questionDoc, questionIndex) => {
   const qNo = String(questionDoc.question_no ?? questionIndex + 1).trim();
   const qSub = typeof questionDoc.question_subpart === "string" ? questionDoc.question_subpart.trim() : "";
   const questionContent = String(questionDoc.question_content ?? "").trim();
+  const parsedMarks = typeof questionDoc.marks === "string" ? Number(questionDoc.marks) : NaN;
   const marks = typeof questionDoc.marks === "number"
     ? questionDoc.marks
-    : (typeof questionDoc.marks === "string" ? Number(questionDoc.marks) || "N/A" : "N/A");
+    : (Number.isFinite(parsedMarks) ? parsedMarks : "N/A");
   return `Q${qNo}${qSub ? `(${qSub})` : ""} [${marks} marks]\n${questionContent}`;
 }).join("\n\n")}
 
