@@ -10,28 +10,35 @@ const GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta";
 const DEFAULT_MODEL = process.env.GEMINI_MODEL_ID || "gemini-3.1-flash-lite-preview";
 const GEMINI_COOLDOWN_MS = 3000;
 const LOGICAL_CHUNK_COUNT = 5;
-const GEMINI_REQUEST_TIMEOUT_MS = Number.isFinite(Number(process.env.GEMINI_REQUEST_TIMEOUT_MS))
-  ? Math.max(1_000, Number(process.env.GEMINI_REQUEST_TIMEOUT_MS))
+const geminiRequestTimeoutRaw = Number(process.env.GEMINI_REQUEST_TIMEOUT_MS);
+const geminiMaxAttemptsRaw = Number(process.env.GEMINI_MAX_ATTEMPTS);
+const geminiBaseBackoffRaw = Number(process.env.GEMINI_BASE_BACKOFF_MS);
+const gotenbergRequestTimeoutRaw = Number(process.env.GOTENBERG_REQUEST_TIMEOUT_MS);
+const gotenbergMaxAttemptsRaw = Number(process.env.GOTENBERG_MAX_ATTEMPTS);
+const gotenbergBaseBackoffRaw = Number(process.env.GOTENBERG_BASE_BACKOFF_MS);
+const tavilyTimeoutRaw = Number(process.env.TAVILY_TIMEOUT_MS);
+const GEMINI_REQUEST_TIMEOUT_MS = Number.isFinite(geminiRequestTimeoutRaw)
+  ? Math.max(1_000, geminiRequestTimeoutRaw)
   : 45_000;
-const DEFAULT_GEMINI_MAX_ATTEMPTS = Number.isInteger(Number(process.env.GEMINI_MAX_ATTEMPTS))
-  ? Math.max(1, Number(process.env.GEMINI_MAX_ATTEMPTS))
+const DEFAULT_GEMINI_MAX_ATTEMPTS = Number.isInteger(geminiMaxAttemptsRaw)
+  ? Math.max(1, geminiMaxAttemptsRaw)
   : 3;
-const DEFAULT_GEMINI_BASE_BACKOFF_MS = Number.isFinite(Number(process.env.GEMINI_BASE_BACKOFF_MS))
-  ? Math.max(250, Number(process.env.GEMINI_BASE_BACKOFF_MS))
+const DEFAULT_GEMINI_BASE_BACKOFF_MS = Number.isFinite(geminiBaseBackoffRaw)
+  ? Math.max(250, geminiBaseBackoffRaw)
   : 1500;
 const GOTENBERG_ENDPOINT_PATH = "/forms/chromium/convert/html";
 const TRUSTED_GOTENBERG_HOST_SUFFIX = ".hf.space";
-const GOTENBERG_REQUEST_TIMEOUT_MS = Number.isFinite(Number(process.env.GOTENBERG_REQUEST_TIMEOUT_MS))
-  ? Math.max(1_000, Number(process.env.GOTENBERG_REQUEST_TIMEOUT_MS))
+const GOTENBERG_REQUEST_TIMEOUT_MS = Number.isFinite(gotenbergRequestTimeoutRaw)
+  ? Math.max(1_000, gotenbergRequestTimeoutRaw)
   : 45_000;
-const GOTENBERG_MAX_ATTEMPTS = Number.isInteger(Number(process.env.GOTENBERG_MAX_ATTEMPTS))
-  ? Math.max(1, Number(process.env.GOTENBERG_MAX_ATTEMPTS))
+const GOTENBERG_MAX_ATTEMPTS = Number.isInteger(gotenbergMaxAttemptsRaw)
+  ? Math.max(1, gotenbergMaxAttemptsRaw)
   : 3;
-const GOTENBERG_BASE_BACKOFF_MS = Number.isFinite(Number(process.env.GOTENBERG_BASE_BACKOFF_MS))
-  ? Math.max(250, Number(process.env.GOTENBERG_BASE_BACKOFF_MS))
+const GOTENBERG_BASE_BACKOFF_MS = Number.isFinite(gotenbergBaseBackoffRaw)
+  ? Math.max(250, gotenbergBaseBackoffRaw)
   : 1500;
-const TAVILY_TIMEOUT_MS = Number.isFinite(Number(process.env.TAVILY_TIMEOUT_MS))
-  ? Math.max(1_000, Number(process.env.TAVILY_TIMEOUT_MS))
+const TAVILY_TIMEOUT_MS = Number.isFinite(tavilyTimeoutRaw)
+  ? Math.max(1_000, tavilyTimeoutRaw)
   : 8_000;
 
 const DATABASE_ID = process.env.DATABASE_ID || "examarchive";
