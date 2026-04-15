@@ -271,6 +271,9 @@ async function enqueueAndDispatchPdfJob(params: {
   const db = adminDatabases();
   const functions = adminFunctions();
   const functionId = resolvePdfGeneratorFunctionId();
+  if (!functionId) {
+    throw new Error("Missing APPWRITE_PDF_GENERATOR_FUNCTION_ID for Appwrite function dispatch.");
+  }
   const idempotencyKey = buildContentHash([
     params.userId,
     params.paperCode,
@@ -335,10 +338,19 @@ async function enqueueAndDispatchPdfJob(params: {
       }),
       async: true,
     });
-    console.info("[ai/generate-pdf] Appwrite function execution trigger response.", execution);
-    if (![201, 202].includes(Number(execution.responseStatusCode))) {
+    const triggerAccepted =
+      typeof execution.$id === "string" &&
+      execution.$id.length > 0 &&
+      ["waiting", "processing", "scheduled", "completed", "failed"].includes(String(execution.status || ""));
+    console.info("[ai/generate-pdf] Appwrite function execution trigger response.", {
+      triggerAccepted,
+      FUNCTION_ID: functionId,
+      jobId,
+      execution,
+    });
+    if (!triggerAccepted) {
       throw new Error(
-        `Function dispatch rejected with responseStatusCode=${String(execution.responseStatusCode)} for FUNCTION_ID=${functionId}`,
+        `Function dispatch did not return an accepted execution payload for FUNCTION_ID=${functionId}`,
       );
     }
   } catch (error) {
