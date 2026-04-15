@@ -483,9 +483,10 @@ function buildGotenbergEndpoint(baseUrl: string, endpointPath: string): string {
 
 function normalizeGotenbergAuthToken(rawToken: string): string {
   const trimmed = rawToken.trim();
+  const isWrappedInDoubleQuotes = trimmed.length >= 2 && trimmed.startsWith("\"") && trimmed.endsWith("\"");
+  const isWrappedInSingleQuotes = trimmed.length >= 2 && trimmed.startsWith("'") && trimmed.endsWith("'");
   const unquoted =
-    (trimmed.startsWith("\"") && trimmed.endsWith("\""))
-    || (trimmed.startsWith("'") && trimmed.endsWith("'"))
+    isWrappedInDoubleQuotes || isWrappedInSingleQuotes
       ? trimmed.slice(1, -1).trim()
       : trimmed;
   return unquoted.replace(/^Bearer\s+/i, "").trim();
