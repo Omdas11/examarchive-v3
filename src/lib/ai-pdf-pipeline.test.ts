@@ -1,4 +1,6 @@
-import { buildPdfHtml, buildSafePdfFileName } from "./ai-pdf-pipeline";
+import { InputFile } from "node-appwrite/file";
+import { adminStorage } from "@/lib/appwrite";
+import { buildPdfHtml, buildSafePdfFileName, renderMarkdownPdfToAppwrite } from "./ai-pdf-pipeline";
 
 jest.mock("node-appwrite/file", () => ({
   InputFile: {
@@ -13,6 +15,14 @@ jest.mock("@/lib/appwrite", () => ({
 }));
 
 describe("ai-pdf-pipeline", () => {
+  const originalFetch = global.fetch;
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+    delete process.env.GOTENBERG_AUTH_TOKEN;
+    jest.resetAllMocks();
+  });
+
   it("sanitizes rendered markdown html content", () => {
     const html = buildPdfHtml({
       markdown: `## Safe\n<script>alert("x")</script>\n<img src="x" onerror="alert(1)" /><a href="javascript:alert(2)">x</a>`,
@@ -71,5 +81,166 @@ describe("ai-pdf-pipeline", () => {
     expect(mainContent).toContain("escaped slash pair: \\ ");
     expect(mainContent).toContain("<math");
     expect(mainContent).not.toContain("$$a+b$$");
+  });
+
+  it("adds Authorization header when gotenbergAuthToken is provided", async () => {
+    const createFile = jest.fn().mockResolvedValue(undefined);
+    (adminStorage as jest.Mock).mockReturnValue({ createFile });
+    (InputFile.fromBuffer as jest.Mock).mockReturnValue({ mocked: true });
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
+      text: async () => "",
+    }) as unknown as typeof fetch;
+
+    await renderMarkdownPdfToAppwrite({
+      markdown: "# Title",
+      fileBaseName: "test",
+      gotenbergUrl: "https://example-gotenberg.hf.space",
+      gotenbergAuthToken: "secret-token",
+    });
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(global.fetch).toHaveBeenCalledWith(
+      "https://example-gotenberg.hf.space/forms/chromium/convert/html",
+      expect.objectContaining({
+        method: "POST",
+        headers: { Authorization: "Bearer secret-token" },
+      }),
+    );
+  });
+
+  it("normalizes token formatting before building Bearer header", async () => {
+    const createFile = jest.fn().mockResolvedValue(undefined);
+    (adminStorage as jest.Mock).mockReturnValue({ createFile });
+    (InputFile.fromBuffer as jest.Mock).mockReturnValue({ mocked: true });
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
+      text: async () => "",
+    }) as unknown as typeof fetch;
+
+    await renderMarkdownPdfToAppwrite({
+      markdown: "# Title",
+      fileBaseName: "test",
+      gotenbergUrl: "https://example-gotenberg.hf.space",
+      gotenbergAuthToken: " \"Bearer secret-token\" ",
+    });
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      "https://example-gotenberg.hf.space/forms/chromium/convert/html",
+      expect.objectContaining({
+        method: "POST",
+        headers: { Authorization: "Bearer secret-token" },
+      }),
+    );
+  });
+
+  it("normalizes single-quoted token formatting before building Bearer header", async () => {
+    const createFile = jest.fn().mockResolvedValue(undefined);
+    (adminStorage as jest.Mock).mockReturnValue({ createFile });
+    (InputFile.fromBuffer as jest.Mock).mockReturnValue({ mocked: true });
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
+      text: async () => "",
+    }) as unknown as typeof fetch;
+
+    await renderMarkdownPdfToAppwrite({
+      markdown: "# Title",
+      fileBaseName: "test",
+      gotenbergUrl: "https://example-gotenberg.hf.space",
+      gotenbergAuthToken: " 'secret-token' ",
+    });
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      "https://example-gotenberg.hf.space/forms/chromium/convert/html",
+      expect.objectContaining({
+        method: "POST",
+        headers: { Authorization: "Bearer secret-token" },
+      }),
+    );
+  });
+
+  it("normalizes whitespace-only token formatting before building Bearer header", async () => {
+    const createFile = jest.fn().mockResolvedValue(undefined);
+    (adminStorage as jest.Mock).mockReturnValue({ createFile });
+    (InputFile.fromBuffer as jest.Mock).mockReturnValue({ mocked: true });
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
+      text: async () => "",
+    }) as unknown as typeof fetch;
+
+    await renderMarkdownPdfToAppwrite({
+      markdown: "# Title",
+      fileBaseName: "test",
+      gotenbergUrl: "https://example-gotenberg.hf.space",
+      gotenbergAuthToken: "   secret-token   ",
+    });
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      "https://example-gotenberg.hf.space/forms/chromium/convert/html",
+      expect.objectContaining({
+        method: "POST",
+        headers: { Authorization: "Bearer secret-token" },
+      }),
+    );
+  });
+
+  it("sends HTML/header/footer payloads using FormData files key", async () => {
+    const createFile = jest.fn().mockResolvedValue(undefined);
+    (adminStorage as jest.Mock).mockReturnValue({ createFile });
+    (InputFile.fromBuffer as jest.Mock).mockReturnValue({ mocked: true });
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
+      text: async () => "",
+    }) as unknown as typeof fetch;
+
+    await renderMarkdownPdfToAppwrite({
+      markdown: "# Title",
+      fileBaseName: "test",
+      gotenbergUrl: "https://example-gotenberg.hf.space",
+      gotenbergAuthToken: "secret-token",
+    });
+
+    const fetchCall = (global.fetch as jest.Mock).mock.calls[0]?.[1] as { body?: FormData } | undefined;
+    expect(fetchCall?.body).toBeInstanceOf(FormData);
+    const files = fetchCall?.body?.getAll("files") as File[] | undefined;
+    expect(files).toHaveLength(3);
+    expect(files?.[0]?.name).toBe("index.html");
+    expect(files?.[0]?.type).toBe("text/html");
+    expect((global.fetch as jest.Mock).mock.calls[0]?.[1]?.headers).not.toHaveProperty("Content-Type");
+  });
+
+  it("throws when no gotenbergAuthToken is provided", async () => {
+    const createFile = jest.fn().mockResolvedValue(undefined);
+    (adminStorage as jest.Mock).mockReturnValue({ createFile });
+    (InputFile.fromBuffer as jest.Mock).mockReturnValue({ mocked: true });
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      arrayBuffer: async () => new Uint8Array([4, 5, 6]).buffer,
+      text: async () => "",
+    }) as unknown as typeof fetch;
+
+    await expect(renderMarkdownPdfToAppwrite({
+      markdown: "# Title",
+      fileBaseName: "test",
+      gotenbergUrl: "https://example-gotenberg.hf.space",
+    })).rejects.toThrow("Missing GOTENBERG_AUTH_TOKEN");
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 });

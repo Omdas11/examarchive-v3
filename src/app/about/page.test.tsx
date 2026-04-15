@@ -43,14 +43,15 @@ jest.mock("@/lib/appwrite", () => ({
 }));
 
 describe("About page progression content", () => {
-  it("shows referral and AI credit policy sections", async () => {
+  it("shows referral and electron policy sections", async () => {
     const jsx = await AboutPage();
     render(jsx);
 
-    expect(screen.getByText("AI Credits & Referrals")).toBeInTheDocument();
-    expect(screen.getByText("5-Level Referral Rewards")).toBeInTheDocument();
-    expect(screen.getByText(/Future provision: users will be able to purchase additional AI Credits/i)).toBeInTheDocument();
+    expect(screen.getByText("Electrons & Referrals")).toBeInTheDocument();
+    expect(screen.getByText("Referral Rules")).toBeInTheDocument();
+    expect(screen.getByText("XO → Electron Policy")).toBeInTheDocument();
+    expect(screen.getByText("Successful referral cap per referrer")).toBeInTheDocument();
     expect(screen.getByText("Cosmetics & Role Assignment")).toBeInTheDocument();
-    expect(screen.getByText("Level 5")).toBeInTheDocument();
+    expect(screen.getByText("Direct referrals only")).toBeInTheDocument();
   });
 });

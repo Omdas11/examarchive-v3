@@ -98,9 +98,10 @@ function nextStreakGoal(streak: number): number {
 // ── Role badge SVG icon name (matches v2 roles.js getBadgeIcon) ─────────────
 function roleBadgeIconName(role: string): IconName {
   const normalized = normalizeRole(role);
-  if (normalized === "admin") return "shield";
+  if (normalized === "founder") return "shield";
   if (normalized === "moderator") return "badge";
-  if (normalized === "curator") return "medal";
+  if (normalized === "subject_admin") return "medal";
+  if (normalized === "specialist") return "medal";
   return "user";
 }
 
@@ -178,7 +179,7 @@ export default async function ProfilePage() {
 
   const normalizedRole = normalizeRole(user.role);
   const roleDisplayLabel = roleLabel(user.role);
-  const xpLabel = normalizedRole === "viewer" ? currentRank : roleDisplayLabel;
+  const xpLabel = normalizedRole === "student" ? currentRank : roleDisplayLabel;
 
   return (
     <MainLayout

@@ -14,7 +14,7 @@ This guide defines:
 
 The following must remain stable unless an explicit migration plan is approved:
 
-1. Database structure in `docs/launch/v2/DATABASE_SCHEMA.md`
+1. Database structure in `docs/DATABASE_SCHEMA.md`
 2. Syllabus/question ingestion structure:
    - `docs/MASTER_INGESTION_GUIDE.md`
    - `docs/MASTER_SYLLABUS_ENTRY.md`

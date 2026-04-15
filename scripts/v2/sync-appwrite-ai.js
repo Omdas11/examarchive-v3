@@ -85,6 +85,19 @@ const AI_COLLECTIONS = [
       { key: "model", type: "string", required: false, size: 64 },
     ],
   },
+  {
+    id: "ai_cache_index",
+    name: "ai_cache_index",
+    attributes: [
+      { key: "content_hash", type: "string", required: true, size: 128 },
+      { key: "cache_type", type: "string", required: true, size: 32 },
+      { key: "status", type: "string", required: false, size: 32 },
+      { key: "bucket_id", type: "string", required: true, size: 128 },
+      { key: "markdown_file_id", type: "string", required: true, size: 128 },
+      { key: "pdf_file_id", type: "string", required: false, size: 128 },
+      { key: "created_at", type: "datetime", required: false },
+    ],
+  },
 ];
 
 // These are initialized in main() after loadAppwriteEnv() to respect CLI/.env overrides

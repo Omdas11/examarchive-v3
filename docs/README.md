@@ -45,6 +45,7 @@ The growth and monetization prep checklist is now split into focused docs:
 | [docs/CONTRIBUTOR_OPERATIONS_GUIDE.md](./CONTRIBUTOR_OPERATIONS_GUIDE.md) | Contributor responsibilities, QA process, and release readiness SOP |
 | [docs/launch/GOOGLE_ANALYTICS_SETUP.md](./launch/GOOGLE_ANALYTICS_SETUP.md) | GA4 implementation and event taxonomy guide |
 | [docs/SIMPLE_ANALYTICS_SETUP.md](./SIMPLE_ANALYTICS_SETUP.md) | Simple Analytics configuration steps and verification checklist |
-| [docs/launch/v2/DATABASE_SCHEMA.md](./launch/v2/DATABASE_SCHEMA.md) | Appwrite collection schemas |
+| [docs/HF_GOTENBERG_SETUP.md](./HF_GOTENBERG_SETUP.md) | Move PDF rendering to Hugging Face Gotenberg and configure Next.js envs |
+| [docs/DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) | Appwrite collection schemas |
 | [docs/UPLOAD_FLOW.md](./UPLOAD_FLOW.md) | End-to-end upload and moderation architecture |
 | [docs/payments/razorpay-integration.md](./payments/razorpay-integration.md) | Razorpay verification routes and Purchases schema architecture |

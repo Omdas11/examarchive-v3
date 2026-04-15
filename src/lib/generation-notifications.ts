@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer";
 import type SMTPTransport from "nodemailer/lib/smtp-transport";
+import sanitizeHtml from "sanitize-html";
 
 export class SmtpConfigurationError extends Error {}
 const DEFAULT_SMTP_PORT = 587;
@@ -32,11 +33,37 @@ function sanitizePlainText(value: string): string {
   return value.replace(/[\r\n\t]+/g, " ").trim();
 }
 
+function sanitizeEmailHtmlInput(value: string): string {
+  return sanitizeHtml(value, {
+    allowedTags: [],
+    allowedAttributes: {},
+  }).replace(/\u0000/g, "").trim();
+}
+
+function sanitizeAndEncodeHtmlInterpolation(value: string): string {
+  return escapeHtml(sanitizeEmailHtmlInput(value));
+}
+
 function getSiteUrl(): string {
   return (
     process.env.NEXT_PUBLIC_SITE_URL ||
     "https://www.examarchive.dev"
   ).replace(/\/+$/, "");
+}
+
+function toSafeHttpUrl(rawUrl: string): string {
+  const siteUrl = getSiteUrl();
+  const normalized = rawUrl.trim();
+  if (!normalized) return siteUrl;
+  try {
+    const url = /^https?:\/\//i.test(normalized)
+      ? new URL(normalized)
+      : new URL(normalized.replace(/^\/+/, ""), `${siteUrl}/`);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return siteUrl;
+    return url.toString();
+  } catch {
+    return siteUrl;
+  }
 }
 
 function getFromAddress(): string {
@@ -155,17 +182,15 @@ export async function sendGenerationPdfEmail(args: {
   const to = args.email.trim();
   if (!to) return;
   const from = getFromAddress();
-  const normalizedUrl = args.downloadUrl.trim();
-  const downloadUrl = /^https?:\/\//i.test(normalizedUrl)
-    ? normalizedUrl
-    : `${getSiteUrl()}/${normalizedUrl.replace(/^\/+/, "")}`;
+  const safeTitle = sanitizePlainText(args.title) || "PDF generation request";
+  const downloadUrl = toSafeHttpUrl(args.downloadUrl);
   const safeDownloadUrl = escapeHtml(downloadUrl);
 
   const transporter = await getTransporter();
   await transporter.sendMail({
     from,
     to,
-    subject: `ExamArchive: ${args.title} PDF is ready`,
+    subject: `ExamArchive: ${safeTitle} PDF is ready`,
     text: `Your generated PDF is ready.\n\nDownload: ${downloadUrl}\n`,
     html: `<p>Your generated PDF is ready.</p><p><a href="${safeDownloadUrl}">Download PDF</a></p>`,
   });
@@ -175,21 +200,31 @@ export async function sendGenerationFailureEmail(args: {
   email: string;
   title: string;
   reason?: string;
+  diagnostics?: string;
 }): Promise<void> {
   const to = args.email.trim();
   if (!to) return;
   const from = getFromAddress();
   const safeTitle = sanitizePlainText(args.title) || "PDF generation request";
-  const reason = (
+  const reasonRaw = (
     args.reason ||
     "Generation failed. Please check your selections and try again. If it keeps failing, contact support."
-  ).trim();
+  );
+  const diagnosticsRaw = (args.diagnostics || "").slice(0, 8_000);
+  const reasonText = sanitizePlainText(sanitizeEmailHtmlInput(reasonRaw));
+  const diagnosticsTextValue = sanitizePlainText(sanitizeEmailHtmlInput(diagnosticsRaw));
+  const reasonHtmlValue = sanitizeAndEncodeHtmlInterpolation(reasonRaw);
+  const diagnosticsHtmlValue = sanitizeAndEncodeHtmlInterpolation(diagnosticsRaw);
+  const diagnosticsText = diagnosticsTextValue ? `\nDiagnostics:\n${diagnosticsTextValue}\n` : "";
+  const diagnosticsHtml = diagnosticsHtmlValue
+    ? `<p><strong>Diagnostics</strong></p><pre>${diagnosticsHtmlValue}</pre>`
+    : "";
   const transporter = await getTransporter();
   await transporter.sendMail({
     from,
     to,
     subject: `ExamArchive: ${safeTitle} generation failed`,
-    text: `We couldn't complete your PDF generation request.\n\nTitle: ${safeTitle}\nReason: ${reason}\n\nWhat you can do:\n- Try again in a few minutes.\n- If the issue persists, contact support and include this reason.\n`,
-    html: "<p>We couldn't complete your PDF generation request.</p><p>Please try again in a few minutes. If the issue persists, contact support and include the detailed reason shown in the plain-text section of this email.</p>",
+    text: `We couldn't complete your PDF generation request.\n\nTitle: ${safeTitle}\nReason: ${reasonText}${diagnosticsText}\nWhat you can do:\n- Try again in a few minutes.\n- If the issue persists, contact support and include the reason and diagnostics from this email.\n`,
+    html: `<p>We couldn't complete your PDF generation request.</p><p><strong>Reason:</strong> ${reasonHtmlValue}</p>${diagnosticsHtml}<p>Please try again in a few minutes. If the issue persists, contact support and include these details.</p>`,
   });
 }

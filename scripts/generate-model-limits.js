@@ -15,6 +15,14 @@ function googleFreeModels() {
     },
     {
       provider: "Google",
+      id: "gemma-4-31b-it",
+      name: "Gemma 4 31B IT",
+      context: "N/A",
+      promptPricing: "0",
+      completionPricing: "0",
+    },
+    {
+      provider: "Google",
       id: "gemini-2.5-flash",
       name: "Gemini 2.5 Flash",
       context: "N/A",

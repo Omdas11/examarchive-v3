@@ -12,6 +12,7 @@ import {
 } from "@/lib/appwrite";
 import { isValidUserRole, isValidCustomRole, isValidTier } from "@/lib/roles";
 import { logActivity } from "@/lib/activity-log";
+import { withElectronBalanceLock } from "@/lib/electron-lock";
 
 /**
  * GET /api/admin/users
@@ -87,6 +88,7 @@ export async function PATCH(request: NextRequest) {
   // Build the update payload — only include valid fields
   const update: Record<string, unknown> = {};
   const details: string[] = [];
+  let requestedCreditsDelta: number | null = null;
 
   if (body.role !== undefined) {
     if (!isValidUserRole(body.role)) {
@@ -128,6 +130,22 @@ export async function PATCH(request: NextRequest) {
     details.push(`tier → ${body.tier}`);
   }
 
+  if (body.specialist_subject !== undefined) {
+    if (body.specialist_subject !== null && typeof body.specialist_subject !== "string") {
+      return NextResponse.json({ error: "Invalid specialist_subject value" }, { status: 400 });
+    }
+    update.specialist_subject = body.specialist_subject ? String(body.specialist_subject).trim() : null;
+    details.push(`specialist_subject → ${update.specialist_subject ?? "none"}`);
+  }
+
+  if (body.subject_admin_subject !== undefined) {
+    if (body.subject_admin_subject !== null && typeof body.subject_admin_subject !== "string") {
+      return NextResponse.json({ error: "Invalid subject_admin_subject value" }, { status: 400 });
+    }
+    update.subject_admin_subject = body.subject_admin_subject ? String(body.subject_admin_subject).trim() : null;
+    details.push(`subject_admin_subject → ${update.subject_admin_subject ?? "none"}`);
+  }
+
   if (body.ai_credits !== undefined) {
     const credits = Number(body.ai_credits);
     if (!Number.isFinite(credits) || credits < 0 || !Number.isInteger(credits)) {
@@ -148,32 +166,7 @@ export async function PATCH(request: NextRequest) {
         { status: 400 },
       );
     }
-
-    try {
-      const db = adminDatabases();
-      const existing = await db.getDocument(
-        DATABASE_ID,
-        COLLECTION.users,
-        userId,
-      );
-      const current = Number((existing.ai_credits as number | undefined) ?? 0);
-      const next = Math.max(0, current + delta);
-      update.ai_credits = next;
-      details.push(
-        `ai_credits ${delta > 0 ? "top-up" : "debit"} ${delta > 0 ? "+" : ""}${delta} (final ${next})`,
-      );
-    } catch (err: unknown) {
-      if (err instanceof AppwriteException && err.code === 404) {
-        return NextResponse.json({ error: "User not found" }, { status: 404 });
-      }
-      if (err instanceof AppwriteException && err.code === 400) {
-        return NextResponse.json({ error: "Invalid userId" }, { status: 400 });
-      }
-      return NextResponse.json(
-        { error: "Failed to apply ai_credits_delta update" },
-        { status: 500 },
-      );
-    }
+    requestedCreditsDelta = delta;
   }
 
   if (Object.keys(update).length === 0) {
@@ -182,7 +175,32 @@ export async function PATCH(request: NextRequest) {
 
   try {
     const db = adminDatabases();
-    await db.updateDocument(DATABASE_ID, COLLECTION.users, userId, update);
+    if (requestedCreditsDelta !== null || update.ai_credits !== undefined) {
+      const applyDetails = await withElectronBalanceLock(userId, async () => {
+        const lockedUpdate = { ...update };
+        if (requestedCreditsDelta !== null) {
+          const existing = await db.getDocument(DATABASE_ID, COLLECTION.users, userId);
+          const current = Number((existing.ai_credits as number | undefined) ?? 0);
+          if (!Number.isFinite(current)) {
+            throw new Error("INVALID_USER_CREDITS_BALANCE");
+          }
+          const rawNext = current + requestedCreditsDelta;
+          if (!Number.isFinite(rawNext)) {
+            throw new Error("INVALID_CREDITS_COMPUTATION");
+          }
+          const next = Math.max(0, rawNext);
+          lockedUpdate.ai_credits = next;
+          await db.updateDocument(DATABASE_ID, COLLECTION.users, userId, lockedUpdate);
+          return `ai_credits ${requestedCreditsDelta > 0 ? "top-up" : "debit"} ${requestedCreditsDelta > 0 ? "+" : ""}${requestedCreditsDelta} (final ${next})`;
+        }
+
+        await db.updateDocument(DATABASE_ID, COLLECTION.users, userId, lockedUpdate);
+        return null;
+      });
+      if (applyDetails) details.push(applyDetails);
+    } else {
+      await db.updateDocument(DATABASE_ID, COLLECTION.users, userId, update);
+    }
 
     // Log the action
     const actionType = update.tier && !update.role ? "tier_change" : "role_change";
@@ -197,6 +215,12 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (err: unknown) {
+    if (err instanceof AppwriteException && err.code === 404) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+    if (err instanceof AppwriteException && err.code === 400) {
+      return NextResponse.json({ error: "Invalid userId" }, { status: 400 });
+    }
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ error: message }, { status: 500 });
   }

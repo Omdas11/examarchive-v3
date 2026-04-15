@@ -40,7 +40,11 @@ const MAX_PERSONALIZATION_TAGS = 20;
 const PERSONALIZATION_TAG_MAX_LEN = 64;
 
 function isAdminPlus(role: string): boolean {
-  return role === "admin" || role === "founder";
+  return role === "moderator" || role === "admin" || role === "founder";
+}
+
+function resolveGotenbergUrl(): string {
+  return (process.env.GOTENBERG_URL || "").trim();
 }
 
 function normalizeTags(raw: unknown): string[] {
@@ -976,21 +980,21 @@ export async function GET(request: NextRequest) {
   const unitNumber = Number(searchParams.get("unitNumber"));
   const semester = normalizeSemester(searchParams.get("semester"));
   const forceMarkdownRerender = searchParams.get("rerender") === "1";
-  const azureGotenbergUrl = process.env.AZURE_GOTENBERG_URL;
+  const gotenbergUrl = resolveGotenbergUrl();
   const userEmail = typeof user.email === "string" ? user.email.trim() : "";
 
   if (!course || !streamName || !type || !paperCode || !Number.isInteger(unitNumber) || unitNumber < 1 || unitNumber > 5) {
     return NextResponse.json({ error: "Invalid selection. Please choose course, stream, type, paper code, and unit 1-5." }, { status: 400 });
   }
-  if (!azureGotenbergUrl) {
-    console.error("[generate-notes-stream] Missing required environment variable: AZURE_GOTENBERG_URL", {
+  if (!gotenbergUrl) {
+    console.error("[generate-notes-stream] Missing required environment variable: GOTENBERG_URL (and legacy AZURE_GOTENBERG_URL)", {
       route: "/api/generate-notes-stream",
       userId: user.id,
       hasGeminiKey: Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY),
     });
     return NextResponse.json(
       {
-        error: "Server misconfiguration: AZURE_GOTENBERG_URL is missing.",
+        error: "Server misconfiguration: missing GOTENBERG_URL (legacy fallback AZURE_GOTENBERG_URL not set).",
         code: "SERVER_MISCONFIGURATION",
       },
       { status: 503 },
@@ -1064,7 +1068,7 @@ export async function GET(request: NextRequest) {
               markdown: completedCache.markdown,
               fileBaseName: `${paperCode}_unit_${unitNumber}_cache`,
               fileName: dynamicPdfName,
-              gotenbergUrl: azureGotenbergUrl,
+              gotenbergUrl,
               modelName: GEMINI_MODEL,
               generatedAtIso: completedCache.createdAt || new Date().toISOString(),
               reRenderedAtIso: forceMarkdownRerender ? new Date().toISOString() : undefined,
@@ -1368,7 +1372,7 @@ CRITICAL FORMAT CONSTRAINTS:
             markdown: masterMarkdown,
             fileBaseName: `${paperCode}_unit_${unitNumber}_${Date.now()}`,
             fileName: dynamicPdfName,
-            gotenbergUrl: azureGotenbergUrl,
+            gotenbergUrl,
             modelName: GEMINI_MODEL,
             generatedAtIso: new Date().toISOString(),
             paperCode,

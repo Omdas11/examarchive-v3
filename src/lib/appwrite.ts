@@ -67,6 +67,8 @@ export const COLLECTION = {
    * Fields include file_id, source_type, source_label, text_chunk, embedding[], and metadata.
    */
   ai_embeddings: "ai_embeddings",
+  purchases: "purchases",
+  ai_cache_index: "ai_cache_index",
 } as const;
 
 /** Storage bucket for uploaded PDFs and files. */
@@ -87,6 +89,14 @@ export const QUESTION_INGESTION_ASSETS_BUCKET_ID =
 export const MARKDOWN_CACHE_BUCKET_ID =
   process.env.APPWRITE_MD_CACHE_BUCKET_ID ??
   "generated-md-cache";
+/** Storage bucket for stitched unit-notes markdown cache payloads. */
+export const CACHED_UNIT_NOTES_BUCKET_ID =
+  process.env.APPWRITE_CACHED_UNIT_NOTES_BUCKET_ID ??
+  "cached-unit-notes";
+/** Storage bucket for stitched solved-paper markdown cache payloads. */
+export const CACHED_SOLVED_PAPERS_BUCKET_ID =
+  process.env.APPWRITE_CACHED_SOLVED_PAPERS_BUCKET_ID ??
+  "cached-solved-papers";
 
 // ── Server-side admin client (uses API key) ─────────────────────────────
 /**

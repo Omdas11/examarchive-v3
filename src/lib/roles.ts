@@ -3,42 +3,49 @@ import type { CustomRole, UserRole, UserTier } from "@/types";
 /**
  * Role hierarchy – higher number = more privilege.
  *
- * Canonical progression (v2):
- * guest → viewer → contributor → curator → moderator → admin
+ * Canonical progression:
+ * student → contributor → specialist → subject_admin → moderator
+ * founder remains the super-admin override.
  *
  * Legacy v1 roles are accepted and normalized.
  */
 const ROLE_LEVELS: Record<UserRole, number> = {
-  guest: 0,
-  viewer: 1,
-  contributor: 2,
-  curator: 3,
-  visitor: 0,
-  student: 0,            // legacy alias for visitor/guest
-  explorer: 1,           // legacy alias for viewer
-  verified_contributor: 3, // legacy alias for curator
+  student: 0,
+  contributor: 1,
+  specialist: 2,
+  subject_admin: 3,
   moderator: 4,
-  maintainer: 5,         // legacy alias for admin
-  admin: 6,
-  founder: 6,            // legacy super-admin alias
+  founder: 5,
+  // legacy aliases (kept for backward compatibility)
+  guest: 0,
+  viewer: 0,
+  visitor: 0,
+  explorer: 0,
+  curator: 2,
+  verified_contributor: 2,
+  maintainer: 4,
+  admin: 4,
 };
 
 /**
  * XO thresholds for role eligibility.
  */
 export const ROLE_XO_THRESHOLDS: Record<UserRole, number> = {
+  student: 0,
+  contributor: 30,
+  specialist: 150,
+  subject_admin: 400,
+  moderator: 0,
+  founder: 0,
+  // legacy aliases
   guest: 0,
   viewer: 0,
   visitor: 0,
-  student: 0,
   explorer: 0,
-  contributor: 30,
   curator: 150,
   verified_contributor: 150,
-  moderator: 0,
   maintainer: 0,
   admin: 0,
-  founder: 0,
 };
 
 /** @deprecated use ROLE_XO_THRESHOLDS */
@@ -49,43 +56,49 @@ export const ROLE_XP_THRESHOLDS = ROLE_XO_THRESHOLDS;
  * Returns null for guest/viewer and visitor aliases (no ring).
  */
 export const ROLE_RING_COLORS: Record<UserRole, string | null> = {
+  student: null,
+  contributor: "#3b82f6",
+  specialist: "#6366f1",
+  subject_admin: "#0ea5e9",
+  moderator: "#f97316",          // orange-500
+  founder: "#ef4444",
+  // legacy aliases
   guest: null,
   viewer: null,
-  curator: "#6366f1",             // indigo-500
   visitor: null,
-  student: null,
   explorer: null,
-  contributor: "#3b82f6",        // blue-500
-  verified_contributor: "#6366f1", // legacy alias for curator
-  moderator: "#f97316",          // orange-500
-  maintainer: "#ef4444",         // legacy alias for admin
-  admin: "#ef4444",              // red-500
-  founder: "#ef4444",            // legacy alias for admin
+  curator: "#6366f1",
+  verified_contributor: "#6366f1",
+  maintainer: "#f97316",
+  admin: "#f97316",
 };
 
 const LEGACY_ROLE_MAP: Partial<Record<UserRole, UserRole>> = {
-  visitor: "viewer",
-  student: "viewer",
-  explorer: "viewer",
-  verified_contributor: "curator",
-  maintainer: "admin",
+  guest: "student",
+  viewer: "student",
+  visitor: "student",
+  explorer: "student",
+  curator: "specialist",
+  verified_contributor: "specialist",
+  admin: "moderator",
+  maintainer: "moderator",
 };
 
 export function normalizeRole(role: string | null | undefined): UserRole {
-  if (!role) return "guest";
-  if (!(role in ROLE_LEVELS)) return "guest";
+  if (!role) return "student";
+  if (!(role in ROLE_LEVELS)) return "student";
   const typedRole = role as UserRole;
   return LEGACY_ROLE_MAP[typedRole] ?? typedRole;
 }
 
 export function roleLabel(role: string | null | undefined): string {
   const normalized = normalizeRole(role);
-  if (normalized === "guest") return "Guest";
-  if (normalized === "viewer") return "Viewer";
+  if (normalized === "student") return "Student";
   if (normalized === "contributor") return "Contributor";
-  if (normalized === "curator") return "Curator";
+  if (normalized === "specialist") return "Specialist";
+  if (normalized === "subject_admin") return "Subject Administrator";
   if (normalized === "moderator") return "Moderator";
-  return "Admin";
+  return "Founder";
 }
 
 /** Tier hierarchy – higher number = higher standing. */
@@ -99,13 +112,10 @@ const TIER_LEVELS: Record<UserTier, number> = {
 
 /** Valid custom (secondary / tertiary) role values. */
 const VALID_CUSTOM_ROLES = new Set<string>([
-  "reviewer",
-  "curator",
+  "supporter",
   "mentor",
   "archivist",
   "ambassador",
-  "pioneer",
-  "researcher",
 ]);
 
 /** Returns `true` when `userRole` meets or exceeds the `requiredRole`. */
@@ -115,7 +125,7 @@ export function hasRole(userRole: UserRole, requiredRole: UserRole): boolean {
 
 /** Convenience check for admin-level access (admin and above). */
 export function isAdmin(role: UserRole): boolean {
-  return hasRole(role, "admin");
+  return hasRole(role, "moderator");
 }
 
 /** Convenience check for moderator-or-above access. */

@@ -58,6 +58,8 @@ const REQUIRED_BUCKETS: BucketSpec[] = [
   { id: "syllabus-files", name: "syllabus-files" },
   { id: "avatars", name: "avatars" },
   { id: "generated-md-cache", name: "generated-md-cache" },
+  { id: "cached-unit-notes", name: "cached-unit-notes" },
+  { id: "cached-solved-papers", name: "cached-solved-papers" },
 ];
 const LEGACY_BUCKET_IDS = new Set([
   "examarchive-md-ingestion",
@@ -70,6 +72,7 @@ const TARGET_DATABASE_ID = "examarchive";
 const TARGET_DATABASE_NAME = "ExamArchive";
 const REQUIRED_COLLECTION_SPECS: Array<{ id: string; name: string }> = [
   { id: "Generated_Notes_Cache", name: "Generated_Notes_Cache" },
+  { id: "ai_cache_index", name: "ai_cache_index" },
 ];
 
 function loadAppwriteEnv() {
@@ -402,9 +405,9 @@ function buildSchemaStatusTableFromDiff(input: {
 }
 
 function injectSchemaStatusIntoDatabaseDoc(statusTable: string) {
-  const docPath = path.resolve(__dirname, "../../docs/launch/v2/DATABASE_SCHEMA.md");
+  const docPath = path.resolve(__dirname, "../../docs/DATABASE_SCHEMA.md");
   if (!fs.existsSync(docPath)) {
-    console.error("docs/launch/v2/DATABASE_SCHEMA.md not found!");
+    console.error("docs/DATABASE_SCHEMA.md not found!");
     return;
   }
 
@@ -420,14 +423,14 @@ function injectSchemaStatusIntoDatabaseDoc(statusTable: string) {
     const tagBlockMatches = existingContent.match(globalRegex) ?? [];
     if (tagBlockMatches.length !== 1) {
       throw new Error(
-        `Expected exactly one schema status tag block in docs/launch/v2/DATABASE_SCHEMA.md, found ${tagBlockMatches.length}.`,
+        `Expected exactly one schema status tag block in docs/DATABASE_SCHEMA.md, found ${tagBlockMatches.length}.`,
       );
     }
     nextContent = existingContent.replace(regex, newBlock);
   }
 
   fs.writeFileSync(docPath, nextContent, "utf8");
-  console.log("Successfully injected live status into docs/launch/v2/DATABASE_SCHEMA.md");
+  console.log("Successfully injected live status into docs/DATABASE_SCHEMA.md");
 }
 
 function deleteLegacySchemaDoc() {
@@ -464,7 +467,7 @@ async function syncInfrastructure() {
   );
   const liveBucketsAfterCleanup = await storage.listBuckets([Query.limit(100)]);
   const liveBuckets = liveBucketsAfterCleanup.buckets.map((bucket) => ({ $id: bucket.$id, name: bucket.name }));
-  const docPath = path.resolve(__dirname, "../../docs/launch/v2/DATABASE_SCHEMA.md");
+  const docPath = path.resolve(__dirname, "../../docs/DATABASE_SCHEMA.md");
   const docContent = fs.existsSync(docPath) ? fs.readFileSync(docPath, "utf8") : "";
   const expectedSchemas = parseExpectedCollectionsFromDoc(docContent);
   const liveCollections = await fetchLiveCollections(databases);
@@ -541,7 +544,7 @@ async function syncInfrastructure() {
       collectionName: liveCollection.name,
       status: "⚠️ Connected with differences",
       createdInRun: 0,
-      notes: `undocumented live collection (${liveCollection.name}); exists in Appwrite but missing from docs/launch/v2/DATABASE_SCHEMA.md`,
+      notes: `undocumented live collection (${liveCollection.name}); exists in Appwrite but missing from docs/DATABASE_SCHEMA.md`,
     });
   }
 
