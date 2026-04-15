@@ -678,9 +678,10 @@ async function runNotesBackground(params: {
     defaultBucketId: notesCacheBucketId,
   });
   if (cachedNotes) {
-    const cachedPdfAvailable = cachedNotes.pdfFileId ? await hasCachedPdf(cachedNotes.pdfFileId) : false;
+    const cachedPdfFileId = typeof cachedNotes.pdfFileId === "string" ? cachedNotes.pdfFileId : "";
+    const cachedPdfAvailable = cachedPdfFileId ? await hasCachedPdf(cachedPdfFileId) : false;
     const cachedRender = cachedPdfAvailable
-      ? { fileId: cachedNotes.pdfFileId!, fileUrl: getAppwriteFileDownloadUrl(cachedNotes.pdfFileId!) }
+      ? { fileId: cachedPdfFileId, fileUrl: getAppwriteFileDownloadUrl(cachedPdfFileId) }
       : await renderMarkdownPdfToAppwrite({
         markdown: cachedNotes.markdown,
         fileBaseName: `${paperCode}_unit_${unitNumber}_cache_${Date.now()}`,
@@ -751,7 +752,7 @@ CRITICAL FORMAT CONSTRAINTS:
 1. Do NOT write the unit number in heading text or repeat the paper code as heading text.
 2. Do NOT use numeric prefixes for main headings (e.g. avoid "1. Heading").
 3. Start directly with a ## or ### heading for this sub-topic.
-Generate detailed markdown notes that cover all listed sub-topics in this chunk.`;
+4. Generate detailed markdown notes that cover all listed sub-topics in this chunk.`;
 
     let aiResponseText = "";
     let lastChunkError: unknown = null;
@@ -926,9 +927,10 @@ async function runSolvedPaperBackground(params: {
     defaultBucketId: solvedCacheBucketId,
   });
   if (cachedSolved) {
-    const cachedPdfAvailable = cachedSolved.pdfFileId ? await hasCachedPdf(cachedSolved.pdfFileId) : false;
+    const cachedPdfFileId = typeof cachedSolved.pdfFileId === "string" ? cachedSolved.pdfFileId : "";
+    const cachedPdfAvailable = cachedPdfFileId ? await hasCachedPdf(cachedPdfFileId) : false;
     const cachedRender = cachedPdfAvailable
-      ? { fileId: cachedSolved.pdfFileId!, fileUrl: getAppwriteFileDownloadUrl(cachedSolved.pdfFileId!) }
+      ? { fileId: cachedPdfFileId, fileUrl: getAppwriteFileDownloadUrl(cachedPdfFileId) }
       : await renderMarkdownPdfToAppwrite({
         markdown: cachedSolved.markdown.trim(),
         fileBaseName: `${paperCode}_${year}_solved_cache_${Date.now()}`,
