@@ -335,9 +335,6 @@ function validateGotenbergUrl(raw) {
     throw new Error(`GOTENBERG_URL must target a trusted ${TRUSTED_GOTENBERG_HOST_SUFFIX} host.`);
   }
   const endpointUrl = new URL(GOTENBERG_ENDPOINT_PATH, `${baseUrl.origin}/`);
-  if (endpointUrl.pathname !== GOTENBERG_ENDPOINT_PATH) {
-    throw new Error("Invalid Gotenberg endpoint path.");
-  }
   return endpointUrl.toString();
 }
 
@@ -388,13 +385,6 @@ async function renderWithGotenberg(markdown, fileName) {
         console.error(`[pdf-generator] Gotenberg timeout at attempt ${attempt}/${GOTENBERG_MAX_ATTEMPTS}`);
         await sleep(GOTENBERG_BASE_BACKOFF_MS * (2 ** (attempt - 1)));
         continue;
-      }
-      if (error instanceof Error && /Gotenberg request failed \((\d+)\)/.test(error.message)) {
-        const status = Number(error.message.match(/\((\d+)\)/)?.[1] || 0);
-        if (shouldRetryGotenberg(status)) {
-          await sleep(GOTENBERG_BASE_BACKOFF_MS * (2 ** (attempt - 1)));
-          continue;
-        }
       }
       throw error;
     }

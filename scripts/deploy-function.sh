@@ -77,6 +77,8 @@ function isNotFound(error) {
 }
 
 async function upsertFunction(functions) {
+  const events = undefined;
+  const schedule = undefined;
   try {
     const existing = await functions.get(functionId);
     await functions.update(
@@ -84,8 +86,8 @@ async function upsertFunction(functions) {
       existing.name || functionName,
       runtime,
       existing.execute || ["any"],
-      undefined,
-      undefined,
+      events,
+      schedule,
       timeoutSeconds,
       true,
       true,
@@ -100,8 +102,8 @@ async function upsertFunction(functions) {
       functionName,
       runtime,
       ["any"],
-      undefined,
-      undefined,
+      events,
+      schedule,
       timeoutSeconds,
       true,
       true,
