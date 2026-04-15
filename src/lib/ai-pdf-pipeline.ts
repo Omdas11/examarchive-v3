@@ -481,6 +481,16 @@ function buildGotenbergEndpoint(baseUrl: string, endpointPath: string): string {
   return new URL(endpointPath, baseUrl).toString();
 }
 
+function normalizeGotenbergAuthToken(rawToken: string): string {
+  const trimmed = rawToken.trim();
+  const unquoted =
+    (trimmed.startsWith("\"") && trimmed.endsWith("\""))
+    || (trimmed.startsWith("'") && trimmed.endsWith("'"))
+      ? trimmed.slice(1, -1).trim()
+      : trimmed;
+  return unquoted.replace(/^Bearer\s+/i, "").trim();
+}
+
 export async function renderMarkdownPdfToAppwrite(args: {
   markdown: string;
   fileBaseName: string;
@@ -503,7 +513,9 @@ export async function renderMarkdownPdfToAppwrite(args: {
     throw new Error("gotenbergUrl is required.");
   }
   const normalizedBaseUrl = effectiveGotenbergUrl.replace(/\/+$/, "");
-  const gotenbergAuthToken = (args.gotenbergAuthToken ?? process.env.GOTENBERG_AUTH_TOKEN ?? "").trim();
+  const gotenbergAuthToken = normalizeGotenbergAuthToken(
+    args.gotenbergAuthToken ?? process.env.GOTENBERG_AUTH_TOKEN ?? "",
+  );
   if (!gotenbergAuthToken) {
     throw new Error("Missing GOTENBERG_AUTH_TOKEN for private Gotenberg Space.");
   }

@@ -513,6 +513,7 @@ async function runNotesBackground(params: {
   if (!geminiApiKey) throw new Error("Google Gemini is not configured.");
   if (!gotenbergUrl) throw new Error("Server misconfiguration: missing GOTENBERG_URL.");
   if (!gotenbergAuthToken) throw new Error("Server misconfiguration: missing GOTENBERG_AUTH_TOKEN.");
+  console.log("Token starts with:", process.env.GOTENBERG_AUTH_TOKEN?.slice(0, 5));
 
   const db = adminDatabases();
 
@@ -708,6 +709,7 @@ async function runSolvedPaperBackground(params: {
   if (!geminiApiKey) throw new Error("Google Gemini is not configured.");
   if (!gotenbergUrl) throw new Error("Server misconfiguration: missing GOTENBERG_URL.");
   if (!gotenbergAuthToken) throw new Error("Server misconfiguration: missing GOTENBERG_AUTH_TOKEN.");
+  console.log("Token starts with:", process.env.GOTENBERG_AUTH_TOKEN?.slice(0, 5));
 
   const db = adminDatabases();
 
