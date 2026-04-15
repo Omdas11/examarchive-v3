@@ -1,13 +1,20 @@
 import { after } from "next/server";
 import { NextResponse, type NextRequest } from "next/server";
+import { createHash } from "node:crypto";
+import { InputFile } from "node-appwrite/file";
 import { getServerUser } from "@/lib/auth";
 import { getDailyLimit } from "@/lib/ai-limits";
 import { checkAndResetQuotas, incrementQuotaCounter, rollbackQuotaCounter } from "@/lib/user-quotas";
 import { NOTES_DAILY_LIMIT } from "@/lib/quota-config";
 import {
   adminDatabases,
+  adminStorage,
+  BUCKET_ID,
+  CACHED_SOLVED_PAPERS_BUCKET_ID,
+  CACHED_UNIT_NOTES_BUCKET_ID,
   COLLECTION,
   DATABASE_ID,
+  getAppwriteFileDownloadUrl,
   ID,
   Query,
 } from "@/lib/appwrite";
@@ -32,17 +39,14 @@ export const maxDuration = 60;
 
 const DEFAULT_AI_MODEL = "gemini-3.1-flash-lite-preview";
 const GEMMA_UNLIMITED_TPM_MODEL = "gemma-4-31b-it";
-const TOPIC_RETRY_MAX = 3;
 const MIN_TOPIC_RESPONSE_CHARS = 50;
 const TOPIC_FALLBACK_MAX_TOKENS = 3000;
-const QUESTION_MAX_RETRIES = 4;
 const MIN_SOLUTION_RESPONSE_CHARS = 10;
 const RETRY_ERROR_DELAY_MS = 4000;
 const TAVILY_TIMEOUT_MS = 4000;
-const DEFAULT_TOPIC_CONCURRENCY = 3;
-const DEFAULT_QUESTION_CONCURRENCY = 2;
-const GEMMA_TOPIC_CONCURRENCY = 6;
-const GEMMA_QUESTION_CONCURRENCY = 4;
+const LOGICAL_CHUNK_COUNT = 5;
+const CHUNK_START_DELAY_MS = 4000;
+const CHUNK_MAX_ATTEMPTS = 3;
 const UNDICI_CONNECT_TIMEOUT_CODE = "UND_ERR_CONNECT_TIMEOUT";
 const EMAIL_DELIVERY_UNAVAILABLE_CODE = "EMAIL_DELIVERY_UNAVAILABLE";
 const EMAIL_DELIVERY_UNAVAILABLE_MESSAGE =
@@ -64,6 +68,8 @@ type GenerateBody = {
   model?: string;
 };
 
+type CacheType = "notes" | "solved-paper";
+
 function isAdminPlus(role: string): boolean {
   return role === "moderator" || role === "admin" || role === "founder";
 }
@@ -73,6 +79,14 @@ function normalizeYear(value: unknown): number | null {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return null;
   return Math.floor(parsed);
+}
+
+function normalizeSemester(value: unknown): number | null {
+  if (value === null || typeof value === "undefined" || value === "") return null;
+  if (typeof value !== "number" && typeof value !== "string") return null;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 8) return null;
+  return parsed;
 }
 
 function isValidEmail(value: string): boolean {
@@ -141,25 +155,6 @@ function normalizeSelectedModel(value: string): string {
   return value;
 }
 
-async function mapWithConcurrency<T, R>(
-  items: readonly T[],
-  limit: number,
-  mapper: (item: T, index: number) => Promise<R>,
-): Promise<R[]> {
-  if (items.length === 0) return [];
-  const safeLimit = Math.max(1, Math.min(limit, items.length));
-  const results: R[] = new Array(items.length);
-  let nextIndex = 0;
-  const workers = Array.from({ length: safeLimit }, async () => {
-    while (nextIndex < items.length) {
-      const i = nextIndex++;
-      results[i] = await mapper(items[i], i);
-    }
-  });
-  await Promise.all(workers);
-  return results;
-}
-
 const ABBREV_DOT_RE = /\b(?:\d+|[a-zA-Z])\.(?=\s|$)|(?:\d+(?:st|nd|rd|th)\.)/gi;
 const ABBREV_PLACEHOLDER = "\x00";
 const SYLLABUS_TOPIC_SPLIT_PATTERN = /(?:(?<=[.;])\s*|\n{2,})/;
@@ -195,6 +190,126 @@ function formatQuestionsForPrompt(questions: Array<Record<string, unknown>>, uni
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function splitIntoLogicalChunks<T>(items: readonly T[], chunkCount: number): T[][] {
+  if (items.length === 0) return [];
+  const safeChunkCount = Math.max(1, Math.min(chunkCount, items.length));
+  const baseSize = Math.floor(items.length / safeChunkCount);
+  const remainder = items.length % safeChunkCount;
+  const chunks: T[][] = [];
+  let start = 0;
+  for (let index = 0; index < safeChunkCount; index += 1) {
+    const size = baseSize + (index < remainder ? 1 : 0);
+    const end = start + size;
+    chunks.push(items.slice(start, end));
+    start = end;
+  }
+  return chunks.filter((chunk) => chunk.length > 0);
+}
+
+function buildContentHash(parts: Array<string | number | null | undefined>): string {
+  const normalized = parts
+    .map((part) => (part === null || typeof part === "undefined" ? "" : String(part).trim().toLowerCase()))
+    .join("::");
+  return createHash("sha256").update(normalized).digest("hex");
+}
+
+async function hasCachedPdf(fileId: string): Promise<boolean> {
+  const trimmed = fileId.trim();
+  if (!trimmed) return false;
+  const storage = adminStorage();
+  try {
+    await storage.getFile(BUCKET_ID, trimmed);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function readCachedMarkdown(params: {
+  contentHash: string;
+  cacheType: CacheType;
+  defaultBucketId: string;
+}): Promise<{ cacheId: string; markdown: string; pdfFileId: string | null } | null> {
+  const db = adminDatabases();
+  const storage = adminStorage();
+  try {
+    const result = await db.listDocuments(DATABASE_ID, COLLECTION.ai_cache_index, [
+      Query.equal("content_hash", params.contentHash),
+      Query.equal("cache_type", params.cacheType),
+      Query.equal("status", "completed"),
+      Query.orderDesc("$createdAt"),
+      Query.limit(1),
+    ]);
+    const doc = result.documents[0];
+    if (!doc) return null;
+    const markdownFileId = typeof doc.markdown_file_id === "string" ? doc.markdown_file_id.trim() : "";
+    if (!markdownFileId) return null;
+    const bucketId = typeof doc.bucket_id === "string" && doc.bucket_id.trim()
+      ? doc.bucket_id.trim()
+      : params.defaultBucketId;
+    const markdownBuffer = await storage.getFileDownload(bucketId, markdownFileId);
+    const markdown = Buffer.from(markdownBuffer).toString("utf-8").trim();
+    if (!markdown) return null;
+    const pdfFileId = typeof doc.pdf_file_id === "string" && doc.pdf_file_id.trim()
+      ? doc.pdf_file_id.trim()
+      : null;
+    return {
+      cacheId: String(doc.$id),
+      markdown,
+      pdfFileId,
+    };
+  } catch (error) {
+    console.warn("[ai/generate-pdf] Cache lookup unavailable, continuing with fresh generation.", { error });
+    return null;
+  }
+}
+
+async function upsertCacheEntry(params: {
+  contentHash: string;
+  cacheType: CacheType;
+  bucketId: string;
+  markdown: string;
+  pdfFileId: string;
+}): Promise<void> {
+  const db = adminDatabases();
+  const storage = adminStorage();
+  try {
+    const markdownInput = InputFile.fromBuffer(
+      Buffer.from(params.markdown, "utf-8"),
+      `${params.cacheType}-${params.contentHash.slice(0, 16)}.md`,
+    );
+    const markdownUpload = await storage.createFile(params.bucketId, ID.unique(), markdownInput);
+    const markdownFileId = String(markdownUpload.$id);
+    const existing = await db.listDocuments(DATABASE_ID, COLLECTION.ai_cache_index, [
+      Query.equal("content_hash", params.contentHash),
+      Query.equal("cache_type", params.cacheType),
+      Query.orderDesc("$createdAt"),
+      Query.limit(1),
+    ]);
+    const existingId = typeof existing.documents[0]?.$id === "string" ? existing.documents[0].$id : "";
+    const payload = {
+      content_hash: params.contentHash,
+      cache_type: params.cacheType,
+      status: "completed",
+      bucket_id: params.bucketId,
+      markdown_file_id: markdownFileId,
+      pdf_file_id: params.pdfFileId,
+      created_at: new Date().toISOString(),
+    };
+    if (existingId) {
+      await db.updateDocument(DATABASE_ID, COLLECTION.ai_cache_index, existingId, payload);
+    } else {
+      const docId = ID.unique();
+      await db.createDocument(DATABASE_ID, COLLECTION.ai_cache_index, docId, {
+        id: docId,
+        ...payload,
+      });
+    }
+  } catch (error) {
+    console.warn("[ai/generate-pdf] Failed to persist ai_cache_index entry.", { error });
+  }
 }
 
 function isRateLimitError(error: unknown): boolean {
@@ -237,13 +352,6 @@ function getModelFallback(primaryModel: string): string | null {
   if (primaryModel === DEFAULT_AI_MODEL) return GEMMA_UNLIMITED_TPM_MODEL;
   if (primaryModel === GEMMA_UNLIMITED_TPM_MODEL) return DEFAULT_AI_MODEL;
   return null;
-}
-
-function getModelConcurrency(model: string): { topic: number; question: number } {
-  if (model === GEMMA_UNLIMITED_TPM_MODEL) {
-    return { topic: GEMMA_TOPIC_CONCURRENCY, question: GEMMA_QUESTION_CONCURRENCY };
-  }
-  return { topic: DEFAULT_TOPIC_CONCURRENCY, question: DEFAULT_QUESTION_CONCURRENCY };
 }
 
 function getRateLimitBackoffMs(model: string, limitedModelMultiplier: number): number {
@@ -508,11 +616,12 @@ async function runNotesBackground(params: {
   type: string;
   paperCode: string;
   unitNumber: number;
+  semester: number | null;
   model: string;
 }): Promise<void> {
   const {
     userEmail, university, course, stream, type,
-    paperCode, unitNumber, model,
+    paperCode, unitNumber, semester, model,
   } = params;
 
   const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
@@ -552,6 +661,60 @@ async function runNotesBackground(params: {
   const subTopics = splitSyllabusIntoSubTopics(syllabusContent);
   if (subTopics.length === 0) throw new Error("No sub-topics found for this unit.");
 
+  const notesContentHash = buildContentHash([
+    "notes",
+    university,
+    course,
+    stream,
+    type,
+    paperCode,
+    `unit-${unitNumber}`,
+    `semester-${semester ?? "all"}`,
+  ]);
+  const notesCacheBucketId = CACHED_UNIT_NOTES_BUCKET_ID;
+  const cachedNotes = await readCachedMarkdown({
+    contentHash: notesContentHash,
+    cacheType: "notes",
+    defaultBucketId: notesCacheBucketId,
+  });
+  if (cachedNotes) {
+    const cachedPdfAvailable = cachedNotes.pdfFileId ? await hasCachedPdf(cachedNotes.pdfFileId) : false;
+    const cachedRender = cachedPdfAvailable
+      ? { fileId: cachedNotes.pdfFileId!, fileUrl: getAppwriteFileDownloadUrl(cachedNotes.pdfFileId!) }
+      : await renderMarkdownPdfToAppwrite({
+        markdown: cachedNotes.markdown,
+        fileBaseName: `${paperCode}_unit_${unitNumber}_cache_${Date.now()}`,
+        fileName: `${paperCode}_Unit_${unitNumber}_Notes.pdf`,
+        gotenbergUrl,
+        gotenbergAuthToken,
+        modelName: model,
+        generatedAtIso: new Date().toISOString(),
+        paperCode,
+        paperName,
+        unitNumber,
+        unitName,
+        syllabusContent,
+        userEmail: userEmail || undefined,
+      });
+    if (userEmail) {
+      await sendGenerationPdfEmail({
+        email: userEmail,
+        downloadUrl: cachedRender.fileUrl,
+        title: `Unit Notes (${paperCode} - Unit ${unitNumber})`,
+      });
+    }
+    if (!cachedPdfAvailable) {
+      await upsertCacheEntry({
+        contentHash: notesContentHash,
+        cacheType: "notes",
+        bucketId: notesCacheBucketId,
+        markdown: cachedNotes.markdown,
+        pdfFileId: cachedRender.fileId,
+      });
+    }
+    return;
+  }
+
   const questionsRes = await db.listDocuments(DATABASE_ID, COLLECTION.questions_table, [
     Query.equal("university", university),
     Query.equal("course", course),
@@ -565,8 +728,11 @@ async function runNotesBackground(params: {
   const formattedQuestions = formatQuestionsForPrompt(questionsRes.documents, unitNumber);
   const systemPrompt = readDynamicSystemPrompt({ promptType: "unit_notes" });
   const fallbackModel = getModelFallback(model);
-  const { topic: topicConcurrency } = getModelConcurrency(model);
-  const generatedChunks = await mapWithConcurrency(subTopics, topicConcurrency, async (topic, index) => {
+  const logicalChunks = splitIntoLogicalChunks(subTopics, LOGICAL_CHUNK_COUNT);
+  const generatedChunks = await Promise.all(logicalChunks.map(async (topicsChunk, index) => {
+    if (index > 0) {
+      await sleep(index * CHUNK_START_DELAY_MS);
+    }
     const promptBody = `University: ${university}
 Course: ${course}
 Stream: ${stream}
@@ -574,9 +740,9 @@ Type: ${type}
 Paper Code: ${paperCode}
 Unit Number: ${unitNumber}
 Unit Tags: ${syllabusTags.length > 0 ? syllabusTags.join(", ") : "N/A"}
-
-Current Sub-Topic:
-${topic}
+Sub-Topic Chunk: ${index + 1}/${logicalChunks.length}
+Sub-Topics in this chunk:
+${topicsChunk.map((topic, topicIndex) => `${topicIndex + 1}. ${topic}`).join("\n")}
 
 All Questions for this Unit:
 ${formattedQuestions || "No related questions found."}
@@ -585,11 +751,11 @@ CRITICAL FORMAT CONSTRAINTS:
 1. Do NOT write the unit number in heading text or repeat the paper code as heading text.
 2. Do NOT use numeric prefixes for main headings (e.g. avoid "1. Heading").
 3. Start directly with a ## or ### heading for this sub-topic.
-`;
+Generate detailed markdown notes that cover all listed sub-topics in this chunk.`;
 
     let aiResponseText = "";
-    let lastTopicError: unknown = null;
-    for (let retries = 0; retries < TOPIC_RETRY_MAX; retries += 1) {
+    let lastChunkError: unknown = null;
+    for (let attempt = 1; attempt <= CHUNK_MAX_ATTEMPTS; attempt += 1) {
       try {
         const result = await runGeminiCompletion({
           apiKey: String(geminiApiKey),
@@ -604,18 +770,18 @@ CRITICAL FORMAT CONSTRAINTS:
           break;
         }
       } catch (error) {
-        lastTopicError = error;
+        lastChunkError = error;
+        console.warn("[ai/generate-pdf] Notes chunk failed; retrying.", {
+          chunkIndex: index + 1,
+          attempt,
+          maxAttempts: CHUNK_MAX_ATTEMPTS,
+          model,
+          error,
+        });
         if (isRateLimitError(error)) {
           await sleep(getRateLimitBackoffMs(model, 3));
         } else {
           await sleep(RETRY_ERROR_DELAY_MS);
-        }
-        if (retries >= TOPIC_RETRY_MAX - 1) {
-          console.warn("[ai/generate-pdf] Topic failed after retries on primary model.", {
-            topicIndex: index + 1,
-            model,
-            error,
-          });
         }
       }
     }
@@ -623,12 +789,12 @@ CRITICAL FORMAT CONSTRAINTS:
     if (
       !aiResponseText
       && fallbackModel
-      && lastTopicError
-      && (isTimeoutError(lastTopicError) || isRateLimitError(lastTopicError))
+      && lastChunkError
+      && (isTimeoutError(lastChunkError) || isRateLimitError(lastChunkError))
     ) {
       try {
-        console.warn("[ai/generate-pdf] Retrying timed-out topic on fallback model.", {
-          topicIndex: index + 1,
+        console.warn("[ai/generate-pdf] Retrying chunk on fallback model.", {
+          chunkIndex: index + 1,
           fromModel: model,
           toModel: fallbackModel,
         });
@@ -644,8 +810,8 @@ CRITICAL FORMAT CONSTRAINTS:
           aiResponseText = fallbackCandidate;
         }
       } catch (fallbackError) {
-        console.warn("[ai/generate-pdf] Topic fallback model retry failed.", {
-          topicIndex: index + 1,
+        console.warn("[ai/generate-pdf] Chunk fallback model retry failed.", {
+          chunkIndex: index + 1,
           model: fallbackModel,
           error: fallbackError,
         });
@@ -653,15 +819,11 @@ CRITICAL FORMAT CONSTRAINTS:
     }
 
     if (!aiResponseText) {
-      return [
-        `## ${topic}`,
-        "",
-        `> *Note: ExamArchive could not generate notes for this sub-topic after retries. Please refer to standard texts for: ${topic}*`,
-      ].join("\n");
+      throw new Error(`Failed to generate chunk ${index + 1} after retries.`);
     }
 
     return aiResponseText;
-  });
+  }));
 
   const masterMarkdown = generatedChunks.join("\n\n---\n\n");
 
@@ -681,6 +843,13 @@ CRITICAL FORMAT CONSTRAINTS:
     unitName,
     syllabusContent,
     userEmail: userEmail || undefined,
+  });
+  await upsertCacheEntry({
+    contentHash: notesContentHash,
+    cacheType: "notes",
+    bucketId: notesCacheBucketId,
+    markdown: masterMarkdown,
+    pdfFileId: rendered.fileId,
   });
 
   if (userEmail) {
@@ -705,10 +874,11 @@ async function runSolvedPaperBackground(params: {
   paperCode: string;
   year: number;
   model: string;
+  semester: number | null;
 }): Promise<void> {
   const {
     userEmail, university, course, stream, type,
-    paperCode, year, model,
+    paperCode, year, model, semester,
   } = params;
 
   const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
@@ -739,47 +909,93 @@ async function runSolvedPaperBackground(params: {
 
   if (allQuestions.length === 0) throw new Error("No questions found for the selected paper/year.");
 
+  const solvedContentHash = buildContentHash([
+    "solved-paper",
+    university,
+    course,
+    stream,
+    type,
+    paperCode,
+    `year-${year}`,
+    `semester-${semester ?? "all"}`,
+  ]);
+  const solvedCacheBucketId = CACHED_SOLVED_PAPERS_BUCKET_ID;
+  const cachedSolved = await readCachedMarkdown({
+    contentHash: solvedContentHash,
+    cacheType: "solved-paper",
+    defaultBucketId: solvedCacheBucketId,
+  });
+  if (cachedSolved) {
+    const cachedPdfAvailable = cachedSolved.pdfFileId ? await hasCachedPdf(cachedSolved.pdfFileId) : false;
+    const cachedRender = cachedPdfAvailable
+      ? { fileId: cachedSolved.pdfFileId!, fileUrl: getAppwriteFileDownloadUrl(cachedSolved.pdfFileId!) }
+      : await renderMarkdownPdfToAppwrite({
+        markdown: cachedSolved.markdown.trim(),
+        fileBaseName: `${paperCode}_${year}_solved_cache_${Date.now()}`,
+        fileName: `${paperCode}_${year}_solved_paper.pdf`,
+        gotenbergUrl,
+        gotenbergAuthToken,
+        paperCode,
+        year,
+      });
+    if (userEmail) {
+      await sendGenerationPdfEmail({
+        email: userEmail,
+        downloadUrl: cachedRender.fileUrl,
+        title: `Solved Paper (${paperCode} ${year})`,
+      });
+    }
+    if (!cachedPdfAvailable) {
+      await upsertCacheEntry({
+        contentHash: solvedContentHash,
+        cacheType: "solved-paper",
+        bucketId: solvedCacheBucketId,
+        markdown: cachedSolved.markdown,
+        pdfFileId: cachedRender.fileId,
+      });
+    }
+    return;
+  }
+
   const systemPrompt = readDynamicSystemPrompt({ promptType: "solved_paper" });
   const paperWebContext = allQuestions.length > 0
     ? await fetchTavilyContext(`${university} ${course} ${paperCode} ${year} solved paper key points`)
     : "";
-  const { question: questionConcurrency } = getModelConcurrency(model);
-  const solvedChunks = await mapWithConcurrency(allQuestions, questionConcurrency, async (questionDoc, index) => {
-    const qNo = String(questionDoc.question_no ?? index + 1).trim();
-    const qSub = typeof questionDoc.question_subpart === "string" ? questionDoc.question_subpart.trim() : "";
-    const qLabel = `Q${qNo}${qSub ? `(${qSub})` : ""}`;
-    const questionContent = String(questionDoc.question_content ?? "").trim();
-    const marks =
-      typeof questionDoc.marks === "number"
-        ? questionDoc.marks
-        : (typeof questionDoc.marks === "string" ? Number(questionDoc.marks) || null : null);
-
+  const questionChunks = splitIntoLogicalChunks(allQuestions, LOGICAL_CHUNK_COUNT);
+  const solvedChunks = await Promise.all(questionChunks.map(async (questionsChunk, index) => {
+    if (index > 0) {
+      await sleep(index * CHUNK_START_DELAY_MS);
+    }
     const questionText = `University: ${university}
 Course: ${course}
 Stream: ${stream}
 Type: ${type}
 Paper Code: ${paperCode}
 Year: ${year}
-Question Label: ${qLabel}
-Marks: ${marks ?? "N/A"}
-
-CRITICAL LENGTH CONSTRAINT: This question is worth ${marks ?? "N/A"} marks. If it is 1 or 2 marks, provide a highly concise definition or final formula. If it is 4 or more marks, provide a detailed, step-by-step exhaustive derivation.
-
-Question:
-${questionContent}
+Chunk: ${index + 1}/${questionChunks.length}
+Questions in this chunk:
+${questionsChunk.map((questionDoc, questionIndex) => {
+  const qNo = String(questionDoc.question_no ?? questionIndex + 1).trim();
+  const qSub = typeof questionDoc.question_subpart === "string" ? questionDoc.question_subpart.trim() : "";
+  const questionContent = String(questionDoc.question_content ?? "").trim();
+  const marks = typeof questionDoc.marks === "number"
+    ? questionDoc.marks
+    : (typeof questionDoc.marks === "string" ? Number(questionDoc.marks) || "N/A" : "N/A");
+  return `Q${qNo}${qSub ? `(${qSub})` : ""} [${marks} marks]\n${questionContent}`;
+}).join("\n\n")}
 
 Paper-level Web Context:
 ${paperWebContext || "No external web context available."}
 
 CRITICAL FORMAT CONSTRAINTS:
 1. Do NOT write a document title.
-2. Start directly with the answer to this specific question.
-3. Use concise markdown only for this question.
+2. Return answers for every question in this chunk.
+3. Keep each answer grouped under a clear heading for its question.
 4. Do NOT use numeric prefixes in major headings.
 `;
 
     let aiResponseText = "";
-    for (let retries = 0; retries < QUESTION_MAX_RETRIES; retries += 1) {
+    for (let attempt = 1; attempt <= CHUNK_MAX_ATTEMPTS; attempt += 1) {
       try {
         const result = await runGeminiCompletion({
           apiKey: String(geminiApiKey),
@@ -794,26 +1010,25 @@ CRITICAL FORMAT CONSTRAINTS:
           break;
         }
       } catch (error) {
+        console.warn("[ai/generate-pdf] Solved-paper chunk failed; retrying.", {
+          chunkIndex: index + 1,
+          attempt,
+          maxAttempts: CHUNK_MAX_ATTEMPTS,
+          error,
+        });
         if (isRateLimitError(error)) {
           await sleep(getRateLimitBackoffMs(model, 5));
         } else {
           await sleep(RETRY_ERROR_DELAY_MS);
         }
-        if (retries >= QUESTION_MAX_RETRIES - 1) {
-          console.error("[ai/generate-pdf] Question failed after retries.", { questionLabel: qLabel, error });
-        }
       }
     }
 
-    const solvedChunk = aiResponseText || "_No solution generated after retries._";
-    const displaySubpart = qSub || "-";
-    const questionYear =
-      typeof questionDoc.year === "number"
-        ? questionDoc.year
-        : (Number(String(questionDoc.year ?? "")) || year);
-    const header = `### Q${qNo}(${displaySubpart}) [${questionYear}] [${marks ?? "N/A"} Marks]\n**${questionContent}**\n\n`;
-    return `${header}${solvedChunk}`;
-  });
+    if (!aiResponseText) {
+      throw new Error(`Failed to generate solved-paper chunk ${index + 1} after retries.`);
+    }
+    return aiResponseText;
+  }));
   const masterMarkdown = solvedChunks.join("\n\n---\n\n");
 
   const fileToken = ID.unique();
@@ -825,6 +1040,13 @@ CRITICAL FORMAT CONSTRAINTS:
     gotenbergAuthToken,
     paperCode,
     year,
+  });
+  await upsertCacheEntry({
+    contentHash: solvedContentHash,
+    cacheType: "solved-paper",
+    bucketId: solvedCacheBucketId,
+    markdown: masterMarkdown,
+    pdfFileId: rendered.fileId,
   });
 
   if (userEmail) {
@@ -882,6 +1104,13 @@ export async function POST(request: NextRequest) {
   const paperCode = (body.paperCode || "").trim();
   const selectedModelRaw = typeof body.model === "string" ? body.model.trim() : "";
   const selectedModel = normalizeSelectedModel(selectedModelRaw || DEFAULT_AI_MODEL);
+  const parsedSemester = normalizeSemester(body.semester ?? null);
+  if (typeof body.semester !== "undefined" && body.semester !== null && parsedSemester === null) {
+    return NextResponse.json(
+      { error: "Invalid selection: semester must be between 1 and 8 when provided." },
+      { status: 400 },
+    );
+  }
   const userEmail = typeof user.email === "string" ? user.email.trim() : "";
 
   if (!course) return NextResponse.json({ error: "Invalid selection: course is required." }, { status: 400 });
@@ -1019,6 +1248,7 @@ export async function POST(request: NextRequest) {
           type,
           paperCode,
           unitNumber,
+          semester: parsedSemester,
           model: selectedModel,
         });
       } catch (error) {
@@ -1113,16 +1343,17 @@ export async function POST(request: NextRequest) {
 
   after(async () => {
     try {
-      await runSolvedPaperBackground({
-        userEmail,
-        university,
-        course,
-        stream,
-        type,
-        paperCode,
-        year,
-        model: selectedModel,
-      });
+        await runSolvedPaperBackground({
+          userEmail,
+          university,
+          course,
+          stream,
+          type,
+          paperCode,
+          year,
+          semester: parsedSemester,
+          model: selectedModel,
+        });
     } catch (error) {
       console.error("[ai/generate-pdf] Solved paper background job failed:", error);
       await notifyGenerationFailure(userEmail, `Solved Paper (${paperCode} ${year})`, error);

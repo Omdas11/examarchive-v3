@@ -58,6 +58,8 @@ const REQUIRED_BUCKETS: BucketSpec[] = [
   { id: "syllabus-files", name: "syllabus-files" },
   { id: "avatars", name: "avatars" },
   { id: "generated-md-cache", name: "generated-md-cache" },
+  { id: "cached-unit-notes", name: "cached-unit-notes" },
+  { id: "cached-solved-papers", name: "cached-solved-papers" },
 ];
 const LEGACY_BUCKET_IDS = new Set([
   "examarchive-md-ingestion",
@@ -70,6 +72,7 @@ const TARGET_DATABASE_ID = "examarchive";
 const TARGET_DATABASE_NAME = "ExamArchive";
 const REQUIRED_COLLECTION_SPECS: Array<{ id: string; name: string }> = [
   { id: "Generated_Notes_Cache", name: "Generated_Notes_Cache" },
+  { id: "ai_cache_index", name: "ai_cache_index" },
 ];
 
 function loadAppwriteEnv() {
