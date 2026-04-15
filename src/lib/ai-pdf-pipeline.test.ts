@@ -98,13 +98,13 @@ describe("ai-pdf-pipeline", () => {
     await renderMarkdownPdfToAppwrite({
       markdown: "# Title",
       fileBaseName: "test",
-      gotenbergUrl: "https://example-gotenberg.local",
+      gotenbergUrl: "https://example-gotenberg.hf.space",
       gotenbergAuthToken: "secret-token",
     });
 
     expect(global.fetch).toHaveBeenCalledTimes(1);
     expect(global.fetch).toHaveBeenCalledWith(
-      "https://example-gotenberg.local/forms/chromium/convert/html",
+      "https://example-gotenberg.hf.space/forms/chromium/convert/html",
       expect.objectContaining({
         method: "POST",
         headers: { Authorization: "Bearer secret-token" },
@@ -127,12 +127,12 @@ describe("ai-pdf-pipeline", () => {
     await renderMarkdownPdfToAppwrite({
       markdown: "# Title",
       fileBaseName: "test",
-      gotenbergUrl: "https://example-gotenberg.local",
+      gotenbergUrl: "https://example-gotenberg.hf.space",
       gotenbergAuthToken: " \"Bearer secret-token\" ",
     });
 
     expect(global.fetch).toHaveBeenCalledWith(
-      "https://example-gotenberg.local/forms/chromium/convert/html",
+      "https://example-gotenberg.hf.space/forms/chromium/convert/html",
       expect.objectContaining({
         method: "POST",
         headers: { Authorization: "Bearer secret-token" },
@@ -155,12 +155,12 @@ describe("ai-pdf-pipeline", () => {
     await renderMarkdownPdfToAppwrite({
       markdown: "# Title",
       fileBaseName: "test",
-      gotenbergUrl: "https://example-gotenberg.local",
+      gotenbergUrl: "https://example-gotenberg.hf.space",
       gotenbergAuthToken: " 'secret-token' ",
     });
 
     expect(global.fetch).toHaveBeenCalledWith(
-      "https://example-gotenberg.local/forms/chromium/convert/html",
+      "https://example-gotenberg.hf.space/forms/chromium/convert/html",
       expect.objectContaining({
         method: "POST",
         headers: { Authorization: "Bearer secret-token" },
@@ -183,12 +183,12 @@ describe("ai-pdf-pipeline", () => {
     await renderMarkdownPdfToAppwrite({
       markdown: "# Title",
       fileBaseName: "test",
-      gotenbergUrl: "https://example-gotenberg.local",
+      gotenbergUrl: "https://example-gotenberg.hf.space",
       gotenbergAuthToken: "   secret-token   ",
     });
 
     expect(global.fetch).toHaveBeenCalledWith(
-      "https://example-gotenberg.local/forms/chromium/convert/html",
+      "https://example-gotenberg.hf.space/forms/chromium/convert/html",
       expect.objectContaining({
         method: "POST",
         headers: { Authorization: "Bearer secret-token" },
@@ -211,7 +211,7 @@ describe("ai-pdf-pipeline", () => {
     await renderMarkdownPdfToAppwrite({
       markdown: "# Title",
       fileBaseName: "test",
-      gotenbergUrl: "https://example-gotenberg.local",
+      gotenbergUrl: "https://example-gotenberg.hf.space",
       gotenbergAuthToken: "secret-token",
     });
 
@@ -239,7 +239,7 @@ describe("ai-pdf-pipeline", () => {
     await expect(renderMarkdownPdfToAppwrite({
       markdown: "# Title",
       fileBaseName: "test",
-      gotenbergUrl: "https://example-gotenberg.local",
+      gotenbergUrl: "https://example-gotenberg.hf.space",
     })).rejects.toThrow("Missing GOTENBERG_AUTH_TOKEN");
     expect(global.fetch).not.toHaveBeenCalled();
   });

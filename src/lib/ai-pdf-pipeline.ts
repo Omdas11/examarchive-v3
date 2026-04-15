@@ -31,11 +31,12 @@ function sleep(ms: number): Promise<void> {
 }
 
 async function postToGotenbergWithRetry(args: {
+  baseUrl: string;
   endpointPath: string;
   headers?: HeadersInit;
   buildFormData: () => FormData;
 }): Promise<Response> {
-  const gotenbergBase = (process.env.GOTENBERG_URL || "").trim();
+  const gotenbergBase = args.baseUrl.trim();
   if (!gotenbergBase) {
     throw new Error("GOTENBERG_URL is required.");
   }
@@ -559,7 +560,7 @@ export async function renderMarkdownPdfToAppwrite(args: {
   syllabusContent?: string;
   userEmail?: string;
 }): Promise<{ fileId: string; fileUrl: string }> {
-  const configuredGotenbergUrl = (process.env.GOTENBERG_URL || "").trim();
+  const configuredGotenbergUrl = args.gotenbergUrl.trim();
   if (!configuredGotenbergUrl) {
     throw new Error("Missing GOTENBERG_URL for private Gotenberg Space.");
   }
@@ -614,6 +615,7 @@ export async function renderMarkdownPdfToAppwrite(args: {
 
   const gotenbergEndpointPath = GOTENBERG_CONVERT_ENDPOINT_PATH;
   const response = await postToGotenbergWithRetry({
+    baseUrl: configuredGotenbergUrl,
     endpointPath: gotenbergEndpointPath,
     headers: requestHeaders,
     buildFormData,

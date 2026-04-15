@@ -50,6 +50,7 @@ const CHUNK_MAX_ATTEMPTS = 3;
 const MIN_SEMESTER = 1;
 const MAX_SEMESTER = 8;
 const CACHE_HASH_PREFIX_LENGTH = 16;
+const TRUSTED_GOTENBERG_HOST_SUFFIX = ".hf.space";
 const UNDICI_CONNECT_TIMEOUT_CODE = "UND_ERR_CONNECT_TIMEOUT";
 const EMAIL_DELIVERY_UNAVAILABLE_CODE = "EMAIL_DELIVERY_UNAVAILABLE";
 const EMAIL_DELIVERY_UNAVAILABLE_MESSAGE =
@@ -582,25 +583,34 @@ function collectGeneratePdfEnvChecks(): {
   }
 
   let gotenbergUrlValid = false;
+  let gotenbergUrlDetail = "missing";
   if (gotenbergUrlRaw) {
     try {
       const parsed = new URL(gotenbergUrlRaw);
-      gotenbergUrlValid = /^https?:$/.test(parsed.protocol);
+      const usesHttps = parsed.protocol === "https:";
+      const isTrustedHost = parsed.hostname.toLowerCase().endsWith(TRUSTED_GOTENBERG_HOST_SUFFIX);
+      gotenbergUrlValid = usesHttps && isTrustedHost;
+      if (!usesHttps) {
+        gotenbergUrlDetail = "must use HTTPS";
+      } else if (!isTrustedHost) {
+        gotenbergUrlDetail = `must be a trusted ${TRUSTED_GOTENBERG_HOST_SUFFIX} host`;
+      } else {
+        gotenbergUrlDetail = "configured";
+      }
     } catch {
       gotenbergUrlValid = false;
+      gotenbergUrlDetail = "invalid URL format";
     }
   }
   checks.push({
     name: "GOTENBERG_URL",
     ok: gotenbergUrlValid,
-    detail: gotenbergUrlRaw
-      ? gotenbergUrlValid ? "configured" : "invalid URL format/protocol"
-      : "missing",
+    detail: gotenbergUrlDetail,
   });
   if (!gotenbergUrlRaw) {
     errors.push("Missing GOTENBERG_URL.");
   } else if (!gotenbergUrlValid) {
-    errors.push("GOTENBERG_URL is not a valid HTTP/HTTPS URL.");
+    errors.push(`GOTENBERG_URL must be an HTTPS ${TRUSTED_GOTENBERG_HOST_SUFFIX} URL.`);
   }
 
   checks.push({

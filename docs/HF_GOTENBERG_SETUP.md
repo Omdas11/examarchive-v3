@@ -41,7 +41,8 @@ In production (Vercel/hosting), set:
 Notes:
 
 - Do not add trailing slashes (the app normalizes, but keep it clean).
-- HTTPS is recommended (HTTP can be used for local/dev environments).
+- HTTPS is required.
+- `GOTENBERG_URL` must point to a trusted Hugging Face Space host (`*.hf.space`).
 - For private Spaces, ensure the token has permission to access the private Space.
 
 ## 3) Verify from your Next.js app
