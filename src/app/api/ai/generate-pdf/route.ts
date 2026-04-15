@@ -48,9 +48,9 @@ const LOGICAL_CHUNK_COUNT = 5;
 const GEMINI_CALL_COOLDOWN_MS = 3000;
 const CHUNK_MAX_ATTEMPTS = 3;
 const DEFAULT_BACKGROUND_JOB_TIMEOUT_MS = 12 * 60 * 1000;
-const parsedBackgroundJobTimeoutMs = Number(process.env.AI_PDF_BACKGROUND_JOB_TIMEOUT_MS);
-const BACKGROUND_JOB_TIMEOUT_MS = Number.isFinite(parsedBackgroundJobTimeoutMs)
-  ? Math.max(60_000, parsedBackgroundJobTimeoutMs)
+const envBackgroundJobTimeoutMs = Number(process.env.AI_PDF_BACKGROUND_JOB_TIMEOUT_MS);
+const BACKGROUND_JOB_TIMEOUT_MS = Number.isFinite(envBackgroundJobTimeoutMs)
+  ? Math.max(60_000, envBackgroundJobTimeoutMs)
   : DEFAULT_BACKGROUND_JOB_TIMEOUT_MS;
 const MIN_SEMESTER = 1;
 const MAX_SEMESTER = 8;
@@ -397,7 +397,8 @@ function getModelFallback(primaryModel: string): string | null {
 }
 
 function getExponentialBackoffMs(attempt: number): number {
-  return RETRY_BASE_DELAY_MS * (2 ** Math.max(0, attempt - 1));
+  const exponent = Math.min(Math.max(0, attempt - 1), 4);
+  return RETRY_BASE_DELAY_MS * (2 ** exponent);
 }
 
 type GeminiCooldownState = { lastCallStartedAt: number };
@@ -445,14 +446,20 @@ async function withGlobalJobTimeout<T>(
   label: string,
   fn: (signal: AbortSignal) => Promise<T>,
 ): Promise<T> {
-  let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+  let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+  let settled = false;
   const timeoutMessage = `[ai/generate-pdf] ${label} exceeded timeout after ${BACKGROUND_JOB_TIMEOUT_MS}ms.`;
   const abortController = new AbortController();
   try {
+    const jobPromise = fn(abortController.signal).finally(() => {
+      settled = true;
+      if (timeoutHandle) clearTimeout(timeoutHandle);
+    });
     return await Promise.race([
-      fn(abortController.signal),
+      jobPromise,
       new Promise<T>((_, reject) => {
         timeoutHandle = setTimeout(() => {
+          if (settled) return;
           abortController.abort(new Error(timeoutMessage));
           reject(new Error(timeoutMessage));
         }, BACKGROUND_JOB_TIMEOUT_MS);
@@ -936,7 +943,7 @@ CRITICAL FORMAT CONSTRAINTS:
           break;
         }
       } catch (error) {
-        if (signal?.aborted) throw error;
+        throwIfAborted(signal);
         lastChunkError = error;
         console.warn("[ai/generate-pdf] Notes chunk failed; retrying.", {
           chunkIndex: index + 1,
@@ -1181,7 +1188,7 @@ CRITICAL FORMAT CONSTRAINTS:
           break;
         }
       } catch (error) {
-        if (signal?.aborted) throw error;
+        throwIfAborted(signal);
         lastChunkError = error;
         console.warn("[ai/generate-pdf] Solved-paper chunk failed; retrying.", {
           chunkIndex: index + 1,
