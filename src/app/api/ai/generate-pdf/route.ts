@@ -278,6 +278,18 @@ async function enqueueAndDispatchPdfJob(params: {
     params.title,
     JSON.stringify(params.payload),
   ]);
+  const existingBeforeCreate = await db.listDocuments(DATABASE_ID, COLLECTION.ai_generation_jobs, [
+    Query.equal("idempotency_key", idempotencyKey),
+    Query.equal("user_id", params.userId),
+    Query.orderDesc("$createdAt"),
+    Query.limit(1),
+  ]);
+  const preexistingJobId = typeof existingBeforeCreate.documents[0]?.$id === "string"
+    ? existingBeforeCreate.documents[0].$id
+    : "";
+  if (preexistingJobId) {
+    return { jobId: preexistingJobId };
+  }
 
   let job;
   try {
@@ -301,6 +313,9 @@ async function enqueueAndDispatchPdfJob(params: {
       Query.orderDesc("$createdAt"),
       Query.limit(1),
     ]);
+    if (!Array.isArray(existing.documents) || existing.documents.length === 0) {
+      throw new Error("Job idempotency conflict detected but no existing job could be found.");
+    }
     const existingJobId = typeof existing.documents[0]?.$id === "string" ? existing.documents[0].$id : "";
     if (existingJobId) {
       return { jobId: existingJobId };

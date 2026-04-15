@@ -570,7 +570,7 @@ async function processGenerationJob(rawInput) {
     && !Array.isArray(outer)
     && !outer.jobId
     && !outer.payload
-    && Object.prototype.hasOwnProperty.call(outer, "body")
+    && Object.hasOwn(outer, "body")
   )
     ? parseFunctionInput(outer.body)
     : outer;
