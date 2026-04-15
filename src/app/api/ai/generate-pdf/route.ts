@@ -494,7 +494,7 @@ function collectGeneratePdfEnvChecks(): {
     errors.push("Missing APPWRITE_API_KEY.");
   }
 
-  const pdfGeneratorFunctionId = resolvePdfGeneratorFunctionId();
+  const pdfGeneratorFunctionId = process.env.APPWRITE_PDF_GENERATOR_FUNCTION_ID?.trim() || "";
   const pdfGeneratorFunctionIdDetail = pdfGeneratorFunctionId ? `configured (${pdfGeneratorFunctionId})` : "missing";
   checks.push({
     name: "APPWRITE_PDF_GENERATOR_FUNCTION_ID (resolved)",
