@@ -152,7 +152,7 @@ function sanitizeGeneratedHtml(input) {
       math: ["xmlns", "display"],
       annotation: ["encoding"],
     },
-    allowedSchemes: ["http", "https", "mailto", "data"],
+    allowedSchemes: ["http", "https", "mailto"],
     allowedSchemesByTag: {
       img: ["data"],
     },
