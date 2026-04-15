@@ -47,12 +47,14 @@ const bundlePath = process.env.BUNDLE_PATH;
 const gotenbergUrl = process.env.GOTENBERG_URL;
 const gotenbergAuthToken = process.env.GOTENBERG_AUTH_TOKEN;
 const geminiApiKey = process.env.GEMINI_API_KEY;
+const tavilyApiKey = process.env.TAVILY_API_KEY;
 
 const functionEnv = {
   GOTENBERG_URL: gotenbergUrl,
   GOTENBERG_AUTH_TOKEN: gotenbergAuthToken,
   GEMINI_API_KEY: geminiApiKey,
   GOOGLE_API_KEY: geminiApiKey,
+  TAVILY_API_KEY: tavilyApiKey,
   APPWRITE_ENDPOINT: endpoint,
   APPWRITE_PROJECT_ID: projectId,
   APPWRITE_API_KEY: process.env.FUNCTION_APPWRITE_API_KEY || apiKey,
@@ -66,6 +68,7 @@ const SECRET_ENV_KEYS = new Set([
   "GOTENBERG_AUTH_TOKEN",
   "GEMINI_API_KEY",
   "GOOGLE_API_KEY",
+  "TAVILY_API_KEY",
   "APPWRITE_API_KEY",
 ]);
 

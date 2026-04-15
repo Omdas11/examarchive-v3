@@ -63,4 +63,5 @@ jobs:
           GOTENBERG_URL: ${{ secrets.GOTENBERG_URL }}
           GOTENBERG_AUTH_TOKEN: ${{ secrets.GOTENBERG_AUTH_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
         run: bash scripts/deploy-function.sh
