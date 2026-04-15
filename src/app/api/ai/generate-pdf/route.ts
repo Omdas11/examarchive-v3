@@ -110,7 +110,11 @@ async function rollbackElectronCost(userId: string, cost: number): Promise<void>
 }
 
 function resolvePdfGeneratorFunctionId(): string {
-  return process.env.APPWRITE_PDF_GENERATOR_FUNCTION_ID?.trim() || "";
+  const functionId = process.env.APPWRITE_PDF_GENERATOR_FUNCTION_ID?.trim() || "";
+  if (!functionId) {
+    throw new Error("Missing APPWRITE_PDF_GENERATOR_FUNCTION_ID for Appwrite function dispatch.");
+  }
+  return functionId;
 }
 
 function normalizeSelectedModel(value: string): string {
@@ -271,9 +275,6 @@ async function enqueueAndDispatchPdfJob(params: {
   const db = adminDatabases();
   const functions = adminFunctions();
   const functionId = resolvePdfGeneratorFunctionId();
-  if (!functionId) {
-    throw new Error("Missing APPWRITE_PDF_GENERATOR_FUNCTION_ID for Appwrite function dispatch.");
-  }
   const idempotencyKey = buildContentHash([
     params.userId,
     params.paperCode,
@@ -330,18 +331,18 @@ async function enqueueAndDispatchPdfJob(params: {
     mode: "async",
   });
   try {
-    const execution = await functions.createExecution({
+    const execution = await functions.createExecution(
       functionId,
-      body: JSON.stringify({
+      JSON.stringify({
         jobId,
         payload: params.payload,
       }),
-      async: true,
-    });
+      true,
+    );
     const triggerAccepted =
       typeof execution.$id === "string" &&
       execution.$id.length > 0 &&
-      ["waiting", "processing", "scheduled", "completed", "failed"].includes(String(execution.status || ""));
+      ["waiting", "processing"].includes(String(execution.status || ""));
     console.info("[ai/generate-pdf] Appwrite function execution trigger response.", {
       triggerAccepted,
       FUNCTION_ID: functionId,
@@ -354,12 +355,11 @@ async function enqueueAndDispatchPdfJob(params: {
       );
     }
   } catch (error) {
-    const appwriteError = error as {
-      message?: unknown;
-      status?: unknown;
-      code?: unknown;
-      type?: unknown;
-      response?: unknown;
+    const appwriteError = error as Error & {
+      status?: number;
+      code?: number | string;
+      type?: string;
+      response?: string | Record<string, unknown>;
     };
     console.error("[ai/generate-pdf] Appwrite function execution trigger failed.", {
       FUNCTION_ID: functionId,
