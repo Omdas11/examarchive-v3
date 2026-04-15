@@ -49,6 +49,7 @@ const EMAIL_DELIVERY_UNAVAILABLE_MESSAGE =
   "Unable to send generation confirmation email. Request was not started. Please verify email settings and try again.";
 const QUOTA_RESERVATION_FAILED_CODE = "QUOTA_RESERVATION_FAILED";
 const QUOTA_RESERVATION_FAILED_MESSAGE = "Failed to reserve generation quota. Please try again later.";
+const GOTENBERG_AUTH_DEBUG_LOG_ENABLED = process.env.GOTENBERG_AUTH_DEBUG_LOG === "1";
 
 type GenerateBody = {
   jobType?: string;
@@ -513,10 +514,12 @@ async function runNotesBackground(params: {
   if (!geminiApiKey) throw new Error("Google Gemini is not configured.");
   if (!gotenbergUrl) throw new Error("Server misconfiguration: missing GOTENBERG_URL.");
   if (!gotenbergAuthToken) throw new Error("Server misconfiguration: missing GOTENBERG_AUTH_TOKEN.");
-  console.log("[ai/generate-pdf] GOTENBERG_AUTH_TOKEN loaded:", {
-    present: Boolean(process.env.GOTENBERG_AUTH_TOKEN?.trim()),
-    looksLikeHfToken: process.env.GOTENBERG_AUTH_TOKEN?.trim().startsWith("hf_") ?? false,
-  });
+  if (GOTENBERG_AUTH_DEBUG_LOG_ENABLED) {
+    console.log("[ai/generate-pdf] GOTENBERG_AUTH_TOKEN loaded:", {
+      present: Boolean(process.env.GOTENBERG_AUTH_TOKEN?.trim()),
+      looksLikeHfToken: process.env.GOTENBERG_AUTH_TOKEN?.trim().startsWith("hf_") ?? false,
+    });
+  }
 
   const db = adminDatabases();
 
@@ -712,10 +715,12 @@ async function runSolvedPaperBackground(params: {
   if (!geminiApiKey) throw new Error("Google Gemini is not configured.");
   if (!gotenbergUrl) throw new Error("Server misconfiguration: missing GOTENBERG_URL.");
   if (!gotenbergAuthToken) throw new Error("Server misconfiguration: missing GOTENBERG_AUTH_TOKEN.");
-  console.log("[ai/generate-pdf] GOTENBERG_AUTH_TOKEN loaded:", {
-    present: Boolean(process.env.GOTENBERG_AUTH_TOKEN?.trim()),
-    looksLikeHfToken: process.env.GOTENBERG_AUTH_TOKEN?.trim().startsWith("hf_") ?? false,
-  });
+  if (GOTENBERG_AUTH_DEBUG_LOG_ENABLED) {
+    console.log("[ai/generate-pdf] GOTENBERG_AUTH_TOKEN loaded:", {
+      present: Boolean(process.env.GOTENBERG_AUTH_TOKEN?.trim()),
+      looksLikeHfToken: process.env.GOTENBERG_AUTH_TOKEN?.trim().startsWith("hf_") ?? false,
+    });
+  }
 
   const db = adminDatabases();
 

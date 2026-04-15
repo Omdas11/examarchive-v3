@@ -140,6 +140,62 @@ describe("ai-pdf-pipeline", () => {
     );
   });
 
+  it("normalizes single-quoted token formatting before building Bearer header", async () => {
+    const createFile = jest.fn().mockResolvedValue(undefined);
+    (adminStorage as jest.Mock).mockReturnValue({ createFile });
+    (InputFile.fromBuffer as jest.Mock).mockReturnValue({ mocked: true });
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
+      text: async () => "",
+    }) as unknown as typeof fetch;
+
+    await renderMarkdownPdfToAppwrite({
+      markdown: "# Title",
+      fileBaseName: "test",
+      gotenbergUrl: "https://example-gotenberg.local",
+      gotenbergAuthToken: " 'secret-token' ",
+    });
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      "https://example-gotenberg.local/forms/chromium/convert/html",
+      expect.objectContaining({
+        method: "POST",
+        headers: { Authorization: "Bearer secret-token" },
+      }),
+    );
+  });
+
+  it("normalizes whitespace-only token formatting before building Bearer header", async () => {
+    const createFile = jest.fn().mockResolvedValue(undefined);
+    (adminStorage as jest.Mock).mockReturnValue({ createFile });
+    (InputFile.fromBuffer as jest.Mock).mockReturnValue({ mocked: true });
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
+      text: async () => "",
+    }) as unknown as typeof fetch;
+
+    await renderMarkdownPdfToAppwrite({
+      markdown: "# Title",
+      fileBaseName: "test",
+      gotenbergUrl: "https://example-gotenberg.local",
+      gotenbergAuthToken: "   secret-token   ",
+    });
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      "https://example-gotenberg.local/forms/chromium/convert/html",
+      expect.objectContaining({
+        method: "POST",
+        headers: { Authorization: "Bearer secret-token" },
+      }),
+    );
+  });
+
   it("sends HTML/header/footer payloads using FormData files key", async () => {
     const createFile = jest.fn().mockResolvedValue(undefined);
     (adminStorage as jest.Mock).mockReturnValue({ createFile });
