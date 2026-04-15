@@ -45,13 +45,17 @@ function sanitizeHtmlText(value) {
   return he.encode(value ?? "");
 }
 
+function wrapHtmlTag(tagName, safeInnerHtml) {
+  return ["<", tagName, ">", safeInnerHtml, "</", tagName, ">"].join("");
+}
+
 function renderHtmlDocument({ safeTitle, safeParagraphsHtml }) {
   return [
     "<!doctype html>",
     "<html>",
     "<head>",
     '<meta charset="utf-8"/>',
-    `<title>${safeTitle}</title>`,
+    wrapHtmlTag("title", safeTitle),
     "</head>",
     "<body>",
     safeParagraphsHtml,
@@ -66,7 +70,7 @@ function markdownToSimpleHtml(markdown, title) {
     .map((block) => {
       const escapedBlock = sanitizeHtmlText(block);
       const withSafeLineBreaks = escapedBlock.replaceAll("\n", "<br/>");
-      return `<p>${withSafeLineBreaks}</p>`;
+      return wrapHtmlTag("p", withSafeLineBreaks);
     })
     .join("\n");
 
