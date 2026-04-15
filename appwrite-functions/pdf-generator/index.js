@@ -426,6 +426,17 @@ function parseFunctionInput(rawInput) {
   }
 }
 
+function isBodyWrappedPayload(value) {
+  return (
+    value
+    && typeof value === "object"
+    && !Array.isArray(value)
+    && !value.jobId
+    && !value.payload
+    && Object.hasOwn(value, "body")
+  );
+}
+
 async function updateJob(db, jobId, payload) {
   await db.updateDocument(DATABASE_ID, JOB_COLLECTION_ID, jobId, payload);
 }
@@ -564,14 +575,7 @@ async function processGenerationJob(rawInput) {
   const storage = new Storage(client);
 
   const outer = parseFunctionInput(rawInput);
-  const parsed = (
-    outer
-    && typeof outer === "object"
-    && !Array.isArray(outer)
-    && !outer.jobId
-    && !outer.payload
-    && Object.hasOwn(outer, "body")
-  )
+  const parsed = isBodyWrappedPayload(outer)
     ? parseFunctionInput(outer.body)
     : outer;
   const jobId = String(parsed.jobId || "").trim();
