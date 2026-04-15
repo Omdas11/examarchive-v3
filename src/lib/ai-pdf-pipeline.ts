@@ -28,6 +28,13 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function isLoopbackHostname(hostname: string): boolean {
+  if (hostname === "localhost" || hostname === "::1" || hostname === "[::1]") return true;
+  if (!/^127(?:\.\d{1,3}){3}$/.test(hostname)) return false;
+  const parts = hostname.split(".").map((value) => Number(value));
+  return parts.every((part) => Number.isInteger(part) && part >= 0 && part <= 255);
+}
+
 async function postToGotenbergWithRetry(args: {
   endpoint: string;
   headers?: HeadersInit;
@@ -39,9 +46,7 @@ async function postToGotenbergWithRetry(args: {
   } catch {
     throw new Error(`Invalid Gotenberg endpoint: ${args.endpoint}`);
   }
-  const isLocalhost = endpointUrl.hostname === "localhost"
-    || endpointUrl.hostname === "127.0.0.1"
-    || endpointUrl.hostname === "::1";
+  const isLocalhost = isLoopbackHostname(endpointUrl.hostname);
   const isAllowedProtocol = endpointUrl.protocol === "https:"
     || (endpointUrl.protocol === "http:" && isLocalhost);
   if (!isAllowedProtocol) {
