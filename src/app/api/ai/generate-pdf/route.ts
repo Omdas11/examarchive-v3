@@ -37,6 +37,7 @@ const EMAIL_DELIVERY_UNAVAILABLE_MESSAGE =
 const QUOTA_RESERVATION_FAILED_CODE = "QUOTA_RESERVATION_FAILED";
 const QUOTA_RESERVATION_FAILED_MESSAGE = "Failed to reserve generation quota. Please try again later.";
 const PDF_GENERATOR_FUNCTION_ID = "pdf-generator";
+const APPWRITE_DOC_ID_HASH_LENGTH = 31;
 
 type GenerateBody = {
   jobType?: string;
@@ -278,7 +279,7 @@ async function enqueueAndDispatchPdfJob(params: {
     params.title,
     JSON.stringify(params.payload),
   ]);
-  const deterministicJobId = `j${createHash("sha1").update(idempotencyKey).digest("hex").slice(0, 31)}`;
+  const deterministicJobId = `j${createHash("sha1").update(idempotencyKey).digest("hex").slice(0, APPWRITE_DOC_ID_HASH_LENGTH)}`;
   const existingBeforeCreate = await db.listDocuments(DATABASE_ID, COLLECTION.ai_generation_jobs, [
     Query.equal("idempotency_key", idempotencyKey),
     Query.equal("user_id", params.userId),

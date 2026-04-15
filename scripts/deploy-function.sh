@@ -122,7 +122,7 @@ async function createFunctionWithRuntime(functions, selectedRuntime) {
 }
 
 async function upsertFunction(functions) {
-  const runtimeCandidates = [runtime, ...fallbackRuntimes.filter((value) => value !== runtime)];
+  const runtimeCandidates = [runtime, ...fallbackRuntimes.filter((value) => value !== runtime)].filter(Boolean);
   try {
     for (const selectedRuntime of runtimeCandidates) {
       try {

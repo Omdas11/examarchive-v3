@@ -392,6 +392,9 @@ async function renderWithGotenberg(markdown, fileName) {
         break;
       }
       if (isHttpError) {
+        console.error(
+          `[pdf-generator] Gotenberg non-retryable HTTP error at attempt ${attempt}/${GOTENBERG_MAX_ATTEMPTS}: ${formatWorkerErrorMessage(error)}`,
+        );
         throw error;
       }
       if (isTimeout) {
