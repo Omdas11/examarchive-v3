@@ -42,10 +42,7 @@ function splitSyllabusIntoSubTopics(syllabusContent) {
 }
 
 function sanitizeHtmlText(value) {
-  return he.encode(value ?? "", {
-    useNamedReferences: true,
-    allowUnsafeSymbols: true,
-  });
+  return he.encode(value ?? "");
 }
 
 function renderHtmlDocument({ safeTitle, safeParagraphsHtml }) {
