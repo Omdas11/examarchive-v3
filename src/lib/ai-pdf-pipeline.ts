@@ -15,6 +15,7 @@ const DEFAULT_GOTENBERG_REQUEST_TIMEOUT_MS = 45_000;
 const DEFAULT_GOTENBERG_MAX_ATTEMPTS = 3;
 const DEFAULT_GOTENBERG_RETRY_DELAY_MS = 1_500;
 const GOTENBERG_CONVERT_ENDPOINT_PATH = "/forms/chromium/convert/html";
+const TRUSTED_GOTENBERG_HOST_SUFFIX = ".hf.space";
 const GOTENBERG_REQUEST_TIMEOUT_MS = Number.isFinite(Number(process.env.GOTENBERG_REQUEST_TIMEOUT_MS))
   ? Math.max(1_000, Number(process.env.GOTENBERG_REQUEST_TIMEOUT_MS))
   : DEFAULT_GOTENBERG_REQUEST_TIMEOUT_MS;
@@ -29,40 +30,47 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function isLoopbackHostname(hostname: string): boolean {
-  if (hostname === "localhost" || hostname === "::1" || hostname === "[::1]") return true;
-  if (!/^127(?:\.\d{1,3}){3}$/.test(hostname)) return false;
-  const parts = hostname.split(".").map((value) => Number(value));
-  return parts.every((part) => Number.isInteger(part) && part >= 0 && part <= 255);
-}
-
 async function postToGotenbergWithRetry(args: {
-  endpoint: string;
-  allowedHosts: string[];
+  endpointPath: string;
   headers?: HeadersInit;
   buildFormData: () => FormData;
 }): Promise<Response> {
+  const gotenbergBase = (process.env.GOTENBERG_URL || "").trim();
+  if (!gotenbergBase) {
+    throw new Error("GOTENBERG_URL is required.");
+  }
+
+  let baseUrl: URL;
+  try {
+    baseUrl = new URL(gotenbergBase);
+  } catch {
+    throw new Error("Invalid GOTENBERG_URL.");
+  }
+  if (baseUrl.protocol !== "https:") {
+    throw new Error("GOTENBERG_URL must use HTTPS.");
+  }
+  const normalizedBaseHost = baseUrl.hostname.toLowerCase();
+  if (!normalizedBaseHost.endsWith(TRUSTED_GOTENBERG_HOST_SUFFIX)) {
+    throw new Error("GOTENBERG_URL must use a trusted Hugging Face domain.");
+  }
+
   let endpointUrl: URL;
   try {
-    endpointUrl = new URL(args.endpoint);
+    endpointUrl = new URL(args.endpointPath, baseUrl.toString());
   } catch {
-    throw new Error(`Invalid Gotenberg endpoint: ${args.endpoint}`);
+    throw new Error("Invalid Gotenberg endpoint path.");
   }
-  const isLocalhost = isLoopbackHostname(endpointUrl.hostname);
-  const isAllowedProtocol = endpointUrl.protocol === "https:"
-    || (endpointUrl.protocol === "http:" && isLocalhost);
-  if (!isAllowedProtocol) {
-    throw new Error(`Refusing insecure or unsupported Gotenberg endpoint: ${endpointUrl.toString()}`);
+  if (endpointUrl.protocol !== "https:") {
+    throw new Error("Refusing insecure Gotenberg endpoint.");
   }
   if (endpointUrl.pathname !== GOTENBERG_CONVERT_ENDPOINT_PATH) {
     throw new Error("Refusing unexpected Gotenberg endpoint path.");
   }
-  const normalizedEndpointHost = endpointUrl.hostname.toLowerCase();
-  const allowedHostSet = new Set(
-    args.allowedHosts.map((host) => host.trim().toLowerCase()).filter(Boolean),
-  );
-  if (!isLocalhost && !allowedHostSet.has(normalizedEndpointHost)) {
+  if (endpointUrl.hostname.toLowerCase() !== normalizedBaseHost) {
     throw new Error("Refusing non-whitelisted Gotenberg host.");
+  }
+  if (!endpointUrl.toString().startsWith(`${baseUrl.origin}/`)) {
+    throw new Error("Refusing Gotenberg endpoint outside trusted origin.");
   }
 
   let lastErrorMessage = "Unknown error";
@@ -103,7 +111,7 @@ async function postToGotenbergWithRetry(args: {
       }
     }
   }
-  throw new Error(`Gotenberg request failed after ${GOTENBERG_MAX_ATTEMPTS} attempts at ${args.endpoint}: ${lastErrorMessage}`);
+  throw new Error(`Gotenberg request failed after ${GOTENBERG_MAX_ATTEMPTS} attempts at ${endpointUrl.toString()}: ${lastErrorMessage}`);
 }
 
 function escapeHtml(text: string): string {
@@ -523,19 +531,6 @@ function buildGotenbergEndpoint(baseUrl: string, endpointPath: string): string {
   return new URL(endpointPath, baseUrl).toString();
 }
 
-function getConfiguredGotenbergHosts(): string[] {
-  const configuredUrls = [process.env.GOTENBERG_URL, process.env.AZURE_GOTENBERG_URL];
-  return configuredUrls.flatMap((candidate) => {
-    const value = (candidate || "").trim();
-    if (!value) return [];
-    try {
-      return [new URL(value).hostname];
-    } catch {
-      return [];
-    }
-  });
-}
-
 function normalizeGotenbergAuthToken(rawToken: string): string {
   const trimmed = rawToken.trim();
   const isWrappedInDoubleQuotes = trimmed.length >= 2 && trimmed.startsWith("\"") && trimmed.endsWith("\"");
@@ -564,11 +559,10 @@ export async function renderMarkdownPdfToAppwrite(args: {
   syllabusContent?: string;
   userEmail?: string;
 }): Promise<{ fileId: string; fileUrl: string }> {
-  const effectiveGotenbergUrl = args.gotenbergUrl.trim();
-  if (!effectiveGotenbergUrl) {
-    throw new Error("gotenbergUrl is required.");
+  const configuredGotenbergUrl = (process.env.GOTENBERG_URL || "").trim();
+  if (!configuredGotenbergUrl) {
+    throw new Error("Missing GOTENBERG_URL for private Gotenberg Space.");
   }
-  const normalizedBaseUrl = effectiveGotenbergUrl.replace(/\/+$/, "");
   const gotenbergAuthToken = normalizeGotenbergAuthToken(
     args.gotenbergAuthToken ?? process.env.GOTENBERG_AUTH_TOKEN ?? "",
   );
@@ -576,16 +570,19 @@ export async function renderMarkdownPdfToAppwrite(args: {
     throw new Error("Missing GOTENBERG_AUTH_TOKEN for private Gotenberg Space.");
   }
   const requestHeaders = { Authorization: `Bearer ${gotenbergAuthToken}` };
-  let gotenbergUrl: URL;
+  let gotenbergBaseUrl: URL;
   try {
-    gotenbergUrl = new URL(normalizedBaseUrl);
+    gotenbergBaseUrl = new URL(configuredGotenbergUrl);
   } catch {
-    throw new Error("Invalid gotenbergUrl.");
+    throw new Error("Invalid GOTENBERG_URL.");
   }
-  if (!/^https?:$/.test(gotenbergUrl.protocol)) {
-    throw new Error("gotenbergUrl must use HTTP or HTTPS.");
+  if (gotenbergBaseUrl.protocol !== "https:") {
+    throw new Error("GOTENBERG_URL must use HTTPS.");
   }
-  const primaryEndpoint = buildGotenbergEndpoint(gotenbergUrl.toString(), GOTENBERG_CONVERT_ENDPOINT_PATH);
+  if (!gotenbergBaseUrl.hostname.toLowerCase().endsWith(TRUSTED_GOTENBERG_HOST_SUFFIX)) {
+    throw new Error("GOTENBERG_URL must use a trusted Hugging Face domain.");
+  }
+  const primaryEndpoint = buildGotenbergEndpoint(gotenbergBaseUrl.toString(), GOTENBERG_CONVERT_ENDPOINT_PATH);
   const html = buildPdfHtml({
     markdown: args.markdown,
     modelName: args.modelName,
@@ -615,10 +612,9 @@ export async function renderMarkdownPdfToAppwrite(args: {
     return formData;
   };
 
-  const gotenbergEndpoint = primaryEndpoint;
+  const gotenbergEndpointPath = GOTENBERG_CONVERT_ENDPOINT_PATH;
   const response = await postToGotenbergWithRetry({
-    endpoint: gotenbergEndpoint,
-    allowedHosts: [gotenbergUrl.hostname, ...getConfiguredGotenbergHosts()],
+    endpointPath: gotenbergEndpointPath,
     headers: requestHeaders,
     buildFormData,
   });
@@ -627,11 +623,11 @@ export async function renderMarkdownPdfToAppwrite(args: {
     console.error("[ai-pdf-pipeline] Gotenberg Error Body:", errorText || response.statusText || "Unknown error");
     console.error("[ai-pdf-pipeline] Gotenberg non-200 response.", {
       status: response.status,
-      endpoint: gotenbergEndpoint,
+      endpoint: primaryEndpoint,
       error: errorText || response.statusText || "Unknown error",
     });
     throw new Error(
-      `Gotenberg Error (${response.status}) at ${gotenbergEndpoint}: ${errorText || response.statusText || "Unknown error"}`,
+      `Gotenberg Error (${response.status}) at ${primaryEndpoint}: ${errorText || response.statusText || "Unknown error"}`,
     );
   }
 

@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer";
 import type SMTPTransport from "nodemailer/lib/smtp-transport";
+import sanitizeHtml from "sanitize-html";
 
 export class SmtpConfigurationError extends Error {}
 const DEFAULT_SMTP_PORT = 587;
@@ -30,6 +31,13 @@ function escapeHtml(value: string): string {
  */
 function sanitizePlainText(value: string): string {
   return value.replace(/[\r\n\t]+/g, " ").trim();
+}
+
+function sanitizeEmailHtmlInput(value: string): string {
+  return sanitizeHtml(value, {
+    allowedTags: [],
+    allowedAttributes: {},
+  }).replace(/\u0000/g, "").trim();
 }
 
 function getSiteUrl(): string {
@@ -194,19 +202,25 @@ export async function sendGenerationFailureEmail(args: {
   if (!to) return;
   const from = getFromAddress();
   const safeTitle = sanitizePlainText(args.title) || "PDF generation request";
-  const reason = (
+  const reasonRaw = (
     args.reason ||
     "Generation failed. Please check your selections and try again. If it keeps failing, contact support."
-  ).trim();
-  const diagnostics = (args.diagnostics || "").trim().slice(0, 8_000);
-  const diagnosticsText = diagnostics ? `\nDiagnostics:\n${diagnostics}\n` : "";
-  const diagnosticsHtml = diagnostics ? `<p><strong>Diagnostics</strong></p><pre>${escapeHtml(diagnostics)}</pre>` : "";
+  );
+  const diagnosticsRaw = (args.diagnostics || "").slice(0, 8_000);
+  const reasonText = sanitizePlainText(sanitizeEmailHtmlInput(reasonRaw));
+  const diagnosticsTextValue = sanitizePlainText(sanitizeEmailHtmlInput(diagnosticsRaw));
+  const reasonHtml = escapeHtml(sanitizeEmailHtmlInput(reasonRaw));
+  const diagnosticsHtmlValue = escapeHtml(sanitizeEmailHtmlInput(diagnosticsRaw));
+  const diagnosticsText = diagnosticsTextValue ? `\nDiagnostics:\n${diagnosticsTextValue}\n` : "";
+  const diagnosticsHtml = diagnosticsHtmlValue
+    ? `<p><strong>Diagnostics</strong></p><pre>${diagnosticsHtmlValue}</pre>`
+    : "";
   const transporter = await getTransporter();
   await transporter.sendMail({
     from,
     to,
     subject: `ExamArchive: ${safeTitle} generation failed`,
-    text: `We couldn't complete your PDF generation request.\n\nTitle: ${safeTitle}\nReason: ${reason}${diagnosticsText}\nWhat you can do:\n- Try again in a few minutes.\n- If the issue persists, contact support and include the reason and diagnostics from this email.\n`,
-    html: `<p>We couldn't complete your PDF generation request.</p><p><strong>Reason:</strong> ${escapeHtml(reason)}</p>${diagnosticsHtml}<p>Please try again in a few minutes. If the issue persists, contact support and include these details.</p>`,
+    text: `We couldn't complete your PDF generation request.\n\nTitle: ${safeTitle}\nReason: ${reasonText}${diagnosticsText}\nWhat you can do:\n- Try again in a few minutes.\n- If the issue persists, contact support and include the reason and diagnostics from this email.\n`,
+    html: `<p>We couldn't complete your PDF generation request.</p><p><strong>Reason:</strong> ${reasonHtml}</p>${diagnosticsHtml}<p>Please try again in a few minutes. If the issue persists, contact support and include these details.</p>`,
   });
 }
