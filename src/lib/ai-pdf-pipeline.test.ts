@@ -110,6 +110,27 @@ describe("ai-pdf-pipeline", () => {
         headers: { Authorization: "Bearer secret-token" },
       }),
     );
+  });
+
+  it("sends HTML/header/footer payloads using FormData files key", async () => {
+    const createFile = jest.fn().mockResolvedValue(undefined);
+    (adminStorage as jest.Mock).mockReturnValue({ createFile });
+    (InputFile.fromBuffer as jest.Mock).mockReturnValue({ mocked: true });
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
+      text: async () => "",
+    }) as unknown as typeof fetch;
+
+    await renderMarkdownPdfToAppwrite({
+      markdown: "# Title",
+      fileBaseName: "test",
+      gotenbergUrl: "https://example-gotenberg.local",
+      gotenbergAuthToken: "secret-token",
+    });
+
     const fetchCall = (global.fetch as jest.Mock).mock.calls[0]?.[1] as { body?: FormData } | undefined;
     expect(fetchCall?.body).toBeInstanceOf(FormData);
     expect(fetchCall?.body?.getAll("files")).toHaveLength(3);

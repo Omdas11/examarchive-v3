@@ -27,7 +27,7 @@ import {
 } from "@/lib/economy";
 import { withElectronBalanceLock } from "@/lib/electron-lock";
 
-// Keep this route within Vercel function limits while still allowing complex note generation.
+// Keep route timeout explicit for current deployment while allowing complex note generation.
 export const maxDuration = 60;
 
 const DEFAULT_AI_MODEL = "gemini-3.1-flash-lite-preview";
