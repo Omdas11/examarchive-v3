@@ -138,7 +138,7 @@ Async worker state for Tier 1 AI generation.
 - `status` (string: `queued|running|completed|failed|cancelled`, required)
 - `progress_percent` (integer, optional)
 - `input_payload_json` (string/json, required)
-- `result_note_id` (string, optional)
+- `result_file_id` (string, optional)
 - `error_message` (string, optional)
 - `started_at` (datetime, optional)
 - `completed_at` (datetime, optional)
@@ -211,7 +211,7 @@ or
   2. Call Gemini generation.
   3. Persist content in DB and/or storage.
   4. Create/Update `note_catalog` item (Tier 1).
-  5. Mark job `completed` + set `result_note_id`.
+  5. Mark job `completed` + set `result_file_id`.
   6. On failure mark `failed` with structured reason.
 
 #### Execution-limit planning
@@ -610,4 +610,3 @@ Monetization roadmap is complete when:
 - UTR manual verification queue is operational for admins.
 - Semester pass access rules work with tiered catalog.
 - XP + credits reward path is idempotent and role-perk aware.
-

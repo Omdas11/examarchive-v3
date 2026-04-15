@@ -98,6 +98,24 @@ const AI_COLLECTIONS = [
       { key: "created_at", type: "datetime", required: false },
     ],
   },
+  {
+    id: "ai_generation_jobs",
+    name: "ai_generation_jobs",
+    attributes: [
+      { key: "user_id", type: "string", required: true, size: 64 },
+      { key: "paper_code", type: "string", required: true, size: 256 },
+      { key: "unit_number", type: "integer", required: true },
+      { key: "status", type: "string", required: true, size: 32 },
+      { key: "progress_percent", type: "integer", required: false },
+      { key: "input_payload_json", type: "string", required: true, size: 10000 },
+      { key: "result_file_id", type: "string", required: false, size: 128 },
+      { key: "error_message", type: "string", required: false, size: 2000 },
+      { key: "started_at", type: "datetime", required: false },
+      { key: "completed_at", type: "datetime", required: false },
+      { key: "idempotency_key", type: "string", required: true, size: 128 },
+      { key: "created_at", type: "datetime", required: true },
+    ],
+  },
 ];
 
 // These are initialized in main() after loadAppwriteEnv() to respect CLI/.env overrides

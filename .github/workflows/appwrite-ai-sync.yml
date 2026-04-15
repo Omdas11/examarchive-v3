@@ -18,6 +18,8 @@ on:
       - "scripts/v2/sync-appwrite-ai.js"
       - "scripts/v2/appwrite-schema-setup.js"
       - "scripts/v2/sync-appwrite-schema.js"
+      - "scripts/deploy-function.sh"
+      - "appwrite-functions/pdf-generator/**"
       - "scripts/hard-reset-ingestion.ts"
       - ".github/workflows/appwrite-ai-sync.yml"
 
@@ -51,3 +53,15 @@ jobs:
           APPWRITE_PROJECT_ID: ${{ secrets.APPWRITE_PROJECT_ID }}
           APPWRITE_API_KEY: ${{ secrets.APPWRITE_API_KEY }}
         run: npm run sync:appwrite-ai
+
+      - name: Deploy pdf-generator Appwrite Function
+        env:
+          APPWRITE_ENDPOINT: ${{ secrets.APPWRITE_ENDPOINT }}
+          APPWRITE_PROJECT_ID: ${{ secrets.APPWRITE_PROJECT_ID }}
+          APPWRITE_API_KEY: ${{ secrets.APPWRITE_API_KEY }}
+          FUNCTION_APPWRITE_API_KEY: ${{ secrets.FUNCTION_APPWRITE_API_KEY }}
+          GOTENBERG_URL: ${{ secrets.GOTENBERG_URL }}
+          GOTENBERG_AUTH_TOKEN: ${{ secrets.GOTENBERG_AUTH_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+        run: bash scripts/deploy-function.sh

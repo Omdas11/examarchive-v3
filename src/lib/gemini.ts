@@ -6,7 +6,11 @@ const REQUEST_TIMEOUT_MS = Number.isFinite(Number(process.env.GEMINI_REQUEST_TIM
   : DEFAULT_REQUEST_TIMEOUT_MS;
 
 export class GeminiServiceError extends Error {
-  constructor(public readonly status: number, message: string) {
+  constructor(
+    public readonly status: number,
+    message: string,
+    public readonly responseBody?: string,
+  ) {
     super(message);
   }
 }
@@ -22,12 +26,16 @@ export async function runGeminiCompletion(args: {
   maxTokens: number;
   temperature: number;
   model?: string;
+  signal?: AbortSignal;
   contents?: Array<{ role: "user" | "model"; parts: Array<{ text: string }> }>;
 }): Promise<GeminiResult> {
   const model = (args.model || DEFAULT_GEMINI_MODEL).trim();
   const url = `${GEMINI_ENDPOINT}/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(args.apiKey)}`;
 
   let response: Response;
+  const timeoutSignal = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
+  const requestSignal = args.signal ? AbortSignal.any([timeoutSignal, args.signal]) : timeoutSignal;
+
   try {
     response = await fetch(url, {
       method: "POST",
@@ -41,15 +49,16 @@ export async function runGeminiCompletion(args: {
           temperature: args.temperature,
         },
       }),
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      signal: requestSignal,
     });
   } catch (error) {
     throw new GeminiServiceError(503, error instanceof Error ? error.message : "Network error");
   }
 
   if (!response.ok) {
+    const responseBody = await response.text().catch(() => "");
     const message = `Gemini request failed (status ${response.status})`;
-    throw new GeminiServiceError(response.status, message);
+    throw new GeminiServiceError(response.status, message, responseBody);
   }
 
   const payload = (await response.json()) as {

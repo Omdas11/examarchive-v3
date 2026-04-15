@@ -69,6 +69,7 @@ export const COLLECTION = {
   ai_embeddings: "ai_embeddings",
   purchases: "purchases",
   ai_cache_index: "ai_cache_index",
+  ai_generation_jobs: "ai_generation_jobs",
 } as const;
 
 /** Storage bucket for uploaded PDFs and files. */

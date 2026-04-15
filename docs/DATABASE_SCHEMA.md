@@ -199,7 +199,7 @@ represents one generation invocation.
 
 ## Collection: `ai_generation_jobs`
 
-Tracks async AI notes generation jobs (`POST /api/ai/jobs`) and worker progress.
+Tracks async AI PDF generation jobs (`POST /api/ai/generate-pdf`) and worker progress.
 
 | Field              | Type     | Required | Notes |
 |--------------------|----------|----------|-------|
@@ -209,7 +209,7 @@ Tracks async AI notes generation jobs (`POST /api/ai/jobs`) and worker progress.
 | `status`           | String   | **Yes**  | `queued` \| `running` \| `completed` \| `failed` \| `cancelled` |
 | `progress_percent` | Integer  | No       | High-level progress 0–100 |
 | `input_payload_json` | String | **Yes**  | Serialized request payload |
-| `result_note_id`   | String   | No       | Generated PDF file ID in `papers` bucket |
+| `result_file_id`   | String   | No       | Generated PDF file ID in `papers` bucket |
 | `error_message`    | String   | No       | Terminal error reason |
 | `started_at`       | Datetime | No       | Worker start timestamp |
 | `completed_at`     | Datetime | No       | Worker completion timestamp |

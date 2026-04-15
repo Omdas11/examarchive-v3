@@ -49,3 +49,11 @@ The growth and monetization prep checklist is now split into focused docs:
 | [docs/DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) | Appwrite collection schemas |
 | [docs/UPLOAD_FLOW.md](./UPLOAD_FLOW.md) | End-to-end upload and moderation architecture |
 | [docs/payments/razorpay-integration.md](./payments/razorpay-integration.md) | Razorpay verification routes and Purchases schema architecture |
+
+## Appwrite AI Sync Automation
+
+- On merge to `main`, `.github/workflows/appwrite-ai-sync.yml` now runs both:
+  - `npm run sync:appwrite-ai` (AI schema/function sync)
+  - `bash scripts/deploy-function.sh` (deploy/update `pdf-generator` function)
+- This keeps `scripts/deploy-function.sh` and `appwrite-functions/pdf-generator/**` changes automatically synced to Appwrite after merge.
+- Ensure repo secrets include `APPWRITE_ENDPOINT`, `APPWRITE_PROJECT_ID`, `APPWRITE_API_KEY`, `GOTENBERG_URL`, `GOTENBERG_AUTH_TOKEN`, `GEMINI_API_KEY` (and optionally `TAVILY_API_KEY` for solved-paper web context).
