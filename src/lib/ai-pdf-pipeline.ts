@@ -39,13 +39,15 @@ async function postToGotenbergWithRetry(args: {
   } catch {
     throw new Error(`Invalid Gotenberg endpoint: ${args.endpoint}`);
   }
-  if (endpointUrl.protocol !== "https:") {
-    const isLocalhost = endpointUrl.hostname === "localhost"
-      || endpointUrl.hostname === "127.0.0.1"
-      || endpointUrl.hostname === "::1";
-    if (!isLocalhost) {
-      throw new Error(`Refusing non-HTTPS Gotenberg endpoint: ${endpointUrl.toString()}`);
-    }
+  const isLocalhost = endpointUrl.hostname === "localhost"
+    || endpointUrl.hostname === "127.0.0.1"
+    || endpointUrl.hostname === "::1";
+  if (endpointUrl.protocol === "https:") {
+    // allowed
+  } else if (endpointUrl.protocol === "http:" && isLocalhost) {
+    // allowed for local development only
+  } else {
+    throw new Error(`Refusing insecure or unsupported Gotenberg endpoint: ${endpointUrl.toString()}`);
   }
 
   let lastErrorMessage = "Unknown error";
