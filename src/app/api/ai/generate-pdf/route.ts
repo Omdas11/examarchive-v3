@@ -307,10 +307,7 @@ async function upsertCacheEntry(params: {
       await db.updateDocument(DATABASE_ID, COLLECTION.ai_cache_index, existingId, payload);
     } else {
       const docId = ID.unique();
-      await db.createDocument(DATABASE_ID, COLLECTION.ai_cache_index, docId, {
-        id: docId,
-        ...payload,
-      });
+      await db.createDocument(DATABASE_ID, COLLECTION.ai_cache_index, docId, payload);
     }
   } catch (error) {
     console.warn("[ai/generate-pdf] Failed to persist ai_cache_index entry.", { error });

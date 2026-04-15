@@ -40,7 +40,7 @@ const MAX_PERSONALIZATION_TAGS = 20;
 const PERSONALIZATION_TAG_MAX_LEN = 64;
 
 function isAdminPlus(role: string): boolean {
-  return role === "admin" || role === "founder";
+  return role === "moderator" || role === "admin" || role === "founder";
 }
 
 function resolveGotenbergUrl(): string {

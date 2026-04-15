@@ -48,20 +48,25 @@ export default function StoreClient({
         description: `Top up ${createData.pack?.label ?? ""}`,
         order_id: createData.orderId,
         handler: async (response: Record<string, unknown>) => {
-          const verifyRes = await fetch("/api/payments/razorpay/verify", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              packCode,
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-            }),
-          });
-          const verifyData = await verifyRes.json();
-          if (!verifyRes.ok) throw new Error(verifyData.error ?? "Payment verification failed");
-          setMessage(verifyData.message ?? "Payment successful.");
-          window.location.reload();
+          try {
+            const verifyRes = await fetch("/api/payments/razorpay/verify", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                packCode,
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+              }),
+            });
+            const verifyData = await verifyRes.json();
+            if (!verifyRes.ok) throw new Error(verifyData.error ?? "Payment verification failed");
+            setMessage(verifyData.message ?? "Payment successful.");
+            window.location.reload();
+          } catch (verificationError) {
+            setError(verificationError instanceof Error ? verificationError.message : "Payment verification failed");
+            setLoadingCode(null);
+          }
         },
         theme: { color: "#4f46e5" },
       });
