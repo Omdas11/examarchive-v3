@@ -48,8 +48,9 @@ const LOGICAL_CHUNK_COUNT = 5;
 const GEMINI_CALL_COOLDOWN_MS = 3000;
 const CHUNK_MAX_ATTEMPTS = 3;
 const DEFAULT_BACKGROUND_JOB_TIMEOUT_MS = 12 * 60 * 1000;
-const BACKGROUND_JOB_TIMEOUT_MS = Number.isFinite(Number(process.env.AI_PDF_BACKGROUND_JOB_TIMEOUT_MS))
-  ? Math.max(60_000, Number(process.env.AI_PDF_BACKGROUND_JOB_TIMEOUT_MS))
+const parsedBackgroundJobTimeoutMs = Number(process.env.AI_PDF_BACKGROUND_JOB_TIMEOUT_MS);
+const BACKGROUND_JOB_TIMEOUT_MS = Number.isFinite(parsedBackgroundJobTimeoutMs)
+  ? Math.max(60_000, parsedBackgroundJobTimeoutMs)
   : DEFAULT_BACKGROUND_JOB_TIMEOUT_MS;
 const MIN_SEMESTER = 1;
 const MAX_SEMESTER = 8;
@@ -199,6 +200,40 @@ function formatQuestionsForPrompt(questions: Array<Record<string, unknown>>, uni
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function abortError(signal: AbortSignal): Error {
+  const reason = signal.reason;
+  if (reason instanceof Error) return reason;
+  if (typeof reason === "string" && reason.trim()) return new Error(reason);
+  return new Error("Operation aborted");
+}
+
+function throwIfAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) {
+    throw abortError(signal);
+  }
+}
+
+async function sleepWithAbort(ms: number, signal?: AbortSignal): Promise<void> {
+  if (ms <= 0) return;
+  if (!signal) {
+    await sleep(ms);
+    return;
+  }
+  throwIfAborted(signal);
+  await new Promise<void>((resolve, reject) => {
+    const onAbort = () => {
+      clearTimeout(timeoutHandle);
+      signal.removeEventListener("abort", onAbort);
+      reject(abortError(signal));
+    };
+    const timeoutHandle = setTimeout(() => {
+      signal.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
 }
 
 function splitIntoLogicalChunks<T>(items: readonly T[], chunkCount: number): T[][] {
@@ -370,17 +405,20 @@ type GeminiCooldownState = { lastCallStartedAt: number };
 async function runGeminiWithCooldown(
   args: Parameters<typeof runGeminiCompletion>[0],
   cooldownState: GeminiCooldownState,
+  signal?: AbortSignal,
 ): Promise<Awaited<ReturnType<typeof runGeminiCompletion>>> {
+  throwIfAborted(signal);
   if (cooldownState.lastCallStartedAt > 0) {
     const elapsed = Date.now() - cooldownState.lastCallStartedAt;
     const waitMs = Math.max(0, GEMINI_CALL_COOLDOWN_MS - elapsed);
     if (waitMs > 0) {
-      await sleep(waitMs);
+      await sleepWithAbort(waitMs, signal);
     }
   }
 
+  throwIfAborted(signal);
   cooldownState.lastCallStartedAt = Date.now();
-  return runGeminiCompletion(args);
+  return runGeminiCompletion({ ...args, signal });
 }
 
 function buildGeminiErrorContext(error: unknown): Record<string, unknown> {
@@ -403,14 +441,20 @@ function buildGeminiErrorContext(error: unknown): Record<string, unknown> {
   return { error };
 }
 
-async function withGlobalJobTimeout<T>(label: string, fn: () => Promise<T>): Promise<T> {
+async function withGlobalJobTimeout<T>(
+  label: string,
+  fn: (signal: AbortSignal) => Promise<T>,
+): Promise<T> {
   let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+  const timeoutMessage = `[ai/generate-pdf] ${label} exceeded timeout after ${BACKGROUND_JOB_TIMEOUT_MS}ms.`;
+  const abortController = new AbortController();
   try {
     return await Promise.race([
-      fn(),
+      fn(abortController.signal),
       new Promise<T>((_, reject) => {
         timeoutHandle = setTimeout(() => {
-          reject(new Error(`[ai/generate-pdf] ${label} exceeded timeout after ${BACKGROUND_JOB_TIMEOUT_MS}ms.`));
+          abortController.abort(new Error(timeoutMessage));
+          reject(new Error(timeoutMessage));
         }, BACKGROUND_JOB_TIMEOUT_MS);
       }),
     ]);
@@ -738,10 +782,11 @@ async function runNotesBackground(params: {
   unitNumber: number;
   semester: number | null;
   model: string;
+  signal?: AbortSignal;
 }): Promise<void> {
   const {
     userEmail, university, course, stream, type,
-    paperCode, unitNumber, semester, model,
+    paperCode, unitNumber, semester, model, signal,
   } = params;
 
   const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
@@ -853,6 +898,7 @@ async function runNotesBackground(params: {
   const cooldownState: GeminiCooldownState = { lastCallStartedAt: 0 };
   const generatedChunks: string[] = [];
   for (const [index, topicsChunk] of logicalChunks.entries()) {
+    throwIfAborted(signal);
     const promptBody = `University: ${university}
 Course: ${course}
 Stream: ${stream}
@@ -883,13 +929,14 @@ CRITICAL FORMAT CONSTRAINTS:
           maxTokens: 4000,
           temperature: 0.4,
           model,
-        }, cooldownState);
+        }, cooldownState, signal);
         const candidate = String(result.content ?? "").trim();
         if (candidate.length > MIN_TOPIC_RESPONSE_CHARS) {
           aiResponseText = candidate;
           break;
         }
       } catch (error) {
+        if (signal?.aborted) throw error;
         lastChunkError = error;
         console.warn("[ai/generate-pdf] Notes chunk failed; retrying.", {
           chunkIndex: index + 1,
@@ -899,7 +946,7 @@ CRITICAL FORMAT CONSTRAINTS:
           error: buildGeminiErrorContext(error),
         });
         if (attempt < CHUNK_MAX_ATTEMPTS) {
-          await sleep(getExponentialBackoffMs(attempt));
+          await sleepWithAbort(getExponentialBackoffMs(attempt), signal);
         }
       }
     }
@@ -922,7 +969,7 @@ CRITICAL FORMAT CONSTRAINTS:
           maxTokens: TOPIC_FALLBACK_MAX_TOKENS,
           temperature: 0.4,
           model: fallbackModel,
-        }, cooldownState);
+        }, cooldownState, signal);
         const fallbackCandidate = String(fallbackResult.content ?? "").trim();
         if (fallbackCandidate.length > MIN_TOPIC_RESPONSE_CHARS) {
           aiResponseText = fallbackCandidate;
@@ -995,10 +1042,11 @@ async function runSolvedPaperBackground(params: {
   year: number;
   model: string;
   semester: number | null;
+  signal?: AbortSignal;
 }): Promise<void> {
   const {
     userEmail, university, course, stream, type,
-    paperCode, year, model, semester,
+    paperCode, year, model, semester, signal,
   } = params;
 
   const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
@@ -1086,6 +1134,7 @@ async function runSolvedPaperBackground(params: {
   const cooldownState: GeminiCooldownState = { lastCallStartedAt: 0 };
   const solvedChunks: string[] = [];
   for (const [index, questionsChunk] of questionChunks.entries()) {
+    throwIfAborted(signal);
     const questionText = `University: ${university}
 Course: ${course}
 Stream: ${stream}
@@ -1125,13 +1174,14 @@ CRITICAL FORMAT CONSTRAINTS:
           maxTokens: 4000,
           temperature: 0.4,
           model,
-        }, cooldownState);
+        }, cooldownState, signal);
         const candidate = String(result.content ?? "").trim();
         if (candidate.length > MIN_SOLUTION_RESPONSE_CHARS) {
           aiResponseText = candidate;
           break;
         }
       } catch (error) {
+        if (signal?.aborted) throw error;
         lastChunkError = error;
         console.warn("[ai/generate-pdf] Solved-paper chunk failed; retrying.", {
           chunkIndex: index + 1,
@@ -1141,7 +1191,7 @@ CRITICAL FORMAT CONSTRAINTS:
           error: buildGeminiErrorContext(error),
         });
         if (attempt < CHUNK_MAX_ATTEMPTS) {
-          await sleep(getExponentialBackoffMs(attempt));
+          await sleepWithAbort(getExponentialBackoffMs(attempt), signal);
         }
       }
     }
@@ -1340,7 +1390,7 @@ export async function POST(request: NextRequest) {
 
     after(async () => {
       try {
-        await withGlobalJobTimeout("Notes background job", () => runNotesBackground({
+        await withGlobalJobTimeout("Notes background job", (signal) => runNotesBackground({
           userEmail,
           university,
           course,
@@ -1350,6 +1400,7 @@ export async function POST(request: NextRequest) {
           unitNumber,
           semester: parsedSemester,
           model: selectedModel,
+          signal,
         }));
       } catch (error) {
         console.error("[ai/generate-pdf] Notes background job failed:", error);
@@ -1419,7 +1470,7 @@ export async function POST(request: NextRequest) {
 
   after(async () => {
     try {
-      await withGlobalJobTimeout("Solved-paper background job", () => runSolvedPaperBackground({
+      await withGlobalJobTimeout("Solved-paper background job", (signal) => runSolvedPaperBackground({
           userEmail,
           university,
           course,
@@ -1429,6 +1480,7 @@ export async function POST(request: NextRequest) {
           year,
           semester: parsedSemester,
           model: selectedModel,
+          signal,
       }));
     } catch (error) {
       console.error("[ai/generate-pdf] Solved paper background job failed:", error);
