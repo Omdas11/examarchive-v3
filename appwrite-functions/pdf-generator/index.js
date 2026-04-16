@@ -623,7 +623,6 @@ function getNotifyCompletionUrl() {
   if (!siteUrl) return "";
   try {
     const baseUrl = new URL(siteUrl);
-    if (!baseUrl.hostname) return "";
     return new URL(NOTIFY_COMPLETION_PATH, `${baseUrl.toString()}/`).toString();
   } catch {
     return "";
@@ -633,7 +632,7 @@ function getNotifyCompletionUrl() {
 async function notifyCompletionWebhook({ jobId, status, fileId }) {
   const notifyUrl = getNotifyCompletionUrl();
   if (!notifyUrl) {
-    console.error("[pdf-generator] SITE_URL is missing/invalid; completion webhook callback skipped.");
+    console.error("[pdf-generator] SITE_URL is not configured or invalid; completion webhook callback skipped.");
     return;
   }
   const headers = { "Content-Type": "application/json" };

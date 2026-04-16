@@ -84,8 +84,8 @@ export async function POST(request: NextRequest) {
   try {
     job = await db.getDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, jobId);
   } catch (error) {
-    const status = getAppwriteErrorStatus(error);
-    if (status === 404) {
+    const errorStatus = getAppwriteErrorStatus(error);
+    if (errorStatus === 404) {
       return NextResponse.json({ error: "Job not found." }, { status: 404 });
     }
     console.error("[ai/notify-completion] Failed to load job for webhook callback.", { jobId, error });
