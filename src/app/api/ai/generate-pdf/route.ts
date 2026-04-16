@@ -298,7 +298,7 @@ function shouldSkipDispatchForExistingJob(status: string): boolean {
   return normalizedStatus === JOB_STATUS_PROCESSING || normalizedStatus === JOB_STATUS_COMPLETED;
 }
 
-function normalizeJobStatus(status: unknown): string {
+function normalizeJobStatus(status: string | null | undefined): string {
   return String(status || "").trim().toLowerCase();
 }
 
@@ -827,7 +827,7 @@ export async function POST(request: NextRequest) {
         }
         const normalizedExistingStatus = normalizeJobStatus(dispatched.existingStatus);
         const isCompleted = normalizedExistingStatus === JOB_STATUS_COMPLETED;
-        const responseStatus = normalizedExistingStatus || JOB_STATUS_PROCESSING;
+        const responseStatus = normalizedExistingStatus || "unknown";
         return NextResponse.json({
           ok: true,
           jobId: notesJobId,
@@ -969,7 +969,7 @@ export async function POST(request: NextRequest) {
       }
       const normalizedExistingStatus = normalizeJobStatus(dispatched.existingStatus);
       const isCompleted = normalizedExistingStatus === JOB_STATUS_COMPLETED;
-      const responseStatus = normalizedExistingStatus || JOB_STATUS_PROCESSING;
+      const responseStatus = normalizedExistingStatus || "unknown";
       return NextResponse.json({
         ok: true,
         jobId: solvedJobId,
