@@ -38,6 +38,9 @@ const QUOTA_RESERVATION_FAILED_CODE = "QUOTA_RESERVATION_FAILED";
 const QUOTA_RESERVATION_FAILED_MESSAGE = "Failed to reserve generation quota. Please try again later.";
 const QUOTA_CHECK_FAILED_CODE = "QUOTA_CHECK_FAILED";
 const APPWRITE_DOC_ID_HASH_LENGTH = 31;
+const JOB_STATUS_PROCESSING = "processing";
+const JOB_STATUS_COMPLETED = "completed";
+const ACCEPTED_EXECUTION_STATUSES = new Set(["queued", "waiting", "processing"]);
 
 type GenerateBody = {
   jobType?: string;
@@ -245,9 +248,9 @@ function getAppwriteErrorStatus(error: unknown): number | null {
     code?: unknown;
     response?: { status?: unknown; code?: unknown };
   };
-  const status = Number(err.status ?? err.code ?? err.response?.status ?? err.response?.code ?? NaN);
-  if (Number.isInteger(status) && status >= 100 && status <= 599) {
-    return status;
+  const errorStatusCode = Number(err.status ?? err.code ?? err.response?.status ?? err.response?.code ?? NaN);
+  if (Number.isInteger(errorStatusCode) && errorStatusCode >= 100 && errorStatusCode <= 599) {
+    return errorStatusCode;
   }
   return null;
 }
@@ -295,7 +298,7 @@ async function checkQuotasOrError(userId: string): Promise<
 
 function shouldSkipDispatchForExistingJob(status: string): boolean {
   const normalizedStatus = status.trim().toLowerCase();
-  return normalizedStatus === "processing" || normalizedStatus === "completed";
+  return normalizedStatus === JOB_STATUS_PROCESSING || normalizedStatus === JOB_STATUS_COMPLETED;
 }
 
 async function rollbackReservedGenerationResources(params: {
@@ -414,11 +417,12 @@ async function enqueueAndDispatchPdfJob(params: {
       }),
       async: true,
     });
-    console.log(`Appwrite Execution Response Status: ${String(execution.status || "unknown")}`);
+    const executionStatus = String(execution.status || "unknown");
+    console.log(`Appwrite Execution Response Status: ${executionStatus}`);
     const triggerAccepted =
       typeof execution.$id === "string" &&
       execution.$id.length > 0 &&
-      ["queued", "waiting", "processing"].includes(String(execution.status || ""));
+      ACCEPTED_EXECUTION_STATUSES.has(executionStatus.toLowerCase());
     console.info("[ai/generate-pdf] Appwrite function execution trigger response.", {
       triggerAccepted,
       FUNCTION_ID: functionId,
