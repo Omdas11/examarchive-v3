@@ -31,9 +31,6 @@ const GEMMA_UNLIMITED_TPM_MODEL = "gemma-4-31b-it";
 const MIN_SEMESTER = 1;
 const MAX_SEMESTER = 8;
 const UNDICI_CONNECT_TIMEOUT_CODE = "UND_ERR_CONNECT_TIMEOUT";
-const EMAIL_DELIVERY_UNAVAILABLE_CODE = "EMAIL_DELIVERY_UNAVAILABLE";
-const EMAIL_DELIVERY_UNAVAILABLE_MESSAGE =
-  "Unable to send generation confirmation email. Request was not started. Please verify email settings and try again.";
 const QUOTA_RESERVATION_FAILED_CODE = "QUOTA_RESERVATION_FAILED";
 const QUOTA_RESERVATION_FAILED_MESSAGE = "Failed to reserve generation quota. Please try again later.";
 const QUOTA_CHECK_FAILED_CODE = "QUOTA_CHECK_FAILED";
@@ -766,24 +763,6 @@ export async function POST(request: NextRequest) {
       quotaLogContext: "[ai/generate-pdf] Failed to reserve notes quota for accepted request.",
     });
     if (notesReservationError) return notesReservationError;
-    const startEmailSent = await ensureGenerationStartedEmail(
-      userEmail,
-      `Unit Notes (${paperCode} - Unit ${unitNumber})`,
-    );
-    if (!startEmailSent) {
-      await rollbackReservedGenerationResources({
-        admin,
-        userId: user.id,
-        counter: "notes_generated_today",
-      });
-      return NextResponse.json(
-        {
-          error: EMAIL_DELIVERY_UNAVAILABLE_MESSAGE,
-          code: EMAIL_DELIVERY_UNAVAILABLE_CODE,
-        },
-        { status: 503 },
-      );
-    }
     let notesJobId = "";
     try {
       const dispatched = await enqueueAndDispatchPdfJob({
@@ -808,6 +787,18 @@ export async function POST(request: NextRequest) {
       notesJobId = dispatched.jobId;
       if (!admin) {
         queueGenerationRecording(user.id, "notes_generated_today");
+      }
+      const startEmailSent = await ensureGenerationStartedEmail(
+        userEmail,
+        `Unit Notes (${paperCode} - Unit ${unitNumber})`,
+      );
+      if (!startEmailSent) {
+        console.error("[ai/generate-pdf] Started email failed after successful notes dispatch.", {
+          userId: user.id,
+          paperCode,
+          unitNumber,
+          jobId: notesJobId,
+        });
       }
     } catch (error) {
       console.error("[ai/generate-pdf] Failed to dispatch notes job.", {
@@ -878,21 +869,6 @@ export async function POST(request: NextRequest) {
     quotaLogContext: "[ai/generate-pdf] Failed to reserve solved-paper quota for accepted request.",
   });
   if (solvedReservationError) return solvedReservationError;
-  const startEmailSent = await ensureGenerationStartedEmail(userEmail, `Solved Paper (${paperCode} ${year})`);
-  if (!startEmailSent) {
-    await rollbackReservedGenerationResources({
-      admin,
-      userId: user.id,
-      counter: "papers_solved_today",
-    });
-    return NextResponse.json(
-      {
-        error: EMAIL_DELIVERY_UNAVAILABLE_MESSAGE,
-        code: EMAIL_DELIVERY_UNAVAILABLE_CODE,
-      },
-      { status: 503 },
-    );
-  }
   let solvedJobId = "";
   try {
     const dispatched = await enqueueAndDispatchPdfJob({
@@ -917,6 +893,15 @@ export async function POST(request: NextRequest) {
     solvedJobId = dispatched.jobId;
     if (!admin) {
       queueGenerationRecording(user.id, "papers_solved_today");
+    }
+    const startEmailSent = await ensureGenerationStartedEmail(userEmail, `Solved Paper (${paperCode} ${year})`);
+    if (!startEmailSent) {
+      console.error("[ai/generate-pdf] Started email failed after successful solved-paper dispatch.", {
+        userId: user.id,
+        paperCode,
+        year,
+        jobId: solvedJobId,
+      });
     }
   } catch (error) {
     console.error("[ai/generate-pdf] Failed to dispatch solved-paper job.", {
