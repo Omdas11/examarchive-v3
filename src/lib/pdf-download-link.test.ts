@@ -35,7 +35,7 @@ describe("pdf-download-link", () => {
       userId: "user_xyz",
       ttlSeconds: 300,
     });
-    const url = new URL(path, "https://www.examarchive.dev");
+    const url = new URL(path, "https://example.com");
     expect(isValidSignedPdfDownloadToken({
       fileId: "file_abc",
       userId: "user_xyz",

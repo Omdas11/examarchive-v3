@@ -47,7 +47,10 @@ export async function GET(
     token: signedToken,
   });
 
-  const user = hasValidSignedToken ? null : await getServerUser();
+  let user = null;
+  if (!hasValidSignedToken) {
+    user = await getServerUser();
+  }
   if (!hasValidSignedToken && !user) {
     // Redirect unauthenticated visitors to the login page instead of
     // returning a raw 401 so the browser navigates to sign-in when the
@@ -57,7 +60,8 @@ export async function GET(
 
   try {
     const storage = adminStorage();
-    const shouldDownload = hasValidSignedToken || request.nextUrl.searchParams.get("download") === "1";
+    const requestedDownload = request.nextUrl.searchParams.get("download") === "1";
+    const shouldDownload = hasValidSignedToken || (!!user && requestedDownload);
     const fileMeta = shouldDownload ? await storage.getFile(BUCKET_ID, fileId) : null;
     const resolvedFileName = shouldDownload
       ? sanitizeDownloadFilename(fileMeta?.name || "examarchive.pdf")

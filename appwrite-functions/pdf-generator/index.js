@@ -33,9 +33,23 @@ const MARKDOWN_SECTION_DELIMITER = "\n\n---\n\n";
 const MARKDOWN_SECTION_DELIMITER_REGEX = /\n{2,}---\n{2,}/;
 const MATHJAX_CONFIG_SCRIPT = 'window.MathJax={tex:{inlineMath:[["$","$"],["\\\\(","\\\\)"]],displayMath:[["$$","$$"],["\\\\[","\\\\]"]]}};';
 const MATHJAX_CDN_SCRIPT_URL = "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js";
-const BRAND_WATERMARK_SVG = encodeURIComponent(
-  '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300"><text x="50%" y="50%" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700" fill="#800000" fill-opacity="0.08" transform="rotate(-45 150 150)" text-anchor="middle">EXAMARCHIVE</text></svg>',
-);
+const BRAND_WATERMARK_SVG = encodeURIComponent(`
+  <svg xmlns="http://www.w3.org/2000/svg" width="300" height="300">
+    <text
+      x="50%"
+      y="50%"
+      font-family="Inter, Arial, sans-serif"
+      font-size="22"
+      font-weight="700"
+      fill="#800000"
+      fill-opacity="0.08"
+      transform="rotate(-45 150 150)"
+      text-anchor="middle"
+    >
+      EXAMARCHIVE
+    </text>
+  </svg>
+`);
 const BRAND_WATERMARK_DATA_URL = `data:image/svg+xml,${BRAND_WATERMARK_SVG}`;
 const GOTENBERG_REQUEST_TIMEOUT_MS = Number.isFinite(gotenbergRequestTimeoutRaw)
   ? Math.max(1_000, gotenbergRequestTimeoutRaw)
@@ -98,7 +112,8 @@ function wrapHtmlTag(tagName, safeInnerHtml) {
 }
 
 const PDF_DOCUMENT_STYLES = [
-  "body { font-family: Inter, Arial, sans-serif; color: #2b1a1a; margin: 0; line-height: 1.7; font-size: 15px; background-image: url(\"" + BRAND_WATERMARK_DATA_URL + "\"); background-size: 230px 230px; background-repeat: repeat; }",
+  "body { font-family: Inter, Arial, sans-serif; color: #2b1a1a; margin: 0; line-height: 1.7; font-size: 15px; }",
+  `body { background-image: url("${BRAND_WATERMARK_DATA_URL}"); background-size: 300px 300px; background-repeat: repeat; }`,
   "main { padding: 16mm 12mm; }",
   "h1, h2, h3, h4, h5, h6 { color: #800000; margin: 1.2em 0 0.5em; line-height: 1.3; }",
   "h1 { font-size: 28px; border-bottom: 2px solid #e7d8d8; padding-bottom: 8px; }",

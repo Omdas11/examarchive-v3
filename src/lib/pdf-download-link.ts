@@ -2,12 +2,15 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 
 const SIGNED_DOWNLOAD_DEFAULT_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
-function getDownloadSigningSecret(): string {
-  return String(process.env.PDF_DOWNLOAD_TOKEN_SECRET || process.env.AI_JOB_WEBHOOK_SECRET || "").trim();
+function getDownloadSigningSecret(): string | null {
+  const raw = process.env.PDF_DOWNLOAD_TOKEN_SECRET;
+  if (typeof raw !== "string") return null;
+  const value = raw.trim();
+  return value.length > 0 ? value : null;
 }
 
-function signPayload(fileId: string, userId: string, expires: number): string {
-  return createHmac("sha256", getDownloadSigningSecret())
+function signPayload(secret: string, fileId: string, userId: string, expires: number): string {
+  return createHmac("sha256", secret)
     .update(`${fileId}:${userId}:${expires}`)
     .digest("hex");
 }
@@ -32,7 +35,7 @@ export function buildSignedPdfDownloadPath(args: {
     const expires = Math.floor(Date.now() / 1000) + ttl;
     params.set("uid", userId);
     params.set("exp", String(expires));
-    params.set("token", signPayload(fileId, userId, expires));
+    params.set("token", signPayload(secret, fileId, userId, expires));
   }
 
   return `/api/files/papers/${encodeURIComponent(fileId)}?${params.toString()}`;
@@ -46,14 +49,14 @@ export function isValidSignedPdfDownloadToken(args: {
 }): boolean {
   const fileId = String(args.fileId || "").trim();
   const userId = String(args.userId || "").trim();
-  const token = String(args.token || "").trim().toLowerCase();
+  const token = String(args.token || "").trim();
   const expires = Number(args.expires);
   const secret = getDownloadSigningSecret();
   if (!secret || !fileId || !userId || !token) return false;
   if (!Number.isFinite(expires)) return false;
   if (expires < Math.floor(Date.now() / 1000)) return false;
 
-  const expected = signPayload(fileId, userId, expires);
+  const expected = signPayload(secret, fileId, userId, expires);
   const expectedBuffer = Buffer.from(expected);
   const tokenBuffer = Buffer.from(token);
   if (expectedBuffer.length !== tokenBuffer.length) return false;

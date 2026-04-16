@@ -53,10 +53,11 @@ async function resolveNotificationEmail(args: {
   job: Record<string, unknown>;
   payload: Record<string, unknown>;
   payloadUserId: string;
-  webhookEmail: string;
+  payloadUserEmail: string;
   jobId: string;
 }): Promise<string> {
-  if (args.webhookEmail) return args.webhookEmail;
+  const normalizedPayloadUserEmail = String(args.payloadUserEmail || "").trim();
+  if (normalizedPayloadUserEmail) return normalizedPayloadUserEmail;
   const payloadEmail = String(args.payload.userEmail || "").trim();
   if (payloadEmail) return payloadEmail;
   const userId = String(args.job.user_id || "").trim() || args.payloadUserId;
@@ -105,7 +106,7 @@ export async function POST(request: NextRequest) {
   const status = String(body.status || "").trim().toLowerCase();
   const fileIdFromBody = String(body.fileId || "").trim();
   const payloadUserId = String(body.userId || "").trim();
-  const webhookEmail = String(body.userEmail || "").trim();
+  const payloadUserEmail = String(body.userEmail || "").trim();
   if (!jobId || (status !== "completed" && status !== "failed")) {
     return NextResponse.json({ error: "Invalid payload." }, { status: 400 });
   }
@@ -128,7 +129,7 @@ export async function POST(request: NextRequest) {
     job,
     payload,
     payloadUserId,
-    webhookEmail,
+    payloadUserEmail,
     jobId,
   });
   if (!email) {
