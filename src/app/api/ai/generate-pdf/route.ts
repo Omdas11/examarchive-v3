@@ -289,10 +289,12 @@ async function checkQuotasOrError(userId: string): Promise<
 
 function shouldSkipDispatchForExistingJob(status: string): boolean {
   const normalizedStatus = normalizeJobStatus(status);
-  return normalizedStatus === JOB_STATUS_QUEUED ||
+  return (
+    normalizedStatus === JOB_STATUS_QUEUED ||
     normalizedStatus === JOB_STATUS_RUNNING ||
     normalizedStatus === JOB_STATUS_PROCESSING ||
-    normalizedStatus === JOB_STATUS_COMPLETED;
+    normalizedStatus === JOB_STATUS_COMPLETED
+  );
 }
 
 function normalizeJobStatus(status: string | null | undefined): string {
