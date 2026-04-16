@@ -12,6 +12,12 @@ type NotifyPayload = {
   userEmail?: unknown;
 };
 
+type CallbackTrustCheckArgs = {
+  status: "completed" | "failed";
+  fileIdFromBody: string;
+  job: Record<string, unknown>;
+};
+
 function safeCompareSecrets(expected: string, provided: string): boolean {
   const expectedBuffer = Buffer.from(expected);
   const providedBuffer = Buffer.from(provided);
@@ -85,15 +91,24 @@ function getAppwriteErrorStatus(error: unknown): number {
   return Number(appwriteError.status ?? appwriteError.code ?? appwriteError.response?.status ?? appwriteError.response?.code ?? NaN);
 }
 
+function isUnverifiedCallbackConsistentWithJob(args: CallbackTrustCheckArgs): boolean {
+  const jobStatus = String(args.job.status || "").trim().toLowerCase();
+  if (jobStatus !== args.status) return false;
+  if (args.status === "completed") {
+    const storedFileId = String(args.job.result_file_id || "").trim();
+    return !!args.fileIdFromBody && !!storedFileId && args.fileIdFromBody === storedFileId;
+  }
+  const completedAt = String(args.job.completed_at || "").trim();
+  return !!completedAt;
+}
+
 export async function POST(request: NextRequest) {
   const webhookSecret = (process.env.AI_JOB_WEBHOOK_SECRET || "").trim();
   if (!webhookSecret) {
     return NextResponse.json({ error: "Webhook secret not configured." }, { status: 503 });
   }
   const providedToken = getAuthToken(request);
-  if (!providedToken || !safeCompareSecrets(webhookSecret, providedToken)) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
+  const hasValidBearer = !!providedToken && safeCompareSecrets(webhookSecret, providedToken);
 
   let body: NotifyPayload;
   try {
@@ -123,7 +138,26 @@ export async function POST(request: NextRequest) {
     console.error("[ai/notify-completion] Failed to load job for webhook callback.", { jobId, error });
     return NextResponse.json({ error: "Unable to process notification callback." }, { status: 500 });
   }
+  if (!job || typeof job !== "object") {
+    return NextResponse.json({ error: "Unable to process notification callback." }, { status: 500 });
+  }
   const payload = parseInputPayloadJson(job.input_payload_json);
+  if (!hasValidBearer) {
+    const callbackConsistent = isUnverifiedCallbackConsistentWithJob({
+      status: status as "completed" | "failed",
+      fileIdFromBody,
+      job,
+    });
+    if (!callbackConsistent) {
+      return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+    }
+    console.warn("[ai/notify-completion] Processing unverified callback using strict job-state consistency fallback.", {
+      jobId,
+      status,
+      hasProvidedToken: !!providedToken,
+    });
+  }
+
   const email = await resolveNotificationEmail({
     db,
     job,
