@@ -179,15 +179,16 @@ function renderHtmlDocument({ safeTitle, safeParagraphsHtml }) {
 
 let markedParserPromise = null;
 
+function assertMarkedParser(parserCandidate) {
+  if (!parserCandidate || typeof parserCandidate.parse !== "function") {
+    throw new Error("Invalid marked parser: expected an object with a parse() function.");
+  }
+  return parserCandidate;
+}
+
 async function loadMarkedParser() {
   if (!markedParserPromise) {
-    markedParserPromise = import("marked").then((module) => {
-      const parser = module?.marked;
-      if (!parser || typeof parser.parse !== "function") {
-        throw new Error("Failed to load marked parser.");
-      }
-      return parser;
-    });
+    markedParserPromise = import("marked").then((module) => assertMarkedParser(module.marked));
   }
   return markedParserPromise;
 }
@@ -588,7 +589,9 @@ ${tavilyContext ? `\n\nWeb context (Tavily):\n${tavilyContext}` : ""}
 }
 
 async function processGenerationJob(rawInput, options = {}) {
-  const markedParser = options.markedParser || await loadMarkedParser();
+  const markedParser = Object.hasOwn(options, "markedParser")
+    ? assertMarkedParser(options.markedParser)
+    : await loadMarkedParser();
   const endpoint = String(process.env.APPWRITE_ENDPOINT || process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT || "").trim();
   const projectId = String(process.env.APPWRITE_PROJECT_ID || process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID || "").trim();
   const apiKey = String(process.env.APPWRITE_API_KEY || "").trim();
