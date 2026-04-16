@@ -70,7 +70,23 @@ export async function POST(request: NextRequest) {
   }
 
   const db = adminDatabases();
-  const job = await db.getDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, jobId);
+  let job;
+  try {
+    job = await db.getDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, jobId);
+  } catch (error) {
+    const status = Number(
+      (error as { code?: unknown; status?: unknown; response?: { code?: unknown; status?: unknown } })?.status
+      ?? (error as { code?: unknown; status?: unknown; response?: { code?: unknown; status?: unknown } })?.code
+      ?? (error as { response?: { code?: unknown; status?: unknown } })?.response?.status
+      ?? (error as { response?: { code?: unknown; status?: unknown } })?.response?.code
+      ?? NaN,
+    );
+    if (status === 404) {
+      return NextResponse.json({ error: "Job not found." }, { status: 404 });
+    }
+    console.error("[ai/notify-completion] Failed to load job for webhook callback.", { jobId, error });
+    return NextResponse.json({ error: "Unable to process notification callback." }, { status: 500 });
+  }
   const payload = parseInputPayloadJson(job.input_payload_json);
   const email = String(payload.userEmail || "").trim();
   if (!email) {

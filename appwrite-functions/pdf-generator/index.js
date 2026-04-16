@@ -621,7 +621,9 @@ function getNotifyCompletionUrl() {
   const siteUrl = String(process.env.SITE_URL || "").trim().replace(/\/+$/, "");
   if (!siteUrl) return "";
   try {
-    return new URL(NOTIFY_COMPLETION_PATH, `${siteUrl}/`).toString();
+    const baseUrl = new URL(siteUrl);
+    if (!baseUrl.hostname) return "";
+    return new URL(NOTIFY_COMPLETION_PATH, `${baseUrl.toString().replace(/\/+$/, "")}/`).toString();
   } catch {
     return "";
   }
@@ -630,7 +632,7 @@ function getNotifyCompletionUrl() {
 async function notifyCompletionWebhook({ jobId, status, fileId }) {
   const notifyUrl = getNotifyCompletionUrl();
   if (!notifyUrl) {
-    console.warn("[pdf-generator] SITE_URL not configured; skipping completion webhook callback.");
+    console.error("[pdf-generator] SITE_URL is missing/invalid; completion webhook callback skipped.");
     return;
   }
   const headers = { "Content-Type": "application/json" };
