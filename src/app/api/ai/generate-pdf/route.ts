@@ -793,12 +793,15 @@ export async function POST(request: NextRequest) {
         `Unit Notes (${paperCode} - Unit ${unitNumber})`,
       );
       if (!startEmailSent) {
-        console.error("[ai/generate-pdf] Started email failed after successful notes dispatch.", {
+        console.error(
+          "[ai/generate-pdf] Started email failed after successful notes dispatch. Job is already queued and will continue in background.",
+          {
           userId: user.id,
           paperCode,
           unitNumber,
           jobId: notesJobId,
-        });
+          },
+        );
       }
     } catch (error) {
       console.error("[ai/generate-pdf] Failed to dispatch notes job.", {
@@ -896,12 +899,15 @@ export async function POST(request: NextRequest) {
     }
     const startEmailSent = await ensureGenerationStartedEmail(userEmail, `Solved Paper (${paperCode} ${year})`);
     if (!startEmailSent) {
-      console.error("[ai/generate-pdf] Started email failed after successful solved-paper dispatch.", {
-        userId: user.id,
-        paperCode,
-        year,
-        jobId: solvedJobId,
-      });
+      console.error(
+        "[ai/generate-pdf] Started email failed after successful solved-paper dispatch. Job is already queued and will continue in background.",
+        {
+          userId: user.id,
+          paperCode,
+          year,
+          jobId: solvedJobId,
+        },
+      );
     }
   } catch (error) {
     console.error("[ai/generate-pdf] Failed to dispatch solved-paper job.", {
