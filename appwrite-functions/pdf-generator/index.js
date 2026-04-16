@@ -56,6 +56,7 @@ const SYLLABUS_TABLE_COLLECTION_ID = process.env.SYLLABUS_TABLE_COLLECTION_ID ||
 const QUESTIONS_TABLE_COLLECTION_ID = process.env.QUESTIONS_TABLE_COLLECTION_ID || "Questions_Table";
 const PAPERS_BUCKET_ID = process.env.APPWRITE_BUCKET_ID || "papers";
 const NOTIFY_COMPLETION_PATH = "/api/ai/notify-completion";
+const NOTIFY_WEBHOOK_ERROR_LOG_MAX_CHARS = 2_000;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -623,7 +624,7 @@ function getNotifyCompletionUrl() {
   try {
     const baseUrl = new URL(siteUrl);
     if (!baseUrl.hostname) return "";
-    return new URL(NOTIFY_COMPLETION_PATH, `${baseUrl.toString().replace(/\/+$/, "")}/`).toString();
+    return new URL(NOTIFY_COMPLETION_PATH, `${baseUrl.toString()}/`).toString();
   } catch {
     return "";
   }
@@ -655,7 +656,7 @@ async function notifyCompletionWebhook({ jobId, status, fileId }) {
       const responseBody = await response.text().catch(() => "");
       console.error("[pdf-generator] Completion webhook request failed.", {
         status: response.status,
-        body: responseBody.slice(0, 2_000),
+        body: responseBody.slice(0, NOTIFY_WEBHOOK_ERROR_LOG_MAX_CHARS),
       });
     }
   } catch (error) {

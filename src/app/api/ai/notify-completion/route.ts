@@ -45,6 +45,16 @@ function parseInputPayloadJson(raw: unknown): Record<string, unknown> {
   }
 }
 
+function getAppwriteErrorStatus(error: unknown): number {
+  if (!error || typeof error !== "object") return NaN;
+  const appwriteError = error as {
+    code?: unknown;
+    status?: unknown;
+    response?: { code?: unknown; status?: unknown };
+  };
+  return Number(appwriteError.status ?? appwriteError.code ?? appwriteError.response?.status ?? appwriteError.response?.code ?? NaN);
+}
+
 export async function POST(request: NextRequest) {
   const webhookSecret = (process.env.AI_JOB_WEBHOOK_SECRET || "").trim();
   if (!webhookSecret) {
@@ -74,13 +84,7 @@ export async function POST(request: NextRequest) {
   try {
     job = await db.getDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, jobId);
   } catch (error) {
-    const status = Number(
-      (error as { code?: unknown; status?: unknown; response?: { code?: unknown; status?: unknown } })?.status
-      ?? (error as { code?: unknown; status?: unknown; response?: { code?: unknown; status?: unknown } })?.code
-      ?? (error as { response?: { code?: unknown; status?: unknown } })?.response?.status
-      ?? (error as { response?: { code?: unknown; status?: unknown } })?.response?.code
-      ?? NaN,
-    );
+    const status = getAppwriteErrorStatus(error);
     if (status === 404) {
       return NextResponse.json({ error: "Job not found." }, { status: 404 });
     }
