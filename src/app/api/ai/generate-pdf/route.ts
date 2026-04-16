@@ -331,7 +331,7 @@ async function enqueueAndDispatchPdfJob(params: {
   unitNumber: number;
   payload: Record<string, unknown>;
   title: string;
-}): Promise<{ jobId: string }> {
+}): Promise<{ jobId: string; executionTriggered: boolean; existingStatus?: string }> {
   const nowIso = new Date().toISOString();
   const db = adminDatabases();
   const functions = adminFunctions();
@@ -354,8 +354,14 @@ async function enqueueAndDispatchPdfJob(params: {
   const existingJob = existingBeforeCreate.documents[0];
   if (typeof existingJob?.$id === "string" && existingJob.$id) {
     jobId = existingJob.$id;
-    if (shouldSkipDispatchForExistingJob(String(existingJob.status || ""))) {
-      return { jobId };
+    const existingStatus = String(existingJob.status || "").trim().toLowerCase();
+    if (shouldSkipDispatchForExistingJob(existingStatus)) {
+      console.warn("[ai/generate-pdf] Skipping Appwrite dispatch for existing terminal/in-flight job.", {
+        jobId,
+        existingStatus,
+        userId: params.userId,
+      });
+      return { jobId, executionTriggered: false, existingStatus };
     }
   } else {
     let job;
@@ -385,8 +391,14 @@ async function enqueueAndDispatchPdfJob(params: {
       }
       if (typeof existing.documents[0]?.$id === "string" && existing.documents[0].$id) {
         jobId = existing.documents[0].$id;
-        if (shouldSkipDispatchForExistingJob(String(existing.documents[0].status || ""))) {
-          return { jobId };
+        const existingStatus = String(existing.documents[0].status || "").trim().toLowerCase();
+        if (shouldSkipDispatchForExistingJob(existingStatus)) {
+          console.warn("[ai/generate-pdf] Skipping Appwrite dispatch for existing terminal/in-flight job.", {
+            jobId,
+            existingStatus,
+            userId: params.userId,
+          });
+          return { jobId, executionTriggered: false, existingStatus };
         }
       } else {
         throw error;
@@ -462,7 +474,7 @@ async function enqueueAndDispatchPdfJob(params: {
     throw error;
   }
 
-  return { jobId };
+  return { jobId, executionTriggered: true };
 }
 
 function formatFailureReason(error: unknown): string {
@@ -785,6 +797,29 @@ export async function POST(request: NextRequest) {
         },
       });
       notesJobId = dispatched.jobId;
+      if (!dispatched.executionTriggered) {
+        try {
+          await rollbackReservedGenerationResources({
+            admin,
+            userId: user.id,
+            counter: "notes_generated_today",
+          });
+        } catch (rollbackError) {
+          console.error("[ai/generate-pdf] Failed to rollback notes reservation on non-dispatch path.", {
+            userId: user.id,
+            jobId: notesJobId,
+            rollbackError,
+          });
+        }
+        return NextResponse.json({
+          ok: true,
+          jobId: notesJobId,
+          message:
+            dispatched.existingStatus === JOB_STATUS_COMPLETED
+              ? "A matching notes job is already completed. Use your existing result."
+              : "A matching notes job is already in progress. Please check back shortly.",
+        });
+      }
       if (!admin) {
         queueGenerationRecording(user.id, "notes_generated_today");
       }
@@ -894,6 +929,29 @@ export async function POST(request: NextRequest) {
       },
     });
     solvedJobId = dispatched.jobId;
+    if (!dispatched.executionTriggered) {
+      try {
+        await rollbackReservedGenerationResources({
+          admin,
+          userId: user.id,
+          counter: "papers_solved_today",
+        });
+      } catch (rollbackError) {
+        console.error("[ai/generate-pdf] Failed to rollback solved-paper reservation on non-dispatch path.", {
+          userId: user.id,
+          jobId: solvedJobId,
+          rollbackError,
+        });
+      }
+      return NextResponse.json({
+        ok: true,
+        jobId: solvedJobId,
+        message:
+          dispatched.existingStatus === JOB_STATUS_COMPLETED
+            ? "A matching solved-paper job is already completed. Use your existing result."
+            : "A matching solved-paper job is already in progress. Please check back shortly.",
+      });
+    }
     if (!admin) {
       queueGenerationRecording(user.id, "papers_solved_today");
     }
