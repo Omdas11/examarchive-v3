@@ -55,6 +55,7 @@ const JOB_COLLECTION_ID = process.env.AI_JOBS_COLLECTION_ID || "ai_generation_jo
 const SYLLABUS_TABLE_COLLECTION_ID = process.env.SYLLABUS_TABLE_COLLECTION_ID || "Syllabus_Table";
 const QUESTIONS_TABLE_COLLECTION_ID = process.env.QUESTIONS_TABLE_COLLECTION_ID || "Questions_Table";
 const PAPERS_BUCKET_ID = process.env.APPWRITE_BUCKET_ID || "papers";
+const NOTIFY_COMPLETION_PATH = "/api/ai/notify-completion";
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -616,6 +617,50 @@ function buildJobTitle(payload) {
   return `${payload.paperCode}_Unit_${payload.unitNumber}_Notes.pdf`;
 }
 
+function getNotifyCompletionUrl() {
+  const siteUrl = String(process.env.SITE_URL || "").trim().replace(/\/+$/, "");
+  if (!siteUrl) return "";
+  try {
+    return new URL(NOTIFY_COMPLETION_PATH, `${siteUrl}/`).toString();
+  } catch {
+    return "";
+  }
+}
+
+async function notifyCompletionWebhook({ jobId, status, fileId }) {
+  const notifyUrl = getNotifyCompletionUrl();
+  if (!notifyUrl) {
+    console.warn("[pdf-generator] SITE_URL not configured; skipping completion webhook callback.");
+    return;
+  }
+  const headers = { "Content-Type": "application/json" };
+  const webhookSecret = String(process.env.AI_JOB_WEBHOOK_SECRET || "").trim();
+  if (webhookSecret) {
+    headers.Authorization = `Bearer ${webhookSecret}`;
+  }
+  try {
+    const response = await fetch(notifyUrl, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        jobId: String(jobId || "").trim(),
+        status: String(status || "").trim().toLowerCase(),
+        fileId: String(fileId || "").trim(),
+      }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!response.ok) {
+      const responseBody = await response.text().catch(() => "");
+      console.error("[pdf-generator] Completion webhook request failed.", {
+        status: response.status,
+        body: responseBody.slice(0, 2_000),
+      });
+    }
+  } catch (error) {
+    console.error("[pdf-generator] Completion webhook request error.", error);
+  }
+}
+
 async function generateNotesPayload(db, payload) {
   const syllabusRes = await db.listDocuments(DATABASE_ID, SYLLABUS_TABLE_COLLECTION_ID, [
     Query.equal("university", payload.university),
@@ -788,6 +833,7 @@ async function processGenerationJob(rawInput, options = {}) {
       result_file_id: String(created.$id),
       completed_at: new Date().toISOString(),
     });
+    await notifyCompletionWebhook({ jobId, status: "completed", fileId: String(created.$id) });
 
     return { ok: true, jobId, fileId: String(created.$id) };
   } catch (error) {
@@ -796,6 +842,7 @@ async function processGenerationJob(rawInput, options = {}) {
       completed_at: new Date().toISOString(),
       error_message: formatWorkerErrorMessage(error),
     }).catch(() => {});
+    await notifyCompletionWebhook({ jobId, status: "failed", fileId: "" });
     throw error;
   }
 }
