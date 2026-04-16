@@ -17,6 +17,7 @@ import {
   sendGenerationPdfEmail,
   sendGenerationStartedEmail,
 } from "@/lib/generation-notifications";
+import { buildSignedPdfDownloadPath } from "@/lib/pdf-download-link";
 import {
   GENERATION_COST_ELECTRONS,
   SUPPORTED_AI_MODELS,
@@ -654,14 +655,22 @@ async function ensureGenerationStartedEmail(email: string, title: string): Promi
   }
 }
 
-async function ensureGenerationReadyEmail(email: string, title: string, fileId: string): Promise<boolean> {
+async function ensureGenerationReadyEmail(
+  email: string,
+  title: string,
+  fileId: string,
+  userId: string,
+): Promise<boolean> {
   const normalizedFileId = String(fileId || "").trim();
   if (!normalizedFileId) return false;
   try {
     await sendGenerationPdfEmail({
       email,
       title,
-      downloadUrl: `/api/files/papers/${encodeURIComponent(normalizedFileId)}`,
+      downloadUrl: buildSignedPdfDownloadPath({
+        fileId: normalizedFileId,
+        userId,
+      }),
     });
     return true;
   } catch (error) {
@@ -854,8 +863,15 @@ export async function POST(request: NextRequest) {
             userEmail,
             `Unit Notes (${paperCode} - Unit ${unitNumber})`,
             dispatched.resultFileId || "",
+            user.id,
           );
         }
+        const cachedDownloadUrl = isCompleted && dispatched.resultFileId
+          ? buildSignedPdfDownloadPath({
+            fileId: dispatched.resultFileId,
+            userId: user.id,
+          })
+          : "";
         return NextResponse.json({
           ok: true,
           jobId: notesJobId,
@@ -864,10 +880,7 @@ export async function POST(request: NextRequest) {
           readyEmailNotificationAttempted: isCompleted,
           readyEmailSent: isCompleted ? readyEmailSent : false,
           fileId: isCompleted ? (dispatched.resultFileId || "") : "",
-          downloadUrl:
-            isCompleted && dispatched.resultFileId
-              ? `/api/files/papers/${encodeURIComponent(dispatched.resultFileId)}`
-              : "",
+          downloadUrl: cachedDownloadUrl,
           message:
             isCompleted
               ? "A matching notes job is already completed. Returning cached file."
@@ -1001,25 +1014,29 @@ export async function POST(request: NextRequest) {
       const isCompleted = normalizedExistingStatus === JOB_STATUS_COMPLETED;
       const responseStatus = normalizedExistingStatus || "unknown";
       let readyEmailSent = true;
-      if (isCompleted) {
-        readyEmailSent = await ensureGenerationReadyEmail(
-          userEmail,
-          `Solved Paper (${paperCode} ${year})`,
-          dispatched.resultFileId || "",
-        );
-      }
-      return NextResponse.json({
-        ok: true,
-        jobId: solvedJobId,
+        if (isCompleted) {
+          readyEmailSent = await ensureGenerationReadyEmail(
+            userEmail,
+            `Solved Paper (${paperCode} ${year})`,
+            dispatched.resultFileId || "",
+            user.id,
+          );
+        }
+        const cachedDownloadUrl = isCompleted && dispatched.resultFileId
+          ? buildSignedPdfDownloadPath({
+            fileId: dispatched.resultFileId,
+            userId: user.id,
+          })
+          : "";
+        return NextResponse.json({
+          ok: true,
+          jobId: solvedJobId,
         status: responseStatus,
         cached: true,
-        readyEmailNotificationAttempted: isCompleted,
-        readyEmailSent: isCompleted ? readyEmailSent : false,
-        fileId: isCompleted ? (dispatched.resultFileId || "") : "",
-        downloadUrl:
-          isCompleted && dispatched.resultFileId
-            ? `/api/files/papers/${encodeURIComponent(dispatched.resultFileId)}`
-            : "",
+          readyEmailNotificationAttempted: isCompleted,
+          readyEmailSent: isCompleted ? readyEmailSent : false,
+          fileId: isCompleted ? (dispatched.resultFileId || "") : "",
+          downloadUrl: cachedDownloadUrl,
         message:
           isCompleted
             ? "A matching solved-paper job is already completed. Returning cached file."

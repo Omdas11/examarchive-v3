@@ -2,12 +2,14 @@ import { NextResponse, type NextRequest } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 import { adminDatabases, COLLECTION, DATABASE_ID } from "@/lib/appwrite";
 import { sendGenerationFailureEmail, sendGenerationPdfEmail } from "@/lib/generation-notifications";
+import { buildSignedPdfDownloadPath } from "@/lib/pdf-download-link";
 
 type NotifyPayload = {
   jobId?: unknown;
   status?: unknown;
   fileId?: unknown;
   userId?: unknown;
+  userEmail?: unknown;
 };
 
 function safeCompareSecrets(expected: string, provided: string): boolean {
@@ -51,8 +53,10 @@ async function resolveNotificationEmail(args: {
   job: Record<string, unknown>;
   payload: Record<string, unknown>;
   payloadUserId: string;
+  webhookEmail: string;
   jobId: string;
 }): Promise<string> {
+  if (args.webhookEmail) return args.webhookEmail;
   const payloadEmail = String(args.payload.userEmail || "").trim();
   if (payloadEmail) return payloadEmail;
   const userId = String(args.job.user_id || "").trim() || args.payloadUserId;
@@ -101,6 +105,7 @@ export async function POST(request: NextRequest) {
   const status = String(body.status || "").trim().toLowerCase();
   const fileIdFromBody = String(body.fileId || "").trim();
   const payloadUserId = String(body.userId || "").trim();
+  const webhookEmail = String(body.userEmail || "").trim();
   if (!jobId || (status !== "completed" && status !== "failed")) {
     return NextResponse.json({ error: "Invalid payload." }, { status: 400 });
   }
@@ -123,6 +128,7 @@ export async function POST(request: NextRequest) {
     job,
     payload,
     payloadUserId,
+    webhookEmail,
     jobId,
   });
   if (!email) {
@@ -144,11 +150,15 @@ export async function POST(request: NextRequest) {
     if (!fileId) {
       return NextResponse.json({ error: "Missing fileId for completed status." }, { status: 400 });
     }
+    const userId = String(job.user_id || "").trim() || payloadUserId;
     try {
       await sendGenerationPdfEmail({
         email,
         title,
-        downloadUrl: `/api/files/papers/${encodeURIComponent(fileId)}`,
+        downloadUrl: buildSignedPdfDownloadPath({
+          fileId,
+          userId,
+        }),
       });
     } catch (error) {
       console.error("[ai/notify-completion] Failed to send completion email.", { jobId, fileId, email, error });

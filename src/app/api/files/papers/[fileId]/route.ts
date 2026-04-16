@@ -5,6 +5,7 @@ import {
   BUCKET_ID,
 } from "@/lib/appwrite";
 import { AppwriteException } from "node-appwrite";
+import { isValidSignedPdfDownloadToken } from "@/lib/pdf-download-link";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,9 @@ function sanitizeDownloadFilename(name: string): string {
  * bucket is restricted to authenticated users only, so direct browser
  * requests to the Appwrite URL would fail with 401/403.
  *
- * Requires the user to be authenticated (session cookie).
+ * Requires either:
+ * - an authenticated user session, or
+ * - a valid signed download token generated for email delivery links.
  */
 export async function GET(
   request: NextRequest,
@@ -34,8 +37,18 @@ export async function GET(
     return new NextResponse("Missing file ID", { status: 400 });
   }
 
-  const user = await getServerUser();
-  if (!user) {
+  const signedUserId = request.nextUrl.searchParams.get("uid") || "";
+  const signedExpires = request.nextUrl.searchParams.get("exp") || "";
+  const signedToken = request.nextUrl.searchParams.get("token") || "";
+  const hasValidSignedToken = isValidSignedPdfDownloadToken({
+    fileId,
+    userId: signedUserId,
+    expires: signedExpires,
+    token: signedToken,
+  });
+
+  const user = hasValidSignedToken ? null : await getServerUser();
+  if (!hasValidSignedToken && !user) {
     // Redirect unauthenticated visitors to the login page instead of
     // returning a raw 401 so the browser navigates to sign-in when the
     // PDF is opened in a new tab.
@@ -44,7 +57,7 @@ export async function GET(
 
   try {
     const storage = adminStorage();
-    const shouldDownload = request.nextUrl.searchParams.get("download") === "1";
+    const shouldDownload = hasValidSignedToken || request.nextUrl.searchParams.get("download") === "1";
     const fileMeta = shouldDownload ? await storage.getFile(BUCKET_ID, fileId) : null;
     const resolvedFileName = shouldDownload
       ? sanitizeDownloadFilename(fileMeta?.name || "examarchive.pdf")
