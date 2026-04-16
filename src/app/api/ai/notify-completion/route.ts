@@ -155,7 +155,8 @@ export async function POST(request: NextRequest) {
       fileIdFromBody,
       job: resolvedJob,
     });
-    for (let retryAttempt = 0; !callbackConsistent && retryAttempt < UNVERIFIED_CALLBACK_MAX_JOB_CONSISTENCY_RETRIES; retryAttempt += 1) {
+    for (let retryAttempt = 0; retryAttempt < UNVERIFIED_CALLBACK_MAX_JOB_CONSISTENCY_RETRIES; retryAttempt += 1) {
+      if (callbackConsistent) break;
       await sleep(UNVERIFIED_CALLBACK_JOB_CONSISTENCY_DELAY_MS);
       try {
         const refreshedJob = await db.getDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, jobId);
