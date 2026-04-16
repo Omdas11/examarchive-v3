@@ -40,6 +40,7 @@ const GOTENBERG_BASE_BACKOFF_MS = Number.isFinite(gotenbergBaseBackoffRaw)
 const GOTENBERG_MAX_HTML_BYTES = Number.isFinite(gotenbergMaxHtmlBytesRaw)
   ? Math.max(256_000, gotenbergMaxHtmlBytesRaw)
   : 1_500_000;
+const GOTENBERG_ERROR_LOG_MAX_CHARS = 2_000;
 const TAVILY_TIMEOUT_MS = Number.isFinite(tavilyTimeoutRaw)
   ? Math.max(1_000, tavilyTimeoutRaw)
   : 8_000;
@@ -227,6 +228,12 @@ function optimizeHtmlForGotenberg(html) {
   return { html: optimizedHtml, originalBytes, optimizedBytes, strippedInlineImages };
 }
 
+function normalizeGotenbergWaitDelay(raw) {
+  const trimmed = String(raw || "").trim();
+  if (!trimmed) return "2s";
+  return /^\d+(?:ms|s|m|h)$/i.test(trimmed) ? trimmed : "2s";
+}
+
 function normalizeBearerToken(rawToken) {
   const token = String(rawToken || "").trim();
   if (!token) return "";
@@ -367,9 +374,10 @@ async function fetchTavilyContext(query) {
 }
 
 function validateGotenbergUrl(raw) {
+  const normalizedRaw = String(raw || "").trim().replace(/\/+$/, "");
   let baseUrl;
   try {
-    baseUrl = new URL(raw);
+    baseUrl = new URL(normalizedRaw);
   } catch {
     throw new Error("Invalid GOTENBERG_URL in function environment.");
   }
@@ -388,12 +396,13 @@ function shouldRetryGotenberg(status) {
 }
 
 async function renderWithGotenberg(markdown, fileName, markedParser) {
-  const gotenbergUrl = String(process.env.GOTENBERG_URL || "").trim().replace(/\/+$/, "");
+  const gotenbergUrl = String(process.env.GOTENBERG_URL || "").trim();
   const gotenbergAuthToken = String(process.env.GOTENBERG_AUTH_TOKEN || "").trim();
-  const waitDelay = String(process.env.GOTENBERG_WAIT_DELAY || "2s").trim() || "2s";
+  const waitDelay = normalizeGotenbergWaitDelay(process.env.GOTENBERG_WAIT_DELAY);
   if (!gotenbergUrl) throw new Error("Missing GOTENBERG_URL in function environment.");
   if (!gotenbergAuthToken) throw new Error("Missing GOTENBERG_AUTH_TOKEN in function environment.");
   const endpointUrl = new URL(validateGotenbergUrl(gotenbergUrl));
+  // Gotenberg expects duration literals (for example: 500ms, 2s, 1m) to delay Chromium capture for heavy Math/LaTeX pages.
   endpointUrl.searchParams.set("waitDelay", waitDelay);
 
   const html = await markdownToSimpleHtml(markdown, fileName, markedParser);
@@ -406,13 +415,12 @@ async function renderWithGotenberg(markdown, fileName, markedParser) {
       maxAllowedBytes: GOTENBERG_MAX_HTML_BYTES,
     });
   }
-  const headers = { Authorization: `Bearer ${normalizeBearerToken(gotenbergAuthToken).replace(/^Bearer\s+/i, "")}` };
+  const headers = { Authorization: normalizeBearerToken(gotenbergAuthToken) };
 
   let lastError = null;
   for (let attempt = 1; attempt <= GOTENBERG_MAX_ATTEMPTS; attempt += 1) {
     const form = new FormData();
-    const htmlBuffer = Buffer.from(optimizedHtml.html, "utf8");
-    form.append("files", new Blob([htmlBuffer], { type: "text/html" }), "index.html");
+    form.append("files", new Blob([optimizedHtml.html], { type: "text/html" }), "index.html");
     try {
       const response = await fetch(endpointUrl.toString(), {
         method: "POST",
@@ -423,9 +431,12 @@ async function renderWithGotenberg(markdown, fileName, markedParser) {
       if (!response.ok) {
         const bodyText = await response.text().catch(() => "");
         if (response.status >= 500) {
-          console.error("[pdf-generator] Gotenberg 5xx response body:", bodyText.slice(0, 4000) || "<empty>");
+          console.error(
+            "[pdf-generator] Gotenberg 5xx response body:",
+            bodyText.slice(0, GOTENBERG_ERROR_LOG_MAX_CHARS) || "<empty>",
+          );
         }
-        const msg = `Gotenberg request failed (${response.status}): ${bodyText.slice(0, 2000)}`;
+        const msg = `Gotenberg request failed (${response.status}): ${bodyText.slice(0, GOTENBERG_ERROR_LOG_MAX_CHARS)}`;
         if (attempt < GOTENBERG_MAX_ATTEMPTS && shouldRetryGotenberg(response.status)) {
           console.error(`[pdf-generator] ${msg}`);
           await sleep(GOTENBERG_BASE_BACKOFF_MS * (2 ** (attempt - 1)));
