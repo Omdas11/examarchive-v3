@@ -36,6 +36,7 @@ const EMAIL_DELIVERY_UNAVAILABLE_MESSAGE =
   "Unable to send generation confirmation email. Request was not started. Please verify email settings and try again.";
 const QUOTA_RESERVATION_FAILED_CODE = "QUOTA_RESERVATION_FAILED";
 const QUOTA_RESERVATION_FAILED_MESSAGE = "Failed to reserve generation quota. Please try again later.";
+const QUOTA_CHECK_FAILED_CODE = "QUOTA_CHECK_FAILED";
 const APPWRITE_DOC_ID_HASH_LENGTH = 31;
 
 type GenerateBody = {
@@ -230,11 +231,71 @@ async function reserveGenerationResources(params: {
     await rollbackElectronCost(params.userId, GENERATION_COST_ELECTRONS);
     return NextResponse.json(
       { error: QUOTA_RESERVATION_FAILED_MESSAGE, code: QUOTA_RESERVATION_FAILED_CODE },
-      { status: 503 },
+      { status: 500 },
     );
   }
 
   return null;
+}
+
+function getAppwriteErrorStatus(error: unknown): number | null {
+  if (!error || typeof error !== "object") return null;
+  const err = error as {
+    status?: unknown;
+    code?: unknown;
+    response?: { status?: unknown; code?: unknown };
+  };
+  const status = Number(err.status ?? err.code ?? err.response?.status ?? err.response?.code ?? NaN);
+  if (Number.isInteger(status) && status >= 100 && status <= 599) {
+    return status;
+  }
+  return null;
+}
+
+function getSafeErrorDetails(error: unknown): string {
+  return formatFailureReason(error).slice(0, 1000);
+}
+
+async function checkQuotasOrError(userId: string): Promise<
+  { quota: Awaited<ReturnType<typeof checkAndResetQuotas>>; errorResponse: null } |
+  { quota: null; errorResponse: NextResponse }
+> {
+  try {
+    const quota = await checkAndResetQuotas(userId);
+    return { quota, errorResponse: null };
+  } catch (error) {
+    const status = getAppwriteErrorStatus(error);
+    console.error("[ai/generate-pdf] Quota check failed.", {
+      userId,
+      status,
+      error,
+    });
+    if (status === 403) {
+      return {
+        quota: null,
+        errorResponse: NextResponse.json(
+          { error: "Generation quota exceeded.", code: "QUOTA_EXCEEDED", remaining: 0 },
+          { status: 403 },
+        ),
+      };
+    }
+    return {
+      quota: null,
+      errorResponse: NextResponse.json(
+        {
+          error: "Unable to verify generation quota right now. Please try again.",
+          code: QUOTA_CHECK_FAILED_CODE,
+          details: getSafeErrorDetails(error),
+        },
+        { status: 500 },
+      ),
+    };
+  }
+}
+
+function shouldSkipDispatchForExistingJob(status: string): boolean {
+  const normalizedStatus = status.trim().toLowerCase();
+  return normalizedStatus === "processing" || normalizedStatus === "completed";
 }
 
 async function rollbackReservedGenerationResources(params: {
@@ -289,60 +350,75 @@ async function enqueueAndDispatchPdfJob(params: {
     Query.orderDesc("$createdAt"),
     Query.limit(1),
   ]);
-  if (typeof existingBeforeCreate.documents[0]?.$id === "string" && existingBeforeCreate.documents[0].$id) {
-    return { jobId: existingBeforeCreate.documents[0].$id };
+  let jobId = "";
+  const existingJob = existingBeforeCreate.documents[0];
+  if (typeof existingJob?.$id === "string" && existingJob.$id) {
+    jobId = existingJob.$id;
+    if (shouldSkipDispatchForExistingJob(String(existingJob.status || ""))) {
+      return { jobId };
+    }
+  } else {
+    let job;
+    try {
+      job = await db.createDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, deterministicJobId, {
+        user_id: params.userId,
+        paper_code: params.paperCode,
+        unit_number: params.unitNumber,
+        status: "queued",
+        progress_percent: 0,
+        input_payload_json: JSON.stringify(params.payload),
+        idempotency_key: idempotencyKey,
+        created_at: nowIso,
+      });
+    } catch (error) {
+      if (!isConflictError(error)) {
+        throw error;
+      }
+      const existing = await db.listDocuments(DATABASE_ID, COLLECTION.ai_generation_jobs, [
+        Query.equal("idempotency_key", idempotencyKey),
+        Query.equal("user_id", params.userId),
+        Query.orderDesc("$createdAt"),
+        Query.limit(1),
+      ]);
+      if (!Array.isArray(existing.documents) || existing.documents.length === 0) {
+        throw new Error("Job idempotency conflict detected but no existing job could be found.");
+      }
+      if (typeof existing.documents[0]?.$id === "string" && existing.documents[0].$id) {
+        jobId = existing.documents[0].$id;
+        if (shouldSkipDispatchForExistingJob(String(existing.documents[0].status || ""))) {
+          return { jobId };
+        }
+      } else {
+        throw error;
+      }
+    }
+    if (!jobId && job?.$id) {
+      jobId = String(job.$id);
+    }
   }
-
-  let job;
-  try {
-    job = await db.createDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, deterministicJobId, {
-      user_id: params.userId,
-      paper_code: params.paperCode,
-      unit_number: params.unitNumber,
-      status: "queued",
-      progress_percent: 0,
-      input_payload_json: JSON.stringify(params.payload),
-      idempotency_key: idempotencyKey,
-      created_at: nowIso,
-    });
-  } catch (error) {
-    if (!isConflictError(error)) {
-      throw error;
-    }
-    const existing = await db.listDocuments(DATABASE_ID, COLLECTION.ai_generation_jobs, [
-      Query.equal("idempotency_key", idempotencyKey),
-      Query.equal("user_id", params.userId),
-      Query.orderDesc("$createdAt"),
-      Query.limit(1),
-    ]);
-    if (!Array.isArray(existing.documents) || existing.documents.length === 0) {
-      throw new Error("Job idempotency conflict detected but no existing job could be found.");
-    }
-    if (typeof existing.documents[0]?.$id === "string" && existing.documents[0].$id) {
-      return { jobId: existing.documents[0].$id };
-    }
-    throw error;
+  if (!jobId) {
+    throw new Error("Failed to resolve job ID before Appwrite function dispatch.");
   }
-
-  const jobId = String(job.$id);
   console.info("[ai/generate-pdf] Dispatching Appwrite function execution.", {
     FUNCTION_ID: functionId,
     jobId,
-    mode: "async",
+    executionMethod: "async",
   });
   try {
-    const execution = await functions.createExecution(
+    console.log(`Attempting to trigger Appwrite Function ID: ${functionId}`);
+    const execution = await functions.createExecution({
       functionId,
-      JSON.stringify({
+      body: JSON.stringify({
         jobId,
         payload: params.payload,
       }),
-      true,
-    );
+      async: true,
+    });
+    console.log(`Appwrite Execution Response Status: ${String(execution.status || "unknown")}`);
     const triggerAccepted =
       typeof execution.$id === "string" &&
       execution.$id.length > 0 &&
-      ["waiting", "processing"].includes(String(execution.status || ""));
+      ["queued", "waiting", "processing"].includes(String(execution.status || ""));
     console.info("[ai/generate-pdf] Appwrite function execution trigger response.", {
       triggerAccepted,
       FUNCTION_ID: functionId,
@@ -659,7 +735,11 @@ export async function POST(request: NextRequest) {
     }
 
     if (!admin) {
-      const quota = await checkAndResetQuotas(user.id);
+      const quotaCheckResult = await checkQuotasOrError(user.id);
+      if (quotaCheckResult.errorResponse) {
+        return quotaCheckResult.errorResponse;
+      }
+      const quota = quotaCheckResult.quota;
       if (quota.notes_generated_today >= NOTES_DAILY_LIMIT) {
         return NextResponse.json(
           { error: `Daily limit reached for Unit Notes (${NOTES_DAILY_LIMIT}/day).`, code: "NOTES_DAILY_LIMIT_REACHED" },
@@ -742,8 +822,9 @@ export async function POST(request: NextRequest) {
         {
           error: "Unable to start background generation right now. Please try again.",
           code: "JOB_DISPATCH_FAILED",
+          details: getSafeErrorDetails(error),
         },
-        { status: 503 },
+        { status: 500 },
       );
     }
 
@@ -766,7 +847,11 @@ export async function POST(request: NextRequest) {
   }
 
   if (!admin) {
-    const quota = await checkAndResetQuotas(user.id);
+    const quotaCheckResult = await checkQuotasOrError(user.id);
+    if (quotaCheckResult.errorResponse) {
+      return quotaCheckResult.errorResponse;
+    }
+    const quota = quotaCheckResult.quota;
     if (quota.papers_solved_today >= 1) {
       return NextResponse.json(
         { error: "Daily limit reached for Solved Papers (1/day)." },
@@ -846,8 +931,9 @@ export async function POST(request: NextRequest) {
       {
         error: "Unable to start background generation right now. Please try again.",
         code: "JOB_DISPATCH_FAILED",
+        details: getSafeErrorDetails(error),
       },
-      { status: 503 },
+      { status: 500 },
     );
   }
 
