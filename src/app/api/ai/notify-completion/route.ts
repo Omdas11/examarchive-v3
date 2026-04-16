@@ -18,7 +18,7 @@ type CallbackTrustCheckArgs = {
   job: Record<string, unknown>;
 };
 
-const UNVERIFIED_CALLBACK_MAX_JOB_CONSISTENCY_ATTEMPTS = 4;
+const UNVERIFIED_CALLBACK_MAX_JOB_CONSISTENCY_RETRIES = 3;
 const UNVERIFIED_CALLBACK_JOB_CONSISTENCY_DELAY_MS = 300;
 
 function safeCompareSecrets(expected: string, provided: string): boolean {
@@ -155,7 +155,7 @@ export async function POST(request: NextRequest) {
       fileIdFromBody,
       job: resolvedJob,
     });
-    for (let retryAttempt = 0; !callbackConsistent && retryAttempt < UNVERIFIED_CALLBACK_MAX_JOB_CONSISTENCY_ATTEMPTS - 1; retryAttempt += 1) {
+    for (let retryAttempt = 0; !callbackConsistent && retryAttempt < UNVERIFIED_CALLBACK_MAX_JOB_CONSISTENCY_RETRIES; retryAttempt += 1) {
       await sleep(UNVERIFIED_CALLBACK_JOB_CONSISTENCY_DELAY_MS);
       try {
         const refreshedJob = await db.getDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, jobId);
