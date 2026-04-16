@@ -294,8 +294,12 @@ async function checkQuotasOrError(userId: string): Promise<
 }
 
 function shouldSkipDispatchForExistingJob(status: string): boolean {
-  const normalizedStatus = status.trim().toLowerCase();
+  const normalizedStatus = normalizeJobStatus(status);
   return normalizedStatus === JOB_STATUS_PROCESSING || normalizedStatus === JOB_STATUS_COMPLETED;
+}
+
+function normalizeJobStatus(status: unknown): string {
+  return String(status || "").trim().toLowerCase();
 }
 
 async function rollbackReservedGenerationResources(params: {
@@ -331,7 +335,7 @@ async function enqueueAndDispatchPdfJob(params: {
   unitNumber: number;
   payload: Record<string, unknown>;
   title: string;
-}): Promise<{ jobId: string; executionTriggered: boolean; existingStatus?: string }> {
+}): Promise<{ jobId: string; executionTriggered: boolean; existingStatus?: string; resultFileId?: string }> {
   const nowIso = new Date().toISOString();
   const db = adminDatabases();
   const functions = adminFunctions();
@@ -354,14 +358,19 @@ async function enqueueAndDispatchPdfJob(params: {
   const existingJob = existingBeforeCreate.documents[0];
   if (typeof existingJob?.$id === "string" && existingJob.$id) {
     jobId = existingJob.$id;
-    const existingStatus = String(existingJob.status || "").trim().toLowerCase();
+    const existingStatus = normalizeJobStatus(existingJob.status);
     if (shouldSkipDispatchForExistingJob(existingStatus)) {
       console.warn("[ai/generate-pdf] Skipping Appwrite dispatch for existing terminal/in-flight job.", {
         jobId,
         existingStatus,
         userId: params.userId,
       });
-      return { jobId, executionTriggered: false, existingStatus };
+      return {
+        jobId,
+        executionTriggered: false,
+        existingStatus,
+        resultFileId: String(existingJob.result_file_id || "").trim(),
+      };
     }
   } else {
     let job;
@@ -391,14 +400,19 @@ async function enqueueAndDispatchPdfJob(params: {
       }
       if (typeof existing.documents[0]?.$id === "string" && existing.documents[0].$id) {
         jobId = existing.documents[0].$id;
-        const existingStatus = String(existing.documents[0].status || "").trim().toLowerCase();
+        const existingStatus = normalizeJobStatus(existing.documents[0].status);
         if (shouldSkipDispatchForExistingJob(existingStatus)) {
           console.warn("[ai/generate-pdf] Skipping Appwrite dispatch for existing terminal/in-flight job.", {
             jobId,
             existingStatus,
             userId: params.userId,
           });
-          return { jobId, executionTriggered: false, existingStatus };
+          return {
+            jobId,
+            executionTriggered: false,
+            existingStatus,
+            resultFileId: String(existing.documents[0].result_file_id || "").trim(),
+          };
         }
       } else {
         throw error;
@@ -811,12 +825,22 @@ export async function POST(request: NextRequest) {
             rollbackError,
           });
         }
+        const normalizedExistingStatus = normalizeJobStatus(dispatched.existingStatus);
+        const isCompleted = normalizedExistingStatus === JOB_STATUS_COMPLETED;
+        const responseStatus = normalizedExistingStatus || JOB_STATUS_PROCESSING;
         return NextResponse.json({
           ok: true,
           jobId: notesJobId,
+          status: responseStatus,
+          cached: true,
+          fileId: isCompleted ? (dispatched.resultFileId || "") : "",
+          downloadUrl:
+            isCompleted && dispatched.resultFileId
+              ? `/api/files/papers/${encodeURIComponent(dispatched.resultFileId)}`
+              : "",
           message:
-            dispatched.existingStatus === JOB_STATUS_COMPLETED
-              ? "A matching notes job is already completed. Use your existing result."
+            isCompleted
+              ? "A matching notes job is already completed. Returning cached file."
               : "A matching notes job is already in progress. Please check back shortly.",
         });
       }
@@ -943,12 +967,22 @@ export async function POST(request: NextRequest) {
           rollbackError,
         });
       }
+      const normalizedExistingStatus = normalizeJobStatus(dispatched.existingStatus);
+      const isCompleted = normalizedExistingStatus === JOB_STATUS_COMPLETED;
+      const responseStatus = normalizedExistingStatus || JOB_STATUS_PROCESSING;
       return NextResponse.json({
         ok: true,
         jobId: solvedJobId,
+        status: responseStatus,
+        cached: true,
+        fileId: isCompleted ? (dispatched.resultFileId || "") : "",
+        downloadUrl:
+          isCompleted && dispatched.resultFileId
+            ? `/api/files/papers/${encodeURIComponent(dispatched.resultFileId)}`
+            : "",
         message:
-          dispatched.existingStatus === JOB_STATUS_COMPLETED
-            ? "A matching solved-paper job is already completed. Use your existing result."
+          isCompleted
+            ? "A matching solved-paper job is already completed. Returning cached file."
             : "A matching solved-paper job is already in progress. Please check back shortly.",
       });
     }
