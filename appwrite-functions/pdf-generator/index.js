@@ -75,6 +75,7 @@ const QUESTIONS_TABLE_COLLECTION_ID = process.env.QUESTIONS_TABLE_COLLECTION_ID 
 const PAPERS_BUCKET_ID = process.env.APPWRITE_BUCKET_ID || "papers";
 const NOTIFY_COMPLETION_PATH = "/api/ai/notify-completion";
 const NOTIFY_WEBHOOK_ERROR_LOG_MAX_CHARS = 2_000;
+const MAX_LOGGED_CALLBACK_URL_CHARS = 500;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -651,28 +652,46 @@ function normalizeAbsoluteHttpUrl(rawUrl) {
     const parsed = new URL(value);
     if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return "";
     return parsed.toString();
-  } catch {
+  } catch (error) {
+    console.error("[pdf-generator] Invalid completion callback URL received.", {
+      callbackUrl: value.slice(0, MAX_LOGGED_CALLBACK_URL_CHARS),
+      truncated: value.length > MAX_LOGGED_CALLBACK_URL_CHARS,
+      error: String(error?.message || error),
+    });
     return "";
+  }
+}
+
+function resolveNotifyCompletionUrl(callbackUrl) {
+  const callbackOverride = normalizeAbsoluteHttpUrl(callbackUrl);
+  if (callbackOverride) {
+    return { url: callbackOverride, reason: "callback_override" };
+  }
+  const siteUrl = String(process.env.SITE_URL || "").trim().replace(/\/+$/, "");
+  if (!siteUrl) {
+    return { url: "", reason: callbackUrl ? "no_valid_callback_and_missing_site_url" : "missing_site_url" };
+  }
+  try {
+    const baseUrl = new URL(siteUrl);
+    return { url: new URL(NOTIFY_COMPLETION_PATH, `${baseUrl.toString()}/`).toString(), reason: "site_url" };
+  } catch {
+    return { url: "", reason: "invalid_site_url" };
   }
 }
 
 function getNotifyCompletionUrl(callbackUrl) {
-  const callbackOverride = normalizeAbsoluteHttpUrl(callbackUrl);
-  if (callbackOverride) return callbackOverride;
-  const siteUrl = String(process.env.SITE_URL || "").trim().replace(/\/+$/, "");
-  if (!siteUrl) return "";
-  try {
-    const baseUrl = new URL(siteUrl);
-    return new URL(NOTIFY_COMPLETION_PATH, `${baseUrl.toString()}/`).toString();
-  } catch {
-    return "";
-  }
+  return resolveNotifyCompletionUrl(callbackUrl).url;
 }
 
 async function notifyCompletionWebhook({ jobId, status, fileId, userId, userEmail, callbackUrl }) {
-  const notifyUrl = getNotifyCompletionUrl(callbackUrl);
+  const notifyResolution = resolveNotifyCompletionUrl(callbackUrl);
+  const notifyUrl = notifyResolution.url;
   if (!notifyUrl) {
-    console.error("[pdf-generator] Completion webhook URL is not configured or invalid; callback skipped.");
+    console.error("[pdf-generator] Completion webhook callback skipped due to URL resolution failure.", {
+      reason: notifyResolution.reason,
+      hasCallbackUrl: Boolean(String(callbackUrl || "").trim()),
+      hasSiteUrl: Boolean(String(process.env.SITE_URL || "").trim()),
+    });
     return;
   }
   const headers = { "Content-Type": "application/json" };

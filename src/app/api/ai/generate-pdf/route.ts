@@ -305,8 +305,24 @@ function normalizeJobStatus(status: string | null | undefined): string {
 function buildCompletionWebhookUrl(request: NextRequest): string {
   try {
     return new URL("/api/ai/notify-completion", request.nextUrl.origin).toString();
-  } catch {
-    return "";
+  } catch (error) {
+    console.error("[ai/generate-pdf] Failed to build completion webhook URL from request origin.", {
+      origin: request.nextUrl.origin,
+      failureType: "invalid_or_unusable_request_origin",
+      message: error instanceof Error ? error.message : String(error),
+      error,
+    });
+    const fallbackSiteUrl = String(process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || "").trim();
+    if (!fallbackSiteUrl) return "";
+    try {
+      return new URL("/api/ai/notify-completion", fallbackSiteUrl).toString();
+    } catch (fallbackError) {
+      console.error("[ai/generate-pdf] Failed to build completion webhook URL from fallback site URL.", {
+        fallbackSiteUrl,
+        fallbackError,
+      });
+      return "";
+    }
   }
 }
 
