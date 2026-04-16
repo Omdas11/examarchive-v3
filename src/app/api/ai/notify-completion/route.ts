@@ -18,6 +18,9 @@ type CallbackTrustCheckArgs = {
   job: Record<string, unknown>;
 };
 
+const UNVERIFIED_CALLBACK_MAX_JOB_CONSISTENCY_ATTEMPTS = 4;
+const UNVERIFIED_CALLBACK_JOB_CONSISTENCY_DELAY_MS = 300;
+
 function safeCompareSecrets(expected: string, provided: string): boolean {
   const expectedBuffer = Buffer.from(expected);
   const providedBuffer = Buffer.from(provided);
@@ -102,6 +105,10 @@ function isUnverifiedCallbackConsistentWithJob(args: CallbackTrustCheckArgs): bo
   return !!completedAt;
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function POST(request: NextRequest) {
   const webhookSecret = (process.env.AI_JOB_WEBHOOK_SECRET || "").trim();
   if (!webhookSecret) {
@@ -141,13 +148,34 @@ export async function POST(request: NextRequest) {
   if (!job || typeof job !== "object") {
     return NextResponse.json({ error: "Unable to process notification callback." }, { status: 500 });
   }
-  const payload = parseInputPayloadJson(job.input_payload_json);
+  let resolvedJob = job as Record<string, unknown>;
   if (!hasValidBearer) {
-    const callbackConsistent = isUnverifiedCallbackConsistentWithJob({
+    let callbackConsistent = isUnverifiedCallbackConsistentWithJob({
       status: status as "completed" | "failed",
       fileIdFromBody,
-      job,
+      job: resolvedJob,
     });
+    for (let attempt = 1; !callbackConsistent && attempt < UNVERIFIED_CALLBACK_MAX_JOB_CONSISTENCY_ATTEMPTS; attempt += 1) {
+      await sleep(UNVERIFIED_CALLBACK_JOB_CONSISTENCY_DELAY_MS);
+      try {
+        const refreshedJob = await db.getDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, jobId);
+        if (refreshedJob && typeof refreshedJob === "object") {
+          resolvedJob = refreshedJob as Record<string, unknown>;
+          callbackConsistent = isUnverifiedCallbackConsistentWithJob({
+            status: status as "completed" | "failed",
+            fileIdFromBody,
+            job: resolvedJob,
+          });
+        }
+      } catch (retryError) {
+        console.error("[ai/notify-completion] Failed to refresh job while validating unverified callback consistency.", {
+          jobId,
+          status,
+          attempt,
+          retryError,
+        });
+      }
+    }
     if (!callbackConsistent) {
       return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
     }
@@ -157,10 +185,11 @@ export async function POST(request: NextRequest) {
       hasProvidedToken: !!providedToken,
     });
   }
+  const payload = parseInputPayloadJson(resolvedJob.input_payload_json);
 
   const email = await resolveNotificationEmail({
     db,
-    job,
+    job: resolvedJob,
     payload,
     payloadUserId,
     payloadUserEmail,
@@ -170,7 +199,7 @@ export async function POST(request: NextRequest) {
     console.error("[ai/notify-completion] Unable to resolve recipient email for webhook callback.", {
       jobId,
       payloadUserId,
-      jobUserId: String(job.user_id || "").trim(),
+      jobUserId: String(resolvedJob.user_id || "").trim(),
       payloadUserEmail: String(payload.userEmail || "").trim(),
     });
     return NextResponse.json(
@@ -181,11 +210,11 @@ export async function POST(request: NextRequest) {
   const title = getTitleFromPayload(payload);
 
   if (status === "completed") {
-    const fileId = fileIdFromBody || String(job.result_file_id || "").trim();
+    const fileId = fileIdFromBody || String(resolvedJob.result_file_id || "").trim();
     if (!fileId) {
       return NextResponse.json({ error: "Missing fileId for completed status." }, { status: 400 });
     }
-    const userId = String(job.user_id || "").trim() || payloadUserId;
+    const userId = String(resolvedJob.user_id || "").trim() || payloadUserId;
     try {
       await sendGenerationPdfEmail({
         email,
@@ -206,7 +235,7 @@ export async function POST(request: NextRequest) {
     await sendGenerationFailureEmail({
       email,
       title,
-      reason: String(job.error_message || "Generation failed."),
+      reason: String(resolvedJob.error_message || "Generation failed."),
     });
   } catch (error) {
     console.error("[ai/notify-completion] Failed to send failure email.", { jobId, email, error });

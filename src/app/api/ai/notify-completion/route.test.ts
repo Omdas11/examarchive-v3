@@ -103,6 +103,35 @@ describe("POST /api/ai/notify-completion", () => {
     expect(json.ok).toBe(true);
   });
 
+  it("accepts unverified completed callback after short consistency delay when initial read is stale", async () => {
+    mockGetDocument
+      .mockResolvedValueOnce({
+        $id: "job1",
+        status: "running",
+        completed_at: "",
+        user_id: "user1",
+        result_file_id: "",
+        input_payload_json: JSON.stringify({ jobType: "notes", paperCode: "CS101", unitNumber: 1, userEmail: "user@example.com" }),
+        error_message: "",
+      })
+      .mockResolvedValueOnce({
+        $id: "job1",
+        status: "completed",
+        completed_at: "2026-04-16T16:00:00.000Z",
+        user_id: "user1",
+        result_file_id: "file1",
+        input_payload_json: JSON.stringify({ jobType: "notes", paperCode: "CS101", unitNumber: 1, userEmail: "user@example.com" }),
+        error_message: "",
+      });
+    mockSendGenerationPdfEmail.mockResolvedValue(undefined);
+    const req = makeRequest({ jobId: "job1", status: "completed", fileId: "file1" });
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.ok).toBe(true);
+    expect(mockSendGenerationPdfEmail).toHaveBeenCalledTimes(1);
+  });
+
   it("rejects unverified completed callback when fileId does not match stored result", async () => {
     mockGetDocument.mockResolvedValue({
       $id: "job1",
