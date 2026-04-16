@@ -2,7 +2,6 @@
 const { Client, Databases, Storage, Query, ID } = require("node-appwrite");
 const { InputFile } = require("node-appwrite/file");
 const katex = require("katex");
-const { marked } = require("marked");
 const sanitizeHtml = require("sanitize-html");
 const he = require("he");
 
@@ -178,9 +177,25 @@ function renderHtmlDocument({ safeTitle, safeParagraphsHtml }) {
   ].join("");
 }
 
-function markdownToSimpleHtml(markdown, title) {
+let markedParserPromise = null;
+
+function assertMarkedParser(parserCandidate) {
+  if (!parserCandidate || typeof parserCandidate.parse !== "function") {
+    throw new Error("Invalid marked parser: expected an object with a parse() function.");
+  }
+  return parserCandidate;
+}
+
+async function loadMarkedParser() {
+  if (!markedParserPromise) {
+    markedParserPromise = import("marked").then((module) => assertMarkedParser(module.marked));
+  }
+  return markedParserPromise;
+}
+
+async function markdownToSimpleHtml(markdown, title, markedParser) {
   const markdownWithMathMl = renderLatexMathMl(markdown);
-  const htmlFromMarkdown = marked.parse(markdownWithMathMl, { gfm: true, breaks: true });
+  const htmlFromMarkdown = markedParser.parse(markdownWithMathMl, { gfm: true, breaks: true });
   const safeParagraphsHtml = sanitizeGeneratedHtml(String(htmlFromMarkdown || ""));
 
   return renderHtmlDocument({
@@ -349,14 +364,14 @@ function shouldRetryGotenberg(status) {
   return status === 408 || status === 425 || status === 429 || status >= 500;
 }
 
-async function renderWithGotenberg(markdown, fileName) {
+async function renderWithGotenberg(markdown, fileName, markedParser) {
   const gotenbergUrl = String(process.env.GOTENBERG_URL || "").trim();
   const gotenbergAuthToken = String(process.env.GOTENBERG_AUTH_TOKEN || "").trim();
   if (!gotenbergUrl) throw new Error("Missing GOTENBERG_URL in function environment.");
   if (!gotenbergAuthToken) throw new Error("Missing GOTENBERG_AUTH_TOKEN in function environment.");
   const endpointUrl = validateGotenbergUrl(gotenbergUrl);
 
-  const html = markdownToSimpleHtml(markdown, fileName);
+  const html = await markdownToSimpleHtml(markdown, fileName, markedParser);
   const headers = { Authorization: normalizeBearerToken(gotenbergAuthToken) };
 
   let lastError = null;
@@ -573,7 +588,10 @@ ${tavilyContext ? `\n\nWeb context (Tavily):\n${tavilyContext}` : ""}
   return solved.join("\n\n---\n\n");
 }
 
-async function processGenerationJob(rawInput) {
+async function processGenerationJob(rawInput, options = {}) {
+  const markedParser = Object.hasOwn(options, "markedParser")
+    ? assertMarkedParser(options.markedParser)
+    : await loadMarkedParser();
   const endpoint = String(process.env.APPWRITE_ENDPOINT || process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT || "").trim();
   const projectId = String(process.env.APPWRITE_PROJECT_ID || process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID || "").trim();
   const apiKey = String(process.env.APPWRITE_API_KEY || "").trim();
@@ -615,7 +633,7 @@ async function processGenerationJob(rawInput) {
     await updateJob(db, jobId, { progress_percent: 80 });
 
     const fileName = buildJobTitle(payload);
-    const pdfBuffer = await renderWithGotenberg(markdown, fileName);
+    const pdfBuffer = await renderWithGotenberg(markdown, fileName, markedParser);
     const created = await storage.createFile(
       PAPERS_BUCKET_ID,
       ID.unique(),
@@ -642,8 +660,9 @@ async function processGenerationJob(rawInput) {
 
 module.exports = async ({ req, res, log, error }) => {
   try {
+    const { marked } = await import("marked");
     const rawInput = req?.body || process.env.APPWRITE_FUNCTION_EVENT_DATA || process.env.APPWRITE_FUNCTION_DATA || "{}";
-    const result = await processGenerationJob(rawInput);
+    const result = await processGenerationJob(rawInput, { markedParser: marked });
     if (typeof log === "function") log(`[pdf-generator] completed job ${result.jobId}`);
     if (res && typeof res.json === "function") {
       return res.json(result);
