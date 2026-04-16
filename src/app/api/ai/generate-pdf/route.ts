@@ -36,6 +36,8 @@ const QUOTA_RESERVATION_FAILED_CODE = "QUOTA_RESERVATION_FAILED";
 const QUOTA_RESERVATION_FAILED_MESSAGE = "Failed to reserve generation quota. Please try again later.";
 const QUOTA_CHECK_FAILED_CODE = "QUOTA_CHECK_FAILED";
 const APPWRITE_DOC_ID_HASH_LENGTH = 31;
+const JOB_STATUS_QUEUED = "queued";
+const JOB_STATUS_RUNNING = "running";
 const JOB_STATUS_PROCESSING = "processing";
 const JOB_STATUS_COMPLETED = "completed";
 const ACCEPTED_EXECUTION_STATUSES = new Set(["queued", "waiting", "processing"]);
@@ -271,15 +273,6 @@ async function checkQuotasOrError(userId: string): Promise<
       status,
       error,
     });
-    if (status === 403) {
-      return {
-        quota: null,
-        errorResponse: NextResponse.json(
-          { error: "Generation quota exceeded.", code: "QUOTA_EXCEEDED", remaining: 0 },
-          { status: 403 },
-        ),
-      };
-    }
     return {
       quota: null,
       errorResponse: NextResponse.json(
@@ -296,7 +289,10 @@ async function checkQuotasOrError(userId: string): Promise<
 
 function shouldSkipDispatchForExistingJob(status: string): boolean {
   const normalizedStatus = normalizeJobStatus(status);
-  return normalizedStatus === JOB_STATUS_PROCESSING || normalizedStatus === JOB_STATUS_COMPLETED;
+  return normalizedStatus === JOB_STATUS_QUEUED ||
+    normalizedStatus === JOB_STATUS_RUNNING ||
+    normalizedStatus === JOB_STATUS_PROCESSING ||
+    normalizedStatus === JOB_STATUS_COMPLETED;
 }
 
 function normalizeJobStatus(status: string | null | undefined): string {
