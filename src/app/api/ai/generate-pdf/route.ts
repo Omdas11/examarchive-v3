@@ -14,6 +14,7 @@ import {
 } from "@/lib/appwrite";
 import {
   sendGenerationFailureEmail,
+  sendGenerationPdfEmail,
   sendGenerationStartedEmail,
 } from "@/lib/generation-notifications";
 import {
@@ -655,6 +656,27 @@ async function ensureGenerationStartedEmail(email: string, title: string): Promi
   }
 }
 
+async function ensureGenerationReadyEmail(email: string, title: string, fileId: string): Promise<boolean> {
+  const normalizedFileId = String(fileId || "").trim();
+  if (!normalizedFileId) return false;
+  try {
+    await sendGenerationPdfEmail({
+      email,
+      title,
+      downloadUrl: `/api/files/papers/${encodeURIComponent(normalizedFileId)}`,
+    });
+    return true;
+  } catch (error) {
+    console.error("[ai/generate-pdf] Failed to send cached PDF ready email.", {
+      email,
+      title,
+      fileId: normalizedFileId,
+      error,
+    });
+    return false;
+  }
+}
+
 export async function GET() {
   const user = await getServerUser();
   if (!user) {
@@ -828,11 +850,20 @@ export async function POST(request: NextRequest) {
         const normalizedExistingStatus = normalizeJobStatus(dispatched.existingStatus);
         const isCompleted = normalizedExistingStatus === JOB_STATUS_COMPLETED;
         const responseStatus = normalizedExistingStatus || "unknown";
+        let readyEmailSent = true;
+        if (isCompleted) {
+          readyEmailSent = await ensureGenerationReadyEmail(
+            userEmail,
+            `Unit Notes (${paperCode} - Unit ${unitNumber})`,
+            dispatched.resultFileId || "",
+          );
+        }
         return NextResponse.json({
           ok: true,
           jobId: notesJobId,
           status: responseStatus,
           cached: true,
+          readyEmailSent: isCompleted ? readyEmailSent : undefined,
           fileId: isCompleted ? (dispatched.resultFileId || "") : "",
           downloadUrl:
             isCompleted && dispatched.resultFileId
@@ -970,11 +1001,20 @@ export async function POST(request: NextRequest) {
       const normalizedExistingStatus = normalizeJobStatus(dispatched.existingStatus);
       const isCompleted = normalizedExistingStatus === JOB_STATUS_COMPLETED;
       const responseStatus = normalizedExistingStatus || "unknown";
+      let readyEmailSent = true;
+      if (isCompleted) {
+        readyEmailSent = await ensureGenerationReadyEmail(
+          userEmail,
+          `Solved Paper (${paperCode} ${year})`,
+          dispatched.resultFileId || "",
+        );
+      }
       return NextResponse.json({
         ok: true,
         jobId: solvedJobId,
         status: responseStatus,
         cached: true,
+        readyEmailSent: isCompleted ? readyEmailSent : undefined,
         fileId: isCompleted ? (dispatched.resultFileId || "") : "",
         downloadUrl:
           isCompleted && dispatched.resultFileId

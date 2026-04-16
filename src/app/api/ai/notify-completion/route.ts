@@ -7,6 +7,7 @@ type NotifyPayload = {
   jobId?: unknown;
   status?: unknown;
   fileId?: unknown;
+  userId?: unknown;
 };
 
 function safeCompareSecrets(expected: string, provided: string): boolean {
@@ -45,6 +46,30 @@ function parseInputPayloadJson(raw: unknown): Record<string, unknown> {
   }
 }
 
+async function resolveNotificationEmail(args: {
+  db: ReturnType<typeof adminDatabases>;
+  job: Record<string, unknown>;
+  payload: Record<string, unknown>;
+  payloadUserId: string;
+  jobId: string;
+}): Promise<string> {
+  const payloadEmail = String(args.payload.userEmail || "").trim();
+  if (payloadEmail) return payloadEmail;
+  const userId = String(args.job.user_id || "").trim() || args.payloadUserId;
+  if (!userId) return "";
+  try {
+    const userDoc = await args.db.getDocument(DATABASE_ID, COLLECTION.users, userId);
+    return String(userDoc.email || "").trim();
+  } catch (error) {
+    console.error("[ai/notify-completion] Failed to resolve user email from users collection.", {
+      jobId: args.jobId,
+      userId,
+      error,
+    });
+    return "";
+  }
+}
+
 function getAppwriteErrorStatus(error: unknown): number {
   if (!error || typeof error !== "object") return NaN;
   const appwriteError = error as {
@@ -75,6 +100,7 @@ export async function POST(request: NextRequest) {
   const jobId = String(body.jobId || "").trim();
   const status = String(body.status || "").trim().toLowerCase();
   const fileIdFromBody = String(body.fileId || "").trim();
+  const payloadUserId = String(body.userId || "").trim();
   if (!jobId || (status !== "completed" && status !== "failed")) {
     return NextResponse.json({ error: "Invalid payload." }, { status: 400 });
   }
@@ -92,9 +118,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unable to process notification callback." }, { status: 500 });
   }
   const payload = parseInputPayloadJson(job.input_payload_json);
-  const email = String(payload.userEmail || "").trim();
+  const email = await resolveNotificationEmail({
+    db,
+    job,
+    payload,
+    payloadUserId,
+    jobId,
+  });
   if (!email) {
-    return NextResponse.json({ ok: true, skipped: "missing-user-email" });
+    console.error("[ai/notify-completion] Unable to resolve recipient email for webhook callback.", {
+      jobId,
+      payloadUserId,
+    });
+    return NextResponse.json(
+      { error: "Unable to resolve recipient email right now. Please retry this callback shortly." },
+      { status: 500 },
+    );
   }
   const title = getTitleFromPayload(payload);
 
@@ -103,18 +142,28 @@ export async function POST(request: NextRequest) {
     if (!fileId) {
       return NextResponse.json({ error: "Missing fileId for completed status." }, { status: 400 });
     }
-    await sendGenerationPdfEmail({
-      email,
-      title,
-      downloadUrl: `/api/files/papers/${encodeURIComponent(fileId)}`,
-    });
+    try {
+      await sendGenerationPdfEmail({
+        email,
+        title,
+        downloadUrl: `/api/files/papers/${encodeURIComponent(fileId)}`,
+      });
+    } catch (error) {
+      console.error("[ai/notify-completion] Failed to send completion email.", { jobId, fileId, email, error });
+      return NextResponse.json({ error: "Failed to send completion email." }, { status: 500 });
+    }
     return NextResponse.json({ ok: true });
   }
 
-  await sendGenerationFailureEmail({
-    email,
-    title,
-    reason: String(job.error_message || "Generation failed."),
-  });
+  try {
+    await sendGenerationFailureEmail({
+      email,
+      title,
+      reason: String(job.error_message || "Generation failed."),
+    });
+  } catch (error) {
+    console.error("[ai/notify-completion] Failed to send failure email.", { jobId, email, error });
+    return NextResponse.json({ error: "Failed to send failure email." }, { status: 500 });
+  }
   return NextResponse.json({ ok: true });
 }

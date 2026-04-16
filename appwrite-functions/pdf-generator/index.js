@@ -651,6 +651,11 @@ async function notifyCompletionWebhook({ jobId, status, fileId }) {
       }),
       signal: AbortSignal.timeout(10_000),
     });
+    console.log("[pdf-generator] Completion webhook callback response received.", {
+      url: notifyUrl,
+      status: response.status,
+      ok: response.ok,
+    });
     if (!response.ok) {
       const responseBody = await response.text().catch(() => "");
       console.error("[pdf-generator] Completion webhook request failed.", {
