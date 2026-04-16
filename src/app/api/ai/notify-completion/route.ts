@@ -155,7 +155,7 @@ export async function POST(request: NextRequest) {
       fileIdFromBody,
       job: resolvedJob,
     });
-    for (let attempt = 1; !callbackConsistent && attempt < UNVERIFIED_CALLBACK_MAX_JOB_CONSISTENCY_ATTEMPTS; attempt += 1) {
+    for (let retryAttempt = 0; !callbackConsistent && retryAttempt < UNVERIFIED_CALLBACK_MAX_JOB_CONSISTENCY_ATTEMPTS - 1; retryAttempt += 1) {
       await sleep(UNVERIFIED_CALLBACK_JOB_CONSISTENCY_DELAY_MS);
       try {
         const refreshedJob = await db.getDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, jobId);
@@ -171,7 +171,7 @@ export async function POST(request: NextRequest) {
         console.error("[ai/notify-completion] Failed to refresh job while validating unverified callback consistency.", {
           jobId,
           status,
-          attempt,
+          retryAttempt,
           retryError,
         });
       }
