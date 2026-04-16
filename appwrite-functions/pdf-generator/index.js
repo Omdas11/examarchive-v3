@@ -27,7 +27,12 @@ const DEFAULT_GEMINI_BASE_BACKOFF_MS = Number.isFinite(geminiBaseBackoffRaw)
   ? Math.max(250, geminiBaseBackoffRaw)
   : 1500;
 const GOTENBERG_ENDPOINT_PATH = "/forms/chromium/convert/html";
+const GOTENBERG_MERGE_ENDPOINT_PATH = "/forms/pdfengines/merge";
 const TRUSTED_GOTENBERG_HOST_SUFFIX = ".hf.space";
+const MARKDOWN_SECTION_DELIMITER = "\n\n---\n\n";
+const MARKDOWN_SECTION_DELIMITER_REGEX = /\n{2,}---\n{2,}/;
+const MATHJAX_CONFIG_SCRIPT = 'window.MathJax={tex:{inlineMath:[["$","$"],["\\\\(","\\\\)"]],displayMath:[["$$","$$"],["\\\\[","\\\\]"]]}};';
+const MATHJAX_CDN_SCRIPT_URL = "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js";
 const GOTENBERG_REQUEST_TIMEOUT_MS = Number.isFinite(gotenbergRequestTimeoutRaw)
   ? Math.max(1_000, gotenbergRequestTimeoutRaw)
   : 45_000;
@@ -171,6 +176,8 @@ function renderHtmlDocument({ safeTitle, safeParagraphsHtml }) {
     "<html>",
     "<head>",
     '<meta charset="utf-8"/>',
+    `<script>${MATHJAX_CONFIG_SCRIPT}</script>`,
+    `<script defer src="${MATHJAX_CDN_SCRIPT_URL}"></script>`,
     wrapHtmlTag("title", safeTitle),
     wrapHtmlTag("style", PDF_DOCUMENT_STYLES),
     "</head>",
@@ -230,8 +237,8 @@ function optimizeHtmlForGotenberg(html) {
 
 function normalizeGotenbergWaitDelay(raw) {
   const trimmed = String(raw || "").trim();
-  if (!trimmed) return "2s";
-  return /^\d+(?:ms|s|m|h)$/i.test(trimmed) ? trimmed : "2s";
+  if (!trimmed) return "5s";
+  return /^\d+(?:ms|s|m|h)$/i.test(trimmed) ? trimmed : "5s";
 }
 
 function normalizeBearerToken(rawToken) {
@@ -373,7 +380,7 @@ async function fetchTavilyContext(query) {
     .join("\n\n");
 }
 
-function validateGotenbergUrl(raw) {
+function validateGotenbergUrl(raw, endpointPath = GOTENBERG_ENDPOINT_PATH) {
   const normalizedRaw = String(raw || "").trim().replace(/\/+$/, "");
   let baseUrl;
   try {
@@ -387,12 +394,16 @@ function validateGotenbergUrl(raw) {
   if (!baseUrl.hostname.toLowerCase().endsWith(TRUSTED_GOTENBERG_HOST_SUFFIX)) {
     throw new Error(`GOTENBERG_URL must target a trusted ${TRUSTED_GOTENBERG_HOST_SUFFIX} host.`);
   }
-  const endpointUrl = new URL(GOTENBERG_ENDPOINT_PATH, `${baseUrl.origin}/`);
+  const endpointUrl = new URL(endpointPath, `${baseUrl.origin}/`);
   return endpointUrl.toString();
 }
 
 function shouldRetryGotenberg(status) {
   return status === 408 || status === 425 || status === 429 || status >= 500;
+}
+
+function logFullGotenberg5xx(context, bodyText) {
+  console.error(`[pdf-generator] ${context} 5xx response body (full):`, bodyText || "<empty>");
 }
 
 async function renderWithGotenberg(markdown, fileName, markedParser) {
@@ -401,7 +412,8 @@ async function renderWithGotenberg(markdown, fileName, markedParser) {
   const waitDelay = normalizeGotenbergWaitDelay(process.env.GOTENBERG_WAIT_DELAY);
   if (!gotenbergUrl) throw new Error("Missing GOTENBERG_URL in function environment.");
   if (!gotenbergAuthToken) throw new Error("Missing GOTENBERG_AUTH_TOKEN in function environment.");
-  const endpointUrl = new URL(validateGotenbergUrl(gotenbergUrl));
+  const endpointUrl = new URL(validateGotenbergUrl(gotenbergUrl, GOTENBERG_ENDPOINT_PATH));
+  const mergeEndpointUrl = new URL(validateGotenbergUrl(gotenbergUrl, GOTENBERG_MERGE_ENDPOINT_PATH));
   // Gotenberg expects duration literals (for example: 500ms, 2s, 1m) to delay Chromium capture for heavy Math/LaTeX pages.
   endpointUrl.searchParams.set("waitDelay", waitDelay);
 
@@ -417,61 +429,142 @@ async function renderWithGotenberg(markdown, fileName, markedParser) {
   }
   const headers = { Authorization: normalizeBearerToken(gotenbergAuthToken) };
 
-  let lastError = null;
-  for (let attempt = 1; attempt <= GOTENBERG_MAX_ATTEMPTS; attempt += 1) {
-    const form = new FormData();
-    form.append("files", new Blob([optimizedHtml.html], { type: "text/html" }), "index.html");
-    try {
-      const response = await fetch(endpointUrl.toString(), {
-        method: "POST",
-        headers,
-        body: form,
-        signal: AbortSignal.timeout(GOTENBERG_REQUEST_TIMEOUT_MS),
-      });
-      if (!response.ok) {
-        const bodyText = await response.text().catch(() => "");
-        if (response.status >= 500) {
+  async function renderHtmlWithRetry(htmlString, name = "index.html") {
+    let lastError = null;
+    for (let attempt = 1; attempt <= GOTENBERG_MAX_ATTEMPTS; attempt += 1) {
+      const form = new FormData();
+      form.append("files", new Blob([htmlString], { type: "text/html" }), name);
+      try {
+        const response = await fetch(endpointUrl.toString(), {
+          method: "POST",
+          headers,
+          body: form,
+          signal: AbortSignal.timeout(GOTENBERG_REQUEST_TIMEOUT_MS),
+        });
+        if (!response.ok) {
+          const bodyText = await response.text().catch(() => "");
+          if (response.status >= 500) {
+            logFullGotenberg5xx("Gotenberg", bodyText);
+          }
+          const msg = `Gotenberg request failed (${response.status}): ${bodyText.slice(0, GOTENBERG_ERROR_LOG_MAX_CHARS)}`;
+          if (attempt < GOTENBERG_MAX_ATTEMPTS && shouldRetryGotenberg(response.status)) {
+            console.error(`[pdf-generator] ${msg}`);
+            await sleep(GOTENBERG_BASE_BACKOFF_MS * (2 ** (attempt - 1)));
+            continue;
+          }
+          const httpError = new Error(msg);
+          httpError.name = "GotenbergHttpError";
+          throw httpError;
+        }
+        const pdfArrayBuffer = await response.arrayBuffer();
+        return Buffer.from(pdfArrayBuffer);
+      } catch (error) {
+        lastError = error;
+        const isTimeout = error && typeof error === "object" && error.name === "TimeoutError";
+        const isHttpError = error && typeof error === "object" && error.name === "GotenbergHttpError";
+        if (attempt >= GOTENBERG_MAX_ATTEMPTS) {
+          break;
+        }
+        if (isHttpError) {
           console.error(
-            "[pdf-generator] Gotenberg 5xx response body:",
-            bodyText.slice(0, GOTENBERG_ERROR_LOG_MAX_CHARS) || "<empty>",
+            `[pdf-generator] Gotenberg non-retryable HTTP error at attempt ${attempt}/${GOTENBERG_MAX_ATTEMPTS}: ${formatWorkerErrorMessage(error)}`,
+          );
+          throw error;
+        }
+        if (isTimeout) {
+          console.error(`[pdf-generator] Gotenberg timeout at attempt ${attempt}/${GOTENBERG_MAX_ATTEMPTS}`);
+        } else {
+          console.error(
+            `[pdf-generator] Gotenberg request error at attempt ${attempt}/${GOTENBERG_MAX_ATTEMPTS}: ${formatWorkerErrorMessage(error)}`,
           );
         }
-        const msg = `Gotenberg request failed (${response.status}): ${bodyText.slice(0, GOTENBERG_ERROR_LOG_MAX_CHARS)}`;
-        if (attempt < GOTENBERG_MAX_ATTEMPTS && shouldRetryGotenberg(response.status)) {
-          console.error(`[pdf-generator] ${msg}`);
-          await sleep(GOTENBERG_BASE_BACKOFF_MS * (2 ** (attempt - 1)));
-          continue;
+        await sleep(GOTENBERG_BASE_BACKOFF_MS * (2 ** (attempt - 1)));
+      }
+    }
+    throw lastError || new Error("Gotenberg request failed.");
+  }
+
+  async function mergePdfParts(pdfParts) {
+    const form = new FormData();
+    pdfParts.forEach((pdfPart, index) => {
+      form.append("files", new Blob([pdfPart], { type: "application/pdf" }), `part-${index + 1}.pdf`);
+    });
+    const response = await fetch(mergeEndpointUrl.toString(), {
+      method: "POST",
+      headers,
+      body: form,
+      signal: AbortSignal.timeout(GOTENBERG_REQUEST_TIMEOUT_MS),
+    });
+    if (!response.ok) {
+      const bodyText = await response.text().catch(() => "");
+      if (response.status >= 500) {
+        logFullGotenberg5xx("Gotenberg merge", bodyText);
+      }
+      throw new Error(`Gotenberg merge failed (${response.status}): ${bodyText.slice(0, GOTENBERG_ERROR_LOG_MAX_CHARS)}`);
+    }
+    const mergedArrayBuffer = await response.arrayBuffer();
+    return Buffer.from(mergedArrayBuffer);
+  }
+
+  if (optimizedHtml.optimizedBytes > GOTENBERG_MAX_HTML_BYTES) {
+    const normalizedMarkdown = String(markdown || "");
+    const splitOnDelimiters = normalizedMarkdown
+      .split(MARKDOWN_SECTION_DELIMITER_REGEX)
+      .map((segment) => segment.trim())
+      .filter(Boolean);
+    if (splitOnDelimiters.length >= 2) {
+      const sectionBytes = splitOnDelimiters.map((segment) => Buffer.byteLength(segment, "utf8"));
+      const totalSectionBytes = sectionBytes.reduce((sum, bytes) => sum + bytes, 0);
+      const targetPartBytes = Math.ceil(totalSectionBytes / 2);
+      const partASections = [];
+      const partBSections = [];
+      let partABytes = 0;
+      splitOnDelimiters.forEach((segment, index) => {
+        const segmentBytes = sectionBytes[index];
+        const remainingSections = splitOnDelimiters.length - index;
+        // Keep at least one section in Part B while balancing bytes into Part A.
+        const canAddToPartA = partASections.length === 0 || (partABytes < targetPartBytes && remainingSections > 1);
+        if (canAddToPartA) {
+          partASections.push(segment);
+          partABytes += segmentBytes;
+          return;
         }
-        const httpError = new Error(msg);
-        httpError.name = "GotenbergHttpError";
-        throw httpError;
+        partBSections.push(segment);
+      });
+      const markdownPartA = partASections.join(MARKDOWN_SECTION_DELIMITER);
+      const markdownPartB = partBSections.join(MARKDOWN_SECTION_DELIMITER);
+      if (!markdownPartA || !markdownPartB) {
+        return renderHtmlWithRetry(optimizedHtml.html, "index.html");
       }
-      const pdfArrayBuffer = await response.arrayBuffer();
-      return Buffer.from(pdfArrayBuffer);
-    } catch (error) {
-      lastError = error;
-      const isTimeout = error && typeof error === "object" && error.name === "TimeoutError";
-      const isHttpError = error && typeof error === "object" && error.name === "GotenbergHttpError";
-      if (attempt >= GOTENBERG_MAX_ATTEMPTS) {
-        break;
+      console.warn("[pdf-generator] Oversized payload detected. Rendering in two parts and merging PDFs.", {
+        originalBytes: optimizedHtml.originalBytes,
+        optimizedBytes: optimizedHtml.optimizedBytes,
+        maxAllowedBytes: GOTENBERG_MAX_HTML_BYTES,
+      });
+      const htmlPartA = await markdownToSimpleHtml(markdownPartA, `${fileName} (Part 1)`, markedParser);
+      const htmlPartB = await markdownToSimpleHtml(markdownPartB, `${fileName} (Part 2)`, markedParser);
+      const optimizedPartAResult = optimizeHtmlForGotenberg(htmlPartA);
+      const optimizedPartBResult = optimizeHtmlForGotenberg(htmlPartB);
+      if (
+        optimizedPartAResult.optimizedBytes > GOTENBERG_MAX_HTML_BYTES
+        || optimizedPartBResult.optimizedBytes > GOTENBERG_MAX_HTML_BYTES
+      ) {
+        const oversizeError = new Error("Split rendering parts still exceed max HTML bytes after optimization.");
+        console.error("[pdf-generator] Split parts remain oversized after optimization.", {
+          partABytes: optimizedPartAResult.optimizedBytes,
+          partBBytes: optimizedPartBResult.optimizedBytes,
+          maxAllowedBytes: GOTENBERG_MAX_HTML_BYTES,
+        });
+        throw oversizeError;
       }
-      if (isHttpError) {
-        console.error(
-          `[pdf-generator] Gotenberg non-retryable HTTP error at attempt ${attempt}/${GOTENBERG_MAX_ATTEMPTS}: ${formatWorkerErrorMessage(error)}`,
-        );
-        throw error;
-      }
-      if (isTimeout) {
-        console.error(`[pdf-generator] Gotenberg timeout at attempt ${attempt}/${GOTENBERG_MAX_ATTEMPTS}`);
-      } else {
-        console.error(
-          `[pdf-generator] Gotenberg request error at attempt ${attempt}/${GOTENBERG_MAX_ATTEMPTS}: ${formatWorkerErrorMessage(error)}`,
-        );
-      }
-      await sleep(GOTENBERG_BASE_BACKOFF_MS * (2 ** (attempt - 1)));
+      const optimizedPartA = optimizedPartAResult.html;
+      const optimizedPartB = optimizedPartBResult.html;
+      const partPdfA = await renderHtmlWithRetry(optimizedPartA, "index.html");
+      const partPdfB = await renderHtmlWithRetry(optimizedPartB, "index.html");
+      return mergePdfParts([partPdfA, partPdfB]);
     }
   }
-  throw lastError || new Error("Gotenberg request failed.");
+  return renderHtmlWithRetry(optimizedHtml.html, "index.html");
 }
 
 function formatWorkerErrorMessage(error) {
