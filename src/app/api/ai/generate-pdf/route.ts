@@ -796,10 +796,10 @@ export async function POST(request: NextRequest) {
         console.error(
           "[ai/generate-pdf] Started email failed after successful notes dispatch. Job is already queued and will continue in background.",
           {
-          userId: user.id,
-          paperCode,
-          unitNumber,
-          jobId: notesJobId,
+            userId: user.id,
+            paperCode,
+            unitNumber,
+            jobId: notesJobId,
           },
         );
       }
