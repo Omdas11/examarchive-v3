@@ -15,6 +15,7 @@ const geminiBaseBackoffRaw = Number(process.env.GEMINI_BASE_BACKOFF_MS);
 const gotenbergRequestTimeoutRaw = Number(process.env.GOTENBERG_REQUEST_TIMEOUT_MS);
 const gotenbergMaxAttemptsRaw = Number(process.env.GOTENBERG_MAX_ATTEMPTS);
 const gotenbergBaseBackoffRaw = Number(process.env.GOTENBERG_BASE_BACKOFF_MS);
+const gotenbergMaxHtmlBytesRaw = Number(process.env.GOTENBERG_MAX_HTML_BYTES);
 const tavilyTimeoutRaw = Number(process.env.TAVILY_TIMEOUT_MS);
 const GEMINI_REQUEST_TIMEOUT_MS = Number.isFinite(geminiRequestTimeoutRaw)
   ? Math.max(1_000, geminiRequestTimeoutRaw)
@@ -36,6 +37,9 @@ const GOTENBERG_MAX_ATTEMPTS = Number.isInteger(gotenbergMaxAttemptsRaw)
 const GOTENBERG_BASE_BACKOFF_MS = Number.isFinite(gotenbergBaseBackoffRaw)
   ? Math.max(250, gotenbergBaseBackoffRaw)
   : 1500;
+const GOTENBERG_MAX_HTML_BYTES = Number.isFinite(gotenbergMaxHtmlBytesRaw)
+  ? Math.max(256_000, gotenbergMaxHtmlBytesRaw)
+  : 1_500_000;
 const TAVILY_TIMEOUT_MS = Number.isFinite(tavilyTimeoutRaw)
   ? Math.max(1_000, tavilyTimeoutRaw)
   : 8_000;
@@ -204,6 +208,25 @@ async function markdownToSimpleHtml(markdown, title, markedParser) {
   });
 }
 
+function optimizeHtmlForGotenberg(html) {
+  const originalHtml = String(html || "");
+  const originalBytes = Buffer.byteLength(originalHtml, "utf8");
+  if (originalBytes <= GOTENBERG_MAX_HTML_BYTES) {
+    return { html: originalHtml, originalBytes, optimizedBytes: originalBytes, strippedInlineImages: 0 };
+  }
+
+  let strippedInlineImages = 0;
+  const optimizedHtml = originalHtml.replace(
+    /<img\b[^>]*\bsrc=(["'])data:image\/[^"']+\1[^>]*>/gi,
+    () => {
+      strippedInlineImages += 1;
+      return "";
+    },
+  );
+  const optimizedBytes = Buffer.byteLength(optimizedHtml, "utf8");
+  return { html: optimizedHtml, originalBytes, optimizedBytes, strippedInlineImages };
+}
+
 function normalizeBearerToken(rawToken) {
   const token = String(rawToken || "").trim();
   if (!token) return "";
@@ -365,21 +388,33 @@ function shouldRetryGotenberg(status) {
 }
 
 async function renderWithGotenberg(markdown, fileName, markedParser) {
-  const gotenbergUrl = String(process.env.GOTENBERG_URL || "").trim();
+  const gotenbergUrl = String(process.env.GOTENBERG_URL || "").trim().replace(/\/+$/, "");
   const gotenbergAuthToken = String(process.env.GOTENBERG_AUTH_TOKEN || "").trim();
+  const waitDelay = String(process.env.GOTENBERG_WAIT_DELAY || "2s").trim() || "2s";
   if (!gotenbergUrl) throw new Error("Missing GOTENBERG_URL in function environment.");
   if (!gotenbergAuthToken) throw new Error("Missing GOTENBERG_AUTH_TOKEN in function environment.");
-  const endpointUrl = validateGotenbergUrl(gotenbergUrl);
+  const endpointUrl = new URL(validateGotenbergUrl(gotenbergUrl));
+  endpointUrl.searchParams.set("waitDelay", waitDelay);
 
   const html = await markdownToSimpleHtml(markdown, fileName, markedParser);
-  const headers = { Authorization: normalizeBearerToken(gotenbergAuthToken) };
+  const optimizedHtml = optimizeHtmlForGotenberg(html);
+  if (optimizedHtml.strippedInlineImages > 0) {
+    console.warn("[pdf-generator] Removed inline base64 images from oversized HTML payload.", {
+      strippedInlineImages: optimizedHtml.strippedInlineImages,
+      originalBytes: optimizedHtml.originalBytes,
+      optimizedBytes: optimizedHtml.optimizedBytes,
+      maxAllowedBytes: GOTENBERG_MAX_HTML_BYTES,
+    });
+  }
+  const headers = { Authorization: `Bearer ${normalizeBearerToken(gotenbergAuthToken).replace(/^Bearer\s+/i, "")}` };
 
   let lastError = null;
   for (let attempt = 1; attempt <= GOTENBERG_MAX_ATTEMPTS; attempt += 1) {
     const form = new FormData();
-    form.append("files", new Blob([html], { type: "text/html" }), "index.html");
+    const htmlBuffer = Buffer.from(optimizedHtml.html, "utf8");
+    form.append("files", new Blob([htmlBuffer], { type: "text/html" }), "index.html");
     try {
-      const response = await fetch(endpointUrl, {
+      const response = await fetch(endpointUrl.toString(), {
         method: "POST",
         headers,
         body: form,
@@ -387,6 +422,9 @@ async function renderWithGotenberg(markdown, fileName, markedParser) {
       });
       if (!response.ok) {
         const bodyText = await response.text().catch(() => "");
+        if (response.status >= 500) {
+          console.error("[pdf-generator] Gotenberg 5xx response body:", bodyText.slice(0, 4000) || "<empty>");
+        }
         const msg = `Gotenberg request failed (${response.status}): ${bodyText.slice(0, 2000)}`;
         if (attempt < GOTENBERG_MAX_ATTEMPTS && shouldRetryGotenberg(response.status)) {
           console.error(`[pdf-generator] ${msg}`);
