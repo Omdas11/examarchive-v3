@@ -874,3 +874,5 @@ module.exports = async ({ req, res, log, error }) => {
 };
 
 module.exports.processGenerationJob = processGenerationJob;
+module.exports.notifyCompletionWebhook = notifyCompletionWebhook;
+module.exports.getNotifyCompletionUrl = getNotifyCompletionUrl;
