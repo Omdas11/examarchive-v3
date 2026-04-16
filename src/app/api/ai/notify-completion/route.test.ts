@@ -21,7 +21,7 @@ jest.mock("@/lib/generation-notifications", () => ({
   sendGenerationFailureEmail: (...args: unknown[]) => mockSendGenerationFailureEmail(...args),
 }));
 
-const WEBHOOK_SECRET = "test-webhook-secret-16c";
+const WEBHOOK_SECRET = "test-webhook-secret";
 
 function makeRequest(body: unknown, secret?: string): NextRequest {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
