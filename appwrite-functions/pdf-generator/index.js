@@ -644,7 +644,21 @@ function buildJobTitle(payload) {
   return `${payload.paperCode}_Unit_${payload.unitNumber}_Notes.pdf`;
 }
 
-function getNotifyCompletionUrl() {
+function normalizeAbsoluteHttpUrl(rawUrl) {
+  const value = String(rawUrl || "").trim();
+  if (!value) return "";
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return "";
+    return parsed.toString();
+  } catch {
+    return "";
+  }
+}
+
+function getNotifyCompletionUrl(callbackUrl) {
+  const callbackOverride = normalizeAbsoluteHttpUrl(callbackUrl);
+  if (callbackOverride) return callbackOverride;
   const siteUrl = String(process.env.SITE_URL || "").trim().replace(/\/+$/, "");
   if (!siteUrl) return "";
   try {
@@ -655,10 +669,10 @@ function getNotifyCompletionUrl() {
   }
 }
 
-async function notifyCompletionWebhook({ jobId, status, fileId, userId, userEmail }) {
-  const notifyUrl = getNotifyCompletionUrl();
+async function notifyCompletionWebhook({ jobId, status, fileId, userId, userEmail, callbackUrl }) {
+  const notifyUrl = getNotifyCompletionUrl(callbackUrl);
   if (!notifyUrl) {
-    console.error("[pdf-generator] SITE_URL is not configured or invalid; completion webhook callback skipped.");
+    console.error("[pdf-generator] Completion webhook URL is not configured or invalid; callback skipped.");
     return;
   }
   const headers = { "Content-Type": "application/json" };
@@ -881,6 +895,7 @@ async function processGenerationJob(rawInput, options = {}) {
       fileId: String(created.$id),
       userId: String(payload.userId || "").trim(),
       userEmail: String(payload.userEmail || "").trim(),
+      callbackUrl: String(payload.callbackUrl || "").trim(),
     });
 
     return { ok: true, jobId, fileId: String(created.$id) };
@@ -896,6 +911,7 @@ async function processGenerationJob(rawInput, options = {}) {
       fileId: "",
       userId: String(payload.userId || "").trim(),
       userEmail: String(payload.userEmail || "").trim(),
+      callbackUrl: String(payload.callbackUrl || "").trim(),
     });
     throw error;
   }

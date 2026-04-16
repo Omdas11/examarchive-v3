@@ -302,6 +302,14 @@ function normalizeJobStatus(status: string | null | undefined): string {
   return String(status || "").trim().toLowerCase();
 }
 
+function buildCompletionWebhookUrl(request: NextRequest): string {
+  try {
+    return new URL("/api/ai/notify-completion", request.nextUrl.origin).toString();
+  } catch {
+    return "";
+  }
+}
+
 async function rollbackReservedGenerationResources(params: {
   admin: boolean;
   userId: string;
@@ -780,6 +788,7 @@ export async function POST(request: NextRequest) {
 
   const admin = isAdminPlus(user.role);
   const todayStr = new Date().toISOString().slice(0, 10);
+  const completionWebhookUrl = buildCompletionWebhookUrl(request);
 
   if (jobType === "notes") {
     const unitNumber = Number(body.unitNumber);
@@ -837,6 +846,7 @@ export async function POST(request: NextRequest) {
           unitNumber,
           semester: parsedSemester,
           model: selectedModel,
+          callbackUrl: completionWebhookUrl,
         },
       });
       notesJobId = dispatched.jobId;
@@ -993,6 +1003,7 @@ export async function POST(request: NextRequest) {
         year,
         semester: parsedSemester,
         model: selectedModel,
+        callbackUrl: completionWebhookUrl,
       },
     });
     solvedJobId = dispatched.jobId;
