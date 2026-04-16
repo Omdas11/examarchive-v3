@@ -863,7 +863,8 @@ export async function POST(request: NextRequest) {
           jobId: notesJobId,
           status: responseStatus,
           cached: true,
-          readyEmailSent: isCompleted ? readyEmailSent : undefined,
+          readyEmailNotificationAttempted: isCompleted,
+          readyEmailSent: isCompleted ? readyEmailSent : false,
           fileId: isCompleted ? (dispatched.resultFileId || "") : "",
           downloadUrl:
             isCompleted && dispatched.resultFileId
@@ -1014,7 +1015,8 @@ export async function POST(request: NextRequest) {
         jobId: solvedJobId,
         status: responseStatus,
         cached: true,
-        readyEmailSent: isCompleted ? readyEmailSent : undefined,
+        readyEmailNotificationAttempted: isCompleted,
+        readyEmailSent: isCompleted ? readyEmailSent : false,
         fileId: isCompleted ? (dispatched.resultFileId || "") : "",
         downloadUrl:
           isCompleted && dispatched.resultFileId

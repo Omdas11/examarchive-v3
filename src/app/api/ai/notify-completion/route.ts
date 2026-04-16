@@ -129,6 +129,8 @@ export async function POST(request: NextRequest) {
     console.error("[ai/notify-completion] Unable to resolve recipient email for webhook callback.", {
       jobId,
       payloadUserId,
+      jobUserId: String(job.user_id || "").trim(),
+      payloadUserEmail: String(payload.userEmail || "").trim(),
     });
     return NextResponse.json(
       { error: "Unable to resolve recipient email right now. Please retry this callback shortly." },
