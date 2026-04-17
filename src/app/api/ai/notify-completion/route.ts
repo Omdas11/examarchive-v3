@@ -66,33 +66,33 @@ async function resolveNotificationEmail(args: {
   hasValidBearer: boolean;
   jobId: string;
 }): Promise<string> {
-  const trustedPayloadEmail = String(args.payload.userEmail || "").trim();
-  const normalizedPayloadUserEmail = String(args.payloadUserEmail || "").trim();
-  if (args.hasValidBearer && normalizedPayloadUserEmail) return normalizedPayloadUserEmail;
+  const payloadEmailField = String(args.payload.userEmail || "").trim();
+  const bodyEmailParameter = String(args.payloadUserEmail || "").trim();
+  if (args.hasValidBearer && bodyEmailParameter) return bodyEmailParameter;
   if (
     !args.hasValidBearer &&
-    normalizedPayloadUserEmail &&
-    trustedPayloadEmail &&
-    normalizedPayloadUserEmail.toLowerCase() === trustedPayloadEmail.toLowerCase()
+    bodyEmailParameter &&
+    payloadEmailField &&
+    bodyEmailParameter.toLowerCase() === payloadEmailField.toLowerCase()
   ) {
-    return normalizedPayloadUserEmail;
+    return bodyEmailParameter;
   }
-  if (trustedPayloadEmail) return trustedPayloadEmail;
+  if (payloadEmailField) return payloadEmailField;
 
   const jobUserId = String(args.job.user_id || "").trim();
-  const trustedPayloadUserId = String(args.payload.userId || "").trim();
-  const normalizedPayloadUserId = String(args.payloadUserId || "").trim();
+  const payloadUserIdField = String(args.payload.userId || "").trim();
+  const bodyUserIdParameter = String(args.payloadUserId || "").trim();
   let fallbackUserIdFromPayload = "";
   if (args.hasValidBearer) {
-    fallbackUserIdFromPayload = normalizedPayloadUserId;
+    fallbackUserIdFromPayload = bodyUserIdParameter;
   } else if (
-    normalizedPayloadUserId &&
-    trustedPayloadUserId &&
-    normalizedPayloadUserId === trustedPayloadUserId
+    bodyUserIdParameter &&
+    payloadUserIdField &&
+    bodyUserIdParameter === payloadUserIdField
   ) {
-    fallbackUserIdFromPayload = normalizedPayloadUserId;
+    fallbackUserIdFromPayload = bodyUserIdParameter;
   } else {
-    fallbackUserIdFromPayload = trustedPayloadUserId;
+    fallbackUserIdFromPayload = payloadUserIdField;
   }
   const userId = jobUserId || fallbackUserIdFromPayload;
   if (!userId) return "";

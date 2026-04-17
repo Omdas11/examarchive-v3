@@ -648,6 +648,7 @@ function buildJobTitle(payload) {
 function normalizeAbsoluteHttpUrl(rawUrl) {
   const value = String(rawUrl || "").trim();
   if (!value) return "";
+  // Block malformed "double protocol" values that URL() can parse unexpectedly (e.g. https://https://...).
   if (/^https?:\/\/https?:\/\//i.test(value)) return "";
   try {
     const parsed = new URL(value);
