@@ -58,6 +58,13 @@ describe("POST /api/ai/notify-completion", () => {
   });
 
   it("returns 401 when no auth token provided", async () => {
+    mockGetDocument.mockResolvedValue({
+      $id: "job1",
+      status: "queued",
+      completed_at: "",
+      result_file_id: "",
+      input_payload_json: "{}",
+    });
     const req = makeRequest({ jobId: "job1", status: "completed", fileId: "file1" });
     const res = await POST(req);
     expect(res.status).toBe(401);
@@ -66,7 +73,76 @@ describe("POST /api/ai/notify-completion", () => {
   });
 
   it("returns 401 when wrong auth token provided", async () => {
+    mockGetDocument.mockResolvedValue({
+      $id: "job1",
+      status: "running",
+      completed_at: "",
+      result_file_id: "file1",
+      input_payload_json: "{}",
+    });
     const req = makeRequest({ jobId: "job1", status: "completed", fileId: "file1" }, "wrong-secret");
+    const res = await POST(req);
+    expect(res.status).toBe(401);
+  });
+
+  it("accepts unverified completed callback when job state and fileId strictly match", async () => {
+    mockGetDocument.mockResolvedValue({
+      $id: "job1",
+      status: "completed",
+      completed_at: "2026-04-16T16:00:00.000Z",
+      user_id: "user1",
+      result_file_id: "file1",
+      input_payload_json: JSON.stringify({ jobType: "notes", paperCode: "CS101", unitNumber: 1, userEmail: "user@example.com" }),
+      error_message: "",
+    });
+    mockSendGenerationPdfEmail.mockResolvedValue(undefined);
+    const req = makeRequest({ jobId: "job1", status: "completed", fileId: "file1" });
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.ok).toBe(true);
+  });
+
+  it("accepts unverified completed callback after short consistency delay when initial read is stale", async () => {
+    mockGetDocument
+      .mockResolvedValueOnce({
+        $id: "job1",
+        status: "running",
+        completed_at: "",
+        user_id: "user1",
+        result_file_id: "",
+        input_payload_json: JSON.stringify({ jobType: "notes", paperCode: "CS101", unitNumber: 1, userEmail: "user@example.com" }),
+        error_message: "",
+      })
+      .mockResolvedValueOnce({
+        $id: "job1",
+        status: "completed",
+        completed_at: "2026-04-16T16:00:00.000Z",
+        user_id: "user1",
+        result_file_id: "file1",
+        input_payload_json: JSON.stringify({ jobType: "notes", paperCode: "CS101", unitNumber: 1, userEmail: "user@example.com" }),
+        error_message: "",
+      });
+    mockSendGenerationPdfEmail.mockResolvedValue(undefined);
+    const req = makeRequest({ jobId: "job1", status: "completed", fileId: "file1" });
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.ok).toBe(true);
+    expect(mockSendGenerationPdfEmail).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects unverified completed callback when fileId does not match stored result", async () => {
+    mockGetDocument.mockResolvedValue({
+      $id: "job1",
+      status: "completed",
+      completed_at: "2026-04-16T16:00:00.000Z",
+      user_id: "user1",
+      result_file_id: "stored-file",
+      input_payload_json: JSON.stringify({ jobType: "notes", paperCode: "CS101", unitNumber: 1, userEmail: "user@example.com" }),
+      error_message: "",
+    });
+    const req = makeRequest({ jobId: "job1", status: "completed", fileId: "different-file" });
     const res = await POST(req);
     expect(res.status).toBe(401);
   });
@@ -102,13 +178,22 @@ describe("POST /api/ai/notify-completion", () => {
     expect(json.error).toMatch(/invalid payload/i);
   });
 
-  it("returns 404 when job is not found in db", async () => {
+  it("returns 404 when job is not found in db for verified callbacks", async () => {
     mockGetDocument.mockRejectedValue({ status: 404 });
     const req = makeRequest({ jobId: "missing-job", status: "completed", fileId: "file1" }, WEBHOOK_SECRET);
     const res = await POST(req);
     expect(res.status).toBe(404);
     const json = await res.json();
     expect(json.error).toMatch(/not found/i);
+  });
+
+  it("returns 401 when job is not found in db for unverified callbacks", async () => {
+    mockGetDocument.mockRejectedValue({ status: 404 });
+    const req = makeRequest({ jobId: "missing-job", status: "completed", fileId: "file1" });
+    const res = await POST(req);
+    expect(res.status).toBe(401);
+    const json = await res.json();
+    expect(json.error).toMatch(/unauthorized/i);
   });
 
   it("returns 500 when db lookup fails with non-404 error", async () => {
@@ -229,6 +314,29 @@ describe("POST /api/ai/notify-completion", () => {
   });
 
   describe("email resolution", () => {
+    it("ignores unverified body userEmail when it does not match trusted payload email", async () => {
+      mockGetDocument.mockResolvedValue({
+        $id: "job1",
+        status: "completed",
+        completed_at: "2026-04-16T16:00:00.000Z",
+        user_id: "user1",
+        result_file_id: "file1",
+        input_payload_json: JSON.stringify({ jobType: "notes", paperCode: "X1", unitNumber: 1, userEmail: "payload@example.com" }),
+        error_message: "",
+      });
+      mockSendGenerationPdfEmail.mockResolvedValue(undefined);
+      const req = makeRequest({
+        jobId: "job1",
+        status: "completed",
+        fileId: "file1",
+        userEmail: "attacker@example.com",
+      });
+      await POST(req);
+      expect(mockSendGenerationPdfEmail).toHaveBeenCalledWith(
+        expect.objectContaining({ email: "payload@example.com" }),
+      );
+    });
+
     it("resolves email from userEmail in input_payload_json", async () => {
       mockGetDocument.mockResolvedValue({
         $id: "job1",

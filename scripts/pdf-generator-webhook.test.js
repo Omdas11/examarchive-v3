@@ -50,6 +50,18 @@ describe("pdf-generator / getNotifyCompletionUrl", () => {
     expect(url).toBe("https://www.example.com/api/ai/notify-completion");
   });
 
+  it("accepts callbackUrl override when origin matches SITE_URL", () => {
+    process.env = { ...originalEnv, SITE_URL: "https://www.example.com" };
+    const url = getNotifyCompletionUrl("https://www.example.com/api/ai/notify-completion");
+    expect(url).toBe("https://www.example.com/api/ai/notify-completion");
+  });
+
+  it("rejects callbackUrl override when origin differs from SITE_URL", () => {
+    process.env = { ...originalEnv, SITE_URL: "https://www.example.com" };
+    const url = getNotifyCompletionUrl("https://preview.example.com/api/ai/notify-completion");
+    expect(url).toBe("");
+  });
+
   it("handles SITE_URL with trailing slash", () => {
     process.env = { ...originalEnv, SITE_URL: "https://www.example.com/" };
     const url = getNotifyCompletionUrl();
@@ -99,6 +111,7 @@ describe("pdf-generator / notifyCompletionWebhook", () => {
     const [url, options] = fetchMock.mock.calls[0];
     expect(url).toBe("https://www.example.com/api/ai/notify-completion");
     expect(options.method).toBe("POST");
+    expect(options.headers["Content-Type"]).toBe("application/json");
     expect(options.headers["Authorization"]).toBe("Bearer test-secret-key");
     const body = JSON.parse(options.body);
     expect(body).toEqual({ jobId: "job-abc", status: "completed", fileId: "file-xyz" });
@@ -112,6 +125,34 @@ describe("pdf-generator / notifyCompletionWebhook", () => {
 
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(body).toEqual({ jobId: "job-fail", status: "failed", fileId: "" });
+  });
+
+  it("uses callbackUrl override for webhook delivery when origin matches SITE_URL", async () => {
+    const fetchMock = jest.fn().mockResolvedValue({ ok: true, status: 200 });
+    global.fetch = fetchMock;
+
+    await notifyCompletionWebhook({
+      jobId: "job-preview",
+      status: "completed",
+      fileId: "file-preview",
+      callbackUrl: "https://www.example.com/custom/notify",
+    });
+
+    expect(fetchMock.mock.calls[0][0]).toBe("https://www.example.com/custom/notify");
+  });
+
+  it("skips callbackUrl override when origin differs from SITE_URL", async () => {
+    const fetchMock = jest.fn().mockResolvedValue({ ok: true, status: 200 });
+    global.fetch = fetchMock;
+
+    await notifyCompletionWebhook({
+      jobId: "job-preview",
+      status: "completed",
+      fileId: "file-preview",
+      callbackUrl: "https://preview.example.com/api/ai/notify-completion",
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("includes Authorization header when AI_JOB_WEBHOOK_SECRET is set", async () => {

@@ -17,6 +17,7 @@ import {
   sendGenerationPdfEmail,
   sendGenerationStartedEmail,
 } from "@/lib/generation-notifications";
+import { buildSignedPdfDownloadPath } from "@/lib/pdf-download-link";
 import {
   GENERATION_COST_ELECTRONS,
   SUPPORTED_AI_MODELS,
@@ -299,6 +300,54 @@ function shouldSkipDispatchForExistingJob(status: string): boolean {
 
 function normalizeJobStatus(status: string | null | undefined): string {
   return String(status || "").trim().toLowerCase();
+}
+
+function normalizeTrustedSiteUrl(rawUrl: string): string {
+  const value = String(rawUrl || "").trim();
+  if (!value) return "";
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return "";
+    return parsed.toString();
+  } catch {
+    return "";
+  }
+}
+
+function buildTrustedSiteUrlFromVercelUrl(rawVercelUrl: string): string {
+  const normalizedVercelUrl = String(rawVercelUrl || "").trim().replace(/^https?:\/\//i, "");
+  if (!normalizedVercelUrl) return "";
+  return normalizeTrustedSiteUrl(`https://${normalizedVercelUrl}`);
+}
+
+function buildCompletionWebhookUrl(): string {
+  const siteUrl = normalizeTrustedSiteUrl(String(process.env.SITE_URL || ""));
+  const nextPublicSiteUrl = normalizeTrustedSiteUrl(String(process.env.NEXT_PUBLIC_SITE_URL || ""));
+  const vercelUrl = String(process.env.VERCEL_URL || "").trim();
+  const trustedVercelSiteUrl = buildTrustedSiteUrlFromVercelUrl(vercelUrl);
+  const trustedSiteUrl = siteUrl || nextPublicSiteUrl || trustedVercelSiteUrl;
+  if (!trustedSiteUrl) {
+    console.error("[ai/generate-pdf] CRITICAL: Failed to build completion webhook URL because no trusted site URL is configured. Webhook callbacks will be disabled, breaking worker/Appwrite integration contract.", {
+      siteUrlConfigured: Boolean(siteUrl),
+      nextPublicSiteUrlConfigured: Boolean(nextPublicSiteUrl),
+      vercelUrlConfigured: Boolean(vercelUrl),
+      vercelUrlUsable: Boolean(trustedVercelSiteUrl),
+      nodeEnv: process.env.NODE_ENV,
+      vercelEnv: process.env.VERCEL_ENV,
+    });
+    return "";
+  }
+  try {
+    return new URL("/api/ai/notify-completion", trustedSiteUrl).toString();
+  } catch (error) {
+    console.error("[ai/generate-pdf] Failed to build completion webhook URL from trusted site URL.", {
+      trustedSiteUrl,
+      failureType: "invalid_or_unusable_trusted_site_url",
+      message: error instanceof Error ? error.message : String(error),
+      error,
+    });
+    return "";
+  }
 }
 
 async function rollbackReservedGenerationResources(params: {
@@ -654,14 +703,22 @@ async function ensureGenerationStartedEmail(email: string, title: string): Promi
   }
 }
 
-async function ensureGenerationReadyEmail(email: string, title: string, fileId: string): Promise<boolean> {
+async function ensureGenerationReadyEmail(
+  email: string,
+  title: string,
+  fileId: string,
+  userId: string,
+): Promise<boolean> {
   const normalizedFileId = String(fileId || "").trim();
   if (!normalizedFileId) return false;
   try {
     await sendGenerationPdfEmail({
       email,
       title,
-      downloadUrl: `/api/files/papers/${encodeURIComponent(normalizedFileId)}`,
+      downloadUrl: buildSignedPdfDownloadPath({
+        fileId: normalizedFileId,
+        userId,
+      }),
     });
     return true;
   } catch (error) {
@@ -771,6 +828,7 @@ export async function POST(request: NextRequest) {
 
   const admin = isAdminPlus(user.role);
   const todayStr = new Date().toISOString().slice(0, 10);
+  const completionWebhookUrl = buildCompletionWebhookUrl();
 
   if (jobType === "notes") {
     const unitNumber = Number(body.unitNumber);
@@ -828,6 +886,7 @@ export async function POST(request: NextRequest) {
           unitNumber,
           semester: parsedSemester,
           model: selectedModel,
+          callbackUrl: completionWebhookUrl,
         },
       });
       notesJobId = dispatched.jobId;
@@ -854,8 +913,15 @@ export async function POST(request: NextRequest) {
             userEmail,
             `Unit Notes (${paperCode} - Unit ${unitNumber})`,
             dispatched.resultFileId || "",
+            user.id,
           );
         }
+        const cachedDownloadUrl = isCompleted && dispatched.resultFileId
+          ? buildSignedPdfDownloadPath({
+            fileId: dispatched.resultFileId,
+            userId: user.id,
+          })
+          : "";
         return NextResponse.json({
           ok: true,
           jobId: notesJobId,
@@ -864,10 +930,7 @@ export async function POST(request: NextRequest) {
           readyEmailNotificationAttempted: isCompleted,
           readyEmailSent: isCompleted ? readyEmailSent : false,
           fileId: isCompleted ? (dispatched.resultFileId || "") : "",
-          downloadUrl:
-            isCompleted && dispatched.resultFileId
-              ? `/api/files/papers/${encodeURIComponent(dispatched.resultFileId)}`
-              : "",
+          downloadUrl: cachedDownloadUrl,
           message:
             isCompleted
               ? "A matching notes job is already completed. Returning cached file."
@@ -980,6 +1043,7 @@ export async function POST(request: NextRequest) {
         year,
         semester: parsedSemester,
         model: selectedModel,
+        callbackUrl: completionWebhookUrl,
       },
     });
     solvedJobId = dispatched.jobId;
@@ -1001,25 +1065,29 @@ export async function POST(request: NextRequest) {
       const isCompleted = normalizedExistingStatus === JOB_STATUS_COMPLETED;
       const responseStatus = normalizedExistingStatus || "unknown";
       let readyEmailSent = true;
-      if (isCompleted) {
-        readyEmailSent = await ensureGenerationReadyEmail(
-          userEmail,
-          `Solved Paper (${paperCode} ${year})`,
-          dispatched.resultFileId || "",
-        );
-      }
-      return NextResponse.json({
-        ok: true,
-        jobId: solvedJobId,
+        if (isCompleted) {
+          readyEmailSent = await ensureGenerationReadyEmail(
+            userEmail,
+            `Solved Paper (${paperCode} ${year})`,
+            dispatched.resultFileId || "",
+            user.id,
+          );
+        }
+        const cachedDownloadUrl = isCompleted && dispatched.resultFileId
+          ? buildSignedPdfDownloadPath({
+            fileId: dispatched.resultFileId,
+            userId: user.id,
+          })
+          : "";
+        return NextResponse.json({
+          ok: true,
+          jobId: solvedJobId,
         status: responseStatus,
         cached: true,
-        readyEmailNotificationAttempted: isCompleted,
-        readyEmailSent: isCompleted ? readyEmailSent : false,
-        fileId: isCompleted ? (dispatched.resultFileId || "") : "",
-        downloadUrl:
-          isCompleted && dispatched.resultFileId
-            ? `/api/files/papers/${encodeURIComponent(dispatched.resultFileId)}`
-            : "",
+          readyEmailNotificationAttempted: isCompleted,
+          readyEmailSent: isCompleted ? readyEmailSent : false,
+          fileId: isCompleted ? (dispatched.resultFileId || "") : "",
+          downloadUrl: cachedDownloadUrl,
         message:
           isCompleted
             ? "A matching solved-paper job is already completed. Returning cached file."

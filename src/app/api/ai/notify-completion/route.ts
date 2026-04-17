@@ -2,13 +2,24 @@ import { NextResponse, type NextRequest } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 import { adminDatabases, COLLECTION, DATABASE_ID } from "@/lib/appwrite";
 import { sendGenerationFailureEmail, sendGenerationPdfEmail } from "@/lib/generation-notifications";
+import { buildSignedPdfDownloadPath } from "@/lib/pdf-download-link";
 
 type NotifyPayload = {
   jobId?: unknown;
   status?: unknown;
   fileId?: unknown;
   userId?: unknown;
+  userEmail?: unknown;
 };
+
+type CallbackTrustCheckArgs = {
+  status: "completed" | "failed";
+  fileIdFromBody: string;
+  job: Record<string, unknown>;
+};
+
+const UNVERIFIED_CALLBACK_MAX_JOB_CONSISTENCY_RETRIES = 3;
+const UNVERIFIED_CALLBACK_JOB_CONSISTENCY_DELAY_MS = 300;
 
 function safeCompareSecrets(expected: string, provided: string): boolean {
   const expectedBuffer = Buffer.from(expected);
@@ -51,11 +62,39 @@ async function resolveNotificationEmail(args: {
   job: Record<string, unknown>;
   payload: Record<string, unknown>;
   payloadUserId: string;
+  payloadUserEmail: string;
+  hasValidBearer: boolean;
   jobId: string;
 }): Promise<string> {
-  const payloadEmail = String(args.payload.userEmail || "").trim();
-  if (payloadEmail) return payloadEmail;
-  const userId = String(args.job.user_id || "").trim() || args.payloadUserId;
+  const payloadEmailField = String(args.payload.userEmail || "").trim();
+  const bodyEmailParameter = String(args.payloadUserEmail || "").trim();
+  if (args.hasValidBearer && bodyEmailParameter) return bodyEmailParameter;
+  if (
+    !args.hasValidBearer &&
+    bodyEmailParameter &&
+    payloadEmailField &&
+    bodyEmailParameter.toLowerCase() === payloadEmailField.toLowerCase()
+  ) {
+    return bodyEmailParameter;
+  }
+  if (payloadEmailField) return payloadEmailField;
+
+  const jobUserId = String(args.job.user_id || "").trim();
+  const payloadUserIdField = String(args.payload.userId || "").trim();
+  const bodyUserIdParameter = String(args.payloadUserId || "").trim();
+  let fallbackUserIdFromPayload = "";
+  if (args.hasValidBearer) {
+    fallbackUserIdFromPayload = bodyUserIdParameter;
+  } else if (
+    bodyUserIdParameter &&
+    payloadUserIdField &&
+    bodyUserIdParameter === payloadUserIdField
+  ) {
+    fallbackUserIdFromPayload = bodyUserIdParameter;
+  } else {
+    fallbackUserIdFromPayload = payloadUserIdField;
+  }
+  const userId = jobUserId || fallbackUserIdFromPayload;
   if (!userId) return "";
   try {
     const userDoc = await args.db.getDocument(DATABASE_ID, COLLECTION.users, userId);
@@ -80,15 +119,28 @@ function getAppwriteErrorStatus(error: unknown): number {
   return Number(appwriteError.status ?? appwriteError.code ?? appwriteError.response?.status ?? appwriteError.response?.code ?? NaN);
 }
 
+function isUnverifiedCallbackConsistentWithJob(args: CallbackTrustCheckArgs): boolean {
+  const jobStatus = String(args.job.status || "").trim().toLowerCase();
+  if (jobStatus !== args.status) return false;
+  if (args.status === "completed") {
+    const storedFileId = String(args.job.result_file_id || "").trim();
+    return !!args.fileIdFromBody && !!storedFileId && args.fileIdFromBody === storedFileId;
+  }
+  const completedAt = String(args.job.completed_at || "").trim();
+  return !!completedAt;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function POST(request: NextRequest) {
   const webhookSecret = (process.env.AI_JOB_WEBHOOK_SECRET || "").trim();
   if (!webhookSecret) {
     return NextResponse.json({ error: "Webhook secret not configured." }, { status: 503 });
   }
   const providedToken = getAuthToken(request);
-  if (!providedToken || !safeCompareSecrets(webhookSecret, providedToken)) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-  }
+  const hasValidBearer = !!providedToken && safeCompareSecrets(webhookSecret, providedToken);
 
   let body: NotifyPayload;
   try {
@@ -101,6 +153,7 @@ export async function POST(request: NextRequest) {
   const status = String(body.status || "").trim().toLowerCase();
   const fileIdFromBody = String(body.fileId || "").trim();
   const payloadUserId = String(body.userId || "").trim();
+  const payloadUserEmail = String(body.userEmail || "").trim();
   if (!jobId || (status !== "completed" && status !== "failed")) {
     return NextResponse.json({ error: "Invalid payload." }, { status: 400 });
   }
@@ -112,24 +165,71 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const errorStatus = getAppwriteErrorStatus(error);
     if (errorStatus === 404) {
+      if (!hasValidBearer) {
+        return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+      }
       return NextResponse.json({ error: "Job not found." }, { status: 404 });
     }
     console.error("[ai/notify-completion] Failed to load job for webhook callback.", { jobId, error });
     return NextResponse.json({ error: "Unable to process notification callback." }, { status: 500 });
   }
-  const payload = parseInputPayloadJson(job.input_payload_json);
+  if (!job || typeof job !== "object") {
+    return NextResponse.json({ error: "Unable to process notification callback." }, { status: 500 });
+  }
+  let resolvedJob = job as Record<string, unknown>;
+  if (!hasValidBearer) {
+    let callbackConsistent = isUnverifiedCallbackConsistentWithJob({
+      status: status as "completed" | "failed",
+      fileIdFromBody,
+      job: resolvedJob,
+    });
+    for (let retryAttempt = 0; retryAttempt < UNVERIFIED_CALLBACK_MAX_JOB_CONSISTENCY_RETRIES; retryAttempt += 1) {
+      if (callbackConsistent) break;
+      await sleep(UNVERIFIED_CALLBACK_JOB_CONSISTENCY_DELAY_MS);
+      try {
+        const refreshedJob = await db.getDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, jobId);
+        if (refreshedJob && typeof refreshedJob === "object") {
+          resolvedJob = refreshedJob as Record<string, unknown>;
+          callbackConsistent = isUnverifiedCallbackConsistentWithJob({
+            status: status as "completed" | "failed",
+            fileIdFromBody,
+            job: resolvedJob,
+          });
+        }
+      } catch (retryError) {
+        console.error("[ai/notify-completion] Failed to refresh job while validating unverified callback consistency.", {
+          jobId,
+          status,
+          retryAttempt,
+          retryError,
+        });
+      }
+    }
+    if (!callbackConsistent) {
+      return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+    }
+    console.warn("[ai/notify-completion] Processing unverified callback using strict job-state consistency fallback.", {
+      jobId,
+      status,
+      hasProvidedToken: !!providedToken,
+    });
+  }
+  const payload = parseInputPayloadJson(resolvedJob.input_payload_json);
+
   const email = await resolveNotificationEmail({
     db,
-    job,
+    job: resolvedJob,
     payload,
     payloadUserId,
+    payloadUserEmail,
+    hasValidBearer,
     jobId,
   });
   if (!email) {
     console.error("[ai/notify-completion] Unable to resolve recipient email for webhook callback.", {
       jobId,
       payloadUserId,
-      jobUserId: String(job.user_id || "").trim(),
+      jobUserId: String(resolvedJob.user_id || "").trim(),
       payloadUserEmail: String(payload.userEmail || "").trim(),
     });
     return NextResponse.json(
@@ -140,15 +240,19 @@ export async function POST(request: NextRequest) {
   const title = getTitleFromPayload(payload);
 
   if (status === "completed") {
-    const fileId = fileIdFromBody || String(job.result_file_id || "").trim();
+    const fileId = fileIdFromBody || String(resolvedJob.result_file_id || "").trim();
     if (!fileId) {
       return NextResponse.json({ error: "Missing fileId for completed status." }, { status: 400 });
     }
+    const userId = String(resolvedJob.user_id || "").trim() || payloadUserId;
     try {
       await sendGenerationPdfEmail({
         email,
         title,
-        downloadUrl: `/api/files/papers/${encodeURIComponent(fileId)}`,
+        downloadUrl: buildSignedPdfDownloadPath({
+          fileId,
+          userId,
+        }),
       });
     } catch (error) {
       console.error("[ai/notify-completion] Failed to send completion email.", { jobId, fileId, email, error });
@@ -161,7 +265,7 @@ export async function POST(request: NextRequest) {
     await sendGenerationFailureEmail({
       email,
       title,
-      reason: String(job.error_message || "Generation failed."),
+      reason: String(resolvedJob.error_message || "Generation failed."),
     });
   } catch (error) {
     console.error("[ai/notify-completion] Failed to send failure email.", { jobId, email, error });
