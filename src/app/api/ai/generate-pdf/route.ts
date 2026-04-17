@@ -303,10 +303,16 @@ function normalizeJobStatus(status: string | null | undefined): string {
 }
 
 function buildCompletionWebhookUrl(): string {
-  const trustedSiteUrl = String(process.env.SITE_URL || "").trim();
+  const siteUrl = String(process.env.SITE_URL || "").trim();
+  const nextPublicSiteUrl = String(process.env.NEXT_PUBLIC_SITE_URL || "").trim();
+  const vercelUrl = String(process.env.VERCEL_URL || "").trim();
+  const normalizedVercelUrl = vercelUrl.replace(/^https?:\/\//i, "");
+  const trustedSiteUrl = siteUrl || nextPublicSiteUrl || (normalizedVercelUrl ? `https://${normalizedVercelUrl}` : "");
   if (!trustedSiteUrl) {
     console.error("[ai/generate-pdf] CRITICAL: Failed to build completion webhook URL because SITE_URL is not configured. Webhook callbacks will be disabled, breaking worker/Appwrite integration contract.", {
-      siteUrlConfigured: false,
+      siteUrlConfigured: Boolean(siteUrl),
+      nextPublicSiteUrlConfigured: Boolean(nextPublicSiteUrl),
+      vercelUrlConfigured: Boolean(vercelUrl),
       nodeEnv: process.env.NODE_ENV,
       vercelEnv: process.env.VERCEL_ENV,
     });
