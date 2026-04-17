@@ -302,27 +302,25 @@ function normalizeJobStatus(status: string | null | undefined): string {
   return String(status || "").trim().toLowerCase();
 }
 
-function buildCompletionWebhookUrl(request: NextRequest): string {
+function buildCompletionWebhookUrl(): string {
+  const trustedSiteUrl = String(process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || "").trim();
+  if (!trustedSiteUrl) {
+    console.error("[ai/generate-pdf] Failed to build completion webhook URL because no trusted site URL is configured.", {
+      siteUrlConfigured: Boolean(String(process.env.SITE_URL || "").trim()),
+      nextPublicSiteUrlConfigured: Boolean(String(process.env.NEXT_PUBLIC_SITE_URL || "").trim()),
+    });
+    return "";
+  }
   try {
-    return new URL("/api/ai/notify-completion", request.nextUrl.origin).toString();
+    return new URL("/api/ai/notify-completion", trustedSiteUrl).toString();
   } catch (error) {
-    console.error("[ai/generate-pdf] Failed to build completion webhook URL from request origin.", {
-      origin: request.nextUrl.origin,
-      failureType: "invalid_or_unusable_request_origin",
+    console.error("[ai/generate-pdf] Failed to build completion webhook URL from trusted site URL.", {
+      trustedSiteUrl,
+      failureType: "invalid_or_unusable_trusted_site_url",
       message: error instanceof Error ? error.message : String(error),
       error,
     });
-    const fallbackSiteUrl = String(process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || "").trim();
-    if (!fallbackSiteUrl) return "";
-    try {
-      return new URL("/api/ai/notify-completion", fallbackSiteUrl).toString();
-    } catch (fallbackError) {
-      console.error("[ai/generate-pdf] Failed to build completion webhook URL from fallback site URL.", {
-        fallbackSiteUrl,
-        fallbackError,
-      });
-      return "";
-    }
+    return "";
   }
 }
 
@@ -804,7 +802,7 @@ export async function POST(request: NextRequest) {
 
   const admin = isAdminPlus(user.role);
   const todayStr = new Date().toISOString().slice(0, 10);
-  const completionWebhookUrl = buildCompletionWebhookUrl(request);
+  const completionWebhookUrl = buildCompletionWebhookUrl();
 
   if (jobType === "notes") {
     const unitNumber = Number(body.unitNumber);

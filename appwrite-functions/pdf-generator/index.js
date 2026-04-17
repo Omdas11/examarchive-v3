@@ -648,6 +648,7 @@ function buildJobTitle(payload) {
 function normalizeAbsoluteHttpUrl(rawUrl) {
   const value = String(rawUrl || "").trim();
   if (!value) return "";
+  if (/^https?:\/\/https?:\/\//i.test(value)) return "";
   try {
     const parsed = new URL(value);
     if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return "";
@@ -663,16 +664,23 @@ function normalizeAbsoluteHttpUrl(rawUrl) {
 }
 
 function resolveNotifyCompletionUrl(callbackUrl) {
-  const callbackOverride = normalizeAbsoluteHttpUrl(callbackUrl);
-  if (callbackOverride) {
-    return { url: callbackOverride, reason: "callback_override" };
-  }
-  const siteUrl = String(process.env.SITE_URL || "").trim().replace(/\/+$/, "");
+  const siteUrl = normalizeAbsoluteHttpUrl(String(process.env.SITE_URL || "").trim()).replace(/\/+$/, "");
   if (!siteUrl) {
+    console.error("[pdf-generator] CRITICAL: SITE_URL is missing or invalid; completion webhook cannot be delivered safely.", {
+      hasCallbackUrl: Boolean(String(callbackUrl || "").trim()),
+    });
     return { url: "", reason: callbackUrl ? "no_valid_callback_and_missing_site_url" : "missing_site_url" };
   }
   try {
     const baseUrl = new URL(siteUrl);
+    const callbackOverride = normalizeAbsoluteHttpUrl(callbackUrl);
+    if (callbackOverride) {
+      const callbackUrlObject = new URL(callbackOverride);
+      if (callbackUrlObject.origin === baseUrl.origin) {
+        return { url: callbackUrlObject.toString(), reason: "callback_override" };
+      }
+      return { url: "", reason: "callback_origin_mismatch" };
+    }
     return { url: new URL(NOTIFY_COMPLETION_PATH, `${baseUrl.toString()}/`).toString(), reason: "site_url" };
   } catch {
     return { url: "", reason: "invalid_site_url" };
@@ -684,6 +692,9 @@ function getNotifyCompletionUrl(callbackUrl) {
 }
 
 async function notifyCompletionWebhook({ jobId, status, fileId, userId, userEmail, callbackUrl }) {
+  if (!String(process.env.SITE_URL || "").trim()) {
+    console.error("[pdf-generator] CRITICAL: SITE_URL env is missing; notify-completion webhook delivery may be skipped.");
+  }
   const notifyResolution = resolveNotifyCompletionUrl(callbackUrl);
   const notifyUrl = notifyResolution.url;
   if (!notifyUrl) {
@@ -699,40 +710,46 @@ async function notifyCompletionWebhook({ jobId, status, fileId, userId, userEmai
   if (webhookSecret) {
     headers.Authorization = `Bearer ${webhookSecret}`;
   }
+  const callbackPayload = {
+    jobId: String(jobId || "").trim(),
+    status: String(status || "").trim().toLowerCase(),
+    fileId: String(fileId || "").trim(),
+  };
+  const normalizedUserId = String(userId || "").trim();
+  const normalizedUserEmail = String(userEmail || "").trim();
+  if (normalizedUserId) {
+    callbackPayload.userId = normalizedUserId;
+  }
+  if (normalizedUserEmail) {
+    callbackPayload.userEmail = normalizedUserEmail;
+  }
+  let response;
   try {
-    const callbackPayload = {
-      jobId: String(jobId || "").trim(),
-      status: String(status || "").trim().toLowerCase(),
-      fileId: String(fileId || "").trim(),
-    };
-    const normalizedUserId = String(userId || "").trim();
-    const normalizedUserEmail = String(userEmail || "").trim();
-    if (normalizedUserId) {
-      callbackPayload.userId = normalizedUserId;
-    }
-    if (normalizedUserEmail) {
-      callbackPayload.userEmail = normalizedUserEmail;
-    }
-    const response = await fetch(notifyUrl, {
+    response = await fetch(notifyUrl, {
       method: "POST",
       headers,
       body: JSON.stringify(callbackPayload),
       signal: AbortSignal.timeout(10_000),
     });
-    console.log("[pdf-generator] Completion webhook callback response received.", {
-      url: notifyUrl,
-      status: response.status,
-      ok: response.ok,
-    });
-    if (!response.ok) {
-      const responseBody = await response.text().catch(() => "");
-      console.error("[pdf-generator] Completion webhook request failed.", {
-        status: response.status,
-        body: responseBody.slice(0, NOTIFY_WEBHOOK_ERROR_LOG_MAX_CHARS),
-      });
-    }
   } catch (error) {
-    console.error("[pdf-generator] Completion webhook request error.", error);
+    console.error("[pdf-generator] Completion webhook request error.", {
+      url: notifyUrl,
+      message: error instanceof Error ? error.message : String(error),
+      error,
+    });
+    return;
+  }
+  console.log("[pdf-generator] Completion webhook callback response received.", {
+    url: notifyUrl,
+    status: response.status,
+    ok: response.ok,
+  });
+  if (!response.ok) {
+    const responseBody = await response.text().catch(() => "");
+    console.error("[pdf-generator] Completion webhook request failed.", {
+      status: response.status,
+      body: responseBody.slice(0, NOTIFY_WEBHOOK_ERROR_LOG_MAX_CHARS),
+    });
   }
 }
 

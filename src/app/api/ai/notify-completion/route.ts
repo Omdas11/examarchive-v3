@@ -63,13 +63,35 @@ async function resolveNotificationEmail(args: {
   payload: Record<string, unknown>;
   payloadUserId: string;
   payloadUserEmail: string;
+  hasValidBearer: boolean;
   jobId: string;
 }): Promise<string> {
+  const trustedPayloadEmail = String(args.payload.userEmail || "").trim();
   const normalizedPayloadUserEmail = String(args.payloadUserEmail || "").trim();
-  if (normalizedPayloadUserEmail) return normalizedPayloadUserEmail;
-  const payloadEmail = String(args.payload.userEmail || "").trim();
-  if (payloadEmail) return payloadEmail;
-  const userId = String(args.job.user_id || "").trim() || args.payloadUserId;
+  if (args.hasValidBearer && normalizedPayloadUserEmail) return normalizedPayloadUserEmail;
+  if (
+    !args.hasValidBearer &&
+    normalizedPayloadUserEmail &&
+    trustedPayloadEmail &&
+    normalizedPayloadUserEmail.toLowerCase() === trustedPayloadEmail.toLowerCase()
+  ) {
+    return normalizedPayloadUserEmail;
+  }
+  if (trustedPayloadEmail) return trustedPayloadEmail;
+
+  const jobUserId = String(args.job.user_id || "").trim();
+  const trustedPayloadUserId = String(args.payload.userId || "").trim();
+  const normalizedPayloadUserId = String(args.payloadUserId || "").trim();
+  const userId = jobUserId
+    || (args.hasValidBearer
+      ? normalizedPayloadUserId
+      : (
+          normalizedPayloadUserId &&
+          trustedPayloadUserId &&
+          normalizedPayloadUserId === trustedPayloadUserId
+        )
+        ? normalizedPayloadUserId
+        : trustedPayloadUserId);
   if (!userId) return "";
   try {
     const userDoc = await args.db.getDocument(DATABASE_ID, COLLECTION.users, userId);
@@ -140,6 +162,9 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const errorStatus = getAppwriteErrorStatus(error);
     if (errorStatus === 404) {
+      if (!hasValidBearer) {
+        return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+      }
       return NextResponse.json({ error: "Job not found." }, { status: 404 });
     }
     console.error("[ai/notify-completion] Failed to load job for webhook callback.", { jobId, error });
@@ -194,6 +219,7 @@ export async function POST(request: NextRequest) {
     payload,
     payloadUserId,
     payloadUserEmail,
+    hasValidBearer,
     jobId,
   });
   if (!email) {
