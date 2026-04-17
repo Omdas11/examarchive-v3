@@ -302,17 +302,36 @@ function normalizeJobStatus(status: string | null | undefined): string {
   return String(status || "").trim().toLowerCase();
 }
 
+function normalizeTrustedSiteUrl(rawUrl: string): string {
+  const value = String(rawUrl || "").trim();
+  if (!value) return "";
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return "";
+    return parsed.toString();
+  } catch {
+    return "";
+  }
+}
+
+function buildTrustedSiteUrlFromVercelUrl(rawVercelUrl: string): string {
+  const normalizedVercelUrl = String(rawVercelUrl || "").trim().replace(/^https?:\/\//i, "");
+  if (!normalizedVercelUrl) return "";
+  return normalizeTrustedSiteUrl(`https://${normalizedVercelUrl}`);
+}
+
 function buildCompletionWebhookUrl(): string {
-  const siteUrl = String(process.env.SITE_URL || "").trim();
-  const nextPublicSiteUrl = String(process.env.NEXT_PUBLIC_SITE_URL || "").trim();
+  const siteUrl = normalizeTrustedSiteUrl(String(process.env.SITE_URL || ""));
+  const nextPublicSiteUrl = normalizeTrustedSiteUrl(String(process.env.NEXT_PUBLIC_SITE_URL || ""));
   const vercelUrl = String(process.env.VERCEL_URL || "").trim();
-  const normalizedVercelUrl = vercelUrl.replace(/^https?:\/\//i, "");
-  const trustedSiteUrl = siteUrl || nextPublicSiteUrl || (normalizedVercelUrl ? `https://${normalizedVercelUrl}` : "");
+  const trustedVercelSiteUrl = buildTrustedSiteUrlFromVercelUrl(vercelUrl);
+  const trustedSiteUrl = siteUrl || nextPublicSiteUrl || trustedVercelSiteUrl;
   if (!trustedSiteUrl) {
-    console.error("[ai/generate-pdf] CRITICAL: Failed to build completion webhook URL because SITE_URL is not configured. Webhook callbacks will be disabled, breaking worker/Appwrite integration contract.", {
+    console.error("[ai/generate-pdf] CRITICAL: Failed to build completion webhook URL because no trusted site URL is configured. Webhook callbacks will be disabled, breaking worker/Appwrite integration contract.", {
       siteUrlConfigured: Boolean(siteUrl),
       nextPublicSiteUrlConfigured: Boolean(nextPublicSiteUrl),
       vercelUrlConfigured: Boolean(vercelUrl),
+      vercelUrlUsable: Boolean(trustedVercelSiteUrl),
       nodeEnv: process.env.NODE_ENV,
       vercelEnv: process.env.VERCEL_ENV,
     });
