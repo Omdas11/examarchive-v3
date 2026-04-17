@@ -463,6 +463,7 @@ async function renderWithGotenberg(markdown, fileName, markedParser) {
     for (let attempt = 1; attempt <= GOTENBERG_MAX_ATTEMPTS; attempt += 1) {
       const form = new FormData();
       form.append("files", new Blob([htmlString], { type: "text/html" }), name);
+      form.append("printBackground", "true");
       try {
         const response = await fetch(endpointUrl.toString(), {
           method: "POST",

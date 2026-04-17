@@ -303,11 +303,12 @@ function normalizeJobStatus(status: string | null | undefined): string {
 }
 
 function buildCompletionWebhookUrl(): string {
-  const trustedSiteUrl = String(process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || "").trim();
+  const trustedSiteUrl = String(process.env.SITE_URL || "").trim();
   if (!trustedSiteUrl) {
-    console.error("[ai/generate-pdf] Failed to build completion webhook URL because no trusted site URL is configured.", {
-      siteUrlConfigured: Boolean(String(process.env.SITE_URL || "").trim()),
-      nextPublicSiteUrlConfigured: Boolean(String(process.env.NEXT_PUBLIC_SITE_URL || "").trim()),
+    console.error("[ai/generate-pdf] CRITICAL: Failed to build completion webhook URL because SITE_URL is not configured. Webhook callbacks will be disabled, breaking worker/Appwrite integration contract.", {
+      siteUrlConfigured: false,
+      nodeEnv: process.env.NODE_ENV,
+      vercelEnv: process.env.VERCEL_ENV,
     });
     return "";
   }

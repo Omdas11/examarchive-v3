@@ -2,11 +2,25 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 
 const SIGNED_DOWNLOAD_DEFAULT_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
+let unsignedUrlWarningEmitted = false;
+
 function getDownloadSigningSecret(): string | null {
   const raw = process.env.PDF_DOWNLOAD_TOKEN_SECRET;
   if (typeof raw !== "string") return null;
   const value = raw.trim();
   return value.length > 0 ? value : null;
+}
+
+function emitUnsignedUrlWarning(context: { fileId: string; userId: string; env: string }): void {
+  if (unsignedUrlWarningEmitted) return;
+  unsignedUrlWarningEmitted = true;
+  if (process.env.NODE_ENV === "production") {
+    console.warn("[pdf-download-link] PRODUCTION WARNING: PDF_DOWNLOAD_TOKEN_SECRET is missing or empty. Unsigned download URLs will be returned, which may cause silent redirects for signed-out recipients.", {
+      env: context.env,
+      fileIdSample: context.fileId.slice(0, 8),
+      hasUserId: Boolean(context.userId),
+    });
+  }
 }
 
 function signPayload(secret: string, fileId: string, userId: string, expires: number): string {
@@ -36,6 +50,12 @@ export function buildSignedPdfDownloadPath(args: {
     params.set("uid", userId);
     params.set("exp", String(expires));
     params.set("token", signPayload(secret, fileId, userId, expires));
+  } else {
+    emitUnsignedUrlWarning({
+      fileId,
+      userId,
+      env: process.env.NODE_ENV || "unknown",
+    });
   }
 
   return `/api/files/papers/${encodeURIComponent(fileId)}?${params.toString()}`;
