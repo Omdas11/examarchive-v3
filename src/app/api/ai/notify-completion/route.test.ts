@@ -5,7 +5,8 @@ import { NextRequest } from "next/server";
 import { POST } from "./route";
 
 const mockGetDocument = jest.fn();
-const mockAdminDatabases = jest.fn(() => ({ getDocument: mockGetDocument }));
+const mockUpdateDocument = jest.fn();
+const mockAdminDatabases = jest.fn(() => ({ getDocument: mockGetDocument, updateDocument: mockUpdateDocument }));
 
 jest.mock("@/lib/appwrite", () => ({
   adminDatabases: () => mockAdminDatabases(),
@@ -41,7 +42,8 @@ describe("POST /api/ai/notify-completion", () => {
   beforeEach(() => {
     jest.resetAllMocks();
     process.env = { ...originalEnv, AI_JOB_WEBHOOK_SECRET: WEBHOOK_SECRET };
-    mockAdminDatabases.mockReturnValue({ getDocument: mockGetDocument });
+    mockUpdateDocument.mockResolvedValue({});
+    mockAdminDatabases.mockReturnValue({ getDocument: mockGetDocument, updateDocument: mockUpdateDocument });
   });
 
   afterEach(() => {
@@ -260,6 +262,16 @@ describe("POST /api/ai/notify-completion", () => {
       expect(json.error).toMatch(/completion email/i);
     });
 
+    it("returns 500 when completion email sentinel update fails", async () => {
+      mockUpdateDocument.mockRejectedValue(new Error("write failed"));
+      const req = makeRequest({ jobId: "job1", status: "completed", fileId: "file-abc" }, WEBHOOK_SECRET);
+      const res = await POST(req);
+      expect(res.status).toBe(500);
+      const json = await res.json();
+      expect(json.error).toMatch(/record notification state/i);
+      expect(mockSendGenerationPdfEmail).not.toHaveBeenCalled();
+    });
+
     it("builds solved-paper title correctly", async () => {
       mockGetDocument.mockResolvedValue({
         ...jobDoc,
@@ -310,6 +322,16 @@ describe("POST /api/ai/notify-completion", () => {
       expect(res.status).toBe(500);
       const json = await res.json();
       expect(json.error).toMatch(/failure email/i);
+    });
+
+    it("returns 500 when failure email sentinel update fails", async () => {
+      mockUpdateDocument.mockRejectedValue(new Error("write failed"));
+      const req = makeRequest({ jobId: "job1", status: "failed", fileId: "" }, WEBHOOK_SECRET);
+      const res = await POST(req);
+      expect(res.status).toBe(500);
+      const json = await res.json();
+      expect(json.error).toMatch(/record notification state/i);
+      expect(mockSendGenerationFailureEmail).not.toHaveBeenCalled();
     });
   });
 

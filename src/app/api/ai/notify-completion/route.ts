@@ -269,10 +269,11 @@ export async function POST(request: NextRequest) {
         email_sent_at: new Date().toISOString(),
       });
     } catch (error) {
-      console.error("[ai/notify-completion] Failed to set email sentinel for job. Proceeding with caution.", {
+      console.error("[ai/notify-completion] Failed to set email sentinel for job.", {
         jobId,
         error,
       });
+      return NextResponse.json({ error: "Unable to record notification state." }, { status: 500 });
     }
     try {
       await sendGenerationPdfEmail({
@@ -303,10 +304,11 @@ export async function POST(request: NextRequest) {
       email_status: "failure_sent",
     });
   } catch (error) {
-    console.error("[ai/notify-completion] Failed to set failure email sentinel for job. Proceeding with caution.", {
+    console.error("[ai/notify-completion] Failed to set failure email sentinel for job.", {
       jobId,
       error,
     });
+    return NextResponse.json({ error: "Unable to record notification state." }, { status: 500 });
   }
   try {
     await sendGenerationFailureEmail({
