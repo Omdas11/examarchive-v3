@@ -142,11 +142,8 @@ export async function POST(request: NextRequest) {
   const providedToken = getAuthToken(request);
   const hasValidBearer = !!providedToken && safeCompareSecrets(webhookSecret, providedToken);
   if (providedToken && !hasValidBearer) {
-    console.error("[ai/notify-completion] CRITICAL: Webhook authorization token mismatch.", {
-      hasProvidedToken: true,
-      expectedSecretConfigured: true,
-    });
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+    console.error("[ai/notify-completion] CRITICAL: Webhook authentication failed.");
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   let body: NotifyPayload;
