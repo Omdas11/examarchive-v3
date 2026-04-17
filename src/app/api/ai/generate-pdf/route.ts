@@ -308,6 +308,11 @@ function normalizeTrustedSiteUrl(rawUrl: string): string {
   try {
     const parsed = new URL(value);
     if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return "";
+    // Allow localhost and 127.0.0.1 for development
+    const isLocalhost = parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1" || parsed.hostname === "::1";
+    if (parsed.protocol !== "https:" && !isLocalhost) {
+      return "";
+    }
     return parsed.toString();
   } catch {
     return "";
@@ -1065,29 +1070,29 @@ export async function POST(request: NextRequest) {
       const isCompleted = normalizedExistingStatus === JOB_STATUS_COMPLETED;
       const responseStatus = normalizedExistingStatus || "unknown";
       let readyEmailSent = true;
-        if (isCompleted) {
-          readyEmailSent = await ensureGenerationReadyEmail(
-            userEmail,
-            `Solved Paper (${paperCode} ${year})`,
-            dispatched.resultFileId || "",
-            user.id,
-          );
-        }
-        const cachedDownloadUrl = isCompleted && dispatched.resultFileId
-          ? buildSignedPdfDownloadPath({
-            fileId: dispatched.resultFileId,
-            userId: user.id,
-          })
-          : "";
-        return NextResponse.json({
-          ok: true,
-          jobId: solvedJobId,
+      if (isCompleted) {
+        readyEmailSent = await ensureGenerationReadyEmail(
+          userEmail,
+          `Solved Paper (${paperCode} ${year})`,
+          dispatched.resultFileId || "",
+          user.id,
+        );
+      }
+      const cachedDownloadUrl = isCompleted && dispatched.resultFileId
+        ? buildSignedPdfDownloadPath({
+          fileId: dispatched.resultFileId,
+          userId: user.id,
+        })
+        : "";
+      return NextResponse.json({
+        ok: true,
+        jobId: solvedJobId,
         status: responseStatus,
         cached: true,
-          readyEmailNotificationAttempted: isCompleted,
-          readyEmailSent: isCompleted ? readyEmailSent : false,
-          fileId: isCompleted ? (dispatched.resultFileId || "") : "",
-          downloadUrl: cachedDownloadUrl,
+        readyEmailNotificationAttempted: isCompleted,
+        readyEmailSent: isCompleted ? readyEmailSent : false,
+        fileId: isCompleted ? (dispatched.resultFileId || "") : "",
+        downloadUrl: cachedDownloadUrl,
         message:
           isCompleted
             ? "A matching solved-paper job is already completed. Returning cached file."

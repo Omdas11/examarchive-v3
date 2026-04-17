@@ -245,6 +245,35 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing fileId for completed status." }, { status: 400 });
     }
     const userId = String(resolvedJob.user_id || "").trim() || payloadUserId;
+    if (!userId) {
+      console.error("[ai/notify-completion] Cannot send completion email: userId is empty, resulting in unsigned download link.", {
+        jobId,
+        fileId,
+        email,
+      });
+      return NextResponse.json(
+        { error: "Cannot send completion notification: user ID is missing for signed download link generation." },
+        { status: 400 },
+      );
+    }
+    const existingEmailSentAt = String(resolvedJob.email_sent_at || "").trim();
+    if (existingEmailSentAt) {
+      console.info("[ai/notify-completion] Email already sent for this job. Skipping duplicate notification.", {
+        jobId,
+        emailSentAt: existingEmailSentAt,
+      });
+      return NextResponse.json({ ok: true, skipped: true, reason: "email_already_sent" });
+    }
+    try {
+      await db.updateDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, jobId, {
+        email_sent_at: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("[ai/notify-completion] Failed to set email sentinel for job. Proceeding with caution.", {
+        jobId,
+        error,
+      });
+    }
     try {
       await sendGenerationPdfEmail({
         email,
@@ -261,6 +290,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
+  const existingEmailStatus = String(resolvedJob.email_status || "").trim();
+  if (existingEmailStatus === "failure_sent") {
+    console.info("[ai/notify-completion] Failure email already sent for this job. Skipping duplicate notification.", {
+      jobId,
+      emailStatus: existingEmailStatus,
+    });
+    return NextResponse.json({ ok: true, skipped: true, reason: "email_already_sent" });
+  }
+  try {
+    await db.updateDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, jobId, {
+      email_status: "failure_sent",
+    });
+  } catch (error) {
+    console.error("[ai/notify-completion] Failed to set failure email sentinel for job. Proceeding with caution.", {
+      jobId,
+      error,
+    });
+  }
   try {
     await sendGenerationFailureEmail({
       email,

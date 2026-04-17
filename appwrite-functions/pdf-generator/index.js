@@ -536,6 +536,44 @@ async function renderWithGotenberg(markdown, fileName, markedParser) {
     return Buffer.from(mergedArrayBuffer);
   }
 
+  function splitMarkdownBySize(markdownContent, maxBytes) {
+    const content = String(markdownContent || "");
+    const contentBytes = Buffer.byteLength(content, "utf8");
+    if (contentBytes <= maxBytes) return [content];
+    const targetMidpoint = Math.floor(contentBytes / 2);
+    const headingMatches = [];
+    const headingRegex = /^#+\s.+$/gm;
+    let match;
+    while ((match = headingRegex.exec(content)) !== null) {
+      headingMatches.push({ index: match.index, text: match[0] });
+    }
+    const delimiterMatches = [];
+    const delimiterRegex = /\n{2,}---\n{2,}/g;
+    while ((match = delimiterRegex.exec(content)) !== null) {
+      delimiterMatches.push({ index: match.index, length: match[0].length });
+    }
+    const paragraphMatches = [];
+    const paragraphRegex = /\n{2,}/g;
+    while ((match = paragraphRegex.exec(content)) !== null) {
+      paragraphMatches.push({ index: match.index, length: match[0].length });
+    }
+    const allBoundaries = [
+      ...headingMatches.map((m) => ({ index: m.index, priority: 1 })),
+      ...delimiterMatches.map((m) => ({ index: m.index, priority: 2 })),
+      ...paragraphMatches.map((m) => ({ index: m.index, priority: 3 })),
+    ].sort((a, b) => {
+      const distA = Math.abs(a.index - targetMidpoint);
+      const distB = Math.abs(b.index - targetMidpoint);
+      if (distA !== distB) return distA - distB;
+      return a.priority - b.priority;
+    });
+    let splitIndex = allBoundaries.length > 0 ? allBoundaries[0].index : Math.floor(content.length / 2);
+    if (splitIndex === 0) splitIndex = Math.floor(content.length / 2);
+    const partA = content.slice(0, splitIndex).trim();
+    const partB = content.slice(splitIndex).trim();
+    return [partA, partB].filter(Boolean);
+  }
+
   if (optimizedHtml.optimizedBytes > GOTENBERG_MAX_HTML_BYTES) {
     const normalizedMarkdown = String(markdown || "");
     const splitOnDelimiters = normalizedMarkdown
@@ -564,7 +602,46 @@ async function renderWithGotenberg(markdown, fileName, markedParser) {
       const markdownPartA = partASections.join(MARKDOWN_SECTION_DELIMITER);
       const markdownPartB = partBSections.join(MARKDOWN_SECTION_DELIMITER);
       if (!markdownPartA || !markdownPartB) {
-        return renderHtmlWithRetry(optimizedHtml.html, "index.html");
+        console.error("[pdf-generator] Delimiter-based split produced empty part. Falling back to byte-based split.", {
+          originalBytes: optimizedHtml.originalBytes,
+          optimizedBytes: optimizedHtml.optimizedBytes,
+          maxAllowedBytes: GOTENBERG_MAX_HTML_BYTES,
+        });
+        const byteSplitParts = splitMarkdownBySize(normalizedMarkdown, GOTENBERG_MAX_HTML_BYTES);
+        if (byteSplitParts.length < 2) {
+          const oversizeError = new Error("Cannot split oversized HTML: content exceeds maximum size and no valid split points found.");
+          console.error("[pdf-generator] Byte-based split failed to produce two parts.", {
+            optimizedBytes: optimizedHtml.optimizedBytes,
+            maxAllowedBytes: GOTENBERG_MAX_HTML_BYTES,
+          });
+          throw oversizeError;
+        }
+        console.warn("[pdf-generator] Oversized payload detected. Rendering in two parts using byte-based split and merging PDFs.", {
+          originalBytes: optimizedHtml.originalBytes,
+          optimizedBytes: optimizedHtml.optimizedBytes,
+          maxAllowedBytes: GOTENBERG_MAX_HTML_BYTES,
+        });
+        const htmlPartA = await markdownToSimpleHtml(byteSplitParts[0], `${fileName} (Part 1)`, markedParser);
+        const htmlPartB = await markdownToSimpleHtml(byteSplitParts[1], `${fileName} (Part 2)`, markedParser);
+        const optimizedPartAResult = optimizeHtmlForGotenberg(htmlPartA);
+        const optimizedPartBResult = optimizeHtmlForGotenberg(htmlPartB);
+        if (
+          optimizedPartAResult.optimizedBytes > GOTENBERG_MAX_HTML_BYTES
+          || optimizedPartBResult.optimizedBytes > GOTENBERG_MAX_HTML_BYTES
+        ) {
+          const oversizeError = new Error("Split rendering parts still exceed max HTML bytes after byte-based optimization.");
+          console.error("[pdf-generator] Byte-based split parts remain oversized after optimization.", {
+            partABytes: optimizedPartAResult.optimizedBytes,
+            partBBytes: optimizedPartBResult.optimizedBytes,
+            maxAllowedBytes: GOTENBERG_MAX_HTML_BYTES,
+          });
+          throw oversizeError;
+        }
+        const optimizedPartA = optimizedPartAResult.html;
+        const optimizedPartB = optimizedPartBResult.html;
+        const partPdfA = await renderHtmlWithRetry(optimizedPartA, "index.html");
+        const partPdfB = await renderHtmlWithRetry(optimizedPartB, "index.html");
+        return mergePdfParts([partPdfA, partPdfB]);
       }
       console.warn("[pdf-generator] Oversized payload detected. Rendering in two parts and merging PDFs.", {
         originalBytes: optimizedHtml.originalBytes,
@@ -593,6 +670,46 @@ async function renderWithGotenberg(markdown, fileName, markedParser) {
       const partPdfB = await renderHtmlWithRetry(optimizedPartB, "index.html");
       return mergePdfParts([partPdfA, partPdfB]);
     }
+    console.error("[pdf-generator] Oversized HTML with insufficient delimiters for safe split.", {
+      optimizedBytes: optimizedHtml.optimizedBytes,
+      maxAllowedBytes: GOTENBERG_MAX_HTML_BYTES,
+      delimiterCount: splitOnDelimiters.length,
+    });
+    const byteSplitParts = splitMarkdownBySize(normalizedMarkdown, GOTENBERG_MAX_HTML_BYTES);
+    if (byteSplitParts.length < 2) {
+      const oversizeError = new Error("Cannot split oversized HTML: content exceeds maximum size and no valid split points found.");
+      console.error("[pdf-generator] Byte-based split failed to produce two parts for oversized content.", {
+        optimizedBytes: optimizedHtml.optimizedBytes,
+        maxAllowedBytes: GOTENBERG_MAX_HTML_BYTES,
+      });
+      throw oversizeError;
+    }
+    console.warn("[pdf-generator] Oversized payload detected. Rendering in two parts using byte-based split and merging PDFs.", {
+      originalBytes: optimizedHtml.originalBytes,
+      optimizedBytes: optimizedHtml.optimizedBytes,
+      maxAllowedBytes: GOTENBERG_MAX_HTML_BYTES,
+    });
+    const htmlPartA = await markdownToSimpleHtml(byteSplitParts[0], `${fileName} (Part 1)`, markedParser);
+    const htmlPartB = await markdownToSimpleHtml(byteSplitParts[1], `${fileName} (Part 2)`, markedParser);
+    const optimizedPartAResult = optimizeHtmlForGotenberg(htmlPartA);
+    const optimizedPartBResult = optimizeHtmlForGotenberg(htmlPartB);
+    if (
+      optimizedPartAResult.optimizedBytes > GOTENBERG_MAX_HTML_BYTES
+      || optimizedPartBResult.optimizedBytes > GOTENBERG_MAX_HTML_BYTES
+    ) {
+      const oversizeError = new Error("Split rendering parts still exceed max HTML bytes after byte-based optimization.");
+      console.error("[pdf-generator] Byte-based split parts remain oversized after optimization.", {
+        partABytes: optimizedPartAResult.optimizedBytes,
+        partBBytes: optimizedPartBResult.optimizedBytes,
+        maxAllowedBytes: GOTENBERG_MAX_HTML_BYTES,
+      });
+      throw oversizeError;
+    }
+    const optimizedPartA = optimizedPartAResult.html;
+    const optimizedPartB = optimizedPartBResult.html;
+    const partPdfA = await renderHtmlWithRetry(optimizedPartA, "index.html");
+    const partPdfB = await renderHtmlWithRetry(optimizedPartB, "index.html");
+    return mergePdfParts([partPdfA, partPdfB]);
   }
   return renderHtmlWithRetry(optimizedHtml.html, "index.html");
 }
@@ -654,6 +771,15 @@ function normalizeAbsoluteHttpUrl(rawUrl) {
   try {
     const parsed = new URL(value);
     if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return "";
+    const webhookSecret = String(process.env.AI_JOB_WEBHOOK_SECRET || "").trim();
+    if (webhookSecret && parsed.protocol !== "https:") {
+      console.error("[pdf-generator] Webhook URL rejected: HTTPS required when AI_JOB_WEBHOOK_SECRET is configured.", {
+        protocol: parsed.protocol,
+        callbackUrl: value.slice(0, MAX_LOGGED_CALLBACK_URL_CHARS),
+        truncated: value.length > MAX_LOGGED_CALLBACK_URL_CHARS,
+      });
+      return "";
+    }
     return parsed.toString();
   } catch (error) {
     console.error("[pdf-generator] Invalid completion callback URL received.", {
