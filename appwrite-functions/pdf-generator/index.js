@@ -679,6 +679,10 @@ function resolveNotifyCompletionUrl(callbackUrl) {
       if (callbackUrlObject.origin === baseUrl.origin) {
         return { url: callbackUrlObject.toString(), reason: "callback_override" };
       }
+      console.error("[pdf-generator] Rejected callback override with mismatched origin.", {
+        callbackOrigin: callbackUrlObject.origin,
+        siteOrigin: baseUrl.origin,
+      });
       return { url: "", reason: "callback_origin_mismatch" };
     }
     return { url: new URL(NOTIFY_COMPLETION_PATH, `${baseUrl.toString()}/`).toString(), reason: "site_url" };

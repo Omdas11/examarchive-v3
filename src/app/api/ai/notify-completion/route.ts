@@ -82,16 +82,19 @@ async function resolveNotificationEmail(args: {
   const jobUserId = String(args.job.user_id || "").trim();
   const trustedPayloadUserId = String(args.payload.userId || "").trim();
   const normalizedPayloadUserId = String(args.payloadUserId || "").trim();
-  const userId = jobUserId
-    || (args.hasValidBearer
-      ? normalizedPayloadUserId
-      : (
-          normalizedPayloadUserId &&
-          trustedPayloadUserId &&
-          normalizedPayloadUserId === trustedPayloadUserId
-        )
-        ? normalizedPayloadUserId
-        : trustedPayloadUserId);
+  let fallbackUserIdFromPayload = "";
+  if (args.hasValidBearer) {
+    fallbackUserIdFromPayload = normalizedPayloadUserId;
+  } else if (
+    normalizedPayloadUserId &&
+    trustedPayloadUserId &&
+    normalizedPayloadUserId === trustedPayloadUserId
+  ) {
+    fallbackUserIdFromPayload = normalizedPayloadUserId;
+  } else {
+    fallbackUserIdFromPayload = trustedPayloadUserId;
+  }
+  const userId = jobUserId || fallbackUserIdFromPayload;
   if (!userId) return "";
   try {
     const userDoc = await args.db.getDocument(DATABASE_ID, COLLECTION.users, userId);
