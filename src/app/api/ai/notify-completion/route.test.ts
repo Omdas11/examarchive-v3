@@ -85,6 +85,7 @@ describe("POST /api/ai/notify-completion", () => {
     const req = makeRequest({ jobId: "job1", status: "completed", fileId: "file1" }, "wrong-secret");
     const res = await POST(req);
     expect(res.status).toBe(401);
+    expect(mockGetDocument).not.toHaveBeenCalled();
   });
 
   it("accepts unverified completed callback when job state and fileId strictly match", async () => {
