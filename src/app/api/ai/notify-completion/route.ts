@@ -57,6 +57,10 @@ function parseInputPayloadJson(raw: unknown): Record<string, unknown> {
   }
 }
 
+function normalizeEmail(value: unknown): string {
+  return String(value || "").trim().toLowerCase();
+}
+
 async function resolveNotificationEmail(args: {
   db: ReturnType<typeof adminDatabases>;
   job: Record<string, unknown>;
@@ -66,8 +70,8 @@ async function resolveNotificationEmail(args: {
   hasValidBearer: boolean;
   jobId: string;
 }): Promise<string> {
-  const payloadEmailField = String(args.payload.userEmail || "").trim();
-  const bodyEmailParameter = String(args.payloadUserEmail || "").trim();
+  const payloadEmailField = normalizeEmail(args.payload.userEmail);
+  const bodyEmailParameter = normalizeEmail(args.payloadUserEmail);
   if (args.hasValidBearer && bodyEmailParameter) return bodyEmailParameter;
   if (
     !args.hasValidBearer &&
@@ -80,19 +84,19 @@ async function resolveNotificationEmail(args: {
   if (payloadEmailField) return payloadEmailField;
 
   const jobUserId = String(args.job.user_id || "").trim();
-  const payloadUserIdField = String(args.payload.userId || "").trim();
-  const bodyUserIdParameter = String(args.payloadUserId || "").trim();
+  const payloadUserIdFromInput = String(args.payload.userId || "").trim();
+  const bodyUserIdFromRequest = String(args.payloadUserId || "").trim();
   let fallbackUserIdFromPayload = "";
   if (args.hasValidBearer) {
-    fallbackUserIdFromPayload = bodyUserIdParameter;
+    fallbackUserIdFromPayload = bodyUserIdFromRequest;
   } else if (
-    bodyUserIdParameter &&
-    payloadUserIdField &&
-    bodyUserIdParameter === payloadUserIdField
+    bodyUserIdFromRequest &&
+    payloadUserIdFromInput &&
+    bodyUserIdFromRequest === payloadUserIdFromInput
   ) {
-    fallbackUserIdFromPayload = bodyUserIdParameter;
+    fallbackUserIdFromPayload = bodyUserIdFromRequest;
   } else {
-    fallbackUserIdFromPayload = payloadUserIdField;
+    fallbackUserIdFromPayload = payloadUserIdFromInput;
   }
   const userId = jobUserId || fallbackUserIdFromPayload;
   if (!userId) return "";
@@ -121,32 +125,42 @@ async function resolveNotificationUserId(args: {
   const jobUserId = String(args.job.user_id || "").trim();
   if (jobUserId) return jobUserId;
 
-  const payloadUserIdField = String(args.payload.userId || "").trim();
-  const bodyUserIdParameter = String(args.payloadUserId || "").trim();
-  if (args.hasValidBearer && bodyUserIdParameter) return bodyUserIdParameter;
+  const payloadUserIdFromInput = String(args.payload.userId || "").trim();
+  const bodyUserIdFromRequest = String(args.payloadUserId || "").trim();
+  if (args.hasValidBearer && bodyUserIdFromRequest) return bodyUserIdFromRequest;
   if (
     !args.hasValidBearer &&
-    bodyUserIdParameter &&
-    payloadUserIdField &&
-    bodyUserIdParameter === payloadUserIdField
+    bodyUserIdFromRequest &&
+    payloadUserIdFromInput &&
+    bodyUserIdFromRequest === payloadUserIdFromInput
   ) {
-    return bodyUserIdParameter;
+    return bodyUserIdFromRequest;
   }
-  if (payloadUserIdField) return payloadUserIdField;
+  if (payloadUserIdFromInput) return payloadUserIdFromInput;
 
-  const email = String(args.email || "").trim().toLowerCase();
-  if (!email) return "";
+  if (!args.hasValidBearer) return "";
+
+  const emailRaw = String(args.email || "").trim();
+  if (!emailRaw) return "";
+  const candidateEmails = [emailRaw];
+  const lowercasedEmail = emailRaw.toLowerCase();
+  if (lowercasedEmail !== emailRaw) {
+    candidateEmails.push(lowercasedEmail);
+  }
   try {
-    const users = await args.db.listDocuments(DATABASE_ID, COLLECTION.users, [
-      Query.equal("email", email),
-      Query.limit(1),
-    ]);
-    const matchedUserId = String(users.documents?.[0]?.$id || "").trim();
-    return matchedUserId;
+    for (const candidateEmail of candidateEmails) {
+      const users = await args.db.listDocuments(DATABASE_ID, COLLECTION.users, [
+        Query.equal("email", candidateEmail),
+        Query.limit(1),
+      ]);
+      const resolvedUserIdFromEmail = String(users.documents?.[0]?.$id || "").trim();
+      if (resolvedUserIdFromEmail) return resolvedUserIdFromEmail;
+    }
+    return "";
   } catch (error) {
     console.error("[ai/notify-completion] Failed to resolve user ID from users collection by email.", {
       jobId: args.jobId,
-      email,
+      email: emailRaw,
       error,
     });
     return "";
@@ -306,6 +320,7 @@ export async function POST(request: NextRequest) {
         jobId,
         fileId,
         email,
+        hasValidBearer,
       });
     }
     const existingEmailSentAt = String(resolvedJob.email_sent_at || "").trim();

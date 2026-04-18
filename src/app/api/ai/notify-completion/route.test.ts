@@ -28,6 +28,7 @@ jest.mock("@/lib/generation-notifications", () => ({
 }));
 
 const WEBHOOK_SECRET = "test-webhook-secret";
+type SentPdfEmailPayload = { downloadUrl: string };
 
 function makeRequest(body: unknown, secret?: string): NextRequest {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -305,8 +306,8 @@ describe("POST /api/ai/notify-completion", () => {
           downloadUrl: expect.stringContaining("/api/files/papers/file-abc?download=1"),
         }),
       );
-      const sentPayload = mockSendGenerationPdfEmail.mock.calls[0]?.[0] as { downloadUrl?: string };
-      expect(sentPayload.downloadUrl || "").not.toContain("uid=");
+      const sentPayload = mockSendGenerationPdfEmail.mock.calls[0]?.[0] as SentPdfEmailPayload;
+      expect(sentPayload.downloadUrl).not.toContain("uid=");
     });
 
     it("builds solved-paper title correctly", async () => {
