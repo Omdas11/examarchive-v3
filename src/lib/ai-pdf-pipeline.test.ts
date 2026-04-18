@@ -98,13 +98,13 @@ describe("ai-pdf-pipeline", () => {
     await renderMarkdownPdfToAppwrite({
       markdown: "# Title",
       fileBaseName: "test",
-      gotenbergUrl: "https://example-gotenberg.hf.space",
+      gotenbergUrl: "https://example-gotenberg.local",
       gotenbergAuthToken: "secret-token",
     });
 
     expect(global.fetch).toHaveBeenCalledTimes(1);
     expect(global.fetch).toHaveBeenCalledWith(
-      "https://example-gotenberg.hf.space/forms/chromium/convert/html",
+      "https://example-gotenberg.local/forms/chromium/convert/html",
       expect.objectContaining({
         method: "POST",
         headers: { Authorization: "Bearer secret-token" },
@@ -127,12 +127,12 @@ describe("ai-pdf-pipeline", () => {
     await renderMarkdownPdfToAppwrite({
       markdown: "# Title",
       fileBaseName: "test",
-      gotenbergUrl: "https://example-gotenberg.hf.space",
+      gotenbergUrl: "https://example-gotenberg.local",
       gotenbergAuthToken: " \"Bearer secret-token\" ",
     });
 
     expect(global.fetch).toHaveBeenCalledWith(
-      "https://example-gotenberg.hf.space/forms/chromium/convert/html",
+      "https://example-gotenberg.local/forms/chromium/convert/html",
       expect.objectContaining({
         method: "POST",
         headers: { Authorization: "Bearer secret-token" },
@@ -155,12 +155,12 @@ describe("ai-pdf-pipeline", () => {
     await renderMarkdownPdfToAppwrite({
       markdown: "# Title",
       fileBaseName: "test",
-      gotenbergUrl: "https://example-gotenberg.hf.space",
+      gotenbergUrl: "https://example-gotenberg.local",
       gotenbergAuthToken: " 'secret-token' ",
     });
 
     expect(global.fetch).toHaveBeenCalledWith(
-      "https://example-gotenberg.hf.space/forms/chromium/convert/html",
+      "https://example-gotenberg.local/forms/chromium/convert/html",
       expect.objectContaining({
         method: "POST",
         headers: { Authorization: "Bearer secret-token" },
@@ -183,12 +183,12 @@ describe("ai-pdf-pipeline", () => {
     await renderMarkdownPdfToAppwrite({
       markdown: "# Title",
       fileBaseName: "test",
-      gotenbergUrl: "https://example-gotenberg.hf.space",
+      gotenbergUrl: "https://example-gotenberg.local",
       gotenbergAuthToken: "   secret-token   ",
     });
 
     expect(global.fetch).toHaveBeenCalledWith(
-      "https://example-gotenberg.hf.space/forms/chromium/convert/html",
+      "https://example-gotenberg.local/forms/chromium/convert/html",
       expect.objectContaining({
         method: "POST",
         headers: { Authorization: "Bearer secret-token" },
@@ -211,7 +211,7 @@ describe("ai-pdf-pipeline", () => {
     await renderMarkdownPdfToAppwrite({
       markdown: "# Title",
       fileBaseName: "test",
-      gotenbergUrl: "https://example-gotenberg.hf.space",
+      gotenbergUrl: "https://example-gotenberg.local",
       gotenbergAuthToken: "secret-token",
     });
 
@@ -224,7 +224,7 @@ describe("ai-pdf-pipeline", () => {
     expect((global.fetch as jest.Mock).mock.calls[0]?.[1]?.headers).not.toHaveProperty("Content-Type");
   });
 
-  it("throws when no gotenbergAuthToken is provided", async () => {
+  it("omits Authorization header when no gotenbergAuthToken is provided", async () => {
     const createFile = jest.fn().mockResolvedValue(undefined);
     (adminStorage as jest.Mock).mockReturnValue({ createFile });
     (InputFile.fromBuffer as jest.Mock).mockReturnValue({ mocked: true });
@@ -236,11 +236,19 @@ describe("ai-pdf-pipeline", () => {
       text: async () => "",
     }) as unknown as typeof fetch;
 
-    await expect(renderMarkdownPdfToAppwrite({
+    await renderMarkdownPdfToAppwrite({
       markdown: "# Title",
       fileBaseName: "test",
-      gotenbergUrl: "https://example-gotenberg.hf.space",
-    })).rejects.toThrow("Missing GOTENBERG_AUTH_TOKEN");
-    expect(global.fetch).not.toHaveBeenCalled();
+      gotenbergUrl: "https://example-gotenberg.local",
+    });
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(global.fetch).toHaveBeenCalledWith(
+      "https://example-gotenberg.local/forms/chromium/convert/html",
+      expect.objectContaining({
+        method: "POST",
+        headers: undefined,
+      }),
+    );
   });
 });

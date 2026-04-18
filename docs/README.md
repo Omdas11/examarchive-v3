@@ -45,7 +45,6 @@ The growth and monetization prep checklist is now split into focused docs:
 | [docs/CONTRIBUTOR_OPERATIONS_GUIDE.md](./CONTRIBUTOR_OPERATIONS_GUIDE.md) | Contributor responsibilities, QA process, and release readiness SOP |
 | [docs/launch/GOOGLE_ANALYTICS_SETUP.md](./launch/GOOGLE_ANALYTICS_SETUP.md) | GA4 implementation and event taxonomy guide |
 | [docs/SIMPLE_ANALYTICS_SETUP.md](./SIMPLE_ANALYTICS_SETUP.md) | Simple Analytics configuration steps and verification checklist |
-| [docs/HF_GOTENBERG_SETUP.md](./HF_GOTENBERG_SETUP.md) | Move PDF rendering to Hugging Face Gotenberg and configure Next.js envs |
 | [docs/DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) | Appwrite collection schemas |
 | [docs/UPLOAD_FLOW.md](./UPLOAD_FLOW.md) | End-to-end upload and moderation architecture |
 | [docs/payments/razorpay-integration.md](./payments/razorpay-integration.md) | Razorpay verification routes and Purchases schema architecture |
@@ -56,4 +55,4 @@ The growth and monetization prep checklist is now split into focused docs:
   - `npm run sync:appwrite-ai` (AI schema/function sync)
   - `bash scripts/deploy-function.sh` (deploy/update `pdf-generator` function)
 - This keeps `scripts/deploy-function.sh` and `appwrite-functions/pdf-generator/**` changes automatically synced to Appwrite after merge.
-- Ensure repo secrets include `APPWRITE_ENDPOINT`, `APPWRITE_PROJECT_ID`, `APPWRITE_API_KEY`, `GOTENBERG_URL`, `GOTENBERG_AUTH_TOKEN`, `GEMINI_API_KEY` (and optionally `TAVILY_API_KEY` for solved-paper web context).
+- Ensure repo secrets include `APPWRITE_ENDPOINT`, `APPWRITE_PROJECT_ID`, `APPWRITE_API_KEY`, `GOTENBERG_URL`, `GEMINI_API_KEY` (and optionally `GOTENBERG_AUTH_TOKEN` if required by your host, plus `TAVILY_API_KEY` for solved-paper web context).

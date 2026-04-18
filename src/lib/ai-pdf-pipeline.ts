@@ -15,7 +15,7 @@ const DEFAULT_GOTENBERG_REQUEST_TIMEOUT_MS = 45_000;
 const DEFAULT_GOTENBERG_MAX_ATTEMPTS = 3;
 const DEFAULT_GOTENBERG_RETRY_DELAY_MS = 1_500;
 const GOTENBERG_CONVERT_ENDPOINT_PATH = "/forms/chromium/convert/html";
-const TRUSTED_GOTENBERG_HOST_SUFFIX = ".hf.space";
+const GOTENBERG_LEGACY_CONVERT_ENDPOINT_PATH = "/convert/html";
 const GOTENBERG_REQUEST_TIMEOUT_MS = Number.isFinite(Number(process.env.GOTENBERG_REQUEST_TIMEOUT_MS))
   ? Math.max(1_000, Number(process.env.GOTENBERG_REQUEST_TIMEOUT_MS))
   : DEFAULT_GOTENBERG_REQUEST_TIMEOUT_MS;
@@ -47,13 +47,10 @@ async function postToGotenbergWithRetry(args: {
   } catch {
     throw new Error("Invalid GOTENBERG_URL.");
   }
-  if (baseUrl.protocol !== "https:") {
-    throw new Error("GOTENBERG_URL must use HTTPS.");
+  if (!/^https?:$/.test(baseUrl.protocol)) {
+    throw new Error("GOTENBERG_URL must use HTTP or HTTPS.");
   }
   const normalizedBaseHost = baseUrl.hostname.toLowerCase();
-  if (!normalizedBaseHost.endsWith(TRUSTED_GOTENBERG_HOST_SUFFIX)) {
-    throw new Error("GOTENBERG_URL must use a trusted Hugging Face domain.");
-  }
 
   let endpointUrl: URL;
   try {
@@ -61,10 +58,10 @@ async function postToGotenbergWithRetry(args: {
   } catch {
     throw new Error("Invalid Gotenberg endpoint path.");
   }
-  if (endpointUrl.protocol !== "https:") {
-    throw new Error("Refusing insecure Gotenberg endpoint.");
+  if (!/^https?:$/.test(endpointUrl.protocol)) {
+    throw new Error("Refusing Gotenberg endpoint with unsupported protocol.");
   }
-  if (endpointUrl.pathname !== GOTENBERG_CONVERT_ENDPOINT_PATH) {
+  if (![GOTENBERG_CONVERT_ENDPOINT_PATH, GOTENBERG_LEGACY_CONVERT_ENDPOINT_PATH].includes(endpointUrl.pathname)) {
     throw new Error("Refusing unexpected Gotenberg endpoint path.");
   }
   if (endpointUrl.hostname.toLowerCase() !== normalizedBaseHost) {
@@ -560,30 +557,32 @@ export async function renderMarkdownPdfToAppwrite(args: {
   syllabusContent?: string;
   userEmail?: string;
 }): Promise<{ fileId: string; fileUrl: string }> {
-  const configuredGotenbergUrl = args.gotenbergUrl.trim();
+  const configuredGotenbergUrl = (
+    args.gotenbergUrl
+    || process.env.GOTENBERG_URL
+    || process.env.AZURE_GOTENBERG_URL
+    || ""
+  ).trim();
   if (!configuredGotenbergUrl) {
-    throw new Error("Missing gotenbergUrl for private Gotenberg Space.");
+    throw new Error("Missing GOTENBERG_URL (legacy AZURE_GOTENBERG_URL also not set).");
   }
   const gotenbergAuthToken = normalizeGotenbergAuthToken(
     args.gotenbergAuthToken ?? process.env.GOTENBERG_AUTH_TOKEN ?? "",
   );
-  if (!gotenbergAuthToken) {
-    throw new Error("Missing GOTENBERG_AUTH_TOKEN for private Gotenberg Space.");
-  }
-  const requestHeaders = { Authorization: `Bearer ${gotenbergAuthToken}` };
+  const requestHeaders = gotenbergAuthToken
+    ? { Authorization: `Bearer ${gotenbergAuthToken}` }
+    : undefined;
   let gotenbergBaseUrl: URL;
   try {
     gotenbergBaseUrl = new URL(configuredGotenbergUrl);
   } catch {
     throw new Error("Invalid GOTENBERG_URL.");
   }
-  if (gotenbergBaseUrl.protocol !== "https:") {
-    throw new Error("GOTENBERG_URL must use HTTPS.");
-  }
-  if (!gotenbergBaseUrl.hostname.toLowerCase().endsWith(TRUSTED_GOTENBERG_HOST_SUFFIX)) {
-    throw new Error("GOTENBERG_URL must use a trusted Hugging Face domain.");
+  if (!/^https?:$/.test(gotenbergBaseUrl.protocol)) {
+    throw new Error("GOTENBERG_URL must use HTTP or HTTPS.");
   }
   const primaryEndpoint = buildGotenbergEndpoint(gotenbergBaseUrl.toString(), GOTENBERG_CONVERT_ENDPOINT_PATH);
+  const fallbackEndpoint = buildGotenbergEndpoint(gotenbergBaseUrl.toString(), GOTENBERG_LEGACY_CONVERT_ENDPOINT_PATH);
   const html = buildPdfHtml({
     markdown: args.markdown,
     modelName: args.modelName,
@@ -613,13 +612,23 @@ export async function renderMarkdownPdfToAppwrite(args: {
     return formData;
   };
 
-  const gotenbergEndpointPath = GOTENBERG_CONVERT_ENDPOINT_PATH;
-  const response = await postToGotenbergWithRetry({
+  let gotenbergEndpointPath = GOTENBERG_CONVERT_ENDPOINT_PATH;
+  let response = await postToGotenbergWithRetry({
     baseUrl: configuredGotenbergUrl,
     endpointPath: gotenbergEndpointPath,
     headers: requestHeaders,
     buildFormData,
   });
+  if (response.status === 404) {
+    console.warn(`[ai-pdf-pipeline] Primary Gotenberg endpoint returned 404 (${primaryEndpoint}). Retrying fallback endpoint.`);
+    gotenbergEndpointPath = GOTENBERG_LEGACY_CONVERT_ENDPOINT_PATH;
+    response = await postToGotenbergWithRetry({
+      baseUrl: configuredGotenbergUrl,
+      endpointPath: gotenbergEndpointPath,
+      headers: requestHeaders,
+      buildFormData,
+    });
+  }
   if (response.status !== 200) {
     const errorText = (await response.text()).trim().slice(0, 2000);
     console.error("[ai-pdf-pipeline] Gotenberg Error Body:", errorText || response.statusText || "Unknown error");
@@ -629,7 +638,9 @@ export async function renderMarkdownPdfToAppwrite(args: {
       error: errorText || response.statusText || "Unknown error",
     });
     throw new Error(
-      `Gotenberg Error (${response.status}) at ${primaryEndpoint}: ${errorText || response.statusText || "Unknown error"}`,
+      `Gotenberg Error (${response.status}) at ${
+        gotenbergEndpointPath === GOTENBERG_LEGACY_CONVERT_ENDPOINT_PATH ? fallbackEndpoint : primaryEndpoint
+      }: ${errorText || response.statusText || "Unknown error"}`,
     );
   }
 

@@ -507,8 +507,7 @@ function collectGeneratePdfEnvChecks(): {
 
   const workerOnlyChecks = [
     "GEMINI_API_KEY|GOOGLE_API_KEY",
-    "GOTENBERG_URL",
-    "GOTENBERG_AUTH_TOKEN",
+    "GOTENBERG_URL|AZURE_GOTENBERG_URL",
   ] as const;
   for (const checkName of workerOnlyChecks) {
     const [primary, fallback] = checkName.split("|");

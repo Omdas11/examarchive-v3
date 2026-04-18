@@ -69,7 +69,7 @@ function sleep(ms: number): Promise<void> {
 }
 
 function resolveGotenbergUrl(): string {
-  return (process.env.GOTENBERG_URL || "").trim();
+  return (process.env.GOTENBERG_URL || process.env.AZURE_GOTENBERG_URL || "").trim();
 }
 
 function isRateLimitError(error: unknown): boolean {

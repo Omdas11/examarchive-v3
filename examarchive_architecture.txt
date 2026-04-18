@@ -106,7 +106,7 @@ Detailed flow
    - Persist cache metadata row in Generated_Notes_Cache
 9. Server renders markdown to PDF using renderMarkdownPdfToAppwrite():
    - Builds HTML/CSS/header/footer from markdown
-   - Sends multipart FormData to configured Gotenberg endpoint (HF Space recommended)
+   - Sends multipart FormData to configured Gotenberg endpoint (Azure-hosted stable instance)
    - Receives PDF bytes and uploads result to Appwrite papers bucket
 10. SSE "done" event returns pdf_url (+ cache metadata). Client updates timeline and shows downloadable PDF.
 
@@ -165,7 +165,7 @@ What exists instead
 - Monetization docs mention future gateway/webhook plans, but active implementation currently uses quota/usage controls rather than payment settlement.
 
 ============================================================
-6) PDF PIPELINE (GOTENBERG, HF SPACE READY)
+6) PDF PIPELINE (GOTENBERG, AZURE STABLE)
 ============================================================
 Primary AI pipeline implementation
 - File: /src/lib/ai-pdf-pipeline.ts

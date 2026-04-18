@@ -26,7 +26,7 @@ const DEFAULT_GEMINI_BASE_BACKOFF_MS = Number.isFinite(geminiBaseBackoffRaw)
   ? Math.max(250, geminiBaseBackoffRaw)
   : 1500;
 const GOTENBERG_ENDPOINT_PATH = "/forms/chromium/convert/html";
-const TRUSTED_GOTENBERG_HOST_SUFFIX = ".hf.space";
+const GOTENBERG_LEGACY_ENDPOINT_PATH = "/convert/html";
 const GOTENBERG_REQUEST_TIMEOUT_MS = Number.isFinite(gotenbergRequestTimeoutRaw)
   ? Math.max(1_000, gotenbergRequestTimeoutRaw)
   : 45_000;
@@ -350,14 +350,13 @@ function validateGotenbergUrl(raw) {
   } catch {
     throw new Error("Invalid GOTENBERG_URL in function environment.");
   }
-  if (baseUrl.protocol !== "https:") {
-    throw new Error("GOTENBERG_URL must use HTTPS.");
+  if (!/^https?:$/.test(baseUrl.protocol)) {
+    throw new Error("GOTENBERG_URL must use HTTP or HTTPS.");
   }
-  if (!baseUrl.hostname.toLowerCase().endsWith(TRUSTED_GOTENBERG_HOST_SUFFIX)) {
-    throw new Error(`GOTENBERG_URL must target a trusted ${TRUSTED_GOTENBERG_HOST_SUFFIX} host.`);
-  }
-  const endpointUrl = new URL(GOTENBERG_ENDPOINT_PATH, `${baseUrl.origin}/`);
-  return endpointUrl.toString();
+  return {
+    primaryEndpointUrl: new URL(GOTENBERG_ENDPOINT_PATH, `${baseUrl.origin}/`).toString(),
+    fallbackEndpointUrl: new URL(GOTENBERG_LEGACY_ENDPOINT_PATH, `${baseUrl.origin}/`).toString(),
+  };
 }
 
 function shouldRetryGotenberg(status) {
@@ -368,12 +367,13 @@ async function renderWithGotenberg(markdown, fileName, markedParser) {
   const gotenbergUrl = String(process.env.GOTENBERG_URL || "").trim();
   const gotenbergAuthToken = String(process.env.GOTENBERG_AUTH_TOKEN || "").trim();
   if (!gotenbergUrl) throw new Error("Missing GOTENBERG_URL in function environment.");
-  if (!gotenbergAuthToken) throw new Error("Missing GOTENBERG_AUTH_TOKEN in function environment.");
-  const endpointUrl = validateGotenbergUrl(gotenbergUrl);
+  const { primaryEndpointUrl, fallbackEndpointUrl } = validateGotenbergUrl(gotenbergUrl);
 
   const html = await markdownToSimpleHtml(markdown, fileName, markedParser);
-  const headers = { Authorization: normalizeBearerToken(gotenbergAuthToken) };
+  const normalizedToken = normalizeBearerToken(gotenbergAuthToken);
+  const headers = normalizedToken ? { Authorization: normalizedToken } : undefined;
 
+  let endpointUrl = primaryEndpointUrl;
   let lastError = null;
   for (let attempt = 1; attempt <= GOTENBERG_MAX_ATTEMPTS; attempt += 1) {
     const form = new FormData();
@@ -388,6 +388,11 @@ async function renderWithGotenberg(markdown, fileName, markedParser) {
       if (!response.ok) {
         const bodyText = await response.text().catch(() => "");
         const msg = `Gotenberg request failed (${response.status}): ${bodyText.slice(0, 2000)}`;
+        if (response.status === 404 && endpointUrl === primaryEndpointUrl) {
+          console.warn(`[pdf-generator] Primary endpoint returned 404 (${primaryEndpointUrl}); retrying legacy endpoint.`);
+          endpointUrl = fallbackEndpointUrl;
+          continue;
+        }
         if (attempt < GOTENBERG_MAX_ATTEMPTS && shouldRetryGotenberg(response.status)) {
           console.error(`[pdf-generator] ${msg}`);
           await sleep(GOTENBERG_BASE_BACKOFF_MS * (2 ** (attempt - 1)));
