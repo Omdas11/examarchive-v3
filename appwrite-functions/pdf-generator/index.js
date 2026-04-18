@@ -73,9 +73,12 @@ const JOB_COLLECTION_ID = process.env.AI_JOBS_COLLECTION_ID || "ai_generation_jo
 const SYLLABUS_TABLE_COLLECTION_ID = process.env.SYLLABUS_TABLE_COLLECTION_ID || "Syllabus_Table";
 const QUESTIONS_TABLE_COLLECTION_ID = process.env.QUESTIONS_TABLE_COLLECTION_ID || "Questions_Table";
 const PAPERS_BUCKET_ID = process.env.APPWRITE_BUCKET_ID || "papers";
+const CACHED_UNIT_NOTES_BUCKET_ID = process.env.CACHED_UNIT_NOTES_BUCKET_ID || "cached-unit-notes";
+const CACHED_SOLVED_PAPERS_BUCKET_ID = process.env.CACHED_SOLVED_PAPERS_BUCKET_ID || "cached-solved-papers";
 const NOTIFY_COMPLETION_PATH = "/api/ai/notify-completion";
 const NOTIFY_WEBHOOK_ERROR_LOG_MAX_CHARS = 2_000;
 const MAX_LOGGED_CALLBACK_URL_CHARS = 500;
+const COMPLETION_WEBHOOK_DELAY_MS = 2_000;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -1088,12 +1091,84 @@ async function processGenerationJob(rawInput, options = {}) {
   try {
     const normalizedJobType = String(payload.jobType || "").trim().toLowerCase();
     let markdown = "";
-    if (normalizedJobType === "notes") {
-      markdown = await generateNotesPayload(db, payload);
-    } else if (normalizedJobType === "solved-paper") {
-      markdown = await generateSolvedPaperPayload(db, payload);
-    } else {
+    if (normalizedJobType !== "notes" && normalizedJobType !== "solved-paper") {
       throw new Error(`Unsupported jobType "${payload.jobType}".`);
+    }
+
+    const normalizeRequiredCacheSegment = (value, fieldName) => {
+      const normalizedValue = String(value ?? "").trim();
+      if (!normalizedValue) {
+        throw new Error(`Missing ${fieldName} in payload for ${normalizedJobType} cache key.`);
+      }
+      return normalizedValue;
+    };
+    const cacheScopeSegment = normalizedJobType === "notes"
+      ? normalizeRequiredCacheSegment(payload.unitNumber, "unitNumber")
+      : normalizeRequiredCacheSegment(payload.year, "year");
+    const cacheKey = `${normalizeRequiredCacheSegment(payload.paperCode, "paperCode")}_${cacheScopeSegment}_${normalizeRequiredCacheSegment(payload.stream, "stream")}_${normalizeRequiredCacheSegment(payload.course, "course")}_${normalizeRequiredCacheSegment(payload.type, "type")}`
+      .replace(/[^a-zA-Z0-9_-]/g, "_");
+    const cacheFileName = `${cacheKey}.md`;
+    const cacheBucketId = normalizedJobType === "notes"
+      ? CACHED_UNIT_NOTES_BUCKET_ID
+      : CACHED_SOLVED_PAPERS_BUCKET_ID;
+    let loadedFromCache = false;
+
+    try {
+      const cachedFiles = await storage.listFiles(cacheBucketId, [
+        Query.search("name", cacheKey),
+        Query.orderDesc("$createdAt"),
+        Query.limit(10),
+      ]);
+      const exactMatch = Array.isArray(cachedFiles.files)
+        ? cachedFiles.files.find((file) => String(file.name || "").trim() === cacheFileName)
+        : null;
+      const cachedFile = exactMatch || cachedFiles.files?.[0];
+      if (cachedFile && cachedFile.$id) {
+        const cachedMarkdownBuffer = await storage.getFileDownload(cacheBucketId, cachedFile.$id);
+        const cachedMarkdown = Buffer.from(cachedMarkdownBuffer).toString("utf8");
+        if (cachedMarkdown.trim()) {
+          markdown = cachedMarkdown;
+          loadedFromCache = true;
+          console.log("[pdf-generator] Loaded markdown from cache bucket.", {
+            jobId,
+            jobType: normalizedJobType,
+            cacheBucketId,
+            cacheFileId: cachedFile.$id,
+            cacheFileName: String(cachedFile.name || ""),
+          });
+        }
+      }
+    } catch (cacheReadError) {
+      console.warn("[pdf-generator] Markdown cache read failed. Proceeding with fresh generation.", {
+        jobId,
+        jobType: normalizedJobType,
+        cacheBucketId,
+        cacheKey,
+        message: cacheReadError instanceof Error ? cacheReadError.message : String(cacheReadError),
+      });
+    }
+
+    if (!loadedFromCache) {
+      if (normalizedJobType === "notes") {
+        markdown = await generateNotesPayload(db, payload);
+      } else {
+        markdown = await generateSolvedPaperPayload(db, payload);
+      }
+      try {
+        await storage.createFile(
+          cacheBucketId,
+          ID.unique(),
+          InputFile.fromBuffer(Buffer.from(markdown, "utf8"), cacheFileName),
+        );
+      } catch (cacheWriteError) {
+        console.warn("[pdf-generator] Markdown cache write failed. Continuing without cache persistence.", {
+          jobId,
+          jobType: normalizedJobType,
+          cacheBucketId,
+          cacheKey,
+          message: cacheWriteError instanceof Error ? cacheWriteError.message : String(cacheWriteError),
+        });
+      }
     }
     await updateJob(db, jobId, { progress_percent: 80 });
 
@@ -1111,6 +1186,7 @@ async function processGenerationJob(rawInput, options = {}) {
       result_file_id: String(created.$id),
       completed_at: new Date().toISOString(),
     });
+    await sleep(COMPLETION_WEBHOOK_DELAY_MS);
     await notifyCompletionWebhook({
       jobId,
       status: "completed",

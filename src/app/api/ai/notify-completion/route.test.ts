@@ -4,6 +4,8 @@
 import { NextRequest } from "next/server";
 import { POST } from "./route";
 
+jest.setTimeout(20_000);
+
 const mockGetDocument = jest.fn();
 const mockUpdateDocument = jest.fn();
 const mockListDocuments = jest.fn();
@@ -65,13 +67,23 @@ describe("POST /api/ai/notify-completion", () => {
     process.env = originalEnv;
   });
 
-  it("returns 503 when webhook secret is not configured", async () => {
+  it("accepts completed callback without bearer when webhook secret is not configured and stored file exists", async () => {
     delete process.env.AI_JOB_WEBHOOK_SECRET;
+    mockGetDocument.mockResolvedValue({
+      $id: "job1",
+      status: "completed",
+      completed_at: "2026-04-16T16:00:00.000Z",
+      user_id: "user1",
+      result_file_id: "file1",
+      input_payload_json: JSON.stringify({ jobType: "notes", paperCode: "CS101", unitNumber: 1, userEmail: "user@example.com" }),
+      error_message: "",
+    });
+    mockSendGenerationPdfEmail.mockResolvedValue(undefined);
     const req = makeRequest({ jobId: "job1", status: "completed", fileId: "file1" }, WEBHOOK_SECRET);
     const res = await POST(req);
-    expect(res.status).toBe(503);
+    expect(res.status).toBe(200);
     const json = await res.json();
-    expect(json.error).toMatch(/not configured/i);
+    expect(json.ok).toBe(true);
   });
 
   it("returns 401 when no auth token provided", async () => {

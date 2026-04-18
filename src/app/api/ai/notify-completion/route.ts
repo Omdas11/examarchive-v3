@@ -193,9 +193,9 @@ function isUnverifiedCallbackConsistentWithJob(args: CallbackTrustCheckArgs): bo
   if (args.status === "completed") {
     const storedFileId = String(args.job.result_file_id || "").trim();
     // Accept if either: (a) callback body matches stored fileId, or
-    // (b) job doc already has a result_file_id (body fileId may be absent on fast callbacks).
-    if (storedFileId && args.fileIdFromBody && args.fileIdFromBody === storedFileId) return true;
-    if (storedFileId) return true; // job doc confirms completion even without body fileId
+    // (b) callback body omitted fileId but the job doc already has result_file_id.
+    if (storedFileId && args.fileIdFromBody) return args.fileIdFromBody === storedFileId;
+    if (storedFileId) return true;
     return false;
   }
   const completedAt = String(args.job.completed_at || "").trim();
@@ -208,12 +208,10 @@ function sleep(ms: number): Promise<void> {
 
 export async function POST(request: NextRequest) {
   const webhookSecret = (process.env.AI_JOB_WEBHOOK_SECRET || "").trim();
-  if (!webhookSecret) {
-    return NextResponse.json({ error: "Webhook secret not configured." }, { status: 503 });
-  }
+  const isWebhookSecretConfigured = webhookSecret.length > 0;
   const providedToken = getAuthToken(request);
-  const hasValidBearer = !!providedToken && safeCompareSecrets(webhookSecret, providedToken);
-  if (providedToken && !hasValidBearer) {
+  const hasValidBearer = isWebhookSecretConfigured && !!providedToken && safeCompareSecrets(webhookSecret, providedToken);
+  if (isWebhookSecretConfigured && providedToken && !hasValidBearer) {
     console.error("[ai/notify-completion] CRITICAL: Webhook authentication failed.");
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -299,21 +297,31 @@ export async function POST(request: NextRequest) {
     // FIX: Final fallback — if we exhausted all retries but the job document now
     // has result_file_id (i.e. the Appwrite write propagated but status field lagged),
     // treat the callback as consistent so the PDF email is not dropped silently.
-    if (!callbackConsistent && status === "completed") {
-      const storedFileId = String(resolvedJob.result_file_id || "").trim();
-      if (storedFileId) {
+    const storedResultFileIdForFallback = status === "completed"
+      ? String(resolvedJob.result_file_id || "").trim()
+      : "";
+    const canUseStoredResultFileIdFallback = !fileIdFromBody && !!storedResultFileIdForFallback;
+
+    if (!callbackConsistent && status === "completed" && canUseStoredResultFileIdFallback) {
+      if (isWebhookSecretConfigured) {
         console.warn(
           "[ai/notify-completion] Retry budget exhausted but job doc has result_file_id; accepting callback via file-id fallback.",
           {
             jobId,
-            storedFileId,
+            storedFileId: storedResultFileIdForFallback,
             jobStatus: String(resolvedJob.status || ""),
             totalWaitedMs:
               UNVERIFIED_CALLBACK_MAX_JOB_CONSISTENCY_RETRIES * UNVERIFIED_CALLBACK_JOB_CONSISTENCY_DELAY_MS,
           },
         );
-        callbackConsistent = true;
+      } else {
+        console.warn("[ai/notify-completion] Webhook secret unset; accepting callback for completed job with result_file_id.", {
+          jobId,
+          storedFileId: storedResultFileIdForFallback,
+          jobStatus: String(resolvedJob.status || ""),
+        });
       }
+      callbackConsistent = true;
     }
 
     if (!callbackConsistent) {

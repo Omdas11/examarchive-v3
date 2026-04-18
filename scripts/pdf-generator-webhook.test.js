@@ -11,7 +11,13 @@ jest.mock("node-appwrite", () => ({
   })),
   Databases: jest.fn(),
   Storage: jest.fn(),
-  Query: { equal: jest.fn(), limit: jest.fn(), orderAsc: jest.fn() },
+  Query: {
+    equal: jest.fn(),
+    limit: jest.fn(),
+    orderAsc: jest.fn(),
+    orderDesc: jest.fn(),
+    search: jest.fn(),
+  },
   ID: { unique: jest.fn(() => "mock-id") },
 }));
 
@@ -23,13 +29,22 @@ jest.mock("katex", () => ({
   renderToString: jest.fn((expr) => `<math>${expr}</math>`),
 }), { virtual: true });
 
-jest.mock("sanitize-html", () => jest.fn((html) => html), { virtual: true });
+jest.mock("sanitize-html", () => {
+  const sanitizeHtmlMock = jest.fn((html) => html);
+  sanitizeHtmlMock.defaults = {
+    allowedTags: [],
+    allowedAttributes: {},
+  };
+  return sanitizeHtmlMock;
+}, { virtual: true });
 
 jest.mock("he", () => ({
   encode: jest.fn((str) => str),
 }), { virtual: true });
 
-const { notifyCompletionWebhook, getNotifyCompletionUrl } = require("../appwrite-functions/pdf-generator/index.js");
+const { Databases, Storage } = require("node-appwrite");
+const { notifyCompletionWebhook, getNotifyCompletionUrl, processGenerationJob } = require("../appwrite-functions/pdf-generator/index.js");
+const { InputFile } = require("node-appwrite/file");
 
 describe("pdf-generator / getNotifyCompletionUrl", () => {
   const originalEnv = process.env;
@@ -197,5 +212,86 @@ describe("pdf-generator / notifyCompletionWebhook", () => {
     await expect(
       notifyCompletionWebhook({ jobId: "j1", status: "failed", fileId: "" })
     ).resolves.toBeUndefined();
+  });
+});
+
+describe("pdf-generator / processGenerationJob cache behavior", () => {
+  const originalEnv = process.env;
+  const originalFetch = global.fetch;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    process.env = {
+      ...originalEnv,
+      APPWRITE_ENDPOINT: "https://cloud.appwrite.io/v1",
+      APPWRITE_PROJECT_ID: "project-id",
+      APPWRITE_API_KEY: "secret",
+      APPWRITE_BUCKET_ID: "papers",
+      CACHED_UNIT_NOTES_BUCKET_ID: "cached-unit-notes",
+      CACHED_SOLVED_PAPERS_BUCKET_ID: "cached-solved-papers",
+      GOTENBERG_URL: "https://example.hf.space",
+      GOTENBERG_AUTH_TOKEN: "hf_token",
+      SITE_URL: "https://www.example.com",
+      AI_JOB_WEBHOOK_SECRET: "test-secret-key",
+    };
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+    global.fetch = originalFetch;
+    jest.restoreAllMocks();
+  });
+
+  it("reads markdown from cache bucket and avoids fresh Gemini generation calls", async () => {
+    const mockDb = {
+      updateDocument: jest.fn().mockResolvedValue({}),
+      listDocuments: jest.fn(),
+    };
+    Databases.mockImplementation(() => mockDb);
+
+    const mockStorage = {
+      listFiles: jest.fn().mockResolvedValue({
+        files: [{ $id: "cache-file-1", name: "CS101_1_CSE_BTECH_Regular.md", $createdAt: "2026-04-18T00:00:00.000Z" }],
+      }),
+      getFileDownload: jest.fn().mockResolvedValue(Buffer.from("# Cached markdown", "utf8")),
+      createFile: jest.fn()
+        .mockResolvedValueOnce({ $id: "pdf-file-1" }),
+    };
+    Storage.mockImplementation(() => mockStorage);
+
+    InputFile.fromBuffer.mockImplementation((buffer, name) => ({ buffer, name }));
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        arrayBuffer: async () => Buffer.from("%PDF-1.4", "utf8"),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: async () => "",
+      });
+
+    await processGenerationJob(JSON.stringify({
+      jobId: "job1",
+      payload: {
+        jobType: "notes",
+        university: "Test Uni",
+        course: "BTECH",
+        stream: "CSE",
+        type: "Regular",
+        paperCode: "CS101",
+        unitNumber: 1,
+      },
+    }), {
+      markedParser: {
+        parse: (markdown) => `<p>${String(markdown)}</p>`,
+      },
+    });
+
+    expect(mockStorage.listFiles).toHaveBeenCalledWith("cached-unit-notes", expect.any(Array));
+    expect(mockStorage.getFileDownload).toHaveBeenCalledWith("cached-unit-notes", "cache-file-1");
+    expect(mockDb.listDocuments).not.toHaveBeenCalled();
+    expect(mockStorage.createFile).toHaveBeenCalledWith("papers", "mock-id", expect.any(Object));
   });
 });
