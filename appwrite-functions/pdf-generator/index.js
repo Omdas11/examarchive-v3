@@ -432,7 +432,17 @@ function shouldRetryGotenberg(status) {
 }
 
 function logFullGotenberg5xx(context, bodyText) {
-  console.error(`[pdf-generator] ${context} 5xx response body (full):`, bodyText || "<empty>");
+  const normalizedBody = String(bodyText || "");
+  const totalLength = normalizedBody.length;
+  const hasContent = totalLength > 0;
+  const truncatedBody = hasContent && totalLength > GOTENBERG_ERROR_LOG_MAX_CHARS
+    ? `${normalizedBody.slice(0, GOTENBERG_ERROR_LOG_MAX_CHARS)}... [truncated]`
+    : (hasContent ? normalizedBody : "<empty>");
+  console.error(`[pdf-generator] ${context} 5xx response body:`, {
+    body: truncatedBody,
+    totalLength,
+    truncated: hasContent && totalLength > GOTENBERG_ERROR_LOG_MAX_CHARS,
+  });
 }
 
 async function renderWithGotenberg(markdown, fileName, markedParser) {
@@ -878,7 +888,7 @@ async function notifyCompletionWebhook({ jobId, status, fileId, userId, userEmai
           message: error instanceof Error ? error.message : String(error),
           error,
         });
-        throw new Error(`Completion webhook request failed after ${maxAttempts} attempts: ${error instanceof Error ? error.message : String(error)}`);
+        return;
       }
       console.error(`[pdf-generator] Completion webhook request error at attempt ${attempt}/${maxAttempts}.`, {
         url: notifyUrl,
@@ -916,13 +926,17 @@ async function notifyCompletionWebhook({ jobId, status, fileId, userId, userEmai
         body: responseBody.slice(0, NOTIFY_WEBHOOK_ERROR_LOG_MAX_CHARS),
         attempts: attempt,
       });
-      throw new Error(`Completion webhook request failed with status ${response.status}: ${responseBody.slice(0, NOTIFY_WEBHOOK_ERROR_LOG_MAX_CHARS)}`);
+      return;
     }
 
     return;
   }
-
-  throw lastError || new Error("Completion webhook request failed.");
+  if (lastError) {
+    console.error("[pdf-generator] Completion webhook request failed.", {
+      url: notifyUrl,
+      message: lastError instanceof Error ? lastError.message : String(lastError),
+    });
+  }
 }
 
 async function generateNotesPayload(db, payload) {

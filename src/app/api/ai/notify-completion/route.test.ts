@@ -17,6 +17,10 @@ jest.mock("@/lib/appwrite", () => ({
   adminDatabases: () => mockAdminDatabases(),
   COLLECTION: { ai_generation_jobs: "ai_generation_jobs", users: "users" },
   DATABASE_ID: "examarchive",
+  Query: {
+    equal: jest.fn((field: string, value: unknown) => ({ method: "equal", field, value })),
+    limit: jest.fn((value: number) => ({ method: "limit", value })),
+  },
 }));
 
 const mockSendGenerationPdfEmail = jest.fn();
