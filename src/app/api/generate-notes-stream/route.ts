@@ -656,7 +656,7 @@ async function writeCachedNotes(
   markdown: string,
   syllabusContent: string,
   log?: (message: string) => void,
-): Promise<void> {
+): Promise<string | null> {
   const storage = adminStorage();
   const [mdFileName] = buildUnitNotesCacheFileNames(
     university,
@@ -684,7 +684,7 @@ async function writeCachedNotes(
     } catch (retryUploadError) {
       console.error("[generate-notes-stream] Failed to upload markdown cache file (retry):", retryUploadError);
       log?.("Warning: Could not save markdown cache.");
-      return;
+      return null;
     }
   }
 
@@ -702,9 +702,10 @@ async function writeCachedNotes(
   });
   if (!persistedId) {
     log?.("Warning: Could not save markdown cache.");
-    return;
+    return null;
   }
   log?.("Markdown cache saved successfully.");
+  return persistedId;
 }
 
 type PersistCachedNotesRecordArgs = {
@@ -1360,7 +1361,7 @@ CRITICAL FORMAT CONSTRAINTS:
           await sleep(TOPIC_LOOP_DELAY_MS);
         }
 
-        await writeCachedNotes(university, course, streamName, type, paperCode, unitNumber, semester, masterMarkdown, syllabusContent, (message) =>
+        const cacheDocId = await writeCachedNotes(university, course, streamName, type, paperCode, unitNumber, semester, masterMarkdown, syllabusContent, (message) =>
           controller.enqueue(toSseData({ log: message })),
         );
         controller.enqueue(toSseData({ log: "AI generation complete. Sending to Azure for PDF rendering..." }));
@@ -1384,6 +1385,16 @@ CRITICAL FORMAT CONSTRAINTS:
           });
           pdfUrl = rendered.fileUrl;
           controller.enqueue(toSseData({ log: "PDF rendered and uploaded successfully." }));
+          if (cacheDocId) {
+            try {
+              await updateCachedNotesPdfFileId(cacheDocId, rendered.fileId);
+              controller.enqueue(toSseData({ log: "PDF file ID persisted to cache record." }));
+            } catch (persistError) {
+              console.warn("[generate-notes-stream] Could not persist pdf_file_id to cache doc:", persistError);
+            }
+          } else {
+            console.warn("[generate-notes-stream] cacheDocId unavailable after writeCachedNotes; pdf_file_id not persisted.");
+          }
         } catch (pdfError) {
           console.error("[generate-notes-stream] PDF Engine Error:", pdfError);
           const pipelineMessage = pdfError instanceof Error ? pdfError.message : String(pdfError);
