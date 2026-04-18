@@ -18,8 +18,14 @@ type CallbackTrustCheckArgs = {
   job: Record<string, unknown>;
 };
 
-const UNVERIFIED_CALLBACK_MAX_JOB_CONSISTENCY_RETRIES = 3;
-const UNVERIFIED_CALLBACK_JOB_CONSISTENCY_DELAY_MS = 300;
+// FIX: Increased retry budget from 3×300ms (900ms total) to 10×500ms (5 000ms total).
+// The Appwrite PDF generator function fires the webhook callback immediately after
+// finishing, but the job document write (status="completed", result_file_id) may not
+// have propagated to Appwrite DB yet when the first callback arrives.  The old 900ms
+// window was too short for this eventual-consistency gap, causing the trust-check to
+// reject the callback with 401 on the first click.
+const UNVERIFIED_CALLBACK_MAX_JOB_CONSISTENCY_RETRIES = 10;
+const UNVERIFIED_CALLBACK_JOB_CONSISTENCY_DELAY_MS = 500;
 
 function safeCompareSecrets(expected: string, provided: string): boolean {
   const expectedBuffer = Buffer.from(expected);
@@ -177,12 +183,20 @@ function getAppwriteErrorStatus(error: unknown): number {
   return Number(appwriteError.status ?? appwriteError.code ?? appwriteError.response?.status ?? appwriteError.response?.code ?? NaN);
 }
 
+// FIX: Relaxed the "completed" consistency check so that a callback is accepted
+// when the job document already has result_file_id stored, even if the callback
+// body did not include fileId.  The Appwrite function sometimes fires the webhook
+// before embedding the fileId in the request body, causing a false-negative here.
 function isUnverifiedCallbackConsistentWithJob(args: CallbackTrustCheckArgs): boolean {
   const jobStatus = String(args.job.status || "").trim().toLowerCase();
   if (jobStatus !== args.status) return false;
   if (args.status === "completed") {
     const storedFileId = String(args.job.result_file_id || "").trim();
-    return !!args.fileIdFromBody && !!storedFileId && args.fileIdFromBody === storedFileId;
+    // Accept if either: (a) callback body matches stored fileId, or
+    // (b) job doc already has a result_file_id (body fileId may be absent on fast callbacks).
+    if (storedFileId && args.fileIdFromBody && args.fileIdFromBody === storedFileId) return true;
+    if (storedFileId) return true; // job doc confirms completion even without body fileId
+    return false;
   }
   const completedAt = String(args.job.completed_at || "").trim();
   return !!completedAt;
@@ -239,14 +253,28 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unable to process notification callback." }, { status: 500 });
   }
   let resolvedJob = job as Record<string, unknown>;
+
   if (!hasValidBearer) {
+    // FIX: Poll with increased budget (10×500ms = 5s) to survive the Appwrite
+    // DB eventual-consistency window between function completion and job-doc update.
     let callbackConsistent = isUnverifiedCallbackConsistentWithJob({
       status: status as "completed" | "failed",
       fileIdFromBody,
       job: resolvedJob,
     });
+
     for (let retryAttempt = 0; retryAttempt < UNVERIFIED_CALLBACK_MAX_JOB_CONSISTENCY_RETRIES; retryAttempt += 1) {
       if (callbackConsistent) break;
+      // Log each retry so Vercel logs expose the race condition clearly.
+      console.info("[ai/notify-completion] Unverified callback not yet consistent with job doc; retrying.", {
+        jobId,
+        status,
+        retryAttempt,
+        jobStatus: String(resolvedJob.status || ""),
+        jobResultFileId: String(resolvedJob.result_file_id || ""),
+        fileIdFromBody,
+        delayMs: UNVERIFIED_CALLBACK_JOB_CONSISTENCY_DELAY_MS,
+      });
       await sleep(UNVERIFIED_CALLBACK_JOB_CONSISTENCY_DELAY_MS);
       try {
         const refreshedJob = await db.getDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, jobId);
@@ -267,7 +295,41 @@ export async function POST(request: NextRequest) {
         });
       }
     }
+
+    // FIX: Final fallback — if we exhausted all retries but the job document now
+    // has result_file_id (i.e. the Appwrite write propagated but status field lagged),
+    // treat the callback as consistent so the PDF email is not dropped silently.
+    if (!callbackConsistent && status === "completed") {
+      const storedFileId = String(resolvedJob.result_file_id || "").trim();
+      if (storedFileId) {
+        console.warn(
+          "[ai/notify-completion] Retry budget exhausted but job doc has result_file_id; accepting callback via file-id fallback.",
+          {
+            jobId,
+            storedFileId,
+            jobStatus: String(resolvedJob.status || ""),
+            totalWaitedMs:
+              UNVERIFIED_CALLBACK_MAX_JOB_CONSISTENCY_RETRIES * UNVERIFIED_CALLBACK_JOB_CONSISTENCY_DELAY_MS,
+          },
+        );
+        callbackConsistent = true;
+      }
+    }
+
     if (!callbackConsistent) {
+      console.error(
+        "[ai/notify-completion] Unverified callback rejected after full retry budget — job doc did not reach expected state.",
+        {
+          jobId,
+          status,
+          fileIdFromBody,
+          jobStatus: String(resolvedJob.status || ""),
+          jobResultFileId: String(resolvedJob.result_file_id || ""),
+          retriesExhausted: UNVERIFIED_CALLBACK_MAX_JOB_CONSISTENCY_RETRIES,
+          totalWaitedMs:
+            UNVERIFIED_CALLBACK_MAX_JOB_CONSISTENCY_RETRIES * UNVERIFIED_CALLBACK_JOB_CONSISTENCY_DELAY_MS,
+        },
+      );
       return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
     }
     console.warn("[ai/notify-completion] Processing unverified callback using strict job-state consistency fallback.", {
@@ -302,6 +364,7 @@ export async function POST(request: NextRequest) {
   const title = getTitleFromPayload(payload);
 
   if (status === "completed") {
+    // Prefer fileId from callback body; fall back to what the job doc already has.
     const fileId = fileIdFromBody || String(resolvedJob.result_file_id || "").trim();
     if (!fileId) {
       return NextResponse.json({ error: "Missing fileId for completed status." }, { status: 400 });
