@@ -855,34 +855,74 @@ async function notifyCompletionWebhook({ jobId, status, fileId, userId, userEmai
   if (normalizedUserEmail) {
     callbackPayload.userEmail = normalizedUserEmail;
   }
-  let response;
-  try {
-    response = await fetch(notifyUrl, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(callbackPayload),
-      signal: AbortSignal.timeout(10_000),
-    });
-  } catch (error) {
-    console.error("[pdf-generator] Completion webhook request error.", {
+
+  const maxAttempts = 3;
+  const baseBackoffMs = 300;
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    let response;
+    try {
+      response = await fetch(notifyUrl, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(callbackPayload),
+        signal: AbortSignal.timeout(10_000),
+      });
+    } catch (error) {
+      lastError = error;
+      if (attempt >= maxAttempts) {
+        console.error("[pdf-generator] Completion webhook request error after all attempts.", {
+          url: notifyUrl,
+          attempts: maxAttempts,
+          message: error instanceof Error ? error.message : String(error),
+          error,
+        });
+        throw new Error(`Completion webhook request failed after ${maxAttempts} attempts: ${error instanceof Error ? error.message : String(error)}`);
+      }
+      console.error(`[pdf-generator] Completion webhook request error at attempt ${attempt}/${maxAttempts}.`, {
+        url: notifyUrl,
+        message: error instanceof Error ? error.message : String(error),
+        error,
+      });
+      const jitter = Math.random() * 0.3 + 0.85;
+      const backoffMs = baseBackoffMs * (2 ** (attempt - 1)) * jitter;
+      await sleep(backoffMs);
+      continue;
+    }
+
+    console.log("[pdf-generator] Completion webhook callback response received.", {
       url: notifyUrl,
-      message: error instanceof Error ? error.message : String(error),
-      error,
+      status: response.status,
+      ok: response.ok,
+      attempt,
     });
+
+    if (!response.ok) {
+      const responseBody = await response.text().catch(() => "");
+      const shouldRetry = response.status === 429 || response.status >= 500;
+      if (shouldRetry && attempt < maxAttempts) {
+        console.error(`[pdf-generator] Completion webhook request failed at attempt ${attempt}/${maxAttempts} (will retry).`, {
+          status: response.status,
+          body: responseBody.slice(0, NOTIFY_WEBHOOK_ERROR_LOG_MAX_CHARS),
+        });
+        const jitter = Math.random() * 0.3 + 0.85;
+        const backoffMs = baseBackoffMs * (2 ** (attempt - 1)) * jitter;
+        await sleep(backoffMs);
+        continue;
+      }
+      console.error("[pdf-generator] Completion webhook request failed after all attempts.", {
+        status: response.status,
+        body: responseBody.slice(0, NOTIFY_WEBHOOK_ERROR_LOG_MAX_CHARS),
+        attempts: attempt,
+      });
+      throw new Error(`Completion webhook request failed with status ${response.status}: ${responseBody.slice(0, NOTIFY_WEBHOOK_ERROR_LOG_MAX_CHARS)}`);
+    }
+
     return;
   }
-  console.log("[pdf-generator] Completion webhook callback response received.", {
-    url: notifyUrl,
-    status: response.status,
-    ok: response.ok,
-  });
-  if (!response.ok) {
-    const responseBody = await response.text().catch(() => "");
-    console.error("[pdf-generator] Completion webhook request failed.", {
-      status: response.status,
-      body: responseBody.slice(0, NOTIFY_WEBHOOK_ERROR_LOG_MAX_CHARS),
-    });
-  }
+
+  throw lastError || new Error("Completion webhook request failed.");
 }
 
 async function generateNotesPayload(db, payload) {

@@ -14,7 +14,7 @@ function getDownloadSigningSecret(): string | null {
 function emitUnsignedUrlWarning(context: { fileId: string; userId: string; env: string }): void {
   if (unsignedUrlWarningEmitted) return;
   unsignedUrlWarningEmitted = true;
-  if (process.env.NODE_ENV === "production") {
+  if (process.env.NODE_ENV !== "test") {
     console.warn("[pdf-download-link] PRODUCTION WARNING: PDF_DOWNLOAD_TOKEN_SECRET is missing or empty. Unsigned download URLs will be returned, which may cause silent redirects for signed-out recipients.", {
       env: context.env,
       fileIdSample: context.fileId.slice(0, 8),
