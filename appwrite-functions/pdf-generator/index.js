@@ -1104,14 +1104,31 @@ async function processGenerationJob(rawInput, options = {}) {
     };
     const normalizeOptionalCacheSegment = (value, fallbackValue) => {
       const normalizedValue = String(value ?? "").trim();
-      return normalizedValue || fallbackValue;
+      return normalizedValue.length > 0 ? normalizedValue : fallbackValue;
     };
     const cacheScopeSegment = normalizedJobType === "notes"
       ? normalizeRequiredCacheSegment(payload.unitNumber, "unitNumber")
       : normalizeRequiredCacheSegment(payload.year, "year");
-    const cacheKey = `${normalizeRequiredCacheSegment(payload.paperCode, "paperCode")}_${cacheScopeSegment}_${normalizeRequiredCacheSegment(payload.stream, "stream")}_${normalizeRequiredCacheSegment(payload.course, "course")}_${normalizeRequiredCacheSegment(payload.type, "type")}_${normalizeRequiredCacheSegment(payload.university, "university")}_${normalizeOptionalCacheSegment(payload.semester, "na")}_${normalizeOptionalCacheSegment(payload.model, DEFAULT_MODEL)}`
-      .replace(/[^a-zA-Z0-9_-]/g, "_");
+    const cacheKeySegments = [
+      normalizeRequiredCacheSegment(payload.paperCode, "paperCode"),
+      cacheScopeSegment,
+      normalizeRequiredCacheSegment(payload.stream, "stream"),
+      normalizeRequiredCacheSegment(payload.course, "course"),
+      normalizeRequiredCacheSegment(payload.type, "type"),
+      normalizeRequiredCacheSegment(payload.university, "university"),
+      normalizeOptionalCacheSegment(payload.semester, "na"),
+      normalizeOptionalCacheSegment(payload.model, DEFAULT_MODEL),
+    ];
+    const cacheKey = cacheKeySegments.join("_").replace(/[^a-zA-Z0-9_-]/g, "_");
+    const legacyCacheKey = [
+      normalizeRequiredCacheSegment(payload.paperCode, "paperCode"),
+      cacheScopeSegment,
+      normalizeRequiredCacheSegment(payload.stream, "stream"),
+      normalizeRequiredCacheSegment(payload.course, "course"),
+      normalizeRequiredCacheSegment(payload.type, "type"),
+    ].join("_").replace(/[^a-zA-Z0-9_-]/g, "_");
     const cacheFileName = `${cacheKey}.md`;
+    const legacyCacheFileName = `${legacyCacheKey}.md`;
     const cacheBucketId = normalizedJobType === "notes"
       ? CACHED_UNIT_NOTES_BUCKET_ID
       : CACHED_SOLVED_PAPERS_BUCKET_ID;
@@ -1124,7 +1141,10 @@ async function processGenerationJob(rawInput, options = {}) {
         Query.limit(10),
       ]);
       const exactMatch = Array.isArray(cachedFiles.files)
-        ? cachedFiles.files.find((file) => String(file.name || "").trim() === cacheFileName)
+        ? (
+          cachedFiles.files.find((file) => String(file.name || "").trim() === cacheFileName)
+          || cachedFiles.files.find((file) => String(file.name || "").trim() === legacyCacheFileName)
+        )
         : null;
       const cachedFile = exactMatch;
       if (cachedFile && cachedFile.$id) {

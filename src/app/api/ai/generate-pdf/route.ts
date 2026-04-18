@@ -495,6 +495,7 @@ async function enqueueAndDispatchPdfJob(params: {
         jobId,
         payload: params.payload,
       }),
+      // `true` requests asynchronous execution in node-appwrite.
       true,
     );
     const executionStatus = String(execution.status || "unknown");
