@@ -297,32 +297,31 @@ export async function POST(request: NextRequest) {
     // FIX: Final fallback — if we exhausted all retries but the job document now
     // has result_file_id (i.e. the Appwrite write propagated but status field lagged),
     // treat the callback as consistent so the PDF email is not dropped silently.
-    if (!callbackConsistent && status === "completed") {
-      const storedFileId = String(resolvedJob.result_file_id || "").trim();
-      if (storedFileId && !fileIdFromBody) {
+    const storedResultFileIdForFallback = status === "completed"
+      ? String(resolvedJob.result_file_id || "").trim()
+      : "";
+    const canUseStoredResultFileIdFallback = !fileIdFromBody && !!storedResultFileIdForFallback;
+
+    if (!callbackConsistent && status === "completed" && canUseStoredResultFileIdFallback) {
+      if (isWebhookSecretConfigured) {
         console.warn(
           "[ai/notify-completion] Retry budget exhausted but job doc has result_file_id; accepting callback via file-id fallback.",
           {
             jobId,
-            storedFileId,
+            storedFileId: storedResultFileIdForFallback,
             jobStatus: String(resolvedJob.status || ""),
             totalWaitedMs:
               UNVERIFIED_CALLBACK_MAX_JOB_CONSISTENCY_RETRIES * UNVERIFIED_CALLBACK_JOB_CONSISTENCY_DELAY_MS,
           },
         );
-        callbackConsistent = true;
-      }
-    }
-    if (!callbackConsistent && !isWebhookSecretConfigured && status === "completed") {
-      const storedFileId = String(resolvedJob.result_file_id || "").trim();
-      if (storedFileId && !fileIdFromBody) {
+      } else {
         console.warn("[ai/notify-completion] Webhook secret unset; accepting callback for completed job with result_file_id.", {
           jobId,
-          storedFileId,
+          storedFileId: storedResultFileIdForFallback,
           jobStatus: String(resolvedJob.status || ""),
         });
-        callbackConsistent = true;
       }
+      callbackConsistent = true;
     }
 
     if (!callbackConsistent) {

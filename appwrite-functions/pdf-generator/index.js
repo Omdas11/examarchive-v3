@@ -78,6 +78,7 @@ const CACHED_SOLVED_PAPERS_BUCKET_ID = process.env.CACHED_SOLVED_PAPERS_BUCKET_I
 const NOTIFY_COMPLETION_PATH = "/api/ai/notify-completion";
 const NOTIFY_WEBHOOK_ERROR_LOG_MAX_CHARS = 2_000;
 const MAX_LOGGED_CALLBACK_URL_CHARS = 500;
+const COMPLETION_WEBHOOK_DELAY_MS = 2_000;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -1094,7 +1095,17 @@ async function processGenerationJob(rawInput, options = {}) {
       throw new Error(`Unsupported jobType "${payload.jobType}".`);
     }
 
-    const cacheKey = `${payload.paperCode}_${payload.unitNumber || payload.year}_${payload.stream}_${payload.course}_${payload.type}`
+    const normalizeRequiredCacheSegment = (value, fieldName) => {
+      const normalizedValue = String(value ?? "").trim();
+      if (!normalizedValue) {
+        throw new Error(`Missing ${fieldName} in payload for ${normalizedJobType} cache key.`);
+      }
+      return normalizedValue;
+    };
+    const cacheScopeSegment = normalizedJobType === "notes"
+      ? normalizeRequiredCacheSegment(payload.unitNumber, "unitNumber")
+      : normalizeRequiredCacheSegment(payload.year, "year");
+    const cacheKey = `${normalizeRequiredCacheSegment(payload.paperCode, "paperCode")}_${cacheScopeSegment}_${normalizeRequiredCacheSegment(payload.stream, "stream")}_${normalizeRequiredCacheSegment(payload.course, "course")}_${normalizeRequiredCacheSegment(payload.type, "type")}`
       .replace(/[^a-zA-Z0-9_-]/g, "_");
     const cacheFileName = `${cacheKey}.md`;
     const cacheBucketId = normalizedJobType === "notes"
@@ -1175,7 +1186,7 @@ async function processGenerationJob(rawInput, options = {}) {
       result_file_id: String(created.$id),
       completed_at: new Date().toISOString(),
     });
-    await sleep(2000);
+    await sleep(COMPLETION_WEBHOOK_DELAY_MS);
     await notifyCompletionWebhook({
       jobId,
       status: "completed",
