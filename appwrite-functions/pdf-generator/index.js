@@ -810,7 +810,7 @@ function buildTrustedSiteUrlFromVercelUrl(rawVercelUrl) {
   return normalizeAbsoluteHttpUrl(`https://${normalizedVercelUrl}`);
 }
 
-function shouldPreferPreviewWebhookOrigin({ canonicalUrl, previewUrl, vercelEnv }) {
+function shouldUsePreviewWebhookUrl({ canonicalUrl, previewUrl, vercelEnv }) {
   if (!previewUrl) return false;
   if (!canonicalUrl) return true;
   if (String(vercelEnv || "").trim().toLowerCase() !== "preview") return false;
@@ -829,7 +829,7 @@ function resolveCallbackBaseSiteUrl() {
     String(process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL || "").trim(),
   );
   const vercelEnv = String(process.env.VERCEL_ENV || "").trim().toLowerCase();
-  if (shouldPreferPreviewWebhookOrigin({ canonicalUrl: canonicalSiteUrl, previewUrl: trustedVercelSiteUrl, vercelEnv })) {
+  if (shouldUsePreviewWebhookUrl({ canonicalUrl: canonicalSiteUrl, previewUrl: trustedVercelSiteUrl, vercelEnv })) {
     return trustedVercelSiteUrl.replace(/\/+$/, "");
   }
   return (canonicalSiteUrl || trustedVercelSiteUrl).replace(/\/+$/, "");
@@ -838,7 +838,7 @@ function resolveCallbackBaseSiteUrl() {
 function resolveNotifyCompletionUrl(callbackUrl) {
   const siteUrl = resolveCallbackBaseSiteUrl();
   if (!siteUrl) {
-    console.error("[pdf-generator] CRITICAL: SITE_URL/NEXT_PUBLIC_SITE_URL/VERCEL_URL are missing or invalid; completion webhook cannot be delivered safely.", {
+    console.error("[pdf-generator] CRITICAL: No valid base URL found (checked SITE_URL, NEXT_PUBLIC_SITE_URL, and VERCEL_URL); completion webhook cannot be delivered safely.", {
       hasCallbackUrl: Boolean(String(callbackUrl || "").trim()),
     });
     return { url: "", reason: callbackUrl ? "no_valid_callback_and_missing_base_url" : "missing_base_url" };
@@ -869,7 +869,7 @@ function getNotifyCompletionUrl(callbackUrl) {
 
 async function notifyCompletionWebhook({ jobId, status, fileId, userId, userEmail, callbackUrl }) {
   if (!resolveCallbackBaseSiteUrl()) {
-    console.error("[pdf-generator] CRITICAL: SITE_URL/NEXT_PUBLIC_SITE_URL/VERCEL_URL env is missing; notify-completion webhook delivery may be skipped.");
+    console.error("[pdf-generator] CRITICAL: No base URL environment variable found (SITE_URL, NEXT_PUBLIC_SITE_URL, or VERCEL_URL); notify-completion webhook delivery may be skipped.");
   }
   const notifyResolution = resolveNotifyCompletionUrl(callbackUrl);
   const notifyUrl = notifyResolution.url;

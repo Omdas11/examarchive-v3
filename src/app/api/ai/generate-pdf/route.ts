@@ -327,7 +327,7 @@ function buildTrustedSiteUrlFromVercelUrl(rawVercelUrl: string): string {
   return normalizeTrustedSiteUrl(`https://${normalizedVercelUrl}`);
 }
 
-function shouldPreferPreviewWebhookOrigin(params: {
+function shouldUsePreviewWebhookUrl(params: {
   canonicalUrl: string;
   previewUrl: string;
   vercelEnv: string;
@@ -349,7 +349,7 @@ function buildCompletionWebhookUrl(): string {
   const vercelUrl = String(process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL || "").trim();
   const trustedVercelSiteUrl = buildTrustedSiteUrlFromVercelUrl(vercelUrl);
   const vercelEnv = String(process.env.VERCEL_ENV || "").trim().toLowerCase();
-  const trustedSiteUrl = shouldPreferPreviewWebhookOrigin({
+  const trustedSiteUrl = shouldUsePreviewWebhookUrl({
     canonicalUrl: canonicalSiteUrl,
     previewUrl: trustedVercelSiteUrl,
     vercelEnv,

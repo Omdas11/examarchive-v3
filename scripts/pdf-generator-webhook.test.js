@@ -91,10 +91,10 @@ describe("pdf-generator / getNotifyCompletionUrl", () => {
       ...originalEnv,
       SITE_URL: "https://examarchive.in",
       VERCEL_ENV: "preview",
-      VERCEL_URL: "examarchive-v3-git-fix-preview.vercel.app",
+      VERCEL_URL: "preview-abc123.vercel.app",
     };
     const url = getNotifyCompletionUrl();
-    expect(url).toBe("https://examarchive-v3-git-fix-preview.vercel.app/api/ai/notify-completion");
+    expect(url).toBe("https://preview-abc123.vercel.app/api/ai/notify-completion");
   });
 
   it("handles SITE_URL with trailing slash", () => {
@@ -193,7 +193,7 @@ describe("pdf-generator / notifyCompletionWebhook", () => {
   it("allows preview callbackUrl override when SITE_URL points to production but VERCEL preview env is available", async () => {
     process.env.SITE_URL = "https://examarchive.in";
     process.env.VERCEL_ENV = "preview";
-    process.env.VERCEL_URL = "examarchive-v3-git-fix-preview.vercel.app";
+    process.env.VERCEL_URL = "preview-xyz789.vercel.app";
     const fetchMock = jest.fn().mockResolvedValue({ ok: true, status: 200 });
     global.fetch = fetchMock;
 
@@ -201,11 +201,11 @@ describe("pdf-generator / notifyCompletionWebhook", () => {
       jobId: "job-preview",
       status: "completed",
       fileId: "file-preview",
-      callbackUrl: "https://examarchive-v3-git-fix-preview.vercel.app/api/ai/notify-completion",
+      callbackUrl: "https://preview-xyz789.vercel.app/api/ai/notify-completion",
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0][0]).toBe("https://examarchive-v3-git-fix-preview.vercel.app/api/ai/notify-completion");
+    expect(fetchMock.mock.calls[0][0]).toBe("https://preview-xyz789.vercel.app/api/ai/notify-completion");
   });
 
   it("includes Authorization header when AI_JOB_WEBHOOK_SECRET is set", async () => {
