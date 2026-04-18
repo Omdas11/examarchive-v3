@@ -297,6 +297,13 @@ function normalizeJobStatus(status: string | null | undefined): string {
   return String(status || "").trim().toLowerCase();
 }
 
+function hasReadyEmailAlreadyBeenSent(job: Record<string, unknown> | null | undefined): boolean {
+  if (!job || typeof job !== "object") return false;
+  const emailStatus = String(job.email_status || "").trim().toLowerCase();
+  if (emailStatus === "sent") return true;
+  return String(job.email_sent_at || "").trim().length > 0;
+}
+
 function normalizeTrustedSiteUrl(rawUrl: string): string {
   const value = String(rawUrl || "").trim();
   if (!value) return "";
@@ -383,7 +390,7 @@ async function enqueueAndDispatchPdfJob(params: {
   unitNumber: number;
   payload: Record<string, unknown>;
   title: string;
-}): Promise<{ jobId: string; executionTriggered: boolean; existingStatus?: string; resultFileId?: string }> {
+}): Promise<{ jobId: string; executionTriggered: boolean; existingStatus?: string; resultFileId?: string; readyEmailAlreadySent?: boolean }> {
   const nowIso = new Date().toISOString();
   const db = adminDatabases();
   const functions = adminFunctions();
@@ -418,6 +425,7 @@ async function enqueueAndDispatchPdfJob(params: {
         executionTriggered: false,
         existingStatus,
         resultFileId: String(existingJob.result_file_id || "").trim(),
+        readyEmailAlreadySent: hasReadyEmailAlreadyBeenSent(existingJob as Record<string, unknown>),
       };
     }
   } else {
@@ -460,6 +468,7 @@ async function enqueueAndDispatchPdfJob(params: {
             executionTriggered: false,
             existingStatus,
             resultFileId: String(existing.documents[0].result_file_id || "").trim(),
+            readyEmailAlreadySent: hasReadyEmailAlreadyBeenSent(existing.documents[0] as Record<string, unknown>),
           };
         }
       } else {
@@ -480,14 +489,14 @@ async function enqueueAndDispatchPdfJob(params: {
   });
   try {
     console.log(`Attempting to trigger Appwrite Function ID: ${functionId}`);
-    const execution = await functions.createExecution({
+    const execution = await functions.createExecution(
       functionId,
-      body: JSON.stringify({
+      JSON.stringify({
         jobId,
         payload: params.payload,
       }),
-      async: true,
-    });
+      true,
+    );
     const executionStatus = String(execution.status || "unknown");
     console.log(`Appwrite Execution Response Status: ${executionStatus}`);
     const triggerAccepted =
@@ -907,8 +916,9 @@ export async function POST(request: NextRequest) {
         const normalizedExistingStatus = normalizeJobStatus(dispatched.existingStatus);
         const isCompleted = normalizedExistingStatus === JOB_STATUS_COMPLETED;
         const responseStatus = normalizedExistingStatus || "unknown";
-        let readyEmailSent = true;
-        if (isCompleted) {
+        const shouldAttemptReadyEmail = isCompleted && !dispatched.readyEmailAlreadySent;
+        let readyEmailSent = !!dispatched.readyEmailAlreadySent;
+        if (shouldAttemptReadyEmail) {
           readyEmailSent = await ensureGenerationReadyEmail(
             userEmail,
             `Unit Notes (${paperCode} - Unit ${unitNumber})`,
@@ -927,8 +937,8 @@ export async function POST(request: NextRequest) {
           jobId: notesJobId,
           status: responseStatus,
           cached: true,
-          readyEmailNotificationAttempted: isCompleted,
-          readyEmailSent: isCompleted ? readyEmailSent : false,
+          readyEmailNotificationAttempted: shouldAttemptReadyEmail,
+          readyEmailSent,
           fileId: isCompleted ? (dispatched.resultFileId || "") : "",
           downloadUrl: cachedDownloadUrl,
           message:
@@ -1063,8 +1073,9 @@ export async function POST(request: NextRequest) {
       const normalizedExistingStatus = normalizeJobStatus(dispatched.existingStatus);
       const isCompleted = normalizedExistingStatus === JOB_STATUS_COMPLETED;
       const responseStatus = normalizedExistingStatus || "unknown";
-      let readyEmailSent = true;
-      if (isCompleted) {
+      const shouldAttemptReadyEmail = isCompleted && !dispatched.readyEmailAlreadySent;
+      let readyEmailSent = !!dispatched.readyEmailAlreadySent;
+      if (shouldAttemptReadyEmail) {
         readyEmailSent = await ensureGenerationReadyEmail(
           userEmail,
           `Solved Paper (${paperCode} ${year})`,
@@ -1083,8 +1094,8 @@ export async function POST(request: NextRequest) {
         jobId: solvedJobId,
         status: responseStatus,
         cached: true,
-        readyEmailNotificationAttempted: isCompleted,
-        readyEmailSent: isCompleted ? readyEmailSent : false,
+        readyEmailNotificationAttempted: shouldAttemptReadyEmail,
+        readyEmailSent,
         fileId: isCompleted ? (dispatched.resultFileId || "") : "",
         downloadUrl: cachedDownloadUrl,
         message:

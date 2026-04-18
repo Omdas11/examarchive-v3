@@ -211,7 +211,7 @@ export async function POST(request: NextRequest) {
   const isWebhookSecretConfigured = webhookSecret.length > 0;
   const providedToken = getAuthToken(request);
   const hasValidBearer = isWebhookSecretConfigured && !!providedToken && safeCompareSecrets(webhookSecret, providedToken);
-  if (isWebhookSecretConfigured && providedToken && !hasValidBearer) {
+  if (isWebhookSecretConfigured && !hasValidBearer) {
     console.error("[ai/notify-completion] CRITICAL: Webhook authentication failed.");
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

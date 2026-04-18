@@ -251,7 +251,7 @@ describe("pdf-generator / processGenerationJob cache behavior", () => {
 
     const mockStorage = {
       listFiles: jest.fn().mockResolvedValue({
-        files: [{ $id: "cache-file-1", name: "CS101_1_CSE_BTECH_Regular.md", $createdAt: "2026-04-18T00:00:00.000Z" }],
+        files: [{ $id: "cache-file-1", name: "CS101_1_CSE_BTECH_Regular_Test_Uni_na_gemini-3_1-flash-lite-preview.md", $createdAt: "2026-04-18T00:00:00.000Z" }],
       }),
       getFileDownload: jest.fn().mockResolvedValue(Buffer.from("# Cached markdown", "utf8")),
       createFile: jest.fn()

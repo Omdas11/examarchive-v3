@@ -1102,10 +1102,14 @@ async function processGenerationJob(rawInput, options = {}) {
       }
       return normalizedValue;
     };
+    const normalizeOptionalCacheSegment = (value, fallbackValue) => {
+      const normalizedValue = String(value ?? "").trim();
+      return normalizedValue || fallbackValue;
+    };
     const cacheScopeSegment = normalizedJobType === "notes"
       ? normalizeRequiredCacheSegment(payload.unitNumber, "unitNumber")
       : normalizeRequiredCacheSegment(payload.year, "year");
-    const cacheKey = `${normalizeRequiredCacheSegment(payload.paperCode, "paperCode")}_${cacheScopeSegment}_${normalizeRequiredCacheSegment(payload.stream, "stream")}_${normalizeRequiredCacheSegment(payload.course, "course")}_${normalizeRequiredCacheSegment(payload.type, "type")}`
+    const cacheKey = `${normalizeRequiredCacheSegment(payload.paperCode, "paperCode")}_${cacheScopeSegment}_${normalizeRequiredCacheSegment(payload.stream, "stream")}_${normalizeRequiredCacheSegment(payload.course, "course")}_${normalizeRequiredCacheSegment(payload.type, "type")}_${normalizeRequiredCacheSegment(payload.university, "university")}_${normalizeOptionalCacheSegment(payload.semester, "na")}_${normalizeOptionalCacheSegment(payload.model, DEFAULT_MODEL)}`
       .replace(/[^a-zA-Z0-9_-]/g, "_");
     const cacheFileName = `${cacheKey}.md`;
     const cacheBucketId = normalizedJobType === "notes"
@@ -1122,7 +1126,7 @@ async function processGenerationJob(rawInput, options = {}) {
       const exactMatch = Array.isArray(cachedFiles.files)
         ? cachedFiles.files.find((file) => String(file.name || "").trim() === cacheFileName)
         : null;
-      const cachedFile = exactMatch || cachedFiles.files?.[0];
+      const cachedFile = exactMatch;
       if (cachedFile && cachedFile.$id) {
         const cachedMarkdownBuffer = await storage.getFileDownload(cacheBucketId, cachedFile.$id);
         const cachedMarkdown = Buffer.from(cachedMarkdownBuffer).toString("utf8");

@@ -116,6 +116,7 @@ describe("POST /api/ai/notify-completion", () => {
   });
 
   it("accepts unverified completed callback when job state and fileId strictly match", async () => {
+    delete process.env.AI_JOB_WEBHOOK_SECRET;
     mockGetDocument.mockResolvedValue({
       $id: "job1",
       status: "completed",
@@ -134,6 +135,7 @@ describe("POST /api/ai/notify-completion", () => {
   });
 
   it("accepts unverified completed callback after short consistency delay when initial read is stale", async () => {
+    delete process.env.AI_JOB_WEBHOOK_SECRET;
     mockGetDocument
       .mockResolvedValueOnce({
         $id: "job1",
@@ -163,6 +165,7 @@ describe("POST /api/ai/notify-completion", () => {
   });
 
   it("rejects unverified completed callback when fileId does not match stored result", async () => {
+    delete process.env.AI_JOB_WEBHOOK_SECRET;
     mockGetDocument.mockResolvedValue({
       $id: "job1",
       status: "completed",
@@ -397,6 +400,7 @@ describe("POST /api/ai/notify-completion", () => {
 
   describe("email resolution", () => {
     it("ignores unverified body userEmail when it does not match trusted payload email", async () => {
+      delete process.env.AI_JOB_WEBHOOK_SECRET;
       mockGetDocument.mockResolvedValue({
         $id: "job1",
         status: "completed",
