@@ -61,6 +61,8 @@ describe("sync-prod-to-preview", () => {
 
     const docs = await listAllDocuments(databases, "examarchive", "Syllabus_Table");
     expect(docs).toHaveLength(101);
+    expect(docs[0].$id).toBe("doc-0");
+    expect(docs[100].$id).toBe("doc-100");
     expect(databases.listDocuments).toHaveBeenCalledTimes(2);
     expect(databases.listDocuments.mock.calls[1][2]).toContainEqual({
       type: "cursorAfter",
@@ -88,20 +90,23 @@ describe("sync-prod-to-preview", () => {
 
   test("loadSyncConfig uses fallback production env vars and parses collection list", () => {
     const previousEnv = process.env;
-    process.env = {
-      ...previousEnv,
-      APPWRITE_ENDPOINT: "https://cloud.appwrite.io/v1",
-      APPWRITE_PROJECT_ID: "prod-project",
-      APPWRITE_API_KEY: "prod-key",
-      PREVIEW_APPWRITE_PROJECT_ID: "preview-project",
-      PREVIEW_APPWRITE_API_KEY: "preview-key",
-      CORE_SYNC_COLLECTIONS: "Syllabus_Table,Questions_Table",
-    };
+    try {
+      process.env = {
+        ...previousEnv,
+        APPWRITE_ENDPOINT: "https://cloud.appwrite.io/v1",
+        APPWRITE_PROJECT_ID: "prod-project",
+        APPWRITE_API_KEY: "prod-key",
+        PREVIEW_APPWRITE_PROJECT_ID: "preview-project",
+        PREVIEW_APPWRITE_API_KEY: "preview-key",
+        CORE_SYNC_COLLECTIONS: "Syllabus_Table,Questions_Table",
+      };
 
-    const config = loadSyncConfig();
-    expect(config.prod.projectId).toBe("prod-project");
-    expect(config.preview.projectId).toBe("preview-project");
-    expect(config.collectionIds).toEqual(["Syllabus_Table", "Questions_Table"]);
-    process.env = previousEnv;
+      const config = loadSyncConfig();
+      expect(config.prod.projectId).toBe("prod-project");
+      expect(config.preview.projectId).toBe("preview-project");
+      expect(config.collectionIds).toEqual(["Syllabus_Table", "Questions_Table"]);
+    } finally {
+      process.env = previousEnv;
+    }
   });
 });

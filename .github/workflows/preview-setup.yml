@@ -59,11 +59,12 @@ jobs:
             core.setOutput("head_ref", pr.data.head.ref);
             core.setOutput("head_sha", pr.data.head.sha);
 
-      - name: Checkout PR branch
+      - name: Checkout trusted default branch
         if: steps.guard.outputs.authorized == 'true'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
-          ref: ${{ steps.guard.outputs.head_ref }}
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
 
       - name: Setup Node.js
         if: steps.guard.outputs.authorized == 'true'
@@ -107,3 +108,11 @@ jobs:
               issue_number: context.issue.number,
               body,
             });
+
+      - name: Checkout PR branch (isolated)
+        if: steps.guard.outputs.authorized == 'true'
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ steps.guard.outputs.head_ref }}
+          path: pr-branch
+          persist-credentials: false

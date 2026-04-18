@@ -31,7 +31,7 @@ function isAlreadyExistsError(error) {
   const code = error?.code ?? error?.response?.code;
   const type = error?.type ?? error?.response?.type;
   const message = String(error?.message ?? error?.response?.message ?? "");
-  return code === 409 || code === "409" || type === "document_already_exists" || /already exists?/i.test(message);
+  return code === 409 || code === "409" || type === "document_already_exists" || /already exist(s)?/i.test(message);
 }
 
 function sanitizeDocumentData(document) {
@@ -73,7 +73,7 @@ function loadSyncConfig() {
     throw new Error("Production and Preview project IDs must be different to prevent destructive syncs.");
   }
 
-  const databaseId = readOptionalEnv("APPWRITE_DATABASE_ID", DEFAULT_DATABASE_ID) || DEFAULT_DATABASE_ID;
+  const databaseId = readOptionalEnv("APPWRITE_DATABASE_ID", DEFAULT_DATABASE_ID);
   const collectionIds = parseCollectionIds(readOptionalEnv("CORE_SYNC_COLLECTIONS", DEFAULT_COLLECTION_IDS.join(",")));
   if (collectionIds.length === 0) {
     throw new Error("No collections configured to sync. Set CORE_SYNC_COLLECTIONS to a comma-separated list.");
