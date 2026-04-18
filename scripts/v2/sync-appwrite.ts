@@ -71,6 +71,9 @@ const LEGACY_BUCKET_IDS = new Set([
 const TARGET_DATABASE_ID = "examarchive";
 const TARGET_DATABASE_NAME = "ExamArchive";
 const REQUIRED_COLLECTION_SPECS: Array<{ id: string; name: string }> = [
+  { id: "ai_generation_jobs", name: "ai_generation_jobs" },
+  { id: "Syllabus_Table", name: "Syllabus_Table" },
+  { id: "Questions_Table", name: "Questions_Table" },
   { id: "Generated_Notes_Cache", name: "Generated_Notes_Cache" },
   { id: "ai_cache_index", name: "ai_cache_index" },
 ];
