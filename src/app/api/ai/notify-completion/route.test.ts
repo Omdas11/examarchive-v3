@@ -6,7 +6,12 @@ import { POST } from "./route";
 
 const mockGetDocument = jest.fn();
 const mockUpdateDocument = jest.fn();
-const mockAdminDatabases = jest.fn(() => ({ getDocument: mockGetDocument, updateDocument: mockUpdateDocument }));
+const mockListDocuments = jest.fn();
+const mockAdminDatabases = jest.fn(() => ({
+  getDocument: mockGetDocument,
+  updateDocument: mockUpdateDocument,
+  listDocuments: mockListDocuments,
+}));
 
 jest.mock("@/lib/appwrite", () => ({
   adminDatabases: () => mockAdminDatabases(),
@@ -43,7 +48,12 @@ describe("POST /api/ai/notify-completion", () => {
     jest.resetAllMocks();
     process.env = { ...originalEnv, AI_JOB_WEBHOOK_SECRET: WEBHOOK_SECRET };
     mockUpdateDocument.mockResolvedValue({});
-    mockAdminDatabases.mockReturnValue({ getDocument: mockGetDocument, updateDocument: mockUpdateDocument });
+    mockListDocuments.mockResolvedValue({ documents: [] });
+    mockAdminDatabases.mockReturnValue({
+      getDocument: mockGetDocument,
+      updateDocument: mockUpdateDocument,
+      listDocuments: mockListDocuments,
+    });
   });
 
   afterEach(() => {
@@ -271,6 +281,32 @@ describe("POST /api/ai/notify-completion", () => {
       const json = await res.json();
       expect(json.error).toMatch(/record notification state/i);
       expect(mockSendGenerationPdfEmail).not.toHaveBeenCalled();
+    });
+
+    it("sends completion email even when callback does not provide a resolvable userId", async () => {
+      mockGetDocument.mockResolvedValue({
+        ...jobDoc,
+        user_id: "",
+        input_payload_json: JSON.stringify({
+          jobType: "notes",
+          paperCode: "CS101",
+          unitNumber: 1,
+          userEmail: "user@example.com",
+        }),
+      });
+      mockListDocuments.mockResolvedValue({ documents: [] });
+      mockSendGenerationPdfEmail.mockResolvedValue(undefined);
+      const req = makeRequest({ jobId: "job1", status: "completed", fileId: "file-abc" }, WEBHOOK_SECRET);
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+      expect(mockSendGenerationPdfEmail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          email: "user@example.com",
+          downloadUrl: expect.stringContaining("/api/files/papers/file-abc?download=1"),
+        }),
+      );
+      const sentPayload = mockSendGenerationPdfEmail.mock.calls[0]?.[0] as { downloadUrl?: string };
+      expect(sentPayload.downloadUrl || "").not.toContain("uid=");
     });
 
     it("builds solved-paper title correctly", async () => {

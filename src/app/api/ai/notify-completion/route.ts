@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { timingSafeEqual } from "node:crypto";
-import { adminDatabases, COLLECTION, DATABASE_ID } from "@/lib/appwrite";
+import { adminDatabases, COLLECTION, DATABASE_ID, Query } from "@/lib/appwrite";
 import { sendGenerationFailureEmail, sendGenerationPdfEmail } from "@/lib/generation-notifications";
 import { buildSignedPdfDownloadPath } from "@/lib/pdf-download-link";
 
@@ -103,6 +103,50 @@ async function resolveNotificationEmail(args: {
     console.error("[ai/notify-completion] Failed to resolve user email from users collection.", {
       jobId: args.jobId,
       userId,
+      error,
+    });
+    return "";
+  }
+}
+
+async function resolveNotificationUserId(args: {
+  db: ReturnType<typeof adminDatabases>;
+  job: Record<string, unknown>;
+  payload: Record<string, unknown>;
+  payloadUserId: string;
+  hasValidBearer: boolean;
+  email: string;
+  jobId: string;
+}): Promise<string> {
+  const jobUserId = String(args.job.user_id || "").trim();
+  if (jobUserId) return jobUserId;
+
+  const payloadUserIdField = String(args.payload.userId || "").trim();
+  const bodyUserIdParameter = String(args.payloadUserId || "").trim();
+  if (args.hasValidBearer && bodyUserIdParameter) return bodyUserIdParameter;
+  if (
+    !args.hasValidBearer &&
+    bodyUserIdParameter &&
+    payloadUserIdField &&
+    bodyUserIdParameter === payloadUserIdField
+  ) {
+    return bodyUserIdParameter;
+  }
+  if (payloadUserIdField) return payloadUserIdField;
+
+  const email = String(args.email || "").trim().toLowerCase();
+  if (!email) return "";
+  try {
+    const users = await args.db.listDocuments(DATABASE_ID, COLLECTION.users, [
+      Query.equal("email", email),
+      Query.limit(1),
+    ]);
+    const matchedUserId = String(users.documents?.[0]?.$id || "").trim();
+    return matchedUserId;
+  } catch (error) {
+    console.error("[ai/notify-completion] Failed to resolve user ID from users collection by email.", {
+      jobId: args.jobId,
+      email,
       error,
     });
     return "";
@@ -248,17 +292,21 @@ export async function POST(request: NextRequest) {
     if (!fileId) {
       return NextResponse.json({ error: "Missing fileId for completed status." }, { status: 400 });
     }
-    const userId = String(resolvedJob.user_id || "").trim() || payloadUserId;
+    const userId = await resolveNotificationUserId({
+      db,
+      job: resolvedJob,
+      payload,
+      payloadUserId,
+      hasValidBearer,
+      email,
+      jobId,
+    });
     if (!userId) {
-      console.error("[ai/notify-completion] Cannot send completion email: userId is empty, resulting in unsigned download link.", {
+      console.warn("[ai/notify-completion] Sending completion email without signed-user download token because userId could not be resolved.", {
         jobId,
         fileId,
         email,
       });
-      return NextResponse.json(
-        { error: "Cannot send completion notification: user ID is missing for signed download link generation." },
-        { status: 400 },
-      );
     }
     const existingEmailSentAt = String(resolvedJob.email_sent_at || "").trim();
     if (existingEmailSentAt) {
