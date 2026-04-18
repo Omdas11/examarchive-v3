@@ -1211,14 +1211,20 @@ async function processGenerationJob(rawInput, options = {}) {
       completed_at: new Date().toISOString(),
     });
     await sleep(COMPLETION_WEBHOOK_DELAY_MS);
-    await notifyCompletionWebhook({
-      jobId,
-      status: "completed",
-      fileId: String(created.$id),
-      userId: String(payload.userId || "").trim(),
-      userEmail: String(payload.userEmail || "").trim(),
-      callbackUrl: String(payload.callbackUrl || "").trim(),
-    });
+    try {
+      await notifyCompletionWebhook({
+        jobId,
+        status: "completed",
+        fileId: String(created.$id),
+        userId: String(payload.userId || "").trim(),
+        userEmail: String(payload.userEmail || "").trim(),
+        callbackUrl: String(payload.callbackUrl || "").trim(),
+      });
+    } catch (webhookError) {
+      console.warn(
+        `[pdf-generator] completion webhook failed for job ${jobId}: ${formatWorkerErrorMessage(webhookError)}`,
+      );
+    }
 
     return { ok: true, jobId, fileId: String(created.$id) };
   } catch (error) {
@@ -1227,14 +1233,18 @@ async function processGenerationJob(rawInput, options = {}) {
       completed_at: new Date().toISOString(),
       error_message: formatWorkerErrorMessage(error),
     }).catch(() => {});
-    await notifyCompletionWebhook({
-      jobId,
-      status: "failed",
-      fileId: "",
-      userId: String(payload.userId || "").trim(),
-      userEmail: String(payload.userEmail || "").trim(),
-      callbackUrl: String(payload.callbackUrl || "").trim(),
-    });
+    try {
+      await notifyCompletionWebhook({
+        jobId,
+        status: "failed",
+        fileId: "",
+        userId: String(payload.userId || "").trim(),
+        userEmail: String(payload.userEmail || "").trim(),
+        callbackUrl: String(payload.callbackUrl || "").trim(),
+      });
+    } catch (webhookError) {
+      console.error(`[pdf-generator] failed to deliver completion webhook for job ${jobId}:`, webhookError?.stack || String(webhookError));
+    }
     throw error;
   }
 }
