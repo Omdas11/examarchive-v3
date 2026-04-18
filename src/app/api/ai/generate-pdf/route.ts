@@ -327,12 +327,35 @@ function buildTrustedSiteUrlFromVercelUrl(rawVercelUrl: string): string {
   return normalizeTrustedSiteUrl(`https://${normalizedVercelUrl}`);
 }
 
+function shouldUsePreviewWebhookUrl(params: {
+  canonicalUrl: string;
+  previewUrl: string;
+  vercelEnv: string;
+}): boolean {
+  if (!params.previewUrl) return false;
+  if (!params.canonicalUrl) return true;
+  if (params.vercelEnv !== "preview") return false;
+  try {
+    return new URL(params.canonicalUrl).origin !== new URL(params.previewUrl).origin;
+  } catch {
+    return true;
+  }
+}
+
 function buildCompletionWebhookUrl(): string {
   const siteUrl = normalizeTrustedSiteUrl(String(process.env.SITE_URL || ""));
   const nextPublicSiteUrl = normalizeTrustedSiteUrl(String(process.env.NEXT_PUBLIC_SITE_URL || ""));
-  const vercelUrl = String(process.env.VERCEL_URL || "").trim();
+  const canonicalSiteUrl = siteUrl || nextPublicSiteUrl;
+  const vercelUrl = String(process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL || "").trim();
   const trustedVercelSiteUrl = buildTrustedSiteUrlFromVercelUrl(vercelUrl);
-  const trustedSiteUrl = siteUrl || nextPublicSiteUrl || trustedVercelSiteUrl;
+  const vercelEnv = String(process.env.VERCEL_ENV || "").trim().toLowerCase();
+  const trustedSiteUrl = shouldUsePreviewWebhookUrl({
+    canonicalUrl: canonicalSiteUrl,
+    previewUrl: trustedVercelSiteUrl,
+    vercelEnv,
+  })
+    ? trustedVercelSiteUrl
+    : canonicalSiteUrl || trustedVercelSiteUrl;
   if (!trustedSiteUrl) {
     console.error("[ai/generate-pdf] CRITICAL: Failed to build completion webhook URL because no trusted site URL is configured. Webhook callbacks will be disabled, breaking worker/Appwrite integration contract.", {
       siteUrlConfigured: Boolean(siteUrl),

@@ -54,6 +54,7 @@ const geminiApiKey = process.env.GEMINI_API_KEY;
 const tavilyApiKey = process.env.TAVILY_API_KEY;
 const siteUrl = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL;
 const aiJobWebhookSecret = process.env.AI_JOB_WEBHOOK_SECRET;
+const resolvedVercelUrl = process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL;
 
 const functionEnv = {
   GOTENBERG_URL: gotenbergUrl,
@@ -69,7 +70,11 @@ const functionEnv = {
   SYLLABUS_TABLE_COLLECTION_ID: process.env.SYLLABUS_TABLE_COLLECTION_ID || "Syllabus_Table",
   QUESTIONS_TABLE_COLLECTION_ID: process.env.QUESTIONS_TABLE_COLLECTION_ID || "Questions_Table",
   APPWRITE_BUCKET_ID: process.env.APPWRITE_BUCKET_ID || "papers",
+  CACHED_UNIT_NOTES_BUCKET_ID: process.env.CACHED_UNIT_NOTES_BUCKET_ID || "cached-unit-notes",
+  CACHED_SOLVED_PAPERS_BUCKET_ID: process.env.CACHED_SOLVED_PAPERS_BUCKET_ID || "cached-solved-papers",
   SITE_URL: siteUrl,
+  VERCEL_URL: resolvedVercelUrl,
+  NEXT_PUBLIC_VERCEL_URL: resolvedVercelUrl,
   AI_JOB_WEBHOOK_SECRET: aiJobWebhookSecret,
 };
 const SECRET_ENV_KEYS = new Set([

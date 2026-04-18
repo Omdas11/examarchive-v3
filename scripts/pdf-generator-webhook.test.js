@@ -56,6 +56,9 @@ describe("pdf-generator / getNotifyCompletionUrl", () => {
   it("returns empty string when SITE_URL is not set", () => {
     process.env = { ...originalEnv };
     delete process.env.SITE_URL;
+    delete process.env.NEXT_PUBLIC_SITE_URL;
+    delete process.env.VERCEL_URL;
+    delete process.env.NEXT_PUBLIC_VERCEL_URL;
     expect(getNotifyCompletionUrl()).toBe("");
   });
 
@@ -75,6 +78,23 @@ describe("pdf-generator / getNotifyCompletionUrl", () => {
     process.env = { ...originalEnv, SITE_URL: "https://www.example.com" };
     const url = getNotifyCompletionUrl("https://preview.example.com/api/ai/notify-completion");
     expect(url).toBe("");
+  });
+
+  it("falls back to VERCEL_URL when SITE_URL is missing", () => {
+    process.env = { ...originalEnv, VERCEL_URL: "preview-123.examarchive.vercel.app" };
+    const url = getNotifyCompletionUrl();
+    expect(url).toBe("https://preview-123.examarchive.vercel.app/api/ai/notify-completion");
+  });
+
+  it("prefers preview VERCEL_URL over production SITE_URL during Vercel preview deployments", () => {
+    process.env = {
+      ...originalEnv,
+      SITE_URL: "https://examarchive.in",
+      VERCEL_ENV: "preview",
+      VERCEL_URL: "preview-abc123.vercel.app",
+    };
+    const url = getNotifyCompletionUrl();
+    expect(url).toBe("https://preview-abc123.vercel.app/api/ai/notify-completion");
   });
 
   it("handles SITE_URL with trailing slash", () => {
@@ -168,6 +188,24 @@ describe("pdf-generator / notifyCompletionWebhook", () => {
     });
 
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("allows preview callbackUrl override when SITE_URL points to production but VERCEL preview env is available", async () => {
+    process.env.SITE_URL = "https://examarchive.in";
+    process.env.VERCEL_ENV = "preview";
+    process.env.VERCEL_URL = "preview-xyz789.vercel.app";
+    const fetchMock = jest.fn().mockResolvedValue({ ok: true, status: 200 });
+    global.fetch = fetchMock;
+
+    await notifyCompletionWebhook({
+      jobId: "job-preview",
+      status: "completed",
+      fileId: "file-preview",
+      callbackUrl: "https://preview-xyz789.vercel.app/api/ai/notify-completion",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toBe("https://preview-xyz789.vercel.app/api/ai/notify-completion");
   });
 
   it("includes Authorization header when AI_JOB_WEBHOOK_SECRET is set", async () => {

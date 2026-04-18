@@ -804,13 +804,44 @@ function normalizeAbsoluteHttpUrl(rawUrl) {
   }
 }
 
+function buildTrustedSiteUrlFromVercelUrl(rawVercelUrl) {
+  const normalizedVercelUrl = String(rawVercelUrl || "").trim().replace(/^https?:\/\//i, "");
+  if (!normalizedVercelUrl) return "";
+  return normalizeAbsoluteHttpUrl(`https://${normalizedVercelUrl}`);
+}
+
+function shouldUsePreviewWebhookUrl({ canonicalUrl, previewUrl, vercelEnv }) {
+  if (!previewUrl) return false;
+  if (!canonicalUrl) return true;
+  if (String(vercelEnv || "").trim().toLowerCase() !== "preview") return false;
+  try {
+    return new URL(canonicalUrl).origin !== new URL(previewUrl).origin;
+  } catch {
+    return true;
+  }
+}
+
+function resolveCallbackBaseSiteUrl() {
+  const siteUrl = normalizeAbsoluteHttpUrl(String(process.env.SITE_URL || "").trim());
+  const nextPublicSiteUrl = normalizeAbsoluteHttpUrl(String(process.env.NEXT_PUBLIC_SITE_URL || "").trim());
+  const canonicalSiteUrl = siteUrl || nextPublicSiteUrl;
+  const trustedVercelSiteUrl = buildTrustedSiteUrlFromVercelUrl(
+    String(process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL || "").trim(),
+  );
+  const vercelEnv = String(process.env.VERCEL_ENV || "").trim().toLowerCase();
+  if (shouldUsePreviewWebhookUrl({ canonicalUrl: canonicalSiteUrl, previewUrl: trustedVercelSiteUrl, vercelEnv })) {
+    return trustedVercelSiteUrl.replace(/\/+$/, "");
+  }
+  return (canonicalSiteUrl || trustedVercelSiteUrl).replace(/\/+$/, "");
+}
+
 function resolveNotifyCompletionUrl(callbackUrl) {
-  const siteUrl = normalizeAbsoluteHttpUrl(String(process.env.SITE_URL || "").trim()).replace(/\/+$/, "");
+  const siteUrl = resolveCallbackBaseSiteUrl();
   if (!siteUrl) {
-    console.error("[pdf-generator] CRITICAL: SITE_URL is missing or invalid; completion webhook cannot be delivered safely.", {
+    console.error("[pdf-generator] CRITICAL: No valid base URL found (checked SITE_URL, NEXT_PUBLIC_SITE_URL, and VERCEL_URL); completion webhook cannot be delivered safely.", {
       hasCallbackUrl: Boolean(String(callbackUrl || "").trim()),
     });
-    return { url: "", reason: callbackUrl ? "no_valid_callback_and_missing_site_url" : "missing_site_url" };
+    return { url: "", reason: callbackUrl ? "no_valid_callback_and_missing_base_url" : "missing_base_url" };
   }
   try {
     const baseUrl = new URL(siteUrl);
@@ -837,8 +868,8 @@ function getNotifyCompletionUrl(callbackUrl) {
 }
 
 async function notifyCompletionWebhook({ jobId, status, fileId, userId, userEmail, callbackUrl }) {
-  if (!String(process.env.SITE_URL || "").trim()) {
-    console.error("[pdf-generator] CRITICAL: SITE_URL env is missing; notify-completion webhook delivery may be skipped.");
+  if (!resolveCallbackBaseSiteUrl()) {
+    console.error("[pdf-generator] CRITICAL: No base URL environment variable found (SITE_URL, NEXT_PUBLIC_SITE_URL, or VERCEL_URL); notify-completion webhook delivery may be skipped.");
   }
   const notifyResolution = resolveNotifyCompletionUrl(callbackUrl);
   const notifyUrl = notifyResolution.url;
@@ -847,6 +878,8 @@ async function notifyCompletionWebhook({ jobId, status, fileId, userId, userEmai
       reason: notifyResolution.reason,
       hasCallbackUrl: Boolean(String(callbackUrl || "").trim()),
       hasSiteUrl: Boolean(String(process.env.SITE_URL || "").trim()),
+      hasNextPublicSiteUrl: Boolean(String(process.env.NEXT_PUBLIC_SITE_URL || "").trim()),
+      hasVercelUrl: Boolean(String(process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL || "").trim()),
     });
     return;
   }
