@@ -259,7 +259,1088 @@ async function ensureNotesCacheSchema(): Promise<void> {
   await ensureAttribute("year", () =>
     db.createStringAttribute(
       DATABASE_ID,
-      COLLECTION.generated_notes_cach[... ELLIPSIZATION ...]          const fallbackMarkdown = [
+      COLLECTION.generated_notes_cache,
+      "year",
+      CACHE_NUMERIC_STRING_MAX_LEN,
+      false,
+      undefined,
+    ),
+  );
+  await ensureAttribute("semester", () =>
+    db.createStringAttribute(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      "semester",
+      CACHE_NUMERIC_STRING_MAX_LEN,
+      false,
+      undefined,
+    ),
+  );
+  await ensureAttribute("part_number", () =>
+    db.createIntegerAttribute(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      "part_number",
+      false,
+      1,
+      1000,
+      1,
+    ),
+  );
+  await ensureAttribute("markdown_file_id", () =>
+    db.createStringAttribute(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      "markdown_file_id",
+      100,
+      false,
+      undefined,
+    ),
+  );
+  await ensureAttribute("generated_markdown", () =>
+    db.createStringAttribute(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      "generated_markdown",
+      GENERATED_MARKDOWN_MAX_LEN,
+      false,
+      undefined,
+    ),
+  );
+  await ensureAttribute("university", () =>
+    db.createStringAttribute(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      "university",
+      256,
+      false,
+      undefined,
+    ),
+  );
+  await ensureAttribute("course", () =>
+    db.createStringAttribute(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      "course",
+      64,
+      false,
+      undefined,
+    ),
+  );
+  await ensureAttribute("stream", () =>
+    db.createStringAttribute(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      "stream",
+      64,
+      false,
+      undefined,
+    ),
+  );
+  await ensureAttribute("selection_type", () =>
+    db.createStringAttribute(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      "selection_type",
+      32,
+      false,
+      undefined,
+    ),
+  );
+  await ensureAttribute("pdf_file_id", () =>
+    db.createStringAttribute(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      "pdf_file_id",
+      100,
+      false,
+      undefined,
+    ),
+  );
+  await ensureAttribute("paper_code", () =>
+    db.createStringAttribute(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      "paper_code",
+      128,
+      false,
+      undefined,
+    ),
+  );
+  await ensureAttribute("unit_number", () =>
+    db.createIntegerAttribute(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      "unit_number",
+      false,
+      0,
+      9999,
+      undefined,
+    ),
+  );
+  await ensureAttribute("syllabus_content", () =>
+    db.createStringAttribute(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      "syllabus_content",
+      SYLLABUS_CONTENT_MAX_LEN,
+      false,
+      undefined,
+    ),
+  );
+  await ensureAttribute("personalization_tags", () =>
+    db.createStringAttribute(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      "personalization_tags",
+      PERSONALIZATION_TAG_MAX_LEN,
+      false,
+      undefined,
+      true,
+    ),
+  );
+}
+
+async function ensureMarkdownCacheBucket(): Promise<void> {
+  const storage = adminStorage();
+  try {
+    await storage.getBucket({ bucketId: MARKDOWN_CACHE_BUCKET_ID });
+  } catch (error) {
+    const code = getAppwriteErrorCode(error);
+    if (code !== 404) throw error;
+    await storage.createBucket({
+      bucketId: MARKDOWN_CACHE_BUCKET_ID,
+      name: MARKDOWN_CACHE_BUCKET_ID,
+      permissions: [],
+      fileSecurity: false,
+      enabled: true,
+      maximumFileSize: 20 * 1024 * 1024,
+      allowedFileExtensions: ["md"],
+      compression: Compression.None,
+      encryption: true,
+      antivirus: true,
+      transformations: false,
+    });
+  }
+}
+
+async function readCachedNotes(
+  university: string,
+  course: string,
+  stream: string,
+  selectionType: string,
+  paperCode: string,
+  unitNumber: number,
+  semester: number | null,
+): Promise<CachedNotes | null> {
+  const db = adminDatabases();
+  const storage = adminStorage();
+  const semesterValue = semester !== null ? String(semester) : null;
+  const parseDoc = async (doc: Record<string, unknown> | undefined): Promise<CachedNotes | null> => {
+    if (!doc) return null;
+    const markdownFileId = typeof doc.markdown_file_id === "string" ? doc.markdown_file_id.trim() : "";
+    if (!markdownFileId) return null;
+    const fileBuffer = await storage.getFileDownload(MARKDOWN_CACHE_BUCKET_ID, markdownFileId);
+    const markdown = Buffer.from(fileBuffer).toString("utf-8").trim();
+    if (!markdown) return null;
+    const syllabusContent = typeof doc.syllabus_content === "string" ? doc.syllabus_content.trim() : "";
+    const pdfFileId = typeof doc.pdf_file_id === "string" ? doc.pdf_file_id.trim() : "";
+    const docId = typeof doc.$id === "string" ? doc.$id : "";
+    return {
+      id: docId || null,
+      markdownFileId,
+      markdown,
+      syllabusContent: syllabusContent || null,
+      pdfFileId: pdfFileId || null,
+      createdAt: typeof doc.$createdAt === "string" ? doc.$createdAt : null,
+    };
+  };
+  try {
+    const res = await db.listDocuments(DATABASE_ID, COLLECTION.generated_notes_cache, [
+      Query.equal("university", university),
+      Query.equal("course", course),
+      Query.equal("stream", stream),
+      Query.equal("selection_type", selectionType),
+      Query.equal("paper_code", paperCode),
+      Query.equal("unit_number", unitNumber),
+      Query.equal("type", UNIT_NOTES_CACHE_TYPE),
+      Query.equal("status", COMPLETED_STATUS),
+      ...(semesterValue ? [Query.equal("semester", semesterValue)] : []),
+      Query.orderDesc("$createdAt"),
+      Query.limit(1),
+    ]);
+    const primary = await parseDoc(res.documents[0]);
+    if (primary) return primary;
+  } catch {
+    // Fall through to compatibility lookup.
+  }
+  if (semesterValue) {
+    try {
+      const legacyRes = await db.listDocuments(DATABASE_ID, COLLECTION.generated_notes_cache, [
+        Query.equal("university", university),
+        Query.equal("course", course),
+        Query.equal("stream", stream),
+        Query.equal("selection_type", selectionType),
+        Query.equal("paper_code", paperCode),
+        Query.equal("unit_number", unitNumber),
+        Query.equal("type", UNIT_NOTES_CACHE_TYPE),
+        Query.equal("status", COMPLETED_STATUS),
+        Query.equal("year", semesterValue),
+        Query.orderDesc("$createdAt"),
+        Query.limit(1),
+      ]);
+      const legacyPrimary = await parseDoc(legacyRes.documents[0]);
+      if (legacyPrimary) return legacyPrimary;
+    } catch {
+      // Ignore and continue with cache-key fallback queries.
+    }
+  }
+  const fallbackCachePaperCode = getUnitNotesCacheKey(university, course, stream, selectionType, paperCode);
+  try {
+    const fallbackByCacheKey = await db.listDocuments(DATABASE_ID, COLLECTION.generated_notes_cache, [
+      Query.equal("paper_code", fallbackCachePaperCode),
+      Query.equal("unit_number", unitNumber),
+      Query.equal("type", UNIT_NOTES_CACHE_TYPE),
+      Query.equal("status", COMPLETED_STATUS),
+      ...(semesterValue ? [Query.equal("semester", semesterValue)] : []),
+      Query.orderDesc("$createdAt"),
+      Query.limit(1),
+    ]);
+    const fallbackPrimary = await parseDoc(fallbackByCacheKey.documents[0]);
+    if (fallbackPrimary) return fallbackPrimary;
+  } catch {
+    // Try legacy `year`-keyed fallback below.
+  }
+  if (!semesterValue) return null;
+  try {
+    const fallbackLegacy = await db.listDocuments(DATABASE_ID, COLLECTION.generated_notes_cache, [
+      Query.equal("paper_code", fallbackCachePaperCode),
+      Query.equal("unit_number", unitNumber),
+      Query.equal("type", UNIT_NOTES_CACHE_TYPE),
+      Query.equal("status", COMPLETED_STATUS),
+      Query.equal("year", semesterValue),
+      Query.orderDesc("$createdAt"),
+      Query.limit(1),
+    ]);
+    const fallbackLegacyPrimary = await parseDoc(fallbackLegacy.documents[0]);
+    if (fallbackLegacyPrimary) return fallbackLegacyPrimary;
+  } catch (error) {
+    console.error("[generate-notes-stream] Failed to read cache:", error);
+  }
+  try {
+    const noSelectorFallback = await db.listDocuments(DATABASE_ID, COLLECTION.generated_notes_cache, [
+      Query.equal("paper_code", fallbackCachePaperCode),
+      Query.equal("unit_number", unitNumber),
+      Query.equal("type", UNIT_NOTES_CACHE_TYPE),
+      Query.equal("status", COMPLETED_STATUS),
+      Query.orderDesc("$createdAt"),
+      Query.limit(1),
+    ]);
+    const noSelectorPrimary = await parseDoc(noSelectorFallback.documents[0]);
+    if (noSelectorPrimary) return noSelectorPrimary;
+  } catch (error) {
+    console.error("[generate-notes-stream] Failed to read selectorless cache fallback:", error);
+  }
+  try {
+    const candidateNames = buildUnitNotesCacheFileNames(
+      university,
+      course,
+      stream,
+      selectionType,
+      paperCode,
+      unitNumber,
+      semester,
+    );
+    for (const cacheFileName of candidateNames) {
+      const filesRes = await storage.listFiles(MARKDOWN_CACHE_BUCKET_ID, [
+        Query.equal("name", cacheFileName),
+        Query.orderDesc("$createdAt"),
+        Query.limit(1),
+      ]);
+      const file = filesRes.files[0];
+      if (!file || typeof file.$id !== "string" || !file.$id.trim()) continue;
+      const fileBuffer = await storage.getFileDownload(MARKDOWN_CACHE_BUCKET_ID, file.$id);
+      const markdown = Buffer.from(fileBuffer).toString("utf-8").trim();
+      if (!markdown) continue;
+      const recoveredDocId = await persistCachedNotesRecord({
+        university,
+        course,
+        stream,
+        selectionType,
+        paperCode,
+        unitNumber,
+        semester,
+        markdown,
+        markdownFileId: file.$id,
+        createdAt: typeof file.$createdAt === "string" ? file.$createdAt : new Date().toISOString(),
+      });
+      if (!recoveredDocId) {
+        console.warn("[generate-notes-stream] Cache markdown recovered from storage, but DB self-heal failed.");
+      }
+      return {
+        id: recoveredDocId,
+        markdownFileId: file.$id,
+        markdown,
+        syllabusContent: null,
+        pdfFileId: null,
+        createdAt: typeof file.$createdAt === "string" ? file.$createdAt : null,
+      };
+    }
+  } catch (error) {
+    console.error("[generate-notes-stream] Failed storage-level cache fallback:", error);
+  }
+  return null;
+}
+
+async function updateCachedNotesPdfFileId(cacheDocId: string, pdfFileId: string): Promise<void> {
+  const db = adminDatabases();
+  try {
+    await db.updateDocument(
+      DATABASE_ID,
+      COLLECTION.generated_notes_cache,
+      cacheDocId,
+      { pdf_file_id: pdfFileId },
+    );
+  } catch (error) {
+    console.error("[generate-notes-stream] Failed to persist cached PDF file id:", error);
+  }
+}
+
+async function readSyllabusInfo(
+  university: string,
+  course: string,
+  stream: string,
+  type: string,
+  paperCode: string,
+  unitNumber: number,
+): Promise<{ syllabusContent: string; paperName: string; unitName: string }> {
+  const db = adminDatabases();
+  const syllabusRes = await db.listDocuments(DATABASE_ID, COLLECTION.syllabus_table, [
+    Query.equal("university", university),
+    Query.equal("course", course),
+    Query.equal("stream", stream),
+    Query.equal("type", type),
+    Query.equal("paper_code", paperCode),
+    Query.equal("unit_number", unitNumber),
+    Query.limit(1),
+  ]);
+  const syllabusDoc = syllabusRes.documents[0];
+  const syllabusContent = typeof syllabusDoc?.syllabus_content === "string" ? syllabusDoc.syllabus_content.trim() : "";
+  const paperName = typeof syllabusDoc?.paper_name === "string" ? syllabusDoc.paper_name.trim() : "";
+  const unitName = extractUnitName(syllabusDoc);
+  return { syllabusContent, paperName, unitName };
+}
+
+async function hasCachedPdfFile(fileId: string): Promise<boolean> {
+  const normalizedId = fileId.trim();
+  if (!normalizedId) return false;
+  const storage = adminStorage();
+  try {
+    await storage.getFile(BUCKET_ID, normalizedId);
+    return true;
+  } catch (error) {
+    const code = getAppwriteErrorCode(error);
+    if (code === 404) return false;
+    throw error;
+  }
+}
+
+async function writeCachedNotes(
+  university: string,
+  course: string,
+  stream: string,
+  selectionType: string,
+  paperCode: string,
+  unitNumber: number,
+  semester: number | null,
+  markdown: string,
+  syllabusContent: string,
+  log?: (message: string) => void,
+): Promise<void> {
+  const storage = adminStorage();
+  const [mdFileName] = buildUnitNotesCacheFileNames(
+    university,
+    course,
+    stream,
+    selectionType,
+    paperCode,
+    unitNumber,
+    semester,
+  );
+  const inputFile = InputFile.fromBuffer(
+    Buffer.from(markdown, "utf-8"),
+    mdFileName,
+  );
+  let markdownFileId: string;
+  try {
+    const uploadResult = await storage.createFile(MARKDOWN_CACHE_BUCKET_ID, ID.unique(), inputFile);
+    markdownFileId = String(uploadResult.$id);
+  } catch (uploadError) {
+    console.error("[generate-notes-stream] Failed to upload markdown cache file (first attempt):", uploadError);
+    try {
+      await ensureMarkdownCacheBucket();
+      const retryUploadResult = await storage.createFile(MARKDOWN_CACHE_BUCKET_ID, ID.unique(), inputFile);
+      markdownFileId = String(retryUploadResult.$id);
+    } catch (retryUploadError) {
+      console.error("[generate-notes-stream] Failed to upload markdown cache file (retry):", retryUploadError);
+      log?.("Warning: Could not save markdown cache.");
+      return;
+    }
+  }
+
+  const persistedId = await persistCachedNotesRecord({
+    university,
+    course,
+    stream,
+    selectionType,
+    paperCode,
+    unitNumber,
+    semester,
+    markdown,
+    markdownFileId,
+    syllabusContent,
+  });
+  if (!persistedId) {
+    log?.("Warning: Could not save markdown cache.");
+    return;
+  }
+  log?.("Markdown cache saved successfully.");
+}
+
+type PersistCachedNotesRecordArgs = {
+  university: string;
+  course: string;
+  stream: string;
+  selectionType: string;
+  paperCode: string;
+  unitNumber: number;
+  semester: number | null;
+  markdown: string;
+  markdownFileId: string;
+  syllabusContent?: string | null;
+  createdAt?: string;
+  personalizationTags?: string[];
+};
+
+async function persistCachedNotesRecord(args: PersistCachedNotesRecordArgs): Promise<string | null> {
+  const db = adminDatabases();
+  const createdAt = args.createdAt ?? new Date().toISOString();
+  const cleanMarkdown = args.markdown.trim();
+  if (!cleanMarkdown) {
+    console.warn("[generate-notes-stream] Skipping cache metadata write because markdown content is empty.");
+    return null;
+  }
+  const rawSyllabus = typeof args.syllabusContent === "string" ? args.syllabusContent.trim() : "";
+  if (rawSyllabus.length > SYLLABUS_CONTENT_MAX_LEN) {
+    console.warn(
+      `[generate-notes-stream] Truncating syllabus_content from ${rawSyllabus.length} to ${SYLLABUS_CONTENT_MAX_LEN} chars before cache write.`,
+    );
+  }
+  const cleanSyllabus =
+    rawSyllabus.length > SYLLABUS_CONTENT_MAX_LEN ? rawSyllabus.slice(0, SYLLABUS_CONTENT_MAX_LEN) : rawSyllabus;
+  const sourcePersonalizationTags = Array.isArray(args.personalizationTags)
+    ? args.personalizationTags
+    : DEFAULT_PERSONALIZATION_TAGS;
+  const cleanPersonalizationTags = sourcePersonalizationTags
+    .map((tag) => (typeof tag === "string" ? tag.trim().slice(0, PERSONALIZATION_TAG_MAX_LEN) : ""))
+    .filter(Boolean)
+    .slice(0, MAX_PERSONALIZATION_TAGS);
+  try {
+    const existing = await db.listDocuments(DATABASE_ID, COLLECTION.generated_notes_cache, [
+      Query.equal("markdown_file_id", args.markdownFileId),
+      Query.equal("type", UNIT_NOTES_CACHE_TYPE),
+      Query.equal("status", COMPLETED_STATUS),
+      Query.orderDesc("$createdAt"),
+      Query.limit(1),
+    ]);
+    const existingId = typeof existing.documents[0]?.$id === "string" ? existing.documents[0].$id.trim() : "";
+    if (existingId) return existingId;
+  } catch {
+    // Continue to create flow when compatibility schemas reject filter fields.
+  }
+  const mutateSemesterCompatFields = (payload: Record<string, unknown>) => {
+    if (args.semester === null) return;
+    payload.semester = String(args.semester);
+    payload.year = String(args.semester);
+  };
+  const tryCreate = async (payload: Record<string, unknown>): Promise<string> => {
+    const docId = ID.unique();
+    await db.createDocument(DATABASE_ID, COLLECTION.generated_notes_cache, docId, {
+      id: docId,
+      ...payload,
+    });
+    return docId;
+  };
+  try {
+    const primaryPayload: Record<string, unknown> = {
+      university: args.university,
+      course: args.course,
+      stream: args.stream,
+      selection_type: args.selectionType,
+      paper_code: args.paperCode,
+      unit_number: args.unitNumber,
+      type: UNIT_NOTES_CACHE_TYPE,
+      status: COMPLETED_STATUS,
+      markdown_file_id: args.markdownFileId,
+      generated_markdown: cleanMarkdown.slice(0, GENERATED_MARKDOWN_MAX_LEN),
+      created_at: createdAt,
+    };
+    if (cleanSyllabus) primaryPayload.syllabus_content = cleanSyllabus;
+    if (cleanPersonalizationTags.length > 0) primaryPayload.personalization_tags = cleanPersonalizationTags;
+    mutateSemesterCompatFields(primaryPayload);
+    return await tryCreate(primaryPayload);
+  } catch (primaryError) {
+    console.error("[generate-notes-stream] Primary cache write failed; falling back to compatibility payload:", primaryError);
+    try {
+      const fallbackPayload: Record<string, unknown> = {
+        paper_code: getUnitNotesCacheKey(args.university, args.course, args.stream, args.selectionType, args.paperCode),
+        unit_number: args.unitNumber,
+        type: UNIT_NOTES_CACHE_TYPE,
+        status: COMPLETED_STATUS,
+        markdown_file_id: args.markdownFileId,
+        generated_markdown: cleanMarkdown.slice(0, GENERATED_MARKDOWN_MAX_LEN),
+        created_at: createdAt,
+      };
+      if (cleanSyllabus) fallbackPayload.syllabus_content = cleanSyllabus;
+      if (cleanPersonalizationTags.length > 0) fallbackPayload.personalization_tags = cleanPersonalizationTags;
+      mutateSemesterCompatFields(fallbackPayload);
+      return await tryCreate(fallbackPayload);
+    } catch (fallbackError) {
+      console.warn("[generate-notes-stream] Compatibility cache write failed; retrying without optional syllabus_content:", fallbackError);
+      try {
+        const finalFallbackPayload: Record<string, unknown> = {
+          paper_code: getUnitNotesCacheKey(args.university, args.course, args.stream, args.selectionType, args.paperCode),
+          unit_number: args.unitNumber,
+          type: UNIT_NOTES_CACHE_TYPE,
+          status: COMPLETED_STATUS,
+          markdown_file_id: args.markdownFileId,
+          generated_markdown: cleanMarkdown.slice(0, GENERATED_MARKDOWN_MAX_LEN),
+          created_at: createdAt,
+        };
+        if (cleanPersonalizationTags.length > 0) finalFallbackPayload.personalization_tags = cleanPersonalizationTags;
+        mutateSemesterCompatFields(finalFallbackPayload);
+        return await tryCreate(finalFallbackPayload);
+      } catch (finalFallbackError) {
+        console.warn("[generate-notes-stream] Selector-aware fallback failed; retrying selectorless cache row:", finalFallbackError);
+        try {
+          return await tryCreate({
+            paper_code: getUnitNotesCacheKey(args.university, args.course, args.stream, args.selectionType, args.paperCode),
+            unit_number: args.unitNumber,
+            type: UNIT_NOTES_CACHE_TYPE,
+            status: COMPLETED_STATUS,
+            markdown_file_id: args.markdownFileId,
+            generated_markdown: cleanMarkdown.slice(0, GENERATED_MARKDOWN_MAX_LEN),
+            created_at: createdAt,
+          });
+        } catch (selectorlessError) {
+          console.error("[generate-notes-stream] Failed to write cache after all fallbacks:", selectorlessError);
+          return null;
+        }
+      }
+    }
+  }
+}
+
+function formatQuestionsForPrompt(questions: Array<Record<string, unknown>>, unitNumber: number): string {
+  return questions
+    .filter((questionDoc) => {
+      const unitRaw = questionDoc.unit_number;
+      if (typeof unitRaw === "number") return unitRaw === unitNumber;
+      if (typeof unitRaw === "string") {
+        const parsed = Number(unitRaw);
+        return Number.isInteger(parsed) ? parsed === unitNumber : true;
+      }
+      return true;
+    })
+    .map((questionDoc, idx) => {
+      const content = typeof questionDoc.question_content === "string" ? questionDoc.question_content.trim() : "";
+      if (!content) return null;
+      const marks = typeof questionDoc.marks === "number" ? `${questionDoc.marks} marks` : "marks N/A";
+      const number = questionDoc.question_no ?? idx + 1;
+      const sub = questionDoc.question_subpart ? `(${questionDoc.question_subpart})` : "";
+      return `${idx + 1}. Q${number}${sub}: ${content} [${marks}]`;
+    })
+    .filter((line): line is string => Boolean(line))
+    .join("\n");
+}
+
+function toSseData(payload: Record<string, unknown>): Uint8Array {
+  return new TextEncoder().encode(`data: ${JSON.stringify(payload)}\n\n`);
+}
+
+function toSseComment(comment: string): Uint8Array {
+  return new TextEncoder().encode(`: ${comment}\n\n`);
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRateLimitError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const status = "status" in error ? (error as { status?: unknown }).status : undefined;
+  const message = "message" in error ? String((error as { message?: unknown }).message ?? "") : "";
+  return status === 429 || message.includes("429");
+}
+
+async function runRateLimitCountdown(params: {
+  controller: ReadableStreamDefaultController<Uint8Array>;
+  topic: string;
+  index: number;
+  total: number;
+}): Promise<void> {
+  for (let remainingSeconds = 60; remainingSeconds > 5; remainingSeconds -= 5) {
+    params.controller.enqueue(toSseData({
+      event: "progress",
+      status: `Rate limit (TPM) active. Cooling down... resuming in ${remainingSeconds} seconds.`,
+      topic: params.topic,
+      index: params.index,
+      total: params.total,
+    }));
+    params.controller.enqueue(toSseData({
+      log: `Rate limit (TPM) active. Cooling down... resuming in ${remainingSeconds} seconds.`,
+    }));
+    await sleep(5000);
+  }
+  params.controller.enqueue(toSseData({
+    event: "progress",
+    status: "Rate limit (TPM) active. Cooling down... resuming in 5 seconds.",
+    topic: params.topic,
+    index: params.index,
+    total: params.total,
+  }));
+  params.controller.enqueue(toSseData({
+    log: "Rate limit (TPM) active. Cooling down... resuming in 5 seconds.",
+  }));
+  await sleep(5000);
+  params.controller.enqueue(toSseData({
+    log: "Cooldown complete. Retrying chunk...",
+  }));
+}
+
+function getErrorStatus(error: unknown): number | null {
+  if (!error || typeof error !== "object") return null;
+  const raw = "status" in error ? (error as { status?: unknown }).status : null;
+  if (typeof raw === "number" && Number.isFinite(raw)) return raw;
+  if (typeof raw === "string") {
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
+function getErrorStatusFromMessage(message: string): number | null {
+  const match = message.match(/\b(4\d{2}|5\d{2})\b/);
+  if (!match) return null;
+  const parsed = Number(match[1]);
+  return Number.isFinite(parsed) && parsed >= 400 && parsed <= 599 ? parsed : null;
+}
+
+function isSmtpNotConfiguredError(error: unknown): boolean {
+  return error instanceof SmtpConfigurationError;
+}
+
+async function getDailyCount(userId: string, todayStr: string): Promise<number> {
+  const db = adminDatabases();
+  try {
+    const res = await db.listDocuments(DATABASE_ID, COLLECTION.ai_usage, [
+      Query.equal("user_id", userId),
+      Query.equal("date", todayStr),
+    ]);
+    return res.total;
+  } catch {
+    return 0;
+  }
+}
+
+async function recordGeneration(userId: string, todayStr: string): Promise<void> {
+  const db = adminDatabases();
+  try {
+    await db.createDocument(DATABASE_ID, COLLECTION.ai_usage, ID.unique(), {
+      user_id: userId,
+      date: todayStr,
+    });
+  } catch (error) {
+    console.error("[generate-notes-stream] Failed to record usage:", error);
+  }
+}
+
+export async function GET(request: NextRequest) {
+  const user = await getServerUser();
+  if (!user) {
+    return NextResponse.json({ error: "Login required." }, { status: 401 });
+  }
+
+  const { searchParams } = new URL(request.url);
+  const university = (searchParams.get("university") || "Assam University").trim();
+  const course = (searchParams.get("course") || "").trim();
+  const streamName = (searchParams.get("stream") || "").trim();
+  const type = (searchParams.get("type") || "").trim();
+  const paperCode = (searchParams.get("paperCode") || "").trim();
+  const unitNumber = Number(searchParams.get("unitNumber"));
+  const semester = normalizeSemester(searchParams.get("semester"));
+  const forceMarkdownRerender = searchParams.get("rerender") === "1";
+  const gotenbergUrl = resolveGotenbergUrl();
+  const userEmail = typeof user.email === "string" ? user.email.trim() : "";
+
+  if (!course || !streamName || !type || !paperCode || !Number.isInteger(unitNumber) || unitNumber < 1 || unitNumber > 5) {
+    return NextResponse.json({ error: "Invalid selection. Please choose course, stream, type, paper code, and unit 1-5." }, { status: 400 });
+  }
+  if (!gotenbergUrl) {
+    console.error("[generate-notes-stream] Missing required environment variable: GOTENBERG_URL (and legacy AZURE_GOTENBERG_URL)", {
+      route: "/api/generate-notes-stream",
+      userId: user.id,
+      hasGeminiKey: Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY),
+    });
+    return NextResponse.json(
+      {
+        error: "Server misconfiguration: missing GOTENBERG_URL (legacy fallback AZURE_GOTENBERG_URL not set).",
+        code: "SERVER_MISCONFIGURATION",
+      },
+      { status: 503 },
+    );
+  }
+
+  try {
+    await ensureNotesCacheSchema();
+  } catch (error) {
+    console.error("[generate-notes-stream] Database Initialization Failed while ensuring notes cache schema:", error);
+    return NextResponse.json(
+      {
+        error: "Database Initialization Failed: Unable to initialize notes cache schema.",
+        code: "DATABASE_INITIALIZATION_FAILED",
+      },
+      { status: 503 },
+    );
+  }
+  await ensureMarkdownCacheBucket();
+  const completedCache = await readCachedNotes(university, course, streamName, type, paperCode, unitNumber, semester);
+  if (completedCache) {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const dailyLimit = getDailyLimit();
+    const usedBefore = isAdminPlus(user.role) ? 0 : await getDailyCount(user.id, todayStr);
+    const remaining = isAdminPlus(user.role) ? null : Math.max(0, dailyLimit - usedBefore);
+    const stream = new ReadableStream<Uint8Array>({
+      start: async (controller) => {
+        let cachedSyllabusContent = completedCache.syllabusContent || "";
+        let paperName = "";
+        let unitName = "";
+        let pdfUrl = "";
+        let cacheSource: "pdf" | "markdown" = "markdown";
+        // `rerender=1` intentionally bypasses cached PDF reuse and forces markdown->PDF rendering.
+        if (!forceMarkdownRerender && completedCache.pdfFileId) {
+          try {
+            const hasCachedPdf = await hasCachedPdfFile(completedCache.pdfFileId);
+            if (hasCachedPdf) {
+              cacheSource = "pdf";
+              pdfUrl = getAppwriteFileDownloadUrl(completedCache.pdfFileId);
+              controller.enqueue(toSseData({ log: "Cache PDF found: using existing rendered PDF." }));
+            } else {
+              controller.enqueue(toSseData({ log: "Cache PDF reference missing in storage: rendering from cached markdown." }));
+            }
+          } catch (error) {
+            console.error("[generate-notes-stream] Failed to validate cached PDF file id:", error);
+            controller.enqueue(toSseData({ log: "Cache PDF validation failed: rendering from cached markdown." }));
+          }
+        }
+        try {
+          if (!pdfUrl) {
+            cacheSource = "markdown";
+            try {
+              const syllabusInfo = await readSyllabusInfo(university, course, streamName, type, paperCode, unitNumber);
+              if (!cachedSyllabusContent) {
+                cachedSyllabusContent = syllabusInfo.syllabusContent;
+              }
+              paperName = syllabusInfo.paperName;
+              unitName = syllabusInfo.unitName;
+            } catch (error) {
+              console.warn("[generate-notes-stream] Could not load syllabus metadata for cached markdown rerender:", error);
+            }
+            controller.enqueue(toSseData({
+              log: forceMarkdownRerender
+                ? "Re-render requested: rendering PDF from cached markdown."
+                : "Cache markdown found: rendering PDF from cached markdown.",
+            }));
+            controller.enqueue(toSseData({ log: "Applying personalized watermark..." }));
+            controller.enqueue(toSseData({ log: "Compositing personalized footer for PDF rendering..." }));
+            const dynamicPdfName = `${paperCode}_Unit_${unitNumber}_Notes.pdf`;
+            const rendered = await renderMarkdownPdfToAppwrite({
+              markdown: completedCache.markdown,
+              fileBaseName: `${paperCode}_unit_${unitNumber}_cache`,
+              fileName: dynamicPdfName,
+              gotenbergUrl,
+              modelName: GEMINI_MODEL,
+              generatedAtIso: completedCache.createdAt || new Date().toISOString(),
+              reRenderedAtIso: forceMarkdownRerender ? new Date().toISOString() : undefined,
+              paperCode,
+              paperName,
+              unitNumber,
+              unitName,
+              syllabusContent: cachedSyllabusContent || undefined,
+              userEmail: userEmail || undefined,
+            });
+            pdfUrl = rendered.fileUrl;
+            if (completedCache.id) {
+              await updateCachedNotesPdfFileId(completedCache.id, rendered.fileId);
+            } else {
+              const recoveredDocId = await persistCachedNotesRecord({
+                university,
+                course,
+                stream: streamName,
+                selectionType: type,
+                paperCode,
+                unitNumber,
+                semester,
+                markdown: completedCache.markdown,
+                markdownFileId: completedCache.markdownFileId,
+                syllabusContent: cachedSyllabusContent,
+                personalizationTags: DEFAULT_PERSONALIZATION_TAGS,
+              });
+              if (recoveredDocId) {
+                await updateCachedNotesPdfFileId(recoveredDocId, rendered.fileId);
+              } else {
+                console.warn("[generate-notes-stream] Rendered cache PDF but cache doc id is unavailable; skipped pdf_file_id persistence.");
+              }
+            }
+            controller.enqueue(toSseData({ log: "PDF rendered successfully from cached markdown." }));
+          }
+        } catch (pdfError) {
+          const pipelineMessage = pdfError instanceof Error ? pdfError.message : String(pdfError);
+          controller.enqueue(toSseData({ event: "error", error: `PDF generation failed: ${pipelineMessage}` }));
+          controller.close();
+          return;
+        }
+        controller.enqueue(toSseData({
+          event: "done",
+          model: "cache",
+          cached: true,
+          remaining,
+          syllabus_content: cachedSyllabusContent,
+          cache_source: cacheSource,
+          can_rerender_from_markdown: true,
+          pdf_url: pdfUrl || null,
+        }));
+        controller.close();
+      },
+    });
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+      },
+    });
+  }
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const dailyLimit = getDailyLimit();
+  let usedBefore = 0;
+
+  if (!isAdminPlus(user.role)) {
+    usedBefore = await getDailyCount(user.id, todayStr);
+    if (usedBefore >= dailyLimit) {
+      return NextResponse.json(
+        { error: "Generation quota exceeded.", code: "QUOTA_EXCEEDED", remaining: 0 },
+        { status: 403 },
+      );
+    }
+  }
+  const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+  if (!geminiApiKey) {
+    console.error("[generate-notes-stream] Missing required environment variable: GEMINI_API_KEY/GOOGLE_API_KEY", {
+      route: "/api/generate-notes-stream",
+      userId: user.id,
+    });
+    return NextResponse.json({ error: "Google Gemini is not configured." }, { status: 503 });
+  }
+
+  const stream = new ReadableStream<Uint8Array>({
+    start: async (controller) => {
+      let isClosed = false;
+      const heartbeat = setInterval(() => {
+        if (isClosed) return;
+        try {
+          controller.enqueue(toSseComment("heartbeat"));
+        } catch {
+          clearInterval(heartbeat);
+        }
+      }, HEARTBEAT_INTERVAL_MS);
+      const closeStream = () => {
+        if (isClosed) return;
+        isClosed = true;
+        controller.close();
+      };
+      try {
+        const quota = await checkAndResetQuotas(user.id);
+        if (!isAdminPlus(user.role) && quota.notes_generated_today >= 1) {
+          controller.enqueue(toSseData({ event: "error", error: "Daily limit reached for Unit Notes (1/day)." }));
+          closeStream();
+          return;
+        }
+
+        const db = adminDatabases();
+        const syllabusRes = await db.listDocuments(DATABASE_ID, COLLECTION.syllabus_table, [
+          Query.equal("university", university),
+          Query.equal("course", course),
+          Query.equal("stream", streamName),
+          Query.equal("type", type),
+          Query.equal("paper_code", paperCode),
+          Query.equal("unit_number", unitNumber),
+          Query.limit(1),
+        ]);
+
+        const syllabusDoc = syllabusRes.documents[0];
+        if (!syllabusDoc) {
+          controller.enqueue(toSseData({ event: "error", error: "No syllabus data found for this unit." }));
+          closeStream();
+          return;
+        }
+
+        const syllabusContent = typeof syllabusDoc.syllabus_content === "string" ? syllabusDoc.syllabus_content.trim() : "";
+        const paperName = typeof syllabusDoc.paper_name === "string" ? syllabusDoc.paper_name.trim() : "";
+        const unitName = extractUnitName(syllabusDoc);
+        if (!syllabusContent) {
+          controller.enqueue(toSseData({ event: "error", error: "Syllabus content is empty for this unit." }));
+          closeStream();
+          return;
+        }
+
+        const syllabusTags = normalizeTags(syllabusDoc.tags);
+        const subTopics = splitSyllabusIntoSubTopics(syllabusContent);
+        if (subTopics.length === 0) {
+          controller.enqueue(toSseData({ event: "error", error: "No sub-topics found for this unit." }));
+          closeStream();
+          return;
+        }
+
+        const questionsRes = await db.listDocuments(DATABASE_ID, COLLECTION.questions_table, [
+          Query.equal("university", university),
+          Query.equal("course", course),
+          Query.equal("stream", streamName),
+          Query.equal("type", type),
+          Query.equal("paper_code", paperCode),
+          Query.limit(500),
+        ]);
+        const formattedQuestions = formatQuestionsForPrompt(questionsRes.documents, unitNumber);
+        const systemPrompt = readDynamicSystemPrompt({
+          routePath: request.nextUrl.pathname,
+          promptType: "unit_notes",
+        });
+        let masterMarkdown = "";
+        const model = GEMINI_MODEL;
+        const geminiMaxTokens = 4000;
+
+        for (const [index, topic] of subTopics.entries()) {
+          controller.enqueue(toSseData({
+            event: "progress",
+            status: `Generating topic ${index + 1} of ${subTopics.length}...`,
+            topic,
+            index: index + 1,
+            total: subTopics.length,
+          }));
+
+          const promptBody = `University: ${university}
+Course: ${course}
+Stream: ${streamName}
+Type: ${type}
+Paper Code: ${paperCode}
+Unit Number: ${unitNumber}
+Unit Tags: ${syllabusTags.length > 0 ? syllabusTags.join(", ") : "N/A"}
+
+Current Sub-Topic:
+${topic}
+
+All Questions for this Unit:
+${formattedQuestions || "No related questions found."}
+
+CRITICAL FORMAT CONSTRAINTS:
+1. Do NOT write "Unit ${unitNumber}" or repeat the paper code as heading text.
+2. Do NOT use numeric prefixes for main headings (e.g. avoid "1. Heading").
+3. Start directly with a ## or ### heading for this sub-topic.
+`;
+
+          let aiResponseText = "";
+          let retries = 0;
+          let hasReceivedShortResponse = false;
+
+          while (retries < TOPIC_RETRY_MAX) {
+            try {
+              if (retries > 0) {
+                controller.enqueue(toSseData({
+                  event: "progress",
+                  status: `Retrying topic ${index + 1} of ${subTopics.length} (attempt ${retries + 1}/${TOPIC_RETRY_MAX})...`,
+                  topic,
+                  index: index + 1,
+                  total: subTopics.length,
+                }));
+              }
+
+              let candidate = "";
+              try {
+                const result = await runGeminiCompletion({
+                  apiKey: String(geminiApiKey),
+                  prompt: `${systemPrompt}\n\n${promptBody}`,
+                  maxTokens: geminiMaxTokens,
+                  temperature: 0.4,
+                  model,
+                });
+                candidate = String(result.content ?? "").trim();
+              } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : String(error ?? "Google request failed");
+                const status = getErrorStatus(error) ?? getErrorStatusFromMessage(errorMessage) ?? 503;
+                throw new Error(`Google request failed (status ${status}): ${errorMessage}`);
+              }
+              if (candidate.length > MIN_TOPIC_RESPONSE_CHARS) {
+                aiResponseText = candidate;
+                break;
+              }
+              if (candidate.length > 0) hasReceivedShortResponse = true;
+              controller.enqueue(toSseData({
+                event: "progress",
+                status: `Topic ${index + 1} returned a short/empty response. Retrying...`,
+                topic,
+                index: index + 1,
+                total: subTopics.length,
+              }));
+            } catch (error) {
+              if (isRateLimitError(error)) {
+                await runRateLimitCountdown({
+                  controller,
+                  topic,
+                  index: index + 1,
+                  total: subTopics.length,
+                });
+              } else {
+                const errorStatus = getErrorStatus(error);
+                const messageStatus =
+                  error instanceof Error ? getErrorStatusFromMessage(error.message) : null;
+                if (
+                  (errorStatus !== null && errorStatus >= 500) ||
+                  (messageStatus !== null && messageStatus >= 500)
+                ) {
+                  await sleep(RETRY_ERROR_DELAY_MS);
+                } else {
+                  console.error("[generate-notes-stream] Gemini API error:", error);
+                  await sleep(RETRY_ERROR_DELAY_MS);
+                }
+              }
+            }
+            retries += 1;
+            if (retries < TOPIC_RETRY_MAX) {
+              await sleep(hasReceivedShortResponse ? EMPTY_RESPONSE_RETRY_MS : RETRY_ERROR_DELAY_MS);
+            }
+          }
+
+          if (!aiResponseText) {
+            controller.enqueue(toSseData({
+              event: "progress",
+              status: `Topic ${index + 1} could not be generated after retries. Continuing...`,
+              topic,
+              index: index + 1,
+              total: subTopics.length,
+            }));
+            const fallbackReason = "the model returned insufficient content after multiple retries.";
+            const fallbackMarkdown = [
               `## ${topic}`,
               "",
               `> *Note: ExamArchive could not generate exhaustive notes for this specific sub-topic because ${fallbackReason} Please refer to standard texts for: ${topic}*`,
@@ -279,17 +1360,7 @@ async function ensureNotesCacheSchema(): Promise<void> {
           await sleep(TOPIC_LOOP_DELAY_MS);
         }
 
-        // IMPORTANT: Persist the markdown cache FIRST and keep the returned
-        // cache document ID. We need the SAME document ID a few lines later to
-        // persist pdf_file_id after Gotenberg uploads the PDF.
-        //
-        // If this function returns void or we discard the returned ID, the first
-        // generation path loses the association between the cache record and the
-        // rendered PDF file. That stale cache shape is what makes the first click
-        // appear to only "start" the job and the second click appear to send the
-        // email. The second click works only because it re-enters through the
-        // cache path after the previous request already uploaded a PDF.
-        const cacheDocId = await writeCachedNotes(university, course, streamName, type, paperCode, unitNumber, semester, masterMarkdown, syllabusContent, (message) =>
+        await writeCachedNotes(university, course, streamName, type, paperCode, unitNumber, semester, masterMarkdown, syllabusContent, (message) =>
           controller.enqueue(toSseData({ log: message })),
         );
         controller.enqueue(toSseData({ log: "AI generation complete. Sending to Azure for PDF rendering..." }));
@@ -313,36 +1384,6 @@ async function ensureNotesCacheSchema(): Promise<void> {
           });
           pdfUrl = rendered.fileUrl;
           controller.enqueue(toSseData({ log: "PDF rendered and uploaded successfully." }));
-
-          // IMPORTANT: Persist pdf_file_id to the SAME cache document BEFORE we
-          // move on to email sending / stream completion.
-          //
-          // Why this ordering matters:
-          // 1. Gotenberg upload succeeds.
-          // 2. We immediately write rendered.fileId into generated_notes_cache.
-          // 3. Only then do we proceed to email and done events.
-          //
-          // This keeps the cache, download URL, and later cache-hit behavior in
-          // sync. Skipping this write makes the cache look incomplete, so the
-          // next click falls back to rerender behavior and users think only the
-          // second click actually sends the email.
-          if (cacheDocId) {
-            try {
-              await updateCachedNotesPdfFileId(cacheDocId, rendered.fileId);
-              controller.enqueue(toSseData({ log: "PDF file ID persisted to cache record." }));
-            } catch (persistError) {
-              // Non-fatal: the user already has a valid uploaded PDF and can
-              // still receive the email in this request. We only log because the
-              // cache-hit path may need to rerender next time if this write fails.
-              console.warn("[generate-notes-stream] Could not persist pdf_file_id to cache doc:", persistError);
-            }
-          } else {
-            // writeCachedNotes may return null if markdown caching fails.
-            // Do not fail the request just because the cache record is missing;
-            // the PDF upload already succeeded and the user should still get the
-            // PDF email in the current request.
-            console.warn("[generate-notes-stream] cacheDocId unavailable after writeCachedNotes; pdf_file_id not persisted.");
-          }
         } catch (pdfError) {
           console.error("[generate-notes-stream] PDF Engine Error:", pdfError);
           const pipelineMessage = pdfError instanceof Error ? pdfError.message : String(pdfError);
