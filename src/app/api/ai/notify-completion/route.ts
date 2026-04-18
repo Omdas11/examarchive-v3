@@ -332,17 +332,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true, skipped: true, reason: "email_already_sent" });
     }
     try {
-      await db.updateDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, jobId, {
-        email_sent_at: new Date().toISOString(),
-      });
-    } catch (error) {
-      console.error("[ai/notify-completion] Failed to set email sentinel for job.", {
-        jobId,
-        error,
-      });
-      return NextResponse.json({ error: "Unable to record notification state." }, { status: 500 });
-    }
-    try {
       await sendGenerationPdfEmail({
         email,
         title,
@@ -354,6 +343,17 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       console.error("[ai/notify-completion] Failed to send completion email.", { jobId, fileId, email, error });
       return NextResponse.json({ error: "Failed to send completion email." }, { status: 500 });
+    }
+    try {
+      await db.updateDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, jobId, {
+        email_sent_at: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("[ai/notify-completion] Completion email sent, but failed to persist email sentinel.", {
+        jobId,
+        error,
+      });
+      return NextResponse.json({ ok: true, warning: "email_state_not_persisted" });
     }
     return NextResponse.json({ ok: true });
   }
@@ -367,17 +367,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, skipped: true, reason: "email_already_sent" });
   }
   try {
-    await db.updateDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, jobId, {
-      email_status: "failure_sent",
-    });
-  } catch (error) {
-    console.error("[ai/notify-completion] Failed to set failure email sentinel for job.", {
-      jobId,
-      error,
-    });
-    return NextResponse.json({ error: "Unable to record notification state." }, { status: 500 });
-  }
-  try {
     await sendGenerationFailureEmail({
       email,
       title,
@@ -386,6 +375,17 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("[ai/notify-completion] Failed to send failure email.", { jobId, email, error });
     return NextResponse.json({ error: "Failed to send failure email." }, { status: 500 });
+  }
+  try {
+    await db.updateDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, jobId, {
+      email_status: "failure_sent",
+    });
+  } catch (error) {
+    console.error("[ai/notify-completion] Failure email sent, but failed to persist failure email sentinel.", {
+      jobId,
+      error,
+    });
+    return NextResponse.json({ ok: true, warning: "email_state_not_persisted" });
   }
   return NextResponse.json({ ok: true });
 }

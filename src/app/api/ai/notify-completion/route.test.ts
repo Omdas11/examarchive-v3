@@ -276,16 +276,19 @@ describe("POST /api/ai/notify-completion", () => {
       expect(res.status).toBe(500);
       const json = await res.json();
       expect(json.error).toMatch(/completion email/i);
+      expect(mockUpdateDocument).not.toHaveBeenCalled();
     });
 
-    it("returns 500 when completion email sentinel update fails", async () => {
+    it("returns ok with warning when completion email state persistence fails after send", async () => {
+      mockSendGenerationPdfEmail.mockResolvedValue(undefined);
       mockUpdateDocument.mockRejectedValue(new Error("write failed"));
       const req = makeRequest({ jobId: "job1", status: "completed", fileId: "file-abc" }, WEBHOOK_SECRET);
       const res = await POST(req);
-      expect(res.status).toBe(500);
+      expect(res.status).toBe(200);
       const json = await res.json();
-      expect(json.error).toMatch(/record notification state/i);
-      expect(mockSendGenerationPdfEmail).not.toHaveBeenCalled();
+      expect(json.ok).toBe(true);
+      expect(json.warning).toBe("email_state_not_persisted");
+      expect(mockSendGenerationPdfEmail).toHaveBeenCalledTimes(1);
     });
 
     it("sends completion email even when callback does not provide a resolvable userId", async () => {
@@ -364,16 +367,19 @@ describe("POST /api/ai/notify-completion", () => {
       expect(res.status).toBe(500);
       const json = await res.json();
       expect(json.error).toMatch(/failure email/i);
+      expect(mockUpdateDocument).not.toHaveBeenCalled();
     });
 
-    it("returns 500 when failure email sentinel update fails", async () => {
+    it("returns ok with warning when failure email state persistence fails after send", async () => {
+      mockSendGenerationFailureEmail.mockResolvedValue(undefined);
       mockUpdateDocument.mockRejectedValue(new Error("write failed"));
       const req = makeRequest({ jobId: "job1", status: "failed", fileId: "" }, WEBHOOK_SECRET);
       const res = await POST(req);
-      expect(res.status).toBe(500);
+      expect(res.status).toBe(200);
       const json = await res.json();
-      expect(json.error).toMatch(/record notification state/i);
-      expect(mockSendGenerationFailureEmail).not.toHaveBeenCalled();
+      expect(json.ok).toBe(true);
+      expect(json.warning).toBe("email_state_not_persisted");
+      expect(mockSendGenerationFailureEmail).toHaveBeenCalledTimes(1);
     });
   });
 

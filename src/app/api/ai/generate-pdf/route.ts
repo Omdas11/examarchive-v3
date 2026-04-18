@@ -256,10 +256,6 @@ function getAppwriteErrorStatus(error: unknown): number | null {
   return null;
 }
 
-function getSafeErrorDetails(error: unknown): string {
-  return formatFailureReason(error).slice(0, 1000);
-}
-
 async function checkQuotasOrError(userId: string): Promise<
   { quota: Awaited<ReturnType<typeof checkAndResetQuotas>>; errorResponse: null } |
   { quota: null; errorResponse: NextResponse }
@@ -280,7 +276,6 @@ async function checkQuotasOrError(userId: string): Promise<
         {
           error: "Unable to verify generation quota right now. Please try again.",
           code: QUOTA_CHECK_FAILED_CODE,
-          details: getSafeErrorDetails(error),
         },
         { status: 500 },
       ),
@@ -977,7 +972,6 @@ export async function POST(request: NextRequest) {
         {
           error: "Unable to start background generation right now. Please try again.",
           code: "JOB_DISPATCH_FAILED",
-          details: getSafeErrorDetails(error),
         },
         { status: 500 },
       );
@@ -1131,7 +1125,6 @@ export async function POST(request: NextRequest) {
       {
         error: "Unable to start background generation right now. Please try again.",
         code: "JOB_DISPATCH_FAILED",
-        details: getSafeErrorDetails(error),
       },
       { status: 500 },
     );

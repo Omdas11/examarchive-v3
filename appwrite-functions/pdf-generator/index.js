@@ -453,8 +453,6 @@ async function renderWithGotenberg(markdown, fileName, markedParser) {
   if (!gotenbergAuthToken) throw new Error("Missing GOTENBERG_AUTH_TOKEN in function environment.");
   const endpointUrl = new URL(validateGotenbergUrl(gotenbergUrl, GOTENBERG_ENDPOINT_PATH));
   const mergeEndpointUrl = new URL(validateGotenbergUrl(gotenbergUrl, GOTENBERG_MERGE_ENDPOINT_PATH));
-  // Gotenberg expects duration literals (for example: 500ms, 2s, 1m) to delay Chromium capture for heavy Math/LaTeX pages.
-  endpointUrl.searchParams.set("waitDelay", waitDelay);
 
   const html = await markdownToSimpleHtml(markdown, fileName, markedParser);
   const optimizedHtml = optimizeHtmlForGotenberg(html);
@@ -474,6 +472,8 @@ async function renderWithGotenberg(markdown, fileName, markedParser) {
       const form = new FormData();
       form.append("files", new Blob([htmlString], { type: "text/html" }), name);
       form.append("printBackground", "true");
+      // Gotenberg expects duration literals (for example: 500ms, 2s, 1m) as multipart form fields.
+      form.append("waitDelay", waitDelay);
       try {
         const response = await fetch(endpointUrl.toString(), {
           method: "POST",
@@ -550,7 +550,7 @@ async function renderWithGotenberg(markdown, fileName, markedParser) {
     const content = String(markdownContent || "");
     const contentBytes = Buffer.byteLength(content, "utf8");
     if (contentBytes <= maxBytes) return [content];
-    const targetMidpoint = Math.floor(contentBytes / 2);
+    const targetMidpoint = Math.floor(content.length / 2);
     const headingMatches = [];
     const headingRegex = /^#+\s.+$/gm;
     let match;
