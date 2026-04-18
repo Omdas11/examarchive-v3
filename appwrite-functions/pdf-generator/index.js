@@ -370,7 +370,7 @@ async function renderWithGotenberg(markdown, fileName, markedParser) {
   const { primaryEndpointUrl, fallbackEndpointUrl } = validateGotenbergUrl(gotenbergUrl);
 
   const html = await markdownToSimpleHtml(markdown, fileName, markedParser);
-  const normalizedToken = normalizeBearerToken(gotenbergAuthToken);
+  const normalizedToken = gotenbergAuthToken ? normalizeBearerToken(gotenbergAuthToken) : "";
   const headers = normalizedToken ? { Authorization: normalizedToken } : undefined;
 
   let endpointUrl = primaryEndpointUrl;

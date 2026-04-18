@@ -564,7 +564,7 @@ export async function renderMarkdownPdfToAppwrite(args: {
     || ""
   ).trim();
   if (!configuredGotenbergUrl) {
-    throw new Error("Missing GOTENBERG_URL (legacy AZURE_GOTENBERG_URL also not set).");
+    throw new Error("Missing GOTENBERG_URL or AZURE_GOTENBERG_URL environment variable.");
   }
   const gotenbergAuthToken = normalizeGotenbergAuthToken(
     args.gotenbergAuthToken ?? process.env.GOTENBERG_AUTH_TOKEN ?? "",
