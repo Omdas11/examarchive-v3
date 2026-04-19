@@ -49,4 +49,29 @@ describe("pdf-download-link", () => {
       token: url.searchParams.get("token") || "",
     })).toBe(false);
   });
+
+  it("rejects malformed or oversized token inputs", async () => {
+    const { buildSignedPdfDownloadPath, isValidSignedPdfDownloadToken } = await import("./pdf-download-link");
+    const path = buildSignedPdfDownloadPath({
+      fileId: "file_abc",
+      userId: "user_xyz",
+      ttlSeconds: 300,
+    });
+    const url = new URL(path, "https://example.com");
+    const exp = url.searchParams.get("exp") || "";
+
+    expect(isValidSignedPdfDownloadToken({
+      fileId: "file_abc",
+      userId: "user_xyz",
+      expires: exp,
+      token: "not-hex",
+    })).toBe(false);
+
+    expect(isValidSignedPdfDownloadToken({
+      fileId: "f".repeat(300),
+      userId: "user_xyz",
+      expires: exp,
+      token: url.searchParams.get("token") || "",
+    })).toBe(false);
+  });
 });

@@ -939,9 +939,9 @@ export async function POST(request: NextRequest) {
           );
           if (readyEmailSent && notesJobId) {
             try {
-              await adminDatabases.updateDocument(
+              await adminDatabases().updateDocument(
                 DATABASE_ID,
-                COLLECTION.AI_GENERATION_JOBS,
+                COLLECTION.ai_generation_jobs,
                 notesJobId,
                 {
                   email_status: "sent",
