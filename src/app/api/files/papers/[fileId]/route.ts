@@ -185,7 +185,7 @@ export async function GET(
       );
       const encodedFileName = encodeURIComponent(fileName);
       const backingBuffer = pdfBuffer.buffer;
-      const pdfBytes: Uint8Array<ArrayBuffer> =
+      const pdfBytes =
         backingBuffer instanceof ArrayBuffer
           ? new Uint8Array(
               backingBuffer,
