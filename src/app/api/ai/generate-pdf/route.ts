@@ -192,7 +192,7 @@ async function queueGenerationRecording(
 ): Promise<void> {
   const todayStr = new Date().toISOString().slice(0, 10);
   // Metrics recording is non-critical and should not block accepted requests.
-  await recordGeneration(userId, todayStr).catch((error) => {
+  void recordGeneration(userId, todayStr).catch((error) => {
     console.error("[ai/generate-pdf] Failed to record usage metrics after quota reservation.", {
       userId,
       todayStr,
