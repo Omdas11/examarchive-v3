@@ -209,12 +209,23 @@ export async function GET(
         );
       }
 
+      const gotenbergAuthToken = (process.env.GOTENBERG_AUTH_TOKEN || "").trim();
+      if (!gotenbergAuthToken) {
+        console.error(
+          "[api/files/papers] GOTENBERG_AUTH_TOKEN is not configured; cannot render PDF on-demand.",
+        );
+        return new NextResponse(
+          "PDF rendering service is not configured",
+          { status: 503 },
+        );
+      }
+
       // Fully await the Gotenberg render before sending a response so that
       // Vercel does not terminate the function mid-stream (no fire-and-forget).
       const pdfBuffer = await renderMarkdownToPdfBuffer({
         markdown,
         gotenbergUrl,
-        gotenbergAuthToken: process.env.GOTENBERG_AUTH_TOKEN || "",
+        gotenbergAuthToken,
         paperCode:
           typeof jobPayload.paperCode === "string"
             ? jobPayload.paperCode
