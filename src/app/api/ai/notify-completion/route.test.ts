@@ -79,7 +79,7 @@ describe("POST /api/ai/notify-completion", () => {
       error_message: "",
     });
     mockSendGenerationPdfEmail.mockResolvedValue(undefined);
-    const req = makeRequest({ jobId: "job1", status: "completed", fileId: "file1" }, WEBHOOK_SECRET);
+    const req = makeRequest({ jobId: "job1", status: "completed", fileId: "file1" });
     const res = await POST(req);
     expect(res.status).toBe(200);
     const json = await res.json();
@@ -291,12 +291,14 @@ describe("POST /api/ai/notify-completion", () => {
       expect(res.status).toBe(500);
       const json = await res.json();
       expect(json.error).toMatch(/completion email/i);
-      expect(mockUpdateDocument).not.toHaveBeenCalled();
+      expect(mockUpdateDocument).toHaveBeenCalled();
     });
 
     it("returns ok with warning when completion email state persistence fails after send", async () => {
       mockSendGenerationPdfEmail.mockResolvedValue(undefined);
-      mockUpdateDocument.mockRejectedValue(new Error("write failed"));
+      mockUpdateDocument
+        .mockResolvedValueOnce({})
+        .mockRejectedValueOnce(new Error("write failed"));
       const req = makeRequest({ jobId: "job1", status: "completed", fileId: "file-abc" }, WEBHOOK_SECRET);
       const res = await POST(req);
       expect(res.status).toBe(200);
@@ -382,12 +384,14 @@ describe("POST /api/ai/notify-completion", () => {
       expect(res.status).toBe(500);
       const json = await res.json();
       expect(json.error).toMatch(/failure email/i);
-      expect(mockUpdateDocument).not.toHaveBeenCalled();
+      expect(mockUpdateDocument).toHaveBeenCalled();
     });
 
     it("returns ok with warning when failure email state persistence fails after send", async () => {
       mockSendGenerationFailureEmail.mockResolvedValue(undefined);
-      mockUpdateDocument.mockRejectedValue(new Error("write failed"));
+      mockUpdateDocument
+        .mockResolvedValueOnce({})
+        .mockRejectedValueOnce(new Error("write failed"));
       const req = makeRequest({ jobId: "job1", status: "failed", fileId: "" }, WEBHOOK_SECRET);
       const res = await POST(req);
       expect(res.status).toBe(200);

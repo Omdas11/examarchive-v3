@@ -1235,6 +1235,7 @@ async function processGenerationJob(rawInput, options = {}) {
     await updateJob(db, jobId, {
       status: "completed",
       progress_percent: 100,
+      // Stores the markdown cache file ID. /api/files/papers/[fileId] renders PDF on demand.
       result_file_id: cacheFileId,
       completed_at: new Date().toISOString(),
     });

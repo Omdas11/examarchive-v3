@@ -130,6 +130,9 @@ describe("pdf-generator / notifyCompletionWebhook", () => {
 
   it("skips the webhook call when SITE_URL is not configured", async () => {
     delete process.env.SITE_URL;
+    delete process.env.NEXT_PUBLIC_SITE_URL;
+    delete process.env.VERCEL_URL;
+    delete process.env.NEXT_PUBLIC_VERCEL_URL;
     const fetchMock = jest.fn();
     global.fetch = fetchMock;
     await notifyCompletionWebhook({ jobId: "job1", status: "completed", fileId: "file1" });

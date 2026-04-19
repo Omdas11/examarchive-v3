@@ -394,13 +394,32 @@ export async function POST(request: NextRequest) {
         hasValidBearer,
       });
     }
+    const existingEmailStatus = String(resolvedJob.email_status || "").trim();
     const existingEmailSentAt = String(resolvedJob.email_sent_at || "").trim();
-    if (existingEmailSentAt) {
+    // Backward compatibility for jobs created before email_status existed:
+    // treat a bare email_sent_at timestamp as already-sent.
+    const alreadySent = existingEmailStatus === "completion_sent" || (!existingEmailStatus && !!existingEmailSentAt);
+    if (alreadySent) {
       console.info("[ai/notify-completion] Email already sent for this job. Skipping duplicate notification.", {
         jobId,
+        emailStatus: existingEmailStatus,
         emailSentAt: existingEmailSentAt,
       });
       return NextResponse.json({ ok: true, skipped: true, reason: "email_already_sent" });
+    }
+    const emailSentinelTimestamp = new Date().toISOString();
+    try {
+      await db.updateDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, jobId, {
+        email_status: "completion_pending",
+        email_sent_at: emailSentinelTimestamp,
+      });
+    } catch (error) {
+      console.error("[ai/notify-completion] Failed to persist completion email sentinel before send.", {
+        jobId,
+        fileId,
+        error,
+      });
+      return NextResponse.json({ error: "Unable to persist completion email state." }, { status: 500 });
     }
     try {
       await sendGenerationPdfEmail({
@@ -413,11 +432,22 @@ export async function POST(request: NextRequest) {
       });
     } catch (error) {
       console.error("[ai/notify-completion] Failed to send completion email.", { jobId, fileId, email, error });
+      await db.updateDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, jobId, {
+        email_status: "completion_failed",
+        email_sent_at: null,
+      }).catch((persistError) => {
+        console.error("[ai/notify-completion] Failed to reset completion email sentinel after send failure.", {
+          jobId,
+          fileId,
+          persistError,
+        });
+      });
       return NextResponse.json({ error: "Failed to send completion email." }, { status: 500 });
     }
     try {
       await db.updateDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, jobId, {
-        email_sent_at: new Date().toISOString(),
+        email_status: "completion_sent",
+        email_sent_at: emailSentinelTimestamp,
       });
     } catch (error) {
       console.error("[ai/notify-completion] Completion email sent, but failed to persist email sentinel.", {
@@ -438,6 +468,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, skipped: true, reason: "email_already_sent" });
   }
   try {
+    await db.updateDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, jobId, {
+      email_status: "failure_pending",
+    });
+  } catch (error) {
+    console.error("[ai/notify-completion] Failed to persist failure email sentinel before send.", {
+      jobId,
+      error,
+    });
+    return NextResponse.json({ error: "Unable to persist failure email state." }, { status: 500 });
+  }
+  try {
     await sendGenerationFailureEmail({
       email,
       title,
@@ -445,6 +486,14 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("[ai/notify-completion] Failed to send failure email.", { jobId, email, error });
+    await db.updateDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, jobId, {
+      email_status: "failure_failed",
+    }).catch((persistError) => {
+      console.error("[ai/notify-completion] Failed to reset failure email sentinel after send failure.", {
+        jobId,
+        persistError,
+      });
+    });
     return NextResponse.json({ error: "Failed to send failure email." }, { status: 500 });
   }
   try {

@@ -100,6 +100,7 @@ export async function GET(
     // Look up the ai_generation_jobs collection to resolve which cache bucket
     // the markdown file lives in and to retrieve job metadata for the PDF cover.
     let jobPayload: Record<string, unknown> = {};
+    let resolvedJob: Record<string, unknown> | null = null;
     let markdown: string | null = null;
 
     try {
@@ -112,11 +113,12 @@ export async function GET(
           Query.limit(1),
         ],
       );
-      const job = jobsResult.documents[0];
-      if (job) {
+      const jobDocument = jobsResult.documents[0];
+      if (jobDocument) {
+        resolvedJob = jobDocument as Record<string, unknown>;
         const rawPayload =
-          typeof job.input_payload_json === "string"
-            ? job.input_payload_json
+          typeof jobDocument.input_payload_json === "string"
+            ? jobDocument.input_payload_json
             : "{}";
         jobPayload = JSON.parse(rawPayload) as Record<string, unknown>;
         const jobType =
@@ -168,10 +170,32 @@ export async function GET(
           typeof jobPayload.paperCode === "string"
             ? jobPayload.paperCode
             : undefined,
+        paperName:
+          typeof jobPayload.paperName === "string"
+            ? jobPayload.paperName
+            : undefined,
         unitNumber:
           typeof jobPayload.unitNumber === "number"
             ? jobPayload.unitNumber
             : undefined,
+        unitName:
+          typeof jobPayload.unitName === "string"
+            ? jobPayload.unitName
+            : undefined,
+        syllabusContent:
+          typeof jobPayload.syllabusContent === "string"
+            ? jobPayload.syllabusContent
+            : undefined,
+        modelName:
+          typeof jobPayload.modelName === "string"
+            ? jobPayload.modelName
+            : undefined,
+        generatedAtIso:
+          typeof resolvedJob?.completed_at === "string"
+            ? resolvedJob.completed_at
+            : typeof resolvedJob?.$createdAt === "string"
+              ? resolvedJob.$createdAt
+              : undefined,
         year:
           typeof jobPayload.year === "number" ? jobPayload.year : undefined,
         userEmail:

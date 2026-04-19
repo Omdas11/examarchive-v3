@@ -3,6 +3,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 const SIGNED_DOWNLOAD_DEFAULT_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
 let unsignedUrlWarningEmitted = false;
+let missingUserIdWarningEmitted = false;
 
 function getDownloadSigningSecret(): string | null {
   const raw = process.env.PDF_DOWNLOAD_TOKEN_SECRET;
@@ -19,6 +20,17 @@ function emitUnsignedUrlWarning(context: { fileId: string; userId: string; env: 
       env: context.env,
       fileIdSample: context.fileId.slice(0, 8),
       hasUserId: Boolean(context.userId),
+    });
+  }
+}
+
+function emitMissingUserIdWarning(context: { fileId: string; env: string }): void {
+  if (missingUserIdWarningEmitted) return;
+  missingUserIdWarningEmitted = true;
+  if (process.env.NODE_ENV !== "test") {
+    console.warn("[pdf-download-link] Signed download token requested without userId; returning unsigned URL.", {
+      env: context.env,
+      fileIdSample: context.fileId.slice(0, 8),
     });
   }
 }
@@ -50,10 +62,15 @@ export function buildSignedPdfDownloadPath(args: {
     params.set("uid", userId);
     params.set("exp", String(expires));
     params.set("token", signPayload(secret, fileId, userId, expires));
-  } else {
+  } else if (!secret) {
     emitUnsignedUrlWarning({
       fileId,
       userId,
+      env: process.env.NODE_ENV || "unknown",
+    });
+  } else {
+    emitMissingUserIdWarning({
+      fileId,
       env: process.env.NODE_ENV || "unknown",
     });
   }

@@ -91,7 +91,7 @@ jobs:
         run: node scripts/sync-prod-to-preview.js
 
       - name: Post result comment
-        if: steps.guard.outputs.authorized == 'true' && always()
+        if: ${{ always() && steps.guard.outputs.authorized == 'true' }}
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
         env:
           SYNC_OUTCOME: ${{ steps.sync.outcome }}
