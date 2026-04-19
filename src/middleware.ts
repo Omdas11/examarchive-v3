@@ -29,6 +29,11 @@ const PROTECTED_PATHS = [
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Allow Appwrite webhook calls to proceed; route performs its own secret validation.
+  if (pathname.startsWith("/api/ai/notify-completion")) {
+    return NextResponse.next();
+  }
+
   // Check if the user has an active session cookie.
   const session = request.cookies.get(SESSION_COOKIE)?.value;
 
