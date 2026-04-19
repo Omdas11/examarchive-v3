@@ -20,6 +20,8 @@ const DEFAULT_GEMINI_MAX_ATTEMPTS = Number.isInteger(geminiMaxAttemptsRaw)
 const DEFAULT_GEMINI_BASE_BACKOFF_MS = Number.isFinite(geminiBaseBackoffRaw)
   ? Math.max(250, geminiBaseBackoffRaw)
   : 1500;
+const GEMINI_RETRYABLE_MAX_ATTEMPTS = Math.max(5, DEFAULT_GEMINI_MAX_ATTEMPTS);
+const GEMINI_STRICT_BACKOFF_BASE_MS = Math.max(3000, DEFAULT_GEMINI_BASE_BACKOFF_MS);
 const TAVILY_TIMEOUT_MS = Number.isFinite(tavilyTimeoutRaw)
   ? Math.max(1_000, tavilyTimeoutRaw)
   : 8_000;
@@ -297,19 +299,28 @@ function isRetryableGeminiStatus(status) {
   return status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
 }
 
+function isHighRetryBudgetGeminiStatus(status) {
+  return status === 429 || (status >= 500 && status <= 599);
+}
+
 async function runGeminiCompletionWithRetry({ apiKey, prompt, model }) {
   let lastError = null;
-  for (let attempt = 1; attempt <= DEFAULT_GEMINI_MAX_ATTEMPTS; attempt += 1) {
+  for (let attempt = 1; attempt <= GEMINI_RETRYABLE_MAX_ATTEMPTS; attempt += 1) {
     try {
       return await runGeminiCompletion({ apiKey, prompt, model });
     } catch (error) {
       lastError = error;
       const status = Number(error?.status || 0);
       const canRetry = isRetryableGeminiStatus(status) || !status;
-      if (!canRetry || attempt >= DEFAULT_GEMINI_MAX_ATTEMPTS) {
+      const maxAttemptsForError = isHighRetryBudgetGeminiStatus(status)
+        ? GEMINI_RETRYABLE_MAX_ATTEMPTS
+        : DEFAULT_GEMINI_MAX_ATTEMPTS;
+      if (!canRetry || attempt >= maxAttemptsForError) {
         throw error;
       }
-      await sleep(DEFAULT_GEMINI_BASE_BACKOFF_MS * (2 ** (attempt - 1)));
+      const delay = GEMINI_STRICT_BACKOFF_BASE_MS * (2 ** (attempt - 1));
+      console.warn(`[Gemini Attempt ${attempt}] Failed with status ${status}. Retrying in ${delay}ms...`);
+      await sleep(delay);
     }
   }
   throw lastError || new Error("Gemini generation failed.");
@@ -976,3 +987,4 @@ module.exports = async ({ req, res, log, error }) => {
 module.exports.processGenerationJob = processGenerationJob;
 module.exports.notifyCompletionWebhook = notifyCompletionWebhook;
 module.exports.getNotifyCompletionUrl = getNotifyCompletionUrl;
+module.exports.runGeminiCompletionWithRetry = runGeminiCompletionWithRetry;
