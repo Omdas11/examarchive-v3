@@ -543,6 +543,92 @@ function normalizeGotenbergAuthToken(rawToken: string): string {
   return unquoted.replace(/^Bearer\s+/i, "").trim();
 }
 
+/**
+ * Render a markdown string to a PDF buffer using Gotenberg, without uploading
+ * the result to Appwrite.  Use this for on-demand PDF delivery (e.g. the
+ * `/api/files/papers/[fileId]` download route) where the caller streams the
+ * buffer directly to the HTTP response instead of persisting it.
+ */
+export async function renderMarkdownToPdfBuffer(args: {
+  markdown: string;
+  gotenbergUrl: string;
+  gotenbergAuthToken?: string;
+  modelName?: string;
+  generatedAtIso?: string;
+  paperCode?: string;
+  paperName?: string;
+  unitNumber?: number;
+  unitName?: string;
+  year?: number;
+  syllabusContent?: string;
+  userEmail?: string;
+}): Promise<Buffer> {
+  const configuredGotenbergUrl = args.gotenbergUrl.trim();
+  if (!configuredGotenbergUrl) {
+    throw new Error("Missing gotenbergUrl for PDF rendering.");
+  }
+  const gotenbergAuthToken = normalizeGotenbergAuthToken(
+    args.gotenbergAuthToken ?? process.env.GOTENBERG_AUTH_TOKEN ?? "",
+  );
+  if (!gotenbergAuthToken) {
+    throw new Error("Missing GOTENBERG_AUTH_TOKEN for PDF rendering.");
+  }
+  const requestHeaders = { Authorization: `Bearer ${gotenbergAuthToken}` };
+  let gotenbergBaseUrl: URL;
+  try {
+    gotenbergBaseUrl = new URL(configuredGotenbergUrl);
+  } catch {
+    throw new Error("Invalid GOTENBERG_URL.");
+  }
+  if (gotenbergBaseUrl.protocol !== "https:") {
+    throw new Error("GOTENBERG_URL must use HTTPS.");
+  }
+  if (!gotenbergBaseUrl.hostname.toLowerCase().endsWith(TRUSTED_GOTENBERG_HOST_SUFFIX)) {
+    throw new Error("GOTENBERG_URL must use a trusted Hugging Face domain.");
+  }
+  const html = buildPdfHtml({
+    markdown: args.markdown,
+    modelName: args.modelName,
+    generatedAtIso: args.generatedAtIso,
+    paperCode: args.paperCode,
+    paperName: args.paperName,
+    unitNumber: args.unitNumber,
+    unitName: args.unitName,
+    year: args.year,
+    syllabusContent: args.syllabusContent,
+  });
+  const headerHtml = buildHeaderHtml();
+  const footerHtml = buildFooterHtml(args.userEmail);
+  const buildFormData = () => {
+    const formData = new FormData();
+    formData.append("files", new Blob([html], { type: "text/html" }), "index.html");
+    formData.append("files", new Blob([headerHtml], { type: "text/html" }), "header.html");
+    formData.append("files", new Blob([footerHtml], { type: "text/html" }), "footer.html");
+    formData.append("marginTop", "1.2");
+    formData.append("marginBottom", "1.2");
+    formData.append("marginLeft", "1");
+    formData.append("marginRight", "1");
+    formData.append("displayHeaderFooter", "true");
+    formData.append("printBackground", "true");
+    formData.append("waitDelay", process.env.GOTENBERG_WAIT_DELAY || "5s");
+    return formData;
+  };
+
+  const response = await postToGotenbergWithRetry({
+    baseUrl: configuredGotenbergUrl,
+    endpointPath: GOTENBERG_CONVERT_ENDPOINT_PATH,
+    headers: requestHeaders,
+    buildFormData,
+  });
+  if (response.status !== 200) {
+    const errorText = (await response.text()).trim().slice(0, 2000);
+    throw new Error(
+      `Gotenberg Error (${response.status}): ${errorText || response.statusText || "Unknown error"}`,
+    );
+  }
+  return Buffer.from(await response.arrayBuffer());
+}
+
 export async function renderMarkdownPdfToAppwrite(args: {
   markdown: string;
   fileBaseName: string;
