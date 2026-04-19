@@ -574,18 +574,6 @@ export async function renderMarkdownToPdfBuffer(args: {
     throw new Error("Missing GOTENBERG_AUTH_TOKEN for PDF rendering.");
   }
   const requestHeaders = { Authorization: `Bearer ${gotenbergAuthToken}` };
-  let gotenbergBaseUrl: URL;
-  try {
-    gotenbergBaseUrl = new URL(configuredGotenbergUrl);
-  } catch {
-    throw new Error("Invalid GOTENBERG_URL.");
-  }
-  if (gotenbergBaseUrl.protocol !== "https:") {
-    throw new Error("GOTENBERG_URL must use HTTPS.");
-  }
-  if (!gotenbergBaseUrl.hostname.toLowerCase().endsWith(TRUSTED_GOTENBERG_HOST_SUFFIX)) {
-    throw new Error("GOTENBERG_URL must use a trusted Hugging Face domain.");
-  }
   const html = buildPdfHtml({
     markdown: args.markdown,
     modelName: args.modelName,
