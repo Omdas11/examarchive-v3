@@ -5,12 +5,30 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FUNCTION_DIR="${ROOT_DIR}/appwrite-functions/pdf-generator"
 BUNDLE_PATH="${ROOT_DIR}/.tmp-pdf-generator-function.tar.gz"
 
-: "${APPWRITE_ENDPOINT:?Missing APPWRITE_ENDPOINT}"
-: "${APPWRITE_PROJECT_ID:?Missing APPWRITE_PROJECT_ID}"
-: "${APPWRITE_API_KEY:?Missing APPWRITE_API_KEY}"
-: "${GOTENBERG_URL:?Missing GOTENBERG_URL}"
-: "${GOTENBERG_AUTH_TOKEN:?Missing GOTENBERG_AUTH_TOKEN}"
-: "${GEMINI_API_KEY:?Missing GEMINI_API_KEY}"
+REQUIRED_ENV_VARS=(
+  APPWRITE_ENDPOINT
+  APPWRITE_PROJECT_ID
+  APPWRITE_API_KEY
+  GOTENBERG_URL
+  GOTENBERG_AUTH_TOKEN
+  GEMINI_API_KEY
+)
+
+MISSING_ENV_VARS=()
+for required_var in "${REQUIRED_ENV_VARS[@]}"; do
+  if [[ -z "${!required_var:-}" ]]; then
+    MISSING_ENV_VARS+=("${required_var}")
+  fi
+done
+
+if (( ${#MISSING_ENV_VARS[@]} > 0 )); then
+  if [[ "${DEPLOY_FUNCTION_REQUIRED:-0}" == "1" ]]; then
+    echo "[deploy-function] Missing required env vars: ${MISSING_ENV_VARS[*]}" >&2
+    exit 1
+  fi
+  echo "[deploy-function] Skipping function deployment because required env vars are missing: ${MISSING_ENV_VARS[*]}"
+  exit 0
+fi
 
 FUNCTION_ID="${APPWRITE_PDF_GENERATOR_FUNCTION_ID:-pdf-generator}"
 FUNCTION_NAME="${APPWRITE_PDF_GENERATOR_FUNCTION_NAME:-pdf-generator}"
@@ -52,6 +70,9 @@ const gotenbergUrl = process.env.GOTENBERG_URL;
 const gotenbergAuthToken = process.env.GOTENBERG_AUTH_TOKEN;
 const geminiApiKey = process.env.GEMINI_API_KEY;
 const tavilyApiKey = process.env.TAVILY_API_KEY;
+const siteUrl = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL;
+const aiJobWebhookSecret = process.env.AI_JOB_WEBHOOK_SECRET;
+const resolvedVercelUrl = process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL;
 
 const functionEnv = {
   GOTENBERG_URL: gotenbergUrl,
@@ -67,6 +88,12 @@ const functionEnv = {
   SYLLABUS_TABLE_COLLECTION_ID: process.env.SYLLABUS_TABLE_COLLECTION_ID || "Syllabus_Table",
   QUESTIONS_TABLE_COLLECTION_ID: process.env.QUESTIONS_TABLE_COLLECTION_ID || "Questions_Table",
   APPWRITE_BUCKET_ID: process.env.APPWRITE_BUCKET_ID || "papers",
+  CACHED_UNIT_NOTES_BUCKET_ID: process.env.CACHED_UNIT_NOTES_BUCKET_ID || "cached-unit-notes",
+  CACHED_SOLVED_PAPERS_BUCKET_ID: process.env.CACHED_SOLVED_PAPERS_BUCKET_ID || "cached-solved-papers",
+  SITE_URL: siteUrl,
+  VERCEL_URL: resolvedVercelUrl,
+  NEXT_PUBLIC_VERCEL_URL: resolvedVercelUrl,
+  AI_JOB_WEBHOOK_SECRET: aiJobWebhookSecret,
 };
 const SECRET_ENV_KEYS = new Set([
   "GOTENBERG_AUTH_TOKEN",
@@ -74,6 +101,7 @@ const SECRET_ENV_KEYS = new Set([
   "GOOGLE_API_KEY",
   "TAVILY_API_KEY",
   "APPWRITE_API_KEY",
+  "AI_JOB_WEBHOOK_SECRET",
 ]);
 
 function isNotFound(error) {

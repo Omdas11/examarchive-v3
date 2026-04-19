@@ -14,8 +14,10 @@ import {
 } from "@/lib/appwrite";
 import {
   sendGenerationFailureEmail,
+  sendGenerationPdfEmail,
   sendGenerationStartedEmail,
 } from "@/lib/generation-notifications";
+import { buildSignedPdfDownloadPath } from "@/lib/pdf-download-link";
 import {
   GENERATION_COST_ELECTRONS,
   SUPPORTED_AI_MODELS,
@@ -31,12 +33,15 @@ const GEMMA_UNLIMITED_TPM_MODEL = "gemma-4-31b-it";
 const MIN_SEMESTER = 1;
 const MAX_SEMESTER = 8;
 const UNDICI_CONNECT_TIMEOUT_CODE = "UND_ERR_CONNECT_TIMEOUT";
-const EMAIL_DELIVERY_UNAVAILABLE_CODE = "EMAIL_DELIVERY_UNAVAILABLE";
-const EMAIL_DELIVERY_UNAVAILABLE_MESSAGE =
-  "Unable to send generation confirmation email. Request was not started. Please verify email settings and try again.";
 const QUOTA_RESERVATION_FAILED_CODE = "QUOTA_RESERVATION_FAILED";
 const QUOTA_RESERVATION_FAILED_MESSAGE = "Failed to reserve generation quota. Please try again later.";
+const QUOTA_CHECK_FAILED_CODE = "QUOTA_CHECK_FAILED";
 const APPWRITE_DOC_ID_HASH_LENGTH = 31;
+const JOB_STATUS_QUEUED = "queued";
+const JOB_STATUS_RUNNING = "running";
+const JOB_STATUS_PROCESSING = "processing";
+const JOB_STATUS_COMPLETED = "completed";
+const ACCEPTED_EXECUTION_STATUSES = new Set(["queued", "waiting", "processing"]);
 
 type GenerateBody = {
   jobType?: string;
@@ -181,10 +186,10 @@ async function rollbackQuotaReservation(
   }
 }
 
-function queueGenerationRecording(
+async function queueGenerationRecording(
   userId: string,
   counter: "notes_generated_today" | "papers_solved_today",
-): void {
+): Promise<void> {
   const todayStr = new Date().toISOString().slice(0, 10);
   // Metrics recording is non-critical and should not block accepted requests.
   void recordGeneration(userId, todayStr).catch((error) => {
@@ -230,11 +235,149 @@ async function reserveGenerationResources(params: {
     await rollbackElectronCost(params.userId, GENERATION_COST_ELECTRONS);
     return NextResponse.json(
       { error: QUOTA_RESERVATION_FAILED_MESSAGE, code: QUOTA_RESERVATION_FAILED_CODE },
-      { status: 503 },
+      { status: 500 },
     );
   }
 
   return null;
+}
+
+function getAppwriteErrorStatus(error: unknown): number | null {
+  if (!error || typeof error !== "object") return null;
+  const err = error as {
+    status?: unknown;
+    code?: unknown;
+    response?: { status?: unknown; code?: unknown };
+  };
+  const errorStatusCode = Number(err.status ?? err.code ?? err.response?.status ?? err.response?.code ?? NaN);
+  if (Number.isInteger(errorStatusCode) && errorStatusCode >= 100 && errorStatusCode <= 599) {
+    return errorStatusCode;
+  }
+  return null;
+}
+
+async function checkQuotasOrError(userId: string): Promise<
+  { quota: Awaited<ReturnType<typeof checkAndResetQuotas>>; errorResponse: null } |
+  { quota: null; errorResponse: NextResponse }
+> {
+  try {
+    const quota = await checkAndResetQuotas(userId);
+    return { quota, errorResponse: null };
+  } catch (error) {
+    const status = getAppwriteErrorStatus(error);
+    console.error("[ai/generate-pdf] Quota check failed.", {
+      userId,
+      status,
+      error,
+    });
+    return {
+      quota: null,
+      errorResponse: NextResponse.json(
+        {
+          error: "Unable to verify generation quota right now. Please try again.",
+          code: QUOTA_CHECK_FAILED_CODE,
+        },
+        { status: 500 },
+      ),
+    };
+  }
+}
+
+function shouldSkipDispatchForExistingJob(status: string): boolean {
+  const normalizedStatus = normalizeJobStatus(status);
+  return (
+    normalizedStatus === JOB_STATUS_QUEUED ||
+    normalizedStatus === JOB_STATUS_RUNNING ||
+    normalizedStatus === JOB_STATUS_PROCESSING ||
+    normalizedStatus === JOB_STATUS_COMPLETED
+  );
+}
+
+function normalizeJobStatus(status: string | null | undefined): string {
+  return String(status || "").trim().toLowerCase();
+}
+
+function hasReadyEmailAlreadyBeenSent(job: Record<string, unknown> | null | undefined): boolean {
+  if (!job || typeof job !== "object") return false;
+  const emailStatus = String(job.email_status || "").trim().toLowerCase();
+  if (emailStatus === "completion_sent" || emailStatus === "sent") return true;
+  return String(job.email_sent_at || "").trim().length > 0;
+}
+
+function normalizeTrustedSiteUrl(rawUrl: string): string {
+  const value = String(rawUrl || "").trim();
+  if (!value) return "";
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return "";
+    // Allow localhost and 127.0.0.1 for development
+    const isLocalhost = parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1" || parsed.hostname === "::1";
+    if (parsed.protocol !== "https:" && !isLocalhost) {
+      return "";
+    }
+    return parsed.toString();
+  } catch {
+    return "";
+  }
+}
+
+function buildTrustedSiteUrlFromVercelUrl(rawVercelUrl: string): string {
+  const normalizedVercelUrl = String(rawVercelUrl || "").trim().replace(/^https?:\/\//i, "");
+  if (!normalizedVercelUrl) return "";
+  return normalizeTrustedSiteUrl(`https://${normalizedVercelUrl}`);
+}
+
+function shouldUsePreviewWebhookUrl(params: {
+  canonicalUrl: string;
+  previewUrl: string;
+  vercelEnv: string;
+}): boolean {
+  if (!params.previewUrl) return false;
+  if (!params.canonicalUrl) return true;
+  if (params.vercelEnv !== "preview") return false;
+  try {
+    return new URL(params.canonicalUrl).origin !== new URL(params.previewUrl).origin;
+  } catch {
+    return true;
+  }
+}
+
+function buildCompletionWebhookUrl(): string {
+  const siteUrl = normalizeTrustedSiteUrl(String(process.env.SITE_URL || ""));
+  const nextPublicSiteUrl = normalizeTrustedSiteUrl(String(process.env.NEXT_PUBLIC_SITE_URL || ""));
+  const canonicalSiteUrl = siteUrl || nextPublicSiteUrl;
+  const vercelUrl = String(process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL || "").trim();
+  const trustedVercelSiteUrl = buildTrustedSiteUrlFromVercelUrl(vercelUrl);
+  const vercelEnv = String(process.env.VERCEL_ENV || "").trim().toLowerCase();
+  const trustedSiteUrl = shouldUsePreviewWebhookUrl({
+    canonicalUrl: canonicalSiteUrl,
+    previewUrl: trustedVercelSiteUrl,
+    vercelEnv,
+  })
+    ? trustedVercelSiteUrl
+    : canonicalSiteUrl || trustedVercelSiteUrl;
+  if (!trustedSiteUrl) {
+    console.error("[ai/generate-pdf] CRITICAL: Failed to build completion webhook URL because no trusted site URL is configured. Webhook callbacks will be disabled, breaking worker/Appwrite integration contract.", {
+      siteUrlConfigured: Boolean(siteUrl),
+      nextPublicSiteUrlConfigured: Boolean(nextPublicSiteUrl),
+      vercelUrlConfigured: Boolean(vercelUrl),
+      vercelUrlUsable: Boolean(trustedVercelSiteUrl),
+      nodeEnv: process.env.NODE_ENV,
+      vercelEnv: process.env.VERCEL_ENV,
+    });
+    return "";
+  }
+  try {
+    return new URL("/api/ai/notify-completion", trustedSiteUrl).toString();
+  } catch (error) {
+    console.error("[ai/generate-pdf] Failed to build completion webhook URL from trusted site URL.", {
+      trustedSiteUrl,
+      failureType: "invalid_or_unusable_trusted_site_url",
+      message: error instanceof Error ? error.message : String(error),
+      error,
+    });
+    return "";
+  }
 }
 
 async function rollbackReservedGenerationResources(params: {
@@ -270,7 +413,7 @@ async function enqueueAndDispatchPdfJob(params: {
   unitNumber: number;
   payload: Record<string, unknown>;
   title: string;
-}): Promise<{ jobId: string }> {
+}): Promise<{ jobId: string; executionTriggered: boolean; existingStatus?: string; resultFileId?: string; readyEmailAlreadySent?: boolean }> {
   const nowIso = new Date().toISOString();
   const db = adminDatabases();
   const functions = adminFunctions();
@@ -289,60 +432,89 @@ async function enqueueAndDispatchPdfJob(params: {
     Query.orderDesc("$createdAt"),
     Query.limit(1),
   ]);
-  if (typeof existingBeforeCreate.documents[0]?.$id === "string" && existingBeforeCreate.documents[0].$id) {
-    return { jobId: existingBeforeCreate.documents[0].$id };
+  let jobId = "";
+  const existingJob = existingBeforeCreate.documents[0];
+  if (typeof existingJob?.$id === "string" && existingJob.$id) {
+    jobId = existingJob.$id;
+    const existingStatus = normalizeJobStatus(existingJob.status);
+    if (shouldSkipDispatchForExistingJob(existingStatus)) {
+      console.warn("[ai/generate-pdf] Skipping Appwrite dispatch for existing terminal/in-flight job.", {
+        jobId,
+        existingStatus,
+        userId: params.userId,
+      });
+      return {
+        jobId,
+        executionTriggered: false,
+        existingStatus,
+        resultFileId: String(existingJob.result_file_id || "").trim(),
+        readyEmailAlreadySent: hasReadyEmailAlreadyBeenSent(existingJob as Record<string, unknown>),
+      };
+    }
+  } else {
+    let job;
+    try {
+      job = await db.createDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, deterministicJobId, {
+        user_id: params.userId,
+        paper_code: params.paperCode,
+        unit_number: params.unitNumber,
+        status: "queued",
+        progress_percent: 0,
+        input_payload_json: JSON.stringify(params.payload),
+        idempotency_key: idempotencyKey,
+        created_at: nowIso,
+      });
+    } catch (error) {
+      if (!isConflictError(error)) {
+        throw error;
+      }
+      const existingJob = await db.getDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, deterministicJobId);
+      jobId = existingJob.$id;
+      const existingStatus = normalizeJobStatus(existingJob.status);
+      if (shouldSkipDispatchForExistingJob(existingStatus)) {
+        console.warn("[ai/generate-pdf] Skipping Appwrite dispatch for existing terminal/in-flight job.", {
+          jobId,
+          existingStatus,
+          userId: params.userId,
+        });
+        return {
+          jobId,
+          executionTriggered: false,
+          existingStatus,
+          resultFileId: String(existingJob.result_file_id || "").trim(),
+          readyEmailAlreadySent: hasReadyEmailAlreadyBeenSent(existingJob as Record<string, unknown>),
+        };
+      }
+    }
+    if (!jobId && job?.$id) {
+      jobId = String(job.$id);
+    }
   }
-
-  let job;
-  try {
-    job = await db.createDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, deterministicJobId, {
-      user_id: params.userId,
-      paper_code: params.paperCode,
-      unit_number: params.unitNumber,
-      status: "queued",
-      progress_percent: 0,
-      input_payload_json: JSON.stringify(params.payload),
-      idempotency_key: idempotencyKey,
-      created_at: nowIso,
-    });
-  } catch (error) {
-    if (!isConflictError(error)) {
-      throw error;
-    }
-    const existing = await db.listDocuments(DATABASE_ID, COLLECTION.ai_generation_jobs, [
-      Query.equal("idempotency_key", idempotencyKey),
-      Query.equal("user_id", params.userId),
-      Query.orderDesc("$createdAt"),
-      Query.limit(1),
-    ]);
-    if (!Array.isArray(existing.documents) || existing.documents.length === 0) {
-      throw new Error("Job idempotency conflict detected but no existing job could be found.");
-    }
-    if (typeof existing.documents[0]?.$id === "string" && existing.documents[0].$id) {
-      return { jobId: existing.documents[0].$id };
-    }
-    throw error;
+  if (!jobId) {
+    throw new Error("Failed to resolve job ID before Appwrite function dispatch.");
   }
-
-  const jobId = String(job.$id);
   console.info("[ai/generate-pdf] Dispatching Appwrite function execution.", {
     FUNCTION_ID: functionId,
     jobId,
-    mode: "async",
+    executionMethod: "async",
   });
   try {
+    console.log(`Attempting to trigger Appwrite Function ID: ${functionId}`);
     const execution = await functions.createExecution(
       functionId,
       JSON.stringify({
         jobId,
         payload: params.payload,
       }),
+      // `true` requests asynchronous execution in node-appwrite.
       true,
     );
+    const executionStatus = String(execution.status || "unknown");
+    console.log(`Appwrite Execution Response Status: ${executionStatus}`);
     const triggerAccepted =
       typeof execution.$id === "string" &&
       execution.$id.length > 0 &&
-      ["waiting", "processing"].includes(String(execution.status || ""));
+      ACCEPTED_EXECUTION_STATUSES.has(executionStatus.toLowerCase());
     console.info("[ai/generate-pdf] Appwrite function execution trigger response.", {
       triggerAccepted,
       FUNCTION_ID: functionId,
@@ -385,7 +557,7 @@ async function enqueueAndDispatchPdfJob(params: {
     throw error;
   }
 
-  return { jobId };
+  return { jobId, executionTriggered: true };
 }
 
 function formatFailureReason(error: unknown): string {
@@ -552,6 +724,35 @@ async function ensureGenerationStartedEmail(email: string, title: string): Promi
   }
 }
 
+async function ensureGenerationReadyEmail(
+  email: string,
+  title: string,
+  fileId: string,
+  userId: string,
+): Promise<boolean> {
+  const normalizedFileId = String(fileId || "").trim();
+  if (!normalizedFileId) return false;
+  try {
+    await sendGenerationPdfEmail({
+      email,
+      title,
+      downloadUrl: buildSignedPdfDownloadPath({
+        fileId: normalizedFileId,
+        userId,
+      }),
+    });
+    return true;
+  } catch (error) {
+    console.error("[ai/generate-pdf] Failed to send cached PDF ready email.", {
+      email,
+      title,
+      fileId: normalizedFileId,
+      error,
+    });
+    return false;
+  }
+}
+
 export async function GET() {
   const user = await getServerUser();
   if (!user) {
@@ -648,6 +849,7 @@ export async function POST(request: NextRequest) {
 
   const admin = isAdminPlus(user.role);
   const todayStr = new Date().toISOString().slice(0, 10);
+  const completionWebhookUrl = buildCompletionWebhookUrl();
 
   if (jobType === "notes") {
     const unitNumber = Number(body.unitNumber);
@@ -659,7 +861,11 @@ export async function POST(request: NextRequest) {
     }
 
     if (!admin) {
-      const quota = await checkAndResetQuotas(user.id);
+      const quotaCheckResult = await checkQuotasOrError(user.id);
+      if (quotaCheckResult.errorResponse) {
+        return quotaCheckResult.errorResponse;
+      }
+      const quota = quotaCheckResult.quota;
       if (quota.notes_generated_today >= NOTES_DAILY_LIMIT) {
         return NextResponse.json(
           { error: `Daily limit reached for Unit Notes (${NOTES_DAILY_LIMIT}/day).`, code: "NOTES_DAILY_LIMIT_REACHED" },
@@ -682,24 +888,6 @@ export async function POST(request: NextRequest) {
       quotaLogContext: "[ai/generate-pdf] Failed to reserve notes quota for accepted request.",
     });
     if (notesReservationError) return notesReservationError;
-    const startEmailSent = await ensureGenerationStartedEmail(
-      userEmail,
-      `Unit Notes (${paperCode} - Unit ${unitNumber})`,
-    );
-    if (!startEmailSent) {
-      await rollbackReservedGenerationResources({
-        admin,
-        userId: user.id,
-        counter: "notes_generated_today",
-      });
-      return NextResponse.json(
-        {
-          error: EMAIL_DELIVERY_UNAVAILABLE_MESSAGE,
-          code: EMAIL_DELIVERY_UNAVAILABLE_CODE,
-        },
-        { status: 503 },
-      );
-    }
     let notesJobId = "";
     try {
       const dispatched = await enqueueAndDispatchPdfJob({
@@ -719,11 +907,97 @@ export async function POST(request: NextRequest) {
           unitNumber,
           semester: parsedSemester,
           model: selectedModel,
+          callbackUrl: completionWebhookUrl,
         },
       });
       notesJobId = dispatched.jobId;
+      if (!dispatched.executionTriggered) {
+        try {
+          await rollbackReservedGenerationResources({
+            admin,
+            userId: user.id,
+            counter: "notes_generated_today",
+          });
+        } catch (rollbackError) {
+          console.error("[ai/generate-pdf] Failed to rollback notes reservation on non-dispatch path.", {
+            userId: user.id,
+            jobId: notesJobId,
+            rollbackError,
+          });
+        }
+        const normalizedExistingStatus = normalizeJobStatus(dispatched.existingStatus);
+        const isCompleted = normalizedExistingStatus === JOB_STATUS_COMPLETED;
+        const responseStatus = normalizedExistingStatus || "unknown";
+        const shouldAttemptReadyEmail = isCompleted && !dispatched.readyEmailAlreadySent;
+        let readyEmailSent = !!dispatched.readyEmailAlreadySent;
+        if (shouldAttemptReadyEmail) {
+          readyEmailSent = await ensureGenerationReadyEmail(
+            userEmail,
+            `Unit Notes (${paperCode} - Unit ${unitNumber})`,
+            dispatched.resultFileId || "",
+            user.id,
+          );
+          if (readyEmailSent && notesJobId) {
+            try {
+              await adminDatabases().updateDocument(
+                DATABASE_ID,
+                COLLECTION.ai_generation_jobs,
+                notesJobId,
+                {
+                  email_status: "sent",
+                  email_sent_at: new Date().toISOString(),
+                },
+              );
+            } catch (emailStatePersistError) {
+              console.error(
+                "[ai/generate-pdf] Ready email sent for cached notes job, but failed to persist email dedupe state.",
+                {
+                  userId: user.id,
+                  jobId: notesJobId,
+                  emailStatePersistError,
+                },
+              );
+            }
+          }
+        }
+        const cachedDownloadUrl = isCompleted && dispatched.resultFileId
+          ? buildSignedPdfDownloadPath({
+            fileId: dispatched.resultFileId,
+            userId: user.id,
+          })
+          : "";
+        return NextResponse.json({
+          ok: true,
+          jobId: notesJobId,
+          status: responseStatus,
+          cached: true,
+          readyEmailNotificationAttempted: shouldAttemptReadyEmail,
+          readyEmailSent,
+          fileId: isCompleted ? (dispatched.resultFileId || "") : "",
+          downloadUrl: cachedDownloadUrl,
+          message:
+            isCompleted
+              ? "A matching notes job is already completed. Returning cached file."
+              : "A matching notes job is already in progress. Please check back shortly.",
+        });
+      }
       if (!admin) {
-        queueGenerationRecording(user.id, "notes_generated_today");
+        await queueGenerationRecording(user.id, "notes_generated_today");
+      }
+      const startEmailSent = await ensureGenerationStartedEmail(
+        userEmail,
+        `Unit Notes (${paperCode} - Unit ${unitNumber})`,
+      );
+      if (!startEmailSent) {
+        console.error(
+          "[ai/generate-pdf] Started email failed after successful notes dispatch. Job is already queued and will continue in background.",
+          {
+            userId: user.id,
+            paperCode,
+            unitNumber,
+            jobId: notesJobId,
+          },
+        );
       }
     } catch (error) {
       console.error("[ai/generate-pdf] Failed to dispatch notes job.", {
@@ -743,7 +1017,7 @@ export async function POST(request: NextRequest) {
           error: "Unable to start background generation right now. Please try again.",
           code: "JOB_DISPATCH_FAILED",
         },
-        { status: 503 },
+        { status: 500 },
       );
     }
 
@@ -766,7 +1040,11 @@ export async function POST(request: NextRequest) {
   }
 
   if (!admin) {
-    const quota = await checkAndResetQuotas(user.id);
+    const quotaCheckResult = await checkQuotasOrError(user.id);
+    if (quotaCheckResult.errorResponse) {
+      return quotaCheckResult.errorResponse;
+    }
+    const quota = quotaCheckResult.quota;
     if (quota.papers_solved_today >= 1) {
       return NextResponse.json(
         { error: "Daily limit reached for Solved Papers (1/day)." },
@@ -789,21 +1067,6 @@ export async function POST(request: NextRequest) {
     quotaLogContext: "[ai/generate-pdf] Failed to reserve solved-paper quota for accepted request.",
   });
   if (solvedReservationError) return solvedReservationError;
-  const startEmailSent = await ensureGenerationStartedEmail(userEmail, `Solved Paper (${paperCode} ${year})`);
-  if (!startEmailSent) {
-    await rollbackReservedGenerationResources({
-      admin,
-      userId: user.id,
-      counter: "papers_solved_today",
-    });
-    return NextResponse.json(
-      {
-        error: EMAIL_DELIVERY_UNAVAILABLE_MESSAGE,
-        code: EMAIL_DELIVERY_UNAVAILABLE_CODE,
-      },
-      { status: 503 },
-    );
-  }
   let solvedJobId = "";
   try {
     const dispatched = await enqueueAndDispatchPdfJob({
@@ -823,11 +1086,72 @@ export async function POST(request: NextRequest) {
         year,
         semester: parsedSemester,
         model: selectedModel,
+        callbackUrl: completionWebhookUrl,
       },
     });
     solvedJobId = dispatched.jobId;
+    if (!dispatched.executionTriggered) {
+      try {
+        await rollbackReservedGenerationResources({
+          admin,
+          userId: user.id,
+          counter: "papers_solved_today",
+        });
+      } catch (rollbackError) {
+        console.error("[ai/generate-pdf] Failed to rollback solved-paper reservation on non-dispatch path.", {
+          userId: user.id,
+          jobId: solvedJobId,
+          rollbackError,
+        });
+      }
+      const normalizedExistingStatus = normalizeJobStatus(dispatched.existingStatus);
+      const isCompleted = normalizedExistingStatus === JOB_STATUS_COMPLETED;
+      const responseStatus = normalizedExistingStatus || "unknown";
+      const shouldAttemptReadyEmail = isCompleted && !dispatched.readyEmailAlreadySent;
+      let readyEmailSent = !!dispatched.readyEmailAlreadySent;
+      if (shouldAttemptReadyEmail) {
+        readyEmailSent = await ensureGenerationReadyEmail(
+          userEmail,
+          `Solved Paper (${paperCode} ${year})`,
+          dispatched.resultFileId || "",
+          user.id,
+        );
+      }
+      const cachedDownloadUrl = isCompleted && dispatched.resultFileId
+        ? buildSignedPdfDownloadPath({
+          fileId: dispatched.resultFileId,
+          userId: user.id,
+        })
+        : "";
+      return NextResponse.json({
+        ok: true,
+        jobId: solvedJobId,
+        status: responseStatus,
+        cached: true,
+        readyEmailNotificationAttempted: shouldAttemptReadyEmail,
+        readyEmailSent,
+        fileId: isCompleted ? (dispatched.resultFileId || "") : "",
+        downloadUrl: cachedDownloadUrl,
+        message:
+          isCompleted
+            ? "A matching solved-paper job is already completed. Returning cached file."
+            : "A matching solved-paper job is already in progress. Please check back shortly.",
+      });
+    }
     if (!admin) {
-      queueGenerationRecording(user.id, "papers_solved_today");
+      await queueGenerationRecording(user.id, "papers_solved_today");
+    }
+    const startEmailSent = await ensureGenerationStartedEmail(userEmail, `Solved Paper (${paperCode} ${year})`);
+    if (!startEmailSent) {
+      console.error(
+        "[ai/generate-pdf] Started email failed after successful solved-paper dispatch. Job is already queued and will continue in background.",
+        {
+          userId: user.id,
+          paperCode,
+          year,
+          jobId: solvedJobId,
+        },
+      );
     }
   } catch (error) {
     console.error("[ai/generate-pdf] Failed to dispatch solved-paper job.", {
@@ -847,7 +1171,7 @@ export async function POST(request: NextRequest) {
         error: "Unable to start background generation right now. Please try again.",
         code: "JOB_DISPATCH_FAILED",
       },
-      { status: 503 },
+      { status: 500 },
     );
   }
 

@@ -2,9 +2,11 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { createRequire } from "node:module";
 import { loadEnvConfig } from "@next/env";
 import { Client, Databases, Query, Storage } from "node-appwrite";
 
+const require = createRequire(import.meta.url);
 type BucketSpec = {
   id: string;
   name: string;
@@ -70,9 +72,23 @@ const LEGACY_BUCKET_IDS = new Set([
 
 const TARGET_DATABASE_ID = "examarchive";
 const TARGET_DATABASE_NAME = "ExamArchive";
-const REQUIRED_COLLECTION_SPECS: Array<{ id: string; name: string }> = [
+
+/**
+ * Fallback collection list used when the schema modules cannot be loaded.
+ * Covers the most critical runtime collections so the app can start up.
+ */
+const FALLBACK_COLLECTION_SPECS: Array<{ id: string; name: string }> = [
+  { id: "ai_generation_jobs", name: "ai_generation_jobs" },
+  { id: "Syllabus_Table", name: "Syllabus_Table" },
+  { id: "Questions_Table", name: "Questions_Table" },
   { id: "Generated_Notes_Cache", name: "Generated_Notes_Cache" },
   { id: "ai_cache_index", name: "ai_cache_index" },
+  { id: "User_Quotas", name: "User_Quotas" },
+  { id: "papers", name: "papers" },
+  { id: "users", name: "users" },
+  { id: "uploads", name: "uploads" },
+  { id: "ai_flashcards", name: "ai_flashcards" },
+  { id: "ai_ingestions", name: "ai_ingestions" },
 ];
 
 function loadAppwriteEnv() {
@@ -90,6 +106,78 @@ function loadAppwriteEnv() {
   }
 
   return { endpoint, projectId, apiKey };
+}
+
+type CollectionAttributeDef = {
+  key: string;
+  type: string;
+  required: boolean;
+  size?: number;
+  array?: boolean;
+  min?: number;
+  max?: number;
+  default?: unknown;
+};
+
+type CollectionDef = {
+  id: string;
+  name: string;
+  attributes: CollectionAttributeDef[];
+};
+
+type AttributeSyncResult = {
+  collectionId: string;
+  createdCollection: boolean;
+  createdAttributes: number;
+  totalTargetAttributes: number;
+  connected: boolean;
+  attributeLimitExceeded: boolean;
+};
+
+/**
+ * Imports the syncCollection function from sync-appwrite-schema.js and
+ * sync-appwrite-ai.js and calls them to create missing attributes for all
+ * known collections. This makes `npm run appwrite:sync` a single comprehensive
+ * command that creates the database, buckets, collections, AND their attributes.
+ */
+async function syncAllCollectionAttributes(databases: Databases): Promise<AttributeSyncResult[]> {
+  let syncSchemaCollection: (databases: Databases, databaseId: string, collection: CollectionDef) => Promise<AttributeSyncResult>;
+  let targetSchema: CollectionDef[];
+  let syncAiCollection: (databases: Databases, collection: CollectionDef) => Promise<AttributeSyncResult>;
+  let aiCollections: CollectionDef[];
+  try {
+    const schemaModule = require("./sync-appwrite-schema") as {
+      syncCollection: (databases: Databases, databaseId: string, collection: CollectionDef) => Promise<AttributeSyncResult>;
+      TARGET_SCHEMA: CollectionDef[];
+    };
+    const aiModule = require("./sync-appwrite-ai") as {
+      syncCollection: (databases: Databases, collection: CollectionDef) => Promise<AttributeSyncResult>;
+      AI_COLLECTIONS: CollectionDef[];
+    };
+    syncSchemaCollection = schemaModule.syncCollection;
+    targetSchema = schemaModule.TARGET_SCHEMA;
+    syncAiCollection = aiModule.syncCollection;
+    aiCollections = aiModule.AI_COLLECTIONS;
+  } catch (error) {
+    console.warn("⚠️ Skipping attribute sync because schema modules could not be loaded.", {
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return [];
+  }
+
+  const results: AttributeSyncResult[] = [];
+
+  console.log("\n--- Syncing standard collection attributes ---");
+  for (const collection of targetSchema) {
+    results.push(await syncSchemaCollection(databases, TARGET_DATABASE_ID, collection));
+  }
+
+  console.log("\n--- Syncing AI collection attributes ---");
+  for (const collection of aiCollections) {
+    results.push(await syncAiCollection(databases, collection));
+  }
+
+  return results;
 }
 
 function isNotFoundError(error: unknown): boolean {
@@ -447,18 +535,63 @@ async function syncInfrastructure() {
   const { storage, databases } = createClients();
   const syncedAt = new Date().toISOString();
 
+  // ── Step 1: Ensure all required storage buckets exist ──────────────────
+  console.log("\n--- Syncing storage buckets ---");
   const bucketResults: SyncResourceResult[] = [];
   for (const bucket of REQUIRED_BUCKETS) {
     bucketResults.push(await ensureBucket(storage, bucket));
   }
 
+  // ── Step 2: Ensure the primary database exists ─────────────────────────
+  console.log("\n--- Syncing database ---");
   const databaseResult = await ensureDatabase(databases, TARGET_DATABASE_ID, TARGET_DATABASE_NAME);
+
+  // ── Step 3: Derive the full collection list from schema modules ─────────
+  // This ensures every collection defined in TARGET_SCHEMA (sync-appwrite-schema.js)
+  // or AI_COLLECTIONS (sync-appwrite-ai.js) is explicitly created before the
+  // attribute-sync pass. The fallback list covers the most critical collections
+  // if the schema modules cannot be loaded (e.g. missing deps in CI).
+  let requiredCollectionSpecs: Array<{ id: string; name: string }>;
+  try {
+    const { TARGET_SCHEMA: schemaCollections } = require("./sync-appwrite-schema") as {
+      TARGET_SCHEMA: Array<{ id: string; name: string }>;
+    };
+    const { AI_COLLECTIONS: aiCollections } = require("./sync-appwrite-ai") as {
+      AI_COLLECTIONS: Array<{ id: string; name: string }>;
+    };
+    const seenIds = new Set<string>();
+    requiredCollectionSpecs = [];
+    for (const collection of [...schemaCollections, ...aiCollections]) {
+      if (!seenIds.has(collection.id)) {
+        seenIds.add(collection.id);
+        requiredCollectionSpecs.push({ id: collection.id, name: collection.name });
+      }
+    }
+    console.log(`\n--- Derived ${requiredCollectionSpecs.length} collections from schema definitions ---`);
+  } catch (loadErr) {
+    console.warn(
+      "[sync] Could not load schema modules; falling back to essential collection list.",
+      loadErr instanceof Error ? loadErr.message : String(loadErr),
+    );
+    requiredCollectionSpecs = FALLBACK_COLLECTION_SPECS;
+  }
+
+  // ── Step 4: Ensure all collections exist ───────────────────────────────
+  console.log("\n--- Syncing collections ---");
   const requiredCollectionResults: SyncResourceResult[] = [];
-  for (const collectionSpec of REQUIRED_COLLECTION_SPECS) {
+  for (const collectionSpec of requiredCollectionSpecs) {
     requiredCollectionResults.push(
       await ensureCollection(databases, TARGET_DATABASE_ID, collectionSpec.id, collectionSpec.name),
     );
   }
+
+  // ── Step 5: Sync all collection attributes ─────────────────────────────
+  // syncAllCollectionAttributes creates missing attributes for every collection
+  // defined in both schema files.  Collections already created above will not
+  // be re-created; only missing attributes are added.
+  const attributeSyncResults = await syncAllCollectionAttributes(databases);
+
+  // ── Step 6: Prune orphan databases and buckets ─────────────────────────
   const orphanDatabasesDeleted = await cleanupOrphanDatabases(databases);
   const liveBucketsResponse = await storage.listBuckets([Query.limit(100)]);
   const orphanBucketsDeleted = await cleanupOrphanBuckets(
@@ -521,13 +654,13 @@ async function syncInfrastructure() {
 
     const missingSummary = missingNames.length > 0 ? `; missing: ${missingNames.join(", ")}` : "";
     const mismatchSummary = mismatchNames.length > 0 ? `; mismatch: ${mismatchNames.join(", ")}` : "";
-    const missingAttrsCreated = 0;
+    const missingAttrsCreated = attributeSyncResults.find((r) => r.collectionId === liveCollection.$id)?.createdAttributes ?? 0;
     const notes = `collection existed; ${missingAttrsCreated} missing attrs created; ${mismatches} attr definition mismatch(es); ${missingAttrs} missing expected attr(s)${missingSummary}${mismatchSummary}`;
 
     perCollectionRows.push({
       collectionName: expectedCollection.name,
       status,
-      createdInRun: 0,
+      createdInRun: missingAttrsCreated,
       notes,
     });
   }
@@ -558,11 +691,12 @@ async function syncInfrastructure() {
   injectSchemaStatusIntoDatabaseDoc(statusTable);
   deleteLegacySchemaDoc();
 
-  const createdCount = [...bucketResults, databaseResult, ...requiredCollectionResults].filter(
+  const createdInfraCount = [...bucketResults, databaseResult, ...requiredCollectionResults].filter(
     (item) => item.status === "created",
   ).length;
+  const createdAttrsCount = attributeSyncResults.reduce((sum, r) => sum + r.createdAttributes, 0);
   console.log(
-    `Appwrite infrastructure sync complete. created=${createdCount}, orphanBucketsDeleted=${orphanBucketsDeleted.length}, orphanDatabasesDeleted=${orphanDatabasesDeleted.length}`,
+    `Appwrite infrastructure sync complete. created=${createdInfraCount}, attributesCreated=${createdAttrsCount}, orphanBucketsDeleted=${orphanBucketsDeleted.length}, orphanDatabasesDeleted=${orphanDatabasesDeleted.length}`,
   );
 }
 

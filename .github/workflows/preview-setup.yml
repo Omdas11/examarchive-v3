@@ -1,0 +1,110 @@
+name: Preview Appwrite Setup
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: write
+
+concurrency:
+  group: preview-setup-pr-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  setup-preview:
+    if: github.event.issue.pull_request && contains(github.event.comment.body, '/setup-preview')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate commenter and resolve PR head
+        id: guard
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+        with:
+          script: |
+            const association = context.payload.comment.author_association;
+            const allowed = new Set(["OWNER", "COLLABORATOR"]);
+            if (!allowed.has(association)) {
+              core.setOutput("authorized", "false");
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: `⚠️ \`/setup-preview\` is restricted to repository owners/collaborators. Current association: \`${association}\`.`,
+              });
+              return;
+            }
+
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+
+            const headRepoFullName = pr.data.head.repo?.full_name || "";
+            const currentRepoFullName = `${context.repo.owner}/${context.repo.repo}`;
+            if (headRepoFullName !== currentRepoFullName) {
+              core.setOutput("authorized", "false");
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: "⚠️ Refusing to run preview setup for forked PR branches because this workflow uses repository secrets.",
+              });
+              return;
+            }
+
+            core.setOutput("authorized", "true");
+            core.setOutput("head_ref", pr.data.head.ref);
+            core.setOutput("head_sha", pr.data.head.sha);
+
+      - name: Checkout trusted default branch
+        if: steps.guard.outputs.authorized == 'true'
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Setup Node.js
+        if: steps.guard.outputs.authorized == 'true'
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: Install dependencies
+        if: steps.guard.outputs.authorized == 'true'
+        run: npm install
+
+      - name: Provision preview and sync core data from production
+        if: steps.guard.outputs.authorized == 'true'
+        id: sync
+        env:
+          PROD_APPWRITE_ENDPOINT: ${{ secrets.APPWRITE_ENDPOINT }}
+          PROD_APPWRITE_PROJECT_ID: ${{ secrets.APPWRITE_PROJECT_ID }}
+          PROD_APPWRITE_API_KEY: ${{ secrets.APPWRITE_API_KEY }}
+          PREVIEW_APPWRITE_ENDPOINT: ${{ secrets.PREVIEW_APPWRITE_ENDPOINT }}
+          PREVIEW_APPWRITE_PROJECT_ID: ${{ secrets.PREVIEW_APPWRITE_PROJECT_ID }}
+          PREVIEW_APPWRITE_API_KEY: ${{ secrets.PREVIEW_APPWRITE_API_KEY }}
+          CORE_SYNC_COLLECTIONS: Syllabus_Table,Questions_Table
+        run: node scripts/sync-prod-to-preview.js
+
+      - name: Post result comment
+        if: ${{ always() && steps.guard.outputs.authorized == 'true' }}
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+        env:
+          SYNC_OUTCOME: ${{ steps.sync.outcome }}
+        with:
+          script: |
+            const success = process.env.SYNC_OUTCOME === "success";
+            const body = success
+              ? "✅ Preview Appwrite setup completed: infrastructure provisioned and core collections synced from production."
+              : "❌ Preview Appwrite setup failed. Please check this workflow run logs for details.";
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });

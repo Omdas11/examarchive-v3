@@ -1,6 +1,8 @@
 name: Manual Soft Reset Data
 
 on:
+  issue_comment:
+    types: [created]
   workflow_dispatch:
     inputs:
       confirm:
@@ -26,32 +28,89 @@ on:
 
 jobs:
   soft-reset-data:
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'issue_comment' && contains(github.event.comment.body, '/soft-launch-clear'))
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      issues: write
     steps:
-      - name: Check confirmation
-        if: ${{ github.event.inputs.confirm != 'SOFT_RESET' }}
+      - name: Authorize mobile/issue trigger
+        if: github.event_name == 'issue_comment'
+        id: guard
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+        with:
+          script: |
+            const body = String(context.payload.comment?.body || "");
+            const commandPattern = /\/soft-launch-clear\b/i;
+            if (!commandPattern.test(body)) {
+              core.setOutput("authorized", "false");
+              return;
+            }
+
+            if (!context.payload.issue?.pull_request) {
+              core.setOutput("authorized", "false");
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: "⚠️ `/soft-launch-clear` only runs from pull request comments.",
+              });
+              return;
+            }
+
+            const association = context.payload.comment.author_association;
+            const allowed = new Set(["OWNER", "COLLABORATOR", "MEMBER"]);
+            if (!allowed.has(association)) {
+              core.setOutput("authorized", "false");
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: `⚠️ \`/soft-launch-clear\` is restricted to repository owners, collaborators, or members. Current association: \`${association}\`.`,
+              });
+              return;
+            }
+
+            core.setOutput("authorized", "true");
+
+      - name: Resolve run options
+        if: github.event_name == 'workflow_dispatch' || steps.guard.outputs.authorized == 'true'
+        id: options
         run: |
-          echo "Confirmation failed. You must type 'SOFT_RESET'."
-          exit 1
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ "${{ github.event.inputs.confirm }}" != "SOFT_RESET" ]; then
+              echo "Confirmation failed. You must type 'SOFT_RESET'."
+              exit 1
+            fi
+            echo "ingestion_mode=${{ github.event.inputs.ingestion_mode }}" >> "$GITHUB_OUTPUT"
+            echo "bucket_mode=${{ github.event.inputs.bucket_mode }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "ingestion_mode=clear_ingestions" >> "$GITHUB_OUTPUT"
+            echo "bucket_mode=clear_files" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Checkout repository
+        if: github.event_name == 'workflow_dispatch' || steps.guard.outputs.authorized == 'true'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Setup Node.js
+        if: github.event_name == 'workflow_dispatch' || steps.guard.outputs.authorized == 'true'
         uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
         with:
           node-version: "20"
           cache: npm
 
       - name: Install dependencies
+        if: github.event_name == 'workflow_dispatch' || steps.guard.outputs.authorized == 'true'
         run: npm ci
 
       - name: Install tsx globally
+        if: github.event_name == 'workflow_dispatch' || steps.guard.outputs.authorized == 'true'
         run: npm install -g tsx
 
       - name: Run soft reset
+        if: github.event_name == 'workflow_dispatch' || steps.guard.outputs.authorized == 'true'
+        id: reset
         env:
           APPWRITE_ENDPOINT: ${{ secrets.APPWRITE_ENDPOINT }}
           APPWRITE_PROJECT_ID: ${{ secrets.APPWRITE_PROJECT_ID }}
@@ -59,13 +118,32 @@ jobs:
         run: |
           CMD="tsx scripts/soft-reset-data.ts"
           
-          if [ "${{ github.event.inputs.ingestion_mode }}" = "keep_ingestions" ]; then
+          if [ "${{ steps.options.outputs.ingestion_mode }}" = "keep_ingestions" ]; then
             CMD="$CMD --skip-ingestions"
           fi
           
-          if [ "${{ github.event.inputs.bucket_mode }}" = "clear_files" ]; then
+          if [ "${{ steps.options.outputs.bucket_mode }}" = "clear_files" ]; then
             CMD="$CMD --clear-bucket"
           fi
           
           echo "Running: npx $CMD"
           npx $CMD
+
+      - name: Post result comment
+        if: ${{ always() && github.event_name == 'issue_comment' && steps.guard.outputs.authorized == 'true' }}
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+        env:
+          RESET_OUTCOME: ${{ steps.reset.outcome }}
+        with:
+          script: |
+            const success = process.env.RESET_OUTCOME === "success";
+            const body = success
+              ? "✅ Soft-launch cleanup completed: database rows and configured storage buckets were cleared."
+              : "❌ Soft-launch cleanup failed. Please check workflow logs.";
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
