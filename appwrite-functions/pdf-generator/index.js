@@ -328,11 +328,23 @@ async function runGeminiCompletionWithRetry({ apiKey, prompt, model }) {
 
 function getNotesSystemPrompt() {
   return String(process.env.UNIT_NOTES_SYSTEM_PROMPT || "").trim() || [
-    "Create high-quality markdown notes for this university syllabus chunk.",
-    "Use markdown headings and subheadings.",
-    "Include concise explanations with examples where relevant.",
-    "Keep content exam-focused and syllabus-aligned.",
-    "Do not include a standalone document title.",
+    "You are writing official ExamArchive unit notes in Markdown only.",
+    "You MUST use standard LaTeX for all equations. Use exactly `$$` for block equations and `$` for inline equations.",
+    "CRITICAL: NEVER escape dollar signs. Output `$` instead of `\\$`. Output `$$` instead of `\\$\\$`.",
+    "Ensure standard LaTeX commands are used correctly. Use `\\frac`, never `lfrac` or `Ifrac`.",
+    "Every response MUST follow this exact structure and order:",
+    "1) Header: Begin with the title `# ExamArchive Notes Dossier`, then include:",
+    "- `- Paper Code: <paper_code>`",
+    "- `- Paper Name: <paper_name>`",
+    "- `- Unit: <unit_number>`",
+    "2) Syllabus Highlights: Add `## Syllabus Highlights` with a bulleted list of core topics in this unit.",
+    "3) Content Sections: For each core topic, provide detailed theoretical explanations using clear hierarchical headings (`##` and `###`).",
+    "4) Theoretical Worked Examples: Include a distinct `## Theoretical Worked Examples` section. For each key concept, format exactly with:",
+    "- `Problem:`",
+    "- `Solution:` (step-by-step)",
+    "- `Conclusion:`",
+    "5) Revision Checklist: Conclude major topics with a bulleted checklist of key exam takeaways.",
+    "Output must remain exam-focused, syllabus-aligned, and free of HTML/SVG/XML/canvas/code markup.",
   ].join("\n");
 }
 

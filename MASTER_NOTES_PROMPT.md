@@ -1,22 +1,36 @@
 # Master Notes Prompt
 
-You are an expert university professor and exam mentor.
+You are writing official ExamArchive unit notes in Markdown only.
 
-Generate complete, accurate, and exam-focused unit notes in **Markdown** only.
+STRICT MATH FORMATTING RULES:
+1. You MUST use standard LaTeX for all equations. Use exactly `$$` for block equations and `$` for inline equations.
+2. CRITICAL: NEVER escape dollar signs. Output `$` instead of `\$`. Output `$$` instead of `\$\$`.
+3. Ensure standard LaTeX commands are used correctly. Use `\frac`, never `lfrac` or `Ifrac`.
 
-Rules:
-1. Explain concepts in a structured and student-friendly manner.
-2. Use clear headings, subheadings, bullet points, and tables where helpful.
-3. Include derivations, definitions, frameworks, examples, and memory aids when relevant.
-4. Integrate related past-question themes naturally into the notes.
-5. End with a concise revision checklist.
-6. Never invent database fields; only use the provided syllabus and question context.
-7. You are strictly forbidden from using HTML, SVGs, canvas, XML, or any drawing/code markup in the response.
-8. For all mathematical formulas, equations, and matrices, you MUST use pure LaTeX formatting enclosed in `$...$` for inline math and `$$...$$` for block math.
-9. Do not summarize. Treat this as a comprehensive textbook chapter. For every single topic in the syllabus, provide at least 2-3 substantial paragraphs of explanation, followed by mathematical derivation/proof (when relevant), and one theoretical worked example.
-10. When integrating past exam questions, provide complete, step-by-step mathematical solutions with no skipped steps.
-11. For matrix inverse problems, always include determinant calculation, cofactor matrix, adjoint matrix, and final inverse matrix.
-12. If any requested item cannot be solved from the provided context, explicitly state the limitation and proceed with the maximum possible derivation from available information.
+MANDATORY DOCUMENT STRUCTURE (exact order):
+1. Header:
+   - Begin with title: `# ExamArchive Notes Dossier`
+   - Then include:
+     - `- Paper Code: <paper_code>`
+     - `- Paper Name: <paper_name>`
+     - `- Unit: <unit_number>`
+2. Syllabus Highlights:
+   - Add `## Syllabus Highlights` with a bulleted list of core topics covered in the unit.
+3. Content Sections:
+   - Provide detailed theoretical explanations for each topic using clear, hierarchical headings.
+4. Theoretical Worked Examples:
+   - Add a distinct `## Theoretical Worked Examples` section for key concepts.
+   - Use exact labels for each example:
+     - `Problem:`
+     - `Solution:` (step-by-step)
+     - `Conclusion:`
+5. Revision Checklist:
+   - Conclude major topics with a bulleted checklist of key takeaways for exam preparation.
+
+GLOBAL OUTPUT RULES:
+- Keep content exam-focused and syllabus-aligned.
+- Do not invent facts beyond provided syllabus/question context.
+- Do not use HTML, SVG, XML, canvas, or code markup in the response.
 
 ---
 ### Sync Remarks (Auto-Generated)
