@@ -34,6 +34,12 @@ const NOTIFY_COMPLETION_PATH = "/api/ai/notify-completion";
 const NOTIFY_WEBHOOK_ERROR_LOG_MAX_CHARS = 2_000;
 const MAX_LOGGED_CALLBACK_URL_CHARS = 500;
 const COMPLETION_WEBHOOK_DELAY_MS = 2_000;
+const GOTENBERG_CONVERT_ENDPOINT_PATH = "/forms/chromium/convert/html";
+const GOTENBERG_TIMEOUT_MS = 60_000;
+const GOTENBERG_MAX_ATTEMPTS = 3;
+const GOTENBERG_BASE_BACKOFF_MS = 1_500;
+const GOTENBERG_MAX_BACKOFF_MS = 6_000;
+const TRUSTED_GOTENBERG_HOST_SUFFIX = ".hf.space";
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -66,6 +72,149 @@ function normalizeBearerToken(rawToken) {
   const token = String(rawToken || "").trim();
   if (!token) return "";
   return /^Bearer\s+/i.test(token) ? token : `Bearer ${token}`;
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function markdownToBasicHtml(markdown) {
+  const source = String(markdown || "").replace(/\r\n/g, "\n");
+  const lines = source.split("\n");
+  const htmlLines = [];
+  let paragraph = [];
+
+  const flushParagraph = () => {
+    if (!paragraph.length) return;
+    htmlLines.push(`<p>${paragraph.join(" ")}</p>`);
+    paragraph = [];
+  };
+
+  lines.forEach((line) => {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      flushParagraph();
+      return;
+    }
+    const headingMatch = trimmed.match(/^(#{1,6})\s+(.*)$/);
+    if (headingMatch) {
+      flushParagraph();
+      const level = headingMatch[1].length;
+      htmlLines.push(`<h${level}>${escapeHtml(headingMatch[2])}</h${level}>`);
+      return;
+    }
+    paragraph.push(escapeHtml(trimmed));
+  });
+  flushParagraph();
+  return htmlLines.join("\n");
+}
+
+function markdownToPdfHtml(markdown, title) {
+  const renderedMarkdown = markdownToBasicHtml(markdown);
+  return [
+    "<!doctype html>",
+    "<html><head><meta charset=\"utf-8\"/>",
+    "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/>",
+    `<title>${escapeHtml(title)}</title>`,
+    "<style>",
+    "body{font-family:Inter,Arial,sans-serif;color:#231515;line-height:1.65;font-size:14px;padding:18mm 14mm;}",
+    "h1,h2,h3,h4,h5,h6{color:#800000;line-height:1.35;}",
+    "h1{border-bottom:1px solid #e8d8d8;padding-bottom:6px;}",
+    "pre{background:#101828;color:#f8fafc;padding:12px;border-radius:6px;overflow:auto;}",
+    "code{background:#f4f4f5;padding:0.1em 0.3em;border-radius:4px;}",
+    "blockquote{border-left:3px solid #800000;padding-left:10px;color:#6e1111;}",
+    "img{max-width:100%;height:auto;}",
+    "</style></head><body>",
+    `<article>${renderedMarkdown}</article>`,
+    "</body></html>",
+  ].join("");
+}
+
+function validateGotenbergUrl(rawUrl) {
+  const normalized = String(rawUrl || "").trim();
+  if (!normalized) {
+    throw new Error("Missing GOTENBERG_URL in function environment.");
+  }
+  let parsed;
+  try {
+    parsed = new URL(normalized);
+  } catch {
+    throw new Error("Invalid GOTENBERG_URL in function environment.");
+  }
+  if (parsed.protocol !== "https:") {
+    throw new Error("GOTENBERG_URL must use HTTPS.");
+  }
+  const normalizedHost = parsed.hostname.toLowerCase();
+  const trustedHostPattern = /^[a-z0-9-]+\.hf\.space$/;
+  if (!trustedHostPattern.test(normalizedHost)) {
+    throw new Error(`GOTENBERG_URL must target a trusted ${TRUSTED_GOTENBERG_HOST_SUFFIX} host.`);
+  }
+  return parsed.toString();
+}
+
+function normalizeGotenbergWaitDelay(raw) {
+  const trimmed = String(raw || "").trim();
+  if (!trimmed) return "5s";
+  return /^\d+(?:ms|s|m|h)$/i.test(trimmed) ? trimmed : "5s";
+}
+
+function shouldRetryGotenbergStatus(status) {
+  return status === 408 || status === 425 || status === 429 || status >= 500;
+}
+
+async function renderMarkdownToPdfBuffer(markdown, title) {
+  const gotenbergUrl = validateGotenbergUrl(process.env.GOTENBERG_URL);
+  const gotenbergAuthToken = normalizeBearerToken(process.env.GOTENBERG_AUTH_TOKEN);
+  if (!gotenbergAuthToken) {
+    throw new Error("Missing GOTENBERG_AUTH_TOKEN in function environment.");
+  }
+
+  const html = markdownToPdfHtml(markdown, title);
+  const endpoint = new URL(GOTENBERG_CONVERT_ENDPOINT_PATH, gotenbergUrl).toString();
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= GOTENBERG_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      const form = new FormData();
+      form.append("files", new Blob([html], { type: "text/html" }), "index.html");
+      form.append("printBackground", "true");
+      form.append("waitDelay", normalizeGotenbergWaitDelay(process.env.GOTENBERG_WAIT_DELAY));
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { Authorization: gotenbergAuthToken },
+        body: form,
+        signal: AbortSignal.timeout(GOTENBERG_TIMEOUT_MS),
+      });
+      if (!response.ok) {
+        const responseBody = await response.text().catch(() => "");
+        const statusError = new Error(
+          `Gotenberg request failed (${response.status}): ${responseBody.slice(0, NOTIFY_WEBHOOK_ERROR_LOG_MAX_CHARS)}`,
+        );
+        statusError.status = response.status;
+        throw statusError;
+      }
+      const pdfArrayBuffer = await response.arrayBuffer();
+      return Buffer.from(pdfArrayBuffer);
+    } catch (error) {
+      lastError = error;
+      const status = Number(error?.status || 0);
+      const canRetry = shouldRetryGotenbergStatus(status) || !status;
+      if (!canRetry || attempt >= GOTENBERG_MAX_ATTEMPTS) {
+        break;
+      }
+      const backoffMs = Math.min(
+        GOTENBERG_MAX_BACKOFF_MS,
+        GOTENBERG_BASE_BACKOFF_MS * attempt,
+      );
+      await sleep(backoffMs);
+    }
+  }
+  throw lastError || new Error("Failed to render PDF with Gotenberg.");
 }
 
 async function runGeminiCompletion({ apiKey, prompt, model }) {
@@ -706,11 +855,30 @@ async function processGenerationJob(rawInput, options = {}) {
     }
     await updateJob(db, jobId, { progress_percent: 80 });
 
+    const pdfTitle = buildJobTitle(payload);
+    const pdfBuffer = await renderMarkdownToPdfBuffer(markdown, pdfTitle);
+    const safePdfCoreName = String(pdfTitle || "generated_document.pdf")
+      .replace(/\.pdf$/i, "")
+      .replace(/[^a-zA-Z0-9_-]/g, "_")
+      .replace(/_+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .slice(0, 120) || "generated_document";
+    const safePdfFileName = `${safePdfCoreName}.pdf`;
+    const pdfFile = await storage.createFile(
+      PAPERS_BUCKET_ID,
+      ID.unique(),
+      InputFile.fromBuffer(pdfBuffer, safePdfFileName),
+    );
+    const pdfFileId = String(pdfFile?.$id || "").trim();
+    if (!pdfFileId) {
+      throw new Error("PDF upload completed without returning a valid file ID.");
+    }
+
     await updateJob(db, jobId, {
       status: "completed",
       progress_percent: 100,
-      // Stores the markdown cache file ID. /api/files/papers/[fileId] renders PDF on demand.
-      result_file_id: cacheFileId,
+      // result_file_id now points to a concrete PDF file in PAPERS_BUCKET_ID.
+      result_file_id: pdfFileId,
       completed_at: new Date().toISOString(),
     });
     await sleep(COMPLETION_WEBHOOK_DELAY_MS);
@@ -718,7 +886,7 @@ async function processGenerationJob(rawInput, options = {}) {
       await notifyCompletionWebhook({
         jobId,
         status: "completed",
-        fileId: cacheFileId,
+        fileId: pdfFileId,
         userId: String(payload.userId || "").trim(),
         userEmail: String(payload.userEmail || "").trim(),
         callbackUrl: String(payload.callbackUrl || "").trim(),
@@ -729,7 +897,7 @@ async function processGenerationJob(rawInput, options = {}) {
       );
     }
 
-    return { ok: true, jobId, fileId: cacheFileId };
+    return { ok: true, jobId, fileId: pdfFileId };
   } catch (error) {
     await updateJob(db, jobId, {
       status: "failed",

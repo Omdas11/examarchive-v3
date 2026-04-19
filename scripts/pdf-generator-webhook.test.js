@@ -296,12 +296,17 @@ describe("pdf-generator / processGenerationJob cache behavior", () => {
         files: [{ $id: "cache-file-1", name: "CS101_1_CSE_BTECH_Regular_Test_Uni_na_gemini-3_1-flash-lite-preview.md", $createdAt: "2026-04-18T00:00:00.000Z" }],
       }),
       getFileDownload: jest.fn().mockResolvedValue(Buffer.from("# Cached markdown", "utf8")),
-      createFile: jest.fn(),
+      createFile: jest.fn().mockResolvedValue({ $id: "pdf-file-1" }),
     };
     Storage.mockImplementation(() => mockStorage);
 
     InputFile.fromBuffer.mockImplementation((buffer, name) => ({ buffer, name }));
     global.fetch = jest.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        arrayBuffer: async () => Buffer.from("%PDF-1.4"),
+      })
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -324,9 +329,12 @@ describe("pdf-generator / processGenerationJob cache behavior", () => {
     expect(mockStorage.listFiles).toHaveBeenCalledWith("cached-unit-notes", expect.any(Array));
     expect(mockStorage.getFileDownload).toHaveBeenCalledWith("cached-unit-notes", "cache-file-1");
     expect(mockDb.listDocuments).not.toHaveBeenCalled();
-    // No PDF or new cache file should be created (loaded from cache, no Gotenberg)
-    expect(mockStorage.createFile).not.toHaveBeenCalled();
-    expect(result.fileId).toBe("cache-file-1");
+    expect(mockStorage.createFile).toHaveBeenCalledWith(
+      "papers",
+      "mock-id",
+      expect.any(Object),
+    );
+    expect(result.fileId).toBe("pdf-file-1");
   });
 
   it("fails the job when cache write fails (no file ID means result is lost)", async () => {
