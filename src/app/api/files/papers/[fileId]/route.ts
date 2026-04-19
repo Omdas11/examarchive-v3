@@ -184,6 +184,13 @@ export async function GET(
         buildPdfFileNameFromPayload(jobPayload),
       );
       const encodedFileName = encodeURIComponent(fileName);
+      const pdfResponseHeaders = {
+        "Content-Type": "application/pdf",
+        "Cache-Control": "private, max-age=3600",
+        "Content-Disposition": shouldDownload
+          ? `attachment; filename="${fileName}"; filename*=UTF-8''${encodedFileName}`
+          : "inline",
+      };
       const backingBuffer = pdfBuffer.buffer;
       if (backingBuffer instanceof ArrayBuffer) {
         return new NextResponse(
@@ -192,15 +199,7 @@ export async function GET(
             pdfBuffer.byteOffset,
             pdfBuffer.byteLength,
           ),
-          {
-            headers: {
-              "Content-Type": "application/pdf",
-              "Cache-Control": "private, max-age=3600",
-              "Content-Disposition": shouldDownload
-                ? `attachment; filename="${fileName}"; filename*=UTF-8''${encodedFileName}`
-                : "inline",
-            },
-          },
+          { headers: pdfResponseHeaders },
         );
       }
 
@@ -208,13 +207,7 @@ export async function GET(
         "[papers-download] Unexpected non-ArrayBuffer PDF backing buffer; creating copied Uint8Array fallback.",
       );
       return new NextResponse(Uint8Array.from(pdfBuffer), {
-        headers: {
-          "Content-Type": "application/pdf",
-          "Cache-Control": "private, max-age=3600",
-          "Content-Disposition": shouldDownload
-            ? `attachment; filename="${fileName}"; filename*=UTF-8''${encodedFileName}`
-            : "inline",
-        },
+        headers: pdfResponseHeaders,
       });
     }
 
