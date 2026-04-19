@@ -72,12 +72,23 @@ const LEGACY_BUCKET_IDS = new Set([
 
 const TARGET_DATABASE_ID = "examarchive";
 const TARGET_DATABASE_NAME = "ExamArchive";
-const REQUIRED_COLLECTION_SPECS: Array<{ id: string; name: string }> = [
+
+/**
+ * Fallback collection list used when the schema modules cannot be loaded.
+ * Covers the most critical runtime collections so the app can start up.
+ */
+const FALLBACK_COLLECTION_SPECS: Array<{ id: string; name: string }> = [
   { id: "ai_generation_jobs", name: "ai_generation_jobs" },
   { id: "Syllabus_Table", name: "Syllabus_Table" },
   { id: "Questions_Table", name: "Questions_Table" },
   { id: "Generated_Notes_Cache", name: "Generated_Notes_Cache" },
   { id: "ai_cache_index", name: "ai_cache_index" },
+  { id: "User_Quotas", name: "User_Quotas" },
+  { id: "papers", name: "papers" },
+  { id: "users", name: "users" },
+  { id: "uploads", name: "uploads" },
+  { id: "ai_flashcards", name: "ai_flashcards" },
+  { id: "ai_ingestions", name: "ai_ingestions" },
 ];
 
 function loadAppwriteEnv() {
@@ -509,22 +520,63 @@ async function syncInfrastructure() {
   const { storage, databases } = createClients();
   const syncedAt = new Date().toISOString();
 
+  // ── Step 1: Ensure all required storage buckets exist ──────────────────
+  console.log("\n--- Syncing storage buckets ---");
   const bucketResults: SyncResourceResult[] = [];
   for (const bucket of REQUIRED_BUCKETS) {
     bucketResults.push(await ensureBucket(storage, bucket));
   }
 
+  // ── Step 2: Ensure the primary database exists ─────────────────────────
+  console.log("\n--- Syncing database ---");
   const databaseResult = await ensureDatabase(databases, TARGET_DATABASE_ID, TARGET_DATABASE_NAME);
+
+  // ── Step 3: Derive the full collection list from schema modules ─────────
+  // This ensures every collection defined in TARGET_SCHEMA (sync-appwrite-schema.js)
+  // or AI_COLLECTIONS (sync-appwrite-ai.js) is explicitly created before the
+  // attribute-sync pass. The fallback list covers the most critical collections
+  // if the schema modules cannot be loaded (e.g. missing deps in CI).
+  let requiredCollectionSpecs: Array<{ id: string; name: string }>;
+  try {
+    const { TARGET_SCHEMA: schemaCollections } = require("./sync-appwrite-schema") as {
+      TARGET_SCHEMA: Array<{ id: string; name: string }>;
+    };
+    const { AI_COLLECTIONS: aiCollections } = require("./sync-appwrite-ai") as {
+      AI_COLLECTIONS: Array<{ id: string; name: string }>;
+    };
+    const seenIds = new Set<string>();
+    requiredCollectionSpecs = [];
+    for (const collection of [...schemaCollections, ...aiCollections]) {
+      if (!seenIds.has(collection.id)) {
+        seenIds.add(collection.id);
+        requiredCollectionSpecs.push({ id: collection.id, name: collection.name });
+      }
+    }
+    console.log(`\n--- Derived ${requiredCollectionSpecs.length} collections from schema definitions ---`);
+  } catch (loadErr) {
+    console.warn(
+      "[sync] Could not load schema modules; falling back to essential collection list.",
+      loadErr instanceof Error ? loadErr.message : String(loadErr),
+    );
+    requiredCollectionSpecs = FALLBACK_COLLECTION_SPECS;
+  }
+
+  // ── Step 4: Ensure all collections exist ───────────────────────────────
+  console.log("\n--- Syncing collections ---");
   const requiredCollectionResults: SyncResourceResult[] = [];
-  for (const collectionSpec of REQUIRED_COLLECTION_SPECS) {
+  for (const collectionSpec of requiredCollectionSpecs) {
     requiredCollectionResults.push(
       await ensureCollection(databases, TARGET_DATABASE_ID, collectionSpec.id, collectionSpec.name),
     );
   }
 
-  // Sync all collection attributes (creates missing attributes for both standard and AI collections).
+  // ── Step 5: Sync all collection attributes ─────────────────────────────
+  // syncAllCollectionAttributes creates missing attributes for every collection
+  // defined in both schema files.  Collections already created above will not
+  // be re-created; only missing attributes are added.
   const attributeSyncResults = await syncAllCollectionAttributes(databases);
 
+  // ── Step 6: Prune orphan databases and buckets ─────────────────────────
   const orphanDatabasesDeleted = await cleanupOrphanDatabases(databases);
   const liveBucketsResponse = await storage.listBuckets([Query.limit(100)]);
   const orphanBucketsDeleted = await cleanupOrphanBuckets(
