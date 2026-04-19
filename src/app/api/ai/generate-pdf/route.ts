@@ -937,6 +937,28 @@ export async function POST(request: NextRequest) {
             dispatched.resultFileId || "",
             user.id,
           );
+          if (readyEmailSent && notesJobId) {
+            try {
+              await adminDatabases.updateDocument(
+                DATABASE_ID,
+                COLLECTION.AI_GENERATION_JOBS,
+                notesJobId,
+                {
+                  email_status: "sent",
+                  email_sent_at: new Date().toISOString(),
+                },
+              );
+            } catch (emailStatePersistError) {
+              console.error(
+                "[ai/generate-pdf] Ready email sent for cached notes job, but failed to persist email dedupe state.",
+                {
+                  userId: user.id,
+                  jobId: notesJobId,
+                  emailStatePersistError,
+                },
+              );
+            }
+          }
         }
         const cachedDownloadUrl = isCompleted && dispatched.resultFileId
           ? buildSignedPdfDownloadPath({
