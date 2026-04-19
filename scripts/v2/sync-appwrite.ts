@@ -2,9 +2,11 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { createRequire } from "node:module";
 import { loadEnvConfig } from "@next/env";
 import { Client, Databases, Query, Storage } from "node-appwrite";
 
+const require = createRequire(import.meta.url);
 type BucketSpec = {
   id: string;
   name: string;
@@ -93,6 +95,63 @@ function loadAppwriteEnv() {
   }
 
   return { endpoint, projectId, apiKey };
+}
+
+type CollectionAttributeDef = {
+  key: string;
+  type: string;
+  required: boolean;
+  size?: number;
+  array?: boolean;
+  min?: number;
+  max?: number;
+  default?: unknown;
+};
+
+type CollectionDef = {
+  id: string;
+  name: string;
+  attributes: CollectionAttributeDef[];
+};
+
+type AttributeSyncResult = {
+  collectionId: string;
+  createdCollection: boolean;
+  createdAttributes: number;
+  totalTargetAttributes: number;
+  connected: boolean;
+  attributeLimitExceeded: boolean;
+};
+
+/**
+ * Imports the syncCollection function from sync-appwrite-schema.js and
+ * sync-appwrite-ai.js and calls them to create missing attributes for all
+ * known collections. This makes `npm run appwrite:sync` a single comprehensive
+ * command that creates the database, buckets, collections, AND their attributes.
+ */
+async function syncAllCollectionAttributes(databases: Databases): Promise<AttributeSyncResult[]> {
+  const { syncCollection: syncSchemaCollection, TARGET_SCHEMA } = require("./sync-appwrite-schema") as {
+    syncCollection: (databases: Databases, databaseId: string, collection: CollectionDef) => Promise<AttributeSyncResult>;
+    TARGET_SCHEMA: CollectionDef[];
+  };
+  const { syncCollection: syncAiCollection, AI_COLLECTIONS } = require("./sync-appwrite-ai") as {
+    syncCollection: (databases: Databases, collection: CollectionDef) => Promise<AttributeSyncResult>;
+    AI_COLLECTIONS: CollectionDef[];
+  };
+
+  const results: AttributeSyncResult[] = [];
+
+  console.log("\n--- Syncing standard collection attributes ---");
+  for (const collection of TARGET_SCHEMA) {
+    results.push(await syncSchemaCollection(databases, TARGET_DATABASE_ID, collection));
+  }
+
+  console.log("\n--- Syncing AI collection attributes ---");
+  for (const collection of AI_COLLECTIONS) {
+    results.push(await syncAiCollection(databases, collection));
+  }
+
+  return results;
 }
 
 function isNotFoundError(error: unknown): boolean {
@@ -462,6 +521,10 @@ async function syncInfrastructure() {
       await ensureCollection(databases, TARGET_DATABASE_ID, collectionSpec.id, collectionSpec.name),
     );
   }
+
+  // Sync all collection attributes (creates missing attributes for both standard and AI collections).
+  const attributeSyncResults = await syncAllCollectionAttributes(databases);
+
   const orphanDatabasesDeleted = await cleanupOrphanDatabases(databases);
   const liveBucketsResponse = await storage.listBuckets([Query.limit(100)]);
   const orphanBucketsDeleted = await cleanupOrphanBuckets(
@@ -524,13 +587,13 @@ async function syncInfrastructure() {
 
     const missingSummary = missingNames.length > 0 ? `; missing: ${missingNames.join(", ")}` : "";
     const mismatchSummary = mismatchNames.length > 0 ? `; mismatch: ${mismatchNames.join(", ")}` : "";
-    const missingAttrsCreated = 0;
+    const missingAttrsCreated = attributeSyncResults.find((r) => r.collectionId === liveCollection.$id)?.createdAttributes ?? 0;
     const notes = `collection existed; ${missingAttrsCreated} missing attrs created; ${mismatches} attr definition mismatch(es); ${missingAttrs} missing expected attr(s)${missingSummary}${mismatchSummary}`;
 
     perCollectionRows.push({
       collectionName: expectedCollection.name,
       status,
-      createdInRun: 0,
+      createdInRun: missingAttrsCreated,
       notes,
     });
   }
@@ -561,11 +624,12 @@ async function syncInfrastructure() {
   injectSchemaStatusIntoDatabaseDoc(statusTable);
   deleteLegacySchemaDoc();
 
-  const createdCount = [...bucketResults, databaseResult, ...requiredCollectionResults].filter(
+  const createdInfraCount = [...bucketResults, databaseResult, ...requiredCollectionResults].filter(
     (item) => item.status === "created",
   ).length;
+  const createdAttrsCount = attributeSyncResults.reduce((sum, r) => sum + r.createdAttributes, 0);
   console.log(
-    `Appwrite infrastructure sync complete. created=${createdCount}, orphanBucketsDeleted=${orphanBucketsDeleted.length}, orphanDatabasesDeleted=${orphanDatabasesDeleted.length}`,
+    `Appwrite infrastructure sync complete. created=${createdInfraCount}, attributesCreated=${createdAttrsCount}, orphanBucketsDeleted=${orphanBucketsDeleted.length}, orphanDatabasesDeleted=${orphanDatabasesDeleted.length}`,
   );
 }
 

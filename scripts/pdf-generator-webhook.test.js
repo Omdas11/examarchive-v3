@@ -344,8 +344,7 @@ describe("pdf-generator / processGenerationJob cache behavior", () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       status: 200,
-      json: async () => ({ candidates: [{ content: { parts: [{ text: "# Markdown" }] } }] }),
-      text: async () => "",
+      text: async () => JSON.stringify({ candidates: [{ content: { parts: [{ text: "# Markdown" }] } }] }),
     });
 
     process.env.GEMINI_API_KEY = "test-gemini-key";
