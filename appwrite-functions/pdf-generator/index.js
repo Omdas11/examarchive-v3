@@ -40,6 +40,7 @@ const GOTENBERG_MAX_ATTEMPTS = 3;
 const GOTENBERG_BASE_BACKOFF_MS = 1_500;
 const GOTENBERG_MAX_BACKOFF_MS = 6_000;
 const TRUSTED_GOTENBERG_HOST_SUFFIX = ".hf.space";
+const MAX_SAFE_PDF_FILENAME_CORE_LENGTH = 120;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -165,6 +166,35 @@ function normalizeGotenbergWaitDelay(raw) {
 
 function shouldRetryGotenbergStatus(status) {
   return status === 408 || status === 425 || status === 429 || status >= 500;
+}
+
+function normalizeSafePdfCoreName(rawTitle) {
+  const rawValue = String(rawTitle || "generated_document");
+  const baseValue = rawValue.toLowerCase().endsWith(".pdf")
+    ? rawValue.slice(0, -4)
+    : rawValue;
+  const isAsciiAlphaNumeric = (char) =>
+    (char >= "a" && char <= "z")
+    || (char >= "A" && char <= "Z")
+    || (char >= "0" && char <= "9");
+  const mappedChars = [];
+  let previousWasUnderscore = false;
+  for (const char of baseValue) {
+    const normalizedChar = (isAsciiAlphaNumeric(char) || char === "-" || char === "_") ? char : "_";
+    if (normalizedChar === "_") {
+      if (previousWasUnderscore) continue;
+      previousWasUnderscore = true;
+      mappedChars.push(normalizedChar);
+      continue;
+    }
+    previousWasUnderscore = false;
+    mappedChars.push(normalizedChar);
+  }
+  let normalized = mappedChars.join("");
+  while (normalized.startsWith("_")) normalized = normalized.slice(1);
+  while (normalized.endsWith("_")) normalized = normalized.slice(0, -1);
+  if (!normalized) normalized = "generated_document";
+  return normalized.slice(0, MAX_SAFE_PDF_FILENAME_CORE_LENGTH);
 }
 
 async function renderMarkdownToPdfBuffer(markdown, title) {
@@ -857,12 +887,7 @@ async function processGenerationJob(rawInput, options = {}) {
 
     const pdfTitle = buildJobTitle(payload);
     const pdfBuffer = await renderMarkdownToPdfBuffer(markdown, pdfTitle);
-    const safePdfCoreName = String(pdfTitle || "generated_document.pdf")
-      .replace(/\.pdf$/i, "")
-      .replace(/[^a-zA-Z0-9_-]/g, "_")
-      .replace(/_+/g, "_")
-      .replace(/^_+|_+$/g, "")
-      .slice(0, 120) || "generated_document";
+    const safePdfCoreName = normalizeSafePdfCoreName(pdfTitle);
     const safePdfFileName = `${safePdfCoreName}.pdf`;
     const pdfFile = await storage.createFile(
       PAPERS_BUCKET_ID,
