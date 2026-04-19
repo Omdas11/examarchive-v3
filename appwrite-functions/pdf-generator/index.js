@@ -1232,10 +1232,20 @@ async function processGenerationJob(rawInput, options = {}) {
     }
     await updateJob(db, jobId, { progress_percent: 80 });
 
+    const { marked } = await import("marked");
+    const fileName = buildJobTitle(payload);
+    const pdfBuffer = await renderWithGotenberg(markdown, fileName, marked);
+
+    const createdPdf = await storage.createFile(
+      PAPERS_BUCKET_ID,
+      ID.unique(),
+      InputFile.fromBuffer(pdfBuffer, fileName),
+    );
+
     await updateJob(db, jobId, {
       status: "completed",
       progress_percent: 100,
-      result_file_id: cacheFileId,
+      result_file_id: String(createdPdf.$id),
       completed_at: new Date().toISOString(),
     });
     await sleep(COMPLETION_WEBHOOK_DELAY_MS);
@@ -1243,7 +1253,7 @@ async function processGenerationJob(rawInput, options = {}) {
       await notifyCompletionWebhook({
         jobId,
         status: "completed",
-        fileId: cacheFileId,
+        fileId: String(createdPdf.$id),
         userId: String(payload.userId || "").trim(),
         userEmail: String(payload.userEmail || "").trim(),
         callbackUrl: String(payload.callbackUrl || "").trim(),
@@ -1254,7 +1264,7 @@ async function processGenerationJob(rawInput, options = {}) {
       );
     }
 
-    return { ok: true, jobId, fileId: cacheFileId };
+    return { ok: true, jobId, fileId: String(createdPdf.$id) };
   } catch (error) {
     await updateJob(db, jobId, {
       status: "failed",

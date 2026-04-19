@@ -42,6 +42,12 @@ jest.mock("he", () => ({
   encode: jest.fn((str) => str),
 }), { virtual: true });
 
+jest.mock("marked", () => ({
+  marked: Object.assign(jest.fn((md) => `<p>${md}</p>`), {
+    parse: jest.fn((md) => `<p>${md}</p>`),
+  }),
+}));
+
 const { Databases, Storage } = require("node-appwrite");
 const { notifyCompletionWebhook, getNotifyCompletionUrl, processGenerationJob } = require("../appwrite-functions/pdf-generator/index.js");
 const { InputFile } = require("node-appwrite/file");
@@ -293,13 +299,20 @@ describe("pdf-generator / processGenerationJob cache behavior", () => {
         files: [{ $id: "cache-file-1", name: "CS101_1_CSE_BTECH_Regular_Test_Uni_na_gemini-3_1-flash-lite-preview.md", $createdAt: "2026-04-18T00:00:00.000Z" }],
       }),
       getFileDownload: jest.fn().mockResolvedValue(Buffer.from("# Cached markdown", "utf8")),
-      createFile: jest.fn(),
+      createFile: jest.fn().mockResolvedValue({ $id: "mock-id" }),
     };
     Storage.mockImplementation(() => mockStorage);
 
     InputFile.fromBuffer.mockImplementation((buffer, name) => ({ buffer, name }));
     global.fetch = jest.fn()
       .mockResolvedValueOnce({
+        // Gotenberg PDF render response
+        ok: true,
+        status: 200,
+        arrayBuffer: async () => Buffer.from("%PDF-mock").buffer,
+      })
+      .mockResolvedValueOnce({
+        // notify-completion webhook response
         ok: true,
         status: 200,
         text: async () => "",
@@ -321,9 +334,10 @@ describe("pdf-generator / processGenerationJob cache behavior", () => {
     expect(mockStorage.listFiles).toHaveBeenCalledWith("cached-unit-notes", expect.any(Array));
     expect(mockStorage.getFileDownload).toHaveBeenCalledWith("cached-unit-notes", "cache-file-1");
     expect(mockDb.listDocuments).not.toHaveBeenCalled();
-    // No PDF or new cache file should be created (loaded from cache, no Gotenberg)
-    expect(mockStorage.createFile).not.toHaveBeenCalled();
-    expect(result.fileId).toBe("cache-file-1");
+    // Cache file is read but not re-written; PDF is created in the papers bucket
+    expect(mockStorage.createFile).toHaveBeenCalledTimes(1);
+    expect(mockStorage.createFile).toHaveBeenCalledWith("papers", expect.any(String), expect.anything());
+    expect(result.fileId).toBe("mock-id");
   });
 
   it("fails the job when cache write fails (no file ID means result is lost)", async () => {
