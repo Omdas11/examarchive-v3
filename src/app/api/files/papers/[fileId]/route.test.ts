@@ -2,6 +2,7 @@
  * @jest-environment node
  */
 import { NextRequest } from "next/server";
+import { AppwriteException } from "node-appwrite";
 
 const mockGetServerUser = jest.fn();
 const mockIsValidSignedPdfDownloadToken = jest.fn();
@@ -125,5 +126,116 @@ describe("GET /api/files/papers/[fileId]", () => {
     expect(response.status).toBe(404);
     expect(mockStorage.getFile).not.toHaveBeenCalled();
     expect(mockStorage.getFileView).toHaveBeenCalledWith("papers", "file-view");
+  });
+
+  it("redirects to login when signed token is invalid and no session user exists", async () => {
+    mockIsValidSignedPdfDownloadToken.mockReturnValue(false);
+    mockGetServerUser.mockResolvedValue(null);
+
+    const request = new NextRequest("http://localhost/api/files/papers/file-auth");
+    const response = await GET(request, { params: Promise.resolve({ fileId: "file-auth" }) });
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe("http://localhost/login");
+  });
+
+  it("returns 400 when fileId is missing", async () => {
+    const request = new NextRequest("http://localhost/api/files/papers/missing");
+    const response = await GET(request, { params: Promise.resolve({ fileId: "" }) });
+
+    expect(response.status).toBe(400);
+  });
+
+  it("returns 503 when markdown fallback is available but GOTENBERG_URL is not configured", async () => {
+    process.env = { ...originalEnv, GOTENBERG_URL: "" };
+    mockStorage.getFile.mockResolvedValue({ name: "generated.pdf" });
+    mockStorage.getFileDownload
+      .mockRejectedValueOnce(Object.assign(new Error("not found"), { code: 404 }))
+      .mockResolvedValueOnce(Uint8Array.from(Buffer.from("# Unit 1 notes", "utf8")));
+    mockDb.listDocuments.mockResolvedValue({
+      documents: [{ input_payload_json: JSON.stringify({ jobType: "notes" }) }],
+    });
+
+    const request = new NextRequest("http://localhost/api/files/papers/file-legacy?uid=u1&exp=1&token=t1");
+    const response = await GET(request, { params: Promise.resolve({ fileId: "file-legacy" }) });
+
+    expect(response.status).toBe(503);
+    expect(mockRenderMarkdownToPdfBuffer).not.toHaveBeenCalled();
+  });
+
+  it("uses solved-papers cache bucket for solved-paper markdown fallback", async () => {
+    mockStorage.getFile.mockResolvedValue({ name: "generated.pdf" });
+    mockStorage.getFileDownload
+      .mockRejectedValueOnce(Object.assign(new Error("not found"), { code: 404 }))
+      .mockResolvedValueOnce(Uint8Array.from(Buffer.from("# Solved paper", "utf8")));
+    mockDb.listDocuments.mockResolvedValue({
+      documents: [
+        {
+          input_payload_json: JSON.stringify({ jobType: "solved-paper", paperCode: "CS101", year: 2025 }),
+          completed_at: "2026-04-19T00:00:00.000Z",
+        },
+      ],
+    });
+    mockRenderMarkdownToPdfBuffer.mockResolvedValue(Buffer.from([37, 80, 68, 70]));
+
+    const request = new NextRequest("http://localhost/api/files/papers/file-solved?uid=u1&exp=1&token=t1");
+    const response = await GET(request, { params: Promise.resolve({ fileId: "file-solved" }) });
+
+    expect(response.status).toBe(200);
+    expect(mockStorage.getFileDownload).toHaveBeenNthCalledWith(2, "cached-solved-papers", "file-solved");
+  });
+
+  it("returns 500 when papers bucket lookup throws non-file-missing errors", async () => {
+    mockStorage.getFile.mockRejectedValue(Object.assign(new Error("forbidden"), { code: 403 }));
+
+    const request = new NextRequest("http://localhost/api/files/papers/file-err?uid=u1&exp=1&token=t1");
+    const response = await GET(request, { params: Promise.resolve({ fileId: "file-err" }) });
+
+    expect(response.status).toBe(500);
+  });
+
+  it("returns 404 when downstream error exposes code as a numeric string", async () => {
+    mockStorage.getFile.mockResolvedValue({ name: "generated.pdf" });
+    mockStorage.getFileDownload.mockRejectedValueOnce(Object.assign(new Error("not found"), { code: 404 }));
+    mockDb.listDocuments.mockImplementation(() => {
+      throw Object.assign(new Error("invalid file id"), { code: "400" });
+    });
+
+    const request = new NextRequest("http://localhost/api/files/papers/file-code-string?uid=u1&exp=1&token=t1");
+    const response = await GET(request, { params: Promise.resolve({ fileId: "file-code-string" }) });
+
+    expect(response.status).toBe(404);
+  });
+
+  it("serves inline PDF from papers bucket when authenticated user does not request download", async () => {
+    mockIsValidSignedPdfDownloadToken.mockReturnValue(false);
+    mockGetServerUser.mockResolvedValue({ $id: "user-1" });
+    mockStorage.getFileView.mockResolvedValue(Uint8Array.from([1, 2, 3]));
+
+    const request = new NextRequest("http://localhost/api/files/papers/file-inline");
+    const response = await GET(request, { params: Promise.resolve({ fileId: "file-inline" }) });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Content-Disposition")).toBe("inline");
+    expect(mockStorage.getFile).not.toHaveBeenCalled();
+    expect(mockStorage.getFileView).toHaveBeenCalledWith("papers", "file-inline");
+  });
+
+  it("returns 404 when markdown rendering throws AppwriteException with missing-file code", async () => {
+    mockStorage.getFile.mockResolvedValue({ name: "generated.pdf" });
+    mockStorage.getFileDownload
+      .mockRejectedValueOnce(Object.assign(new Error("not found"), { code: 404 }))
+      .mockResolvedValueOnce(Uint8Array.from(Buffer.from("# Unit 1 notes", "utf8")));
+    mockDb.listDocuments.mockResolvedValue({
+      documents: [{ input_payload_json: JSON.stringify({ jobType: "notes" }) }],
+    });
+    mockRenderMarkdownToPdfBuffer.mockImplementation(() => {
+      throw new AppwriteException("missing", 404);
+    });
+
+    const request = new NextRequest("http://localhost/api/files/papers/file-render-404?uid=u1&exp=1&token=t1");
+    const response = await GET(request, { params: Promise.resolve({ fileId: "file-render-404" }) });
+
+    expect(response.status).toBe(404);
   });
 });
