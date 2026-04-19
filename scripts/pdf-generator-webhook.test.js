@@ -43,7 +43,12 @@ jest.mock("he", () => ({
 }), { virtual: true });
 
 const { Databases, Storage } = require("node-appwrite");
-const { notifyCompletionWebhook, getNotifyCompletionUrl, processGenerationJob } = require("../appwrite-functions/pdf-generator/index.js");
+const {
+  notifyCompletionWebhook,
+  getNotifyCompletionUrl,
+  processGenerationJob,
+  runGeminiCompletionWithRetry,
+} = require("../appwrite-functions/pdf-generator/index.js");
 const { InputFile } = require("node-appwrite/file");
 
 describe("pdf-generator / getNotifyCompletionUrl", () => {
@@ -257,9 +262,81 @@ describe("pdf-generator / notifyCompletionWebhook", () => {
   });
 });
 
+describe("pdf-generator / runGeminiCompletionWithRetry", () => {
+  const originalFetch = global.fetch;
+  const originalAbortSignalTimeout = AbortSignal.timeout;
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+    AbortSignal.timeout = originalAbortSignalTimeout;
+    jest.restoreAllMocks();
+  });
+
+  it("uses strict exponential backoff for 503 retries and succeeds on the fifth attempt", async () => {
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const timeoutSpy = jest.spyOn(global, "setTimeout").mockImplementation((handler) => {
+      if (typeof handler === "function") handler();
+      return 0;
+    });
+    AbortSignal.timeout = jest.fn(() => undefined);
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({ ok: false, status: 503, text: async () => "Service Unavailable 1" })
+      .mockResolvedValueOnce({ ok: false, status: 503, text: async () => "Service Unavailable 2" })
+      .mockResolvedValueOnce({ ok: false, status: 503, text: async () => "Service Unavailable 3" })
+      .mockResolvedValueOnce({ ok: false, status: 503, text: async () => "Service Unavailable 4" })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: async () => JSON.stringify({ candidates: [{ content: { parts: [{ text: "ok" }] } }] }),
+      });
+
+    const result = await runGeminiCompletionWithRetry({
+      apiKey: "gemini-key",
+      prompt: "hello",
+      model: "gemini-3.1-flash-lite-preview",
+    });
+
+    expect(result).toBe("ok");
+    expect(global.fetch).toHaveBeenCalledTimes(5);
+    expect(warnSpy).toHaveBeenNthCalledWith(1, "[Gemini Attempt 1] Failed with status 503. Retrying in 3000ms...");
+    expect(warnSpy).toHaveBeenNthCalledWith(2, "[Gemini Attempt 2] Failed with status 503. Retrying in 6000ms...");
+    expect(warnSpy).toHaveBeenNthCalledWith(3, "[Gemini Attempt 3] Failed with status 503. Retrying in 12000ms...");
+    expect(warnSpy).toHaveBeenNthCalledWith(4, "[Gemini Attempt 4] Failed with status 503. Retrying in 24000ms...");
+    expect(timeoutSpy.mock.calls.map((call) => call[1])).toEqual(expect.arrayContaining([3000, 6000, 12000, 24000]));
+  });
+
+  it("retries 503 up to five attempts and then throws", async () => {
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const timeoutSpy = jest.spyOn(global, "setTimeout").mockImplementation((handler) => {
+      if (typeof handler === "function") handler();
+      return 0;
+    });
+    AbortSignal.timeout = jest.fn(() => undefined);
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 503,
+      text: async () => "Service Unavailable",
+    });
+
+    await expect(
+      runGeminiCompletionWithRetry({
+        apiKey: "gemini-key",
+        prompt: "hello",
+        model: "gemini-3.1-flash-lite-preview",
+      }),
+    ).rejects.toThrow("Gemini request failed (status 503)");
+
+    expect(global.fetch).toHaveBeenCalledTimes(5);
+    expect(warnSpy).toHaveBeenCalledTimes(4);
+    expect(warnSpy).toHaveBeenLastCalledWith("[Gemini Attempt 4] Failed with status 503. Retrying in 24000ms...");
+    expect(timeoutSpy.mock.calls.map((call) => call[1])).toEqual(expect.arrayContaining([3000, 6000, 12000, 24000]));
+  });
+});
+
 describe("pdf-generator / processGenerationJob cache behavior", () => {
   const originalEnv = process.env;
   const originalFetch = global.fetch;
+  const originalAbortSignalTimeout = AbortSignal.timeout;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -281,6 +358,7 @@ describe("pdf-generator / processGenerationJob cache behavior", () => {
   afterEach(() => {
     process.env = originalEnv;
     global.fetch = originalFetch;
+    AbortSignal.timeout = originalAbortSignalTimeout;
     jest.restoreAllMocks();
   });
 
@@ -381,5 +459,68 @@ describe("pdf-generator / processGenerationJob cache behavior", () => {
     const failedCall = updateCalls.find((call) => call[3]?.status === "failed");
     expect(completedCall).toBeUndefined();
     expect(failedCall).toBeDefined();
+  });
+
+  it("marks job failed and sends failed webhook payload when Gemini retries are exhausted", async () => {
+    const timeoutSpy = jest.spyOn(global, "setTimeout").mockImplementation((handler) => {
+      if (typeof handler === "function") handler();
+      return 0;
+    });
+    const mockDb = {
+      updateDocument: jest.fn().mockResolvedValue({}),
+      listDocuments: jest.fn().mockResolvedValue({
+        documents: [{ $id: "syllabus-1", syllabus_content: "Topic A\nTopic B" }],
+      }),
+    };
+    Databases.mockImplementation(() => mockDb);
+
+    const mockStorage = {
+      listFiles: jest.fn().mockResolvedValue({ files: [] }),
+      createFile: jest.fn(),
+    };
+    Storage.mockImplementation(() => mockStorage);
+    AbortSignal.timeout = jest.fn(() => undefined);
+    global.fetch = jest.fn().mockImplementation(async (url) => {
+      if (String(url).includes("generativelanguage.googleapis.com")) {
+        return { ok: false, status: 503, text: async () => "Service Unavailable" };
+      }
+      return { ok: true, status: 200, text: async () => "" };
+    });
+    process.env.GEMINI_API_KEY = "test-gemini-key";
+
+    await expect(
+      processGenerationJob(JSON.stringify({
+        jobId: "job-gemini-fail",
+        payload: {
+          jobType: "notes",
+          university: "Test Uni",
+          course: "BTECH",
+          stream: "CSE",
+          type: "Regular",
+          paperCode: "CS101",
+          unitNumber: 1,
+          userId: "user-1",
+          userEmail: "user@example.com",
+        },
+      })),
+    ).rejects.toThrow("Gemini request failed (status 503)");
+
+    expect(global.fetch).toHaveBeenCalledTimes(6);
+    expect(mockDb.updateDocument).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      "job-gemini-fail",
+      expect.objectContaining({ status: "failed" }),
+    );
+    const webhookCall = global.fetch.mock.calls.find(([url]) => String(url).includes("/api/ai/notify-completion"));
+    expect(webhookCall).toBeDefined();
+    expect(JSON.parse(webhookCall[1].body)).toEqual(expect.objectContaining({
+      jobId: "job-gemini-fail",
+      status: "failed",
+      fileId: "",
+      userId: "user-1",
+      userEmail: "user@example.com",
+    }));
+    expect(timeoutSpy.mock.calls.map((call) => call[1])).toEqual(expect.arrayContaining([3000, 6000, 12000, 24000]));
   });
 });
