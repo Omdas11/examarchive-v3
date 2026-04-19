@@ -68,6 +68,20 @@ describe("pdf-download-link", () => {
     })).toBe(false);
 
     expect(isValidSignedPdfDownloadToken({
+      fileId: "file_abc",
+      userId: "user_xyz",
+      expires: exp,
+      token: "a".repeat(63),
+    })).toBe(false);
+
+    expect(isValidSignedPdfDownloadToken({
+      fileId: "file_abc",
+      userId: "user_xyz",
+      expires: exp,
+      token: "a".repeat(65),
+    })).toBe(false);
+
+    expect(isValidSignedPdfDownloadToken({
       fileId: "f".repeat(300),
       userId: "user_xyz",
       expires: exp,

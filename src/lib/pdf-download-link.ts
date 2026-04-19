@@ -3,6 +3,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 const SIGNED_DOWNLOAD_DEFAULT_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
 const SIGNED_TOKEN_HEX_LENGTH = 64;
 const MAX_SIGNED_TOKEN_INPUT_LENGTH = 256;
+const SIGNED_TOKEN_PATTERN = new RegExp(`^[a-f0-9]{${SIGNED_TOKEN_HEX_LENGTH}}$`, "i");
 
 let unsignedUrlWarningEmitted = false;
 let missingUserIdWarningEmitted = false;
@@ -93,8 +94,7 @@ export function isValidSignedPdfDownloadToken(args: {
   const secret = getDownloadSigningSecret();
   if (!secret || !fileId || !userId || !token) return false;
   if (fileId.length > MAX_SIGNED_TOKEN_INPUT_LENGTH || userId.length > MAX_SIGNED_TOKEN_INPUT_LENGTH) return false;
-  const tokenPattern = new RegExp(`^[a-f0-9]{${SIGNED_TOKEN_HEX_LENGTH}}$`, "i");
-  if (!tokenPattern.test(token)) return false;
+  if (!SIGNED_TOKEN_PATTERN.test(token)) return false;
   if (!Number.isFinite(expires)) return false;
   if (expires < Math.floor(Date.now() / 1000)) return false;
 
