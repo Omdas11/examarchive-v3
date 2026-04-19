@@ -52,7 +52,7 @@ function getAppwriteErrorCode(error: unknown): number | undefined {
   return undefined;
 }
 
-function isNotFoundAppwriteError(error: unknown): boolean {
+function isMissingOrInvalidAppwriteFileError(error: unknown): boolean {
   const code = getAppwriteErrorCode(error);
   return code === 404 || code === 400;
 }
@@ -140,7 +140,7 @@ export async function GET(
         },
       });
     } catch (papersErr) {
-      if (!isNotFoundAppwriteError(papersErr)) {
+      if (!isMissingOrInvalidAppwriteFileError(papersErr)) {
         throw papersErr;
       }
     }
@@ -277,7 +277,7 @@ export async function GET(
         return new NextResponse("Paper not found", { status: 404 });
       }
     }
-    if (isNotFoundAppwriteError(err)) {
+    if (isMissingOrInvalidAppwriteFileError(err)) {
       return new NextResponse("Paper not found", { status: 404 });
     }
     console.error("[api/files/papers] Error fetching/rendering paper:", err);

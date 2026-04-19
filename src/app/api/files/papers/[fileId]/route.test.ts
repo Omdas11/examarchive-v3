@@ -112,4 +112,18 @@ describe("GET /api/files/papers/[fileId]", () => {
     expect(response.status).toBe(404);
     expect(mockRenderMarkdownToPdfBuffer).not.toHaveBeenCalled();
   });
+
+  it("falls back from papers view path when user is authenticated without download mode", async () => {
+    mockIsValidSignedPdfDownloadToken.mockReturnValue(false);
+    mockGetServerUser.mockResolvedValue({ $id: "user-1" });
+    mockStorage.getFileView.mockRejectedValue(Object.assign(new Error("not found"), { code: 404 }));
+    mockDb.listDocuments.mockResolvedValue({ documents: [] });
+
+    const request = new NextRequest("http://localhost/api/files/papers/file-view");
+    const response = await GET(request, { params: Promise.resolve({ fileId: "file-view" }) });
+
+    expect(response.status).toBe(404);
+    expect(mockStorage.getFile).not.toHaveBeenCalled();
+    expect(mockStorage.getFileView).toHaveBeenCalledWith("papers", "file-view");
+  });
 });
