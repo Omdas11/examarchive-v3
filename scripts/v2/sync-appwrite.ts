@@ -141,24 +141,39 @@ type AttributeSyncResult = {
  * command that creates the database, buckets, collections, AND their attributes.
  */
 async function syncAllCollectionAttributes(databases: Databases): Promise<AttributeSyncResult[]> {
-  const { syncCollection: syncSchemaCollection, TARGET_SCHEMA } = require("./sync-appwrite-schema") as {
-    syncCollection: (databases: Databases, databaseId: string, collection: CollectionDef) => Promise<AttributeSyncResult>;
-    TARGET_SCHEMA: CollectionDef[];
-  };
-  const { syncCollection: syncAiCollection, AI_COLLECTIONS } = require("./sync-appwrite-ai") as {
-    syncCollection: (databases: Databases, collection: CollectionDef) => Promise<AttributeSyncResult>;
-    AI_COLLECTIONS: CollectionDef[];
-  };
+  let syncSchemaCollection: (databases: Databases, databaseId: string, collection: CollectionDef) => Promise<AttributeSyncResult>;
+  let targetSchema: CollectionDef[];
+  let syncAiCollection: (databases: Databases, collection: CollectionDef) => Promise<AttributeSyncResult>;
+  let aiCollections: CollectionDef[];
+  try {
+    const schemaModule = require("./sync-appwrite-schema") as {
+      syncCollection: (databases: Databases, databaseId: string, collection: CollectionDef) => Promise<AttributeSyncResult>;
+      TARGET_SCHEMA: CollectionDef[];
+    };
+    const aiModule = require("./sync-appwrite-ai") as {
+      syncCollection: (databases: Databases, collection: CollectionDef) => Promise<AttributeSyncResult>;
+      AI_COLLECTIONS: CollectionDef[];
+    };
+    syncSchemaCollection = schemaModule.syncCollection;
+    targetSchema = schemaModule.TARGET_SCHEMA;
+    syncAiCollection = aiModule.syncCollection;
+    aiCollections = aiModule.AI_COLLECTIONS;
+  } catch (error) {
+    console.warn("⚠️ Skipping attribute sync because schema modules could not be loaded.", {
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return [];
+  }
 
   const results: AttributeSyncResult[] = [];
 
   console.log("\n--- Syncing standard collection attributes ---");
-  for (const collection of TARGET_SCHEMA) {
+  for (const collection of targetSchema) {
     results.push(await syncSchemaCollection(databases, TARGET_DATABASE_ID, collection));
   }
 
   console.log("\n--- Syncing AI collection attributes ---");
-  for (const collection of AI_COLLECTIONS) {
+  for (const collection of aiCollections) {
     results.push(await syncAiCollection(databases, collection));
   }
 

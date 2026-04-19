@@ -215,21 +215,6 @@ export async function GET(
           ? `attachment; filename="${fileName}"; filename*=UTF-8''${encodedFileName}`
           : "inline",
       };
-      const backingBuffer = pdfBuffer.buffer;
-      if (backingBuffer instanceof ArrayBuffer) {
-        return new NextResponse(
-          new Uint8Array(
-            backingBuffer,
-            pdfBuffer.byteOffset,
-            pdfBuffer.byteLength,
-          ),
-          { headers: pdfResponseHeaders },
-        );
-      }
-
-      console.warn(
-        "[papers-download] Unexpected non-ArrayBuffer PDF backing buffer; creating copied Uint8Array fallback.",
-      );
       return new NextResponse(Uint8Array.from(pdfBuffer), {
         headers: pdfResponseHeaders,
       });

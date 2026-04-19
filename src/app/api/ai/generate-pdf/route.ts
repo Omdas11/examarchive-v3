@@ -300,7 +300,7 @@ function normalizeJobStatus(status: string | null | undefined): string {
 function hasReadyEmailAlreadyBeenSent(job: Record<string, unknown> | null | undefined): boolean {
   if (!job || typeof job !== "object") return false;
   const emailStatus = String(job.email_status || "").trim().toLowerCase();
-  if (emailStatus === "sent") return true;
+  if (emailStatus === "completion_sent" || emailStatus === "sent") return true;
   return String(job.email_sent_at || "").trim().length > 0;
 }
 
