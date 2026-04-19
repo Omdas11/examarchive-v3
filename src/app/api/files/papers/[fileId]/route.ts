@@ -185,20 +185,29 @@ export async function GET(
       );
       const encodedFileName = encodeURIComponent(fileName);
       const backingBuffer = pdfBuffer.buffer;
-      const pdfBytes =
-        backingBuffer instanceof ArrayBuffer
-          ? new Uint8Array(
-              backingBuffer,
-              pdfBuffer.byteOffset,
-              pdfBuffer.byteLength,
-            )
-          : (() => {
-              console.warn(
-                "[papers-download] Unexpected non-ArrayBuffer PDF backing buffer; creating copied Uint8Array fallback.",
-              );
-              return Uint8Array.from(pdfBuffer);
-            })();
-      return new NextResponse(pdfBytes, {
+      if (backingBuffer instanceof ArrayBuffer) {
+        return new NextResponse(
+          new Uint8Array(
+            backingBuffer,
+            pdfBuffer.byteOffset,
+            pdfBuffer.byteLength,
+          ),
+          {
+            headers: {
+              "Content-Type": "application/pdf",
+              "Cache-Control": "private, max-age=3600",
+              "Content-Disposition": shouldDownload
+                ? `attachment; filename="${fileName}"; filename*=UTF-8''${encodedFileName}`
+                : "inline",
+            },
+          },
+        );
+      }
+
+      console.warn(
+        "[papers-download] Unexpected non-ArrayBuffer PDF backing buffer; creating copied Uint8Array fallback.",
+      );
+      return new NextResponse(Uint8Array.from(pdfBuffer), {
         headers: {
           "Content-Type": "application/pdf",
           "Cache-Control": "private, max-age=3600",
