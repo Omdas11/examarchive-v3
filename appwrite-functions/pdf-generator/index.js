@@ -1217,6 +1217,7 @@ async function processGenerationJob(rawInput, options = {}) {
           cacheKey,
           message: cacheWriteError instanceof Error ? cacheWriteError.message : String(cacheWriteError),
         });
+        throw cacheWriteError;
       }
     }
     await updateJob(db, jobId, { progress_percent: 80 });

@@ -325,4 +325,51 @@ describe("pdf-generator / processGenerationJob cache behavior", () => {
     expect(mockStorage.createFile).not.toHaveBeenCalled();
     expect(result.fileId).toBe("cache-file-1");
   });
+
+  it("fails the job when cache write fails (no file ID means result is lost)", async () => {
+    const mockDb = {
+      updateDocument: jest.fn().mockResolvedValue({}),
+      listDocuments: jest.fn().mockResolvedValue({ documents: [{ $id: "syllabus-1", syllabus_content: "Topic A\nTopic B" }] }),
+    };
+    Databases.mockImplementation(() => mockDb);
+
+    const cacheWriteError = new Error("Storage quota exceeded");
+    const mockStorage = {
+      listFiles: jest.fn().mockResolvedValue({ files: [] }), // no cache hit
+      createFile: jest.fn().mockRejectedValue(cacheWriteError),
+    };
+    Storage.mockImplementation(() => mockStorage);
+
+    // Mock Gemini API and completion webhook fetch calls
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ candidates: [{ content: { parts: [{ text: "# Markdown" }] } }] }),
+      text: async () => "",
+    });
+
+    process.env.GEMINI_API_KEY = "test-gemini-key";
+
+    await expect(
+      processGenerationJob(JSON.stringify({
+        jobId: "job-cache-fail",
+        payload: {
+          jobType: "notes",
+          university: "Test Uni",
+          course: "BTECH",
+          stream: "CSE",
+          type: "Regular",
+          paperCode: "CS101",
+          unitNumber: 1,
+        },
+      }))
+    ).rejects.toThrow("Storage quota exceeded");
+
+    // Job should be marked as failed, not completed
+    const updateCalls = mockDb.updateDocument.mock.calls;
+    const completedCall = updateCalls.find((call) => call[3]?.status === "completed");
+    const failedCall = updateCalls.find((call) => call[3]?.status === "failed");
+    expect(completedCall).toBeUndefined();
+    expect(failedCall).toBeDefined();
+  });
 });
