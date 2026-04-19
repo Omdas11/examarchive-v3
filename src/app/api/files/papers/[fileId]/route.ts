@@ -41,6 +41,17 @@ function buildPdfFileNameFromPayload(payload: Record<string, unknown>): string {
     : `${paperCode}_Notes.pdf`;
 }
 
+function getAppwriteErrorCode(error: unknown): number | undefined {
+  if (!error || typeof error !== "object") return undefined;
+  const withCode = error as { code?: unknown };
+  if (typeof withCode.code === "number") return withCode.code;
+  if (typeof withCode.code === "string") {
+    const parsed = Number(withCode.code);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  return undefined;
+}
+
 /**
  * GET /api/files/papers/[fileId]
  *
@@ -96,9 +107,43 @@ export async function GET(
     const storage = adminStorage();
     const db = adminDatabases();
 
-    // ── Step 1: Try the dynamic markdown-to-PDF path ─────────────────────
-    // Look up the ai_generation_jobs collection to resolve which cache bucket
-    // the markdown file lives in and to retrieve job metadata for the PDF cover.
+    // ── Step 1: Prefer concrete PDF files from papers bucket ──────────────
+    try {
+      const fileMeta = shouldDownload
+        ? await storage.getFile(BUCKET_ID, fileId)
+        : null;
+      const resolvedFileName = shouldDownload
+        ? sanitizeDownloadFilename(fileMeta?.name || "examarchive.pdf")
+        : null;
+      const fallbackHeaderFileName = resolvedFileName
+        ? resolvedFileName.replace(/\\/g, "\\\\").replace(/"/g, '\\"')
+        : null;
+      const encodedLegacyFileName = resolvedFileName
+        ? encodeURIComponent(resolvedFileName)
+        : null;
+      const fileBuffer = shouldDownload
+        ? await storage.getFileDownload(BUCKET_ID, fileId)
+        : await storage.getFileView(BUCKET_ID, fileId);
+
+      return new NextResponse(fileBuffer, {
+        headers: {
+          "Content-Type": "application/pdf",
+          "Cache-Control": "private, max-age=3600",
+          "Content-Disposition": shouldDownload
+            ? `attachment; filename="${fallbackHeaderFileName}"; filename*=UTF-8''${encodedLegacyFileName}`
+            : "inline",
+        },
+      });
+    } catch (papersErr) {
+      const papersErrorCode = getAppwriteErrorCode(papersErr);
+      if (papersErrorCode !== 404 && papersErrorCode !== 400) {
+        throw papersErr;
+      }
+    }
+
+    // ── Step 2: Fallback dynamic markdown-to-PDF path ────────────────────
+    // For older jobs where result_file_id may point to a markdown cache file,
+    // look up ai_generation_jobs and render markdown on-demand.
     let jobPayload: Record<string, unknown> = {};
     let resolvedJob: Record<string, unknown> | null = null;
     let markdown: string | null = null;
@@ -220,38 +265,17 @@ export async function GET(
       });
     }
 
-    // ── Step 2b: Legacy pass-through (old papers bucket uploads) ─────────
-    const fileMeta = shouldDownload
-      ? await storage.getFile(BUCKET_ID, fileId)
-      : null;
-    const resolvedFileName = shouldDownload
-      ? sanitizeDownloadFilename(fileMeta?.name || "examarchive.pdf")
-      : null;
-    const fallbackHeaderFileName = resolvedFileName
-      ? resolvedFileName.replace(/\\/g, "\\\\").replace(/"/g, '\\"')
-      : null;
-    const encodedLegacyFileName = resolvedFileName
-      ? encodeURIComponent(resolvedFileName)
-      : null;
-    const fileBuffer = shouldDownload
-      ? await storage.getFileDownload(BUCKET_ID, fileId)
-      : await storage.getFileView(BUCKET_ID, fileId);
-
-    return new NextResponse(fileBuffer, {
-      headers: {
-        "Content-Type": "application/pdf",
-        "Cache-Control": "private, max-age=3600",
-        "Content-Disposition": shouldDownload
-          ? `attachment; filename="${fallbackHeaderFileName}"; filename*=UTF-8''${encodedLegacyFileName}`
-          : "inline",
-      },
-    });
+    return new NextResponse("Paper not found", { status: 404 });
   } catch (err: unknown) {
     if (err instanceof AppwriteException) {
       // 404 = file not found; 400 = invalid/missing fileId — both mean nothing to serve
       if (err.code === 404 || err.code === 400) {
         return new NextResponse("Paper not found", { status: 404 });
       }
+    }
+    const errorCode = getAppwriteErrorCode(err);
+    if (errorCode === 404 || errorCode === 400) {
+      return new NextResponse("Paper not found", { status: 404 });
     }
     console.error("[api/files/papers] Error fetching/rendering paper:", err);
     return new NextResponse("Failed to fetch paper", { status: 500 });

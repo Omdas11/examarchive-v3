@@ -66,7 +66,7 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: context.issue.number,
-                body: `⚠️ \`/soft-launch-clear\` is restricted to repository owners/collaborators. Current association: \`${association}\`.`,
+                body: `⚠️ \`/soft-launch-clear\` is restricted to repository owners, collaborators, or members. Current association: \`${association}\`.`,
               });
               return;
             }
