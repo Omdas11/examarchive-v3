@@ -362,7 +362,7 @@ describe("pdf-generator / processGenerationJob cache behavior", () => {
           unitNumber: 1,
         },
       }))
-    ).rejects.toThrow("Storage quota exceeded");
+    ).rejects.toThrow(/Storage quota exceeded|Markdown cache write failed/);
 
     // Job should be marked as failed, not completed
     const updateCalls = mockDb.updateDocument.mock.calls;

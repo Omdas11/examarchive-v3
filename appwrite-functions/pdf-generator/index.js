@@ -838,6 +838,11 @@ function resolveCallbackBaseSiteUrl() {
 function resolveNotifyCompletionUrl(callbackUrl) {
   const callbackOverride = normalizeAbsoluteHttpUrl(callbackUrl);
   if (callbackOverride) {
+    // The webhook secret (AI_JOB_WEBHOOK_SECRET) is the authentication layer that
+    // protects the notify-completion endpoint. Origin-based restrictions are
+    // intentionally omitted here to allow Vercel Preview deployment URLs to
+    // deliver webhooks successfully. Log the override URL for audit visibility.
+    console.log("[pdf-generator] Using callbackOverride for completion webhook.", { callbackOverride });
     return { url: callbackOverride, reason: "callback_override" };
   }
   const siteUrl = resolveCallbackBaseSiteUrl();
@@ -1210,14 +1215,19 @@ async function processGenerationJob(rawInput, options = {}) {
         );
         cacheFileId = String(cacheFile.$id);
       } catch (cacheWriteError) {
-        console.error("[pdf-generator] Markdown cache write failed. Without the markdown cache the generation result will be lost.", {
+        const contextMessage = `[pdf-generator] Markdown cache write failed for job ${jobId} (type=${normalizedJobType}, bucket=${cacheBucketId}, key=${cacheKey}). Without the markdown cache the generation result will be lost.`;
+        console.error(contextMessage, {
           jobId,
           jobType: normalizedJobType,
           cacheBucketId,
           cacheKey,
           message: cacheWriteError instanceof Error ? cacheWriteError.message : String(cacheWriteError),
         });
-        throw cacheWriteError;
+        const wrappedError = new Error(
+          `${contextMessage}: ${cacheWriteError instanceof Error ? cacheWriteError.message : String(cacheWriteError)}`,
+        );
+        wrappedError.cause = cacheWriteError;
+        throw wrappedError;
       }
     }
     await updateJob(db, jobId, { progress_percent: 80 });
