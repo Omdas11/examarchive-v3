@@ -836,27 +836,19 @@ function resolveCallbackBaseSiteUrl() {
 }
 
 function resolveNotifyCompletionUrl(callbackUrl) {
+  const callbackOverride = normalizeAbsoluteHttpUrl(callbackUrl);
+  if (callbackOverride) {
+    return { url: callbackOverride, reason: "callback_override" };
+  }
   const siteUrl = resolveCallbackBaseSiteUrl();
   if (!siteUrl) {
     console.error("[pdf-generator] CRITICAL: No valid base URL found (checked SITE_URL, NEXT_PUBLIC_SITE_URL, and VERCEL_URL); completion webhook cannot be delivered safely.", {
-      hasCallbackUrl: Boolean(String(callbackUrl || "").trim()),
+      hasCallbackUrl: false,
     });
-    return { url: "", reason: callbackUrl ? "no_valid_callback_and_missing_base_url" : "missing_base_url" };
+    return { url: "", reason: "missing_base_url" };
   }
   try {
     const baseUrl = new URL(siteUrl);
-    const callbackOverride = normalizeAbsoluteHttpUrl(callbackUrl);
-    if (callbackOverride) {
-      const callbackUrlObject = new URL(callbackOverride);
-      if (callbackUrlObject.origin === baseUrl.origin) {
-        return { url: callbackUrlObject.toString(), reason: "callback_override" };
-      }
-      console.error("[pdf-generator] Rejected callback override with mismatched origin.", {
-        callbackOrigin: callbackUrlObject.origin,
-        siteOrigin: baseUrl.origin,
-      });
-      return { url: "", reason: "callback_origin_mismatch" };
-    }
     return { url: new URL(NOTIFY_COMPLETION_PATH, `${baseUrl.toString()}/`).toString(), reason: "site_url" };
   } catch {
     return { url: "", reason: "invalid_site_url" };
@@ -1090,9 +1082,6 @@ ${tavilyContext ? `\n\nWeb context (Tavily):\n${tavilyContext}` : ""}
 }
 
 async function processGenerationJob(rawInput, options = {}) {
-  const markedParser = Object.hasOwn(options, "markedParser")
-    ? assertMarkedParser(options.markedParser)
-    : await loadMarkedParser();
   const endpoint = String(process.env.APPWRITE_ENDPOINT || process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT || "").trim();
   const projectId = String(process.env.APPWRITE_PROJECT_ID || process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID || "").trim();
   const apiKey = String(process.env.APPWRITE_API_KEY || "").trim();
@@ -1167,6 +1156,7 @@ async function processGenerationJob(rawInput, options = {}) {
       : CACHED_SOLVED_PAPERS_BUCKET_ID;
     let loadedFromCache = false;
 
+    let cacheFileId = "";
     try {
       const cachedFiles = await storage.listFiles(cacheBucketId, [
         Query.search("name", cacheKey),
@@ -1186,11 +1176,12 @@ async function processGenerationJob(rawInput, options = {}) {
         if (cachedMarkdown.trim()) {
           markdown = cachedMarkdown;
           loadedFromCache = true;
+          cacheFileId = String(cachedFile.$id);
           console.log("[pdf-generator] Loaded markdown from cache bucket.", {
             jobId,
             jobType: normalizedJobType,
             cacheBucketId,
-            cacheFileId: cachedFile.$id,
+            cacheFileId,
             cacheFileName: String(cachedFile.name || ""),
           });
         }
@@ -1212,13 +1203,14 @@ async function processGenerationJob(rawInput, options = {}) {
         markdown = await generateSolvedPaperPayload(db, payload);
       }
       try {
-        await storage.createFile(
+        const cacheFile = await storage.createFile(
           cacheBucketId,
           ID.unique(),
           InputFile.fromBuffer(Buffer.from(markdown, "utf8"), cacheFileName),
         );
+        cacheFileId = String(cacheFile.$id);
       } catch (cacheWriteError) {
-        console.warn("[pdf-generator] Markdown cache write failed. Continuing without cache persistence.", {
+        console.error("[pdf-generator] Markdown cache write failed. Without the markdown cache the generation result will be lost.", {
           jobId,
           jobType: normalizedJobType,
           cacheBucketId,
@@ -1229,18 +1221,10 @@ async function processGenerationJob(rawInput, options = {}) {
     }
     await updateJob(db, jobId, { progress_percent: 80 });
 
-    const fileName = buildJobTitle(payload);
-    const pdfBuffer = await renderWithGotenberg(markdown, fileName, markedParser);
-    const created = await storage.createFile(
-      PAPERS_BUCKET_ID,
-      ID.unique(),
-      InputFile.fromBuffer(pdfBuffer, fileName),
-    );
-
     await updateJob(db, jobId, {
       status: "completed",
       progress_percent: 100,
-      result_file_id: String(created.$id),
+      result_file_id: cacheFileId,
       completed_at: new Date().toISOString(),
     });
     await sleep(COMPLETION_WEBHOOK_DELAY_MS);
@@ -1248,7 +1232,7 @@ async function processGenerationJob(rawInput, options = {}) {
       await notifyCompletionWebhook({
         jobId,
         status: "completed",
-        fileId: String(created.$id),
+        fileId: cacheFileId,
         userId: String(payload.userId || "").trim(),
         userEmail: String(payload.userEmail || "").trim(),
         callbackUrl: String(payload.callbackUrl || "").trim(),
@@ -1259,13 +1243,13 @@ async function processGenerationJob(rawInput, options = {}) {
       );
     }
 
-    return { ok: true, jobId, fileId: String(created.$id) };
+    return { ok: true, jobId, fileId: cacheFileId };
   } catch (error) {
     await updateJob(db, jobId, {
       status: "failed",
       completed_at: new Date().toISOString(),
       error_message: formatWorkerErrorMessage(error),
-    }).catch(() => {});
+    }).catch((err) => console.error("Failed to update job status to failed:", err));
     try {
       await notifyCompletionWebhook({
         jobId,
@@ -1284,9 +1268,8 @@ async function processGenerationJob(rawInput, options = {}) {
 
 module.exports = async ({ req, res, log, error }) => {
   try {
-    const { marked } = await import("marked");
     const rawInput = req?.body || process.env.APPWRITE_FUNCTION_EVENT_DATA || process.env.APPWRITE_FUNCTION_DATA || "{}";
-    const result = await processGenerationJob(rawInput, { markedParser: marked });
+    const result = await processGenerationJob(rawInput);
     if (typeof log === "function") log(`[pdf-generator] completed job ${result.jobId}`);
     if (res && typeof res.json === "function") {
       return res.json(result);

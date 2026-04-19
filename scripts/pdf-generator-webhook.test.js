@@ -74,10 +74,10 @@ describe("pdf-generator / getNotifyCompletionUrl", () => {
     expect(url).toBe("https://www.example.com/api/ai/notify-completion");
   });
 
-  it("rejects callbackUrl override when origin differs from SITE_URL", () => {
+  it("accepts callbackUrl override even when origin differs from SITE_URL", () => {
     process.env = { ...originalEnv, SITE_URL: "https://www.example.com" };
     const url = getNotifyCompletionUrl("https://preview.example.com/api/ai/notify-completion");
-    expect(url).toBe("");
+    expect(url).toBe("https://preview.example.com/api/ai/notify-completion");
   });
 
   it("falls back to VERCEL_URL when SITE_URL is missing", () => {
@@ -176,7 +176,7 @@ describe("pdf-generator / notifyCompletionWebhook", () => {
     expect(fetchMock.mock.calls[0][0]).toBe("https://www.example.com/custom/notify");
   });
 
-  it("skips callbackUrl override when origin differs from SITE_URL", async () => {
+  it("uses callbackUrl override for webhook delivery even when origin differs from SITE_URL", async () => {
     const fetchMock = jest.fn().mockResolvedValue({ ok: true, status: 200 });
     global.fetch = fetchMock;
 
@@ -187,7 +187,8 @@ describe("pdf-generator / notifyCompletionWebhook", () => {
       callbackUrl: "https://preview.example.com/api/ai/notify-completion",
     });
 
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toBe("https://preview.example.com/api/ai/notify-completion");
   });
 
   it("allows preview callbackUrl override when SITE_URL points to production but VERCEL preview env is available", async () => {
@@ -292,8 +293,7 @@ describe("pdf-generator / processGenerationJob cache behavior", () => {
         files: [{ $id: "cache-file-1", name: "CS101_1_CSE_BTECH_Regular_Test_Uni_na_gemini-3_1-flash-lite-preview.md", $createdAt: "2026-04-18T00:00:00.000Z" }],
       }),
       getFileDownload: jest.fn().mockResolvedValue(Buffer.from("# Cached markdown", "utf8")),
-      createFile: jest.fn()
-        .mockResolvedValueOnce({ $id: "pdf-file-1" }),
+      createFile: jest.fn(),
     };
     Storage.mockImplementation(() => mockStorage);
 
@@ -302,15 +302,10 @@ describe("pdf-generator / processGenerationJob cache behavior", () => {
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
-        arrayBuffer: async () => Buffer.from("%PDF-1.4", "utf8"),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
         text: async () => "",
       });
 
-    await processGenerationJob(JSON.stringify({
+    const result = await processGenerationJob(JSON.stringify({
       jobId: "job1",
       payload: {
         jobType: "notes",
@@ -321,15 +316,13 @@ describe("pdf-generator / processGenerationJob cache behavior", () => {
         paperCode: "CS101",
         unitNumber: 1,
       },
-    }), {
-      markedParser: {
-        parse: (markdown) => `<p>${String(markdown)}</p>`,
-      },
-    });
+    }));
 
     expect(mockStorage.listFiles).toHaveBeenCalledWith("cached-unit-notes", expect.any(Array));
     expect(mockStorage.getFileDownload).toHaveBeenCalledWith("cached-unit-notes", "cache-file-1");
     expect(mockDb.listDocuments).not.toHaveBeenCalled();
-    expect(mockStorage.createFile).toHaveBeenCalledWith("papers", "mock-id", expect.any(Object));
+    // No PDF or new cache file should be created (loaded from cache, no Gotenberg)
+    expect(mockStorage.createFile).not.toHaveBeenCalled();
+    expect(result.fileId).toBe("cache-file-1");
   });
 });
