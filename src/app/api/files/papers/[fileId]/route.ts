@@ -184,7 +184,12 @@ export async function GET(
         buildPdfFileNameFromPayload(jobPayload),
       );
       const encodedFileName = encodeURIComponent(fileName);
-      return new NextResponse(pdfBuffer, {
+      const pdfBytes = new Uint8Array(
+        pdfBuffer.buffer as ArrayBuffer,
+        pdfBuffer.byteOffset,
+        pdfBuffer.byteLength,
+      );
+      return new NextResponse(pdfBytes, {
         headers: {
           "Content-Type": "application/pdf",
           "Cache-Control": "private, max-age=3600",
