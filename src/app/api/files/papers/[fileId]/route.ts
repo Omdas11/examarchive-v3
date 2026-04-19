@@ -192,7 +192,12 @@ export async function GET(
               pdfBuffer.byteOffset,
               pdfBuffer.byteLength,
             )
-          : Uint8Array.from(pdfBuffer);
+          : (() => {
+              console.warn(
+                "[papers-download] Unexpected non-ArrayBuffer PDF backing buffer; creating copied Uint8Array fallback.",
+              );
+              return Uint8Array.from(pdfBuffer);
+            })();
       return new NextResponse(pdfBytes, {
         headers: {
           "Content-Type": "application/pdf",
