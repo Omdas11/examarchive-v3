@@ -186,13 +186,13 @@ async function rollbackQuotaReservation(
   }
 }
 
-function queueGenerationRecording(
+async function queueGenerationRecording(
   userId: string,
   counter: "notes_generated_today" | "papers_solved_today",
-): void {
+): Promise<void> {
   const todayStr = new Date().toISOString().slice(0, 10);
   // Metrics recording is non-critical and should not block accepted requests.
-  void recordGeneration(userId, todayStr).catch((error) => {
+  await recordGeneration(userId, todayStr).catch((error) => {
     console.error("[ai/generate-pdf] Failed to record usage metrics after quota reservation.", {
       userId,
       todayStr,
@@ -468,34 +468,22 @@ async function enqueueAndDispatchPdfJob(params: {
       if (!isConflictError(error)) {
         throw error;
       }
-      const existing = await db.listDocuments(DATABASE_ID, COLLECTION.ai_generation_jobs, [
-        Query.equal("idempotency_key", idempotencyKey),
-        Query.equal("user_id", params.userId),
-        Query.orderDesc("$createdAt"),
-        Query.limit(1),
-      ]);
-      if (!Array.isArray(existing.documents) || existing.documents.length === 0) {
-        throw new Error("Job idempotency conflict detected but no existing job could be found.");
-      }
-      if (typeof existing.documents[0]?.$id === "string" && existing.documents[0].$id) {
-        jobId = existing.documents[0].$id;
-        const existingStatus = normalizeJobStatus(existing.documents[0].status);
-        if (shouldSkipDispatchForExistingJob(existingStatus)) {
-          console.warn("[ai/generate-pdf] Skipping Appwrite dispatch for existing terminal/in-flight job.", {
-            jobId,
-            existingStatus,
-            userId: params.userId,
-          });
-          return {
-            jobId,
-            executionTriggered: false,
-            existingStatus,
-            resultFileId: String(existing.documents[0].result_file_id || "").trim(),
-            readyEmailAlreadySent: hasReadyEmailAlreadyBeenSent(existing.documents[0] as Record<string, unknown>),
-          };
-        }
-      } else {
-        throw error;
+      const existingJob = await db.getDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, deterministicJobId);
+      jobId = existingJob.$id;
+      const existingStatus = normalizeJobStatus(existingJob.status);
+      if (shouldSkipDispatchForExistingJob(existingStatus)) {
+        console.warn("[ai/generate-pdf] Skipping Appwrite dispatch for existing terminal/in-flight job.", {
+          jobId,
+          existingStatus,
+          userId: params.userId,
+        });
+        return {
+          jobId,
+          executionTriggered: false,
+          existingStatus,
+          resultFileId: String(existingJob.result_file_id || "").trim(),
+          readyEmailAlreadySent: hasReadyEmailAlreadyBeenSent(existingJob as Record<string, unknown>),
+        };
       }
     }
     if (!jobId && job?.$id) {
@@ -972,7 +960,7 @@ export async function POST(request: NextRequest) {
         });
       }
       if (!admin) {
-        queueGenerationRecording(user.id, "notes_generated_today");
+        await queueGenerationRecording(user.id, "notes_generated_today");
       }
       const startEmailSent = await ensureGenerationStartedEmail(
         userEmail,
@@ -1129,7 +1117,7 @@ export async function POST(request: NextRequest) {
       });
     }
     if (!admin) {
-      queueGenerationRecording(user.id, "papers_solved_today");
+      await queueGenerationRecording(user.id, "papers_solved_today");
     }
     const startEmailSent = await ensureGenerationStartedEmail(userEmail, `Solved Paper (${paperCode} ${year})`);
     if (!startEmailSent) {

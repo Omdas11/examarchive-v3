@@ -114,6 +114,8 @@ const AI_COLLECTIONS = [
       { key: "completed_at", type: "datetime", required: false },
       { key: "idempotency_key", type: "string", required: true, size: 128 },
       { key: "created_at", type: "datetime", required: true },
+      { key: "email_sent_at", type: "datetime", required: false },
+      { key: "email_status", type: "string", required: false, size: 32 },
     ],
   },
 ];
