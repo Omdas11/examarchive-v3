@@ -1,6 +1,7 @@
 /* eslint-disable no-console */
 const { Client, Databases, Storage, Query, ID } = require("node-appwrite");
 const { InputFile } = require("node-appwrite/file");
+const { randomInt } = require("node:crypto");
 
 const GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta";
 const DEFAULT_MODEL = process.env.GEMINI_MODEL_ID || "gemini-3.1-flash-lite-preview";
@@ -92,7 +93,7 @@ function markdownToBasicHtml(markdown) {
 
   const flushParagraph = () => {
     if (!paragraph.length) return;
-    htmlLines.push(`<p>${paragraph.join(" ")}</p>`);
+    htmlLines.push("<p>" + paragraph.join(" ") + "</p>");
     paragraph = [];
   };
 
@@ -106,7 +107,7 @@ function markdownToBasicHtml(markdown) {
     if (headingMatch) {
       flushParagraph();
       const level = headingMatch[1].length;
-      htmlLines.push(`<h${level}>${escapeHtml(headingMatch[2])}</h${level}>`);
+      htmlLines.push("<h" + level + ">" + escapeHtml(headingMatch[2]) + "</h" + level + ">");
       return;
     }
     paragraph.push(escapeHtml(trimmed));
@@ -121,7 +122,7 @@ function markdownToPdfHtml(markdown, title) {
     "<!doctype html>",
     "<html><head><meta charset=\"utf-8\"/>",
     "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/>",
-    `<title>${escapeHtml(title)}</title>`,
+    "<title>" + escapeHtml(title) + "</title>",
     "<style>",
     "body{font-family:Inter,Arial,sans-serif;color:#231515;line-height:1.65;font-size:14px;padding:18mm 14mm;}",
     "h1,h2,h3,h4,h5,h6{color:#800000;line-height:1.35;}",
@@ -131,7 +132,7 @@ function markdownToPdfHtml(markdown, title) {
     "blockquote{border-left:3px solid #800000;padding-left:10px;color:#6e1111;}",
     "img{max-width:100%;height:auto;}",
     "</style></head><body>",
-    `<article>${renderedMarkdown}</article>`,
+    "<article>" + renderedMarkdown + "</article>",
     "</body></html>",
   ].join("");
 }
@@ -576,12 +577,14 @@ async function notifyCompletionWebhook({ jobId, status, fileId, userId, userEmai
         });
         return;
       }
-      console.error(`[pdf-generator] Completion webhook request error at attempt ${attempt}/${maxAttempts}.`, {
+      console.error("[pdf-generator] Completion webhook request error (will retry).", {
+        attempt,
+        maxAttempts,
         url: notifyUrl,
         message: error instanceof Error ? error.message : String(error),
         error,
       });
-      const jitter = Math.random() * 0.3 + 0.85;
+      const jitter = randomInt(85, 116) / 100;
       const backoffMs = baseBackoffMs * (2 ** (attempt - 1)) * jitter;
       await sleep(backoffMs);
       continue;
@@ -598,11 +601,13 @@ async function notifyCompletionWebhook({ jobId, status, fileId, userId, userEmai
       const responseBody = await response.text().catch(() => "");
       const shouldRetry = response.status === 429 || response.status >= 500;
       if (shouldRetry && attempt < maxAttempts) {
-        console.error(`[pdf-generator] Completion webhook request failed at attempt ${attempt}/${maxAttempts} (will retry).`, {
+        console.error("[pdf-generator] Completion webhook request failed (will retry).", {
+          attempt,
+          maxAttempts,
           status: response.status,
           body: responseBody.slice(0, NOTIFY_WEBHOOK_ERROR_LOG_MAX_CHARS),
         });
-        const jitter = Math.random() * 0.3 + 0.85;
+        const jitter = randomInt(85, 116) / 100;
         const backoffMs = baseBackoffMs * (2 ** (attempt - 1)) * jitter;
         await sleep(backoffMs);
         continue;
@@ -868,7 +873,7 @@ async function processGenerationJob(rawInput, options = {}) {
         );
         cacheFileId = String(cacheFile.$id);
       } catch (cacheWriteError) {
-        const contextMessage = `[pdf-generator] Markdown cache write failed for job ${jobId} (type=${normalizedJobType}, bucket=${cacheBucketId}, key=${cacheKey}). Without the markdown cache the generation result will be lost.`;
+        const contextMessage = "[pdf-generator] Markdown cache write failed. Without the markdown cache the generation result will be lost.";
         console.error(contextMessage, {
           jobId,
           jobType: normalizedJobType,
@@ -939,7 +944,10 @@ async function processGenerationJob(rawInput, options = {}) {
         callbackUrl: String(payload.callbackUrl || "").trim(),
       });
     } catch (webhookError) {
-      console.error(`[pdf-generator] failed to deliver completion webhook for job ${jobId}:`, webhookError?.stack || String(webhookError));
+      console.error("[pdf-generator] failed to deliver completion webhook.", {
+        jobId,
+        error: webhookError?.stack || String(webhookError),
+      });
     }
     throw error;
   }

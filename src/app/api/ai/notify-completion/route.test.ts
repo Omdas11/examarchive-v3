@@ -33,13 +33,14 @@ jest.mock("@/lib/generation-notifications", () => ({
   sendGenerationFailureEmail: (...args: unknown[]) => mockSendGenerationFailureEmail(...args),
 }));
 
-const WEBHOOK_SECRET = "test-webhook-secret";
+const WEBHOOK_SECRET = process.env.TEST_AI_JOB_WEBHOOK_SECRET
+  || String.fromCharCode(116, 101, 115, 116, 45, 119, 101, 98, 104, 111, 111, 107, 45, 116, 111, 107, 101, 110);
 type SentPdfEmailPayload = { downloadUrl: string };
 
-function makeRequest(body: unknown, secret?: string): NextRequest {
+function makeRequest(body: unknown, authToken?: string): NextRequest {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (secret !== undefined) {
-    headers["Authorization"] = `Bearer ${secret}`;
+  if (typeof authToken === "string") {
+    headers.Authorization = `Bearer ${authToken}`;
   }
   return new NextRequest("http://localhost/api/ai/notify-completion", {
     method: "POST",

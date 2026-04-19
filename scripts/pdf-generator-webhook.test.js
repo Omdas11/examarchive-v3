@@ -26,7 +26,7 @@ jest.mock("node-appwrite/file", () => ({
 }));
 
 jest.mock("katex", () => ({
-  renderToString: jest.fn((expr) => `<math>${expr}</math>`),
+  renderToString: jest.fn((expr) => "<math>" + expr + "</math>"),
 }), { virtual: true });
 
 jest.mock("sanitize-html", () => {

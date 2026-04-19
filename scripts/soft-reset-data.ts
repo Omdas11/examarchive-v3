@@ -46,8 +46,16 @@ const SYLLABUS_TABLE_COL_ID = "Syllabus_Table";
 const QUESTIONS_TABLE_COL_ID = "Questions_Table";
 const AI_INGESTIONS_COL_ID = "ai_ingestions";
 const SYLLABUS_REGISTRY_COL_ID = "syllabus_registry";
-const SYLLABUS_MD_BUCKET_ID = "examarchive-syllabus-md-ingestion";
-const QUESTION_ASSETS_BUCKET_ID = "examarchive_question_ingest_assets";
+const STORAGE_BUCKETS_TO_CLEAR = [
+  "papers",
+  "examarchive-syllabus-md-ingestion",
+  "examarchive_question_ingest_assets",
+  "syllabus-files",
+  "avatars",
+  "generated-md-cache",
+  "cached-unit-notes",
+  "cached-solved-papers",
+];
 const LIST_PAGE_LIMIT = 100;
 const MAX_TRUNCATION_ITERATIONS = 1000;
 
@@ -205,13 +213,12 @@ async function softReset(includeIngestions: boolean, clearBucket: boolean): Prom
   }
 
   if (clearBucket) {
-    console.log(
-      `    Clearing ingestion storage buckets: ${SYLLABUS_MD_BUCKET_ID} and ${QUESTION_ASSETS_BUCKET_ID} (--clear-bucket flag set).`,
-    );
-    await emptyBucket(SYLLABUS_MD_BUCKET_ID);
-    await emptyBucket(QUESTION_ASSETS_BUCKET_ID);
+    console.log("    Clearing storage buckets (--clear-bucket flag set).");
+    for (const bucketId of STORAGE_BUCKETS_TO_CLEAR) {
+      await emptyBucket(bucketId);
+    }
   } else {
-    console.log("    Skipping ingestion storage buckets (default behavior).");
+    console.log("    Skipping storage bucket cleanup (default behavior).");
   }
 
   console.log("✅  Soft reset complete.");
