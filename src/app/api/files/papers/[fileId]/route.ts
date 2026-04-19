@@ -184,11 +184,15 @@ export async function GET(
         buildPdfFileNameFromPayload(jobPayload),
       );
       const encodedFileName = encodeURIComponent(fileName);
-      const pdfBytes = new Uint8Array(
-        pdfBuffer.buffer as ArrayBuffer,
-        pdfBuffer.byteOffset,
-        pdfBuffer.byteLength,
-      );
+      const backingBuffer = pdfBuffer.buffer;
+      const pdfBytes: Uint8Array<ArrayBuffer> =
+        backingBuffer instanceof ArrayBuffer
+          ? new Uint8Array(
+              backingBuffer,
+              pdfBuffer.byteOffset,
+              pdfBuffer.byteLength,
+            )
+          : Uint8Array.from(pdfBuffer);
       return new NextResponse(pdfBytes, {
         headers: {
           "Content-Type": "application/pdf",
