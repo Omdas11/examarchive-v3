@@ -584,6 +584,7 @@ async function notifyCompletionWebhook({ jobId, status, fileId, userId, userEmai
         message: error instanceof Error ? error.message : String(error),
         error,
       });
+      // Jitter from 0.85 to 1.15 (0.01 increments) helps avoid synchronized retry bursts.
       const jitter = randomInt(85, 116) / 100;
       const backoffMs = baseBackoffMs * (2 ** (attempt - 1)) * jitter;
       await sleep(backoffMs);
@@ -607,6 +608,7 @@ async function notifyCompletionWebhook({ jobId, status, fileId, userId, userEmai
           status: response.status,
           body: responseBody.slice(0, NOTIFY_WEBHOOK_ERROR_LOG_MAX_CHARS),
         });
+        // Jitter from 0.85 to 1.15 (0.01 increments) helps avoid synchronized retry bursts.
         const jitter = randomInt(85, 116) / 100;
         const backoffMs = baseBackoffMs * (2 ** (attempt - 1)) * jitter;
         await sleep(backoffMs);

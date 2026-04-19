@@ -59,7 +59,7 @@ jobs:
             }
 
             const association = context.payload.comment.author_association;
-            const allowed = new Set(["OWNER", "COLLABORATOR"]);
+            const allowed = new Set(["OWNER", "COLLABORATOR", "MEMBER"]);
             if (!allowed.has(association)) {
               core.setOutput("authorized", "false");
               await github.rest.issues.createComment({

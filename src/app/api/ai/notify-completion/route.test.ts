@@ -33,8 +33,7 @@ jest.mock("@/lib/generation-notifications", () => ({
   sendGenerationFailureEmail: (...args: unknown[]) => mockSendGenerationFailureEmail(...args),
 }));
 
-const WEBHOOK_SECRET = process.env.TEST_AI_JOB_WEBHOOK_SECRET
-  || String.fromCharCode(116, 101, 115, 116, 45, 119, 101, 98, 104, 111, 111, 107, 45, 116, 111, 107, 101, 110);
+const TEST_AUTH_BEARER = process.env.TEST_AI_JOB_WEBHOOK_SECRET || "test-webhook-token";
 type SentPdfEmailPayload = { downloadUrl: string };
 
 function makeRequest(body: unknown, authToken?: string): NextRequest {
@@ -54,7 +53,7 @@ describe("POST /api/ai/notify-completion", () => {
 
   beforeEach(() => {
     jest.resetAllMocks();
-    process.env = { ...originalEnv, AI_JOB_WEBHOOK_SECRET: WEBHOOK_SECRET };
+    process.env = { ...originalEnv, AI_JOB_WEBHOOK_SECRET: TEST_AUTH_BEARER };
     mockUpdateDocument.mockResolvedValue({});
     mockListDocuments.mockResolvedValue({ documents: [] });
     mockAdminDatabases.mockReturnValue({
@@ -186,7 +185,7 @@ describe("POST /api/ai/notify-completion", () => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${WEBHOOK_SECRET}`,
+        Authorization: `Bearer ${TEST_AUTH_BEARER}`,
       },
       body: "not-valid-json{{{",
     });
@@ -197,7 +196,7 @@ describe("POST /api/ai/notify-completion", () => {
   });
 
   it("returns 400 when jobId is missing", async () => {
-    const req = makeRequest({ status: "completed", fileId: "file1" }, WEBHOOK_SECRET);
+    const req = makeRequest({ status: "completed", fileId: "file1" }, TEST_AUTH_BEARER);
     const res = await POST(req);
     expect(res.status).toBe(400);
     const json = await res.json();
@@ -205,7 +204,7 @@ describe("POST /api/ai/notify-completion", () => {
   });
 
   it("returns 400 when status is invalid", async () => {
-    const req = makeRequest({ jobId: "job1", status: "unknown", fileId: "file1" }, WEBHOOK_SECRET);
+    const req = makeRequest({ jobId: "job1", status: "unknown", fileId: "file1" }, TEST_AUTH_BEARER);
     const res = await POST(req);
     expect(res.status).toBe(400);
     const json = await res.json();
@@ -214,7 +213,7 @@ describe("POST /api/ai/notify-completion", () => {
 
   it("returns 404 when job is not found in db for verified callbacks", async () => {
     mockGetDocument.mockRejectedValue({ status: 404 });
-    const req = makeRequest({ jobId: "missing-job", status: "completed", fileId: "file1" }, WEBHOOK_SECRET);
+    const req = makeRequest({ jobId: "missing-job", status: "completed", fileId: "file1" }, TEST_AUTH_BEARER);
     const res = await POST(req);
     expect(res.status).toBe(404);
     const json = await res.json();
@@ -232,7 +231,7 @@ describe("POST /api/ai/notify-completion", () => {
 
   it("returns 500 when db lookup fails with non-404 error", async () => {
     mockGetDocument.mockRejectedValue(new Error("db connection error"));
-    const req = makeRequest({ jobId: "job1", status: "completed", fileId: "file1" }, WEBHOOK_SECRET);
+    const req = makeRequest({ jobId: "job1", status: "completed", fileId: "file1" }, TEST_AUTH_BEARER);
     const res = await POST(req);
     expect(res.status).toBe(500);
   });
@@ -252,7 +251,7 @@ describe("POST /api/ai/notify-completion", () => {
 
     it("sends completion email and returns ok:true for completed status", async () => {
       mockSendGenerationPdfEmail.mockResolvedValue(undefined);
-      const req = makeRequest({ jobId: "job1", status: "completed", fileId: "file-abc" }, WEBHOOK_SECRET);
+      const req = makeRequest({ jobId: "job1", status: "completed", fileId: "file-abc" }, TEST_AUTH_BEARER);
       const res = await POST(req);
       expect(res.status).toBe(200);
       const json = await res.json();
@@ -268,7 +267,7 @@ describe("POST /api/ai/notify-completion", () => {
 
     it("falls back to result_file_id in job when fileId is not in body", async () => {
       mockSendGenerationPdfEmail.mockResolvedValue(undefined);
-      const req = makeRequest({ jobId: "job1", status: "completed", fileId: "" }, WEBHOOK_SECRET);
+      const req = makeRequest({ jobId: "job1", status: "completed", fileId: "" }, TEST_AUTH_BEARER);
       const res = await POST(req);
       expect(res.status).toBe(200);
       expect(mockSendGenerationPdfEmail).toHaveBeenCalledWith(
@@ -278,7 +277,7 @@ describe("POST /api/ai/notify-completion", () => {
 
     it("returns 400 when no fileId is available for completed job", async () => {
       mockGetDocument.mockResolvedValue({ ...jobDoc, result_file_id: "" });
-      const req = makeRequest({ jobId: "job1", status: "completed", fileId: "" }, WEBHOOK_SECRET);
+      const req = makeRequest({ jobId: "job1", status: "completed", fileId: "" }, TEST_AUTH_BEARER);
       const res = await POST(req);
       expect(res.status).toBe(400);
       const json = await res.json();
@@ -287,7 +286,7 @@ describe("POST /api/ai/notify-completion", () => {
 
     it("returns 500 when email sending fails", async () => {
       mockSendGenerationPdfEmail.mockRejectedValue(new Error("SMTP error"));
-      const req = makeRequest({ jobId: "job1", status: "completed", fileId: "file-abc" }, WEBHOOK_SECRET);
+      const req = makeRequest({ jobId: "job1", status: "completed", fileId: "file-abc" }, TEST_AUTH_BEARER);
       const res = await POST(req);
       expect(res.status).toBe(500);
       const json = await res.json();
@@ -300,7 +299,7 @@ describe("POST /api/ai/notify-completion", () => {
       mockUpdateDocument
         .mockResolvedValueOnce({})
         .mockRejectedValueOnce(new Error("write failed"));
-      const req = makeRequest({ jobId: "job1", status: "completed", fileId: "file-abc" }, WEBHOOK_SECRET);
+      const req = makeRequest({ jobId: "job1", status: "completed", fileId: "file-abc" }, TEST_AUTH_BEARER);
       const res = await POST(req);
       expect(res.status).toBe(200);
       const json = await res.json();
@@ -322,7 +321,7 @@ describe("POST /api/ai/notify-completion", () => {
       });
       mockListDocuments.mockResolvedValue({ documents: [] });
       mockSendGenerationPdfEmail.mockResolvedValue(undefined);
-      const req = makeRequest({ jobId: "job1", status: "completed", fileId: "file-abc" }, WEBHOOK_SECRET);
+      const req = makeRequest({ jobId: "job1", status: "completed", fileId: "file-abc" }, TEST_AUTH_BEARER);
       const res = await POST(req);
       expect(res.status).toBe(200);
       expect(mockSendGenerationPdfEmail).toHaveBeenCalledWith(
@@ -341,7 +340,7 @@ describe("POST /api/ai/notify-completion", () => {
         input_payload_json: JSON.stringify({ jobType: "solved-paper", paperCode: "MATH202", year: 2023, userEmail: "user@example.com" }),
       });
       mockSendGenerationPdfEmail.mockResolvedValue(undefined);
-      const req = makeRequest({ jobId: "job1", status: "completed", fileId: "file-xyz" }, WEBHOOK_SECRET);
+      const req = makeRequest({ jobId: "job1", status: "completed", fileId: "file-xyz" }, TEST_AUTH_BEARER);
       await POST(req);
       expect(mockSendGenerationPdfEmail).toHaveBeenCalledWith(
         expect.objectContaining({ title: expect.stringContaining("MATH202") }),
@@ -364,7 +363,7 @@ describe("POST /api/ai/notify-completion", () => {
 
     it("sends failure email and returns ok:true for failed status", async () => {
       mockSendGenerationFailureEmail.mockResolvedValue(undefined);
-      const req = makeRequest({ jobId: "job1", status: "failed", fileId: "" }, WEBHOOK_SECRET);
+      const req = makeRequest({ jobId: "job1", status: "failed", fileId: "" }, TEST_AUTH_BEARER);
       const res = await POST(req);
       expect(res.status).toBe(200);
       const json = await res.json();
@@ -380,7 +379,7 @@ describe("POST /api/ai/notify-completion", () => {
 
     it("returns 500 when failure email sending fails", async () => {
       mockSendGenerationFailureEmail.mockRejectedValue(new Error("SMTP failure"));
-      const req = makeRequest({ jobId: "job1", status: "failed", fileId: "" }, WEBHOOK_SECRET);
+      const req = makeRequest({ jobId: "job1", status: "failed", fileId: "" }, TEST_AUTH_BEARER);
       const res = await POST(req);
       expect(res.status).toBe(500);
       const json = await res.json();
@@ -393,7 +392,7 @@ describe("POST /api/ai/notify-completion", () => {
       mockUpdateDocument
         .mockResolvedValueOnce({})
         .mockRejectedValueOnce(new Error("write failed"));
-      const req = makeRequest({ jobId: "job1", status: "failed", fileId: "" }, WEBHOOK_SECRET);
+      const req = makeRequest({ jobId: "job1", status: "failed", fileId: "" }, TEST_AUTH_BEARER);
       const res = await POST(req);
       expect(res.status).toBe(200);
       const json = await res.json();
@@ -437,7 +436,7 @@ describe("POST /api/ai/notify-completion", () => {
         error_message: "",
       });
       mockSendGenerationPdfEmail.mockResolvedValue(undefined);
-      const req = makeRequest({ jobId: "job1", status: "completed", fileId: "file1" }, WEBHOOK_SECRET);
+      const req = makeRequest({ jobId: "job1", status: "completed", fileId: "file1" }, TEST_AUTH_BEARER);
       await POST(req);
       expect(mockSendGenerationPdfEmail).toHaveBeenCalledWith(
         expect.objectContaining({ email: "payload@example.com" }),
@@ -455,7 +454,7 @@ describe("POST /api/ai/notify-completion", () => {
         })
         .mockResolvedValueOnce({ email: "fromdb@example.com" });
       mockSendGenerationPdfEmail.mockResolvedValue(undefined);
-      const req = makeRequest({ jobId: "job1", status: "completed", fileId: "file2" }, WEBHOOK_SECRET);
+      const req = makeRequest({ jobId: "job1", status: "completed", fileId: "file2" }, TEST_AUTH_BEARER);
       await POST(req);
       expect(mockSendGenerationPdfEmail).toHaveBeenCalledWith(
         expect.objectContaining({ email: "fromdb@example.com" }),
@@ -471,7 +470,7 @@ describe("POST /api/ai/notify-completion", () => {
           input_payload_json: JSON.stringify({ jobType: "notes", paperCode: "B3", unitNumber: 1 }),
           error_message: "",
         });
-      const req = makeRequest({ jobId: "job1", status: "completed", fileId: "file3" }, WEBHOOK_SECRET);
+      const req = makeRequest({ jobId: "job1", status: "completed", fileId: "file3" }, TEST_AUTH_BEARER);
       const res = await POST(req);
       expect(res.status).toBe(500);
       const json = await res.json();
