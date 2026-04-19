@@ -481,7 +481,8 @@ describe("pdf-generator / processGenerationJob cache behavior", () => {
     Storage.mockImplementation(() => mockStorage);
     AbortSignal.timeout = jest.fn(() => undefined);
     global.fetch = jest.fn().mockImplementation(async (url) => {
-      if (String(url).includes("generativelanguage.googleapis.com")) {
+      const parsedUrl = new URL(String(url));
+      if (parsedUrl.hostname === "generativelanguage.googleapis.com") {
         return { ok: false, status: 503, text: async () => "Service Unavailable" };
       }
       return { ok: true, status: 200, text: async () => "" };
