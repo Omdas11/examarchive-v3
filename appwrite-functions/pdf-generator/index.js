@@ -2,7 +2,7 @@
 const { Client, Databases, Storage, Query, ID } = require("node-appwrite");
 const { InputFile } = require("node-appwrite/file");
 const { randomInt } = require("node:crypto");
-const katex = require("katex");
+const sanitizeHtml = require("sanitize-html");
 
 const GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta";
 const DEFAULT_MODEL = process.env.GEMINI_MODEL_ID || "gemini-3.1-flash-lite-preview";
@@ -45,6 +45,8 @@ const GOTENBERG_BASE_BACKOFF_MS = 1_500;
 const GOTENBERG_MAX_BACKOFF_MS = 6_000;
 const TRUSTED_GOTENBERG_HOST_SUFFIX = ".hf.space";
 const MAX_SAFE_PDF_FILENAME_CORE_LENGTH = 120;
+const MARKED_FALLBACK_LOG_PREFIX = "[pdf-generator] Falling back to basic markdown parser.";
+const MAX_RANDOM_NAMESPACE_INT = 0x1_0000_0000;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -73,6 +75,86 @@ function splitSyllabusIntoSubTopics(syllabusContent) {
     .filter(Boolean);
 }
 
+function markdownToBasicHtml(markdown) {
+  const source = String(markdown || "").replace(/\r\n/g, "\n");
+  const lines = source.split("\n");
+  const htmlLines = [];
+  let paragraph = [];
+  let inList = false;
+
+  const flushParagraph = () => {
+    if (!paragraph.length) return;
+    htmlLines.push("<p>" + escapeHtml(paragraph.join(" ")) + "</p>");
+    paragraph = [];
+  };
+  const closeList = () => {
+    if (!inList) return;
+    htmlLines.push("</ul>");
+    inList = false;
+  };
+
+  lines.forEach((line) => {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      flushParagraph();
+      closeList();
+      return;
+    }
+    const headingMatch = trimmed.match(/^(#{1,6})\s+(.*)$/);
+    if (headingMatch) {
+      flushParagraph();
+      closeList();
+      const level = headingMatch[1].length;
+      htmlLines.push("<h" + level + ">" + escapeHtml(headingMatch[2]) + "</h" + level + ">");
+      return;
+    }
+    const bulletMatch = trimmed.match(/^[-*+]\s+(.*)$/);
+    if (bulletMatch) {
+      flushParagraph();
+      if (!inList) {
+        htmlLines.push("<ul>");
+        inList = true;
+      }
+      htmlLines.push("<li>" + escapeHtml(bulletMatch[1]) + "</li>");
+      return;
+    }
+    closeList();
+    paragraph.push(trimmed);
+  });
+
+  flushParagraph();
+  closeList();
+  return htmlLines.join("\n");
+}
+
+async function parseMarkdownToHtml(markdown) {
+  try {
+    const markedModule = await import("marked");
+    let markedParser = null;
+    if (markedModule && typeof markedModule.marked?.parse === "function") {
+      markedParser = markedModule.marked;
+    } else if (markedModule?.default && typeof markedModule.default.marked?.parse === "function") {
+      markedParser = markedModule.default.marked;
+    } else if (markedModule?.default && typeof markedModule.default.parse === "function") {
+      markedParser = markedModule.default;
+    }
+    if (!markedParser) {
+      console.warn(`${MARKED_FALLBACK_LOG_PREFIX} Marked parser was not found on module exports.`);
+      return markdownToBasicHtml(markdown);
+    }
+    const parsedHtml = typeof markedParser?.parse === "function"
+      ? markedParser.parse(markdown, { gfm: true, breaks: true })
+      : "";
+    if (typeof parsedHtml === "string" && parsedHtml.trim()) {
+      return parsedHtml;
+    }
+    console.warn(`${MARKED_FALLBACK_LOG_PREFIX} Marked parse output was empty.`);
+  } catch {
+    console.warn(`${MARKED_FALLBACK_LOG_PREFIX} Marked import failed.`);
+  }
+  return markdownToBasicHtml(markdown);
+}
+
 function normalizeBearerToken(rawToken) {
   const token = String(rawToken || "").trim();
   if (!token) return "";
@@ -83,7 +165,9 @@ function escapeHtml(value) {
   return String(value || "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 const MALFORMED_LATEX_COMMAND_PATTERN = /(^|[^A-Za-z0-9_])(?:l|\|)(frac|vec|pi|mu|chi|alpha|beta|gamma|theta|lambda|tau|circ|sqrt|text|hat|sin|cos)\b/g;
@@ -91,6 +175,78 @@ const ESCAPED_DISPLAY_MATH_PATTERN = /\\\$\\\$([\s\S]*?)\\\$\\\$/g;
 // Keep inline-math unescape conservative so literal currency/prose "\$" does not become a math delimiter.
 // We only unescape when the content starts/ends with math-like tokens and contains no nested escaped dollar.
 const ESCAPED_INLINE_MATH_PATTERN = /\\\$(?!\$)([\\A-Za-z0-9({\[](?:(?!\\\$)[^\n])*?[\\A-Za-z0-9)}\]])\\\$(?!\$)/g;
+
+function isEscapedAtIndex(value, index) {
+  let slashCount = 0;
+  for (let cursor = index - 1; cursor >= 0 && value[cursor] === "\\"; cursor -= 1) {
+    slashCount += 1;
+  }
+  return slashCount % 2 === 1;
+}
+
+function convertDollarMathToBracketMath(text) {
+  const source = String(text || "");
+  let output = "";
+  let cursor = 0;
+  let mode = null;
+  let openingIndex = -1;
+  let contentStartIndex = -1;
+  let delimiterSize = 1;
+  let index = 0;
+
+  while (index < source.length) {
+    if (source[index] !== "$" || isEscapedAtIndex(source, index)) {
+      index += 1;
+      continue;
+    }
+    const isDisplayDelimiter =
+      index + 1 < source.length
+      && source[index + 1] === "$"
+      && !isEscapedAtIndex(source, index + 1);
+    const nextDelimiterSize = isDisplayDelimiter ? 2 : 1;
+    const nextMode = isDisplayDelimiter ? "display" : "inline";
+
+    if (mode === null) {
+      output += source.slice(cursor, index);
+      mode = nextMode;
+      delimiterSize = nextDelimiterSize;
+      openingIndex = index;
+      contentStartIndex = index + nextDelimiterSize;
+      index += nextDelimiterSize;
+      continue;
+    }
+
+    if (
+      (mode === "display" && nextMode === "display" && nextDelimiterSize === delimiterSize)
+      || (mode === "inline" && nextMode === "inline" && nextDelimiterSize === delimiterSize)
+    ) {
+      const expression = source.slice(contentStartIndex, index);
+      if (mode === "inline" && expression.includes("\n")) {
+        output += source.slice(openingIndex, index + nextDelimiterSize);
+      } else {
+        output += mode === "display"
+          ? `\\[${expression}\\]`
+          : `\\(${expression}\\)`;
+      }
+      index += nextDelimiterSize;
+      cursor = index;
+      mode = null;
+      openingIndex = -1;
+      contentStartIndex = -1;
+      delimiterSize = 1;
+      continue;
+    }
+
+    index += 1;
+  }
+
+  if (mode !== null && openingIndex >= 0) {
+    output += source.slice(openingIndex);
+    return output;
+  }
+  output += source.slice(cursor);
+  return output;
+}
 
 function sanitizeAiMath(text) {
   if (!text) return text;
@@ -111,6 +267,10 @@ function sanitizeAiMath(text) {
   cleaned = cleaned.replace(/\\\^/g, "^");     // Unescape carets
   cleaned = cleaned.replace(/\\{/g, "{");      // Unescape curly braces
   cleaned = cleaned.replace(/\\}/g, "}");
+  cleaned = cleaned.replace(/\\\\\(/g, "\\(");
+  cleaned = cleaned.replace(/\\\\\)/g, "\\)");
+  cleaned = cleaned.replace(/\\\\\[/g, "\\[");
+  cleaned = cleaned.replace(/\\\\\]/g, "\\]");
 
   // 2. Fix the "l" and "|" backslash hallucination
   cleaned = cleaned.replace(
@@ -121,91 +281,224 @@ function sanitizeAiMath(text) {
   // 3. Fix the weird caret hallucination (e.g., r^{\wedge}3 -> r^3)
   cleaned = cleaned.replace(/\^\{\\wedge\}/g, "^");
   cleaned = cleaned.replace(/\{\\wedge\}/g, "^");
+  cleaned = convertDollarMathToBracketMath(cleaned);
 
   return cleaned;
 }
 
-function renderMathInText(text) {
-  const source = String(text || "");
-  if (!source.includes("$")) {
-    return escapeHtml(source);
-  }
-
-  let output = "";
-  let cursor = 0;
-  const mathPattern = /\$\$([\s\S]+?)\$\$|\$([^\n$]+?)\$/g;
-  let match = mathPattern.exec(source);
-  while (match) {
-    const start = match.index;
-    output += escapeHtml(source.slice(cursor, start));
-    const expression = String(match[1] ?? match[2] ?? "");
-    const isDisplayMode = Boolean(match[1]);
-    try {
-      output += katex.renderToString(expression.trim(), {
-        throwOnError: false,
-        displayMode: isDisplayMode,
-        strict: "warn",
-      });
-    } catch {
-      output += escapeHtml(match[0]);
+function extractSyllabusHighlights(markdown) {
+  const lines = String(markdown || "").replace(/\r\n/g, "\n").split("\n");
+  const startIndex = lines.findIndex((line) => /^#{1,6}\s*Syllabus Highlights\b/i.test(line.trim()));
+  if (startIndex < 0) return [];
+  const highlights = [];
+  for (let index = startIndex + 1; index < lines.length; index += 1) {
+    const line = lines[index].trim();
+    if (!line) continue;
+    if (/^#{1,6}\s+/.test(line)) break;
+    const bulletMatch = line.match(/^[-*+]\s+(.*)$/);
+    if (bulletMatch?.[1]?.trim()) {
+      highlights.push(bulletMatch[1].trim());
+      if (highlights.length >= 8) break;
     }
-    cursor = start + match[0].length;
-    match = mathPattern.exec(source);
   }
-  output += escapeHtml(source.slice(cursor));
-  return output;
+  return highlights;
 }
 
-function markdownToBasicHtml(markdown) {
-  const source = String(markdown || "").replace(/\r\n/g, "\n");
-  const lines = source.split("\n");
-  const htmlLines = [];
-  let paragraph = [];
+function protectBracketMath(markdown) {
+  const protectedBlocks = [];
+  const protectedInline = [];
+  const source = String(markdown || "");
+  const tokenNamespace = "EXAMARCHIVE_MATH_"
+    + Date.now().toString(36)
+    + "_"
+    + randomInt(0, MAX_RANDOM_NAMESPACE_INT).toString(36);
+  const protectDelimitedMath = ({ input, openingDelimiter, closingDelimiter, bucket, tokenPrefix, singleLineOnly }) => {
+    let output = "";
+    let cursor = 0;
+    while (cursor < input.length) {
+      const openIndex = input.indexOf(openingDelimiter, cursor);
+      if (openIndex < 0) {
+        output += input.slice(cursor);
+        break;
+      }
+      if (isEscapedAtIndex(input, openIndex)) {
+        output += input.slice(cursor, openIndex + 1);
+        cursor = openIndex + 1;
+        continue;
+      }
 
-  const flushParagraph = () => {
-    if (!paragraph.length) return;
-    htmlLines.push("<p>" + paragraph.join(" ") + "</p>");
-    paragraph = [];
+      const expressionStart = openIndex + openingDelimiter.length;
+      let searchIndex = expressionStart;
+      let closeIndex = -1;
+      while (searchIndex < input.length) {
+        const candidateCloseIndex = input.indexOf(closingDelimiter, searchIndex);
+        if (candidateCloseIndex < 0) break;
+        if (singleLineOnly && input.slice(expressionStart, candidateCloseIndex).includes("\n")) break;
+        if (!isEscapedAtIndex(input, candidateCloseIndex)) {
+          closeIndex = candidateCloseIndex;
+          break;
+        }
+        searchIndex = candidateCloseIndex + 1;
+      }
+
+      if (closeIndex < 0) {
+        output += input.slice(cursor);
+        break;
+      }
+
+      output += input.slice(cursor, openIndex);
+      const rawMath = input.slice(openIndex, closeIndex + closingDelimiter.length);
+      const token = `@@${tokenNamespace}_${tokenPrefix}_${bucket.length}@@`;
+      bucket.push(rawMath);
+      output += token;
+      cursor = closeIndex + closingDelimiter.length;
+    }
+    return output;
   };
 
-  lines.forEach((line) => {
-    const trimmed = line.trim();
-    if (!trimmed) {
-      flushParagraph();
-      return;
-    }
-    const headingMatch = trimmed.match(/^(#{1,6})\s+(.*)$/);
-    if (headingMatch) {
-      flushParagraph();
-      const level = headingMatch[1].length;
-      htmlLines.push("<h" + level + ">" + renderMathInText(headingMatch[2]) + "</h" + level + ">");
-      return;
-    }
-    paragraph.push(renderMathInText(trimmed));
+  let protectedMarkdown = protectDelimitedMath({
+    input: source,
+    openingDelimiter: "\\[",
+    closingDelimiter: "\\]",
+    bucket: protectedBlocks,
+    tokenPrefix: "EXAMARCHIVE_DISPLAY_MATH",
+    singleLineOnly: false,
   });
-  flushParagraph();
-  return htmlLines.join("\n");
+  protectedMarkdown = protectDelimitedMath({
+    input: protectedMarkdown,
+    openingDelimiter: "\\(",
+    closingDelimiter: "\\)",
+    bucket: protectedInline,
+    tokenPrefix: "EXAMARCHIVE_INLINE_MATH",
+    singleLineOnly: true,
+  });
+
+  const restore = (value) => {
+    let restored = String(value || "");
+    protectedBlocks.forEach((expression, index) => {
+      restored = restored.replaceAll(`@@${tokenNamespace}_EXAMARCHIVE_DISPLAY_MATH_${index}@@`, expression);
+    });
+    protectedInline.forEach((expression, index) => {
+      restored = restored.replaceAll(`@@${tokenNamespace}_EXAMARCHIVE_INLINE_MATH_${index}@@`, expression);
+    });
+    return restored;
+  };
+
+  return { protectedMarkdown, restore };
 }
 
-function markdownToPdfHtml(markdown, title) {
-  const renderedMarkdown = markdownToBasicHtml(markdown);
+function sanitizeGeneratedHtml(html) {
+  return sanitizeHtml(String(html || ""), {
+    allowedTags: sanitizeHtml.defaults.allowedTags.concat([
+      "h1",
+      "h2",
+      "section",
+      "main",
+      "article",
+    ]),
+    allowedAttributes: {
+      ...sanitizeHtml.defaults.allowedAttributes,
+      "*": ["class"],
+    },
+    allowedSchemes: ["http", "https", "mailto"],
+    allowedSchemesAppliedToAttributes: ["href", "src"],
+    allowProtocolRelative: false,
+  });
+}
+
+function buildCoverPageHtml({ title, markdown }) {
+  const highlights = extractSyllabusHighlights(markdown)
+    .map((highlight) => "<li>" + escapeHtml(highlight) + "</li>")
+    .join("");
+  const generatedAt = new Date().toISOString().slice(0, 10);
+
+  return [
+    "<section class=\"cover-page\">",
+    "<h1>ExamArchive Notes Dossier</h1>",
+    "<p class=\"cover-title\">" + escapeHtml(title) + "</p>",
+    "<p class=\"cover-date\"><strong>Generated:</strong> " + escapeHtml(generatedAt) + "</p>",
+    highlights ? "<h2>Syllabus Highlights</h2>" : "",
+    highlights ? "<ul>" + highlights + "</ul>" : "",
+    "</section>",
+  ].join("");
+}
+
+function buildHeaderHtml() {
+  return [
+    "<!DOCTYPE html>",
+    "<html lang=\"en\"><head><meta charset=\"UTF-8\"/>",
+    "<style>",
+    "body{font-family:Inter,Arial,sans-serif;font-size:10px;color:#7a3a3a;margin:0;padding:0 1in 5px;width:100%;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e5e7eb;box-sizing:border-box;}",
+    ".brand{font-weight:700;letter-spacing:0.06em;}",
+    "</style></head><body>",
+    "<span class=\"brand\">EXAMARCHIVE</span>",
+    "<span></span>",
+    "</body></html>",
+  ].join("");
+}
+
+function buildFooterHtml(userEmail) {
+  const safeEmail = String(userEmail || "").trim();
+  const watermarkText = safeEmail ? "Personalized copy for " + escapeHtml(safeEmail) : "";
+  return [
+    "<!DOCTYPE html>",
+    "<html lang=\"en\"><head><meta charset=\"UTF-8\"/>",
+    "<style>",
+    "body{font-family:Inter,Arial,sans-serif;font-size:11px;color:#800000;margin:0;padding:5px 1in 0;width:100%;display:flex;justify-content:space-between;align-items:center;gap:8px;box-sizing:border-box;}",
+    ".footer-watermark{font-size:9px;opacity:0.75;letter-spacing:0.02em;}",
+    "</style></head><body>",
+    "<span class=\"footer-watermark\">" + watermarkText + "</span>",
+    "<span><span class=\"pageNumber\"></span> / <span class=\"totalPages\"></span></span>",
+    "</body></html>",
+  ].join("");
+}
+
+async function markdownToPdfHtml(markdown, title) {
+  const { protectedMarkdown, restore } = protectBracketMath(markdown);
+  const parsedHtml = await parseMarkdownToHtml(protectedMarkdown);
+  const restoredHtml = restore(typeof parsedHtml === "string" ? parsedHtml : "");
+  const renderedMarkdown = sanitizeGeneratedHtml(restoredHtml);
+  const coverPageHtml = buildCoverPageHtml({ title, markdown });
+  const watermarkSvg = encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300"><text x="50%" y="50%" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700" fill="#800000" fill-opacity="0.08" transform="rotate(-45 150 150)" text-anchor="middle">EXAMARCHIVE</text></svg>`,
+  );
   return [
     "<!doctype html>",
     "<html><head><meta charset=\"utf-8\"/>",
     "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/>",
     "<title>" + escapeHtml(title) + "</title>",
+    "<script>",
+    "MathJax = {",
+    "tex: {",
+    "inlineMath: [[\"\\\\(\", \"\\\\)\"]],",
+    "displayMath: [[\"\\\\[\", \"\\\\]\"]],",
+    "},",
+    "svg: { fontCache: \"global\" },",
+    "};",
+    "</script>",
+    "<script id=\"MathJax-script\" async src=\"https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js\"></script>",
     "<style>",
-    "body{font-family:Inter,Arial,sans-serif;color:#231515;line-height:1.65;font-size:14px;padding:18mm 14mm;}",
+    "@page{size:A4;margin:1in;}",
+    "body{font-family:Inter,Arial,sans-serif;color:#231515;line-height:1.65;font-size:14px;padding:0;margin:0;background-image:url(\"data:image/svg+xml," + watermarkSvg + "\");background-size:230px 230px;background-repeat:repeat;}",
+    "main{padding:0 0.1in;}",
+    ".cover-page{page-break-after:always;min-height:92vh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:0 12mm;}",
+    ".cover-page h1{margin:0 0 16px;border-bottom:none;font-size:34px;letter-spacing:0.04em;color:#800000;}",
+    ".cover-page .cover-title{margin:0 0 8px;font-size:16px;color:#4b1f1f;}",
+    ".cover-page .cover-date{margin:0 0 18px;font-size:13px;color:#6e1111;}",
+    ".cover-page h2{border-left:none;color:#800000;margin-bottom:8px;padding-left:0;}",
+    ".cover-page ul{display:inline-block;text-align:left;margin:0;padding-left:18px;}",
     "h1,h2,h3,h4,h5,h6{color:#800000;line-height:1.35;}",
     "h1{border-bottom:1px solid #e8d8d8;padding-bottom:6px;}",
     "pre{background:#101828;color:#f8fafc;padding:12px;border-radius:6px;overflow:auto;}",
     "code{background:#f4f4f5;padding:0.1em 0.3em;border-radius:4px;}",
     "blockquote{border-left:3px solid #800000;padding-left:10px;color:#6e1111;}",
     "img{max-width:100%;height:auto;}",
-    ".katex-display{margin:0.75em 0;}",
     "</style>",
     "</head><body>",
+    "<main>",
+    coverPageHtml,
     "<article>" + renderedMarkdown + "</article>",
+    "</main>",
     "</body></html>",
   ].join("");
 }
@@ -271,14 +564,16 @@ function normalizeSafePdfCoreName(rawTitle) {
   return normalized.slice(0, MAX_SAFE_PDF_FILENAME_CORE_LENGTH);
 }
 
-async function renderMarkdownToPdfBuffer(markdown, title) {
+async function renderMarkdownToPdfBuffer(markdown, title, options = {}) {
   const gotenbergUrl = validateGotenbergUrl(process.env.GOTENBERG_URL);
   const gotenbergAuthToken = normalizeBearerToken(process.env.GOTENBERG_AUTH_TOKEN);
   if (!gotenbergAuthToken) {
     throw new Error("Missing GOTENBERG_AUTH_TOKEN in function environment.");
   }
 
-  const html = markdownToPdfHtml(markdown, title);
+  const html = await markdownToPdfHtml(markdown, title);
+  const headerHtml = buildHeaderHtml();
+  const footerHtml = buildFooterHtml(options.userEmail);
   const endpoint = new URL(GOTENBERG_CONVERT_ENDPOINT_PATH, gotenbergUrl).toString();
   let lastError = null;
 
@@ -286,6 +581,13 @@ async function renderMarkdownToPdfBuffer(markdown, title) {
     try {
       const form = new FormData();
       form.append("files", new Blob([html], { type: "text/html" }), "index.html");
+      form.append("files", new Blob([headerHtml], { type: "text/html" }), "header.html");
+      form.append("files", new Blob([footerHtml], { type: "text/html" }), "footer.html");
+      form.append("displayHeaderFooter", "true");
+      form.append("marginTop", "1.2");
+      form.append("marginBottom", "1.2");
+      form.append("marginLeft", "1");
+      form.append("marginRight", "1");
       form.append("printBackground", "true");
       form.append("waitDelay", normalizeGotenbergWaitDelay(process.env.GOTENBERG_WAIT_DELAY));
       const response = await fetch(endpoint, {
@@ -403,14 +705,6 @@ function getNotesSystemPrompt() {
     "You are an academic formatting engine. You MUST output your response matching this exact Markdown template. Use double line breaks (\\n\\n) between all sections and bullet points.",
     "",
     "=== BEGIN TEMPLATE ===",
-    "# ExamArchive Notes Dossier",
-    "",
-    "**Paper Code:** {Insert Code}  ",
-    "**Paper Name:** {Insert Name}  ",
-    "**Unit:** {Insert Unit}  ",
-    "",
-    "---",
-    "",
     "## Syllabus Highlights",
     "* {Highlight 1}",
     "",
@@ -430,11 +724,12 @@ function getNotesSystemPrompt() {
     "=== END TEMPLATE ===",
     "",
     "MATH RULES:",
-    "- Inline math MUST be written as: The energy is $E = mc^2$.",
+    "- You MUST use \\( and \\) for inline LaTeX math. Example: The energy is \\(E = mc^2\\).",
     "- Block math MUST be written as:",
-    "$$",
+    "\\[",
     "F = G \\frac{m_1 m_2}{r^2}",
-    "$$",
+    "\\]",
+    "- NEVER use the $ symbol for math.",
     "- ALWAYS use the backslash \\ for commands (e.g., \\frac, \\pi, \\mu).",
   ].join("\n");
 }
@@ -1011,7 +1306,9 @@ async function processGenerationJob(rawInput, options = {}) {
     await updateJob(db, jobId, { progress_percent: 80 });
 
     const pdfTitle = buildJobTitle(payload);
-    const pdfBuffer = await renderMarkdownToPdfBuffer(markdown, pdfTitle);
+    const pdfBuffer = await renderMarkdownToPdfBuffer(markdown, pdfTitle, {
+      userEmail: String(payload.userEmail || "").trim(),
+    });
     const safePdfCoreName = normalizeSafePdfCoreName(pdfTitle);
     const safePdfFileName = `${safePdfCoreName}.pdf`;
     const pdfFile = await storage.createFile(

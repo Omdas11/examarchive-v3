@@ -42,6 +42,7 @@ const JOB_STATUS_RUNNING = "running";
 const JOB_STATUS_PROCESSING = "processing";
 const JOB_STATUS_COMPLETED = "completed";
 const ACCEPTED_EXECUTION_STATUSES = new Set(["queued", "waiting", "processing"]);
+const LOCALHOST_HOSTS = ["localhost", "127.0.0.1", "::1"];
 
 type GenerateBody = {
   jobType?: string;
@@ -342,12 +343,47 @@ function shouldUsePreviewWebhookUrl(params: {
   }
 }
 
-function buildCompletionWebhookUrl(): string {
+function shouldUseRequestOriginForWebhook(params: {
+  requestSiteUrl: string;
+  canonicalSiteUrl: string;
+  trustedVercelSiteUrl: string;
+}): boolean {
+  if (!params.requestSiteUrl) return false;
+  try {
+    const requestOrigin = new URL(params.requestSiteUrl).origin;
+    if (params.canonicalSiteUrl && requestOrigin === new URL(params.canonicalSiteUrl).origin) {
+      return true;
+    }
+    if (params.trustedVercelSiteUrl && requestOrigin === new URL(params.trustedVercelSiteUrl).origin) {
+      return true;
+    }
+    const host = new URL(params.requestSiteUrl).hostname.toLowerCase();
+    if (LOCALHOST_HOSTS.includes(host)) return true;
+    if (host.endsWith(".vercel.app")) return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+function buildCompletionWebhookUrl(request?: NextRequest): string {
   const siteUrl = normalizeTrustedSiteUrl(String(process.env.SITE_URL || ""));
   const nextPublicSiteUrl = normalizeTrustedSiteUrl(String(process.env.NEXT_PUBLIC_SITE_URL || ""));
   const canonicalSiteUrl = siteUrl || nextPublicSiteUrl;
   const vercelUrl = String(process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL || "").trim();
   const trustedVercelSiteUrl = buildTrustedSiteUrlFromVercelUrl(vercelUrl);
+  const trustedRequestSiteUrl = normalizeTrustedSiteUrl(String(request?.nextUrl?.origin || ""));
+  if (shouldUseRequestOriginForWebhook({
+    requestSiteUrl: trustedRequestSiteUrl,
+    canonicalSiteUrl,
+    trustedVercelSiteUrl,
+  })) {
+    try {
+      return new URL("/api/ai/notify-completion", trustedRequestSiteUrl).toString();
+    } catch {
+      // Fall through to environment-derived URL.
+    }
+  }
   const vercelEnv = String(process.env.VERCEL_ENV || "").trim().toLowerCase();
   const trustedSiteUrl = shouldUsePreviewWebhookUrl({
     canonicalUrl: canonicalSiteUrl,
@@ -849,7 +885,7 @@ export async function POST(request: NextRequest) {
 
   const admin = isAdminPlus(user.role);
   const todayStr = new Date().toISOString().slice(0, 10);
-  const completionWebhookUrl = buildCompletionWebhookUrl();
+  const completionWebhookUrl = buildCompletionWebhookUrl(request);
 
   if (jobType === "notes") {
     const unitNumber = Number(body.unitNumber);
