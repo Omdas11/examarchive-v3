@@ -45,7 +45,9 @@ const DB_ID = "examarchive";
 const SYLLABUS_TABLE_COL_ID = "Syllabus_Table";
 const QUESTIONS_TABLE_COL_ID = "Questions_Table";
 const AI_INGESTIONS_COL_ID = "ai_ingestions";
+const AI_GENERATION_JOBS_COL_ID = "ai_generation_jobs";
 const SYLLABUS_REGISTRY_COL_ID = "syllabus_registry";
+const PAPERS_BUCKET_ID = process.env.APPWRITE_BUCKET_ID || "papers";
 const NOTES_MARKDOWN_BUCKETS_TO_CLEAR = [
   "cached-unit-notes",
   "cached-solved-papers",
@@ -64,6 +66,19 @@ function isNotFoundError(error: unknown): boolean {
   const type = maybeError?.type ?? maybeError?.response?.type ?? "";
   const message = String(maybeError?.message ?? "");
   return code === 404 || /not found/i.test(message) || /_not_found$/.test(type);
+}
+
+function isConflictError(error: unknown): boolean {
+  const maybeError = error as {
+    code?: number;
+    type?: string;
+    message?: string;
+    response?: { code?: number; type?: string; message?: string };
+  };
+  const code = maybeError?.code ?? maybeError?.response?.code;
+  const type = String(maybeError?.type ?? maybeError?.response?.type ?? "");
+  const message = String(maybeError?.message ?? maybeError?.response?.message ?? "");
+  return code === 409 || /conflict/i.test(type) || /already exists/i.test(message);
 }
 
 async function emptyBucket(bucketId: string): Promise<void> {
@@ -192,7 +207,86 @@ async function deleteLegacySyllabusRegistryCollection(): Promise<void> {
   }
 }
 
+async function ensureUnitNumberIndex(): Promise<boolean> {
+  try {
+    await databases.createIndex(
+      DB_ID,
+      AI_GENERATION_JOBS_COL_ID,
+      "unit_number_idx",
+      "key",
+      ["unit_number"],
+      ["ASC"],
+    );
+    console.log(`[soft-reset] created index unit_number_idx on ${AI_GENERATION_JOBS_COL_ID}.`);
+    return true;
+  } catch (error) {
+    if (isConflictError(error)) {
+      console.log(`[soft-reset] index unit_number_idx already exists on ${AI_GENERATION_JOBS_COL_ID}.`);
+      return false;
+    }
+    throw error;
+  }
+}
+
+async function cleanupGhostCacheRecords(): Promise<void> {
+  let deletedDocs = 0;
+  let deletedFiles = 0;
+  let failedDocs = 0;
+  let failedFiles = 0;
+
+  for (let iteration = 0; iteration < MAX_TRUNCATION_ITERATIONS; iteration++) {
+    const response = await databases.listDocuments(DB_ID, AI_GENERATION_JOBS_COL_ID, [
+      Query.greaterThan("unit_number", 0),
+      Query.limit(100),
+    ]);
+
+    if (!Array.isArray(response.documents) || response.documents.length === 0) {
+      break;
+    }
+
+    for (const doc of response.documents) {
+      const resultFileId = String((doc as { result_file_id?: string }).result_file_id || "").trim();
+      if (resultFileId) {
+        try {
+          await storage.deleteFile(PAPERS_BUCKET_ID, resultFileId);
+          deletedFiles++;
+        } catch (error) {
+          if (!isNotFoundError(error)) {
+            console.error(`[soft-reset] Failed to delete file ${resultFileId} from ${PAPERS_BUCKET_ID}:`, error);
+            failedFiles++;
+          }
+        }
+      }
+
+      try {
+        await databases.deleteDocument(DB_ID, AI_GENERATION_JOBS_COL_ID, doc.$id);
+        deletedDocs++;
+      } catch (error) {
+        console.error(`[soft-reset] Failed to delete ghost cache doc ${doc.$id}:`, error);
+        failedDocs++;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+
+    if (response.documents.length < 100) {
+      break;
+    }
+  }
+
+  console.log(
+    `[soft-reset] ghost cache cleanup complete. Docs deleted: ${deletedDocs}, file(s) deleted: ${deletedFiles}, doc failures: ${failedDocs}, file failures: ${failedFiles}.`,
+  );
+}
+
 async function softReset(includeIngestions: boolean, clearBucket: boolean): Promise<void> {
+  const indexCreated = await ensureUnitNumberIndex();
+  if (indexCreated) {
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+  }
+
+  await cleanupGhostCacheRecords();
+
   console.log("🗑️  SOFT RESET: clearing Syllabus_Table and Questions_Table rows…");
 
   await truncateCollection(SYLLABUS_TABLE_COL_ID);
