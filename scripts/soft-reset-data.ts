@@ -12,7 +12,7 @@
  * - NEXT_PUBLIC_APPWRITE_ENDPOINT + NEXT_PUBLIC_APPWRITE_PROJECT_ID
  */
 
-import { Client, Databases, Storage, Query } from "node-appwrite";
+import { Client, Databases, Storage, Query, IndexType, OrderBy } from "node-appwrite";
 import path from "node:path";
 import { loadEnvConfig } from "@next/env";
 
@@ -45,25 +45,56 @@ const DB_ID = "examarchive";
 const SYLLABUS_TABLE_COL_ID = "Syllabus_Table";
 const QUESTIONS_TABLE_COL_ID = "Questions_Table";
 const AI_INGESTIONS_COL_ID = "ai_ingestions";
+const AI_GENERATION_JOBS_COL_ID = "ai_generation_jobs";
 const SYLLABUS_REGISTRY_COL_ID = "syllabus_registry";
+const PAPERS_BUCKET_ID = process.env.APPWRITE_BUCKET_ID || "papers";
 const NOTES_MARKDOWN_BUCKETS_TO_CLEAR = [
   "cached-unit-notes",
   "cached-solved-papers",
 ];
 const LIST_PAGE_LIMIT = 100;
 const MAX_TRUNCATION_ITERATIONS = 1000;
+const DELETE_THROTTLE_MS = 20;
+const GHOST_CLEANUP_MAX_NO_PROGRESS_ITERATIONS = 3;
+const DEFAULT_INDEX_BUILD_WAIT_MS = 3000;
+const GHOST_CACHE_UNIT_NUMBER_THRESHOLD = 0;
+const parsedIndexBuildWaitMs = Number(
+  process.env.SOFT_RESET_INDEX_BUILD_WAIT_MS || String(DEFAULT_INDEX_BUILD_WAIT_MS),
+);
+const INDEX_BUILD_WAIT_MS = Number.isFinite(parsedIndexBuildWaitMs) && parsedIndexBuildWaitMs >= 0
+  ? parsedIndexBuildWaitMs
+  : DEFAULT_INDEX_BUILD_WAIT_MS;
 
 function isNotFoundError(error: unknown): boolean {
   const maybeError = error as {
     code?: number;
     type?: string;
     message?: string;
-    response?: { code?: number; type?: string };
+    response?: { code?: number; type?: string; message?: string };
   };
   const code = maybeError?.code ?? maybeError?.response?.code;
   const type = maybeError?.type ?? maybeError?.response?.type ?? "";
   const message = String(maybeError?.message ?? "");
-  return code === 404 || /not found/i.test(message) || /_not_found$/.test(type);
+  const responseMessage = String(maybeError?.response?.message ?? "");
+  return (
+    code === 404 ||
+    /not found/i.test(message) ||
+    /not found/i.test(responseMessage) ||
+    /_not_found$/.test(type)
+  );
+}
+
+function isConflictError(error: unknown): boolean {
+  const maybeError = error as {
+    code?: number;
+    type?: string;
+    message?: string;
+    response?: { code?: number; type?: string; message?: string };
+  };
+  const code = maybeError?.code ?? maybeError?.response?.code;
+  const type = String(maybeError?.type ?? maybeError?.response?.type ?? "");
+  const message = String(maybeError?.message ?? maybeError?.response?.message ?? "");
+  return code === 409 || /conflict/i.test(type) || /already exists/i.test(message);
 }
 
 async function emptyBucket(bucketId: string): Promise<void> {
@@ -98,7 +129,7 @@ async function emptyBucket(bucketId: string): Promise<void> {
       }
       
       // Small delay to prevent rate limits
-      await new Promise(resolve => setTimeout(resolve, 20));
+      await new Promise(resolve => setTimeout(resolve, DELETE_THROTTLE_MS));
     }
 
     console.log(`[soft-reset] Progress: ${deleted} files deleted so far from bucket ${bucketId}...`);
@@ -150,7 +181,7 @@ async function truncateCollection(collectionId: string): Promise<void> {
       }
       
       // Small delay to prevent rate limits / overwhelming the server
-      await new Promise(resolve => setTimeout(resolve, 20));
+      await new Promise(resolve => setTimeout(resolve, DELETE_THROTTLE_MS));
     }
 
     console.log(`[soft-reset] Progress: ${deleted} rows deleted so far from ${collectionId}...`);
@@ -192,7 +223,132 @@ async function deleteLegacySyllabusRegistryCollection(): Promise<void> {
   }
 }
 
+async function ensureUnitNumberIndex(): Promise<"created" | "exists" | "missing_collection"> {
+  try {
+    await databases.getCollection(DB_ID, AI_GENERATION_JOBS_COL_ID);
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      console.log(
+        `[soft-reset] skip index bootstrap and ghost-cache cleanup: ${AI_GENERATION_JOBS_COL_ID} collection not found`,
+      );
+      return "missing_collection";
+    }
+    throw error;
+  }
+
+  try {
+    await databases.createIndex(
+      DB_ID,
+      AI_GENERATION_JOBS_COL_ID,
+      "unit_number_idx",
+      IndexType.Key,
+      ["unit_number"],
+      [OrderBy.Asc],
+    );
+    console.log(`[soft-reset] created index unit_number_idx on ${AI_GENERATION_JOBS_COL_ID}.`);
+    return "created";
+  } catch (error) {
+    if (isConflictError(error)) {
+      console.log(`[soft-reset] index unit_number_idx already exists on ${AI_GENERATION_JOBS_COL_ID}.`);
+      return "exists";
+    }
+    throw error;
+  }
+}
+
+async function cleanupGhostCacheRecords(): Promise<void> {
+  let deletedDocs = 0;
+  let deletedFiles = 0;
+  let failedDocs = 0;
+  let failedFiles = 0;
+  let hitIterationLimit = false;
+  let noProgressIterations = 0;
+
+  for (let iteration = 0; iteration < MAX_TRUNCATION_ITERATIONS; iteration++) {
+    const deletedDocsBeforeIteration = deletedDocs;
+    const response = await databases.listDocuments(DB_ID, AI_GENERATION_JOBS_COL_ID, [
+      Query.greaterThan("unit_number", GHOST_CACHE_UNIT_NUMBER_THRESHOLD),
+      Query.select(["$id", "result_file_id"]),
+      Query.limit(LIST_PAGE_LIMIT),
+    ]);
+
+    if (!Array.isArray(response.documents) || response.documents.length === 0) {
+      break;
+    }
+
+    for (const doc of response.documents) {
+      const resultFileId = String((doc as { result_file_id?: string }).result_file_id || "").trim();
+      if (resultFileId) {
+        try {
+          await storage.deleteFile(PAPERS_BUCKET_ID, resultFileId);
+          deletedFiles++;
+        } catch (error) {
+          if (!isNotFoundError(error)) {
+            console.error("[soft-reset] Failed to delete file from papers bucket.", {
+              bucketId: PAPERS_BUCKET_ID,
+              fileId: resultFileId,
+              error,
+            });
+            failedFiles++;
+          }
+        }
+      }
+
+      try {
+        await databases.deleteDocument(DB_ID, AI_GENERATION_JOBS_COL_ID, doc.$id);
+        deletedDocs++;
+      } catch (error) {
+        console.error("[soft-reset] Failed to delete ghost cache document.", {
+          collectionId: AI_GENERATION_JOBS_COL_ID,
+          documentId: doc.$id,
+          error,
+        });
+        failedDocs++;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, DELETE_THROTTLE_MS));
+    }
+
+    if (response.documents.length < LIST_PAGE_LIMIT) {
+      break;
+    }
+    if (deletedDocs === deletedDocsBeforeIteration) {
+      noProgressIterations++;
+      if (noProgressIterations >= GHOST_CLEANUP_MAX_NO_PROGRESS_ITERATIONS) {
+        console.warn(
+          `[soft-reset] ghost cache cleanup had no document deletion progress for ${GHOST_CLEANUP_MAX_NO_PROGRESS_ITERATIONS} iteration(s); stopping early`,
+        );
+        break;
+      }
+    } else {
+      noProgressIterations = 0;
+    }
+    if (iteration === MAX_TRUNCATION_ITERATIONS - 1) {
+      hitIterationLimit = true;
+    }
+  }
+
+  if (hitIterationLimit) {
+    console.warn(
+      `[soft-reset] ${AI_GENERATION_JOBS_COL_ID} ghost-cache cleanup hit iteration cap (${MAX_TRUNCATION_ITERATIONS})`,
+    );
+  }
+
+  console.log(
+    `[soft-reset] ghost cache cleanup complete. Docs deleted: ${deletedDocs}, file(s) deleted: ${deletedFiles}, doc failures: ${failedDocs}, file failures: ${failedFiles}.`,
+  );
+}
+
 async function softReset(includeIngestions: boolean, clearBucket: boolean): Promise<void> {
+  const indexState = await ensureUnitNumberIndex();
+  if (indexState === "created") {
+    await new Promise((resolve) => setTimeout(resolve, INDEX_BUILD_WAIT_MS));
+  }
+
+  if (indexState !== "missing_collection") {
+    await cleanupGhostCacheRecords();
+  }
+
   console.log("🗑️  SOFT RESET: clearing Syllabus_Table and Questions_Table rows…");
 
   await truncateCollection(SYLLABUS_TABLE_COL_ID);
