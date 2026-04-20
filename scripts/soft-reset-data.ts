@@ -284,8 +284,9 @@ async function cleanupGhostCacheRecords(): Promise<void> {
         const inputPayloadJson = String((doc as { input_payload_json?: string }).input_payload_json || "").trim();
         if (inputPayloadJson) {
           const payload = JSON.parse(inputPayloadJson) as { jobType?: unknown };
+          const payloadJobType = typeof payload.jobType === "string" ? payload.jobType.trim() : "";
           jobType = typeof payload.jobType === "string" && payload.jobType.trim().length > 0
-            ? payload.jobType
+            ? payloadJobType
             : "unknown";
         }
       } catch {
