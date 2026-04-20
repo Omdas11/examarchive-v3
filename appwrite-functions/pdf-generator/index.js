@@ -441,14 +441,16 @@ function buildFooterHtml(userEmail) {
   const safeEmail = String(userEmail || "").trim();
   const watermarkText = safeEmail ? "Personalized copy for " + escapeHtml(safeEmail) : "";
   return [
-    "<!DOCTYPE html>",
-    "<html lang=\"en\"><head><meta charset=\"UTF-8\"/>",
-    "<style>",
-    "body{font-family:Inter,Arial,sans-serif;font-size:11px;color:#800000;margin:0;padding:5px 1in 0;width:100%;display:flex;justify-content:space-between;align-items:center;gap:8px;box-sizing:border-box;}",
-    ".footer-watermark{font-size:9px;opacity:0.75;letter-spacing:0.02em;}",
+    "<html><head><style>",
+    "body{font-family:Helvetica,sans-serif;font-size:10px;width:100%;margin:0;padding:0 20mm;box-sizing:border-box;}",
+    ".footer-container{display:flex;justify-content:space-between;width:100%;}",
+    ".footer-left{color:#800000;opacity:0.8;}",
+    ".footer-right{color:#800000;text-align:right;white-space:nowrap;}",
     "</style></head><body>",
-    "<span class=\"footer-watermark\">" + watermarkText + "</span>",
-    "<span><span class=\"pageNumber\"></span> / <span class=\"totalPages\"></span></span>",
+    "<div class=\"footer-container\">",
+    "<div class=\"footer-left\">" + watermarkText + "</div>",
+    "<div class=\"footer-right\">Page <span class=\"pageNumber\"></span> / <span class=\"totalPages\"></span></div>",
+    "</div>",
     "</body></html>",
   ].join("");
 }
@@ -478,9 +480,9 @@ async function markdownToPdfHtml(markdown, title) {
     "</script>",
     "<script id=\"MathJax-script\" async src=\"https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js\"></script>",
     "<style>",
-    "@page{size:A4;margin:1in;}",
-    "body{font-family:Inter,Arial,sans-serif;color:#231515;line-height:1.65;font-size:14px;padding:0;margin:0;background-image:url(\"data:image/svg+xml," + watermarkSvg + "\");background-size:230px 230px;background-repeat:repeat;}",
-    "main{padding:0 0.1in;}",
+    "@page{size:A4;margin:20mm;}",
+    "body{font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:12pt;line-height:1.6;color:#231515;padding:0;margin:0;width:100%;box-sizing:border-box;background-image:url(\"data:image/svg+xml," + watermarkSvg + "\");background-size:230px 230px;background-repeat:repeat;}",
+    "main{padding:0;margin:0;width:100%;box-sizing:border-box;}",
     ".cover-page{page-break-after:always;min-height:92vh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:0 12mm;}",
     ".cover-page h1{margin:0 0 16px;border-bottom:none;font-size:34px;letter-spacing:0.04em;color:#800000;}",
     ".cover-page .cover-title{margin:0 0 8px;font-size:16px;color:#4b1f1f;}",
@@ -584,10 +586,10 @@ async function renderMarkdownToPdfBuffer(markdown, title, options = {}) {
       form.append("files", new Blob([headerHtml], { type: "text/html" }), "header.html");
       form.append("files", new Blob([footerHtml], { type: "text/html" }), "footer.html");
       form.append("displayHeaderFooter", "true");
-      form.append("marginTop", "1.2");
-      form.append("marginBottom", "1.2");
-      form.append("marginLeft", "1");
-      form.append("marginRight", "1");
+      form.append("marginTop", "0.79");
+      form.append("marginBottom", "0.79");
+      form.append("marginLeft", "0.79");
+      form.append("marginRight", "0.79");
       form.append("printBackground", "true");
       form.append("waitDelay", normalizeGotenbergWaitDelay(process.env.GOTENBERG_WAIT_DELAY));
       const response = await fetch(endpoint, {
@@ -703,6 +705,9 @@ function getNotesSystemPrompt() {
   return String(process.env.UNIT_NOTES_SYSTEM_PROMPT || "").trim() || [
     "INSTRUCTIONS:",
     "You are an academic formatting engine. You MUST output your response matching this exact Markdown template. Use double line breaks (\\n\\n) between all sections and bullet points.",
+    "You are writing a comprehensive, university-level textbook chapter. You MUST write a minimum of 3000 words.",
+    "DO NOT summarize. Expand on EVERY single concept in the syllabus with exhaustive theoretical depth, historical context, and multiple worked examples.",
+    "If the syllabus contains multiple sub-topics, dedicate at least 3-4 dense paragraphs to each individual sub-topic.",
     "",
     "=== BEGIN TEMPLATE ===",
     "## Syllabus Highlights",
