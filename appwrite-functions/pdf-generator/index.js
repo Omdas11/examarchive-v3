@@ -441,7 +441,8 @@ function buildFooterHtml(userEmail) {
   const safeEmail = String(userEmail || "").trim();
   const watermarkText = safeEmail ? "Personalized copy for " + escapeHtml(safeEmail) : "";
   return [
-    "<html><head><style>",
+    "<!DOCTYPE html>",
+    "<html lang=\"en\"><head><meta charset=\"UTF-8\"/><style>",
     "body{font-family:Helvetica,sans-serif;font-size:10px;width:100%;margin:0;padding:0 20mm;box-sizing:border-box;}",
     ".footer-container{display:flex;justify-content:space-between;width:100%;}",
     ".footer-left{color:#800000;opacity:0.8;}",
