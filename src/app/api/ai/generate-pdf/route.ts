@@ -27,6 +27,8 @@ import { withElectronBalanceLock } from "@/lib/electron-lock";
 
 // Keep route timeout explicit for current deployment while allowing complex note generation.
 export const maxDuration = 60;
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
 
 const DEFAULT_AI_MODEL = "gemini-3.1-flash-lite-preview";
 const GEMMA_UNLIMITED_TPM_MODEL = "gemma-4-31b-it";
@@ -489,37 +491,51 @@ async function enqueueAndDispatchPdfJob(params: {
     }
   } else {
     let job;
+    const jobCreatePayload = {
+      user_id: params.userId,
+      paper_code: params.paperCode,
+      unit_number: params.unitNumber,
+      status: "queued",
+      progress_percent: 0,
+      input_payload_json: JSON.stringify(params.payload),
+      idempotency_key: idempotencyKey,
+      created_at: nowIso,
+    };
     try {
-      job = await db.createDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, deterministicJobId, {
-        user_id: params.userId,
-        paper_code: params.paperCode,
-        unit_number: params.unitNumber,
-        status: "queued",
-        progress_percent: 0,
-        input_payload_json: JSON.stringify(params.payload),
-        idempotency_key: idempotencyKey,
-        created_at: nowIso,
-      });
+      job = await db.createDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, deterministicJobId, jobCreatePayload);
     } catch (error) {
       if (!isConflictError(error)) {
         throw error;
       }
-      const existingJob = await db.getDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, deterministicJobId);
-      jobId = existingJob.$id;
-      const existingStatus = normalizeJobStatus(existingJob.status);
-      if (shouldSkipDispatchForExistingJob(existingStatus)) {
-        console.warn("[ai/generate-pdf] Skipping Appwrite dispatch for existing terminal/in-flight job.", {
-          jobId,
-          existingStatus,
+      try {
+        const existingJob = await db.getDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, deterministicJobId);
+        if (typeof existingJob?.$id === "string" && existingJob.$id) {
+          jobId = existingJob.$id;
+          const existingStatus = normalizeJobStatus(existingJob.status);
+          if (shouldSkipDispatchForExistingJob(existingStatus)) {
+            console.warn("[ai/generate-pdf] Skipping Appwrite dispatch for existing terminal/in-flight job.", {
+              jobId,
+              existingStatus,
+              userId: params.userId,
+            });
+            return {
+              jobId,
+              executionTriggered: false,
+              existingStatus,
+              resultFileId: String(existingJob.result_file_id || "").trim(),
+              readyEmailAlreadySent: hasReadyEmailAlreadyBeenSent(existingJob as Record<string, unknown>),
+            };
+          }
+        }
+      } catch (readConflictError) {
+        console.warn("[ai/generate-pdf] Conflict on deterministic job id but could not load existing job; creating unique fallback job id.", {
+          deterministicJobId,
           userId: params.userId,
+          error: readConflictError,
         });
-        return {
-          jobId,
-          executionTriggered: false,
-          existingStatus,
-          resultFileId: String(existingJob.result_file_id || "").trim(),
-          readyEmailAlreadySent: hasReadyEmailAlreadyBeenSent(existingJob as Record<string, unknown>),
-        };
+      }
+      if (!jobId) {
+        job = await db.createDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, ID.unique(), jobCreatePayload);
       }
     }
     if (!jobId && job?.$id) {
