@@ -18,7 +18,7 @@ on:
           - clear_ingestions
           - keep_ingestions
       bucket_mode:
-        description: "Choose whether to clear the MD Ingestion Cache bucket files"
+        description: "Choose whether to clear generated notes markdown cache bucket files"
         required: true
         default: keep_files
         type: choice
@@ -138,7 +138,7 @@ jobs:
           script: |
             const success = process.env.RESET_OUTCOME === "success";
             const body = success
-              ? "✅ Soft-launch cleanup completed: database rows and configured storage buckets were cleared."
+              ? "✅ Soft-launch cleanup completed: database rows and generated notes markdown cache buckets were cleared."
               : "❌ Soft-launch cleanup failed. Please check workflow logs.";
 
             await github.rest.issues.createComment({
