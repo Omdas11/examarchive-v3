@@ -55,7 +55,10 @@ const NOTES_MARKDOWN_BUCKETS_TO_CLEAR = [
 const LIST_PAGE_LIMIT = 100;
 const MAX_TRUNCATION_ITERATIONS = 1000;
 const DELETE_THROTTLE_MS = 20;
-const INDEX_BUILD_WAIT_MS = 3000;
+const parsedIndexBuildWaitMs = Number(process.env.SOFT_RESET_INDEX_BUILD_WAIT_MS || "3000");
+const INDEX_BUILD_WAIT_MS = Number.isFinite(parsedIndexBuildWaitMs) && parsedIndexBuildWaitMs >= 0
+  ? parsedIndexBuildWaitMs
+  : 3000;
 
 function isNotFoundError(error: unknown): boolean {
   const maybeError = error as {
@@ -239,7 +242,7 @@ async function cleanupGhostCacheRecords(): Promise<void> {
   for (let iteration = 0; iteration < MAX_TRUNCATION_ITERATIONS; iteration++) {
     const response = await databases.listDocuments(DB_ID, AI_GENERATION_JOBS_COL_ID, [
       Query.greaterThan("unit_number", 0),
-      Query.limit(100),
+      Query.limit(LIST_PAGE_LIMIT),
     ]);
 
     if (!Array.isArray(response.documents) || response.documents.length === 0) {
@@ -271,7 +274,7 @@ async function cleanupGhostCacheRecords(): Promise<void> {
       await new Promise((resolve) => setTimeout(resolve, DELETE_THROTTLE_MS));
     }
 
-    if (response.documents.length < 100) {
+    if (response.documents.length < LIST_PAGE_LIMIT) {
       break;
     }
   }
