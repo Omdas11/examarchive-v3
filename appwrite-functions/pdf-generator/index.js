@@ -104,7 +104,7 @@ function sanitizeAiMath(text) {
 
   latexCommands.forEach((cmd) => {
     // Fix "lfrac" or "|frac" -> "\frac"
-    const regex = new RegExp(`\\b[l|]${cmd}\\b`, "g");
+    const regex = new RegExp(`\\bl${cmd}\\b|\\|${cmd}\\b`, "g");
     cleaned = cleaned.replace(regex, `\\${cmd}`);
   });
 
