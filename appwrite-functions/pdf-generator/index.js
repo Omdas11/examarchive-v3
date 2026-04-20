@@ -82,9 +82,7 @@ function escapeHtml(value) {
   return String(value || "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+    .replace(/>/g, "&gt;");
 }
 
 function markdownToBasicHtml(markdown) {
@@ -288,8 +286,8 @@ async function runGeminiCompletion({ apiKey, prompt, model }) {
   } catch {
     throw new Error("Gemini returned invalid JSON.");
   }
-  const content = payload?.candidates?.[0]?.content?.parts?.[0]?.text?.trim?.();
-  if (!content) {
+  const content = payload?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (typeof content !== "string" || !content.trim()) {
     throw new Error("Gemini returned empty content.");
   }
   return content;
@@ -328,23 +326,43 @@ async function runGeminiCompletionWithRetry({ apiKey, prompt, model }) {
 
 function getNotesSystemPrompt() {
   return String(process.env.UNIT_NOTES_SYSTEM_PROMPT || "").trim() || [
-    "You are writing official ExamArchive unit notes in Markdown only.",
-    "You MUST use standard LaTeX for all equations. Use exactly `$$` for block equations and `$` for inline equations.",
-    "CRITICAL: NEVER escape dollar signs. Output `$` instead of `\\$`. Output `$$` instead of `\\$\\$`.",
-    "Ensure standard LaTeX commands are used correctly. Use `\\frac`, never `lfrac` or `Ifrac`.",
-    "Every response MUST follow this exact structure and order:",
-    "1) Header: Begin with the title `# ExamArchive Notes Dossier`, then include:",
-    "- `- Paper Code: <paper_code>`",
-    "- `- Paper Name: <paper_name>`",
-    "- `- Unit: <unit_number>`",
-    "2) Syllabus Highlights: Add `## Syllabus Highlights` with a bulleted list of core topics in this unit.",
-    "3) Content Sections: For each core topic, provide detailed theoretical explanations using clear hierarchical headings (`##` and `###`).",
-    "4) Theoretical Worked Examples: Include a distinct `## Theoretical Worked Examples` section. For each key concept, format exactly with:",
-    "- `Problem:`",
-    "- `Solution:` (step-by-step)",
-    "- `Conclusion:`",
-    "5) Revision Checklist: Conclude major topics with a bulleted checklist of key exam takeaways.",
-    "Output must remain exam-focused, syllabus-aligned, and free of HTML/SVG/XML/canvas/code markup.",
+    "INSTRUCTIONS:",
+    "You are an academic formatting engine. You MUST output your response matching this exact Markdown template. Use double line breaks (\\n\\n) between all sections and bullet points.",
+    "",
+    "=== BEGIN TEMPLATE ===",
+    "# ExamArchive Notes Dossier",
+    "",
+    "**Paper Code:** {Insert Code}  ",
+    "**Paper Name:** {Insert Name}  ",
+    "**Unit:** {Insert Unit}  ",
+    "",
+    "---",
+    "",
+    "## Syllabus Highlights",
+    "* {Highlight 1}",
+    "",
+    "* {Highlight 2}",
+    "",
+    "## {Topic Title}",
+    "{Theoretical Explanation}",
+    "",
+    "### Theoretical Worked Example",
+    "**Problem:** {Problem statement}",
+    "",
+    "**Solution:**",
+    "1. {Step 1}",
+    "2. {Step 2}",
+    "",
+    "**Conclusion:** {Conclusion}",
+    "=== END TEMPLATE ===",
+    "",
+    "MATH RULES:",
+    "- Inline math MUST be written as: The energy is $E = mc^2$.",
+    "- Block math MUST be written as:",
+    "$$",
+    "F = G \\frac{m_1 m_2}{r^2}",
+    "$$",
+    "- ALWAYS use the backslash \\ for commands (e.g., \\frac, \\pi, \\mu).",
   ].join("\n");
 }
 
