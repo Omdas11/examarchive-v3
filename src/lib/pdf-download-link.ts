@@ -77,6 +77,7 @@ export function buildSignedPdfDownloadPath(args: {
       env: process.env.NODE_ENV || "unknown",
     });
   }
+  params.set("t", String(Date.now()));
 
   return `/api/files/papers/${encodeURIComponent(fileId)}?${params.toString()}`;
 }

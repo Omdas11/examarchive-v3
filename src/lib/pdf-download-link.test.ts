@@ -26,6 +26,7 @@ describe("pdf-download-link", () => {
     expect(path).toContain("uid=user_456");
     expect(path).toContain("exp=1700000300");
     expect(path).toMatch(/token=[a-f0-9]{64}/);
+    expect(path).toContain("t=1700000000000");
   });
 
   it("validates matching signed token and rejects expired token", async () => {
