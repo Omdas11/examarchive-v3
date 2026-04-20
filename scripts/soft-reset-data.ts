@@ -12,7 +12,7 @@
  * - NEXT_PUBLIC_APPWRITE_ENDPOINT + NEXT_PUBLIC_APPWRITE_PROJECT_ID
  */
 
-import { Client, Databases, Storage, Query } from "node-appwrite";
+import { Client, Databases, Storage, Query, IndexType } from "node-appwrite";
 import path from "node:path";
 import { loadEnvConfig } from "@next/env";
 
@@ -213,7 +213,7 @@ async function ensureUnitNumberIndex(): Promise<boolean> {
       DB_ID,
       AI_GENERATION_JOBS_COL_ID,
       "unit_number_idx",
-      "key",
+      IndexType.Key,
       ["unit_number"],
       ["ASC"],
     );
