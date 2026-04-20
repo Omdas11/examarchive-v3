@@ -104,8 +104,8 @@ function sanitizeAiMath(text) {
 
   latexCommands.forEach((cmd) => {
     // Fix "lfrac" or "|frac" -> "\frac"
-    const regex = new RegExp(`\\b[l|]${cmd}\\b`, "g");
-    cleaned = cleaned.replace(regex, `\\${cmd}`);
+    const regex = new RegExp(`(^|[^\\\\A-Za-z])(?:l|\\|)${cmd}(?=$|[^A-Za-z])`, "g");
+    cleaned = cleaned.replace(regex, `$1\\${cmd}`);
   });
 
   // 3. Fix the weird caret hallucination (e.g., r^{\wedge}3 -> r^3)
@@ -970,8 +970,7 @@ async function processGenerationJob(rawInput, options = {}) {
         throw wrappedError;
       }
     }
-    const finalMarkdown = sanitizeAiMath(markdown);
-    markdown = finalMarkdown;
+    markdown = sanitizeAiMath(markdown);
 
     await updateJob(db, jobId, { progress_percent: 80 });
 
