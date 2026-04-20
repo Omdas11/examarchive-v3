@@ -285,9 +285,7 @@ async function cleanupGhostCacheRecords(): Promise<void> {
         if (inputPayloadJson) {
           const payload = JSON.parse(inputPayloadJson) as { jobType?: unknown };
           const payloadJobType = typeof payload.jobType === "string" ? payload.jobType.trim() : "";
-          jobType = typeof payload.jobType === "string" && payload.jobType.trim().length > 0
-            ? payloadJobType
-            : "unknown";
+          jobType = payloadJobType.length > 0 ? payloadJobType : "unknown";
         }
       } catch {
         // Unparseable JSON defaults to "unknown" ghost
