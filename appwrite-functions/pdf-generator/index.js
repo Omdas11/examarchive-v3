@@ -86,29 +86,37 @@ function escapeHtml(value) {
     .replace(/>/g, "&gt;");
 }
 
+const MALFORMED_LATEX_COMMAND_PATTERN = /(^|[^A-Za-z0-9_])(?:l|\|)(frac|vec|pi|mu|chi|alpha|beta|gamma|theta|lambda|tau|circ|sqrt|text|hat|sin|cos)\b/g;
+const ESCAPED_DISPLAY_MATH_PATTERN = /\\\$\\\$([\s\S]*?)\\\$\\\$/g;
+// Keep inline-math unescape conservative so literal currency/prose "\$" does not become a math delimiter.
+// We only unescape when the content starts/ends with math-like tokens and contains no nested escaped dollar.
+const ESCAPED_INLINE_MATH_PATTERN = /\\\$(?!\$)([\\A-Za-z0-9({\[](?:(?!\\\$)[^\n])*?[\\A-Za-z0-9)}\]])\\\$(?!\$)/g;
+
 function sanitizeAiMath(text) {
   if (!text) return text;
 
   let cleaned = text;
   // 1. Unescape Markdown Delimiters
-  cleaned = cleaned.replace(/\\\$\$([\s\S]*?)\\\$\$/g, (_, inner) => `$$${inner}$$`);
-  cleaned = cleaned.replace(/\\\$(?!\$)([^\n]*?)\\\$(?!\$)/g, (_, inner) => `$${inner}$`);
+  const displayMathBlocks = [];
+  cleaned = cleaned.replace(ESCAPED_DISPLAY_MATH_PATTERN, (_, inner) => {
+    const placeholder = `@@DISPLAY_MATH_${displayMathBlocks.length}@@`;
+    displayMathBlocks.push(`$$${inner}$$`);
+    return placeholder;
+  });
+  cleaned = cleaned.replace(ESCAPED_INLINE_MATH_PATTERN, (_, inner) => `$${inner}$`);
+  displayMathBlocks.forEach((value, index) => {
+    cleaned = cleaned.replace(`@@DISPLAY_MATH_${index}@@`, () => value);
+  });
   cleaned = cleaned.replace(/\\_/g, "_");      // Unescape underscores
   cleaned = cleaned.replace(/\\\^/g, "^");     // Unescape carets
   cleaned = cleaned.replace(/\\{/g, "{");      // Unescape curly braces
   cleaned = cleaned.replace(/\\}/g, "}");
 
   // 2. Fix the "l" and "|" backslash hallucination
-  const latexCommands = [
-    "frac", "vec", "pi", "mu", "chi", "alpha", "beta", "gamma",
-    "theta", "lambda", "tau", "circ", "sqrt", "text", "hat", "sin", "cos",
-  ];
-
-  latexCommands.forEach((cmd) => {
-    // Fix "lfrac" or "|frac" -> "\frac"
-    const regex = new RegExp(`\\bl${cmd}\\b|\\|${cmd}\\b`, "g");
-    cleaned = cleaned.replace(regex, `\\${cmd}`);
-  });
+  cleaned = cleaned.replace(
+    MALFORMED_LATEX_COMMAND_PATTERN,
+    (_, prefix, command) => `${prefix}\\${command}`,
+  );
 
   // 3. Fix the weird caret hallucination (e.g., r^{\wedge}3 -> r^3)
   cleaned = cleaned.replace(/\^\{\\wedge\}/g, "^");
@@ -1087,3 +1095,5 @@ module.exports.processGenerationJob = processGenerationJob;
 module.exports.notifyCompletionWebhook = notifyCompletionWebhook;
 module.exports.getNotifyCompletionUrl = getNotifyCompletionUrl;
 module.exports.runGeminiCompletionWithRetry = runGeminiCompletionWithRetry;
+module.exports.sanitizeAiMath = sanitizeAiMath;
+module.exports.markdownToPdfHtml = markdownToPdfHtml;
