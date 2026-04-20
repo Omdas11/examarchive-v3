@@ -104,11 +104,12 @@ function sanitizeAiMath(text) {
 
   latexCommands.forEach((cmd) => {
     // Fix "lfrac" or "|frac" -> "\frac"
-    const regex = new RegExp(`(^|[^\\\\A-Za-z])(?:l|\\|)${cmd}(?=$|[^A-Za-z])`, "g");
-    cleaned = cleaned.replace(regex, `$1\\${cmd}`);
+    const regex = new RegExp(`\\b[l|]${cmd}\\b`, "g");
+    cleaned = cleaned.replace(regex, `\\${cmd}`);
   });
 
   // 3. Fix the weird caret hallucination (e.g., r^{\wedge}3 -> r^3)
+  cleaned = cleaned.replace(/\^\{\\wedge\}/g, "^");
   cleaned = cleaned.replace(/\{\\wedge\}/g, "^");
 
   return cleaned;
@@ -163,7 +164,7 @@ function markdownToPdfHtml(markdown, title) {
     "</style>",
     "<script>",
     "window.MathJax={",
-    "tex:{inlineMath:[['$','$'],['\\\\(','\\\\)']],displayMath:[['$$','$$'],['\\\\[','\\\\]']],processEscapes:false},",
+    "tex:{inlineMath:[['$','$'],['\\\\(','\\\\)']],displayMath:[['$$','$$'],['\\\\[','\\\\]']],processEscapes:true},",
     "options:{skipHtmlTags:['script','noscript','style','textarea','pre','code']}",
     "};",
     "</script>",
