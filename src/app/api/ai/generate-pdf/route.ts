@@ -42,6 +42,7 @@ const JOB_STATUS_RUNNING = "running";
 const JOB_STATUS_PROCESSING = "processing";
 const JOB_STATUS_COMPLETED = "completed";
 const ACCEPTED_EXECUTION_STATUSES = new Set(["queued", "waiting", "processing"]);
+const LOCALHOST_HOSTS = ["localhost", "127.0.0.1", "::1"];
 
 type GenerateBody = {
   jobType?: string;
@@ -357,7 +358,7 @@ function shouldUseRequestOriginForWebhook(params: {
       return true;
     }
     const host = new URL(params.requestSiteUrl).hostname.toLowerCase();
-    if (host === "localhost" || host === "127.0.0.1" || host === "::1") return true;
+    if (LOCALHOST_HOSTS.includes(host)) return true;
     if (host.endsWith(".vercel.app")) return true;
     return false;
   } catch {

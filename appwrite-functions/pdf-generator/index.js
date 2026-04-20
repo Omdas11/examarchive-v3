@@ -45,6 +45,7 @@ const GOTENBERG_BASE_BACKOFF_MS = 1_500;
 const GOTENBERG_MAX_BACKOFF_MS = 6_000;
 const TRUSTED_GOTENBERG_HOST_SUFFIX = ".hf.space";
 const MAX_SAFE_PDF_FILENAME_CORE_LENGTH = 120;
+const MARKED_FALLBACK_LOG_PREFIX = "[pdf-generator] Falling back to basic markdown parser.";
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -128,15 +129,27 @@ function markdownToBasicHtml(markdown) {
 async function parseMarkdownToHtml(markdown) {
   try {
     const markedModule = await import("marked");
-    const markedParser = markedModule?.marked || markedModule?.default?.marked || markedModule?.default;
+    let markedParser = null;
+    if (markedModule && typeof markedModule.marked?.parse === "function") {
+      markedParser = markedModule.marked;
+    } else if (markedModule?.default && typeof markedModule.default.marked?.parse === "function") {
+      markedParser = markedModule.default.marked;
+    } else if (markedModule?.default && typeof markedModule.default.parse === "function") {
+      markedParser = markedModule.default;
+    }
+    if (!markedParser) {
+      console.warn(`${MARKED_FALLBACK_LOG_PREFIX} Marked parser was not found on module exports.`);
+      return markdownToBasicHtml(markdown);
+    }
     const parsedHtml = typeof markedParser?.parse === "function"
       ? markedParser.parse(markdown, { gfm: true, breaks: true })
       : "";
     if (typeof parsedHtml === "string" && parsedHtml.trim()) {
       return parsedHtml;
     }
+    console.warn(`${MARKED_FALLBACK_LOG_PREFIX} Marked parse output was empty.`);
   } catch {
-    // Fall through to basic markdown parser.
+    console.warn(`${MARKED_FALLBACK_LOG_PREFIX} Marked import failed.`);
   }
   return markdownToBasicHtml(markdown);
 }
