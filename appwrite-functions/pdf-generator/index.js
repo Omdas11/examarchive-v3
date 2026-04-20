@@ -46,6 +46,7 @@ const GOTENBERG_MAX_BACKOFF_MS = 6_000;
 const TRUSTED_GOTENBERG_HOST_SUFFIX = ".hf.space";
 const MAX_SAFE_PDF_FILENAME_CORE_LENGTH = 120;
 const MARKED_FALLBACK_LOG_PREFIX = "[pdf-generator] Falling back to basic markdown parser.";
+const MAX_RANDOM_NAMESPACE_INT = 0x1_0000_0000;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -310,7 +311,7 @@ function protectBracketMath(markdown) {
   const tokenNamespace = "EXAMARCHIVE_MATH_"
     + Date.now().toString(36)
     + "_"
-    + randomInt(0, 0x1_0000_0000).toString(36);
+    + randomInt(0, MAX_RANDOM_NAMESPACE_INT).toString(36);
   const protectDelimitedMath = ({ input, openingDelimiter, closingDelimiter, bucket, tokenPrefix, singleLineOnly }) => {
     let output = "";
     let cursor = 0;
@@ -407,7 +408,7 @@ function sanitizeGeneratedHtml(html) {
 
 function buildCoverPageHtml({ title, markdown }) {
   const highlights = extractSyllabusHighlights(markdown)
-    .map((highlight) => `<li>${escapeHtml(highlight)}</li>`)
+    .map((highlight) => "<li>" + escapeHtml(highlight) + "</li>")
     .join("");
   const generatedAt = new Date().toISOString().slice(0, 10);
 
