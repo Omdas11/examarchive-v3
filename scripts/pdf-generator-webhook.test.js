@@ -48,6 +48,8 @@ const {
   getNotifyCompletionUrl,
   processGenerationJob,
   runGeminiCompletionWithRetry,
+  sanitizeAiMath,
+  markdownToPdfHtml,
 } = require("../appwrite-functions/pdf-generator/index.js");
 const { InputFile } = require("node-appwrite/file");
 
@@ -112,6 +114,32 @@ describe("pdf-generator / getNotifyCompletionUrl", () => {
     process.env = { ...originalEnv, SITE_URL: "not-a-url" };
     const url = getNotifyCompletionUrl();
     expect(url).toBe("");
+  });
+});
+
+describe("pdf-generator / math sanitization and rendering", () => {
+  it("unescapes only paired escaped dollar math delimiters", () => {
+    const input = "Price is \\$99 and math is \\$a+b\\$ and display is \\$\\$x^2\\$\\$.";
+    const output = sanitizeAiMath(input);
+    expect(output).toContain("\\$99");
+    expect(output).toContain("$a+b$");
+    expect(output).toContain("$$x^2$$");
+  });
+
+  it("fixes malformed l/pipe latex command prefixes from the allowlist", () => {
+    const input = "Use lfrac{a}{b} and |sqrt{x} and |pi.";
+    const output = sanitizeAiMath(input);
+    expect(output).toContain("\\frac{a}{b}");
+    expect(output).toContain("\\sqrt{x}");
+    expect(output).toContain("\\pi");
+  });
+
+  it("renders inline and display math into pdf html without external MathJax script", () => {
+    const html = markdownToPdfHtml("Inline $x+y$ and block $$z^2$$", "Math Test");
+    expect(html).toContain("<math>x+y</math>");
+    expect(html).toContain("<math>z^2</math>");
+    expect(html).not.toContain("cdn.jsdelivr.net/npm/mathjax");
+    expect(html).not.toContain("window.MathJax");
   });
 });
 
