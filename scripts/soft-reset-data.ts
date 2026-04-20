@@ -1,6 +1,6 @@
 /**
  * Soft reset: clears all rows from Syllabus_Table, Questions_Table, and ai_ingestions.
- * Also supports optionally clearing ingestion storage bucket files.
+ * Also supports optionally clearing generated notes markdown cache bucket files.
  *
  * Usage:
  * npx tsx scripts/soft-reset-data.ts
@@ -46,13 +46,7 @@ const SYLLABUS_TABLE_COL_ID = "Syllabus_Table";
 const QUESTIONS_TABLE_COL_ID = "Questions_Table";
 const AI_INGESTIONS_COL_ID = "ai_ingestions";
 const SYLLABUS_REGISTRY_COL_ID = "syllabus_registry";
-const STORAGE_BUCKETS_TO_CLEAR = [
-  "papers",
-  "examarchive-syllabus-md-ingestion",
-  "examarchive_question_ingest_assets",
-  "syllabus-files",
-  "avatars",
-  "generated-md-cache",
+const NOTES_MARKDOWN_BUCKETS_TO_CLEAR = [
   "cached-unit-notes",
   "cached-solved-papers",
 ];
@@ -213,12 +207,12 @@ async function softReset(includeIngestions: boolean, clearBucket: boolean): Prom
   }
 
   if (clearBucket) {
-    console.log("    Clearing storage buckets (--clear-bucket flag set).");
-    for (const bucketId of STORAGE_BUCKETS_TO_CLEAR) {
+    console.log("    Clearing generated notes markdown cache buckets (--clear-bucket flag set).");
+    for (const bucketId of NOTES_MARKDOWN_BUCKETS_TO_CLEAR) {
       await emptyBucket(bucketId);
     }
   } else {
-    console.log("    Skipping storage bucket cleanup (default behavior).");
+    console.log("    Skipping notes markdown cache bucket cleanup (default behavior).");
   }
 
   console.log("✅  Soft reset complete.");
