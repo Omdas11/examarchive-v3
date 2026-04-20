@@ -2,10 +2,7 @@
 const { Client, Databases, Storage, Query, ID } = require("node-appwrite");
 const { InputFile } = require("node-appwrite/file");
 const { randomInt } = require("node:crypto");
-const path = require("node:path");
 const sanitizeHtml = require("sanitize-html");
-const markedUmdPath = path.join(path.dirname(require.resolve("marked/package.json")), "lib", "marked.umd.js");
-const { marked } = require(markedUmdPath);
 
 const GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta";
 const DEFAULT_MODEL = process.env.GEMINI_MODEL_ID || "gemini-3.1-flash-lite-preview";
@@ -74,6 +71,74 @@ function splitSyllabusIntoSubTopics(syllabusContent) {
     .split(/(?:(?<=[.;])\s*|\n{2,})/)
     .map((part) => part.replace(/\s+/g, " ").trim())
     .filter(Boolean);
+}
+
+function markdownToBasicHtml(markdown) {
+  const source = String(markdown || "").replace(/\r\n/g, "\n");
+  const lines = source.split("\n");
+  const htmlLines = [];
+  let paragraph = [];
+  let inList = false;
+
+  const flushParagraph = () => {
+    if (!paragraph.length) return;
+    htmlLines.push("<p>" + escapeHtml(paragraph.join(" ")) + "</p>");
+    paragraph = [];
+  };
+  const closeList = () => {
+    if (!inList) return;
+    htmlLines.push("</ul>");
+    inList = false;
+  };
+
+  lines.forEach((line) => {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      flushParagraph();
+      closeList();
+      return;
+    }
+    const headingMatch = trimmed.match(/^(#{1,6})\s+(.*)$/);
+    if (headingMatch) {
+      flushParagraph();
+      closeList();
+      const level = headingMatch[1].length;
+      htmlLines.push("<h" + level + ">" + escapeHtml(headingMatch[2]) + "</h" + level + ">");
+      return;
+    }
+    const bulletMatch = trimmed.match(/^[-*+]\s+(.*)$/);
+    if (bulletMatch) {
+      flushParagraph();
+      if (!inList) {
+        htmlLines.push("<ul>");
+        inList = true;
+      }
+      htmlLines.push("<li>" + escapeHtml(bulletMatch[1]) + "</li>");
+      return;
+    }
+    closeList();
+    paragraph.push(trimmed);
+  });
+
+  flushParagraph();
+  closeList();
+  return htmlLines.join("\n");
+}
+
+async function parseMarkdownToHtml(markdown) {
+  try {
+    const markedModule = await import("marked");
+    const markedParser = markedModule?.marked || markedModule?.default?.marked || markedModule?.default;
+    const parsedHtml = typeof markedParser?.parse === "function"
+      ? markedParser.parse(markdown, { gfm: true, breaks: true })
+      : "";
+    if (typeof parsedHtml === "string" && parsedHtml.trim()) {
+      return parsedHtml;
+    }
+  } catch {
+    // Fall through to basic markdown parser.
+  }
+  return markdownToBasicHtml(markdown);
 }
 
 function normalizeBearerToken(rawToken) {
@@ -229,7 +294,10 @@ function protectBracketMath(markdown) {
   const protectedBlocks = [];
   const protectedInline = [];
   const source = String(markdown || "");
-  const tokenNamespace = `EXAMARCHIVE_MATH_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+  const tokenNamespace = "EXAMARCHIVE_MATH_"
+    + Date.now().toString(36)
+    + "_"
+    + randomInt(0, 0x1_0000_0000).toString(36);
   const protectDelimitedMath = ({ input, openingDelimiter, closingDelimiter, bucket, tokenPrefix, singleLineOnly }) => {
     let output = "";
     let cursor = 0;
@@ -333,10 +401,10 @@ function buildCoverPageHtml({ title, markdown }) {
   return [
     "<section class=\"cover-page\">",
     "<h1>ExamArchive Notes Dossier</h1>",
-    `<p class="cover-title">${escapeHtml(title)}</p>`,
-    `<p class="cover-date"><strong>Generated:</strong> ${escapeHtml(generatedAt)}</p>`,
+    "<p class=\"cover-title\">" + escapeHtml(title) + "</p>",
+    "<p class=\"cover-date\"><strong>Generated:</strong> " + escapeHtml(generatedAt) + "</p>",
     highlights ? "<h2>Syllabus Highlights</h2>" : "",
-    highlights ? `<ul>${highlights}</ul>` : "",
+    highlights ? "<ul>" + highlights + "</ul>" : "",
     "</section>",
   ].join("");
 }
@@ -357,7 +425,7 @@ function buildHeaderHtml() {
 
 function buildFooterHtml(userEmail) {
   const safeEmail = String(userEmail || "").trim();
-  const watermarkText = safeEmail ? `Personalized copy for ${escapeHtml(safeEmail)}` : "";
+  const watermarkText = safeEmail ? "Personalized copy for " + escapeHtml(safeEmail) : "";
   return [
     "<!DOCTYPE html>",
     "<html lang=\"en\"><head><meta charset=\"UTF-8\"/>",
@@ -365,15 +433,15 @@ function buildFooterHtml(userEmail) {
     "body{font-family:Inter,Arial,sans-serif;font-size:11px;color:#800000;margin:0;padding:5px 1in 0;width:100%;display:flex;justify-content:space-between;align-items:center;gap:8px;box-sizing:border-box;}",
     ".footer-watermark{font-size:9px;opacity:0.75;letter-spacing:0.02em;}",
     "</style></head><body>",
-    `<span class="footer-watermark">${watermarkText}</span>`,
+    "<span class=\"footer-watermark\">" + watermarkText + "</span>",
     "<span><span class=\"pageNumber\"></span> / <span class=\"totalPages\"></span></span>",
     "</body></html>",
   ].join("");
 }
 
-function markdownToPdfHtml(markdown, title) {
+async function markdownToPdfHtml(markdown, title) {
   const { protectedMarkdown, restore } = protectBracketMath(markdown);
-  const parsedHtml = marked.parse(protectedMarkdown, { gfm: true, breaks: true });
+  const parsedHtml = await parseMarkdownToHtml(protectedMarkdown);
   const restoredHtml = restore(typeof parsedHtml === "string" ? parsedHtml : "");
   const renderedMarkdown = sanitizeGeneratedHtml(restoredHtml);
   const coverPageHtml = buildCoverPageHtml({ title, markdown });
@@ -489,7 +557,7 @@ async function renderMarkdownToPdfBuffer(markdown, title, options = {}) {
     throw new Error("Missing GOTENBERG_AUTH_TOKEN in function environment.");
   }
 
-  const html = markdownToPdfHtml(markdown, title);
+  const html = await markdownToPdfHtml(markdown, title);
   const headerHtml = buildHeaderHtml();
   const footerHtml = buildFooterHtml(options.userEmail);
   const endpoint = new URL(GOTENBERG_CONVERT_ENDPOINT_PATH, gotenbergUrl).toString();

@@ -134,8 +134,8 @@ describe("pdf-generator / math sanitization and rendering", () => {
     expect(output).toContain("\\pi");
   });
 
-  it("renders markdown html with bracket math preserved for MathJax", () => {
-    const html = markdownToPdfHtml("Inline \\(x+y\\) and block \\[z^2\\]", "Math Test");
+  it("renders markdown html with bracket math preserved for MathJax", async () => {
+    const html = await markdownToPdfHtml("Inline \\(x+y\\) and block \\[z^2\\]", "Math Test");
     expect(html).toContain("Inline \\(x+y\\) and block \\[z^2\\]");
     expect(html).toContain("cdn.jsdelivr.net/npm/mathjax");
     expect(html).toContain("displayMath");
