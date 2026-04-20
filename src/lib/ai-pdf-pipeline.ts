@@ -262,13 +262,7 @@ function renderLatexToMathMl(markdown: string): string {
     return output;
   };
 
-  let output = markdown;
-  output = output.replace(/\\\[([\s\S]+?)\\\]/g, (_match, expression: string) =>
-    renderExpression(expression, true));
-  output = output.replace(/\\\(([\s\S]+?)\\\)/g, (_match, expression: string) =>
-    renderExpression(expression, false));
-  output = renderDollarDelimitedMath(output);
-  return output;
+  return renderDollarDelimitedMath(markdown);
 }
 
 export function buildPdfHtml(args: {
@@ -295,13 +289,7 @@ export function buildPdfHtml(args: {
     year,
     syllabusContent,
   } = args;
-  const ESCAPED_DOLLAR_PLACEHOLDER = "__EXAMARCHIVE_ESCAPED_DOLLAR_PLACEHOLDER__";
-  const cleanMarkdown = markdown
-    .replace(/\\\$/g, ESCAPED_DOLLAR_PLACEHOLDER)
-    .replace(/\\\\\(/g, "\\(")
-    .replace(/\\\\\)/g, "\\)");
-  const markdownWithRenderedMath = renderLatexToMathMl(cleanMarkdown)
-    .replaceAll(ESCAPED_DOLLAR_PLACEHOLDER, "$");
+  const markdownWithRenderedMath = renderLatexToMathMl(markdown);
   const parsedHtml = marked.parse(markdownWithRenderedMath);
   // marked.parse can be configured to be async; guard non-string outputs defensively.
   const htmlContent = sanitizeGeneratedHtml(
