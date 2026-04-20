@@ -2,8 +2,10 @@
 const { Client, Databases, Storage, Query, ID } = require("node-appwrite");
 const { InputFile } = require("node-appwrite/file");
 const { randomInt } = require("node:crypto");
-const { marked } = require("marked");
+const path = require("node:path");
 const sanitizeHtml = require("sanitize-html");
+const markedUmdPath = path.join(path.dirname(require.resolve("marked/package.json")), "lib", "marked.umd.js");
+const { marked } = require(markedUmdPath);
 
 const GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta";
 const DEFAULT_MODEL = process.env.GEMINI_MODEL_ID || "gemini-3.1-flash-lite-preview";
@@ -95,6 +97,78 @@ const ESCAPED_DISPLAY_MATH_PATTERN = /\\\$\\\$([\s\S]*?)\\\$\\\$/g;
 // We only unescape when the content starts/ends with math-like tokens and contains no nested escaped dollar.
 const ESCAPED_INLINE_MATH_PATTERN = /\\\$(?!\$)([\\A-Za-z0-9({\[](?:(?!\\\$)[^\n])*?[\\A-Za-z0-9)}\]])\\\$(?!\$)/g;
 
+function isEscapedAtIndex(value, index) {
+  let slashCount = 0;
+  for (let cursor = index - 1; cursor >= 0 && value[cursor] === "\\"; cursor -= 1) {
+    slashCount += 1;
+  }
+  return slashCount % 2 === 1;
+}
+
+function convertDollarMathToBracketMath(text) {
+  const source = String(text || "");
+  let output = "";
+  let cursor = 0;
+  let mode = null;
+  let openingIndex = -1;
+  let contentStartIndex = -1;
+  let delimiterSize = 1;
+  let index = 0;
+
+  while (index < source.length) {
+    if (source[index] !== "$" || isEscapedAtIndex(source, index)) {
+      index += 1;
+      continue;
+    }
+    const isDisplayDelimiter =
+      index + 1 < source.length
+      && source[index + 1] === "$"
+      && !isEscapedAtIndex(source, index + 1);
+    const nextDelimiterSize = isDisplayDelimiter ? 2 : 1;
+    const nextMode = isDisplayDelimiter ? "display" : "inline";
+
+    if (mode === null) {
+      output += source.slice(cursor, index);
+      mode = nextMode;
+      delimiterSize = nextDelimiterSize;
+      openingIndex = index;
+      contentStartIndex = index + nextDelimiterSize;
+      index += nextDelimiterSize;
+      continue;
+    }
+
+    if (
+      (mode === "display" && nextMode === "display" && nextDelimiterSize === delimiterSize)
+      || (mode === "inline" && nextMode === "inline" && nextDelimiterSize === delimiterSize)
+    ) {
+      const expression = source.slice(contentStartIndex, index);
+      if (mode === "inline" && expression.includes("\n")) {
+        output += source.slice(openingIndex, index + nextDelimiterSize);
+      } else {
+        output += mode === "display"
+          ? `\\[${expression}\\]`
+          : `\\(${expression}\\)`;
+      }
+      index += nextDelimiterSize;
+      cursor = index;
+      mode = null;
+      openingIndex = -1;
+      contentStartIndex = -1;
+      delimiterSize = 1;
+      continue;
+    }
+
+    index += 1;
+  }
+
+  if (mode !== null && openingIndex >= 0) {
+    output += source.slice(openingIndex);
+    return output;
+  }
+  output += source.slice(cursor);
+  return output;
+}
+
 function sanitizeAiMath(text) {
   if (!text) return text;
 
@@ -128,8 +202,7 @@ function sanitizeAiMath(text) {
   // 3. Fix the weird caret hallucination (e.g., r^{\wedge}3 -> r^3)
   cleaned = cleaned.replace(/\^\{\\wedge\}/g, "^");
   cleaned = cleaned.replace(/\{\\wedge\}/g, "^");
-  cleaned = cleaned.replace(/(^|[^\\])\$\$([\s\S]*?)\$\$/g, (_, prefix, inner) => `${prefix}\\[${inner}\\]`);
-  cleaned = cleaned.replace(/(^|[^\\])\$([^\n$]+?)\$/g, (_, prefix, inner) => `${prefix}\\(${inner}\\)`);
+  cleaned = convertDollarMathToBracketMath(cleaned);
 
   return cleaned;
 }
@@ -155,26 +228,76 @@ function extractSyllabusHighlights(markdown) {
 function protectBracketMath(markdown) {
   const protectedBlocks = [];
   const protectedInline = [];
-  let protectedMarkdown = String(markdown || "");
+  const source = String(markdown || "");
+  const tokenNamespace = `EXAMARCHIVE_MATH_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+  const protectDelimitedMath = ({ input, openingDelimiter, closingDelimiter, bucket, tokenPrefix, singleLineOnly }) => {
+    let output = "";
+    let cursor = 0;
+    while (cursor < input.length) {
+      const openIndex = input.indexOf(openingDelimiter, cursor);
+      if (openIndex < 0) {
+        output += input.slice(cursor);
+        break;
+      }
+      if (isEscapedAtIndex(input, openIndex)) {
+        output += input.slice(cursor, openIndex + 1);
+        cursor = openIndex + 1;
+        continue;
+      }
 
-  protectedMarkdown = protectedMarkdown.replace(/\\\[([\s\S]*?)\\\]/g, (_, expression) => {
-    const token = `@@EXAMARCHIVE_DISPLAY_MATH_${protectedBlocks.length}@@`;
-    protectedBlocks.push(`\\[${expression}\\]`);
-    return token;
+      const expressionStart = openIndex + openingDelimiter.length;
+      let searchIndex = expressionStart;
+      let closeIndex = -1;
+      while (searchIndex < input.length) {
+        const candidateCloseIndex = input.indexOf(closingDelimiter, searchIndex);
+        if (candidateCloseIndex < 0) break;
+        if (singleLineOnly && input.slice(expressionStart, candidateCloseIndex).includes("\n")) break;
+        if (!isEscapedAtIndex(input, candidateCloseIndex)) {
+          closeIndex = candidateCloseIndex;
+          break;
+        }
+        searchIndex = candidateCloseIndex + 1;
+      }
+
+      if (closeIndex < 0) {
+        output += input.slice(cursor);
+        break;
+      }
+
+      output += input.slice(cursor, openIndex);
+      const rawMath = input.slice(openIndex, closeIndex + closingDelimiter.length);
+      const token = `@@${tokenNamespace}_${tokenPrefix}_${bucket.length}@@`;
+      bucket.push(rawMath);
+      output += token;
+      cursor = closeIndex + closingDelimiter.length;
+    }
+    return output;
+  };
+
+  let protectedMarkdown = protectDelimitedMath({
+    input: source,
+    openingDelimiter: "\\[",
+    closingDelimiter: "\\]",
+    bucket: protectedBlocks,
+    tokenPrefix: "EXAMARCHIVE_DISPLAY_MATH",
+    singleLineOnly: false,
   });
-  protectedMarkdown = protectedMarkdown.replace(/\\\(((?:\\.|[^\n\\])*)\\\)/g, (_, expression) => {
-    const token = `@@EXAMARCHIVE_INLINE_MATH_${protectedInline.length}@@`;
-    protectedInline.push(`\\(${expression}\\)`);
-    return token;
+  protectedMarkdown = protectDelimitedMath({
+    input: protectedMarkdown,
+    openingDelimiter: "\\(",
+    closingDelimiter: "\\)",
+    bucket: protectedInline,
+    tokenPrefix: "EXAMARCHIVE_INLINE_MATH",
+    singleLineOnly: true,
   });
 
   const restore = (value) => {
     let restored = String(value || "");
     protectedBlocks.forEach((expression, index) => {
-      restored = restored.replaceAll(`@@EXAMARCHIVE_DISPLAY_MATH_${index}@@`, expression);
+      restored = restored.replaceAll(`@@${tokenNamespace}_EXAMARCHIVE_DISPLAY_MATH_${index}@@`, expression);
     });
     protectedInline.forEach((expression, index) => {
-      restored = restored.replaceAll(`@@EXAMARCHIVE_INLINE_MATH_${index}@@`, expression);
+      restored = restored.replaceAll(`@@${tokenNamespace}_EXAMARCHIVE_INLINE_MATH_${index}@@`, expression);
     });
     return restored;
   };
