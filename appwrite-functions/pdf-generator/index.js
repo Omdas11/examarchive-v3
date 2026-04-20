@@ -2,6 +2,7 @@
 const { Client, Databases, Storage, Query, ID } = require("node-appwrite");
 const { InputFile } = require("node-appwrite/file");
 const { randomInt } = require("node:crypto");
+const katex = require("katex");
 
 const GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta";
 const DEFAULT_MODEL = process.env.GEMINI_MODEL_ID || "gemini-3.1-flash-lite-preview";
@@ -90,7 +91,8 @@ function sanitizeAiMath(text) {
 
   let cleaned = text;
   // 1. Unescape Markdown Delimiters
-  cleaned = cleaned.replace(/\\\$/g, "$");     // Unescape dollar signs
+  cleaned = cleaned.replace(/\\\$\$([\s\S]*?)\\\$\$/g, (_, inner) => `$$${inner}$$`);
+  cleaned = cleaned.replace(/\\\$(?!\$)([^\n]*?)\\\$(?!\$)/g, (_, inner) => `$${inner}$`);
   cleaned = cleaned.replace(/\\_/g, "_");      // Unescape underscores
   cleaned = cleaned.replace(/\\\^/g, "^");     // Unescape carets
   cleaned = cleaned.replace(/\\{/g, "{");      // Unescape curly braces
@@ -115,6 +117,37 @@ function sanitizeAiMath(text) {
   return cleaned;
 }
 
+function renderMathInText(text) {
+  const source = String(text || "");
+  if (!source.includes("$")) {
+    return escapeHtml(source);
+  }
+
+  let output = "";
+  let cursor = 0;
+  const mathPattern = /\$\$([\s\S]+?)\$\$|\$([^\n$]+?)\$/g;
+  let match = mathPattern.exec(source);
+  while (match) {
+    const start = match.index;
+    output += escapeHtml(source.slice(cursor, start));
+    const expression = String(match[1] ?? match[2] ?? "");
+    const isDisplayMode = Boolean(match[1]);
+    try {
+      output += katex.renderToString(expression.trim(), {
+        throwOnError: false,
+        displayMode: isDisplayMode,
+        strict: "warn",
+      });
+    } catch {
+      output += escapeHtml(match[0]);
+    }
+    cursor = start + match[0].length;
+    match = mathPattern.exec(source);
+  }
+  output += escapeHtml(source.slice(cursor));
+  return output;
+}
+
 function markdownToBasicHtml(markdown) {
   const source = String(markdown || "").replace(/\r\n/g, "\n");
   const lines = source.split("\n");
@@ -137,10 +170,10 @@ function markdownToBasicHtml(markdown) {
     if (headingMatch) {
       flushParagraph();
       const level = headingMatch[1].length;
-      htmlLines.push("<h" + level + ">" + escapeHtml(headingMatch[2]) + "</h" + level + ">");
+      htmlLines.push("<h" + level + ">" + renderMathInText(headingMatch[2]) + "</h" + level + ">");
       return;
     }
-    paragraph.push(escapeHtml(trimmed));
+    paragraph.push(renderMathInText(trimmed));
   });
   flushParagraph();
   return htmlLines.join("\n");
@@ -161,14 +194,8 @@ function markdownToPdfHtml(markdown, title) {
     "code{background:#f4f4f5;padding:0.1em 0.3em;border-radius:4px;}",
     "blockquote{border-left:3px solid #800000;padding-left:10px;color:#6e1111;}",
     "img{max-width:100%;height:auto;}",
+    ".katex-display{margin:0.75em 0;}",
     "</style>",
-    "<script>",
-    "window.MathJax={",
-    "tex:{inlineMath:[['$','$'],['\\\\(','\\\\)']],displayMath:[['$$','$$'],['\\\\[','\\\\]']],processEscapes:true},",
-    "options:{skipHtmlTags:['script','noscript','style','textarea','pre','code']}",
-    "};",
-    "</script>",
-    "<script defer src=\"https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js\"></script>",
     "</head><body>",
     "<article>" + renderedMarkdown + "</article>",
     "</body></html>",
