@@ -54,6 +54,8 @@ const NOTES_MARKDOWN_BUCKETS_TO_CLEAR = [
 ];
 const LIST_PAGE_LIMIT = 100;
 const MAX_TRUNCATION_ITERATIONS = 1000;
+const DELETE_THROTTLE_MS = 20;
+const INDEX_BUILD_WAIT_MS = 3000;
 
 function isNotFoundError(error: unknown): boolean {
   const maybeError = error as {
@@ -113,7 +115,7 @@ async function emptyBucket(bucketId: string): Promise<void> {
       }
       
       // Small delay to prevent rate limits
-      await new Promise(resolve => setTimeout(resolve, 20));
+      await new Promise(resolve => setTimeout(resolve, DELETE_THROTTLE_MS));
     }
 
     console.log(`[soft-reset] Progress: ${deleted} files deleted so far from bucket ${bucketId}...`);
@@ -165,7 +167,7 @@ async function truncateCollection(collectionId: string): Promise<void> {
       }
       
       // Small delay to prevent rate limits / overwhelming the server
-      await new Promise(resolve => setTimeout(resolve, 20));
+      await new Promise(resolve => setTimeout(resolve, DELETE_THROTTLE_MS));
     }
 
     console.log(`[soft-reset] Progress: ${deleted} rows deleted so far from ${collectionId}...`);
@@ -266,7 +268,7 @@ async function cleanupGhostCacheRecords(): Promise<void> {
         failedDocs++;
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 20));
+      await new Promise((resolve) => setTimeout(resolve, DELETE_THROTTLE_MS));
     }
 
     if (response.documents.length < 100) {
@@ -282,7 +284,7 @@ async function cleanupGhostCacheRecords(): Promise<void> {
 async function softReset(includeIngestions: boolean, clearBucket: boolean): Promise<void> {
   const indexCreated = await ensureUnitNumberIndex();
   if (indexCreated) {
-    await new Promise((resolve) => setTimeout(resolve, 3000));
+    await new Promise((resolve) => setTimeout(resolve, INDEX_BUILD_WAIT_MS));
   }
 
   await cleanupGhostCacheRecords();
