@@ -57,7 +57,6 @@ const MAX_TRUNCATION_ITERATIONS = 1000;
 const DELETE_THROTTLE_MS = 20;
 const GHOST_CLEANUP_MAX_NO_PROGRESS_ITERATIONS = 3;
 const DEFAULT_INDEX_BUILD_WAIT_MS = 3000;
-const GHOST_CACHE_UNIT_NUMBER_THRESHOLD = 0;
 const parsedIndexBuildWaitMs = Number(
   process.env.SOFT_RESET_INDEX_BUILD_WAIT_MS || String(DEFAULT_INDEX_BUILD_WAIT_MS),
 );
@@ -267,8 +266,7 @@ async function cleanupGhostCacheRecords(): Promise<void> {
   for (let iteration = 0; iteration < MAX_TRUNCATION_ITERATIONS; iteration++) {
     const deletedDocsBeforeIteration = deletedDocs;
     const response = await databases.listDocuments(DB_ID, AI_GENERATION_JOBS_COL_ID, [
-      Query.greaterThan("unit_number", GHOST_CACHE_UNIT_NUMBER_THRESHOLD),
-      Query.select(["$id", "result_file_id"]),
+      Query.select(["$id", "result_file_id", "input_payload_json"]),
       Query.limit(LIST_PAGE_LIMIT),
     ]);
 
@@ -277,33 +275,60 @@ async function cleanupGhostCacheRecords(): Promise<void> {
     }
 
     for (const doc of response.documents) {
-      const resultFileId = String((doc as { result_file_id?: string }).result_file_id || "").trim();
-      if (resultFileId) {
-        try {
-          await storage.deleteFile(PAPERS_BUCKET_ID, resultFileId);
-          deletedFiles++;
-        } catch (error) {
-          if (!isNotFoundError(error)) {
-            console.error("[soft-reset] Failed to delete file from papers bucket.", {
-              bucketId: PAPERS_BUCKET_ID,
-              fileId: resultFileId,
-              error,
-            });
-            failedFiles++;
-          }
-        }
-      }
+      let jobType = "unknown";
 
       try {
-        await databases.deleteDocument(DB_ID, AI_GENERATION_JOBS_COL_ID, doc.$id);
-        deletedDocs++;
-      } catch (error) {
-        console.error("[soft-reset] Failed to delete ghost cache document.", {
-          collectionId: AI_GENERATION_JOBS_COL_ID,
-          documentId: doc.$id,
-          error,
-        });
-        failedDocs++;
+        const inputPayloadJson = String((doc as { input_payload_json?: string }).input_payload_json || "").trim();
+        if (inputPayloadJson) {
+          const payload = JSON.parse(inputPayloadJson) as { jobType?: unknown };
+          jobType = typeof payload.jobType === "string" && payload.jobType.trim().length > 0
+            ? payload.jobType
+            : "unknown";
+        }
+      } catch {
+        // Unparseable JSON defaults to "unknown" ghost
+      }
+
+      const normalizedJobType = jobType.toLowerCase();
+      const isProtectedData =
+        normalizedJobType.includes("syllabus") ||
+        normalizedJobType.includes("question") ||
+        normalizedJobType.includes("solved-paper");
+      const isTargetGhost = !isProtectedData && (normalizedJobType === "notes" || normalizedJobType === "unknown");
+
+      if (isTargetGhost) {
+        console.log(`[soft-reset] [DESTROYING] Notes/Ghost job: ${doc.$id} (Type: ${jobType})`);
+
+        const resultFileId = String((doc as { result_file_id?: string }).result_file_id || "").trim();
+        if (resultFileId) {
+          try {
+            await storage.deleteFile("cached-unit-notes", resultFileId);
+            deletedFiles++;
+          } catch (error) {
+            if (!isNotFoundError(error)) {
+              console.error("[soft-reset] Failed to delete file from notes cache bucket.", {
+                bucketId: "cached-unit-notes",
+                fileId: resultFileId,
+                error,
+              });
+              failedFiles++;
+            }
+          }
+        }
+
+        try {
+          await databases.deleteDocument(DB_ID, AI_GENERATION_JOBS_COL_ID, doc.$id);
+          deletedDocs++;
+        } catch (error) {
+          console.error("[soft-reset] Failed to delete ghost cache document.", {
+            collectionId: AI_GENERATION_JOBS_COL_ID,
+            documentId: doc.$id,
+            error,
+          });
+          failedDocs++;
+        }
+      } else {
+        console.log(`[soft-reset] [PROTECTED] Kept ${jobType} data: ${doc.$id}`);
       }
 
       await new Promise((resolve) => setTimeout(resolve, DELETE_THROTTLE_MS));
