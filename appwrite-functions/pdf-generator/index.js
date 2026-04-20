@@ -85,6 +85,35 @@ function escapeHtml(value) {
     .replace(/>/g, "&gt;");
 }
 
+function sanitizeAiMath(text) {
+  if (!text) return text;
+
+  let cleaned = text;
+  // 1. Unescape Markdown Delimiters
+  cleaned = cleaned.replace(/\\\$/g, "$");     // Unescape dollar signs
+  cleaned = cleaned.replace(/\\_/g, "_");      // Unescape underscores
+  cleaned = cleaned.replace(/\\\^/g, "^");     // Unescape carets
+  cleaned = cleaned.replace(/\\{/g, "{");      // Unescape curly braces
+  cleaned = cleaned.replace(/\\}/g, "}");
+
+  // 2. Fix the "l" and "|" backslash hallucination
+  const latexCommands = [
+    "frac", "vec", "pi", "mu", "chi", "alpha", "beta", "gamma",
+    "theta", "lambda", "tau", "circ", "sqrt", "text", "hat", "sin", "cos",
+  ];
+
+  latexCommands.forEach((cmd) => {
+    // Fix "lfrac" or "|frac" -> "\frac"
+    const regex = new RegExp(`\\b[l|]${cmd}\\b`, "g");
+    cleaned = cleaned.replace(regex, `\\${cmd}`);
+  });
+
+  // 3. Fix the weird caret hallucination (e.g., r^{\wedge}3 -> r^3)
+  cleaned = cleaned.replace(/\{\\wedge\}/g, "^");
+
+  return cleaned;
+}
+
 function markdownToBasicHtml(markdown) {
   const source = String(markdown || "").replace(/\r\n/g, "\n");
   const lines = source.split("\n");
@@ -131,7 +160,15 @@ function markdownToPdfHtml(markdown, title) {
     "code{background:#f4f4f5;padding:0.1em 0.3em;border-radius:4px;}",
     "blockquote{border-left:3px solid #800000;padding-left:10px;color:#6e1111;}",
     "img{max-width:100%;height:auto;}",
-    "</style></head><body>",
+    "</style>",
+    "<script>",
+    "window.MathJax={",
+    "tex:{inlineMath:[['$','$'],['\\\\(','\\\\)']],displayMath:[['$$','$$'],['\\\\[','\\\\]']],processEscapes:false},",
+    "options:{skipHtmlTags:['script','noscript','style','textarea','pre','code']}",
+    "};",
+    "</script>",
+    "<script defer src=\"https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js\"></script>",
+    "</head><body>",
     "<article>" + renderedMarkdown + "</article>",
     "</body></html>",
   ].join("");
@@ -716,12 +753,13 @@ Chunk: ${index + 1}/${chunks.length}
 Sub-topics:
 ${topicsChunk.map((topic, i) => `${i + 1}. ${topic}`).join("\n")}
 `;
-    const responseText = await runGeminiCompletionWithRetry({
+    const geminiResponseText = await runGeminiCompletionWithRetry({
       apiKey: geminiApiKey,
       prompt,
       model: payload.model || DEFAULT_MODEL,
     });
-    generated.push(responseText);
+    const finalMarkdown = sanitizeAiMath(geminiResponseText);
+    generated.push(finalMarkdown);
   }
 
   return generated.join("\n\n---\n\n");
@@ -777,12 +815,13 @@ ${questionsChunk.map((questionDoc, qIndex) => {
 }).join("\n\n")}
 ${tavilyContext ? `\n\nWeb context (Tavily):\n${tavilyContext}` : ""}
 `;
-    const responseText = await runGeminiCompletionWithRetry({
+    const geminiResponseText = await runGeminiCompletionWithRetry({
       apiKey: geminiApiKey,
       prompt,
       model: payload.model || DEFAULT_MODEL,
     });
-    solved.push(responseText);
+    const finalMarkdown = sanitizeAiMath(geminiResponseText);
+    solved.push(finalMarkdown);
   }
   return solved.join("\n\n---\n\n");
 }
@@ -931,6 +970,9 @@ async function processGenerationJob(rawInput, options = {}) {
         throw wrappedError;
       }
     }
+    const finalMarkdown = sanitizeAiMath(markdown);
+    markdown = finalMarkdown;
+
     await updateJob(db, jobId, { progress_percent: 80 });
 
     const pdfTitle = buildJobTitle(payload);
