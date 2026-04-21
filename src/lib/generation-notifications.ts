@@ -208,7 +208,7 @@ export async function sendGenerationPdfEmail(args: {
         <tr>
           <td style="padding:36px 36px 28px;">
             <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.6;">Your generated PDF is ready to download. Click the button below to access your personalized study dossier.</p>
-            <p style="margin:0 0 8px;font-size:13px;color:#6b7280;"><strong>Title:</strong> ${sanitizeAndEncodeHtmlInterpolation(safeTitle)}</p>
+            <p style="margin:0 0 8px;font-size:13px;color:#6b7280;"><strong>Title:</strong> ${escapeHtml(safeTitle)}</p>
             <div style="text-align:center;margin:28px 0;">
               <a href="${safeDownloadUrl}" style="background-color:#111827;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;display:inline-block;margin-top:15px;font-size:15px;font-weight:600;letter-spacing:0.02em;">Download PDF</a>
             </div>
