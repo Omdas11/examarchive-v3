@@ -85,6 +85,7 @@ const jsonLd = {
   "@context": "https://schema.org",
   "@type": "WebSite",
   name: SITE_NAME,
+  alternateName: ["Exam Archive", "examarchive"],
   url: SITE_URL,
   description: SITE_DESCRIPTION,
   potentialAction: {

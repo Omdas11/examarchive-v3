@@ -375,10 +375,6 @@ async function softReset(includeIngestions: boolean, clearBucket: boolean): Prom
     await cleanupGhostCacheRecords();
   }
 
-  console.log("🗑️  SOFT RESET: clearing Syllabus_Table and Questions_Table rows…");
-
-  await truncateCollection(SYLLABUS_TABLE_COL_ID);
-  await truncateCollection(QUESTIONS_TABLE_COL_ID);
   await deleteLegacySyllabusRegistryCollection();
 
   if (includeIngestions) {
