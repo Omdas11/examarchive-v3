@@ -192,7 +192,39 @@ export async function sendGenerationPdfEmail(args: {
     to,
     subject: `ExamArchive: ${safeTitle} PDF is ready`,
     text: `Your generated PDF is ready.\n\nDownload: ${downloadUrl}\n`,
-    html: `<p>Your generated PDF is ready.</p><p><a href="${safeDownloadUrl}">Download PDF</a></p>`,
+    html: `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background-color:#f3f4f6;font-family:Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f3f4f6;padding:32px 0;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);max-width:600px;width:100%;">
+        <tr>
+          <td style="background-color:#111827;padding:28px 36px;text-align:center;">
+            <p style="margin:0;font-size:13px;letter-spacing:0.12em;color:#9ca3af;text-transform:uppercase;font-weight:600;">ExamArchive</p>
+            <h1 style="margin:10px 0 0;font-size:24px;font-weight:700;color:#ffffff;letter-spacing:0.01em;">Your ExamArchive Dossier is Ready</h1>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:36px 36px 28px;">
+            <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.6;">Your generated PDF is ready to download. Click the button below to access your personalized study dossier.</p>
+            <p style="margin:0 0 8px;font-size:13px;color:#6b7280;"><strong>Title:</strong> ${sanitizeAndEncodeHtmlInterpolation(safeTitle)}</p>
+            <div style="text-align:center;margin:28px 0;">
+              <a href="${safeDownloadUrl}" style="background-color:#111827;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;display:inline-block;margin-top:15px;font-size:15px;font-weight:600;letter-spacing:0.02em;">Download PDF</a>
+            </div>
+            <p style="margin:24px 0 0;font-size:12px;color:#9ca3af;line-height:1.5;">If the button above doesn't work, copy and paste this link into your browser:<br><a href="${safeDownloadUrl}" style="color:#6b7280;word-break:break-all;">${safeDownloadUrl}</a></p>
+          </td>
+        </tr>
+        <tr>
+          <td style="background-color:#f9fafb;padding:18px 36px;text-align:center;border-top:1px solid #e5e7eb;">
+            <p style="margin:0;font-size:12px;color:#9ca3af;">ExamArchive &mdash; Personalized academic preparation</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`,
   });
 }
 

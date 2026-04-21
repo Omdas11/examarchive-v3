@@ -1168,6 +1168,28 @@ export async function POST(request: NextRequest) {
           dispatched.resultFileId || "",
           user.id,
         );
+        if (readyEmailSent && solvedJobId) {
+          try {
+            await adminDatabases().updateDocument(
+              DATABASE_ID,
+              COLLECTION.ai_generation_jobs,
+              solvedJobId,
+              {
+                email_status: "sent",
+                email_sent_at: new Date().toISOString(),
+              },
+            );
+          } catch (emailStatePersistError) {
+            console.error(
+              "[ai/generate-pdf] Ready email sent for cached solved-paper job, but failed to persist email dedupe state.",
+              {
+                userId: user.id,
+                jobId: solvedJobId,
+                emailStatePersistError,
+              },
+            );
+          }
+        }
       }
       const cachedDownloadUrl = isCompleted && dispatched.resultFileId
         ? buildSignedPdfDownloadPath({
