@@ -170,7 +170,7 @@ export async function POST(request: NextRequest) {
     }
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error(`[devtool/appwrite] action=${action} error:`, msg);
+    console.error(`[devtool/appwrite] action=${action} error:`, err);
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
