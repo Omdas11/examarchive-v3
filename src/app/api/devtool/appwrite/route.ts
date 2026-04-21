@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: "Missing documentId" }, { status: 400 });
         }
         if (!data || typeof data !== "object" || Array.isArray(data)) {
-          return NextResponse.json({ error: "Missing or invalid data payload" }, { status: 400 });
+          return NextResponse.json({ error: "data must be a JSON object (not an array or null)" }, { status: 400 });
         }
         const db = adminDatabases();
         const updated = await db.updateDocument(DATABASE_ID, collectionId, documentId, data as Record<string, unknown>);

@@ -638,7 +638,7 @@ function FunctionsTab() {
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-mono truncate" style={{ color: "var(--color-text-muted)" }}>{exec.$id}</p>
                   <p className="text-xs mt-0.5" style={{ color: "var(--color-text-muted)" }}>
-                    {formatDate(exec.$createdAt)} · {exec.duration?.toFixed(2)}s · HTTP {exec.responseStatusCode}
+                    {formatDate(exec.$createdAt)} · {(exec.duration ?? 0).toFixed(2)}s · HTTP {exec.responseStatusCode}
                   </p>
                 </div>
                 <span className="text-xs rounded-full px-2 py-0.5 font-medium shrink-0" style={statusStyle(exec.status)}>
