@@ -3,7 +3,7 @@ import HomePage from "./page";
 import React from "react";
 
 jest.mock("next/cache", () => ({
-  unstable_cache: (fn: () => Promise<unknown>) => fn,
+  unstable_cache: (fn: () => Promise<unknown>, _key?: unknown, _options?: unknown) => fn,
 }));
 
 jest.mock("next/link", () => {

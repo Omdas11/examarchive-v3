@@ -135,7 +135,7 @@ export default async function RootLayout({
         <script>{SERVICE_WORKER_SCRIPT}</script>
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
         />
       </head>
       <body className="font-sans antialiased">
