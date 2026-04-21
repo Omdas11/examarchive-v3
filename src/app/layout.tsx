@@ -85,6 +85,7 @@ const jsonLd = {
   "@context": "https://schema.org",
   "@type": "WebSite",
   name: SITE_NAME,
+  alternateName: ["Exam Archive", "examarchive"],
   url: SITE_URL,
   description: SITE_DESCRIPTION,
   potentialAction: {
@@ -132,9 +133,10 @@ export default async function RootLayout({
         />
         <script>{THEME_INIT_SCRIPT}</script>
         <script>{SERVICE_WORKER_SCRIPT}</script>
-        <script type="application/ld+json">
-          {JSON.stringify(jsonLd).replace(/</g, "\\u003c")}
-        </script>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
       </head>
       <body className="font-sans antialiased">
         <div className="flex min-h-screen flex-col">

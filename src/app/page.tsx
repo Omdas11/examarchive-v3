@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type React from "react";
 import Link from "next/link";
+import { unstable_cache } from "next/cache";
 import { getServerUser } from "@/lib/auth";
 import HomeSearch from "@/components/HomeSearch";
 import PaperCard from "@/components/PaperCard";
@@ -43,7 +44,8 @@ export const metadata: Metadata = {
     title: "ExamArchive – Free Past Exam Papers & Syllabi · Early Access",
     description:
       "Sign up to view free past exam papers and syllabi. Starting with Haflong Government College — community-driven, verified archive.",
-    url: "https://examarchive.dev",
+    url: "https://www.examarchive.dev",
+    siteName: "ExamArchive",
     type: "website",
   },
 };
@@ -82,124 +84,149 @@ const HOW_IT_WORKS = [
   },
 ];
 
+/** Cached homepage data — revalidates every hour to avoid hitting Appwrite on every request. */
+const getHomepageData = unstable_cache(
+  async () => {
+    let papersTotal = 0;
+    let syllabusTotal = 0;
+    let usersTotal = 0;
+    let launchProgress = 40;
+    let universitiesCount = 0;
+    let popularPapers: Paper[] = [];
+    let recentPapers: Paper[] = [];
+    let feedbackEntries: FeedbackEntry[] = [];
+
+    try {
+      const db = adminDatabases();
+
+      const pageSize = 100;
+      const [papersRes, syllabusRes] = await Promise.all([
+        db.listDocuments(DATABASE_ID, COLLECTION.papers, [
+          Query.equal("approved", true),
+          Query.limit(pageSize),
+        ]),
+        db.listDocuments(DATABASE_ID, COLLECTION.syllabus, [
+          Query.equal("approval_status", "approved"),
+          Query.limit(1),
+        ]),
+      ]);
+
+      papersTotal = papersRes.total;
+      syllabusTotal = syllabusRes.total;
+
+      const universitiesSet = new Set<string>();
+      const allPapers: Paper[] = [];
+      const addInstitutions = (papers: Paper[]) => {
+        for (const paper of papers) {
+          const institution = paper.institution?.trim();
+          if (institution) universitiesSet.add(institution);
+        }
+      };
+
+      const firstPagePapers = papersRes.documents.map(toPaper);
+      allPapers.push(...firstPagePapers);
+      addInstitutions(firstPagePapers);
+
+      const firstPageCount = papersRes.documents.length;
+      if (papersTotal > firstPageCount && firstPageCount > 0) {
+        let offset = firstPageCount;
+        while (offset < papersTotal) {
+          const pageRes = await db.listDocuments(DATABASE_ID, COLLECTION.papers, [
+            Query.equal("approved", true),
+            Query.limit(pageSize),
+            Query.offset(offset),
+          ]);
+          if (pageRes.documents.length === 0) break;
+          const pagePapers = pageRes.documents.map(toPaper);
+          allPapers.push(...pagePapers);
+          addInstitutions(pagePapers);
+          offset += pageRes.documents.length;
+        }
+      }
+
+      // Popular papers: highest view_count
+      popularPapers = [...allPapers]
+        .sort((a, b) => (b.view_count ?? 0) - (a.view_count ?? 0))
+        .slice(0, 4);
+
+      // Recently added papers: newest first
+      recentPapers = [...allPapers]
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 4);
+
+      universitiesCount = universitiesSet.size;
+    } catch {
+      // collections may not exist yet in dev
+    }
+
+    try {
+      const db = adminDatabases();
+      // Use the users collection so service accounts aren't included in the public metric.
+      const { total } = await db.listDocuments(DATABASE_ID, COLLECTION.users, [Query.limit(1)]);
+      usersTotal = total;
+    } catch {
+      try {
+        const { total } = await adminUsers().list([]);
+        usersTotal = total;
+      } catch {
+        // may not have permission in dev
+      }
+    }
+
+    // Fetch site metrics (launch_progress)
+    try {
+      const db = adminDatabases();
+      const doc = await db.getDocument(DATABASE_ID, COLLECTION.site_metrics, "singleton");
+      launchProgress = (doc.launch_progress as number) ?? 40;
+    } catch {
+      // collection may not exist yet
+    }
+
+    // Fetch approved feedback entries (max 3 for homepage)
+    try {
+      const db = adminDatabases();
+      const feedbackRes = await db.listDocuments(DATABASE_ID, COLLECTION.feedback, [
+        Query.equal("approved", true),
+        Query.limit(3),
+      ]);
+      feedbackEntries = feedbackRes.documents.map((doc) => ({
+        id: doc.$id as string,
+        name: (doc.name as string) ?? "Anonymous",
+        university: (doc.university as string) ?? "",
+        text: (doc.text as string) ?? "",
+      }));
+    } catch {
+      // feedback collection may not exist yet
+    }
+
+    return {
+      papersTotal,
+      syllabusTotal,
+      usersTotal,
+      launchProgress,
+      universitiesCount,
+      popularPapers,
+      recentPapers,
+      feedbackEntries,
+    };
+  },
+  ["homepage-data"],
+  { revalidate: 3600 },
+);
+
 export default async function HomePage() {
   const user = await getServerUser();
 
-  // ── Fetch statistics ──────────────────────────────────────────────────────
-  let papersTotal = 0;
-  let syllabusTotal = 0;
-  let usersTotal = 0;
-  let launchProgress = 40;
-  const universitiesSet = new Set<string>();
-
-  // ── Fetch popular & recent papers ─────────────────────────────────────────
-  let popularPapers: Paper[] = [];
-  let recentPapers: Paper[] = [];
-
-  // ── Fetch real feedback/testimonials ──────────────────────────────────────
-  let feedbackEntries: FeedbackEntry[] = [];
-
-  try {
-    const db = adminDatabases();
-
-    const pageSize = 100;
-    const [papersRes, syllabusRes] = await Promise.all([
-      db.listDocuments(DATABASE_ID, COLLECTION.papers, [
-        Query.equal("approved", true),
-        Query.limit(pageSize),
-      ]),
-      db.listDocuments(DATABASE_ID, COLLECTION.syllabus, [
-        Query.equal("approval_status", "approved"),
-        Query.limit(1),
-      ]),
-    ]);
-
-    papersTotal = papersRes.total;
-    syllabusTotal = syllabusRes.total;
-
-    const allPapers: Paper[] = [];
-    const addInstitutions = (papers: Paper[]) => {
-      for (const paper of papers) {
-        const institution = paper.institution?.trim();
-        if (institution) universitiesSet.add(institution);
-      }
-    };
-
-    const firstPagePapers = papersRes.documents.map(toPaper);
-    allPapers.push(...firstPagePapers);
-    addInstitutions(firstPagePapers);
-
-    const firstPageCount = papersRes.documents.length;
-    if (papersTotal > firstPageCount && firstPageCount > 0) {
-      let offset = firstPageCount;
-      while (offset < papersTotal) {
-        const pageRes = await db.listDocuments(DATABASE_ID, COLLECTION.papers, [
-          Query.equal("approved", true),
-          Query.limit(pageSize),
-          Query.offset(offset),
-        ]);
-        if (pageRes.documents.length === 0) break;
-        const pagePapers = pageRes.documents.map(toPaper);
-        allPapers.push(...pagePapers);
-        addInstitutions(pagePapers);
-        offset += pageRes.documents.length;
-      }
-    }
-
-    // Popular papers: highest view_count
-    popularPapers = [...allPapers]
-      .sort((a, b) => (b.view_count ?? 0) - (a.view_count ?? 0))
-      .slice(0, 4);
-
-    // Recently added papers: newest first
-    recentPapers = [...allPapers]
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-      .slice(0, 4);
-  } catch {
-    // collections may not exist yet in dev
-  }
-
-  try {
-    const db = adminDatabases();
-    // Use the users collection so service accounts aren't included in the public metric.
-    const { total } = await db.listDocuments(DATABASE_ID, COLLECTION.users, [Query.limit(1)]);
-    usersTotal = total;
-  } catch {
-    try {
-      const { total } = await adminUsers().list([]);
-      usersTotal = total;
-    } catch {
-      // may not have permission in dev
-    }
-  }
-
-  // Fetch site metrics (launch_progress)
-  try {
-    const db = adminDatabases();
-    const doc = await db.getDocument(DATABASE_ID, COLLECTION.site_metrics, "singleton");
-    launchProgress = (doc.launch_progress as number) ?? 40;
-  } catch {
-    // collection may not exist yet
-  }
-
-  // Fetch approved feedback entries (max 3 for homepage)
-  try {
-    const db = adminDatabases();
-    const feedbackRes = await db.listDocuments(DATABASE_ID, COLLECTION.feedback, [
-      Query.equal("approved", true),
-      Query.limit(3),
-    ]);
-    feedbackEntries = feedbackRes.documents.map((doc) => ({
-      id: doc.$id as string,
-      name: (doc.name as string) ?? "Anonymous",
-      university: (doc.university as string) ?? "",
-      text: (doc.text as string) ?? "",
-    }));
-  } catch {
-    // feedback collection may not exist yet
-  }
-
-  const universitiesCount = universitiesSet.size;
+  const {
+    papersTotal,
+    syllabusTotal,
+    usersTotal,
+    launchProgress,
+    universitiesCount,
+    popularPapers,
+    recentPapers,
+    feedbackEntries,
+  } = await getHomepageData();
 
   const stats: { label: string; value: number; icon: React.ReactNode }[] = [
     {

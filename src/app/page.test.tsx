@@ -2,6 +2,10 @@ import { render, screen } from "@testing-library/react";
 import HomePage from "./page";
 import React from "react";
 
+jest.mock("next/cache", () => ({
+  unstable_cache: (fn: () => Promise<unknown>) => fn,
+}));
+
 jest.mock("next/link", () => {
   return function MockLink({
     children,
