@@ -42,6 +42,7 @@ $$
 F = G \\frac{m_1 m_2}{r^2}
 $$
 - ALWAYS use the backslash \\ for commands (e.g., \\frac, \\pi, \\mu).
+- When writing numericals, step-by-step solutions, or mathematical derivations, you MUST use block math (\`$$...$$\`). Do not bury equations inside a text paragraph. Every equation step must start on a new line.
 `;
 
 export function ensureMasterNotesPromptFile(filePath = MASTER_NOTES_PROMPT_PATH): string {

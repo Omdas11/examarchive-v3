@@ -450,7 +450,7 @@ function buildFooterHtml(userEmail) {
     "</style></head><body>",
     "<div class=\"footer-container\">",
     "<div class=\"footer-left\">" + watermarkText + "</div>",
-    "<div class=\"footer-right\">Page <span class=\"pageNumber\"></span> / <span class=\"totalPages\"></span></div>",
+    "<div class=\"footer-right\">Page <span class=\"pageNumber\"></span></div>",
     "</div>",
     "</body></html>",
   ].join("");
@@ -470,6 +470,7 @@ async function markdownToPdfHtml(markdown, title) {
     "<html><head><meta charset=\"utf-8\"/>",
     "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/>",
     "<title>" + escapeHtml(title) + "</title>",
+    "<link href=\"https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap\" rel=\"stylesheet\">",
     "<script>",
     "MathJax = {",
     "tex: {",
@@ -481,8 +482,8 @@ async function markdownToPdfHtml(markdown, title) {
     "</script>",
     "<script id=\"MathJax-script\" async src=\"https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js\"></script>",
     "<style>",
-    "@page{size:A4;margin:20mm;}",
-    "body{font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:12pt;line-height:1.6;color:#231515;padding:0;margin:0;width:100%;box-sizing:border-box;background-image:url(\"data:image/svg+xml," + watermarkSvg + "\");background-size:230px 230px;background-repeat:repeat;}",
+    "@page{size:A4;margin:15mm;}",
+    "body{font-family:'Inter',sans-serif;font-size:12pt;line-height:1.6;color:#231515;padding:0;margin:0;width:100%;box-sizing:border-box;background-image:url(\"data:image/svg+xml," + watermarkSvg + "\");background-size:230px 230px;background-repeat:repeat;}",
     "main{padding:0;margin:0;width:100%;box-sizing:border-box;}",
     ".cover-page{page-break-after:always;min-height:92vh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:0 12mm;}",
     ".cover-page h1{margin:0 0 16px;border-bottom:none;font-size:34px;letter-spacing:0.04em;color:#800000;}",
@@ -737,6 +738,7 @@ function getNotesSystemPrompt() {
     "\\]",
     "- NEVER use the $ symbol for math.",
     "- ALWAYS use the backslash \\ for commands (e.g., \\frac, \\pi, \\mu).",
+    "- When writing numericals, step-by-step solutions, or mathematical derivations, you MUST use block math (\\[...\\]). Do not bury equations inside a text paragraph. Every equation step must start on a new line.",
   ].join("\n");
 }
 
