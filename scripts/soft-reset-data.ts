@@ -48,16 +48,18 @@ const AI_INGESTIONS_COL_ID = "ai_ingestions";
 const AI_GENERATION_JOBS_COL_ID = "ai_generation_jobs";
 const SYLLABUS_REGISTRY_COL_ID = "syllabus_registry";
 const PAPERS_BUCKET_ID = process.env.APPWRITE_BUCKET_ID || "papers";
+const GHOST_NOTES_BUCKET_ID = "cached-unit-notes";
 const NOTES_MARKDOWN_BUCKETS_TO_CLEAR = [
-  "cached-unit-notes",
+  GHOST_NOTES_BUCKET_ID,
   "cached-solved-papers",
 ];
+const PROTECTED_GHOST_JOB_TYPE_PATTERNS = ["syllabus", "question", "solved-paper"];
+const TARGET_GHOST_JOB_TYPES = ["notes", "unknown"];
 const LIST_PAGE_LIMIT = 100;
 const MAX_TRUNCATION_ITERATIONS = 1000;
 const DELETE_THROTTLE_MS = 20;
 const GHOST_CLEANUP_MAX_NO_PROGRESS_ITERATIONS = 3;
 const DEFAULT_INDEX_BUILD_WAIT_MS = 3000;
-const GHOST_CACHE_UNIT_NUMBER_THRESHOLD = 0;
 const parsedIndexBuildWaitMs = Number(
   process.env.SOFT_RESET_INDEX_BUILD_WAIT_MS || String(DEFAULT_INDEX_BUILD_WAIT_MS),
 );
@@ -267,8 +269,7 @@ async function cleanupGhostCacheRecords(): Promise<void> {
   for (let iteration = 0; iteration < MAX_TRUNCATION_ITERATIONS; iteration++) {
     const deletedDocsBeforeIteration = deletedDocs;
     const response = await databases.listDocuments(DB_ID, AI_GENERATION_JOBS_COL_ID, [
-      Query.greaterThan("unit_number", GHOST_CACHE_UNIT_NUMBER_THRESHOLD),
-      Query.select(["$id", "result_file_id"]),
+      Query.select(["$id", "result_file_id", "input_payload_json"]),
       Query.limit(LIST_PAGE_LIMIT),
     ]);
 
@@ -277,33 +278,58 @@ async function cleanupGhostCacheRecords(): Promise<void> {
     }
 
     for (const doc of response.documents) {
-      const resultFileId = String((doc as { result_file_id?: string }).result_file_id || "").trim();
-      if (resultFileId) {
-        try {
-          await storage.deleteFile(PAPERS_BUCKET_ID, resultFileId);
-          deletedFiles++;
-        } catch (error) {
-          if (!isNotFoundError(error)) {
-            console.error("[soft-reset] Failed to delete file from papers bucket.", {
-              bucketId: PAPERS_BUCKET_ID,
-              fileId: resultFileId,
-              error,
-            });
-            failedFiles++;
-          }
-        }
-      }
+      let jobType = "unknown";
 
       try {
-        await databases.deleteDocument(DB_ID, AI_GENERATION_JOBS_COL_ID, doc.$id);
-        deletedDocs++;
-      } catch (error) {
-        console.error("[soft-reset] Failed to delete ghost cache document.", {
-          collectionId: AI_GENERATION_JOBS_COL_ID,
-          documentId: doc.$id,
-          error,
-        });
-        failedDocs++;
+        const inputPayloadJson = String((doc as { input_payload_json?: string }).input_payload_json || "").trim();
+        if (inputPayloadJson) {
+          const payload = JSON.parse(inputPayloadJson) as { jobType?: unknown };
+          const payloadJobType = typeof payload.jobType === "string" ? payload.jobType.trim() : "";
+          jobType = payloadJobType.length > 0 ? payloadJobType : "unknown";
+        }
+      } catch {
+        // Unparseable JSON defaults to "unknown" ghost
+      }
+
+      const normalizedJobType = jobType.toLowerCase();
+      const isProtectedData = PROTECTED_GHOST_JOB_TYPE_PATTERNS.some((pattern) =>
+        normalizedJobType.includes(pattern),
+      );
+      const isTargetGhost = !isProtectedData && TARGET_GHOST_JOB_TYPES.includes(normalizedJobType);
+
+      if (isTargetGhost) {
+        console.log(`[soft-reset] [DESTROYING] Notes/Ghost job: ${doc.$id} (Type: ${jobType})`);
+
+        const resultFileId = String((doc as { result_file_id?: string }).result_file_id || "").trim();
+        if (resultFileId) {
+          try {
+            await storage.deleteFile(GHOST_NOTES_BUCKET_ID, resultFileId);
+            deletedFiles++;
+          } catch (error) {
+            if (!isNotFoundError(error)) {
+              console.error("[soft-reset] Failed to delete file from notes cache bucket.", {
+                bucketId: GHOST_NOTES_BUCKET_ID,
+                fileId: resultFileId,
+                error,
+              });
+              failedFiles++;
+            }
+          }
+        }
+
+        try {
+          await databases.deleteDocument(DB_ID, AI_GENERATION_JOBS_COL_ID, doc.$id);
+          deletedDocs++;
+        } catch (error) {
+          console.error("[soft-reset] Failed to delete ghost cache document.", {
+            collectionId: AI_GENERATION_JOBS_COL_ID,
+            documentId: doc.$id,
+            error,
+          });
+          failedDocs++;
+        }
+      } else {
+        console.log(`[soft-reset] [PROTECTED] Kept ${jobType} data: ${doc.$id}`);
       }
 
       await new Promise((resolve) => setTimeout(resolve, DELETE_THROTTLE_MS));
