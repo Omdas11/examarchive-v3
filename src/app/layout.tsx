@@ -133,10 +133,9 @@ export default async function RootLayout({
         />
         <script>{THEME_INIT_SCRIPT}</script>
         <script>{SERVICE_WORKER_SCRIPT}</script>
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
-        />
+        <script type="application/ld+json">
+          {JSON.stringify(jsonLd).replace(/</g, "\\u003c")}
+        </script>
       </head>
       <body className="font-sans antialiased">
         <div className="flex min-h-screen flex-col">
