@@ -10,6 +10,7 @@ type NotifyPayload = {
   fileId?: unknown;
   userId?: unknown;
   userEmail?: unknown;
+  error?: unknown;
 };
 
 type CallbackTrustCheckArgs = {
@@ -228,6 +229,7 @@ export async function POST(request: NextRequest) {
   const fileIdFromBody = String(body.fileId || "").trim();
   const payloadUserId = String(body.userId || "").trim();
   const payloadUserEmail = String(body.userEmail || "").trim();
+  const errorFromBody = String(body.error || "").trim();
   if (!jobId || (status !== "completed" && status !== "failed")) {
     return NextResponse.json({ error: "Invalid payload." }, { status: 400 });
   }
@@ -482,7 +484,7 @@ export async function POST(request: NextRequest) {
     await sendGenerationFailureEmail({
       email,
       title,
-      reason: String(resolvedJob.error_message || "Generation failed."),
+      reason: errorFromBody || String(resolvedJob.error_message || "Generation failed."),
     });
   } catch (error) {
     console.error("[ai/notify-completion] Failed to send failure email.", { jobId, email, error });

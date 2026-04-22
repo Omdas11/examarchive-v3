@@ -980,7 +980,7 @@ export async function POST(request: NextRequest) {
         const normalizedExistingStatus = normalizeJobStatus(dispatched.existingStatus);
         const isCompleted = normalizedExistingStatus === JOB_STATUS_COMPLETED;
         const responseStatus = normalizedExistingStatus || "unknown";
-        const shouldAttemptReadyEmail = isCompleted && !dispatched.readyEmailAlreadySent;
+        const shouldAttemptReadyEmail = isCompleted;
         let readyEmailSent = !!dispatched.readyEmailAlreadySent;
         if (shouldAttemptReadyEmail) {
           readyEmailSent = await ensureGenerationReadyEmail(
@@ -1159,7 +1159,7 @@ export async function POST(request: NextRequest) {
       const normalizedExistingStatus = normalizeJobStatus(dispatched.existingStatus);
       const isCompleted = normalizedExistingStatus === JOB_STATUS_COMPLETED;
       const responseStatus = normalizedExistingStatus || "unknown";
-      const shouldAttemptReadyEmail = isCompleted && !dispatched.readyEmailAlreadySent;
+      const shouldAttemptReadyEmail = isCompleted;
       let readyEmailSent = !!dispatched.readyEmailAlreadySent;
       if (shouldAttemptReadyEmail) {
         readyEmailSent = await ensureGenerationReadyEmail(

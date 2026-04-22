@@ -1354,19 +1354,38 @@ async function processGenerationJob(rawInput, options = {}) {
 
     return { ok: true, jobId, fileId: pdfFileId };
   } catch (error) {
-    await updateJob(db, jobId, {
-      status: "failed",
-      completed_at: new Date().toISOString(),
-      error_message: formatWorkerErrorMessage(error),
-    }).catch((err) => console.error("Failed to update job status to failed:", err));
+    const failureMessage = formatWorkerErrorMessage(error);
     try {
-      await notifyCompletionWebhook({
-        jobId,
+      await updateJob(db, jobId, {
         status: "failed",
-        fileId: "",
-        userId: String(payload.userId || "").trim(),
-        userEmail: String(payload.userEmail || "").trim(),
-        callbackUrl: String(payload.callbackUrl || "").trim(),
+        completed_at: new Date().toISOString(),
+        error_message: failureMessage,
+      });
+    } catch (err) {
+      console.error("Failed to update job status to failed:", err);
+    }
+    try {
+      const notifyResolution = resolveNotifyCompletionUrl(String(payload.callbackUrl || "").trim());
+      const notifyUrl = notifyResolution.url;
+      if (!notifyUrl) {
+        throw new Error(`Failed to resolve notify-completion URL (${notifyResolution.reason}).`);
+      }
+      const headers = { "Content-Type": "application/json" };
+      const webhookSecret = String(process.env.AI_JOB_WEBHOOK_SECRET || "").trim();
+      if (webhookSecret) {
+        headers.Authorization = normalizeBearerToken(webhookSecret);
+      }
+      await fetch(notifyUrl, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          jobId,
+          status: "failed",
+          error: failureMessage,
+          userId: String(payload.userId || "").trim(),
+          userEmail: String(payload.userEmail || "").trim(),
+        }),
+        signal: AbortSignal.timeout(10_000),
       });
     } catch (webhookError) {
       console.error("[pdf-generator] failed to deliver completion webhook.", {
