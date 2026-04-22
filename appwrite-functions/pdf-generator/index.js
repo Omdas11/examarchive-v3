@@ -1381,6 +1381,7 @@ async function processGenerationJob(rawInput, options = {}) {
         body: JSON.stringify({
           jobId,
           status: "failed",
+          fileId: "",
           error: failureMessage,
           userId: String(payload.userId || "").trim(),
           userEmail: String(payload.userEmail || "").trim(),
