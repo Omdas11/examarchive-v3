@@ -434,7 +434,15 @@ describe("pdf-generator / processGenerationJob cache behavior", () => {
     expect(mockStorage.getFileDownload).not.toHaveBeenCalled();
     expect(mockDb.listDocuments).not.toHaveBeenCalled();
     expect(global.fetch).toHaveBeenCalledTimes(2);
-    expect(global.fetch.mock.calls.some(([url]) => String(url).includes("generativelanguage.googleapis.com"))).toBe(false);
+    expect(
+      global.fetch.mock.calls.some(([url]) => {
+        try {
+          return new URL(String(url)).hostname === "generativelanguage.googleapis.com";
+        } catch {
+          return false;
+        }
+      }),
+    ).toBe(false);
     expect(result.fileId).toBe("pdf-file-fast-path");
   });
 
