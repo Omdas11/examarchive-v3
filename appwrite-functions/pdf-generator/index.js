@@ -1240,10 +1240,27 @@ async function processGenerationJob(rawInput, options = {}) {
       : CACHED_SOLVED_PAPERS_BUCKET_ID;
     let loadedFromCache = false;
 
+    // Fast path: cachedMarkdown was pre-fetched by the route dispatcher and
+    // injected into the execution payload to avoid an extra storage round-trip
+    // and to guarantee the LLM is bypassed (saves API credits).
+    if (typeof payload.cachedMarkdown === "string") {
+      const trimmedCachedMarkdown = payload.cachedMarkdown.trim();
+      if (trimmedCachedMarkdown) {
+        markdown = trimmedCachedMarkdown;
+        loadedFromCache = true;
+        console.log("[pdf-generator] Using cachedMarkdown from dispatch payload (global cache hit).", {
+          jobId,
+          jobType: normalizedJobType,
+          markdownLength: trimmedCachedMarkdown.length,
+        });
+      }
+    }
+
     let cacheFileId = "";
-    try {
-      const cachedFiles = await storage.listFiles(cacheBucketId, [
-        Query.search("name", cacheKey),
+    if (!loadedFromCache) {
+      try {
+        const cachedFiles = await storage.listFiles(cacheBucketId, [
+          Query.search("name", cacheKey),
         Query.orderDesc("$createdAt"),
         Query.limit(10),
       ]);
@@ -1271,14 +1288,15 @@ async function processGenerationJob(rawInput, options = {}) {
         }
       }
     } catch (cacheReadError) {
-      console.warn("[pdf-generator] Markdown cache read failed. Proceeding with fresh generation.", {
-        jobId,
-        jobType: normalizedJobType,
-        cacheBucketId,
-        cacheKey,
-        message: cacheReadError instanceof Error ? cacheReadError.message : String(cacheReadError),
-      });
-    }
+        console.warn("[pdf-generator] Markdown cache read failed. Proceeding with fresh generation.", {
+          jobId,
+          jobType: normalizedJobType,
+          cacheBucketId,
+          cacheKey,
+          message: cacheReadError instanceof Error ? cacheReadError.message : String(cacheReadError),
+        });
+      }
+    } // end if (!loadedFromCache) – file-cache lookup
 
     if (!loadedFromCache) {
       if (normalizedJobType === "notes") {

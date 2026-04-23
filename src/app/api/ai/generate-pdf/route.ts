@@ -7,6 +7,9 @@ import { NOTES_DAILY_LIMIT } from "@/lib/quota-config";
 import {
   adminDatabases,
   adminFunctions,
+  adminStorage,
+  CACHED_UNIT_NOTES_BUCKET_ID,
+  CACHED_SOLVED_PAPERS_BUCKET_ID,
   COLLECTION,
   DATABASE_ID,
   ID,
@@ -31,6 +34,8 @@ export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
 const DEFAULT_AI_MODEL = "gemini-3.1-flash-lite-preview";
+const CACHE_LOOKUP_DEFAULT_MODEL =
+  String(process.env.GEMINI_MODEL_ID || "").trim() || DEFAULT_AI_MODEL;
 const GEMMA_UNLIMITED_TPM_MODEL = "gemma-4-31b-it";
 const MIN_SEMESTER = 1;
 const MAX_SEMESTER = 8;
@@ -287,12 +292,15 @@ async function checkQuotasOrError(userId: string): Promise<
 }
 
 function shouldSkipDispatchForExistingJob(status: string): boolean {
+  // Only skip dispatch when a job is actively in-flight.
+  // Completed and failed jobs are intentionally excluded so that a new request
+  // for the same content creates a fresh job with proper email notifications,
+  // while the pdf-generator re-uses the cached markdown to avoid LLM credits.
   const normalizedStatus = normalizeJobStatus(status);
   return (
     normalizedStatus === JOB_STATUS_QUEUED ||
     normalizedStatus === JOB_STATUS_RUNNING ||
-    normalizedStatus === JOB_STATUS_PROCESSING ||
-    normalizedStatus === JOB_STATUS_COMPLETED
+    normalizedStatus === JOB_STATUS_PROCESSING
   );
 }
 
@@ -445,6 +453,86 @@ function isConflictError(error: unknown): boolean {
   return message.includes("conflict") || message.includes("already exists");
 }
 
+/**
+ * Looks up the globally-cached markdown for a generation job by reading the
+ * matching file from the appropriate Appwrite storage bucket.  The cache key
+ * replicates the logic used by the pdf-generator Appwrite function so both
+ * sides agree on the file name.
+ *
+ * Returns the markdown string when a cache hit is found, or `null` otherwise.
+ * Failures are swallowed so callers can treat a miss as a cache-miss gracefully.
+ */
+async function lookupMarkdownFileCache(
+  payload: Record<string, unknown>,
+): Promise<string | null> {
+  const normalizedJobType = String(payload.jobType ?? "").trim().toLowerCase();
+  if (normalizedJobType !== "notes" && normalizedJobType !== "solved-paper") return null;
+
+  const normalize = (v: unknown): string => String(v ?? "").trim();
+
+  const paperCode = normalize(payload.paperCode);
+  const stream = normalize(payload.stream);
+  const course = normalize(payload.course);
+  const type = normalize(payload.type);
+  const university = normalize(payload.university);
+  if (!paperCode || !stream || !course || !type || !university) return null;
+
+  const cacheScopeSegment =
+    normalizedJobType === "notes"
+      ? normalize(payload.unitNumber)
+      : normalize(payload.year);
+  if (!cacheScopeSegment) return null;
+
+  const semester = normalize(payload.semester) || "na";
+  const model = normalize(payload.model) || CACHE_LOOKUP_DEFAULT_MODEL;
+
+  // NOTE: The cache-key construction below mirrors the same logic used by the
+  // pdf-generator Appwrite function (processGenerationJob).  If the format
+  // ever changes, both places must be updated together.
+  const cacheKey = [paperCode, cacheScopeSegment, stream, course, type, university, semester, model]
+    .join("_")
+    .replace(/[^a-zA-Z0-9_-]/g, "_");
+  const legacyCacheKey = [paperCode, cacheScopeSegment, stream, course, type]
+    .join("_")
+    .replace(/[^a-zA-Z0-9_-]/g, "_");
+  const cacheFileName = `${cacheKey}.md`;
+  const legacyCacheFileName = `${legacyCacheKey}.md`;
+
+  const cacheBucketId =
+    normalizedJobType === "notes" ? CACHED_UNIT_NOTES_BUCKET_ID : CACHED_SOLVED_PAPERS_BUCKET_ID;
+
+  // Limit matches the pdf-generator's own file-listing query so that both sides
+  // scan the same candidates and pick the most-recently-created exact match.
+  const CACHE_FILE_QUERY_LIMIT = 10;
+  try {
+    const storage = adminStorage();
+    const exactNames = new Set([cacheFileName, legacyCacheFileName]);
+    const matchByFileName = (files: Array<{ name?: unknown; $id?: string }>): { name?: unknown; $id?: string } | undefined =>
+      files.find((f) => exactNames.has(String(f.name ?? "").trim()));
+    const cachedFiles = await storage.listFiles(cacheBucketId, [
+      Query.search("name", cacheKey),
+      Query.orderDesc("$createdAt"),
+      Query.limit(CACHE_FILE_QUERY_LIMIT),
+    ]);
+    let exactMatch = Array.isArray(cachedFiles.files) ? matchByFileName(cachedFiles.files) : null;
+    if (!exactMatch && legacyCacheKey !== cacheKey) {
+      const legacyCachedFiles = await storage.listFiles(cacheBucketId, [
+        Query.search("name", legacyCacheKey),
+        Query.orderDesc("$createdAt"),
+        Query.limit(CACHE_FILE_QUERY_LIMIT),
+      ]);
+      exactMatch = Array.isArray(legacyCachedFiles.files) ? matchByFileName(legacyCachedFiles.files) : null;
+    }
+    if (!exactMatch?.$id) return null;
+
+    const buffer = await storage.getFileDownload(cacheBucketId, exactMatch.$id);
+    const markdown = Buffer.from(buffer).toString("utf-8").trim();
+    return markdown || null;
+  } catch {
+    return null;
+  }
+}
+
 async function enqueueAndDispatchPdfJob(params: {
   userId: string;
   paperCode: string;
@@ -471,25 +559,34 @@ async function enqueueAndDispatchPdfJob(params: {
     Query.limit(1),
   ]);
   let jobId = "";
-  const existingJob = existingBeforeCreate.documents[0];
-  if (typeof existingJob?.$id === "string" && existingJob.$id) {
-    jobId = existingJob.$id;
-    const existingStatus = normalizeJobStatus(existingJob.status);
-    if (shouldSkipDispatchForExistingJob(existingStatus)) {
-      console.warn("[ai/generate-pdf] Skipping Appwrite dispatch for existing terminal/in-flight job.", {
+  const priorJob = existingBeforeCreate.documents[0];
+
+  // Return early ONLY for in-flight jobs (queued / running / processing).
+  // Completed and failed jobs allow a fresh job to be created so the user
+  // receives the normal start-email and completion-email flows.
+  if (priorJob && typeof priorJob.$id === "string" && priorJob.$id) {
+    const priorStatus = normalizeJobStatus(priorJob.status);
+    if (shouldSkipDispatchForExistingJob(priorStatus)) {
+      jobId = String(priorJob.$id);
+      console.warn("[ai/generate-pdf] Skipping Appwrite dispatch for existing in-flight job.", {
         jobId,
-        existingStatus,
+        existingStatus: priorStatus,
         userId: params.userId,
       });
       return {
         jobId,
         executionTriggered: false,
-        existingStatus,
-        resultFileId: String(existingJob.result_file_id || "").trim(),
-        readyEmailAlreadySent: hasReadyEmailAlreadyBeenSent(existingJob as Record<string, unknown>),
+        existingStatus: priorStatus,
+        resultFileId: String(priorJob.result_file_id || "").trim(),
+        readyEmailAlreadySent: hasReadyEmailAlreadyBeenSent(priorJob as Record<string, unknown>),
       };
     }
-  } else {
+  }
+
+  // No in-flight job found (or prior job is completed/failed) → create a new job.
+  // When a prior completed/failed job exists the deterministic ID is already taken,
+  // so use ID.unique() to avoid a document-ID conflict.
+  {
     let job;
     const jobCreatePayload = {
       user_id: params.userId,
@@ -501,31 +598,35 @@ async function enqueueAndDispatchPdfJob(params: {
       idempotency_key: idempotencyKey,
       created_at: nowIso,
     };
+  // When a prior completed/failed job exists the deterministic ID is already taken,
+    // so use ID.unique() to create a brand-new document and avoid a conflict error.
+    const newJobDocId = priorJob ? ID.unique() : deterministicJobId;
     try {
-      job = await db.createDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, deterministicJobId, jobCreatePayload);
+      job = await db.createDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, newJobDocId, jobCreatePayload);
     } catch (error) {
       if (!isConflictError(error)) {
         throw error;
       }
       try {
-        const existingJob = await db.getDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, deterministicJobId);
-        if (typeof existingJob?.$id === "string" && existingJob.$id) {
-          jobId = existingJob.$id;
-          const existingStatus = normalizeJobStatus(existingJob.status);
-          if (shouldSkipDispatchForExistingJob(existingStatus)) {
-            console.warn("[ai/generate-pdf] Skipping Appwrite dispatch for existing terminal/in-flight job.", {
+        const conflictJob = await db.getDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, deterministicJobId);
+        if (typeof conflictJob?.$id === "string" && conflictJob.$id) {
+          const conflictStatus = normalizeJobStatus(conflictJob.status);
+          if (shouldSkipDispatchForExistingJob(conflictStatus)) {
+            jobId = conflictJob.$id;
+            console.warn("[ai/generate-pdf] Skipping Appwrite dispatch for in-flight job found during conflict resolution.", {
               jobId,
-              existingStatus,
+              existingStatus: conflictStatus,
               userId: params.userId,
             });
             return {
               jobId,
               executionTriggered: false,
-              existingStatus,
-              resultFileId: String(existingJob.result_file_id || "").trim(),
-              readyEmailAlreadySent: hasReadyEmailAlreadyBeenSent(existingJob as Record<string, unknown>),
+              existingStatus: conflictStatus,
+              resultFileId: String(conflictJob.result_file_id || "").trim(),
+              readyEmailAlreadySent: hasReadyEmailAlreadyBeenSent(conflictJob as Record<string, unknown>),
             };
           }
+          // Conflict job is completed/failed: create a unique fallback below.
         }
       } catch (readConflictError) {
         console.warn("[ai/generate-pdf] Conflict on deterministic job id but could not load existing job; creating unique fallback job id.", {
@@ -542,13 +643,40 @@ async function enqueueAndDispatchPdfJob(params: {
       jobId = String(job.$id);
     }
   }
+
   if (!jobId) {
     throw new Error("Failed to resolve job ID before Appwrite function dispatch.");
   }
+
+  // Look up the global markdown file-cache so the pdf-generator can skip
+  // the LLM step entirely when cached markdown already exists.  The content
+  // is passed in the function-execution body (not stored in the DB job
+  // document) to avoid the 10 000-char limit on input_payload_json.
+  let cachedMarkdown: string | null = null;
+  try {
+    cachedMarkdown = await lookupMarkdownFileCache(params.payload);
+    if (cachedMarkdown) {
+      console.info("[ai/generate-pdf] Global markdown cache hit – will bypass LLM in pdf-generator.", {
+        jobId,
+        jobType: params.payload.jobType,
+      });
+    }
+  } catch (cacheErr) {
+    console.warn(
+      "[ai/generate-pdf] Global markdown cache lookup failed; pdf-generator will fall back to its own cache/LLM path.",
+      { jobId, error: cacheErr },
+    );
+  }
+
+  const dispatchPayload = cachedMarkdown
+    ? { ...params.payload, cachedMarkdown }
+    : params.payload;
+
   console.info("[ai/generate-pdf] Dispatching Appwrite function execution.", {
     FUNCTION_ID: functionId,
     jobId,
     executionMethod: "async",
+    cachedMarkdownInjected: !!cachedMarkdown,
   });
   try {
     console.log(`Attempting to trigger Appwrite Function ID: ${functionId}`);
@@ -556,7 +684,7 @@ async function enqueueAndDispatchPdfJob(params: {
       functionId,
       JSON.stringify({
         jobId,
-        payload: params.payload,
+        payload: dispatchPayload,
       }),
       // `true` requests asynchronous execution in node-appwrite.
       true,
