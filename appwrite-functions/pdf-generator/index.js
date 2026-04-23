@@ -14,7 +14,7 @@ const geminiBaseBackoffRaw = Number(process.env.GEMINI_BASE_BACKOFF_MS);
 const tavilyTimeoutRaw = Number(process.env.TAVILY_TIMEOUT_MS);
 const GEMINI_REQUEST_TIMEOUT_MS = Number.isFinite(geminiRequestTimeoutRaw)
   ? Math.max(1_000, geminiRequestTimeoutRaw)
-  : 45_000;
+  : 120_000;
 const DEFAULT_GEMINI_MAX_ATTEMPTS = Number.isInteger(geminiMaxAttemptsRaw)
   ? Math.max(1, geminiMaxAttemptsRaw)
   : 3;
@@ -1261,33 +1261,43 @@ async function processGenerationJob(rawInput, options = {}) {
       try {
         const cachedFiles = await storage.listFiles(cacheBucketId, [
           Query.search("name", cacheKey),
-        Query.orderDesc("$createdAt"),
-        Query.limit(10),
-      ]);
-      const exactMatch = Array.isArray(cachedFiles.files)
-        ? (
-          cachedFiles.files.find((file) => String(file.name || "").trim() === cacheFileName)
-          || cachedFiles.files.find((file) => String(file.name || "").trim() === legacyCacheFileName)
-        )
-        : null;
-      const cachedFile = exactMatch;
-      if (cachedFile && cachedFile.$id) {
-        const cachedMarkdownBuffer = await storage.getFileDownload(cacheBucketId, cachedFile.$id);
-        const cachedMarkdown = Buffer.from(cachedMarkdownBuffer).toString("utf8");
-        if (cachedMarkdown.trim()) {
-          markdown = cachedMarkdown;
-          loadedFromCache = true;
-          cacheFileId = String(cachedFile.$id);
-          console.log("[pdf-generator] Loaded markdown from cache bucket.", {
-            jobId,
-            jobType: normalizedJobType,
-            cacheBucketId,
-            cacheFileId,
-            cacheFileName: String(cachedFile.name || ""),
-          });
+          Query.orderDesc("$createdAt"),
+          Query.limit(10),
+        ]);
+        let exactMatch = Array.isArray(cachedFiles.files)
+          ? cachedFiles.files.find((file) => String(file.name || "").trim() === cacheFileName)
+          : null;
+        // Fall back to a second query using the legacy cache key so that files
+        // created before the model/semester segments were added to the key are
+        // still found and bypass fresh LLM generation.
+        if (!exactMatch && legacyCacheKey !== cacheKey) {
+          const legacyCachedFiles = await storage.listFiles(cacheBucketId, [
+            Query.search("name", legacyCacheKey),
+            Query.orderDesc("$createdAt"),
+            Query.limit(10),
+          ]);
+          exactMatch = Array.isArray(legacyCachedFiles.files)
+            ? legacyCachedFiles.files.find((file) => String(file.name || "").trim() === legacyCacheFileName)
+            : null;
         }
-      }
-    } catch (cacheReadError) {
+        const cachedFile = exactMatch;
+        if (cachedFile && cachedFile.$id) {
+          const cachedMarkdownBuffer = await storage.getFileDownload(cacheBucketId, cachedFile.$id);
+          const cachedMarkdown = Buffer.from(cachedMarkdownBuffer).toString("utf8");
+          if (cachedMarkdown.trim()) {
+            markdown = cachedMarkdown;
+            loadedFromCache = true;
+            cacheFileId = String(cachedFile.$id);
+            console.log("[pdf-generator] Loaded markdown from cache bucket.", {
+              jobId,
+              jobType: normalizedJobType,
+              cacheBucketId,
+              cacheFileId,
+              cacheFileName: String(cachedFile.name || ""),
+            });
+          }
+        }
+      } catch (cacheReadError) {
         console.warn("[pdf-generator] Markdown cache read failed. Proceeding with fresh generation.", {
           jobId,
           jobType: normalizedJobType,
