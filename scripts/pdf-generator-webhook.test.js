@@ -389,6 +389,55 @@ describe("pdf-generator / processGenerationJob cache behavior", () => {
     jest.restoreAllMocks();
   });
 
+  it("uses payload cachedMarkdown fast-path and skips cache bucket + Gemini calls", async () => {
+    const mockDb = {
+      updateDocument: jest.fn().mockResolvedValue({}),
+      listDocuments: jest.fn(),
+    };
+    Databases.mockImplementation(() => mockDb);
+
+    const mockStorage = {
+      listFiles: jest.fn(),
+      getFileDownload: jest.fn(),
+      createFile: jest.fn().mockResolvedValue({ $id: "pdf-file-fast-path" }),
+    };
+    Storage.mockImplementation(() => mockStorage);
+
+    InputFile.fromBuffer.mockImplementation((buffer, name) => ({ buffer, name }));
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        arrayBuffer: async () => Buffer.from("%PDF-1.4"),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: async () => "",
+      });
+
+    const result = await processGenerationJob(JSON.stringify({
+      jobId: "job-cached-markdown",
+      payload: {
+        jobType: "notes",
+        university: "Test Uni",
+        course: "BTECH",
+        stream: "CSE",
+        type: "Regular",
+        paperCode: "CS101",
+        unitNumber: 1,
+        cachedMarkdown: "   # Prefetched cached markdown   ",
+      },
+    }));
+
+    expect(mockStorage.listFiles).not.toHaveBeenCalled();
+    expect(mockStorage.getFileDownload).not.toHaveBeenCalled();
+    expect(mockDb.listDocuments).not.toHaveBeenCalled();
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(global.fetch.mock.calls.some(([url]) => String(url).includes("generativelanguage.googleapis.com"))).toBe(false);
+    expect(result.fileId).toBe("pdf-file-fast-path");
+  });
+
   it("reads markdown from cache bucket and avoids fresh Gemini generation calls", async () => {
     const mockDb = {
       updateDocument: jest.fn().mockResolvedValue({}),
