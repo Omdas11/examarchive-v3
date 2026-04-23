@@ -53,6 +53,14 @@ const {
 } = require("../appwrite-functions/pdf-generator/index.js");
 const { InputFile } = require("node-appwrite/file");
 
+function isGeminiApiCall(url) {
+  try {
+    return new URL(String(url)).hostname === "generativelanguage.googleapis.com";
+  } catch {
+    return false;
+  }
+}
+
 describe("pdf-generator / getNotifyCompletionUrl", () => {
   const originalEnv = process.env;
 
@@ -390,6 +398,7 @@ describe("pdf-generator / processGenerationJob cache behavior", () => {
   });
 
   it("uses payload cachedMarkdown fast-path and skips cache bucket + Gemini calls", async () => {
+    const logSpy = jest.spyOn(console, "log").mockImplementation(() => {});
     const mockDb = {
       updateDocument: jest.fn().mockResolvedValue({}),
       listDocuments: jest.fn(),
@@ -434,16 +443,71 @@ describe("pdf-generator / processGenerationJob cache behavior", () => {
     expect(mockStorage.getFileDownload).not.toHaveBeenCalled();
     expect(mockDb.listDocuments).not.toHaveBeenCalled();
     expect(global.fetch).toHaveBeenCalledTimes(2);
-    expect(
-      global.fetch.mock.calls.some(([url]) => {
-        try {
-          return new URL(String(url)).hostname === "generativelanguage.googleapis.com";
-        } catch {
-          return false;
-        }
-      }),
-    ).toBe(false);
+    expect(global.fetch.mock.calls.some(([url]) => isGeminiApiCall(url))).toBe(false);
+    expect(logSpy).toHaveBeenCalledWith(
+      "[pdf-generator] Using cachedMarkdown from dispatch payload (global cache hit).",
+      expect.objectContaining({ markdownLength: "# Prefetched cached markdown".length }),
+    );
     expect(result.fileId).toBe("pdf-file-fast-path");
+  });
+
+  it("ignores whitespace-only cachedMarkdown and falls back to normal generation flow", async () => {
+    const logSpy = jest.spyOn(console, "log").mockImplementation(() => {});
+    const mockDb = {
+      updateDocument: jest.fn().mockResolvedValue({}),
+      listDocuments: jest.fn().mockResolvedValue({
+        documents: [{ $id: "syllabus-1", syllabus_content: "Topic A\nTopic B" }],
+      }),
+    };
+    Databases.mockImplementation(() => mockDb);
+
+    const mockStorage = {
+      listFiles: jest.fn().mockResolvedValue({ files: [] }),
+      createFile: jest.fn().mockResolvedValue({ $id: "pdf-file-fallback" }),
+    };
+    Storage.mockImplementation(() => mockStorage);
+
+    InputFile.fromBuffer.mockImplementation((buffer, name) => ({ buffer, name }));
+    global.fetch = jest.fn().mockImplementation(async (url) => {
+      if (isGeminiApiCall(url)) {
+        return {
+          ok: true,
+          status: 200,
+          text: async () => JSON.stringify({ candidates: [{ content: { parts: [{ text: "# Gemini markdown" }] } }] }),
+        };
+      }
+      if (String(url).includes("/forms/chromium/convert/html")) {
+        return {
+          ok: true,
+          status: 200,
+          arrayBuffer: async () => Buffer.from("%PDF-1.4"),
+        };
+      }
+      return { ok: true, status: 200, text: async () => "" };
+    });
+    process.env.GEMINI_API_KEY = "test-gemini-key";
+
+    const result = await processGenerationJob(JSON.stringify({
+      jobId: "job-whitespace-cached-markdown",
+      payload: {
+        jobType: "notes",
+        university: "Test Uni",
+        course: "BTECH",
+        stream: "CSE",
+        type: "Regular",
+        paperCode: "CS101",
+        unitNumber: 1,
+        cachedMarkdown: "     ",
+      },
+    }));
+
+    expect(mockStorage.listFiles).toHaveBeenCalled();
+    expect(global.fetch.mock.calls.some(([url]) => isGeminiApiCall(url))).toBe(true);
+    expect(logSpy).not.toHaveBeenCalledWith(
+      "[pdf-generator] Using cachedMarkdown from dispatch payload (global cache hit).",
+      expect.any(Object),
+    );
+    expect(result.fileId).toBe("pdf-file-fallback");
   });
 
   it("reads markdown from cache bucket and avoids fresh Gemini generation calls", async () => {
