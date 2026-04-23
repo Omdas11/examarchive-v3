@@ -510,6 +510,70 @@ describe("pdf-generator / processGenerationJob cache behavior", () => {
     expect(result.fileId).toBe("pdf-file-fallback");
   });
 
+  it("falls back to fresh generation when cache read throws", async () => {
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const mockDb = {
+      updateDocument: jest.fn().mockResolvedValue({}),
+      listDocuments: jest.fn().mockResolvedValue({
+        documents: [{ $id: "syllabus-1", syllabus_content: "Topic A\nTopic B" }],
+      }),
+    };
+    Databases.mockImplementation(() => mockDb);
+
+    const cacheReadError = new Error("cache backend unavailable");
+    const mockStorage = {
+      listFiles: jest.fn().mockRejectedValue(cacheReadError),
+      createFile: jest.fn().mockResolvedValue({ $id: "pdf-file-after-cache-read-fail" }),
+    };
+    Storage.mockImplementation(() => mockStorage);
+
+    InputFile.fromBuffer.mockImplementation((buffer, name) => ({ buffer, name }));
+    global.fetch = jest.fn().mockImplementation(async (url) => {
+      if (isGeminiApiCall(url)) {
+        return {
+          ok: true,
+          status: 200,
+          text: async () => JSON.stringify({ candidates: [{ content: { parts: [{ text: "# Gemini markdown" }] } }] }),
+        };
+      }
+      if (String(url).includes("/forms/chromium/convert/html")) {
+        return {
+          ok: true,
+          status: 200,
+          arrayBuffer: async () => Buffer.from("%PDF-1.4"),
+        };
+      }
+      return { ok: true, status: 200, text: async () => "" };
+    });
+    process.env.GEMINI_API_KEY = "test-gemini-key";
+
+    const result = await processGenerationJob(JSON.stringify({
+      jobId: "job-cache-read-fail",
+      payload: {
+        jobType: "notes",
+        university: "Test Uni",
+        course: "BTECH",
+        stream: "CSE",
+        type: "Regular",
+        paperCode: "CS101",
+        unitNumber: 1,
+      },
+    }));
+
+    expect(mockStorage.listFiles).toHaveBeenCalledWith("cached-unit-notes", expect.any(Array));
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[pdf-generator] Markdown cache read failed. Proceeding with fresh generation.",
+      expect.objectContaining({
+        jobId: "job-cache-read-fail",
+        jobType: "notes",
+        cacheBucketId: "cached-unit-notes",
+        message: "cache backend unavailable",
+      }),
+    );
+    expect(global.fetch.mock.calls.some(([url]) => isGeminiApiCall(url))).toBe(true);
+    expect(result.fileId).toBe("pdf-file-after-cache-read-fail");
+  });
+
   it("reads markdown from cache bucket and avoids fresh Gemini generation calls", async () => {
     const mockDb = {
       updateDocument: jest.fn().mockResolvedValue({}),
