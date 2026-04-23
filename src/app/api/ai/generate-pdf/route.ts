@@ -506,11 +506,9 @@ async function lookupMarkdownFileCache(
   const CACHE_FILE_QUERY_LIMIT = 10;
   try {
     const storage = adminStorage();
-    const matchByFileName = (files: Array<{ name?: unknown; $id?: string }>): { name?: unknown; $id?: string } | null => (
-      files.find((f) => String(f.name ?? "").trim() === cacheFileName)
-      || files.find((f) => String(f.name ?? "").trim() === legacyCacheFileName)
-      || null
-    );
+    const exactNames = new Set([cacheFileName, legacyCacheFileName]);
+    const matchByFileName = (files: Array<{ name?: unknown; $id?: string }>): { name?: unknown; $id?: string } | undefined =>
+      files.find((f) => exactNames.has(String(f.name ?? "").trim()));
     const cachedFiles = await storage.listFiles(cacheBucketId, [
       Query.search("name", cacheKey),
       Query.orderDesc("$createdAt"),
