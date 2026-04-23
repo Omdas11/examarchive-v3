@@ -34,6 +34,8 @@ export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
 const DEFAULT_AI_MODEL = "gemini-3.1-flash-lite-preview";
+const CACHE_LOOKUP_DEFAULT_MODEL =
+  String(process.env.GEMINI_MODEL_ID || "").trim() || DEFAULT_AI_MODEL;
 const GEMMA_UNLIMITED_TPM_MODEL = "gemma-4-31b-it";
 const MIN_SEMESTER = 1;
 const MAX_SEMESTER = 8;
@@ -482,7 +484,7 @@ async function lookupMarkdownFileCache(
   if (!cacheScopeSegment) return null;
 
   const semester = normalize(payload.semester) || "na";
-  const model = normalize(payload.model) || DEFAULT_AI_MODEL;
+  const model = normalize(payload.model) || CACHE_LOOKUP_DEFAULT_MODEL;
 
   // NOTE: The cache-key construction below mirrors the same logic used by the
   // pdf-generator Appwrite function (processGenerationJob).  If the format
@@ -490,7 +492,11 @@ async function lookupMarkdownFileCache(
   const cacheKey = [paperCode, cacheScopeSegment, stream, course, type, university, semester, model]
     .join("_")
     .replace(/[^a-zA-Z0-9_-]/g, "_");
+  const legacyCacheKey = [paperCode, cacheScopeSegment, stream, course, type]
+    .join("_")
+    .replace(/[^a-zA-Z0-9_-]/g, "_");
   const cacheFileName = `${cacheKey}.md`;
+  const legacyCacheFileName = `${legacyCacheKey}.md`;
 
   const cacheBucketId =
     normalizedJobType === "notes" ? CACHED_UNIT_NOTES_BUCKET_ID : CACHED_SOLVED_PAPERS_BUCKET_ID;
@@ -500,14 +506,25 @@ async function lookupMarkdownFileCache(
   const CACHE_FILE_QUERY_LIMIT = 10;
   try {
     const storage = adminStorage();
+    const matchByFileName = (files: Array<{ name?: unknown; $id?: string }>): { name?: unknown; $id?: string } | null => (
+      files.find((f) => String(f.name ?? "").trim() === cacheFileName)
+      || files.find((f) => String(f.name ?? "").trim() === legacyCacheFileName)
+      || null
+    );
     const cachedFiles = await storage.listFiles(cacheBucketId, [
       Query.search("name", cacheKey),
       Query.orderDesc("$createdAt"),
       Query.limit(CACHE_FILE_QUERY_LIMIT),
     ]);
-    const exactMatch = Array.isArray(cachedFiles.files)
-      ? cachedFiles.files.find((f) => String(f.name ?? "").trim() === cacheFileName)
-      : null;
+    let exactMatch = Array.isArray(cachedFiles.files) ? matchByFileName(cachedFiles.files) : null;
+    if (!exactMatch && legacyCacheKey !== cacheKey) {
+      const legacyCachedFiles = await storage.listFiles(cacheBucketId, [
+        Query.search("name", legacyCacheKey),
+        Query.orderDesc("$createdAt"),
+        Query.limit(CACHE_FILE_QUERY_LIMIT),
+      ]);
+      exactMatch = Array.isArray(legacyCachedFiles.files) ? matchByFileName(legacyCachedFiles.files) : null;
+    }
     if (!exactMatch?.$id) return null;
 
     const buffer = await storage.getFileDownload(cacheBucketId, exactMatch.$id);
