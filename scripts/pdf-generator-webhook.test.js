@@ -627,6 +627,63 @@ describe("pdf-generator / processGenerationJob cache behavior", () => {
     expect(result.fileId).toBe("pdf-file-1");
   });
 
+  it("falls back to legacy cache key query when new-format cache key finds no match", async () => {
+    const mockDb = {
+      updateDocument: jest.fn().mockResolvedValue({}),
+      listDocuments: jest.fn(),
+    };
+    Databases.mockImplementation(() => mockDb);
+
+    // First listFiles call (new cacheKey) returns empty; second (legacyCacheKey) returns the legacy file.
+    const mockStorage = {
+      listFiles: jest.fn()
+        .mockResolvedValueOnce({ files: [] })
+        .mockResolvedValueOnce({
+          files: [{ $id: "legacy-cache-file-1", name: "CS101_1_CSE_BTECH_Regular.md", $createdAt: "2025-01-01T00:00:00.000Z" }],
+        }),
+      getFileDownload: jest.fn().mockResolvedValue(Buffer.from("# Legacy cached markdown", "utf8")),
+      createFile: jest.fn().mockResolvedValue({ $id: "pdf-file-legacy" }),
+    };
+    Storage.mockImplementation(() => mockStorage);
+
+    InputFile.fromBuffer.mockImplementation((buffer, name) => ({ buffer, name }));
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        arrayBuffer: async () => Buffer.from("%PDF-1.4"),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: async () => "",
+      });
+
+    const result = await processGenerationJob(JSON.stringify({
+      jobId: "job-legacy-cache",
+      payload: {
+        jobType: "notes",
+        university: "Test Uni",
+        course: "BTECH",
+        stream: "CSE",
+        type: "Regular",
+        paperCode: "CS101",
+        unitNumber: 1,
+      },
+    }));
+
+    // Both the new-key and legacy-key queries must have been issued.
+    expect(mockStorage.listFiles).toHaveBeenCalledTimes(2);
+    // The second call should use the legacy cache key.
+    const secondCall = mockStorage.listFiles.mock.calls[1];
+    expect(secondCall[0]).toBe("cached-unit-notes");
+    // The legacy file was found so Gemini should NOT have been called.
+    expect(global.fetch.mock.calls.some(([url]) => isGeminiApiCall(url))).toBe(false);
+    expect(mockStorage.getFileDownload).toHaveBeenCalledWith("cached-unit-notes", "legacy-cache-file-1");
+    expect(mockDb.listDocuments).not.toHaveBeenCalled();
+    expect(result.fileId).toBe("pdf-file-legacy");
+  });
+
   it("fails the job when cache write fails (no file ID means result is lost)", async () => {
     const mockDb = {
       updateDocument: jest.fn().mockResolvedValue({}),

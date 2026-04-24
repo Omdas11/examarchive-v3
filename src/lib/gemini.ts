@@ -1,6 +1,6 @@
 const GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta";
 const DEFAULT_GEMINI_MODEL = process.env.GEMINI_MODEL_ID || "gemini-3.1-flash-lite-preview";
-const DEFAULT_REQUEST_TIMEOUT_MS = 45_000;
+const DEFAULT_REQUEST_TIMEOUT_MS = 120_000;
 const REQUEST_TIMEOUT_MS = Number.isFinite(Number(process.env.GEMINI_REQUEST_TIMEOUT_MS))
   ? Math.max(1_000, Number(process.env.GEMINI_REQUEST_TIMEOUT_MS))
   : DEFAULT_REQUEST_TIMEOUT_MS;
