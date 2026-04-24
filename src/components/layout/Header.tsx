@@ -8,6 +8,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import ElectronIcon from '@/components/ElectronIcon';
 
 export interface HeaderProps {
   title?: string;
@@ -224,20 +225,7 @@ export default function Header({
             aria-label={`Electron balance ${electronBalance}`}
             title={`Electron balance: ${electronBalance}`}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.6" />
-              <text
-                x="12"
-                y="15.2"
-                textAnchor="middle"
-                fontSize="11"
-                fontFamily="Inter, system-ui, sans-serif"
-                fontWeight="700"
-                fill="currentColor"
-              >
-                e
-              </text>
-            </svg>
+            <ElectronIcon size={14} />
             <span>{electronBalance}</span>
           </div>
         )}
