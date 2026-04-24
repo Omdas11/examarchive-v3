@@ -57,13 +57,13 @@ export const PASSES: readonly Pass[] = [
   {
     id: "supporter",
     label: "Be a Supporter",
-    description: "Support ExamArchive and get 100e + exclusive Supporter Badge.",
+    description: "Support ExamArchive. Claim 100e every month + exclusive Supporter Badge.",
     oneTimePaise: 4900,
     subscribedPaise: 4900,
     billingPeriod: "month",
     dailyElectrons: 0,
     durationDays: 30,
-    perks: ["supporter_badge", "100e_bonus"],
+    perks: ["supporter_badge", "monthly_100e_claim"],
   },
 ] as const;
 

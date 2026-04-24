@@ -288,11 +288,16 @@ export default function StoreClient({
                   )}
                 </div>
 
-                {/* Daily claim info */}
+                {/* Daily claim info — claim it or lose it */}
                 {pass.dailyElectrons > 0 && (
-                  <div className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 rounded-md px-2 py-1 w-fit">
-                    <ElectronIcon size={12} className="text-amber-600" />
-                    <span>{pass.dailyElectrons}e/day for {pass.durationDays} days</span>
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 rounded-md px-2 py-1 w-fit">
+                      <ElectronIcon size={12} className="text-amber-600" />
+                      <span>{pass.dailyElectrons}e/day for {pass.durationDays} days</span>
+                    </div>
+                    <p className="text-xs text-on-surface-variant pl-0.5">
+                      ⚠️ Claim daily or lose it — unclaimed electrons are <strong>not</strong> carried over.
+                    </p>
                   </div>
                 )}
 
@@ -301,7 +306,7 @@ export default function StoreClient({
                   <ul className="text-xs text-on-surface-variant space-y-0.5 pl-1">
                     <li className="flex items-center gap-1.5">
                       <ElectronIcon size={11} className="text-amber-600 flex-shrink-0" />
-                      <span>100e instant bonus</span>
+                      <span>Claim 100e every month (claim it or lose it)</span>
                     </li>
                     <li className="flex items-center gap-1.5">
                       <SupporterBadge size={11} />

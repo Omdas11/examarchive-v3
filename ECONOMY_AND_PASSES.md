@@ -73,12 +73,21 @@ Passes are defined in `src/lib/payments.ts` as `PASSES`.
 | | Subscribed only |
 |---|---|
 | Price | ₹49/month |
-| Bonus | 100e on activation |
+| Monthly claim | **Claim 100e every month** (must be claimed manually — not auto-deposited) |
 | Badge | Exclusive **Supporter Badge** |
+
+> **Claim it or lose it**: The 100e monthly allowance is not automatically deposited.
+> The subscriber must click "Claim" once per billing cycle. If not claimed before the
+> cycle renews, those electrons are forfeited and the counter resets.
 
 ---
 
-## 4. Daily Claim Mechanics
+## 4. Daily Claim Mechanics — "Claim It or Lose It"
+
+> **Important rule:** All pass-based electron allowances (daily electrons for Weekly/Monthly
+> Pass, and the monthly 100e for Supporter) are **not automatically deposited**. The user
+> must actively click "Claim" each day (or each billing cycle for Supporter). Any unclaimed
+> electrons from a given day/cycle are **permanently forfeited** — they do not carry over.
 
 When a user has an active pass, a daily background job (Appwrite Scheduled Function)
 or a manual claim button (`POST /api/payments/claim-daily`) should:
@@ -158,6 +167,57 @@ The badge is shown in:
 | `/api/payments/claim-daily` | POST | 🚧 Scaffold | Claim daily electrons from active pass |
 
 Routes marked 🚧 require the Appwrite schema changes above before full implementation.
+
+---
+
+## 8. Subscription Pipeline Setup (Razorpay)
+
+To enable the **Subscribe** buttons on Weekly Pass, Monthly Pass, and Supporter tier,
+the following one-time Razorpay setup is required:
+
+### 8.1 Razorpay Dashboard Steps
+
+1. **Enable Subscriptions** — Go to Razorpay Dashboard → Settings → Products → enable
+   *Subscriptions*.
+2. **Create Subscription Plans** — Under Subscriptions → Plans, create one plan per tier:
+   - `weekly_pass_plan` — ₹39 / week, `interval: 1`, `period: weekly`
+   - `monthly_pass_plan` — ₹179 / month, `interval: 1`, `period: monthly`
+   - `supporter_plan` — ₹49 / month, `interval: 1`, `period: monthly`
+   Record each `plan_id` (format: `plan_XXXXX`) — these go in your environment variables.
+3. **Register Webhook** — Subscriptions → Settings → Webhooks → add your production URL:
+   ```
+   https://examarchive.vercel.app/api/payments/razorpay/webhook
+   ```
+   Enable the events: `subscription.activated`, `subscription.charged`,
+   `subscription.cancelled`, `subscription.completed`.
+   Copy the **Webhook Secret** to your env as `RAZORPAY_WEBHOOK_SECRET`.
+
+### 8.2 New Environment Variables Required
+
+```env
+# Razorpay Plan IDs (from Razorpay Dashboard → Subscriptions → Plans)
+RAZORPAY_PLAN_ID_WEEKLY_PASS=plan_XXXXXXXXXXXXXXXX
+RAZORPAY_PLAN_ID_MONTHLY_PASS=plan_XXXXXXXXXXXXXXXX
+RAZORPAY_PLAN_ID_SUPPORTER=plan_XXXXXXXXXXXXXXXX
+
+# Webhook verification
+RAZORPAY_WEBHOOK_SECRET=your_webhook_secret_here
+```
+
+Add these to Vercel → Project → Settings → Environment Variables.
+
+### 8.3 Backend Routes to Implement
+
+| Route | Trigger | Action |
+|---|---|---|
+| `POST /api/payments/razorpay/create-pass-order` | User clicks Subscribe | Create Razorpay Subscription using plan ID, return `subscription_id` + `key_id` to frontend |
+| `POST /api/payments/razorpay/webhook` | Razorpay sends event | Verify HMAC signature, handle `subscription.activated` (create `user_passes` doc + award badge), `subscription.charged` (reset monthly claim), `subscription.cancelled` (set status=cancelled) |
+| `POST /api/payments/claim-daily` | User clicks daily Claim | Check `user_passes` active + today not yet claimed → add electrons + update `last_daily_claim_at` |
+
+> **No Razorpay subscription API calls are needed from the client.** All subscription
+> lifecycle events come through the webhook. The frontend only needs to open the
+> Razorpay Checkout in subscription mode using the `subscription_id` returned by
+> `create-pass-order`.
 
 ---
 
