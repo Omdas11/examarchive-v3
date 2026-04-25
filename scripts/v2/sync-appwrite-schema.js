@@ -185,6 +185,9 @@ const TARGET_SCHEMA = [
       { key: "referred_users_count", type: "integer", required: false },
       { key: "specialist_subject", type: "string", required: false, size: 128 },
       { key: "subject_admin_subject", type: "string", required: false, size: 128 },
+      // Added by PR#246 — Electron Economy / Passes & Subscriptions
+      { key: "last_weekly_claim_at", type: "datetime", required: false },
+      { key: "badges", type: "string", required: false, size: 128, array: true },
     ],
   },
   {
@@ -241,6 +244,34 @@ const TARGET_SCHEMA = [
       { key: "label", type: "string", required: true, size: 256 },
       { key: "description", type: "string", required: false, size: LARGE_STRING_SIZE },
       { key: "earned_at", type: "datetime", required: true },
+    ],
+  },
+  // ── PR#246: Electron Economy — Passes & Subscriptions ──────────────────────
+  {
+    id: "user_passes",
+    name: "user_passes",
+    attributes: [
+      { key: "user_id", type: "string", required: true, size: 64 },
+      { key: "pass_id", type: "string", required: true, size: 32 },
+      { key: "mode", type: "string", required: true, size: 16 },
+      { key: "status", type: "string", required: true, size: 16 },
+      { key: "daily_electrons", type: "integer", required: true },
+      { key: "days_remaining", type: "integer", required: true },
+      { key: "last_daily_claim_at", type: "datetime", required: false },
+      { key: "activated_at", type: "datetime", required: true },
+      { key: "expires_at", type: "datetime", required: true },
+      { key: "razorpay_subscription_id", type: "string", required: false, size: 128 },
+      { key: "razorpay_order_id", type: "string", required: false, size: 128 },
+    ],
+  },
+  {
+    id: "user_badges",
+    name: "user_badges",
+    attributes: [
+      { key: "user_id", type: "string", required: true, size: 64 },
+      { key: "badge_id", type: "string", required: true, size: 64 },
+      { key: "awarded_at", type: "datetime", required: true },
+      { key: "source", type: "string", required: false, size: 128 },
     ],
   },
   {
