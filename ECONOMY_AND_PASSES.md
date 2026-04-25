@@ -123,6 +123,11 @@ The badge is shown in:
 
 ## 6. Appwrite Schema Changes Required
 
+> **Auto-synced:** All schema changes below are now included in
+> `scripts/v2/sync-appwrite-schema.js`. Run `npm run appwrite:sync` to automatically
+> create or update all collections and attributes in your Appwrite project. No manual
+> collection creation is needed.
+
 ### 6.1 `users` collection (extend existing)
 
 | Attribute | Type | Description |

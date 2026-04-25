@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getServerUser } from "@/lib/auth";
-import { getCreditPackByCode, getRazorpayClient } from "@/lib/payments";
+import { adminDatabases, DATABASE_ID, COLLECTION, Query } from "@/lib/appwrite";
+import { getCreditPackByCode, getRazorpayClient, getFirstTimerAmountInPaise } from "@/lib/payments";
 
 type CreateOrderBody = {
   packCode?: string;
@@ -23,16 +24,37 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid credit pack selected." }, { status: 400 });
   }
 
+  // ── Determine first-time buyer status ────────────────────────────────────
+  // Checked server-side so the discount cannot be spoofed by the client.
+  let isFirstTimer = false;
+  try {
+    const db = adminDatabases();
+    const { total } = await db.listDocuments(DATABASE_ID, COLLECTION.purchases, [
+      Query.equal("user_id", user.id),
+      Query.equal("credits_applied", true),
+      Query.limit(1),
+    ]);
+    isFirstTimer = total === 0;
+  } catch {
+    // If the check fails, default to no discount (conservative)
+    isFirstTimer = false;
+  }
+
+  const effectiveAmount = isFirstTimer
+    ? getFirstTimerAmountInPaise(pack)
+    : pack.amountInPaise;
+
   try {
     const razorpay = getRazorpayClient();
     const order = await razorpay.orders.create({
-      amount: pack.amountInPaise,
+      amount: effectiveAmount,
       currency: "INR",
       receipt: `ea_${user.id.slice(0, 12)}_${Date.now()}`,
       notes: {
         user_id: user.id,
         pack_code: pack.code,
         credits: String(pack.credits),
+        ...(isFirstTimer && { is_first_timer_discount: "true" }),
       },
     });
     return NextResponse.json({
