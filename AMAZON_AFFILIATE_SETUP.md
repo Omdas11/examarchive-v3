@@ -65,6 +65,16 @@ AMAZON_PA_API_MARKETPLACE=www.amazon.in
 | `AMAZON_PA_API_ACCESS_KEY` | PA API access key | *(none)* |
 | `AMAZON_PA_API_SECRET_KEY` | PA API secret key | *(none)* |
 | `AMAZON_PA_API_MARKETPLACE` | Amazon marketplace host | `www.amazon.in` |
+| `AMAZON_PA_API_REGION` | AWS region for PA API signing | `eu-west-1` |
+
+**Region reference:**
+
+| Marketplace | Region |
+|---|---|
+| www.amazon.in (India) | `eu-west-1` |
+| www.amazon.com (US) / .ca / .com.au | `us-east-1` |
+| www.amazon.co.jp (Japan) | `us-west-2` |
+| www.amazon.co.uk / .de / .fr / .it / .es | `eu-west-1` |
 
 In **Vercel**: go to your project → **Settings** → **Environment Variables**
 and add all four.  Redeploy after saving.

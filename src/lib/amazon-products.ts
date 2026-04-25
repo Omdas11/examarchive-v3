@@ -151,7 +151,9 @@ async function fetchPaApiItems(
   creds: PaApiCredentials,
 ): Promise<PaApiItemResult[] | null> {
   const host = "webservices.amazon.in";
-  const region = "us-east-1";
+  // Amazon India PA API uses eu-west-1; other marketplaces vary.
+  // Override with AMAZON_PA_API_REGION if needed for a different marketplace.
+  const region = process.env.AMAZON_PA_API_REGION ?? "eu-west-1";
   const service = "ProductAdvertisingAPI";
   const target = "com.amazon.paapi5.v1.ProductAdvertisingAPIv1.GetItems";
   const contentType = "application/json; charset=utf-8";
