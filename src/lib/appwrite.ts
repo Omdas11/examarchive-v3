@@ -70,6 +70,9 @@ export const COLLECTION = {
   purchases: "purchases",
   ai_cache_index: "ai_cache_index",
   ai_generation_jobs: "ai_generation_jobs",
+  // PR#246: Electron Economy — Passes & Subscriptions
+  user_passes: "user_passes",
+  user_badges: "user_badges",
 } as const;
 
 /** Storage bucket for uploaded PDFs and files. */

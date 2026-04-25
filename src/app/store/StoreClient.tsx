@@ -151,24 +151,93 @@ export default function StoreClient({
     }
   }
 
-  // ── Buy pass (scaffold — Razorpay subscription backend pending) ────────
+  // ── Buy pass (Razorpay order/subscription checkout) ────────────────────
 
   async function buyPass(passId: string, mode: "onetime" | "subscribe") {
     setLoadingCode(`${passId}_${mode}`);
     setError(null);
     setMessage(null);
     try {
-      const res = await fetch("/api/payments/razorpay/create-pass-order", {
+      const createRes = await fetch("/api/payments/razorpay/create-pass-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ passId, mode }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Pass order creation failed — coming soon!");
-      setMessage(data.message ?? "Pass activated!");
-      window.location.reload();
+      const createData = await createRes.json();
+      if (!createRes.ok) throw new Error(createData.error ?? "Pass order creation failed");
+      if (!window.Razorpay) throw new Error("Razorpay checkout failed to load.");
+
+      const passLabel = (createData.pass?.label as string | undefined) ?? passId;
+
+      if (mode === "subscribe") {
+        // Subscription checkout — uses subscription_id instead of order_id
+        const checkout = new window.Razorpay({
+          key: createData.keyId,
+          subscription_id: createData.subscriptionId,
+          name: "ExamArchive",
+          description: passLabel,
+          handler: async (response: Record<string, unknown>) => {
+            try {
+              const verifyRes = await fetch("/api/payments/razorpay/verify-pass", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  passId,
+                  mode: "subscribe",
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_subscription_id: response.razorpay_subscription_id,
+                  razorpay_signature: response.razorpay_signature,
+                }),
+              });
+              const verifyData = await verifyRes.json();
+              if (!verifyRes.ok) throw new Error(verifyData.error ?? "Pass activation failed");
+              setMessage(verifyData.message ?? "Pass activated!");
+              window.location.reload();
+            } catch (e) {
+              setError(e instanceof Error ? e.message : "Pass activation failed");
+              setLoadingCode(null);
+            }
+          },
+          theme: { color: "#4f46e5" },
+        });
+        checkout.open();
+      } else {
+        // One-time checkout — uses order_id like a credit pack purchase
+        const checkout = new window.Razorpay({
+          key: createData.keyId,
+          amount: createData.amount,
+          currency: createData.currency,
+          order_id: createData.orderId,
+          name: "ExamArchive",
+          description: passLabel,
+          handler: async (response: Record<string, unknown>) => {
+            try {
+              const verifyRes = await fetch("/api/payments/razorpay/verify-pass", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  passId,
+                  mode: "onetime",
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature,
+                }),
+              });
+              const verifyData = await verifyRes.json();
+              if (!verifyRes.ok) throw new Error(verifyData.error ?? "Pass activation failed");
+              setMessage(verifyData.message ?? "Pass activated!");
+              window.location.reload();
+            } catch (e) {
+              setError(e instanceof Error ? e.message : "Pass activation failed");
+              setLoadingCode(null);
+            }
+          },
+          theme: { color: "#4f46e5" },
+        });
+        checkout.open();
+      }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Pass purchase coming soon!");
+      setError(e instanceof Error ? e.message : "Pass purchase failed");
     } finally {
       setLoadingCode(null);
     }

@@ -34,6 +34,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Allow Razorpay webhook calls to proceed; route performs its own HMAC validation.
+  if (pathname.startsWith("/api/payments/razorpay/webhook")) {
+    return NextResponse.next();
+  }
+
   // Check if the user has an active session cookie.
   const session = request.cookies.get(SESSION_COOKIE)?.value;
 

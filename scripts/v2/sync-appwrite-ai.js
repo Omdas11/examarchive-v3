@@ -150,6 +150,14 @@ function initializeFunctionConfig() {
       description: "Gemini 3.1 Flash Lite flashcard/quiz generator",
       execute: ["any"],
     },
+    {
+      id: "pass-daily-refresh",
+      name: "pass-daily-refresh",
+      runtime: DEFAULT_FUNCTION_RUNTIME,
+      description: "Daily scheduled job — expires stale user passes",
+      schedule: "0 0 * * *",
+      execute: ["any"],
+    },
   ];
 }
 
