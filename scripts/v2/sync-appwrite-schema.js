@@ -187,6 +187,7 @@ const TARGET_SCHEMA = [
       { key: "subject_admin_subject", type: "string", required: false, size: 128 },
       // Added by PR#246 — Electron Economy / Passes & Subscriptions
       { key: "last_weekly_claim_at", type: "datetime", required: false },
+      // size 128 = max length per badge string in the array (e.g. "supporter_badge")
       { key: "badges", type: "string", required: false, size: 128, array: true },
     ],
   },
