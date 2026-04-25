@@ -151,24 +151,72 @@ export default function StoreClient({
     }
   }
 
-  // ── Buy pass (scaffold — Razorpay subscription backend pending) ────────
+  // ── Buy pass via Razorpay (subscription or one-time) ───────────────────
 
   async function buyPass(passId: string, mode: "onetime" | "subscribe") {
     setLoadingCode(`${passId}_${mode}`);
     setError(null);
     setMessage(null);
     try {
-      const res = await fetch("/api/payments/razorpay/create-pass-order", {
+      const createRes = await fetch("/api/payments/razorpay/create-pass-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ passId, mode }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Pass order creation failed — coming soon!");
-      setMessage(data.message ?? "Pass activated!");
-      window.location.reload();
+      const createData = await createRes.json();
+      if (!createRes.ok) throw new Error(createData.error ?? "Failed to create pass order");
+      if (!window.Razorpay) throw new Error("Razorpay checkout failed to load.");
+
+      if (mode === "subscribe") {
+        // Open Razorpay checkout in subscription mode
+        const checkout = new window.Razorpay({
+          key: createData.keyId,
+          subscription_id: createData.subscriptionId,
+          name: "ExamArchive",
+          description: `${createData.pass?.label ?? "Pass"} — ${createData.pass?.billingPeriod ?? ""}ly`,
+          handler: () => {
+            setMessage("Subscription activated! Your plan is now live.");
+            window.location.reload();
+          },
+          theme: { color: "#4f46e5" },
+        });
+        checkout.open();
+      } else {
+        // One-time pass: open checkout and verify after payment
+        const checkout = new window.Razorpay({
+          key: createData.keyId,
+          amount: createData.amount,
+          currency: createData.currency,
+          name: "ExamArchive",
+          description: `${createData.pass?.label ?? "Pass"} — One-time`,
+          order_id: createData.orderId,
+          handler: async (response: Record<string, unknown>) => {
+            try {
+              const verifyRes = await fetch("/api/payments/razorpay/verify-pass", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  passId,
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature,
+                }),
+              });
+              const verifyData = await verifyRes.json();
+              if (!verifyRes.ok) throw new Error(verifyData.error ?? "Pass verification failed");
+              setMessage(verifyData.message ?? "Pass activated!");
+              window.location.reload();
+            } catch (verificationError) {
+              setError(verificationError instanceof Error ? verificationError.message : "Pass verification failed");
+              setLoadingCode(null);
+            }
+          },
+          theme: { color: "#4f46e5" },
+        });
+        checkout.open();
+      }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Pass purchase coming soon!");
+      setError(e instanceof Error ? e.message : "Pass purchase failed");
     } finally {
       setLoadingCode(null);
     }

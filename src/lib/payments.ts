@@ -82,6 +82,19 @@ export function getCreditPackByCode(code: string) {
   return CREDIT_PACKS.find((pack) => pack.code === code);
 }
 
+/**
+ * Returns the Razorpay plan ID for a given pass ID, sourced from environment
+ * variables. Returns null if the variable is not set.
+ */
+export function getRazorpayPlanId(passId: PassId): string | null {
+  const map: Record<PassId, string | undefined> = {
+    weekly_pass: process.env.RAZORPAY_PLAN_ID_WEEKLY_PASS,
+    monthly_pass: process.env.RAZORPAY_PLAN_ID_MONTHLY_PASS,
+    supporter: process.env.RAZORPAY_PLAN_ID_SUPPORTER,
+  };
+  return map[passId] ?? null;
+}
+
 export function getRazorpayClient(): Razorpay {
   const keyId = process.env.RAZORPAY_KEY_ID ?? "";
   const keySecret = process.env.RAZORPAY_KEY_SECRET ?? "";
