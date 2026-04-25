@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import type { ReactNode } from "react";
 import ElectronIcon from "@/components/ElectronIcon";
 import { SupporterBadge } from "@/components/badges/AchievementBadges";
@@ -13,6 +14,18 @@ type CreditPack = {
   label: string;
   credits: number;
   amountInPaise: number;
+  /** Discount percentage applied for first-time buyers (e.g. 20 = 20 % off). */
+  firstTimerDiscountPct: number;
+};
+
+type AmazonProductItem = {
+  asin: string;
+  title: string;
+  category: string;
+  priceInPaise: number;
+  isLivePrice: boolean;
+  thumbnailUrl: string;
+  buyUrl: string;
 };
 
 declare global {
@@ -25,6 +38,10 @@ declare global {
 
 function rupees(paise: number) {
   return `₹${(paise / 100).toFixed(0)}`;
+}
+
+function discountedPaise(amountInPaise: number, discountPct: number): number {
+  return amountInPaise - Math.floor(amountInPaise * discountPct / 100);
 }
 
 // ── Sub-components ───────────────────────────────────────────────────────────
@@ -47,10 +64,14 @@ export default function StoreClient({
   packs,
   passes,
   currentCredits,
+  isFirstTimeBuyer,
+  amazonProducts,
 }: {
   packs: CreditPack[];
   passes: Pass[];
   currentCredits: number;
+  isFirstTimeBuyer: boolean;
+  amazonProducts: AmazonProductItem[];
 }) {
   const [loadingCode, setLoadingCode] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -178,6 +199,19 @@ export default function StoreClient({
       {message && <div className="card p-4 text-sm text-green-700 border border-green-200 bg-green-50">{message}</div>}
       {error && <div className="card p-4 text-sm text-error border border-red-200 bg-red-50">{error}</div>}
 
+      {/* ── First-time buyer banner ── */}
+      {isFirstTimeBuyer && (
+        <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-5 py-4 flex items-start gap-3">
+          <span className="text-2xl leading-none select-none">🎉</span>
+          <div>
+            <p className="font-semibold text-indigo-800 text-sm">First-time buyer discount — 20% off all packs!</p>
+            <p className="text-xs text-indigo-600 mt-0.5">
+              This one-time discount is applied automatically at checkout. Stock up now!
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* ── Free Weekly Claim ── */}
       <div>
         <SectionHeading>Free Weekly Claim</SectionHeading>
@@ -214,14 +248,35 @@ export default function StoreClient({
 
         <div className="mt-4 grid gap-4 sm:grid-cols-3">
           {packs.map((pack) => {
-            const cost = pack.amountInPaise / pack.credits;
+            const effectivePaise = isFirstTimeBuyer
+              ? discountedPaise(pack.amountInPaise, pack.firstTimerDiscountPct)
+              : pack.amountInPaise;
+            const cost = effectivePaise / pack.credits;
             return (
-              <div key={pack.code} className="card p-5 flex flex-col">
+              <div key={pack.code} className="card p-5 flex flex-col relative overflow-hidden">
+                {isFirstTimeBuyer && (
+                  <div className="absolute top-0 right-0 bg-indigo-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-bl">
+                    {pack.firstTimerDiscountPct}% OFF
+                  </div>
+                )}
                 <div className="flex items-center gap-2 mb-1">
                   <ElectronIcon size={18} className="text-amber-600" />
                   <p className="text-xl font-bold">{pack.label}</p>
                 </div>
-                <p className="text-2xl font-extrabold text-on-surface mt-1">{rupees(pack.amountInPaise)}</p>
+                <div className="mt-1">
+                  {isFirstTimeBuyer ? (
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-2xl font-extrabold text-on-surface">
+                        {rupees(effectivePaise)}
+                      </span>
+                      <span className="text-sm text-on-surface-variant line-through">
+                        {rupees(pack.amountInPaise)}
+                      </span>
+                    </div>
+                  ) : (
+                    <p className="text-2xl font-extrabold text-on-surface">{rupees(pack.amountInPaise)}</p>
+                  )}
+                </div>
                 <p className="text-xs text-on-surface-variant mt-1">
                   {rupees(cost * 10)} per PDF · {(cost / 100).toFixed(2)} ₹/e
                 </p>
@@ -352,6 +407,75 @@ export default function StoreClient({
           })}
         </div>
       </div>
+
+      {/* ── Amazon Study Materials ── */}
+      {amazonProducts.length > 0 && (
+        <div>
+          <SectionHeading>📚 Study Materials</SectionHeading>
+          <SectionSubtitle>
+            Handpicked supplies for students — purchased via Amazon.
+          </SectionSubtitle>
+
+          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {amazonProducts.map((product) => (
+              <a
+                key={product.asin}
+                href={product.buyUrl}
+                target="_blank"
+                rel="noopener noreferrer sponsored"
+                className="card p-4 flex flex-col gap-3 hover:shadow-md transition-shadow"
+              >
+                {/* Thumbnail */}
+                <div className="relative h-32 w-full bg-gray-50 rounded overflow-hidden flex items-center justify-center">
+                  {product.thumbnailUrl ? (
+                    <Image
+                      src={product.thumbnailUrl}
+                      alt={product.title}
+                      fill
+                      sizes="(max-width: 640px) 100vw, 33vw"
+                      className="object-contain p-2"
+                      unoptimized
+                    />
+                  ) : (
+                    <span className="text-3xl select-none">🛍️</span>
+                  )}
+                </div>
+
+                {/* Info */}
+                <div className="flex-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-on-surface-variant">
+                    {product.category}
+                  </p>
+                  <p className="text-sm font-medium text-on-surface mt-0.5 line-clamp-2">
+                    {product.title}
+                  </p>
+                  <div className="mt-1.5 flex items-center gap-1.5">
+                    <span className="text-base font-extrabold text-on-surface">
+                      {rupees(product.priceInPaise)}
+                    </span>
+                    {product.isLivePrice && (
+                      <span className="text-[10px] text-green-600 font-semibold bg-green-50 border border-green-200 rounded px-1 py-0.5">
+                        Live
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* CTA */}
+                <div className="mt-auto">
+                  <span className="block text-center text-xs font-semibold text-white bg-[#FF9900] hover:bg-[#e8890c] rounded px-3 py-1.5 transition-colors">
+                    Buy from Amazon →
+                  </span>
+                </div>
+              </a>
+            ))}
+          </div>
+
+          <p className="mt-3 text-[11px] text-on-surface-variant text-center">
+            ExamArchive may earn a small commission from qualifying purchases at no extra cost to you.
+          </p>
+        </div>
+      )}
     </section>
   );
 }

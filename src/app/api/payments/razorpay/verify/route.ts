@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { AppwriteException } from "node-appwrite";
 import { getServerUser } from "@/lib/auth";
 import { adminDatabases, COLLECTION, DATABASE_ID, ID } from "@/lib/appwrite";
-import { getCreditPackByCode, getRazorpayClient } from "@/lib/payments";
+import { getCreditPackByCode, getRazorpayClient, getFirstTimerAmountInPaise } from "@/lib/payments";
 import { withElectronBalanceLock } from "@/lib/electron-lock";
 
 type VerifyBody = {
@@ -94,6 +94,8 @@ async function applyCreditsUnderLock(params: {
   requestedPackCode: string;
   purchaseDocumentId: string;
   pack: CreditPack;
+  /** Actual amount charged (may differ from pack.amountInPaise for discounted orders). */
+  effectiveAmount: number;
 }): Promise<NextResponse> {
   const {
     db,
@@ -103,6 +105,7 @@ async function applyCreditsUnderLock(params: {
     requestedPackCode,
     purchaseDocumentId,
     pack,
+    effectiveAmount,
   } = params;
 
   const purchase = await db.getDocument(DATABASE_ID, COLLECTION.purchases, purchaseDocumentId);
@@ -112,7 +115,7 @@ async function applyCreditsUnderLock(params: {
       orderId,
       paymentId,
       productCode: pack.code,
-      amount: pack.amountInPaise,
+      amount: effectiveAmount,
       currency: "INR",
     })
   ) {
@@ -262,6 +265,7 @@ export async function POST(request: NextRequest) {
   }
 
   let pack: ReturnType<typeof getCreditPackByCode> | null = null;
+  let effectiveAmount = 0;
   let razorpayOrderPayload: Record<string, unknown> | null = null;
   try {
     const razorpay = getRazorpayClient();
@@ -285,11 +289,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid order pack metadata." }, { status: 400 });
     }
 
-    if (order.amount !== orderPack.amountInPaise || order.currency !== "INR") {
+    // Accept either the full price or the first-timer discounted price.
+    // The order amount was set server-side in create-order, so we trust order.amount.
+    const fullPrice = orderPack.amountInPaise;
+    const firstTimerPrice = getFirstTimerAmountInPaise(orderPack);
+    const isFirstTimerDiscount =
+      order.notes?.is_first_timer_discount === "true" &&
+      order.amount === firstTimerPrice;
+    const expectedAmount = isFirstTimerDiscount ? firstTimerPrice : fullPrice;
+
+    if (order.amount !== expectedAmount || order.currency !== "INR") {
       return NextResponse.json({ error: "Order amount validation failed." }, { status: 400 });
     }
 
     pack = orderPack;
+    effectiveAmount = expectedAmount;
   } catch (error) {
     const err = error as { statusCode?: unknown; message?: unknown } | undefined;
     const statusCode = typeof err?.statusCode === "number" ? err.statusCode : undefined;
@@ -317,7 +331,7 @@ export async function POST(request: NextRequest) {
         payment_id: paymentId,
         status: "captured_pending_credit",
         product_code: pack.code,
-        amount: pack.amountInPaise,
+        amount: effectiveAmount,
         currency: "INR",
         credits_granted: pack.credits,
         credits_applied: false,
@@ -343,7 +357,7 @@ export async function POST(request: NextRequest) {
         orderId,
         paymentId,
         productCode: pack.code,
-        amount: pack.amountInPaise,
+        amount: effectiveAmount,
           currency: "INR",
         })
     ) {
@@ -364,6 +378,7 @@ export async function POST(request: NextRequest) {
         requestedPackCode,
         purchaseDocumentId: resolvedPurchaseDocumentId,
         pack,
+        effectiveAmount,
       });
     });
   } catch (error) {

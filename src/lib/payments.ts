@@ -1,12 +1,23 @@
 import Razorpay from "razorpay";
 
+export const FIRST_TIMER_DISCOUNT_PCT = 20;
+
 export const CREDIT_PACKS = [
-  { code: "pack_20", label: "20e", credits: 20, amountInPaise: 1900 },
-  { code: "pack_50", label: "50e", credits: 50, amountInPaise: 3900 },
-  { code: "pack_100", label: "100e", credits: 100, amountInPaise: 5900 },
+  { code: "pack_20", label: "20e", credits: 20, amountInPaise: 1900, firstTimerDiscountPct: FIRST_TIMER_DISCOUNT_PCT },
+  { code: "pack_50", label: "50e", credits: 50, amountInPaise: 3900, firstTimerDiscountPct: FIRST_TIMER_DISCOUNT_PCT },
+  { code: "pack_100", label: "100e", credits: 100, amountInPaise: 5900, firstTimerDiscountPct: FIRST_TIMER_DISCOUNT_PCT },
 ] as const;
 
 export type CreditPackCode = (typeof CREDIT_PACKS)[number]["code"];
+
+/**
+ * Return the discounted price for a first-time buyer.
+ * Discount is applied as a whole-rupee floor to avoid sub-paisa amounts.
+ */
+export function getFirstTimerAmountInPaise(pack: { amountInPaise: number; firstTimerDiscountPct: number }): number {
+  const discountPaise = Math.floor(pack.amountInPaise * pack.firstTimerDiscountPct / 100);
+  return pack.amountInPaise - discountPaise;
+}
 
 /** Weekly reset free-claim amount (electrons). */
 export const FREE_WEEKLY_CLAIM_ELECTRONS = 10;
