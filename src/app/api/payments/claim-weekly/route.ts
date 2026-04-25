@@ -42,7 +42,7 @@ export async function POST() {
           nextMonday.setUTCDate(nextMonday.getUTCDate() + 7);
           return NextResponse.json(
             {
-              error: `Already claimed this week. Resets on Monday ${nextMonday.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" })}.`,
+              error: `Already claimed this week. Resets on Monday (next reset: ${nextMonday.toISOString().slice(0, 10)}).`,
             },
             { status: 400 },
           );

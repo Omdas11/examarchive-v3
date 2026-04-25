@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
       if (!planId) {
         return NextResponse.json(
           {
-            error: `Subscription plan is not configured for this pass. Please set RAZORPAY_PLAN_ID_${pass.id.toUpperCase()} in environment variables.`,
+            error: "Subscription plan is not configured for this pass. Please contact support.",
           },
           { status: 503 },
         );
