@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import { getServerUser } from "@/lib/auth";
-import { CREDIT_PACKS } from "@/lib/payments";
+import { CREDIT_PACKS, PASSES } from "@/lib/payments";
 import StoreClient from "./StoreClient";
 
 export const metadata: Metadata = {
@@ -30,7 +30,7 @@ export default async function StorePage() {
       userInitials={userName.substring(0, 2).toUpperCase()}
     >
       <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="afterInteractive" />
-      <StoreClient packs={CREDIT_PACKS.map((p) => ({ ...p }))} currentCredits={user.ai_credits ?? 0} />
+      <StoreClient packs={CREDIT_PACKS.map((p) => ({ ...p }))} passes={PASSES.map((p) => ({ ...p }))} currentCredits={user.ai_credits ?? 0} />
     </MainLayout>
   );
 }
