@@ -173,7 +173,7 @@ export default function NotesUploadForm() {
           Step 1: Notes Details
         </h3>
         <p className="text-xs mb-4" style={{ color: "var(--color-text-muted)" }}>
-          Enter a descriptive title for your handmade notes (e.g. "PHYDSC101T Unit 2 Handwritten Notes").
+          Enter a descriptive title for your handmade notes (e.g. &ldquo;PHYDSC101T Unit 2 Handwritten Notes&rdquo;).
         </p>
         <input
           name="title"
