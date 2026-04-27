@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log("[api/upload/notes] Note uploaded:", { fileId, title, fileUrl, userId: user.id });
+    console.log("[api/upload/notes] Note uploaded:", { fileId, title, userId: user.id });
     return NextResponse.json({ success: true });
   } catch (err: unknown) {
     if (err instanceof AppwriteException) {
