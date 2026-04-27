@@ -55,6 +55,7 @@ const SCHEMA_STATUS_START_TAG = "<!-- SCHEMA_SYNC_STATUS_START -->";
 const SCHEMA_STATUS_END_TAG = "<!-- SCHEMA_SYNC_STATUS_END -->";
 const REQUIRED_BUCKETS: BucketSpec[] = [
   { id: "papers", name: "papers" },
+  { id: "notes", name: "notes" },
   { id: "examarchive-syllabus-md-ingestion", name: "examarchive-syllabus-md-ingestion" },
   { id: "examarchive_question_ingest_assets", name: "examarchive_question_ingest_assets" },
   { id: "syllabus-files", name: "syllabus-files" },
@@ -452,6 +453,7 @@ async function fetchLiveAttributes(databases: Databases, collectionId: string): 
 function buildSchemaStatusTableFromDiff(input: {
   syncedAt: string;
   liveBuckets: LiveBucket[];
+  requiredBuckets: BucketSpec[];
   expectedSchemas: ExpectedCollectionSchema[];
   liveCollections: LiveCollection[];
   perCollection: Array<{
@@ -461,21 +463,33 @@ function buildSchemaStatusTableFromDiff(input: {
     notes: string;
   }>;
 }): string {
-  const { syncedAt, liveBuckets, perCollection } = input;
+  const { syncedAt, liveBuckets, requiredBuckets, perCollection } = input;
+  const liveBucketIds = new Set(liveBuckets.map((b) => b.$id));
   let statusTable = "## Schema Sync Status (Auto-generated)\n\n";
   statusTable += `_Last synced: ${syncedAt}_\n\n`;
   statusTable += "### Storage Buckets\n";
-  statusTable += "| Bucket | Status | ID |\n";
+  statusTable += "| Bucket | ID | Status |\n";
   statusTable += "|---|---|---|\n";
-  if (liveBuckets.length === 0) {
-    statusTable += "| N/A | ⚠️ Connected with differences | N/A |\n";
-  } else {
-    liveBuckets.forEach((bucket) => {
+
+  // Show all required buckets first, marking those absent from live as Not Found.
+  requiredBuckets.forEach((bucket) => {
+    const safeName = escapeMarkdownTableCell(bucket.name);
+    const safeId = escapeMarkdownTableCell(bucket.id);
+    const connected = liveBucketIds.has(bucket.id);
+    const statusEmoji = connected ? "✅ Connected" : "❌ Not Found";
+    statusTable += `| \`${safeName}\` | ${safeId} | ${statusEmoji} |\n`;
+  });
+
+  // Show any live buckets that are not in the required list (unexpected / extra).
+  const requiredIds = new Set(requiredBuckets.map((b) => b.id));
+  liveBuckets.forEach((bucket) => {
+    if (!requiredIds.has(bucket.$id)) {
       const safeName = escapeMarkdownTableCell(bucket.name);
       const safeId = escapeMarkdownTableCell(bucket.$id);
-      statusTable += `| \`${safeName}\` | ✅ Connected | ${safeId} |\n`;
-    });
-  }
+      statusTable += `| \`${safeName}\` | ${safeId} | ⚠️ Unmanaged (not in required list) |\n`;
+    }
+  });
+
   statusTable += "\n### Database Collections\n";
   statusTable += "| Collection | Status | Created in run | Notes |\n";
   statusTable += "|---|---|---:|---|\n";
@@ -687,6 +701,7 @@ async function syncInfrastructure() {
   const statusTable = buildSchemaStatusTableFromDiff({
     syncedAt,
     liveBuckets,
+    requiredBuckets: REQUIRED_BUCKETS,
     expectedSchemas,
     liveCollections,
     perCollection: perCollectionRows,

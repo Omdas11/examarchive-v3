@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getServerUser } from "@/lib/auth";
 import { isAdmin } from "@/lib/roles";
 import UploadForm from "@/components/UploadForm";
+import NotesUploadForm from "@/components/NotesUploadForm";
 import DeptSyllabusUploadForm from "@/components/DeptSyllabusUploadForm";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
@@ -34,6 +35,14 @@ const guidelines = [
   "Uploads are reviewed by admins before publishing.",
 ];
 
+const notesGuidelines = [
+  "Only upload notes you have created yourself or have permission to share.",
+  "PDF format is required. Maximum file size is 20 MB.",
+  "Ensure pages are legible and clearly labelled.",
+  "Include the paper code and unit in the title for easy discovery.",
+  "Uploads are reviewed by admins before publishing.",
+];
+
 const deptSyllabusGuidelines = [
   "Upload the full departmental syllabus covering all semesters.",
   "Specify the programme (FYUG) and department/subject accurately.",
@@ -60,6 +69,8 @@ export default async function UploadPage({
   const uploadType =
     rawType === "dept_syllabus" && userIsAdmin
       ? "dept_syllabus"
+      : rawType === "notes"
+      ? "notes"
       : "paper";
 
   const userName = user.name || user.username || "Scholar";
@@ -83,14 +94,14 @@ export default async function UploadPage({
         {/* Intro */}
         <h1 className="text-2xl font-bold text-on-surface">Upload to ExamArchive</h1>
         <p className="mt-1 text-sm text-on-surface-variant">
-          Share question papers with the community. All uploads are reviewed before publishing.
+          Share question papers or handmade notes with the community. All uploads are reviewed before publishing.
         </p>
         <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-surface-container px-3 py-1 text-xs font-semibold text-on-surface-variant">
           <span className="material-symbols-outlined text-sm">info</span>
           On mobile, choose the upload type first, then fill the form below.
         </div>
 
-        {/* Upload type selector — only Question Paper and Notes (admin also sees Dept Syllabus) */}
+        {/* Upload type selector */}
         <div className="mt-6 grid gap-4 grid-cols-1 sm:grid-cols-2">
           <a
             href="/upload?type=paper"
@@ -115,17 +126,28 @@ export default async function UploadPage({
             </div>
           </a>
 
-          <div className="card p-4 opacity-50 cursor-not-allowed">
+          <a
+            href="/upload?type=notes"
+            className="card p-4 transition-all hover:shadow-sm"
+            style={uploadType === "notes" ? { borderColor: "var(--color-primary)" } : undefined}
+          >
             <div className="flex items-center gap-3">
-              <span className="flex h-5 w-5 items-center justify-center rounded-full text-xs" style={{ border: "1px solid var(--color-border)" }}>
-                &nbsp;
-              </span>
+              {uploadType === "notes" ? (
+                <span
+                  className="flex h-5 w-5 items-center justify-center rounded-full text-white text-xs"
+                  style={{ background: "var(--color-primary)" }}
+                >
+                  ✓
+                </span>
+              ) : (
+                <span className="flex h-5 w-5 items-center justify-center rounded-full text-xs" style={{ border: "1px solid var(--color-border)" }}>&nbsp;</span>
+              )}
               <div>
-                <p className="font-semibold text-sm">Notes</p>
-                <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>Coming soon</p>
+                <p className="font-semibold text-sm">Handmade Notes</p>
+                <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>Upload your handwritten or typed notes</p>
               </div>
             </div>
-          </div>
+          </a>
 
           {/* Departmental Syllabus — visible to admins only */}
           {userIsAdmin && (
@@ -158,6 +180,8 @@ export default async function UploadPage({
         <div className="card mt-6 p-4 sm:p-6">
           {uploadType === "dept_syllabus" ? (
             <DeptSyllabusUploadForm />
+          ) : uploadType === "notes" ? (
+            <NotesUploadForm />
           ) : (
             <UploadForm />
           )}
@@ -167,7 +191,12 @@ export default async function UploadPage({
         <div className="card mt-6 p-6">
           <h2 className="text-base font-semibold mb-3">Upload Guidelines</h2>
           <ul className="space-y-2 text-sm" style={{ color: "var(--color-text-muted)" }}>
-            {(uploadType === "dept_syllabus" ? deptSyllabusGuidelines : guidelines).map((g, i) => (
+            {(uploadType === "dept_syllabus"
+              ? deptSyllabusGuidelines
+              : uploadType === "notes"
+              ? notesGuidelines
+              : guidelines
+            ).map((g, i) => (
               <li key={i} className="flex gap-2">
                 <span style={{ color: "var(--color-primary)" }}>•</span>
                 {g}
