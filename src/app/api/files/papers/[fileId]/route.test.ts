@@ -7,6 +7,7 @@ import { AppwriteException } from "node-appwrite";
 const mockGetServerUser = jest.fn();
 const mockIsValidSignedPdfDownloadToken = jest.fn();
 const mockRenderMarkdownToPdfBuffer = jest.fn();
+const mockApplyDownloadWatermark = jest.fn(async (buf: ArrayBuffer) => buf);
 
 const mockStorage = {
   getFile: jest.fn(),
@@ -27,6 +28,10 @@ jest.mock("@/lib/pdf-download-link", () => ({
 
 jest.mock("@/lib/ai-pdf-pipeline", () => ({
   renderMarkdownToPdfBuffer: (...args: unknown[]) => mockRenderMarkdownToPdfBuffer(...args),
+}));
+
+jest.mock("@/lib/pdf-watermark", () => ({
+  applyDownloadWatermark: (...args: unknown[]) => mockApplyDownloadWatermark(...(args as [ArrayBuffer])),
 }));
 
 jest.mock("@/lib/appwrite", () => ({
