@@ -4,7 +4,6 @@ import {
   adminDatabases,
   adminStorage,
   NOTES_BUCKET_ID,
-  getNotesFileUrl,
   DATABASE_ID,
   COLLECTION,
   ID,
@@ -61,9 +60,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const fileUrl = getNotesFileUrl(fileId);
-
-    // Create a record in the uploads collection for review by admins.
     const db = adminDatabases();
     try {
       await db.createDocument(DATABASE_ID, COLLECTION.uploads, ID.unique(), {

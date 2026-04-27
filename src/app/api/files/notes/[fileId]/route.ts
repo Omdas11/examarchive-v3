@@ -59,12 +59,16 @@ export async function GET(
 
       const rawFileBuffer = await storage.getFileDownload(NOTES_BUCKET_ID, fileId);
 
-      let body: ArrayBuffer;
+      // Convert buffer to a clean ArrayBuffer regardless of the underlying type returned.
+      const rawBytes = new Uint8Array(rawFileBuffer as ArrayBuffer);
+      const rawAb = new ArrayBuffer(rawBytes.byteLength);
+      new Uint8Array(rawAb).set(rawBytes);
+
+      let body: ArrayBuffer = rawAb;
       try {
-        body = await applyDownloadWatermark(rawFileBuffer as ArrayBuffer);
+        body = await applyDownloadWatermark(rawAb);
       } catch (wmErr) {
         console.warn("[api/files/notes] Watermark failed; serving original:", wmErr);
-        body = rawFileBuffer as ArrayBuffer;
       }
 
       return new NextResponse(body, {
