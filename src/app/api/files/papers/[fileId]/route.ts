@@ -286,31 +286,13 @@ export async function GET(
       );
       const encodedFileName = encodeURIComponent(fileName);
 
-      // Apply watermark only on downloads so inline previews are unaffected.
-      if (shouldDownload) {
-        // Create a clean ArrayBuffer from the Buffer (Node.js buffers may share backing storage).
-        const ab = new ArrayBuffer(pdfBuffer.byteLength);
-        new Uint8Array(ab).set(pdfBuffer);
-        let body: ArrayBuffer = ab;
-        try {
-          body = await applyDownloadWatermark(body);
-        } catch (wmErr) {
-          console.warn("[api/files/papers] Watermark failed; serving original:", wmErr);
-        }
-        return new NextResponse(body, {
-          headers: {
-            "Content-Type": "application/pdf",
-            "Cache-Control": "private, max-age=3600",
-            "Content-Disposition": `attachment; filename="${fileName}"; filename*=UTF-8''${encodedFileName}`,
-          },
-        });
-      }
-
       return new NextResponse(Uint8Array.from(pdfBuffer), {
         headers: {
           "Content-Type": "application/pdf",
           "Cache-Control": "private, max-age=3600",
-          "Content-Disposition": "inline",
+          "Content-Disposition": shouldDownload
+            ? `attachment; filename="${fileName}"; filename*=UTF-8''${encodedFileName}`
+            : "inline",
         },
       });
     }

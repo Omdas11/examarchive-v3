@@ -105,6 +105,9 @@ export const CACHED_UNIT_NOTES_BUCKET_ID =
 export const CACHED_SOLVED_PAPERS_BUCKET_ID =
   process.env.APPWRITE_CACHED_SOLVED_PAPERS_BUCKET_ID ??
   "cached-solved-papers";
+/** Storage bucket for user-uploaded handmade PDF notes. */
+export const NOTES_BUCKET_ID =
+  process.env.APPWRITE_NOTES_BUCKET_ID ?? "notes";
 
 // ── Server-side admin client (uses API key) ─────────────────────────────
 /**
@@ -238,6 +241,20 @@ export function getAppwriteFileUrl(fileId: string): string {
  */
 export function getAppwriteFileDownloadUrl(fileId: string): string {
   return `/api/files/papers/${fileId}?download=1`;
+}
+
+/**
+ * Build the view URL for a note PDF stored in the notes bucket.
+ */
+export function getNotesFileUrl(fileId: string): string {
+  return `/api/files/notes/${fileId}`;
+}
+
+/**
+ * Build the download URL (with watermark) for a note PDF.
+ */
+export function getNotesFileDownloadUrl(fileId: string): string {
+  return `/api/files/notes/${fileId}?download=1`;
 }
 
 /**
