@@ -2,10 +2,10 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getServerUser } from "@/lib/auth";
 import UploadForm from "@/components/UploadForm";
-import SyllabusUploadForm from "@/components/SyllabusUploadForm";
 import DeptSyllabusUploadForm from "@/components/DeptSyllabusUploadForm";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
+import { isModerator } from "@/lib/roles";
 
 export const metadata: Metadata = {
   title: "Upload Question Papers and Syllabus PDFs",
@@ -35,13 +35,6 @@ const guidelines = [
   "Uploads are reviewed by admins before publishing.",
 ];
 
-const syllabusGuidelines = [
-  "Only upload syllabi you have permission to share.",
-  "PDF format is preferred for best compatibility.",
-  "Ensure all metadata fields are accurately filled.",
-  "Syllabi are reviewed by admins before publishing.",
-];
-
 const deptSyllabusGuidelines = [
   "Upload the full departmental syllabus covering all semesters.",
   "Specify the programme (FYUG) and department/subject accurately.",
@@ -60,13 +53,12 @@ export default async function UploadPage({
     redirect("/login?next=/upload");
   }
 
+  const isAdmin = isModerator(user.role);
   const params = await searchParams;
   const uploadType =
-    params.type === "syllabus"
-      ? "syllabus"
-      : params.type === "dept_syllabus"
-        ? "dept_syllabus"
-        : "paper";
+    isAdmin && params.type === "dept_syllabus"
+      ? "dept_syllabus"
+      : "paper";
 
   const userName = user.name || user.username || "Scholar";
   const userInitials = userName.slice(0, 2).toUpperCase();
@@ -121,51 +113,30 @@ export default async function UploadPage({
             </div>
           </a>
 
-          <a
-            href="/upload?type=syllabus"
-            className="card p-4 transition-all hover:shadow-sm"
-            style={uploadType === "syllabus" ? { borderColor: "var(--color-primary)" } : undefined}
-          >
-            <div className="flex items-center gap-3">
-              {uploadType === "syllabus" ? (
-                <span
-                  className="flex h-5 w-5 items-center justify-center rounded-full text-white text-xs"
-                  style={{ background: "var(--color-primary)" }}
-                >
-                  ✓
-                </span>
-              ) : (
-                <span className="flex h-5 w-5 items-center justify-center rounded-full text-xs" style={{ border: "1px solid var(--color-border)" }}>&nbsp;</span>
-              )}
-              <div>
-                <p className="font-semibold text-sm">Syllabus</p>
-                <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>Upload a single-semester syllabus</p>
+          {isAdmin && (
+            <a
+              href="/upload?type=dept_syllabus"
+              className="card p-4 transition-all hover:shadow-sm"
+              style={uploadType === "dept_syllabus" ? { borderColor: "var(--color-primary)" } : undefined}
+            >
+              <div className="flex items-center gap-3">
+                {uploadType === "dept_syllabus" ? (
+                  <span
+                    className="flex h-5 w-5 items-center justify-center rounded-full text-white text-xs"
+                    style={{ background: "var(--color-primary)" }}
+                  >
+                    ✓
+                  </span>
+                ) : (
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full text-xs" style={{ border: "1px solid var(--color-border)" }}>&nbsp;</span>
+                )}
+                <div>
+                  <p className="font-semibold text-sm">Departmental Syllabus</p>
+                  <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>Full syllabus for all semesters</p>
+                </div>
               </div>
-            </div>
-          </a>
-
-          <a
-            href="/upload?type=dept_syllabus"
-            className="card p-4 transition-all hover:shadow-sm"
-            style={uploadType === "dept_syllabus" ? { borderColor: "var(--color-primary)" } : undefined}
-          >
-            <div className="flex items-center gap-3">
-              {uploadType === "dept_syllabus" ? (
-                <span
-                  className="flex h-5 w-5 items-center justify-center rounded-full text-white text-xs"
-                  style={{ background: "var(--color-primary)" }}
-                >
-                  ✓
-                </span>
-              ) : (
-                <span className="flex h-5 w-5 items-center justify-center rounded-full text-xs" style={{ border: "1px solid var(--color-border)" }}>&nbsp;</span>
-              )}
-              <div>
-                <p className="font-semibold text-sm">Departmental Syllabus</p>
-                <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>Full syllabus for all semesters</p>
-              </div>
-            </div>
-          </a>
+            </a>
+          )}
 
           <div className="card p-4 opacity-50 cursor-not-allowed">
             <div className="flex items-center gap-3">
@@ -182,9 +153,7 @@ export default async function UploadPage({
 
         {/* Upload form */}
         <div className="card mt-6 p-4 sm:p-6">
-          {uploadType === "syllabus" ? (
-            <SyllabusUploadForm />
-          ) : uploadType === "dept_syllabus" ? (
+          {uploadType === "dept_syllabus" ? (
             <DeptSyllabusUploadForm />
           ) : (
             <UploadForm />
@@ -195,11 +164,9 @@ export default async function UploadPage({
         <div className="card mt-6 p-6">
           <h2 className="text-base font-semibold mb-3">Upload Guidelines</h2>
           <ul className="space-y-2 text-sm" style={{ color: "var(--color-text-muted)" }}>
-            {(uploadType === "syllabus"
-              ? syllabusGuidelines
-              : uploadType === "dept_syllabus"
-                ? deptSyllabusGuidelines
-                : guidelines
+            {(uploadType === "dept_syllabus"
+              ? deptSyllabusGuidelines
+              : guidelines
             ).map((g, i) => (
               <li key={i} className="flex gap-2">
                 <span style={{ color: "var(--color-primary)" }}>•</span>
