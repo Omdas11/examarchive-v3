@@ -13,6 +13,7 @@ import {
 import { AppwriteException } from "node-appwrite";
 import { isValidSignedPdfDownloadToken } from "@/lib/pdf-download-link";
 import { renderMarkdownToPdfBuffer } from "@/lib/ai-pdf-pipeline";
+import { applyDownloadWatermark } from "@/lib/pdf-watermark";
 
 export const dynamic = "force-dynamic";
 // Allow up to 120 s for Gotenberg to render the PDF before Vercel kills the
@@ -126,17 +127,33 @@ export async function GET(
       const encodedLegacyFileName = resolvedFileName
         ? encodeURIComponent(resolvedFileName)
         : null;
-      const fileBuffer = shouldDownload
+      const rawFileBuffer = shouldDownload
         ? await storage.getFileDownload(BUCKET_ID, fileId)
         : await storage.getFileView(BUCKET_ID, fileId);
 
-      return new NextResponse(fileBuffer, {
+      // Apply watermark only on downloads so inline previews are unaffected.
+      if (shouldDownload) {
+        let body: ArrayBuffer;
+        try {
+          body = await applyDownloadWatermark(rawFileBuffer as ArrayBuffer);
+        } catch (wmErr) {
+          console.warn("[api/files/papers] Watermark failed; serving original:", wmErr);
+          body = rawFileBuffer as ArrayBuffer;
+        }
+        return new NextResponse(body, {
+          headers: {
+            "Content-Type": "application/pdf",
+            "Cache-Control": "private, max-age=3600",
+            "Content-Disposition": `attachment; filename="${fallbackHeaderFileName}"; filename*=UTF-8''${encodedLegacyFileName}`,
+          },
+        });
+      }
+
+      return new NextResponse(rawFileBuffer, {
         headers: {
           "Content-Type": "application/pdf",
           "Cache-Control": "private, max-age=3600",
-          "Content-Disposition": shouldDownload
-            ? `attachment; filename="${fallbackHeaderFileName}"; filename*=UTF-8''${encodedLegacyFileName}`
-            : "inline",
+          "Content-Disposition": "inline",
         },
       });
     } catch (papersErr) {
@@ -268,15 +285,15 @@ export async function GET(
         buildPdfFileNameFromPayload(jobPayload),
       );
       const encodedFileName = encodeURIComponent(fileName);
-      const pdfResponseHeaders = {
-        "Content-Type": "application/pdf",
-        "Cache-Control": "private, max-age=3600",
-        "Content-Disposition": shouldDownload
-          ? `attachment; filename="${fileName}"; filename*=UTF-8''${encodedFileName}`
-          : "inline",
-      };
+
       return new NextResponse(Uint8Array.from(pdfBuffer), {
-        headers: pdfResponseHeaders,
+        headers: {
+          "Content-Type": "application/pdf",
+          "Cache-Control": "private, max-age=3600",
+          "Content-Disposition": shouldDownload
+            ? `attachment; filename="${fileName}"; filename*=UTF-8''${encodedFileName}`
+            : "inline",
+        },
       });
     }
 

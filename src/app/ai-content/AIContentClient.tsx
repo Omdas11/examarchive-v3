@@ -49,6 +49,7 @@ export default function AIContentClient() {
   const [yearsByPaperCode, setYearsByPaperCode] = useState<Record<string, number[]>>({});
   const [semestersByPaperCode, setSemestersByPaperCode] = useState<Record<string, number[]>>({});
   const [availableSemesters, setAvailableSemesters] = useState<number[]>([]);
+  const [namesByPaperCode, setNamesByPaperCode] = useState<Record<string, string>>({});
   const [paperCodeLoading, setPaperCodeLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [remaining, setRemaining] = useState<number | null>(null);
@@ -68,11 +69,6 @@ export default function AIContentClient() {
     return Array.isArray(units) && units.length > 0 ? units : (hasPaperCode ? [] : UNIT_OPTIONS);
   }, [unitsByPaperCode, paperCode, hasPaperCode]);
   const availableYears = useMemo(() => yearsByPaperCode[paperCode] || [], [yearsByPaperCode, paperCode]);
-  const availableSemestersForSelection = useMemo(() => {
-    const mapped = semestersByPaperCode[paperCode];
-    if (Array.isArray(mapped) && mapped.length > 0) return mapped;
-    return availableSemesters;
-  }, [semestersByPaperCode, paperCode, availableSemesters]);
   const courseOptions: CustomDropdownOption[] = useMemo(
     () => [{ label: "FYUG", value: "FYUG" }],
     [],
@@ -105,8 +101,13 @@ export default function AIContentClient() {
     });
   }, [activeTab, notesPaperCodes, mergedPaperCodesForSolvedTab, semester, semestersByPaperCode]);
   const paperCodeDropdownOptions: CustomDropdownOption[] = useMemo(
-    () => visiblePaperCodes.map((code) => ({ label: code, value: code })),
-    [visiblePaperCodes],
+    () =>
+      visiblePaperCodes.map((code) => {
+        const name = namesByPaperCode[code];
+        const label = name && name !== code ? `${code} — ${name}` : code;
+        return { label, value: code };
+      }),
+    [visiblePaperCodes, namesByPaperCode],
   );
   const unitOptions: CustomDropdownOption[] = useMemo(
     () => availableUnits.map((unit) => ({ label: String(unit), value: String(unit) })),
@@ -116,9 +117,11 @@ export default function AIContentClient() {
     () => availableYears.map((year) => ({ label: String(year), value: String(year) })),
     [availableYears],
   );
+  // Semester options always use the full global list so the dropdown never
+  // flickers when the selected paper code changes.
   const semesterOptions: CustomDropdownOption[] = useMemo(
-    () => availableSemestersForSelection.map((entry) => ({ label: `SEMESTER ${entry}`, value: String(entry) })),
-    [availableSemestersForSelection],
+    () => availableSemesters.map((entry) => ({ label: `Semester ${entry}`, value: String(entry) })),
+    [availableSemesters],
   );
   function getQuotaSummaryLabel(): string {
     // Prefer strict per-feature quotas when available; fallback to legacy aggregate quota response.
@@ -282,6 +285,20 @@ export default function AIContentClient() {
         } else {
           setAvailableSemesters([]);
         }
+        if (Array.isArray(data.papers)) {
+          const map: Record<string, string> = {};
+          for (const item of data.papers as unknown[]) {
+            if (item && typeof item === "object") {
+              const { code, name } = item as { code?: unknown; name?: unknown };
+              if (typeof code === "string" && typeof name === "string" && name && name !== code) {
+                map[code] = name;
+              }
+            }
+          }
+          setNamesByPaperCode(map);
+        } else {
+          setNamesByPaperCode({});
+        }
       })
       .catch(() => {
         setNotesPaperCodes([]);
@@ -290,6 +307,7 @@ export default function AIContentClient() {
         setPaperCode("");
         setYearsByPaperCode({});
         setSemestersByPaperCode({});
+        setNamesByPaperCode({});
         setAvailableSemesters([]);
         setSemester("");
         setSelectedYear("");
@@ -306,15 +324,15 @@ export default function AIContentClient() {
   }, [visiblePaperCodes]);
 
   useEffect(() => {
-    if (availableSemestersForSelection.length === 0) {
+    if (availableSemesters.length === 0) {
       setSemester("");
       return;
     }
     setSemester((current) => {
-      if (typeof current === "number" && availableSemestersForSelection.includes(current)) return current;
-      return availableSemestersForSelection[0] ?? "";
+      if (typeof current === "number" && availableSemesters.includes(current)) return current;
+      return availableSemesters[0] ?? "";
     });
-  }, [paperCode, availableSemestersForSelection]);
+  }, [availableSemesters]);
 
   useEffect(() => {
     const defaultUnit = UNIT_OPTIONS[0] ?? 1;

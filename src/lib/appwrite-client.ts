@@ -21,6 +21,8 @@ export const APPWRITE_PROJECT_ID =
 export const BUCKET_ID = process.env.NEXT_PUBLIC_APPWRITE_BUCKET_ID ?? "papers";
 export const SYLLABUS_BUCKET_ID =
   process.env.NEXT_PUBLIC_APPWRITE_SYLLABUS_BUCKET_ID ?? "syllabus-files";
+export const NOTES_BUCKET_ID =
+  process.env.NEXT_PUBLIC_APPWRITE_NOTES_BUCKET_ID ?? "notes";
 
 /** Maximum allowed upload size (bytes). Enforced client-side before upload. */
 export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024; // 20 MB
@@ -155,6 +157,49 @@ export async function uploadSyllabusFileDirectly(
   // scoped to the uploader so only they can modify or remove the file.
   await storage.createFile(
     SYLLABUS_BUCKET_ID,
+    fileId,
+    file,
+    [
+      Permission.read(Role.users()),
+      Permission.write(Role.user(uploaderId)),
+      Permission.delete(Role.user(uploaderId)),
+    ],
+    sdkProgress,
+  );
+  return fileId;
+}
+
+/**
+ * Upload a handmade-notes PDF directly from the browser to the notes bucket.
+ *
+ * @param jwt        Short-lived JWT obtained from `/api/upload/token`.
+ * @param file       Browser `File` object selected by the user.
+ * @param uploaderId Appwrite user ID of the uploader.
+ * @param onProgress Optional callback receiving upload progress (0–100).
+ * @returns The Appwrite file ID of the uploaded file.
+ */
+export async function uploadNotesFileDirectly(
+  jwt: string,
+  file: File,
+  uploaderId: string,
+  onProgress?: (evt: UploadProgress) => void,
+): Promise<string> {
+  const client = createJwtClient(jwt);
+  const storage = new Storage(client);
+  const fileId = ID.unique();
+
+  const sdkProgress = onProgress
+    ? (p: SdkUploadProgress) => {
+        onProgress({
+          progress: Math.round(p.progress),
+          loaded: p.sizeUploaded,
+          total: file.size,
+        });
+      }
+    : undefined;
+
+  await storage.createFile(
+    NOTES_BUCKET_ID,
     fileId,
     file,
     [
