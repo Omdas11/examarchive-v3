@@ -505,19 +505,20 @@ Use this checklist to wipe counters and storage before relaunch:
 <!-- SCHEMA_SYNC_STATUS_START -->
 ## Schema Sync Status (Auto-generated)
 
-_Last synced: 2026-04-25T07:12:54.300Z_
+_Last synced: 2026-04-27T15:32:06.053Z_
 
 ### Storage Buckets
-| Bucket | Status | ID |
+| Bucket | ID | Status |
 |---|---|---|
-| `papers` | ✅ Connected | papers |
-| `avatars` | ✅ Connected | avatars |
-| `syllabus-files` | ✅ Connected | syllabus-files |
-| `generated-md-cache` | ✅ Connected | generated-md-cache |
-| `Syllabus MD Ingestion` | ✅ Connected | examarchive-syllabus-md-ingestion |
-| `Question Ingestion Assets` | ✅ Connected | examarchive_question_ingest_assets |
-| `cached-unit-notes` | ✅ Connected | cached-unit-notes |
-| `cached-solved-papers` | ✅ Connected | cached-solved-papers |
+| `papers` | papers | ✅ Connected |
+| `notes` | notes | ✅ Connected |
+| `examarchive-syllabus-md-ingestion` | examarchive-syllabus-md-ingestion | ✅ Connected |
+| `examarchive_question_ingest_assets` | examarchive_question_ingest_assets | ✅ Connected |
+| `syllabus-files` | syllabus-files | ✅ Connected |
+| `avatars` | avatars | ✅ Connected |
+| `generated-md-cache` | generated-md-cache | ✅ Connected |
+| `cached-unit-notes` | cached-unit-notes | ✅ Connected |
+| `cached-solved-papers` | cached-solved-papers | ✅ Connected |
 
 ### Database Collections
 | Collection | Status | Created in run | Notes |
