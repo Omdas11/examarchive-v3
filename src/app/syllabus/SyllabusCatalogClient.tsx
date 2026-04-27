@@ -42,7 +42,7 @@ function PaperCard({
 
   return (
     <div className="group rounded-2xl border border-outline-variant/30 bg-surface shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 overflow-hidden">
-      {/* Coloured top bar keyed to serial number for visual variety */}
+      {/* Colour bar: spread hues evenly across cards using the serial number */}
       <div
         className="h-1 w-full"
         style={{ background: `hsl(${(serialNo * 43) % 360}, 60%, 50%)` }}
