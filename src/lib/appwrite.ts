@@ -77,6 +77,13 @@ export const COLLECTION = {
   user_passes: "user_passes",
   ai_cache_index: "ai_cache_index",
   ai_generation_jobs: "ai_generation_jobs",
+  /**
+   * User-uploaded handmade PDF notes pending admin approval.
+   * Mirrors the papers collection pattern: `approved = false` on upload,
+   * admin sets `approved = true` to publish to the browse page.
+   * Files live in the `notes` storage bucket.
+   */
+  note_uploads: "note_uploads",
 } as const;
 
 /** Storage bucket for uploaded PDFs and files. */

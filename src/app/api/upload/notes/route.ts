@@ -28,6 +28,10 @@ async function rollbackUploadedNote(fileId: string) {
  * Accepts **JSON metadata only** — the file itself has already been uploaded
  * directly from the browser to Appwrite Storage (see NotesUploadForm.tsx).
  *
+ * Creates a record in the `note_uploads` collection with `approved = false`
+ * so the note appears in the admin dashboard for verification before it is
+ * published to the browse page.
+ *
  * Required JSON body fields:
  * {
  *   fileId:    string — Appwrite file ID returned by the client-side upload
@@ -60,12 +64,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const fileUrl = `/api/files/notes/${fileId}`;
+
     const db = adminDatabases();
     try {
-      await db.createDocument(DATABASE_ID, COLLECTION.uploads, ID.unique(), {
-        user_id: user.id,
+      await db.createDocument(DATABASE_ID, COLLECTION.note_uploads, ID.unique(), {
+        title,
         file_id: fileId,
+        file_url: fileUrl,
         file_name: file_name || title,
+        uploader_id: user.id,
+        approved: false,
         status: "pending",
       });
     } catch (err: unknown) {
@@ -84,7 +93,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log("[api/upload/notes] Note uploaded:", { fileId, title, userId: user.id });
+    console.log("[api/upload/notes] Note uploaded (pending approval):", { fileId, title, userId: user.id });
     return NextResponse.json({ success: true });
   } catch (err: unknown) {
     if (err instanceof AppwriteException) {

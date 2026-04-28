@@ -8,8 +8,8 @@ import {
   COLLECTION,
   Query,
 } from "@/lib/appwrite";
-import type { Paper, AdminUser, ActivityLogEntry, Syllabus } from "@/types";
-import { toPaper, toAdminUser, toActivityLog, toSyllabus } from "@/types";
+import type { Paper, AdminUser, ActivityLogEntry, Syllabus, NoteUpload } from "@/types";
+import { toPaper, toAdminUser, toActivityLog, toSyllabus, toNoteUpload } from "@/types";
 import AdminDashboard from "@/components/AdminDashboard";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
@@ -62,6 +62,19 @@ export default async function AdminPage() {
       [Query.equal("approval_status", "pending"), Query.orderDesc("$createdAt")],
     );
     pendingSyllabi = documents.map((d) => toSyllabus(d));
+  } catch {
+    // collection may not exist yet
+  }
+
+  // Fetch pending note uploads for moderation
+  let pendingNotes: NoteUpload[] = [];
+  try {
+    const { documents } = await db.listDocuments(
+      DATABASE_ID,
+      COLLECTION.note_uploads,
+      [Query.equal("approved", false), Query.equal("status", "pending"), Query.orderDesc("$createdAt")],
+    );
+    pendingNotes = documents.map((d) => toNoteUpload(d));
   } catch {
     // collection may not exist yet
   }

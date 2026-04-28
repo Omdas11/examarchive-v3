@@ -304,6 +304,42 @@ export function toPaper(doc: any): Paper {
   };
 }
 
+/** Represents a user-uploaded handmade notes PDF pending or after admin review. */
+export interface NoteUpload {
+  id: string;
+  /** Display title provided by the uploader. */
+  title: string;
+  /** Original filename. */
+  file_name: string;
+  /** Appwrite Storage file ID in the `notes` bucket. */
+  file_id: string;
+  /** Next.js proxy URL `/api/files/notes/{fileId}`. */
+  file_url: string;
+  /** Appwrite user ID of the uploader. */
+  uploader_id: string;
+  /** `false` until admin approves; drives browse-page queries. */
+  approved: boolean;
+  /** `"pending"` on upload, `"approved"` or `"rejected"` after admin review. */
+  status: "pending" | "approved" | "rejected";
+  created_at: string;
+}
+
+/** Map an Appwrite document to our `NoteUpload` type. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function toNoteUpload(doc: any): NoteUpload {
+  return {
+    id: (doc.$id ?? doc.id) as string,
+    title: (doc.title ?? doc.file_name ?? "") as string,
+    file_name: (doc.file_name ?? "") as string,
+    file_id: (doc.file_id ?? "") as string,
+    file_url: (doc.file_url ?? "") as string,
+    uploader_id: (doc.uploader_id ?? "") as string,
+    approved: Boolean(doc.approved),
+    status: ((doc.status ?? "pending") as NoteUpload["status"]),
+    created_at: ((doc.$createdAt ?? doc.created_at) as string) ?? "",
+  };
+}
+
 /** Map an Appwrite document to our `Syllabus` type. */
 export function toSyllabus(doc: any): Syllabus {
   return {
