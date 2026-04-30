@@ -13,6 +13,12 @@ function isNotFoundError(error) {
   return code === 404 || /not found/i.test(String(error?.message ?? ""));
 }
 
+function isConflictOrAlreadyExistsError(error) {
+  const code = error?.code ?? error?.response?.code;
+  const message = String(error?.message ?? "");
+  return code === 409 || /already exists|conflict/i.test(message);
+}
+
 function createStorageClient() {
   const { endpoint, projectId, apiKey } = loadAppwriteEnv();
   const client = new Client().setEndpoint(endpoint).setProject(projectId).setKey(apiKey);
@@ -31,21 +37,29 @@ async function ensureBucket(storage, config) {
     }
   }
 
-  await storage.createBucket({
-    bucketId,
-    name,
-    permissions: [],
-    fileSecurity: false,
-    enabled: true,
-    maximumFileSize,
-    allowedFileExtensions,
-    compression: Compression.None,
-    encryption: true,
-    antivirus: true,
-    transformations: false,
-  });
-  console.log(`[create] bucket ${bucketId}`);
-  return { bucketId, created: true };
+  try {
+    await storage.createBucket({
+      bucketId,
+      name,
+      permissions: [],
+      fileSecurity: false,
+      enabled: true,
+      maximumFileSize,
+      allowedFileExtensions,
+      compression: Compression.None,
+      encryption: true,
+      antivirus: true,
+      transformations: false,
+    });
+    console.log(`[create] bucket ${bucketId}`);
+    return { bucketId, created: true };
+  } catch (error) {
+    if (!isConflictOrAlreadyExistsError(error)) {
+      throw error;
+    }
+    console.log(`[exists-race] bucket ${bucketId} already created by another process`);
+    return { bucketId, created: false };
+  }
 }
 
 async function ensureMdIngestionBucket() {
