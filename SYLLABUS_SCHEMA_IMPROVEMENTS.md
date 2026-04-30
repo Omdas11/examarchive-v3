@@ -50,7 +50,7 @@ Auto-triggers remain on pushes to `main` that touch relevant script files.
 ## How to Apply (from mobile)
 
 1. Open the repository on GitHub.
-2. Navigate to **Actions → Appwrite Schema Sync** → **Run workflow** → select `force_sync=false` → **Run**.
+2. Navigate to **Actions → Appwrite Schema Sync** → **Run workflow** (leave `force_sync` as either value) → **Run**.
 3. Once complete, run **Actions → Appwrite AI Sync** → **Run workflow** → **Run**.
 
 Both workflows complete in ~2 minutes and print per-attribute status to the log.

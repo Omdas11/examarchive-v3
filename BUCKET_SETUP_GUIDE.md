@@ -34,3 +34,7 @@ npm run ensure:md-ingestion-bucket
 ```
 
 This calls `scripts/ensure-md-ingestion-bucket.js`, which checks and creates both buckets if missing.
+
+The same script is executed automatically by both Appwrite sync workflows before schema/function sync. That means bucket creation works in both modes:
+- **Manual/mobile trigger** via **Actions → Run workflow** (`workflow_dispatch`).
+- **Auto trigger** on pushes to `main` affecting sync files.

@@ -18,6 +18,7 @@ on:
       - "scripts/v2/sync-appwrite-ai.js"
       - "scripts/v2/appwrite-schema-setup.js"
       - "scripts/v2/sync-appwrite-schema.js"
+      - "scripts/ensure-md-ingestion-bucket.js"
       - "scripts/deploy-function.sh"
       - "appwrite-functions/pdf-generator/**"
       - "scripts/hard-reset-ingestion.ts"
@@ -32,7 +33,7 @@ concurrency:
 
 jobs:
   sync-ai:
-    if: github.actor != 'github-actions[bot]' && (github.event_name != 'workflow_dispatch' || github.event.inputs.force_sync == 'true')
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -52,7 +53,9 @@ jobs:
           APPWRITE_ENDPOINT: ${{ secrets.APPWRITE_ENDPOINT }}
           APPWRITE_PROJECT_ID: ${{ secrets.APPWRITE_PROJECT_ID }}
           APPWRITE_API_KEY: ${{ secrets.APPWRITE_API_KEY }}
-        run: npm run sync:appwrite-ai
+        run: |
+          npm run ensure:md-ingestion-bucket
+          npm run sync:appwrite-ai
 
       - name: Deploy pdf-generator Appwrite Function
         env:
