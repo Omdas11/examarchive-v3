@@ -4,12 +4,18 @@ import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { loadEnvConfig } from "@next/env";
-import { Client, Databases, Query, Storage } from "node-appwrite";
+import { Client, Databases, Permission, Query, Role, Storage } from "node-appwrite";
 
 const require = createRequire(import.meta.url);
 type BucketSpec = {
   id: string;
   name: string;
+  /** Appwrite permission strings applied to this bucket (e.g. `Permission.create(Role.users())`). */
+  permissions?: string[];
+  /** Human-readable description for DATABASE_SCHEMA.md documentation. */
+  description?: string;
+  /** Who can access this bucket (for documentation). */
+  access?: string;
 };
 
 type SyncResourceResult = {
@@ -53,16 +59,72 @@ type LiveAttribute = {
 
 const SCHEMA_STATUS_START_TAG = "<!-- SCHEMA_SYNC_STATUS_START -->";
 const SCHEMA_STATUS_END_TAG = "<!-- SCHEMA_SYNC_STATUS_END -->";
+const STORAGE_BUCKETS_START_TAG = "<!-- STORAGE_BUCKETS_START -->";
+const STORAGE_BUCKETS_END_TAG = "<!-- STORAGE_BUCKETS_END -->";
 const REQUIRED_BUCKETS: BucketSpec[] = [
-  { id: "papers", name: "papers" },
-  { id: "notes", name: "notes" },
-  { id: "examarchive-syllabus-md-ingestion", name: "examarchive-syllabus-md-ingestion" },
-  { id: "examarchive_question_ingest_assets", name: "examarchive_question_ingest_assets" },
-  { id: "syllabus-files", name: "syllabus-files" },
-  { id: "avatars", name: "avatars" },
-  { id: "generated-md-cache", name: "generated-md-cache" },
-  { id: "cached-unit-notes", name: "cached-unit-notes" },
-  { id: "cached-solved-papers", name: "cached-solved-papers" },
+  {
+    id: "papers",
+    name: "papers",
+    permissions: [Permission.create(Role.users())],
+    description: "User-submitted exam question paper PDFs. Served at `/api/files/papers/[fileId]`; watermarked on download.",
+    access: "`create(users)` — authenticated user upload; read via server-side proxy only",
+  },
+  {
+    id: "notes",
+    name: "notes",
+    permissions: [Permission.create(Role.users())],
+    description: "User-submitted handmade/typed notes PDFs. Served at `/api/files/notes/[fileId]`; watermarked on download.",
+    access: "`create(users)` — authenticated user upload; read via server-side proxy only",
+  },
+  {
+    id: "examarchive-syllabus-md-ingestion",
+    name: "examarchive-syllabus-md-ingestion",
+    permissions: [],
+    description: "Admin-only markdown files from the syllabus AI ingestion pipeline (input stage).",
+    access: "Server-side admin key only",
+  },
+  {
+    id: "examarchive_question_ingest_assets",
+    name: "examarchive_question_ingest_assets",
+    permissions: [],
+    description: "Admin-only question-paper markdown and rendered PDFs used by the AI ingestion pipeline.",
+    access: "Server-side admin key only",
+  },
+  {
+    id: "syllabus-files",
+    name: "syllabus-files",
+    permissions: [Permission.create(Role.users())],
+    description: "User-submitted syllabus PDFs (single-paper and departmental). Served at `/api/files/syllabus/[fileId]`.",
+    access: "`create(users)` — authenticated user upload; read via server-side proxy only",
+  },
+  {
+    id: "avatars",
+    name: "avatars",
+    permissions: [Permission.create(Role.users())],
+    description: "User profile avatar images. Served at `/api/files/avatars/[fileId]`.",
+    access: "`create(users)` — authenticated user upload",
+  },
+  {
+    id: "generated-md-cache",
+    name: "generated-md-cache",
+    permissions: [],
+    description: "Server-side intermediate AI-generated markdown cache produced before stitching into final PDFs.",
+    access: "Server-side admin key only",
+  },
+  {
+    id: "cached-unit-notes",
+    name: "cached-unit-notes",
+    permissions: [],
+    description: "Final stitched unit-notes markdown and PDF files; reused on cache hit to avoid redundant AI generation.",
+    access: "Server-side admin key only",
+  },
+  {
+    id: "cached-solved-papers",
+    name: "cached-solved-papers",
+    permissions: [],
+    description: "Final stitched solved-paper markdown and PDF files; reused on cache hit to avoid redundant AI generation.",
+    access: "Server-side admin key only",
+  },
 ];
 const LEGACY_BUCKET_IDS = new Set([
   "examarchive-md-ingestion",
@@ -200,9 +262,25 @@ function createClients() {
 }
 
 async function ensureBucket(storage: Storage, bucket: BucketSpec): Promise<SyncResourceResult> {
+  const targetPermissions = bucket.permissions ?? [];
   try {
-    await storage.getBucket({ bucketId: bucket.id });
+    const existing = await storage.getBucket({ bucketId: bucket.id });
     console.log(`[exists] bucket ${bucket.name} (${bucket.id})`);
+
+    // Add any missing create permissions so user JWT uploads work on pre-existing buckets.
+    const existingPerms: string[] = (existing.permissions as string[] | undefined) ?? [];
+    const hasCreateUsers = existingPerms.some((p) => p.includes("create") && p.includes("users"));
+    const needsCreateUsers = targetPermissions.some((p) => p.includes("create") && p.includes("users"));
+    if (needsCreateUsers && !hasCreateUsers) {
+      const merged = [...existingPerms, ...targetPermissions.filter((p) => p.includes("create") && p.includes("users"))];
+      await storage.updateBucket({
+        bucketId: bucket.id,
+        name: bucket.name,
+        permissions: merged,
+      });
+      console.log(`[update] bucket ${bucket.name} — added create(users) permission`);
+    }
+
     return { kind: "bucket", name: bucket.name, id: bucket.id, status: "exists" };
   } catch (error) {
     if (!isNotFoundError(error)) {
@@ -213,7 +291,7 @@ async function ensureBucket(storage: Storage, bucket: BucketSpec): Promise<SyncR
   const created = await storage.createBucket({
     bucketId: bucket.id,
     name: bucket.name,
-    permissions: [],
+    permissions: targetPermissions,
     fileSecurity: false,
     enabled: true,
   });
@@ -538,6 +616,60 @@ function injectSchemaStatusIntoDatabaseDoc(statusTable: string) {
   console.log("Successfully injected live status into docs/DATABASE_SCHEMA.md");
 }
 
+/**
+ * Regenerates the `## Storage Buckets` table inside DATABASE_SCHEMA.md from the
+ * canonical REQUIRED_BUCKETS list.  The section is delimited by
+ * STORAGE_BUCKETS_START_TAG / STORAGE_BUCKETS_END_TAG HTML comments so it can
+ * be safely replaced on every sync run without touching the rest of the doc.
+ */
+function injectStorageBucketsSectionIntoDatabaseDoc(buckets: BucketSpec[]) {
+  const docPath = path.resolve(__dirname, "../../docs/DATABASE_SCHEMA.md");
+  if (!fs.existsSync(docPath)) {
+    console.error("docs/DATABASE_SCHEMA.md not found — skipping storage buckets section inject.");
+    return;
+  }
+
+  let table = "## Storage Buckets\n\n";
+  table += "| Bucket ID | Purpose | Access |\n";
+  table += "|---|---|---|\n";
+  for (const b of buckets) {
+    const id = escapeMarkdownTableCell(b.id);
+    const desc = escapeMarkdownTableCell(b.description ?? "—");
+    const access = escapeMarkdownTableCell(b.access ?? "—");
+    table += `| \`${id}\` | ${desc} | ${access} |\n`;
+  }
+
+  table += "\nAll user-facing files are served via authenticated Next.js proxy routes:\n";
+  table += "- Papers: `/api/files/papers/[fileId]`\n";
+  table += "- Notes: `/api/files/notes/[fileId]`\n";
+  table += "- Syllabi: `/api/files/syllabus/[fileId]`\n";
+  table += "- Avatars: `/api/files/avatars/[fileId]`\n";
+  table += "- Ingestion-rendered question PDFs: `/api/files/ingestion-question/[fileId]`\n";
+
+  const newBlock = `${STORAGE_BUCKETS_START_TAG}\n${table}\n${STORAGE_BUCKETS_END_TAG}`;
+  const existingContent = fs.readFileSync(docPath, "utf8");
+  const hasTags = existingContent.includes(STORAGE_BUCKETS_START_TAG) && existingContent.includes(STORAGE_BUCKETS_END_TAG);
+
+  const pattern = `${escapeRegex(STORAGE_BUCKETS_START_TAG)}[\\s\\S]*?${escapeRegex(STORAGE_BUCKETS_END_TAG)}`;
+  const regex = new RegExp(pattern);
+
+  let nextContent: string;
+  if (hasTags) {
+    nextContent = existingContent.replace(regex, newBlock);
+  } else {
+    // Replace the hand-written "## Storage Buckets" section if present, otherwise append.
+    const manualSectionRegex = /## Storage Buckets\n[\s\S]*?(?=\n---|\n## |$)/;
+    if (manualSectionRegex.test(existingContent)) {
+      nextContent = existingContent.replace(manualSectionRegex, `${newBlock}\n`);
+    } else {
+      nextContent = `${existingContent}\n\n${newBlock}`;
+    }
+  }
+
+  fs.writeFileSync(docPath, nextContent, "utf8");
+  console.log("Successfully injected storage buckets section into docs/DATABASE_SCHEMA.md");
+}
+
 function deleteLegacySchemaDoc() {
   const oldDocPath = path.resolve(__dirname, "../../docs/launch/v2/APPWRITE_SCHEMA.md");
   if (!fs.existsSync(oldDocPath)) {
@@ -707,6 +839,7 @@ async function syncInfrastructure() {
     perCollection: perCollectionRows,
   });
   injectSchemaStatusIntoDatabaseDoc(statusTable);
+  injectStorageBucketsSectionIntoDatabaseDoc(REQUIRED_BUCKETS);
   deleteLegacySchemaDoc();
 
   const createdInfraCount = [...bucketResults, databaseResult, ...requiredCollectionResults].filter(

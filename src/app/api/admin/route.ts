@@ -7,6 +7,7 @@ import {
   DATABASE_ID,
   COLLECTION,
   BUCKET_ID,
+  NOTES_BUCKET_ID,
 } from "@/lib/appwrite";
 import { logActivity } from "@/lib/activity-log";
 
@@ -359,6 +360,70 @@ export async function POST(request: NextRequest) {
           admin_id: user.id,
           admin_email: user.email,
           details: `Rejected syllabus ${id}`,
+        });
+        return NextResponse.json({ success: true });
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return NextResponse.json({ error: message }, { status: 500 });
+      }
+    }
+    case "approve-note": {
+      try {
+        const upload = await db.getDocument(DATABASE_ID, COLLECTION.uploads, id);
+        const uploaderId = upload.user_id as string | undefined;
+        const wasApproved = upload.status === "approved";
+
+        if (!wasApproved) {
+          await db.updateDocument(DATABASE_ID, COLLECTION.uploads, id, {
+            status: "approved",
+          });
+
+          // Grant XP and auto-promote the uploader, same as paper approvals
+          if (uploaderId) {
+            await incrementUploadCount(db, uploaderId);
+          }
+        }
+
+        void logActivity({
+          action: "approve",
+          target_user_id: uploaderId ?? null,
+          target_paper_id: id,
+          admin_id: user.id,
+          admin_email: user.email,
+          details: `Approved notes upload ${id}`,
+        });
+        return NextResponse.json({ success: true });
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return NextResponse.json({ error: message }, { status: 500 });
+      }
+    }
+    case "reject-note": {
+      try {
+        const upload = await db.getDocument(DATABASE_ID, COLLECTION.uploads, id);
+        const fileId = upload.file_id as string | undefined;
+        const uploaderId = upload.user_id as string | undefined;
+
+        await db.updateDocument(DATABASE_ID, COLLECTION.uploads, id, {
+          status: "rejected",
+        });
+
+        // Delete the file from the notes bucket to avoid orphaned storage files
+        if (fileId) {
+          try {
+            await adminStorage().deleteFile(NOTES_BUCKET_ID, fileId);
+          } catch (storageErr) {
+            console.warn("[api/admin] Could not delete notes storage file %s:", fileId, storageErr);
+          }
+        }
+
+        void logActivity({
+          action: "reject",
+          target_user_id: uploaderId ?? null,
+          target_paper_id: id,
+          admin_id: user.id,
+          admin_email: user.email,
+          details: `Rejected notes upload ${id}`,
         });
         return NextResponse.json({ success: true });
       } catch (err: unknown) {

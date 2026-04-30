@@ -324,3 +324,34 @@ export function toSyllabus(doc: any): Syllabus {
     is_hidden: doc.is_hidden ?? false,
   };
 }
+
+/**
+ * A pending user-uploaded notes entry stored in the `uploads` collection.
+ * Admin must approve or reject before the file is served on browse pages.
+ */
+export interface PendingNote {
+  id: string;
+  user_id: string;
+  file_id: string;
+  file_name: string;
+  title: string;
+  status: "pending" | "approved" | "rejected";
+  created_at: string;
+  /** Constructed proxy URL for admin preview: `/api/files/notes/{file_id}` */
+  preview_url: string;
+}
+
+/** Map an Appwrite `uploads` document (type="notes") to a `PendingNote`. */
+export function toPendingNote(doc: any): PendingNote {
+  const fileId = (doc.file_id ?? "") as string;
+  return {
+    id: doc.$id ?? doc.id,
+    user_id: doc.user_id ?? "",
+    file_id: fileId,
+    file_name: doc.file_name ?? "",
+    title: doc.title ?? doc.file_name ?? "",
+    status: (doc.status ?? "pending") as PendingNote["status"],
+    created_at: doc.$createdAt ?? doc.created_at ?? "",
+    preview_url: fileId ? `/api/files/notes/${fileId}` : "",
+  };
+}

@@ -8,8 +8,8 @@ import {
   COLLECTION,
   Query,
 } from "@/lib/appwrite";
-import type { Paper, AdminUser, ActivityLogEntry, Syllabus } from "@/types";
-import { toPaper, toAdminUser, toActivityLog, toSyllabus } from "@/types";
+import type { Paper, AdminUser, ActivityLogEntry, Syllabus, PendingNote } from "@/types";
+import { toPaper, toAdminUser, toActivityLog, toSyllabus, toPendingNote } from "@/types";
 import AdminDashboard from "@/components/AdminDashboard";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
@@ -66,6 +66,23 @@ export default async function AdminPage() {
     // collection may not exist yet
   }
 
+  // Fetch pending notes for moderation
+  let pendingNotes: PendingNote[] = [];
+  try {
+    const { documents } = await db.listDocuments(
+      DATABASE_ID,
+      COLLECTION.uploads,
+      [
+        Query.equal("type", "notes"),
+        Query.equal("status", "pending"),
+        Query.orderDesc("$createdAt"),
+      ],
+    );
+    pendingNotes = documents.map((d) => toPendingNote(d));
+  } catch {
+    // uploads collection or type attribute may not exist yet
+  }
+
   // Fetch all users (admin only)
   let users: AdminUser[] = [];
   if (isAdmin(user.role)) {
@@ -98,6 +115,7 @@ export default async function AdminPage() {
     { label: "Pending Papers", value: pending?.length ?? 0 },
     { label: "Approved", value: approvedCount ?? 0 },
     { label: "Pending Syllabi", value: pendingSyllabi.length },
+    { label: "Pending Notes", value: pendingNotes.length },
     { label: "Users", value: users.length },
   ];
   const userName = user.name || user.username || "Scholar";
@@ -124,6 +142,7 @@ export default async function AdminPage() {
       <AdminDashboard
         pending={pending}
         pendingSyllabi={pendingSyllabi}
+        pendingNotes={pendingNotes}
         users={users}
         activityLogs={activityLogs}
         currentAdminId={user.id}

@@ -220,6 +220,8 @@ const TARGET_SCHEMA = [
       { key: "file_id", type: "string", required: true, size: 64 },
       { key: "file_name", type: "string", required: true, size: FILENAME_SIZE },
       { key: "status", type: "string", required: true, size: 32 },
+      { key: "type", type: "string", required: false, size: 32 },
+      { key: "title", type: "string", required: false, size: STANDARD_STRING_SIZE },
     ],
   },
   {

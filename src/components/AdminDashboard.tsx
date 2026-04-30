@@ -2,15 +2,17 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import type { Paper, AdminUser, ActivityLogEntry, Syllabus } from "@/types";
+import type { Paper, AdminUser, ActivityLogEntry, Syllabus, PendingNote } from "@/types";
 import AdminActions from "./AdminActions";
 import UserManagement from "./UserManagement";
 import ActivityLog from "./ActivityLog";
 import SyllabusModeration from "./SyllabusModeration";
+import NotesModeration from "./NotesModeration";
 
 interface AdminDashboardProps {
   pending: Paper[];
   pendingSyllabi: Syllabus[];
+  pendingNotes: PendingNote[];
   users: AdminUser[];
   activityLogs: ActivityLogEntry[];
   currentAdminId: string;
@@ -18,7 +20,7 @@ interface AdminDashboardProps {
   stats: { label: string; value: number }[];
 }
 
-const TABS = ["Pending", "Syllabus", "Users", "Activity Log"] as const;
+const TABS = ["Pending", "Notes", "Syllabus", "Users", "Activity Log"] as const;
 
 export default function AdminDashboard({
   pending,

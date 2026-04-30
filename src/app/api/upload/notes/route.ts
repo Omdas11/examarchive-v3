@@ -67,6 +67,8 @@ export async function POST(request: NextRequest) {
         file_id: fileId,
         file_name: file_name || title,
         status: "pending",
+        type: "notes",
+        title,
       });
     } catch (err: unknown) {
       const rawMessage = err instanceof Error ? err.message.trim() : String(err).trim();
