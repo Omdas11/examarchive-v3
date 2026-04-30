@@ -24,6 +24,19 @@ const MAX_SEMESTER = 8;
 const DATABASE_SCHEMA_DOC_PATH = path.resolve(__dirname, "../../docs/DATABASE_SCHEMA.md");
 const STATUS_BLOCK_START = "<!-- SCHEMA_SYNC_STATUS_START -->";
 const STATUS_BLOCK_END = "<!-- SCHEMA_SYNC_STATUS_END -->";
+const RESOURCE_BLOCK_START = "<!-- SCHEMA_SYNC_RESOURCES_START -->";
+const RESOURCE_BLOCK_END = "<!-- SCHEMA_SYNC_RESOURCES_END -->";
+const BACKEND_BUCKETS = [
+  "papers",
+  "notes",
+  "avatars",
+  "syllabus-files",
+  "examarchive-syllabus-md-ingestion",
+  "examarchive_question_ingest_assets",
+  "generated-md-cache",
+  "cached-unit-notes",
+  "cached-solved-papers",
+];
 const EMPTY_STRING_COMPARISON = Object.freeze({
   existingCount: 0,
   perfectCount: 0,
@@ -805,13 +818,53 @@ function upsertSchemaStatusBlock(markdown, statusSection) {
   return `${markdown.trimEnd()}\n\n---\n\n${wrapped}\n`;
 }
 
+function renderBackendResourcesSection() {
+  const lines = [
+    "## Backend Resource Map (Auto-generated)",
+    "",
+    "_Generated from `scripts/v2/sync-appwrite-schema.js` to reflect backend-configured Appwrite resources._",
+    "",
+    `**Database:** \`${DATABASE_ID}\``,
+    "",
+    "### Storage Buckets",
+    "",
+    "| Bucket ID | Purpose |",
+    "|---|---|",
+    ...BACKEND_BUCKETS.map((bucketId) => `| \`${bucketId}\` | Backend configured bucket |`),
+    "",
+    "### Database Collections",
+    "",
+    "| Collection ID | In target schema |",
+    "|---|---|",
+    ...TARGET_SCHEMA.map((collection) => `| \`${collection.id}\` | ✅ |`),
+    "",
+  ];
+
+  return lines.join("\n");
+}
+
+function upsertBackendResourcesBlock(markdown) {
+  const content = `${RESOURCE_BLOCK_START}\n${renderBackendResourcesSection()}\n${RESOURCE_BLOCK_END}`;
+  const startIndex = markdown.indexOf(RESOURCE_BLOCK_START);
+  const endIndex = markdown.indexOf(RESOURCE_BLOCK_END);
+
+  if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
+    const before = markdown.slice(0, startIndex).replace(/\s*$/, "");
+    const after = markdown.slice(endIndex + RESOURCE_BLOCK_END.length).replace(/^\s*/, "");
+    return `${before}\n\n${content}\n\n${after}`.trimEnd() + "\n";
+  }
+
+  return `${markdown.trimEnd()}\n\n---\n\n${content}\n`;
+}
+
 function updateSchemaDocWithStatus(results, filePath = DATABASE_SCHEMA_DOC_PATH) {
   if (!fs.existsSync(filePath)) {
     fs.writeFileSync(filePath, DEFAULT_DATABASE_SCHEMA_MARKDOWN, "utf8");
   }
   const current = fs.readFileSync(filePath, "utf8");
   const statusSection = renderSchemaStatusSection(results);
-  const next = upsertSchemaStatusBlock(current, statusSection);
+  const withResources = upsertBackendResourcesBlock(current);
+  const next = upsertSchemaStatusBlock(withResources, statusSection);
   if (next !== current) {
     fs.writeFileSync(filePath, next, "utf8");
     console.log(`[update] wrote schema sync status to ${filePath}`);
