@@ -56,6 +56,30 @@ describe('ensure-md-ingestion-bucket', () => {
     ]);
   });
 
+
+
+  test('handles create race when bucket is created concurrently', async () => {
+    appwrite.__storageInstance.getBucket.mockRejectedValue({ code: 404, message: 'not found' });
+    appwrite.__storageInstance.createBucket.mockRejectedValue({ code: 409, message: 'already exists' });
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    const results = await ensureMdIngestionBucket();
+
+    expect(results).toEqual([
+      { bucketId: 'examarchive-syllabus-md-ingestion', created: false },
+      { bucketId: 'examarchive_question_ingest_assets', created: false },
+    ]);
+    expect(appwrite.__storageInstance.createBucket).toHaveBeenCalledTimes(2);
+    expect(logSpy).toHaveBeenCalledWith(
+      '[exists-race] bucket examarchive-syllabus-md-ingestion already created by another process'
+    );
+    expect(logSpy).toHaveBeenCalledWith(
+      '[exists-race] bucket examarchive_question_ingest_assets already created by another process'
+    );
+
+    logSpy.mockRestore();
+  });
+
   test('throws for non-not-found errors', async () => {
     appwrite.__storageInstance.getBucket.mockRejectedValue({ code: 500, message: 'boom' });
 
