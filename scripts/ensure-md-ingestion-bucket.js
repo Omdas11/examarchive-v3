@@ -15,8 +15,9 @@ function isNotFoundError(error) {
 
 function isConflictOrAlreadyExistsError(error) {
   const code = error?.code ?? error?.response?.code;
-  const message = String(error?.message ?? "");
-  return code === 409 || /already exists|conflict/i.test(message);
+  const numericCode = Number(code);
+  const message = String(error?.message ?? error?.response?.message ?? "");
+  return numericCode === 409 || /already exists|conflict/i.test(message);
 }
 
 function createStorageClient() {

@@ -26,17 +26,31 @@ const STATUS_BLOCK_START = "<!-- SCHEMA_SYNC_STATUS_START -->";
 const STATUS_BLOCK_END = "<!-- SCHEMA_SYNC_STATUS_END -->";
 const RESOURCE_BLOCK_START = "<!-- SCHEMA_SYNC_RESOURCES_START -->";
 const RESOURCE_BLOCK_END = "<!-- SCHEMA_SYNC_RESOURCES_END -->";
-const BACKEND_BUCKETS = [
-  "papers",
-  "notes",
-  "avatars",
-  "syllabus-files",
-  "examarchive-syllabus-md-ingestion",
-  "examarchive_question_ingest_assets",
-  "generated-md-cache",
-  "cached-unit-notes",
-  "cached-solved-papers",
-];
+
+function loadRequiredBuckets() {
+  const syncAppwritePath = path.resolve(__dirname, "./sync-appwrite.ts");
+  const syncAppwriteSource = fs.readFileSync(syncAppwritePath, "utf8");
+  const requiredBucketsMatch = syncAppwriteSource.match(
+    /const\s+REQUIRED_BUCKETS\s*(?::\s*BucketSpec\[\])?\s*=\s*\[([\s\S]*?)\]\s*(?:as\s+const)?\s*;/
+  );
+
+  if (!requiredBucketsMatch) {
+    throw new Error(`Unable to locate REQUIRED_BUCKETS in ${syncAppwritePath}`);
+  }
+
+  const bucketIds = Array.from(
+    requiredBucketsMatch[1].matchAll(/id:\s*["']([^"']+)["']/g),
+    (match) => match[1]
+  );
+
+  if (bucketIds.length === 0) {
+    throw new Error(`REQUIRED_BUCKETS in ${syncAppwritePath} did not contain any bucket IDs`);
+  }
+
+  return Object.freeze(bucketIds);
+}
+
+const BACKEND_BUCKETS = loadRequiredBuckets();
 const EMPTY_STRING_COMPARISON = Object.freeze({
   existingCount: 0,
   perfectCount: 0,
@@ -830,13 +844,13 @@ function renderBackendResourcesSection() {
     "",
     "| Bucket ID | Purpose |",
     "|---|---|",
-    ...BACKEND_BUCKETS.map((bucketId) => `| \`${bucketId}\` | Backend configured bucket |`),
+    ...BACKEND_BUCKETS.map((bucketId) => `| \`${escapeMarkdownTableCell(bucketId)}\` | Backend configured bucket |`),
     "",
     "### Database Collections",
     "",
     "| Collection ID | In target schema |",
     "|---|---|",
-    ...TARGET_SCHEMA.map((collection) => `| \`${collection.id}\` | ✅ |`),
+    ...TARGET_SCHEMA.map((collection) => `| \`${escapeMarkdownTableCell(collection.id)}\` | ✅ |`),
     "",
   ];
 
@@ -852,6 +866,13 @@ function upsertBackendResourcesBlock(markdown) {
     const before = markdown.slice(0, startIndex).replace(/\s*$/, "");
     const after = markdown.slice(endIndex + RESOURCE_BLOCK_END.length).replace(/^\s*/, "");
     return `${before}\n\n${content}\n\n${after}`.trimEnd() + "\n";
+  }
+
+  const statusStartIndex = markdown.indexOf(STATUS_BLOCK_START);
+  if (statusStartIndex !== -1) {
+    const before = markdown.slice(0, statusStartIndex).replace(/\s*$/, "");
+    const after = markdown.slice(statusStartIndex).replace(/^\s*/, "");
+    return `${before}\n\n---\n\n${content}\n\n${after}`.trimEnd() + "\n";
   }
 
   return `${markdown.trimEnd()}\n\n---\n\n${content}\n`;

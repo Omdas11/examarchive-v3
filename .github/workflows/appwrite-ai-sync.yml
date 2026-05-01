@@ -6,11 +6,8 @@ on:
       force_sync:
         description: "Force AI schema sync even if no files changed"
         required: false
-        default: "false"
-        type: choice
-        options:
-          - "false"
-          - "true"
+        default: false
+        type: boolean
   push:
     branches: [ main ]
     paths:
@@ -33,7 +30,7 @@ concurrency:
 
 jobs:
   sync-ai:
-    if: github.actor != 'github-actions[bot]'
+    if: github.actor != 'github-actions[bot]' || inputs.force_sync == true
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
