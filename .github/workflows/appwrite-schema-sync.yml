@@ -6,11 +6,8 @@ on:
       force_sync:
         description: "Force schema sync even if no files changed"
         required: false
-        default: "false"
-        type: choice
-        options:
-          - "false"
-          - "true"
+        default: false
+        type: boolean
   push:
     branches: [ main ]
     paths:
@@ -19,6 +16,7 @@ on:
       - "scripts/v2/md-sync-utils.js"
       - "scripts/v2/watch-md-sync.js"
       - "scripts/v2/appwrite-schema-setup.js"
+      - "scripts/ensure-md-ingestion-bucket.js"
       - ".github/workflows/appwrite-schema-sync.yml"
 
 permissions:
@@ -26,7 +24,7 @@ permissions:
 
 jobs:
   sync-schema:
-    if: github.actor != 'github-actions[bot]' && (github.event_name != 'workflow_dispatch' || github.event.inputs.force_sync == 'true')
+    if: github.actor != 'github-actions[bot]' || inputs.force_sync == true
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -48,7 +46,9 @@ jobs:
           APPWRITE_ENDPOINT: ${{ secrets.APPWRITE_ENDPOINT }}
           APPWRITE_PROJECT_ID: ${{ secrets.APPWRITE_PROJECT_ID }}
           APPWRITE_API_KEY: ${{ secrets.APPWRITE_API_KEY }}
-        run: npm run sync:appwrite-schema:status
+        run: |
+          npm run ensure:md-ingestion-bucket
+          npm run sync:appwrite-schema:status
 
       - name: Commit updated docs/DATABASE_SCHEMA.md status
         shell: bash
