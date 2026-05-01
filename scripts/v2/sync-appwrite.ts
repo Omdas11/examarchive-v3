@@ -26,6 +26,13 @@ type SyncOptions = {
   forceUpdate: boolean;
 };
 
+/** Minimal shape returned by Appwrite for any managed resource (bucket/database/collection). */
+type AppwriteResource = {
+  $id: string;
+  name: string;
+  enabled: boolean;
+};
+
 type ExpectedAttribute = {
   name: string;
   typeRaw: string;
@@ -220,9 +227,9 @@ function createClients() {
 }
 
 async function ensureBucket(storage: Storage, bucket: BucketSpec, opts: SyncOptions): Promise<SyncResourceResult> {
-  let existing: { $id: string; name: string; enabled: boolean } | null = null;
+  let existing: AppwriteResource | null = null;
   try {
-    existing = await storage.getBucket({ bucketId: bucket.id }) as { $id: string; name: string; enabled: boolean };
+    existing = await storage.getBucket({ bucketId: bucket.id }) as AppwriteResource;
   } catch (error) {
     if (!isNotFoundError(error)) throw error;
   }
@@ -260,9 +267,9 @@ async function ensureBucket(storage: Storage, bucket: BucketSpec, opts: SyncOpti
 }
 
 async function ensureDatabase(databases: Databases, databaseId: string, databaseName: string, opts: SyncOptions): Promise<SyncResourceResult> {
-  let existing: { $id: string; name: string; enabled: boolean } | null = null;
+  let existing: AppwriteResource | null = null;
   try {
-    existing = await databases.get(databaseId) as { $id: string; name: string; enabled: boolean };
+    existing = await databases.get(databaseId) as AppwriteResource;
   } catch (error) {
     if (!isNotFoundError(error)) throw error;
   }
@@ -299,9 +306,9 @@ async function ensureCollection(
   collectionName: string,
   opts: SyncOptions,
 ): Promise<SyncResourceResult> {
-  let existing: { $id: string; name: string; enabled: boolean } | null = null;
+  let existing: AppwriteResource | null = null;
   try {
-    existing = await databases.getCollection(databaseId, collectionId) as { $id: string; name: string; enabled: boolean };
+    existing = await databases.getCollection(databaseId, collectionId) as AppwriteResource;
   } catch (error) {
     if (!isNotFoundError(error)) throw error;
   }
@@ -681,7 +688,7 @@ async function syncInfrastructure(opts: SyncOptions) {
   // Skipped in dry-run mode because the attribute-sync helpers write to Appwrite.
   let attributeSyncResults: AttributeSyncResult[];
   if (opts.dryRun) {
-    console.log("\n[dry-run] Skipping attribute sync.");
+    console.log("\n[dry-run] Skipping attribute sync (requires Appwrite write operations).");
     attributeSyncResults = [];
   } else {
     attributeSyncResults = await syncAllCollectionAttributes(databases);
@@ -692,7 +699,7 @@ async function syncInfrastructure(opts: SyncOptions) {
   let orphanDatabasesDeleted: string[] = [];
   let orphanBucketsDeleted: string[] = [];
   if (opts.dryRun) {
-    console.log("\n[dry-run] Skipping orphan cleanup.");
+    console.log("\n[dry-run] Skipping orphan cleanup (would delete unmanaged databases/buckets).");
   } else {
     orphanDatabasesDeleted = await cleanupOrphanDatabases(databases);
     const liveBucketsResponse = await storage.listBuckets([Query.limit(100)]);
