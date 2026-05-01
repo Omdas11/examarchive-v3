@@ -7,47 +7,166 @@ on:
       - "scripts/**"
       - ".github/workflows/appwrite-sync.yml"
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Preview what would change without applying anything (safe to run anytime)"
+        required: false
+        default: false
+        type: boolean
+      force_update:
+        description: "Re-apply update to every resource, even if it already exists and is enabled"
+        required: false
+        default: false
+        type: boolean
+  issue_comment:
+    types: [created]
 
 permissions:
   contents: write
+  issues: write
+  pull-requests: write
 
 jobs:
   sync-and-document:
-    if: github.actor != 'github-actions[bot]'
+    # Run on push/workflow_dispatch directly.
+    # For issue_comment: only run when an authorised collaborator types /appwrite-sync.
+    if: >
+      github.event_name == 'push' ||
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event_name == 'issue_comment' &&
+        contains(github.event.comment.body, '/appwrite-sync')
+      )
     runs-on: ubuntu-latest
 
     steps:
+      # ── Mobile / issue-comment authorisation ──────────────────────────────
+      - name: Authorize comment trigger
+        if: github.event_name == 'issue_comment'
+        id: guard
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+        with:
+          script: |
+            const body = String(context.payload.comment?.body || "");
+            if (!/\/appwrite-sync\b/i.test(body)) {
+              core.setOutput("authorized", "false");
+              return;
+            }
+            const association = context.payload.comment.author_association;
+            const allowed = new Set(["OWNER", "COLLABORATOR", "MEMBER"]);
+            if (!allowed.has(association)) {
+              core.setOutput("authorized", "false");
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: `⚠️ \`/appwrite-sync\` is restricted to repository owners, collaborators, or members. Current association: \`${association}\`.`,
+              });
+              return;
+            }
+            core.setOutput("authorized", "true");
+
+      - name: Resolve run options
+        if: >
+          github.event_name != 'issue_comment' ||
+          steps.guard.outputs.authorized == 'true'
+        id: options
+        run: |
+          if [ "${{ github.event_name }}" = "issue_comment" ]; then
+            # Comment-triggered runs: parse flags from the comment body.
+            BODY="${{ github.event.comment.body }}"
+            DRY_RUN="false"
+            FORCE_UPDATE="false"
+            echo "$BODY" | grep -qi '\-\-dry-run'   && DRY_RUN="true"   || true
+            echo "$BODY" | grep -qi '\-\-force'      && FORCE_UPDATE="true" || true
+          else
+            DRY_RUN="${{ github.event.inputs.dry_run || 'false' }}"
+            FORCE_UPDATE="${{ github.event.inputs.force_update || 'false' }}"
+          fi
+          echo "dry_run=$DRY_RUN"     >> "$GITHUB_OUTPUT"
+          echo "force_update=$FORCE_UPDATE" >> "$GITHUB_OUTPUT"
+
       - name: Checkout repository
+        if: >
+          github.event_name != 'issue_comment' ||
+          steps.guard.outputs.authorized == 'true'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
 
       - name: Setup Node.js
+        if: >
+          github.event_name != 'issue_comment' ||
+          steps.guard.outputs.authorized == 'true'
         uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
         with:
           node-version: "20"
           cache: "npm"
 
       - name: Install dependencies
+        if: >
+          github.event_name != 'issue_comment' ||
+          steps.guard.outputs.authorized == 'true'
         run: npm ci
 
       # Pull the absolute latest changes from main to prevent non-fast-forward errors
       # We do this before the script runs so there are no unstaged changes conflicting with the pull
       - name: Pull latest changes
+        if: >
+          github.event_name != 'issue_comment' ||
+          steps.guard.outputs.authorized == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git pull origin main --rebase
 
       - name: Run Appwrite sync script
+        if: >
+          github.event_name != 'issue_comment' ||
+          steps.guard.outputs.authorized == 'true'
+        id: sync
         env:
           APPWRITE_ENDPOINT: ${{ secrets.APPWRITE_ENDPOINT }}
           APPWRITE_PROJECT_ID: ${{ secrets.APPWRITE_PROJECT_ID }}
           APPWRITE_API_KEY: ${{ secrets.APPWRITE_API_KEY }}
+          DRY_RUN: ${{ steps.options.outputs.dry_run }}
+          FORCE_UPDATE: ${{ steps.options.outputs.force_update }}
         run: npx tsx scripts/v2/sync-appwrite.ts
 
       - name: Commit Schema Documentation
+        if: >
+          steps.sync.outcome == 'success' &&
+          steps.options.outputs.dry_run != 'true' &&
+          (github.event_name != 'issue_comment' || steps.guard.outputs.authorized == 'true')
         uses: stefanzweifel/git-auto-commit-action@04702edda442b2e678b25b537cec683a1493fcb9 # v7
         with:
           commit_message: "docs: auto-update Appwrite schema live status"
           file_pattern: docs/
+
+      # ── Comment back on the issue/PR that triggered the run ───────────────
+      - name: Post result comment
+        if: always() && github.event_name == 'issue_comment' && steps.guard.outputs.authorized == 'true'
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+        env:
+          SYNC_OUTCOME: ${{ steps.sync.outcome }}
+          DRY_RUN: ${{ steps.options.outputs.dry_run }}
+        with:
+          script: |
+            const success = process.env.SYNC_OUTCOME === "success";
+            const dryRun  = process.env.DRY_RUN === "true";
+            const runUrl  = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            let body;
+            if (success && dryRun) {
+              body = `🔍 **Appwrite sync dry-run complete** — no changes were applied. [View run logs](${runUrl})`;
+            } else if (success) {
+              body = `✅ **Appwrite infrastructure sync complete** — all buckets, databases, and collections are up-to-date. [View run logs](${runUrl})`;
+            } else {
+              body = `❌ **Appwrite sync failed.** Please check the [workflow logs](${runUrl}) for details.`;
+            }
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+

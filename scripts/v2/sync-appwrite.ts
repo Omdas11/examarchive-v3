@@ -16,7 +16,14 @@ type SyncResourceResult = {
   kind: "bucket" | "database" | "collection";
   name: string;
   id: string;
-  status: "created" | "exists";
+  status: "created" | "updated" | "exists" | "skipped";
+};
+
+type SyncOptions = {
+  /** When true, log what would change but do not call any mutation APIs. */
+  dryRun: boolean;
+  /** When true, call update even for resources that already exist and are enabled. */
+  forceUpdate: boolean;
 };
 
 type ExpectedAttribute = {
@@ -94,6 +101,19 @@ const FALLBACK_COLLECTION_SPECS: Array<{ id: string; name: string }> = [
   { id: "user_passes", name: "user_passes" },
   { id: "user_badges", name: "user_badges" },
 ];
+
+function parseSyncOptions(): SyncOptions {
+  const args = process.argv.slice(2);
+  const dryRun =
+    args.includes("--dry-run") ||
+    process.env.DRY_RUN === "true" ||
+    process.env.DRY_RUN === "1";
+  const forceUpdate =
+    args.includes("--force-update") ||
+    process.env.FORCE_UPDATE === "true" ||
+    process.env.FORCE_UPDATE === "1";
+  return { dryRun, forceUpdate };
+}
 
 function loadAppwriteEnv() {
   loadEnvConfig(path.resolve(__dirname, "../.."));
@@ -199,15 +219,32 @@ function createClients() {
   };
 }
 
-async function ensureBucket(storage: Storage, bucket: BucketSpec): Promise<SyncResourceResult> {
+async function ensureBucket(storage: Storage, bucket: BucketSpec, opts: SyncOptions): Promise<SyncResourceResult> {
+  let existing: { $id: string; name: string; enabled: boolean } | null = null;
   try {
-    await storage.getBucket({ bucketId: bucket.id });
-    console.log(`[exists] bucket ${bucket.name} (${bucket.id})`);
-    return { kind: "bucket", name: bucket.name, id: bucket.id, status: "exists" };
+    existing = await storage.getBucket({ bucketId: bucket.id }) as { $id: string; name: string; enabled: boolean };
   } catch (error) {
-    if (!isNotFoundError(error)) {
-      throw error;
+    if (!isNotFoundError(error)) throw error;
+  }
+
+  if (existing) {
+    const needsUpdate = opts.forceUpdate || !existing.enabled;
+    if (!needsUpdate) {
+      console.log(`[exists] bucket ${bucket.name} (${bucket.id})`);
+      return { kind: "bucket", name: bucket.name, id: bucket.id, status: "exists" };
     }
+    if (opts.dryRun) {
+      console.log(`[dry-run] would update bucket ${bucket.name} (${bucket.id}) – enabled=${existing.enabled}`);
+      return { kind: "bucket", name: bucket.name, id: bucket.id, status: "skipped" };
+    }
+    await storage.updateBucket({ bucketId: bucket.id, name: bucket.name, enabled: true });
+    console.log(`[update] bucket ${bucket.name} (${bucket.id})`);
+    return { kind: "bucket", name: bucket.name, id: bucket.id, status: "updated" };
+  }
+
+  if (opts.dryRun) {
+    console.log(`[dry-run] would create bucket ${bucket.name} (${bucket.id})`);
+    return { kind: "bucket", name: bucket.name, id: bucket.id, status: "skipped" };
   }
 
   const created = await storage.createBucket({
@@ -222,15 +259,32 @@ async function ensureBucket(storage: Storage, bucket: BucketSpec): Promise<SyncR
   return { kind: "bucket", name: bucket.name, id: created.$id, status: "created" };
 }
 
-async function ensureDatabase(databases: Databases, databaseId: string, databaseName: string): Promise<SyncResourceResult> {
+async function ensureDatabase(databases: Databases, databaseId: string, databaseName: string, opts: SyncOptions): Promise<SyncResourceResult> {
+  let existing: { $id: string; name: string; enabled: boolean } | null = null;
   try {
-    const existing = await databases.get(databaseId);
-    console.log(`[exists] database ${databaseName} (${existing.$id})`);
-    return { kind: "database", name: databaseName, id: existing.$id, status: "exists" };
+    existing = await databases.get(databaseId) as { $id: string; name: string; enabled: boolean };
   } catch (error) {
-    if (!isNotFoundError(error)) {
-      throw error;
+    if (!isNotFoundError(error)) throw error;
+  }
+
+  if (existing) {
+    const needsUpdate = opts.forceUpdate || !existing.enabled;
+    if (!needsUpdate) {
+      console.log(`[exists] database ${databaseName} (${existing.$id})`);
+      return { kind: "database", name: databaseName, id: existing.$id, status: "exists" };
     }
+    if (opts.dryRun) {
+      console.log(`[dry-run] would update database ${databaseName} (${existing.$id}) – enabled=${existing.enabled}`);
+      return { kind: "database", name: databaseName, id: existing.$id, status: "skipped" };
+    }
+    const updated = await databases.update({ databaseId, name: databaseName, enabled: true });
+    console.log(`[update] database ${databaseName} (${updated.$id})`);
+    return { kind: "database", name: databaseName, id: updated.$id, status: "updated" };
+  }
+
+  if (opts.dryRun) {
+    console.log(`[dry-run] would create database ${databaseName} (${databaseId})`);
+    return { kind: "database", name: databaseName, id: databaseId, status: "skipped" };
   }
 
   const created = await databases.create(databaseId, databaseName);
@@ -243,15 +297,33 @@ async function ensureCollection(
   databaseId: string,
   collectionId: string,
   collectionName: string,
+  opts: SyncOptions,
 ): Promise<SyncResourceResult> {
+  let existing: { $id: string; name: string; enabled: boolean } | null = null;
   try {
-    const existing = await databases.getCollection(databaseId, collectionId);
-    console.log(`[exists] collection ${collectionId} (${existing.$id})`);
-    return { kind: "collection", name: collectionId, id: existing.$id, status: "exists" };
+    existing = await databases.getCollection(databaseId, collectionId) as { $id: string; name: string; enabled: boolean };
   } catch (error) {
-    if (!isNotFoundError(error)) {
-      throw error;
+    if (!isNotFoundError(error)) throw error;
+  }
+
+  if (existing) {
+    const needsUpdate = opts.forceUpdate || !existing.enabled;
+    if (!needsUpdate) {
+      console.log(`[exists] collection ${collectionId} (${existing.$id})`);
+      return { kind: "collection", name: collectionId, id: existing.$id, status: "exists" };
     }
+    if (opts.dryRun) {
+      console.log(`[dry-run] would update collection ${collectionId} (${existing.$id}) – enabled=${existing.enabled}`);
+      return { kind: "collection", name: collectionId, id: existing.$id, status: "skipped" };
+    }
+    const updated = await databases.updateCollection({ databaseId, collectionId, name: collectionName, enabled: true });
+    console.log(`[update] collection ${collectionId} (${updated.$id})`);
+    return { kind: "collection", name: collectionId, id: updated.$id, status: "updated" };
+  }
+
+  if (opts.dryRun) {
+    console.log(`[dry-run] would create collection ${collectionId}`);
+    return { kind: "collection", name: collectionId, id: collectionId, status: "skipped" };
   }
 
   const created = await databases.createCollection(databaseId, collectionId, collectionName);
@@ -548,7 +620,10 @@ function deleteLegacySchemaDoc() {
   console.log("Deleted deprecated docs/launch/v2/APPWRITE_SCHEMA.md");
 }
 
-async function syncInfrastructure() {
+async function syncInfrastructure(opts: SyncOptions) {
+  if (opts.dryRun) {
+    console.log("\n⚠️  DRY-RUN mode — no changes will be applied.\n");
+  }
   const { storage, databases } = createClients();
   const syncedAt = new Date().toISOString();
 
@@ -556,12 +631,12 @@ async function syncInfrastructure() {
   console.log("\n--- Syncing storage buckets ---");
   const bucketResults: SyncResourceResult[] = [];
   for (const bucket of REQUIRED_BUCKETS) {
-    bucketResults.push(await ensureBucket(storage, bucket));
+    bucketResults.push(await ensureBucket(storage, bucket, opts));
   }
 
   // ── Step 2: Ensure the primary database exists ─────────────────────────
   console.log("\n--- Syncing database ---");
-  const databaseResult = await ensureDatabase(databases, TARGET_DATABASE_ID, TARGET_DATABASE_NAME);
+  const databaseResult = await ensureDatabase(databases, TARGET_DATABASE_ID, TARGET_DATABASE_NAME, opts);
 
   // ── Step 3: Derive the full collection list from schema modules ─────────
   // This ensures every collection defined in TARGET_SCHEMA (sync-appwrite-schema.js)
@@ -598,24 +673,33 @@ async function syncInfrastructure() {
   const requiredCollectionResults: SyncResourceResult[] = [];
   for (const collectionSpec of requiredCollectionSpecs) {
     requiredCollectionResults.push(
-      await ensureCollection(databases, TARGET_DATABASE_ID, collectionSpec.id, collectionSpec.name),
+      await ensureCollection(databases, TARGET_DATABASE_ID, collectionSpec.id, collectionSpec.name, opts),
     );
   }
 
   // ── Step 5: Sync all collection attributes ─────────────────────────────
-  // syncAllCollectionAttributes creates missing attributes for every collection
-  // defined in both schema files.  Collections already created above will not
-  // be re-created; only missing attributes are added.
-  const attributeSyncResults = await syncAllCollectionAttributes(databases);
+  // Skipped in dry-run mode because the attribute-sync helpers write to Appwrite.
+  const attributeSyncResults = opts.dryRun
+    ? (console.log("\n[dry-run] Skipping attribute sync."), [] as AttributeSyncResult[])
+    : await syncAllCollectionAttributes(databases);
 
   // ── Step 6: Prune orphan databases and buckets ─────────────────────────
-  const orphanDatabasesDeleted = await cleanupOrphanDatabases(databases);
-  const liveBucketsResponse = await storage.listBuckets([Query.limit(100)]);
-  const orphanBucketsDeleted = await cleanupOrphanBuckets(
-    storage,
-    liveBucketsResponse.buckets.map((bucket) => ({ $id: bucket.$id, name: bucket.name })),
-  );
-  const liveBucketsAfterCleanup = await storage.listBuckets([Query.limit(100)]);
+  // Skipped in dry-run mode to prevent accidental destructive reads.
+  let orphanDatabasesDeleted: string[] = [];
+  let orphanBucketsDeleted: string[] = [];
+  if (opts.dryRun) {
+    console.log("\n[dry-run] Skipping orphan cleanup.");
+  } else {
+    orphanDatabasesDeleted = await cleanupOrphanDatabases(databases);
+    const liveBucketsResponse = await storage.listBuckets([Query.limit(100)]);
+    orphanBucketsDeleted = await cleanupOrphanBuckets(
+      storage,
+      liveBucketsResponse.buckets.map((bucket) => ({ $id: bucket.$id, name: bucket.name })),
+    );
+  }
+  const liveBucketsAfterCleanup = opts.dryRun
+    ? await storage.listBuckets([Query.limit(100)])
+    : await storage.listBuckets([Query.limit(100)]);
   const liveBuckets = liveBucketsAfterCleanup.buckets.map((bucket) => ({ $id: bucket.$id, name: bucket.name }));
   const docPath = path.resolve(__dirname, "../../docs/DATABASE_SCHEMA.md");
   const docContent = fs.existsSync(docPath) ? fs.readFileSync(docPath, "utf8") : "";
@@ -698,27 +782,32 @@ async function syncInfrastructure() {
     });
   }
 
-  const statusTable = buildSchemaStatusTableFromDiff({
-    syncedAt,
-    liveBuckets,
-    requiredBuckets: REQUIRED_BUCKETS,
-    expectedSchemas,
-    liveCollections,
-    perCollection: perCollectionRows,
-  });
-  injectSchemaStatusIntoDatabaseDoc(statusTable);
-  deleteLegacySchemaDoc();
+  if (!opts.dryRun) {
+    const statusTable = buildSchemaStatusTableFromDiff({
+      syncedAt,
+      liveBuckets,
+      requiredBuckets: REQUIRED_BUCKETS,
+      expectedSchemas,
+      liveCollections,
+      perCollection: perCollectionRows,
+    });
+    injectSchemaStatusIntoDatabaseDoc(statusTable);
+    deleteLegacySchemaDoc();
+  }
 
-  const createdInfraCount = [...bucketResults, databaseResult, ...requiredCollectionResults].filter(
-    (item) => item.status === "created",
-  ).length;
+  const allResults = [...bucketResults, databaseResult, ...requiredCollectionResults];
+  const createdInfraCount = allResults.filter((item) => item.status === "created").length;
+  const updatedInfraCount = allResults.filter((item) => item.status === "updated").length;
+  const skippedInfraCount = allResults.filter((item) => item.status === "skipped").length;
   const createdAttrsCount = attributeSyncResults.reduce((sum, r) => sum + r.createdAttributes, 0);
+  const modeLabel = opts.dryRun ? " [DRY-RUN – no changes applied]" : "";
   console.log(
-    `Appwrite infrastructure sync complete. created=${createdInfraCount}, attributesCreated=${createdAttrsCount}, orphanBucketsDeleted=${orphanBucketsDeleted.length}, orphanDatabasesDeleted=${orphanDatabasesDeleted.length}`,
+    `Appwrite infrastructure sync complete${modeLabel}. created=${createdInfraCount}, updated=${updatedInfraCount}, skipped=${skippedInfraCount}, attributesCreated=${createdAttrsCount}, orphanBucketsDeleted=${orphanBucketsDeleted.length}, orphanDatabasesDeleted=${orphanDatabasesDeleted.length}`,
   );
 }
 
-syncInfrastructure().catch((error) => {
+const syncOpts = parseSyncOptions();
+syncInfrastructure(syncOpts).catch((error) => {
   console.error("Appwrite infrastructure sync failed:", error);
   process.exitCode = 1;
 });
