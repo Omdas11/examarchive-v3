@@ -679,9 +679,13 @@ async function syncInfrastructure(opts: SyncOptions) {
 
   // ── Step 5: Sync all collection attributes ─────────────────────────────
   // Skipped in dry-run mode because the attribute-sync helpers write to Appwrite.
-  const attributeSyncResults = opts.dryRun
-    ? (console.log("\n[dry-run] Skipping attribute sync."), [] as AttributeSyncResult[])
-    : await syncAllCollectionAttributes(databases);
+  let attributeSyncResults: AttributeSyncResult[];
+  if (opts.dryRun) {
+    console.log("\n[dry-run] Skipping attribute sync.");
+    attributeSyncResults = [];
+  } else {
+    attributeSyncResults = await syncAllCollectionAttributes(databases);
+  }
 
   // ── Step 6: Prune orphan databases and buckets ─────────────────────────
   // Skipped in dry-run mode to prevent accidental destructive reads.
@@ -697,9 +701,7 @@ async function syncInfrastructure(opts: SyncOptions) {
       liveBucketsResponse.buckets.map((bucket) => ({ $id: bucket.$id, name: bucket.name })),
     );
   }
-  const liveBucketsAfterCleanup = opts.dryRun
-    ? await storage.listBuckets([Query.limit(100)])
-    : await storage.listBuckets([Query.limit(100)]);
+  const liveBucketsAfterCleanup = await storage.listBuckets([Query.limit(100)]);
   const liveBuckets = liveBucketsAfterCleanup.buckets.map((bucket) => ({ $id: bucket.$id, name: bucket.name }));
   const docPath = path.resolve(__dirname, "../../docs/DATABASE_SCHEMA.md");
   const docContent = fs.existsSync(docPath) ? fs.readFileSync(docPath, "utf8") : "";

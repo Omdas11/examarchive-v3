@@ -71,14 +71,16 @@ jobs:
           github.event_name != 'issue_comment' ||
           steps.guard.outputs.authorized == 'true'
         id: options
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
         run: |
           if [ "${{ github.event_name }}" = "issue_comment" ]; then
             # Comment-triggered runs: parse flags from the comment body.
-            BODY="${{ github.event.comment.body }}"
+            BODY="$COMMENT_BODY"
             DRY_RUN="false"
             FORCE_UPDATE="false"
-            echo "$BODY" | grep -qi '\-\-dry-run'   && DRY_RUN="true"   || true
-            echo "$BODY" | grep -qi '\-\-force'      && FORCE_UPDATE="true" || true
+            echo "$BODY" | grep -qi '\-\-dry-run'       && DRY_RUN="true"     || true
+            echo "$BODY" | grep -qi '\-\-force-update'  && FORCE_UPDATE="true" || true
           else
             DRY_RUN="${{ github.event.inputs.dry_run || 'false' }}"
             FORCE_UPDATE="${{ github.event.inputs.force_update || 'false' }}"
