@@ -215,6 +215,7 @@ Tracks async AI PDF generation jobs (`POST /api/ai/generate-pdf`) and worker pro
 | `completed_at`     | Datetime | No       | Worker completion timestamp |
 | `idempotency_key`  | String   | **Yes**  | Client/server dedupe key |
 | `created_at`       | Datetime | **Yes**  | Enqueue timestamp |
+| `notify_emails`    | String[] | No       | Additional email addresses to notify on completion/failure (deduplication lock pattern) |
 
 **Permissions:** server-side writes, users read only their own jobs via API filtering.  
 **Index recommendation:** `(user_id, $createdAt)`, `(user_id, idempotency_key)` for fast dedupe and history.

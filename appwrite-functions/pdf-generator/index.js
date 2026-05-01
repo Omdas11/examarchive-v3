@@ -637,7 +637,6 @@ async function runGeminiCompletion({ apiKey, prompt, model }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: { maxOutputTokens: 4000, temperature: 0.4 },
         }),
         signal: AbortSignal.timeout(GEMINI_REQUEST_TIMEOUT_MS),
       },
