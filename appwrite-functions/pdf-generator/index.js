@@ -628,20 +628,27 @@ async function renderMarkdownToPdfBuffer(markdown, title, options = {}) {
 }
 
 async function runGeminiCompletion({ apiKey, prompt, model }) {
+  const safeApiKey = ensureNonEmptyString(apiKey, "gemini.apiKey");
+  const safePrompt = ensureNonEmptyString(prompt, "gemini.prompt");
+  const safeModel = ensureNonEmptyString(model || DEFAULT_MODEL, "gemini.model");
+  const requestPayload = {
+    contents: [{ role: "user", parts: [{ text: safePrompt }] }],
+    generationConfig: { maxOutputTokens: 4000, temperature: 0.4 },
+  };
+
   let response;
+  let bodyText = "";
   try {
     response = await fetch(
-      `${GEMINI_ENDPOINT}/models/${encodeURIComponent(model || DEFAULT_MODEL)}:generateContent?key=${encodeURIComponent(apiKey)}`,
+      `${GEMINI_ENDPOINT}/models/${encodeURIComponent(safeModel)}:generateContent?key=${encodeURIComponent(safeApiKey)}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: { maxOutputTokens: 4000, temperature: 0.4 },
-        }),
+        body: JSON.stringify(requestPayload),
         signal: AbortSignal.timeout(GEMINI_REQUEST_TIMEOUT_MS),
       },
     );
+    bodyText = await response.text();
   } catch (error) {
     const isTimeout = error && typeof error === "object" && error.name === "TimeoutError";
     const requestError = new Error(
@@ -652,8 +659,15 @@ async function runGeminiCompletion({ apiKey, prompt, model }) {
     requestError.code = isTimeout ? "GEMINI_TIMEOUT" : "GEMINI_REQUEST_FAILED";
     throw requestError;
   }
-  const bodyText = await response.text();
   if (!response.ok) {
+    if (response.status >= 400 && response.status < 500) {
+      console.error("[pdf-generator][Gemini] 4xx response.", {
+        status: response.status,
+        model: safeModel,
+        requestPayload,
+        responseBody: bodyText,
+      });
+    }
     const error = new Error(`Gemini request failed (status ${response.status})`);
     error.status = response.status;
     error.responseBody = bodyText;
@@ -670,6 +684,26 @@ async function runGeminiCompletion({ apiKey, prompt, model }) {
     throw new Error("Gemini returned empty content.");
   }
   return content;
+}
+
+
+function ensureNonEmptyString(value, fieldName) {
+  if (value === undefined || value === null) {
+    throw new Error(`[Gemini preflight] Missing required value: ${fieldName} is ${String(value)}.`);
+  }
+  const normalized = String(value).trim();
+  if (!normalized) {
+    throw new Error(`[Gemini preflight] Missing required value: ${fieldName} is an empty string.`);
+  }
+  return normalized;
+}
+
+function validateGeminiPromptVariables(fields) {
+  const sanitized = {};
+  for (const [fieldName, rawValue] of Object.entries(fields || {})) {
+    sanitized[fieldName] = ensureNonEmptyString(rawValue, fieldName);
+  }
+  return sanitized;
 }
 
 function isRetryableGeminiStatus(status) {
@@ -1064,7 +1098,17 @@ async function generateNotesPayload(db, payload) {
     throw new Error("No syllabus data found for this unit.");
   }
 
-  const syllabusContent = String(syllabusDoc.syllabus_content || "").trim();
+  const validated = validateGeminiPromptVariables({
+    "notes.university": payload.university,
+    "notes.course": payload.course,
+    "notes.stream": payload.stream,
+    "notes.type": payload.type,
+    "notes.paperCode": payload.paperCode,
+    "notes.unitNumber": payload.unitNumber,
+    "notes.syllabusContent": syllabusDoc.syllabus_content,
+  });
+
+  const syllabusContent = validated["notes.syllabusContent"];
   const subTopics = splitSyllabusIntoSubTopics(syllabusContent);
   if (subTopics.length === 0) {
     throw new Error("No sub-topics found for this unit.");
@@ -1081,12 +1125,12 @@ async function generateNotesPayload(db, payload) {
     }
     const prompt = `${getNotesSystemPrompt()}
 
-University: ${payload.university}
-Course: ${payload.course}
-Stream: ${payload.stream}
-Type: ${payload.type}
-Paper Code: ${payload.paperCode}
-Unit Number: ${payload.unitNumber}
+University: ${validated["notes.university"]}
+Course: ${validated["notes.course"]}
+Stream: ${validated["notes.stream"]}
+Type: ${validated["notes.type"]}
+Paper Code: ${validated["notes.paperCode"]}
+Unit Number: ${validated["notes.unitNumber"]}
 Chunk: ${index + 1}/${chunks.length}
 
 Sub-topics:
