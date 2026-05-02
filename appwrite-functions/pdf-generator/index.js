@@ -661,11 +661,22 @@ async function runGeminiCompletion({ apiKey, prompt, model }) {
   }
   if (!response.ok) {
     if (response.status >= 400 && response.status < 500) {
+      const REDACTED_PREVIEW_MAX_CHARS = 200;
+      const requestPayloadString = JSON.stringify(requestPayload);
+      const requestPreview = requestPayloadString.length > REDACTED_PREVIEW_MAX_CHARS
+        ? requestPayloadString.slice(0, REDACTED_PREVIEW_MAX_CHARS) + "..."
+        : requestPayloadString;
+      const bodyPreview = bodyText.length > REDACTED_PREVIEW_MAX_CHARS
+        ? bodyText.slice(0, REDACTED_PREVIEW_MAX_CHARS) + "..."
+        : bodyText;
       console.error("[pdf-generator][Gemini] 4xx response.", {
         status: response.status,
         model: safeModel,
-        requestPayload,
-        responseBody: bodyText,
+        requestPayloadPreview: requestPreview,
+        requestPayloadLength: requestPayloadString.length,
+        responseBodyPreview: bodyPreview,
+        responseBodyLength: bodyText.length,
+        redacted: requestPayloadString.length > REDACTED_PREVIEW_MAX_CHARS || bodyText.length > REDACTED_PREVIEW_MAX_CHARS,
       });
     }
     const error = new Error(`Gemini request failed (status ${response.status})`);
@@ -689,11 +700,17 @@ async function runGeminiCompletion({ apiKey, prompt, model }) {
 
 function ensureNonEmptyString(value, fieldName) {
   if (value === undefined || value === null) {
-    throw new Error(`[Gemini preflight] Missing required value: ${fieldName} is ${String(value)}.`);
+    const error = new Error(`[Gemini preflight] Missing required value: ${fieldName} is ${String(value)}.`);
+    error.status = 400;
+    error.code = 'INVALID_INPUT';
+    throw error;
   }
   const normalized = String(value).trim();
   if (!normalized) {
-    throw new Error(`[Gemini preflight] Missing required value: ${fieldName} is an empty string.`);
+    const error = new Error(`[Gemini preflight] Missing required value: ${fieldName} is an empty string.`);
+    error.status = 400;
+    error.code = 'INVALID_INPUT';
+    throw error;
   }
   return normalized;
 }
