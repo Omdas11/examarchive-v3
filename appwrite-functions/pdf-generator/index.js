@@ -44,12 +44,52 @@ const GOTENBERG_MAX_ATTEMPTS = 3;
 const GOTENBERG_BASE_BACKOFF_MS = 1_500;
 const GOTENBERG_MAX_BACKOFF_MS = 6_000;
 const TRUSTED_GOTENBERG_HOST_SUFFIX = ".hf.space";
+const TRUSTED_GEMINI_HOST = "generativelanguage.googleapis.com";
 const MAX_SAFE_PDF_FILENAME_CORE_LENGTH = 120;
 const MARKED_FALLBACK_LOG_PREFIX = "[pdf-generator] Falling back to basic markdown parser.";
 const MAX_RANDOM_NAMESPACE_INT = 0x1_0000_0000;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Strict URL validation to prevent SSRF and other URL-based attacks.
+ * @param {string} rawUrl - The URL to validate.
+ * @param {string[]} allowedHosts - Optional list of allowed hostnames. Supports "*.domain.com" for subdomains.
+ */
+function validateSafeUrl(rawUrl, allowedHosts = []) {
+  const value = String(rawUrl || "").trim();
+  if (!value) throw new Error("URL is empty");
+
+  let parsed;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new Error("Invalid URL format");
+  }
+
+  if (parsed.protocol !== "https:") {
+    throw new Error(`Forbidden protocol: ${parsed.protocol}. Only HTTPS is allowed.`);
+  }
+
+  if (allowedHosts.length > 0) {
+    const hostname = parsed.hostname.toLowerCase();
+    const isAllowed = allowedHosts.some((allowed) => {
+      const target = allowed.toLowerCase();
+      if (target.startsWith("*.")) {
+        const domain = target.slice(2);
+        return hostname === domain || hostname.endsWith("." + domain);
+      }
+      return hostname === target;
+    });
+
+    if (!isAllowed) {
+      throw new Error(`Forbidden host: ${hostname}. Not in the allowed list.`);
+    }
+  }
+
+  return parsed.toString();
 }
 
 function splitIntoLogicalChunks(items, chunkCount) {
@@ -639,8 +679,10 @@ async function runGeminiCompletion({ apiKey, prompt, model }) {
   let response;
   let bodyText = "";
   try {
+    const geminiUrl = `${GEMINI_ENDPOINT}/models/${encodeURIComponent(safeModel)}:generateContent?key=${encodeURIComponent(safeApiKey)}`;
+    const safeGeminiUrl = validateSafeUrl(geminiUrl, [TRUSTED_GEMINI_HOST]);
     response = await fetch(
-      `${GEMINI_ENDPOINT}/models/${encodeURIComponent(safeModel)}:generateContent?key=${encodeURIComponent(safeApiKey)}`,
+      safeGeminiUrl,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -954,15 +996,56 @@ function resolveCallbackBaseSiteUrl() {
   return (canonicalSiteUrl || trustedVercelSiteUrl).replace(/\/+$/, "");
 }
 
+function getAllowedWebhookHosts() {
+  const hosts = new Set();
+  const rawUrls = [
+    process.env.SITE_URL,
+    process.env.NEXT_PUBLIC_SITE_URL,
+    process.env.VERCEL_URL,
+    process.env.NEXT_PUBLIC_VERCEL_URL,
+  ];
+  rawUrls.forEach((raw) => {
+    const val = String(raw || "").trim();
+    if (!val) return;
+    try {
+      const urlStr = val.startsWith("http") ? val : `https://${val}`;
+      const parsed = new URL(urlStr);
+      if (parsed.hostname) {
+        const host = parsed.hostname.toLowerCase();
+        hosts.add(host);
+        // Allow sibling subdomains and the parent domain
+        const parts = host.split(".");
+        if (parts.length > 2) {
+          const base = parts.slice(1).join(".");
+          hosts.add(base);
+          hosts.add(`*.${base}`);
+        } else if (parts.length === 2) {
+          hosts.add(`*.${host}`);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  });
+  // Add vercel.app support for preview deployments.
+  hosts.add("*.vercel.app");
+  return Array.from(hosts);
+}
+
 function resolveNotifyCompletionUrl(callbackUrl) {
   const callbackOverride = normalizeAbsoluteHttpUrl(callbackUrl);
   if (callbackOverride) {
-    // The webhook secret (AI_JOB_WEBHOOK_SECRET) is the authentication layer that
-    // protects the notify-completion endpoint. Origin-based restrictions are
-    // intentionally omitted here to allow Vercel Preview deployment URLs to
-    // deliver webhooks successfully. Log the override URL for audit visibility.
-    console.log("[pdf-generator] Using callbackOverride for completion webhook.", { callbackOverride });
-    return { url: callbackOverride, reason: "callback_override" };
+    try {
+      const safeUrl = validateSafeUrl(callbackOverride, getAllowedWebhookHosts());
+      console.log("[pdf-generator] Using callbackOverride for completion webhook.", { callbackOverride: safeUrl });
+      return { url: safeUrl, reason: "callback_override" };
+    } catch (e) {
+      console.error("[pdf-generator] callbackOverride rejected by security policy.", {
+        callbackUrl: String(callbackUrl).slice(0, MAX_LOGGED_CALLBACK_URL_CHARS),
+        error: e.message,
+      });
+      return { url: "", reason: "unsafe_callback_override" };
+    }
   }
   const siteUrl = resolveCallbackBaseSiteUrl();
   if (!siteUrl) {
@@ -1099,6 +1182,7 @@ async function notifyCompletionWebhook({ jobId, status, fileId, userId, userEmai
 
 async function generateNotesPayload(db, payload) {
   const validated = validateGeminiPromptVariables({
+
     "notes.university": payload.university,
     "notes.course": payload.course,
     "notes.stream": payload.stream,
@@ -1503,3 +1587,5 @@ module.exports.getNotifyCompletionUrl = getNotifyCompletionUrl;
 module.exports.runGeminiCompletionWithRetry = runGeminiCompletionWithRetry;
 module.exports.sanitizeAiMath = sanitizeAiMath;
 module.exports.markdownToPdfHtml = markdownToPdfHtml;
+module.exports.validateSafeUrl = validateSafeUrl;
+module.exports.getAllowedWebhookHosts = getAllowedWebhookHosts;

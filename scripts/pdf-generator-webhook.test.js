@@ -42,7 +42,7 @@ jest.mock("he", () => ({
   encode: jest.fn((str) => str),
 }), { virtual: true });
 
-const { Databases, Storage } = require("node-appwrite");
+const { Databases, Storage, Query } = require("node-appwrite");
 const {
   notifyCompletionWebhook,
   getNotifyCompletionUrl,
@@ -50,7 +50,91 @@ const {
   runGeminiCompletionWithRetry,
   sanitizeAiMath,
   markdownToPdfHtml,
+  validateSafeUrl,
+  getAllowedWebhookHosts,
 } = require("../appwrite-functions/pdf-generator/index.js");
+
+describe("pdf-generator / validateSafeUrl", () => {
+  it("allows trusted hosts", () => {
+    expect(validateSafeUrl("https://generativelanguage.googleapis.com/v1", ["generativelanguage.googleapis.com"])).toBe("https://generativelanguage.googleapis.com/v1");
+  });
+
+  it("allows wildcard subdomains", () => {
+    expect(validateSafeUrl("https://sub.example.com/api", ["*.example.com"])).toBe("https://sub.example.com/api");
+    expect(validateSafeUrl("https://example.com/api", ["*.example.com"])).toBe("https://example.com/api");
+  });
+
+  it("blocks untrusted hosts", () => {
+    expect(() => validateSafeUrl("https://malicious.com", ["trusted.com"])).toThrow("Forbidden host: malicious.com. Not in the allowed list.");
+  });
+
+  it("blocks non-HTTPS protocols", () => {
+    expect(() => validateSafeUrl("http://trusted.com", ["trusted.com"])).toThrow("Forbidden protocol: http:. Only HTTPS is allowed.");
+    expect(() => validateSafeUrl("ftp://trusted.com", ["trusted.com"])).toThrow("Forbidden protocol: ftp:. Only HTTPS is allowed.");
+  });
+
+  it("throws on invalid URL format", () => {
+    expect(() => validateSafeUrl("not-a-url")).toThrow("Invalid URL format");
+    expect(() => validateSafeUrl("")).toThrow("URL is empty");
+  });
+
+  it("handles case-insensitive host matching", () => {
+    expect(validateSafeUrl("https://EXAMPLE.COM/api", ["example.com"])).toBe("https://example.com/api");
+    expect(validateSafeUrl("https://example.com/api", ["EXAMPLE.COM"])).toBe("https://example.com/api");
+  });
+
+  it("blocks port-specific SSRF attempts if not in allowed list", () => {
+    // Current implementation doesn't check ports specifically, but hostname check should still work.
+    expect(() => validateSafeUrl("https://localhost:8080", ["example.com"])).toThrow("Forbidden host: localhost. Not in the allowed list.");
+  });
+
+  it("handles multiple allowed hosts", () => {
+    const allowed = ["a.com", "b.com", "*.c.com"];
+    expect(validateSafeUrl("https://a.com/x", allowed)).toBe("https://a.com/x");
+    expect(validateSafeUrl("https://b.com/y", allowed)).toBe("https://b.com/y");
+    expect(validateSafeUrl("https://sub.c.com/z", allowed)).toBe("https://sub.c.com/z");
+  });
+
+  it("allows any HTTPS URL when allowedHosts is empty", () => {
+    expect(validateSafeUrl("https://any-domain.com/path", [])).toBe("https://any-domain.com/path");
+    expect(validateSafeUrl("https://another.net", [])).toBe("https://another.net/");
+  });
+});
+
+describe("pdf-generator / getAllowedWebhookHosts", () => {
+  const originalEnv = process.env;
+  beforeEach(() => {
+    jest.resetModules();
+    process.env = { ...originalEnv };
+  });
+  afterEach(() => {
+    process.env = originalEnv;
+  });
+
+  it("includes SITE_URL and its subdomains", () => {
+    process.env.SITE_URL = "https://www.example.com";
+    const hosts = getAllowedWebhookHosts();
+    expect(hosts).toContain("www.example.com");
+    expect(hosts).toContain("example.com");
+    expect(hosts).toContain("*.example.com");
+  });
+
+  it("includes VERCEL_URL subdomains", () => {
+    process.env.VERCEL_URL = "my-app.vercel.app";
+    const hosts = getAllowedWebhookHosts();
+    expect(hosts).toContain("my-app.vercel.app");
+    expect(hosts).toContain("*.vercel.app");
+  });
+
+  it("handles complex domains correctly", () => {
+    process.env.SITE_URL = "https://app.staging.example.co.uk";
+    const hosts = getAllowedWebhookHosts();
+    expect(hosts).toContain("app.staging.example.co.uk");
+    expect(hosts).toContain("staging.example.co.uk");
+    expect(hosts).toContain("*.staging.example.co.uk");
+  });
+});
+
 const { InputFile } = require("node-appwrite/file");
 
 function isGeminiApiCall(url) {
@@ -795,8 +879,10 @@ describe("pdf-generator / processGenerationJob cache behavior", () => {
   });
 
   it("passes unitNumber as an integer (not string) to the unit_number Appwrite query", async () => {
-    jest.spyOn(console, "log").mockImplementation(() => {});
-    const { Query } = require("node-appwrite");
+    // Ensure Query.equal is ready to record calls
+    Query.equal.mockClear();
+    Query.equal.mockImplementation((field, val) => ({ field, val, type: "equal" }));
+
     const mockDb = {
       updateDocument: jest.fn().mockResolvedValue({}),
       listDocuments: jest.fn().mockResolvedValue({
@@ -895,5 +981,17 @@ describe("pdf-generator / processGenerationJob cache behavior", () => {
     expect(failedUpdate).toBeDefined();
     expect(failedUpdate[3].error_message).toContain("responseBody=");
     expect(failedUpdate[3].error_message).toContain("API key not valid");
+  });
+});
+
+describe("pdf-generator / runGeminiCompletion internals", () => {
+  const { runGeminiCompletionWithRetry } = require("../appwrite-functions/pdf-generator/index.js");
+
+  it("throws descriptive error when required fields are missing", async () => {
+    await expect(runGeminiCompletionWithRetry({ apiKey: "", prompt: "hi" }))
+      .rejects.toThrow("[Gemini preflight] Missing required value: gemini.apiKey is an empty string.");
+    
+    await expect(runGeminiCompletionWithRetry({ apiKey: "key", prompt: " " }))
+      .rejects.toThrow("[Gemini preflight] Missing required value: gemini.prompt is an empty string.");
   });
 });
