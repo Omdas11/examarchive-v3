@@ -1,0 +1,378 @@
+diff --git a/appwrite-functions/pdf-generator/index.js b/appwrite-functions/pdf-generator/index.js
+index 05e2893a..faa87833 100644
+--- a/appwrite-functions/pdf-generator/index.js
++++ b/appwrite-functions/pdf-generator/index.js
+@@ -628,20 +628,27 @@ async function renderMarkdownToPdfBuffer(markdown, title, options = {}) {
+ }
+ 
+ async function runGeminiCompletion({ apiKey, prompt, model }) {
++  const safeApiKey = ensureNonEmptyString(apiKey, "gemini.apiKey");
++  const safePrompt = ensureNonEmptyString(prompt, "gemini.prompt");
++  const safeModel = ensureNonEmptyString(model ?? DEFAULT_MODEL, "gemini.model");
++  const requestPayload = {
++    contents: [{ role: "user", parts: [{ text: safePrompt }] }],
++    generationConfig: { maxOutputTokens: 4000, temperature: 0.4 },
++  };
++
+   let response;
++  let bodyText = "";
+   try {
+     response = await fetch(
+-      `${GEMINI_ENDPOINT}/models/${encodeURIComponent(model || DEFAULT_MODEL)}:generateContent?key=${encodeURIComponent(apiKey)}`,
++      `${GEMINI_ENDPOINT}/models/${encodeURIComponent(safeModel)}:generateContent?key=${encodeURIComponent(safeApiKey)}`,
+       {
+         method: "POST",
+         headers: { "Content-Type": "application/json" },
+-        body: JSON.stringify({
+-          contents: [{ role: "user", parts: [{ text: prompt }] }],
+-          generationConfig: { maxOutputTokens: 4000, temperature: 0.4 },
+-        }),
++        body: JSON.stringify(requestPayload),
+         signal: AbortSignal.timeout(GEMINI_REQUEST_TIMEOUT_MS),
+       },
+     );
++    bodyText = await response.text();
+   } catch (error) {
+     const isTimeout = error && typeof error === "object" && error.name === "TimeoutError";
+     const requestError = new Error(
+@@ -652,8 +659,20 @@ async function runGeminiCompletion({ apiKey, prompt, model }) {
+     requestError.code = isTimeout ? "GEMINI_TIMEOUT" : "GEMINI_REQUEST_FAILED";
+     throw requestError;
+   }
+-  const bodyText = await response.text();
+   if (!response.ok) {
++    if (response.status >= 400 && response.status < 500) {
++      const redactedRequest = {
++        generationConfig: requestPayload.generationConfig,
++        contentPartsCount: requestPayload.contents?.[0]?.parts?.length ?? 0,
++        promptLength: requestPayload.contents?.[0]?.parts?.[0]?.text?.length ?? 0,
++      };
++      console.error("[pdf-generator][Gemini] 4xx response.", {
++        status: response.status,
++        model: safeModel,
++        request: redactedRequest,
++        responseBody: bodyText,
++      });
++    }
+     const error = new Error(`Gemini request failed (status ${response.status})`);
+     error.status = response.status;
+     error.responseBody = bodyText;
+@@ -672,6 +691,32 @@ async function runGeminiCompletion({ apiKey, prompt, model }) {
+   return content;
+ }
+ 
++
++function ensureNonEmptyString(value, fieldName) {
++  if (value === undefined || value === null) {
++    const error = new Error(`[Gemini preflight] Missing required value: ${fieldName} is ${String(value)}.`);
++    error.status = 400;
++    error.code = 'INVALID_INPUT';
++    throw error;
++  }
++  const normalized = String(value).trim();
++  if (!normalized) {
++    const error = new Error(`[Gemini preflight] Missing required value: ${fieldName} is an empty string.`);
++    error.status = 400;
++    error.code = 'INVALID_INPUT';
++    throw error;
++  }
++  return normalized;
++}
++
++function validateGeminiPromptVariables(fields) {
++  const sanitized = {};
++  for (const [fieldName, rawValue] of Object.entries(fields || {})) {
++    sanitized[fieldName] = ensureNonEmptyString(rawValue, fieldName);
++  }
++  return sanitized;
++}
++
+ function isRetryableGeminiStatus(status) {
+   return status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
+ }
+@@ -807,6 +852,9 @@ function formatWorkerErrorMessage(error) {
+   if (cause instanceof Error && cause.message) {
+     details.push(`cause=${cause.message}`);
+   }
++  if (typeof error.responseBody === "string" && error.responseBody) {
++    details.push(`responseBody=${error.responseBody.slice(0, 500)}`);
++  }
+   return details.filter(Boolean).join(" | ").slice(0, 2000);
+ }
+ 
+@@ -1050,13 +1098,36 @@ async function notifyCompletionWebhook({ jobId, status, fileId, userId, userEmai
+ }
+ 
+ async function generateNotesPayload(db, payload) {
++  const validated = validateGeminiPromptVariables({
++    "notes.university": payload.university,
++    "notes.course": payload.course,
++    "notes.stream": payload.stream,
++    "notes.type": payload.type,
++    "notes.paperCode": payload.paperCode,
++  });
++
++  const rawUnitNumber = payload.unitNumber;
++  if (rawUnitNumber === undefined || rawUnitNumber === null) {
++    const err = new Error("[Gemini preflight] Missing required value: notes.unitNumber is undefined.");
++    err.status = 400;
++    err.code = "INVALID_INPUT";
++    throw err;
++  }
++  const unitNumber = Number(rawUnitNumber);
++  if (!Number.isInteger(unitNumber) || unitNumber <= 0) {
++    const err = new Error(`[Gemini preflight] Invalid unit number: notes.unitNumber must be a positive integer, got ${String(rawUnitNumber)}.`);
++    err.status = 400;
++    err.code = "INVALID_INPUT";
++    throw err;
++  }
++
+   const syllabusRes = await db.listDocuments(DATABASE_ID, SYLLABUS_TABLE_COLLECTION_ID, [
+-    Query.equal("university", payload.university),
+-    Query.equal("course", payload.course),
+-    Query.equal("stream", payload.stream),
+-    Query.equal("type", payload.type),
+-    Query.equal("paper_code", payload.paperCode),
+-    Query.equal("unit_number", payload.unitNumber),
++    Query.equal("university", validated["notes.university"]),
++    Query.equal("course", validated["notes.course"]),
++    Query.equal("stream", validated["notes.stream"]),
++    Query.equal("type", validated["notes.type"]),
++    Query.equal("paper_code", validated["notes.paperCode"]),
++    Query.equal("unit_number", unitNumber),
+     Query.limit(1),
+   ]);
+   const syllabusDoc = syllabusRes.documents?.[0];
+@@ -1064,7 +1135,9 @@ async function generateNotesPayload(db, payload) {
+     throw new Error("No syllabus data found for this unit.");
+   }
+ 
+-  const syllabusContent = String(syllabusDoc.syllabus_content || "").trim();
++  const syllabusContent = typeof payload.syllabusContent === "string" && payload.syllabusContent.trim()
++    ? ensureNonEmptyString(payload.syllabusContent, "notes.syllabusContent")
++    : ensureNonEmptyString(syllabusDoc.syllabus_content, "notes.syllabusContent");
+   const subTopics = splitSyllabusIntoSubTopics(syllabusContent);
+   if (subTopics.length === 0) {
+     throw new Error("No sub-topics found for this unit.");
+@@ -1081,12 +1154,12 @@ async function generateNotesPayload(db, payload) {
+     }
+     const prompt = `${getNotesSystemPrompt()}
+ 
+-University: ${payload.university}
+-Course: ${payload.course}
+-Stream: ${payload.stream}
+-Type: ${payload.type}
+-Paper Code: ${payload.paperCode}
+-Unit Number: ${payload.unitNumber}
++University: ${validated["notes.university"]}
++Course: ${validated["notes.course"]}
++Stream: ${validated["notes.stream"]}
++Type: ${validated["notes.type"]}
++Paper Code: ${validated["notes.paperCode"]}
++Unit Number: ${unitNumber}
+ Chunk: ${index + 1}/${chunks.length}
+ 
+ Sub-topics:
+diff --git a/scripts/pdf-generator-webhook.test.js b/scripts/pdf-generator-webhook.test.js
+index 43874847..d166f878 100644
+--- a/scripts/pdf-generator-webhook.test.js
++++ b/scripts/pdf-generator-webhook.test.js
+@@ -793,4 +793,107 @@ describe("pdf-generator / processGenerationJob cache behavior", () => {
+     }));
+     expect(timeoutSpy.mock.calls.map((call) => call[1])).toEqual(expect.arrayContaining([3000, 6000, 12000, 24000]));
+   });
++
++  it("passes unitNumber as an integer (not string) to the unit_number Appwrite query", async () => {
++    jest.spyOn(console, "log").mockImplementation(() => {});
++    const { Query } = require("node-appwrite");
++    const mockDb = {
++      updateDocument: jest.fn().mockResolvedValue({}),
++      listDocuments: jest.fn().mockResolvedValue({
++        documents: [{ $id: "syllabus-1", syllabus_content: "Topic A\nTopic B" }],
++      }),
++    };
++    Databases.mockImplementation(() => mockDb);
++
++    const mockStorage = {
++      listFiles: jest.fn().mockResolvedValue({ files: [] }),
++      createFile: jest.fn().mockResolvedValue({ $id: "pdf-file-unit-num-type" }),
++    };
++    Storage.mockImplementation(() => mockStorage);
++
++    InputFile.fromBuffer.mockImplementation((buffer, name) => ({ buffer, name }));
++    global.fetch = jest.fn().mockImplementation(async (url) => {
++      if (isGeminiApiCall(url)) {
++        return {
++          ok: true,
++          status: 200,
++          text: async () => JSON.stringify({ candidates: [{ content: { parts: [{ text: "# Gemini markdown" }] } }] }),
++        };
++      }
++      if (String(url).includes("/forms/chromium/convert/html")) {
++        return { ok: true, status: 200, arrayBuffer: async () => Buffer.from("%PDF-1.4") };
++      }
++      return { ok: true, status: 200, text: async () => "" };
++    });
++    process.env.GEMINI_API_KEY = "test-gemini-key";
++
++    await processGenerationJob(JSON.stringify({
++      jobId: "job-unit-num-type",
++      payload: {
++        jobType: "notes",
++        university: "Test Uni",
++        course: "BTECH",
++        stream: "CSE",
++        type: "Regular",
++        paperCode: "CS101",
++        unitNumber: 3,
++      },
++    }));
++
++    const unitNumberCall = Query.equal.mock.calls.find(([field]) => field === "unit_number");
++    expect(unitNumberCall).toBeDefined();
++    expect(typeof unitNumberCall[1]).toBe("number");
++    expect(unitNumberCall[1]).toBe(3);
++  });
++
++  it("includes Gemini responseBody in job error_message when a 4xx is returned", async () => {
++    jest.spyOn(console, "error").mockImplementation(() => {});
++    const mockDb = {
++      updateDocument: jest.fn().mockResolvedValue({}),
++      listDocuments: jest.fn().mockResolvedValue({
++        documents: [{ $id: "syllabus-1", syllabus_content: "Topic A\nTopic B" }],
++      }),
++    };
++    Databases.mockImplementation(() => mockDb);
++
++    const mockStorage = {
++      listFiles: jest.fn().mockResolvedValue({ files: [] }),
++      createFile: jest.fn(),
++    };
++    Storage.mockImplementation(() => mockStorage);
++    AbortSignal.timeout = jest.fn(() => undefined);
++    global.fetch = jest.fn().mockImplementation(async (url) => {
++      if (isGeminiApiCall(url)) {
++        return {
++          ok: false,
++          status: 400,
++          text: async () => JSON.stringify({ error: { message: "API key not valid", status: "INVALID_ARGUMENT" } }),
++        };
++      }
++      return { ok: true, status: 200, text: async () => "" };
++    });
++    process.env.GEMINI_API_KEY = "invalid-key";
++
++    await expect(
++      processGenerationJob(JSON.stringify({
++        jobId: "job-gemini-4xx",
++        payload: {
++          jobType: "notes",
++          university: "Test Uni",
++          course: "BTECH",
++          stream: "CSE",
++          type: "Regular",
++          paperCode: "CS101",
++          unitNumber: 1,
++          userId: "user-1",
++          userEmail: "user@example.com",
++        },
++      })),
++    ).rejects.toThrow("Gemini request failed (status 400)");
++
++    const failedUpdate = mockDb.updateDocument.mock.calls.find((call) => call[3]?.status === "failed");
++    expect(failedUpdate).toBeDefined();
++    expect(failedUpdate[3].error_message).toContain("responseBody=");
++    expect(failedUpdate[3].error_message).toContain("API key not valid");
++  });
+ });
+diff --git a/src/lib/appwrite.ts b/src/lib/appwrite.ts
+index ade0f659..9d27044c 100644
+--- a/src/lib/appwrite.ts
++++ b/src/lib/appwrite.ts
+@@ -110,6 +110,7 @@ export const NOTES_BUCKET_ID =
+   process.env.APPWRITE_NOTES_BUCKET_ID ?? "notes";
+ 
+ // ── Server-side admin client (uses API key) ─────────────────────────────
++let adminClientSingleton: Client | null = null;
+ /**
+  * Create an Appwrite client authenticated with the server-side API key.
+  * Use this for all server-only operations (database writes, user management,
+@@ -123,10 +124,16 @@ export function createAdminClient(): Client {
+     );
+   }
+ 
+-  return new Client()
++  if (adminClientSingleton) {
++    return adminClientSingleton;
++  }
++
++  adminClientSingleton = new Client()
+     .setEndpoint(APPWRITE_ENDPOINT)
+     .setProject(APPWRITE_PROJECT_ID)
+     .setKey(APPWRITE_API_KEY);
++
++  return adminClientSingleton;
+ }
+ 
+ /**
+diff --git a/src/types/index.ts b/src/types/index.ts
+index 09d91f3a..6b107815 100644
+--- a/src/types/index.ts
++++ b/src/types/index.ts
+@@ -264,6 +264,25 @@ export interface BrowseFilters {
+ 
+ /* eslint-disable @typescript-eslint/no-explicit-any */
+ 
++function toOptionalNumber(value: unknown): number | undefined {
++  if (typeof value === "number" && Number.isFinite(value)) return value;
++  if (typeof value === "string" && value.trim()) {
++    const parsed = Number(value);
++    return Number.isFinite(parsed) ? parsed : undefined;
++  }
++  return undefined;
++}
++
++function toBoolean(value: unknown, fallback = false): boolean {
++  if (typeof value === "boolean") return value;
++  if (typeof value === "string") {
++    const normalized = value.trim().toLowerCase();
++    if (normalized === "true") return true;
++    if (normalized === "false") return false;
++  }
++  return fallback;
++}
++
+ /** Map an Appwrite document to our `Paper` type. */
+ export function toPaper(doc: any): Paper {
+   const firstNonEmpty = (...values: unknown[]): string | undefined =>
+@@ -281,24 +300,24 @@ export function toPaper(doc: any): Paper {
+     title: normalizedTitle,
+     course_code: doc.course_code ?? doc.paper_code ?? undefined,
+     course_name: normalizedCourseName,
+-    year: doc.year,
++    year: toOptionalNumber(doc.year) ?? 0,
+     semester: doc.semester ?? "",
+     exam_type: doc.exam_type ?? "",
+     department: doc.department ?? doc.subject ?? "",
+     file_url: doc.file_url,
+     file_id: doc.file_id ?? undefined,
+     uploaded_by: doc.uploaded_by ?? doc.uploader_id ?? "",
+-    approved: doc.approved !== undefined && doc.approved !== null ? doc.approved : (doc.status === "approved"),
++    approved: toBoolean(doc.approved, doc.status === "approved"),
+     created_at: doc.$createdAt ?? doc.created_at,
+     stream: doc.stream ?? undefined,
+     // `institute` is the canonical field name in the backend schema.
+     // Fall back to the legacy `institution` field for documents created before the rename.
+     institution: doc.institute ?? doc.institution ?? doc.university ?? undefined,
+     programme: doc.programme ?? undefined,
+-    marks: doc.marks ?? undefined,
+-    duration: doc.duration ?? undefined,
+-    view_count: doc.view_count ?? 0,
+-    download_count: doc.download_count ?? 0,
++    marks: toOptionalNumber(doc.marks),
++    duration: toOptionalNumber(doc.duration),
++    view_count: toOptionalNumber(doc.view_count) ?? 0,
++    download_count: toOptionalNumber(doc.download_count) ?? 0,
+     uploaded_by_username: doc.uploaded_by_username ?? undefined,
+     paper_type: doc.paper_type ?? undefined,
+   };

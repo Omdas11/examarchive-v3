@@ -110,6 +110,7 @@ export const NOTES_BUCKET_ID =
   process.env.APPWRITE_NOTES_BUCKET_ID ?? "notes";
 
 // ── Server-side admin client (uses API key) ─────────────────────────────
+let adminClientSingleton: Client | null = null;
 /**
  * Create an Appwrite client authenticated with the server-side API key.
  * Use this for all server-only operations (database writes, user management,
@@ -123,10 +124,16 @@ export function createAdminClient(): Client {
     );
   }
 
-  return new Client()
+  if (adminClientSingleton) {
+    return adminClientSingleton;
+  }
+
+  adminClientSingleton = new Client()
     .setEndpoint(APPWRITE_ENDPOINT)
     .setProject(APPWRITE_PROJECT_ID)
     .setKey(APPWRITE_API_KEY);
+
+  return adminClientSingleton;
 }
 
 /**

@@ -44,12 +44,52 @@ const GOTENBERG_MAX_ATTEMPTS = 3;
 const GOTENBERG_BASE_BACKOFF_MS = 1_500;
 const GOTENBERG_MAX_BACKOFF_MS = 6_000;
 const TRUSTED_GOTENBERG_HOST_SUFFIX = ".hf.space";
+const TRUSTED_GEMINI_HOST = "generativelanguage.googleapis.com";
 const MAX_SAFE_PDF_FILENAME_CORE_LENGTH = 120;
 const MARKED_FALLBACK_LOG_PREFIX = "[pdf-generator] Falling back to basic markdown parser.";
 const MAX_RANDOM_NAMESPACE_INT = 0x1_0000_0000;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Strict URL validation to prevent SSRF and other URL-based attacks.
+ * @param {string} rawUrl - The URL to validate.
+ * @param {string[]} allowedHosts - Optional list of allowed hostnames. Supports "*.domain.com" for subdomains.
+ */
+function validateSafeUrl(rawUrl, allowedHosts = []) {
+  const value = String(rawUrl || "").trim();
+  if (!value) throw new Error("URL is empty");
+
+  let parsed;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new Error("Invalid URL format");
+  }
+
+  if (parsed.protocol !== "https:") {
+    throw new Error(`Forbidden protocol: ${parsed.protocol}. Only HTTPS is allowed.`);
+  }
+
+  if (allowedHosts.length > 0) {
+    const hostname = parsed.hostname.toLowerCase();
+    const isAllowed = allowedHosts.some((allowed) => {
+      const target = allowed.toLowerCase();
+      if (target.startsWith("*.")) {
+        const domain = target.slice(2);
+        return hostname === domain || hostname.endsWith("." + domain);
+      }
+      return hostname === target;
+    });
+
+    if (!isAllowed) {
+      throw new Error(`Forbidden host: ${hostname}. Not in the allowed list.`);
+    }
+  }
+
+  return parsed.toString();
 }
 
 function splitIntoLogicalChunks(items, chunkCount) {
@@ -628,20 +668,29 @@ async function renderMarkdownToPdfBuffer(markdown, title, options = {}) {
 }
 
 async function runGeminiCompletion({ apiKey, prompt, model }) {
+  const safeApiKey = ensureNonEmptyString(apiKey, "gemini.apiKey");
+  const safePrompt = ensureNonEmptyString(prompt, "gemini.prompt");
+  const safeModel = ensureNonEmptyString(model ?? DEFAULT_MODEL, "gemini.model");
+  const requestPayload = {
+    contents: [{ role: "user", parts: [{ text: safePrompt }] }],
+    generationConfig: { maxOutputTokens: 4000, temperature: 0.4 },
+  };
+
   let response;
+  let bodyText = "";
   try {
+    const geminiUrl = `${GEMINI_ENDPOINT}/models/${encodeURIComponent(safeModel)}:generateContent?key=${encodeURIComponent(safeApiKey)}`;
+    const safeGeminiUrl = validateSafeUrl(geminiUrl, [TRUSTED_GEMINI_HOST]);
     response = await fetch(
-      `${GEMINI_ENDPOINT}/models/${encodeURIComponent(model || DEFAULT_MODEL)}:generateContent?key=${encodeURIComponent(apiKey)}`,
+      safeGeminiUrl,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: { maxOutputTokens: 4000, temperature: 0.4 },
-        }),
+        body: JSON.stringify(requestPayload),
         signal: AbortSignal.timeout(GEMINI_REQUEST_TIMEOUT_MS),
       },
     );
+    bodyText = await response.text();
   } catch (error) {
     const isTimeout = error && typeof error === "object" && error.name === "TimeoutError";
     const requestError = new Error(
@@ -652,8 +701,20 @@ async function runGeminiCompletion({ apiKey, prompt, model }) {
     requestError.code = isTimeout ? "GEMINI_TIMEOUT" : "GEMINI_REQUEST_FAILED";
     throw requestError;
   }
-  const bodyText = await response.text();
   if (!response.ok) {
+    if (response.status >= 400 && response.status < 500) {
+      const redactedRequest = {
+        generationConfig: requestPayload.generationConfig,
+        contentPartsCount: requestPayload.contents?.[0]?.parts?.length ?? 0,
+        promptLength: requestPayload.contents?.[0]?.parts?.[0]?.text?.length ?? 0,
+      };
+      console.error("[pdf-generator][Gemini] 4xx response.", {
+        status: response.status,
+        model: safeModel,
+        request: redactedRequest,
+        responseBody: bodyText,
+      });
+    }
     const error = new Error(`Gemini request failed (status ${response.status})`);
     error.status = response.status;
     error.responseBody = bodyText;
@@ -670,6 +731,32 @@ async function runGeminiCompletion({ apiKey, prompt, model }) {
     throw new Error("Gemini returned empty content.");
   }
   return content;
+}
+
+
+function ensureNonEmptyString(value, fieldName) {
+  if (value === undefined || value === null) {
+    const error = new Error(`[Gemini preflight] Missing required value: ${fieldName} is ${String(value)}.`);
+    error.status = 400;
+    error.code = 'INVALID_INPUT';
+    throw error;
+  }
+  const normalized = String(value).trim();
+  if (!normalized) {
+    const error = new Error(`[Gemini preflight] Missing required value: ${fieldName} is an empty string.`);
+    error.status = 400;
+    error.code = 'INVALID_INPUT';
+    throw error;
+  }
+  return normalized;
+}
+
+function validateGeminiPromptVariables(fields) {
+  const sanitized = {};
+  for (const [fieldName, rawValue] of Object.entries(fields || {})) {
+    sanitized[fieldName] = ensureNonEmptyString(rawValue, fieldName);
+  }
+  return sanitized;
 }
 
 function isRetryableGeminiStatus(status) {
@@ -807,6 +894,9 @@ function formatWorkerErrorMessage(error) {
   if (cause instanceof Error && cause.message) {
     details.push(`cause=${cause.message}`);
   }
+  if (typeof error.responseBody === "string" && error.responseBody) {
+    details.push(`responseBody=${error.responseBody.slice(0, 500)}`);
+  }
   return details.filter(Boolean).join(" | ").slice(0, 2000);
 }
 
@@ -906,15 +996,56 @@ function resolveCallbackBaseSiteUrl() {
   return (canonicalSiteUrl || trustedVercelSiteUrl).replace(/\/+$/, "");
 }
 
+function getAllowedWebhookHosts() {
+  const hosts = new Set();
+  const rawUrls = [
+    process.env.SITE_URL,
+    process.env.NEXT_PUBLIC_SITE_URL,
+    process.env.VERCEL_URL,
+    process.env.NEXT_PUBLIC_VERCEL_URL,
+  ];
+  rawUrls.forEach((raw) => {
+    const val = String(raw || "").trim();
+    if (!val) return;
+    try {
+      const urlStr = val.startsWith("http") ? val : `https://${val}`;
+      const parsed = new URL(urlStr);
+      if (parsed.hostname) {
+        const host = parsed.hostname.toLowerCase();
+        hosts.add(host);
+        // Allow sibling subdomains and the parent domain
+        const parts = host.split(".");
+        if (parts.length > 2) {
+          const base = parts.slice(1).join(".");
+          hosts.add(base);
+          hosts.add(`*.${base}`);
+        } else if (parts.length === 2) {
+          hosts.add(`*.${host}`);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  });
+  // Add vercel.app support for preview deployments.
+  hosts.add("*.vercel.app");
+  return Array.from(hosts);
+}
+
 function resolveNotifyCompletionUrl(callbackUrl) {
   const callbackOverride = normalizeAbsoluteHttpUrl(callbackUrl);
   if (callbackOverride) {
-    // The webhook secret (AI_JOB_WEBHOOK_SECRET) is the authentication layer that
-    // protects the notify-completion endpoint. Origin-based restrictions are
-    // intentionally omitted here to allow Vercel Preview deployment URLs to
-    // deliver webhooks successfully. Log the override URL for audit visibility.
-    console.log("[pdf-generator] Using callbackOverride for completion webhook.", { callbackOverride });
-    return { url: callbackOverride, reason: "callback_override" };
+    try {
+      const safeUrl = validateSafeUrl(callbackOverride, getAllowedWebhookHosts());
+      console.log("[pdf-generator] Using callbackOverride for completion webhook.", { callbackOverride: safeUrl });
+      return { url: safeUrl, reason: "callback_override" };
+    } catch (e) {
+      console.error("[pdf-generator] callbackOverride rejected by security policy.", {
+        callbackUrl: String(callbackUrl).slice(0, MAX_LOGGED_CALLBACK_URL_CHARS),
+        error: e.message,
+      });
+      return { url: "", reason: "unsafe_callback_override" };
+    }
   }
   const siteUrl = resolveCallbackBaseSiteUrl();
   if (!siteUrl) {
@@ -1050,13 +1181,37 @@ async function notifyCompletionWebhook({ jobId, status, fileId, userId, userEmai
 }
 
 async function generateNotesPayload(db, payload) {
+  const validated = validateGeminiPromptVariables({
+
+    "notes.university": payload.university,
+    "notes.course": payload.course,
+    "notes.stream": payload.stream,
+    "notes.type": payload.type,
+    "notes.paperCode": payload.paperCode,
+  });
+
+  const rawUnitNumber = payload.unitNumber;
+  if (rawUnitNumber === undefined || rawUnitNumber === null) {
+    const err = new Error("[Gemini preflight] Missing required value: notes.unitNumber is undefined.");
+    err.status = 400;
+    err.code = "INVALID_INPUT";
+    throw err;
+  }
+  const unitNumber = Number(rawUnitNumber);
+  if (!Number.isInteger(unitNumber) || unitNumber <= 0) {
+    const err = new Error(`[Gemini preflight] Invalid unit number: notes.unitNumber must be a positive integer, got ${String(rawUnitNumber)}.`);
+    err.status = 400;
+    err.code = "INVALID_INPUT";
+    throw err;
+  }
+
   const syllabusRes = await db.listDocuments(DATABASE_ID, SYLLABUS_TABLE_COLLECTION_ID, [
-    Query.equal("university", payload.university),
-    Query.equal("course", payload.course),
-    Query.equal("stream", payload.stream),
-    Query.equal("type", payload.type),
-    Query.equal("paper_code", payload.paperCode),
-    Query.equal("unit_number", payload.unitNumber),
+    Query.equal("university", validated["notes.university"]),
+    Query.equal("course", validated["notes.course"]),
+    Query.equal("stream", validated["notes.stream"]),
+    Query.equal("type", validated["notes.type"]),
+    Query.equal("paper_code", validated["notes.paperCode"]),
+    Query.equal("unit_number", unitNumber),
     Query.limit(1),
   ]);
   const syllabusDoc = syllabusRes.documents?.[0];
@@ -1064,7 +1219,9 @@ async function generateNotesPayload(db, payload) {
     throw new Error("No syllabus data found for this unit.");
   }
 
-  const syllabusContent = String(syllabusDoc.syllabus_content || "").trim();
+  const syllabusContent = typeof payload.syllabusContent === "string" && payload.syllabusContent.trim()
+    ? ensureNonEmptyString(payload.syllabusContent, "notes.syllabusContent")
+    : ensureNonEmptyString(syllabusDoc.syllabus_content, "notes.syllabusContent");
   const subTopics = splitSyllabusIntoSubTopics(syllabusContent);
   if (subTopics.length === 0) {
     throw new Error("No sub-topics found for this unit.");
@@ -1081,12 +1238,12 @@ async function generateNotesPayload(db, payload) {
     }
     const prompt = `${getNotesSystemPrompt()}
 
-University: ${payload.university}
-Course: ${payload.course}
-Stream: ${payload.stream}
-Type: ${payload.type}
-Paper Code: ${payload.paperCode}
-Unit Number: ${payload.unitNumber}
+University: ${validated["notes.university"]}
+Course: ${validated["notes.course"]}
+Stream: ${validated["notes.stream"]}
+Type: ${validated["notes.type"]}
+Paper Code: ${validated["notes.paperCode"]}
+Unit Number: ${unitNumber}
 Chunk: ${index + 1}/${chunks.length}
 
 Sub-topics:
@@ -1430,3 +1587,5 @@ module.exports.getNotifyCompletionUrl = getNotifyCompletionUrl;
 module.exports.runGeminiCompletionWithRetry = runGeminiCompletionWithRetry;
 module.exports.sanitizeAiMath = sanitizeAiMath;
 module.exports.markdownToPdfHtml = markdownToPdfHtml;
+module.exports.validateSafeUrl = validateSafeUrl;
+module.exports.getAllowedWebhookHosts = getAllowedWebhookHosts;

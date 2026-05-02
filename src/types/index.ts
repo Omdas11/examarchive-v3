@@ -264,6 +264,25 @@ export interface BrowseFilters {
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+function toOptionalNumber(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  return undefined;
+}
+
+function toBoolean(value: unknown, fallback = false): boolean {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "true") return true;
+    if (normalized === "false") return false;
+  }
+  return fallback;
+}
+
 /** Map an Appwrite document to our `Paper` type. */
 export function toPaper(doc: any): Paper {
   const firstNonEmpty = (...values: unknown[]): string | undefined =>
@@ -281,24 +300,24 @@ export function toPaper(doc: any): Paper {
     title: normalizedTitle,
     course_code: doc.course_code ?? doc.paper_code ?? undefined,
     course_name: normalizedCourseName,
-    year: doc.year,
+    year: toOptionalNumber(doc.year) ?? 0,
     semester: doc.semester ?? "",
     exam_type: doc.exam_type ?? "",
     department: doc.department ?? doc.subject ?? "",
     file_url: doc.file_url,
     file_id: doc.file_id ?? undefined,
     uploaded_by: doc.uploaded_by ?? doc.uploader_id ?? "",
-    approved: doc.approved !== undefined && doc.approved !== null ? doc.approved : (doc.status === "approved"),
+    approved: toBoolean(doc.approved, doc.status === "approved"),
     created_at: doc.$createdAt ?? doc.created_at,
     stream: doc.stream ?? undefined,
     // `institute` is the canonical field name in the backend schema.
     // Fall back to the legacy `institution` field for documents created before the rename.
     institution: doc.institute ?? doc.institution ?? doc.university ?? undefined,
     programme: doc.programme ?? undefined,
-    marks: doc.marks ?? undefined,
-    duration: doc.duration ?? undefined,
-    view_count: doc.view_count ?? 0,
-    download_count: doc.download_count ?? 0,
+    marks: toOptionalNumber(doc.marks),
+    duration: toOptionalNumber(doc.duration),
+    view_count: toOptionalNumber(doc.view_count) ?? 0,
+    download_count: toOptionalNumber(doc.download_count) ?? 0,
     uploaded_by_username: doc.uploaded_by_username ?? undefined,
     paper_type: doc.paper_type ?? undefined,
   };
