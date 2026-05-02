@@ -793,4 +793,107 @@ describe("pdf-generator / processGenerationJob cache behavior", () => {
     }));
     expect(timeoutSpy.mock.calls.map((call) => call[1])).toEqual(expect.arrayContaining([3000, 6000, 12000, 24000]));
   });
+
+  it("passes unitNumber as an integer (not string) to the unit_number Appwrite query", async () => {
+    jest.spyOn(console, "log").mockImplementation(() => {});
+    const { Query } = require("node-appwrite");
+    const mockDb = {
+      updateDocument: jest.fn().mockResolvedValue({}),
+      listDocuments: jest.fn().mockResolvedValue({
+        documents: [{ $id: "syllabus-1", syllabus_content: "Topic A\nTopic B" }],
+      }),
+    };
+    Databases.mockImplementation(() => mockDb);
+
+    const mockStorage = {
+      listFiles: jest.fn().mockResolvedValue({ files: [] }),
+      createFile: jest.fn().mockResolvedValue({ $id: "pdf-file-unit-num-type" }),
+    };
+    Storage.mockImplementation(() => mockStorage);
+
+    InputFile.fromBuffer.mockImplementation((buffer, name) => ({ buffer, name }));
+    global.fetch = jest.fn().mockImplementation(async (url) => {
+      if (isGeminiApiCall(url)) {
+        return {
+          ok: true,
+          status: 200,
+          text: async () => JSON.stringify({ candidates: [{ content: { parts: [{ text: "# Gemini markdown" }] } }] }),
+        };
+      }
+      if (String(url).includes("/forms/chromium/convert/html")) {
+        return { ok: true, status: 200, arrayBuffer: async () => Buffer.from("%PDF-1.4") };
+      }
+      return { ok: true, status: 200, text: async () => "" };
+    });
+    process.env.GEMINI_API_KEY = "test-gemini-key";
+
+    await processGenerationJob(JSON.stringify({
+      jobId: "job-unit-num-type",
+      payload: {
+        jobType: "notes",
+        university: "Test Uni",
+        course: "BTECH",
+        stream: "CSE",
+        type: "Regular",
+        paperCode: "CS101",
+        unitNumber: 3,
+      },
+    }));
+
+    const unitNumberCall = Query.equal.mock.calls.find(([field]) => field === "unit_number");
+    expect(unitNumberCall).toBeDefined();
+    expect(typeof unitNumberCall[1]).toBe("number");
+    expect(unitNumberCall[1]).toBe(3);
+  });
+
+  it("includes Gemini responseBody in job error_message when a 4xx is returned", async () => {
+    jest.spyOn(console, "error").mockImplementation(() => {});
+    const mockDb = {
+      updateDocument: jest.fn().mockResolvedValue({}),
+      listDocuments: jest.fn().mockResolvedValue({
+        documents: [{ $id: "syllabus-1", syllabus_content: "Topic A\nTopic B" }],
+      }),
+    };
+    Databases.mockImplementation(() => mockDb);
+
+    const mockStorage = {
+      listFiles: jest.fn().mockResolvedValue({ files: [] }),
+      createFile: jest.fn(),
+    };
+    Storage.mockImplementation(() => mockStorage);
+    AbortSignal.timeout = jest.fn(() => undefined);
+    global.fetch = jest.fn().mockImplementation(async (url) => {
+      if (isGeminiApiCall(url)) {
+        return {
+          ok: false,
+          status: 400,
+          text: async () => JSON.stringify({ error: { message: "API key not valid", status: "INVALID_ARGUMENT" } }),
+        };
+      }
+      return { ok: true, status: 200, text: async () => "" };
+    });
+    process.env.GEMINI_API_KEY = "invalid-key";
+
+    await expect(
+      processGenerationJob(JSON.stringify({
+        jobId: "job-gemini-4xx",
+        payload: {
+          jobType: "notes",
+          university: "Test Uni",
+          course: "BTECH",
+          stream: "CSE",
+          type: "Regular",
+          paperCode: "CS101",
+          unitNumber: 1,
+          userId: "user-1",
+          userEmail: "user@example.com",
+        },
+      })),
+    ).rejects.toThrow("Gemini request failed (status 400)");
+
+    const failedUpdate = mockDb.updateDocument.mock.calls.find((call) => call[3]?.status === "failed");
+    expect(failedUpdate).toBeDefined();
+    expect(failedUpdate[3].error_message).toContain("responseBody=");
+    expect(failedUpdate[3].error_message).toContain("API key not valid");
+  });
 });

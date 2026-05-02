@@ -661,22 +661,16 @@ async function runGeminiCompletion({ apiKey, prompt, model }) {
   }
   if (!response.ok) {
     if (response.status >= 400 && response.status < 500) {
-      const REDACTED_PREVIEW_MAX_CHARS = 200;
-      const requestPayloadString = JSON.stringify(requestPayload);
-      const requestPreview = requestPayloadString.length > REDACTED_PREVIEW_MAX_CHARS
-        ? requestPayloadString.slice(0, REDACTED_PREVIEW_MAX_CHARS) + "..."
-        : requestPayloadString;
-      const bodyPreview = bodyText.length > REDACTED_PREVIEW_MAX_CHARS
-        ? bodyText.slice(0, REDACTED_PREVIEW_MAX_CHARS) + "..."
-        : bodyText;
+      const redactedRequest = {
+        generationConfig: requestPayload.generationConfig,
+        contentPartsCount: requestPayload.contents?.[0]?.parts?.length ?? 0,
+        promptLength: requestPayload.contents?.[0]?.parts?.[0]?.text?.length ?? 0,
+      };
       console.error("[pdf-generator][Gemini] 4xx response.", {
         status: response.status,
         model: safeModel,
-        requestPayloadPreview: requestPreview,
-        requestPayloadLength: requestPayloadString.length,
-        responseBodyPreview: bodyPreview,
-        responseBodyLength: bodyText.length,
-        redacted: requestPayloadString.length > REDACTED_PREVIEW_MAX_CHARS || bodyText.length > REDACTED_PREVIEW_MAX_CHARS,
+        request: redactedRequest,
+        responseBody: bodyText,
       });
     }
     const error = new Error(`Gemini request failed (status ${response.status})`);
@@ -857,6 +851,9 @@ function formatWorkerErrorMessage(error) {
   const cause = error.cause;
   if (cause instanceof Error && cause.message) {
     details.push(`cause=${cause.message}`);
+  }
+  if (typeof error.responseBody === "string" && error.responseBody) {
+    details.push(`responseBody=${error.responseBody.slice(0, 500)}`);
   }
   return details.filter(Boolean).join(" | ").slice(0, 2000);
 }
@@ -1107,8 +1104,22 @@ async function generateNotesPayload(db, payload) {
     "notes.stream": payload.stream,
     "notes.type": payload.type,
     "notes.paperCode": payload.paperCode,
-    "notes.unitNumber": payload.unitNumber,
   });
+
+  const rawUnitNumber = payload.unitNumber;
+  if (rawUnitNumber === undefined || rawUnitNumber === null) {
+    const err = new Error("[Gemini preflight] Missing required value: notes.unitNumber is undefined.");
+    err.status = 400;
+    err.code = "INVALID_INPUT";
+    throw err;
+  }
+  const unitNumber = Number(rawUnitNumber);
+  if (!Number.isInteger(unitNumber) || unitNumber <= 0) {
+    const err = new Error(`[Gemini preflight] Invalid unit number: notes.unitNumber must be a positive integer, got ${String(rawUnitNumber)}.`);
+    err.status = 400;
+    err.code = "INVALID_INPUT";
+    throw err;
+  }
 
   const syllabusRes = await db.listDocuments(DATABASE_ID, SYLLABUS_TABLE_COLLECTION_ID, [
     Query.equal("university", validated["notes.university"]),
@@ -1116,7 +1127,7 @@ async function generateNotesPayload(db, payload) {
     Query.equal("stream", validated["notes.stream"]),
     Query.equal("type", validated["notes.type"]),
     Query.equal("paper_code", validated["notes.paperCode"]),
-    Query.equal("unit_number", validated["notes.unitNumber"]),
+    Query.equal("unit_number", unitNumber),
     Query.limit(1),
   ]);
   const syllabusDoc = syllabusRes.documents?.[0];
@@ -1148,7 +1159,7 @@ Course: ${validated["notes.course"]}
 Stream: ${validated["notes.stream"]}
 Type: ${validated["notes.type"]}
 Paper Code: ${validated["notes.paperCode"]}
-Unit Number: ${validated["notes.unitNumber"]}
+Unit Number: ${unitNumber}
 Chunk: ${index + 1}/${chunks.length}
 
 Sub-topics:
