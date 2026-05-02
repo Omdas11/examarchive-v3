@@ -630,7 +630,7 @@ async function renderMarkdownToPdfBuffer(markdown, title, options = {}) {
 async function runGeminiCompletion({ apiKey, prompt, model }) {
   const safeApiKey = ensureNonEmptyString(apiKey, "gemini.apiKey");
   const safePrompt = ensureNonEmptyString(prompt, "gemini.prompt");
-  const safeModel = ensureNonEmptyString(model || DEFAULT_MODEL, "gemini.model");
+  const safeModel = ensureNonEmptyString(model ?? DEFAULT_MODEL, "gemini.model");
   const requestPayload = {
     contents: [{ role: "user", parts: [{ text: safePrompt }] }],
     generationConfig: { maxOutputTokens: 4000, temperature: 0.4 },
@@ -1101,20 +1101,6 @@ async function notifyCompletionWebhook({ jobId, status, fileId, userId, userEmai
 }
 
 async function generateNotesPayload(db, payload) {
-  const syllabusRes = await db.listDocuments(DATABASE_ID, SYLLABUS_TABLE_COLLECTION_ID, [
-    Query.equal("university", payload.university),
-    Query.equal("course", payload.course),
-    Query.equal("stream", payload.stream),
-    Query.equal("type", payload.type),
-    Query.equal("paper_code", payload.paperCode),
-    Query.equal("unit_number", payload.unitNumber),
-    Query.limit(1),
-  ]);
-  const syllabusDoc = syllabusRes.documents?.[0];
-  if (!syllabusDoc) {
-    throw new Error("No syllabus data found for this unit.");
-  }
-
   const validated = validateGeminiPromptVariables({
     "notes.university": payload.university,
     "notes.course": payload.course,
@@ -1122,10 +1108,25 @@ async function generateNotesPayload(db, payload) {
     "notes.type": payload.type,
     "notes.paperCode": payload.paperCode,
     "notes.unitNumber": payload.unitNumber,
-    "notes.syllabusContent": syllabusDoc.syllabus_content,
   });
 
-  const syllabusContent = validated["notes.syllabusContent"];
+  const syllabusRes = await db.listDocuments(DATABASE_ID, SYLLABUS_TABLE_COLLECTION_ID, [
+    Query.equal("university", validated["notes.university"]),
+    Query.equal("course", validated["notes.course"]),
+    Query.equal("stream", validated["notes.stream"]),
+    Query.equal("type", validated["notes.type"]),
+    Query.equal("paper_code", validated["notes.paperCode"]),
+    Query.equal("unit_number", validated["notes.unitNumber"]),
+    Query.limit(1),
+  ]);
+  const syllabusDoc = syllabusRes.documents?.[0];
+  if (!syllabusDoc) {
+    throw new Error("No syllabus data found for this unit.");
+  }
+
+  const syllabusContent = typeof payload.syllabusContent === "string" && payload.syllabusContent.trim()
+    ? ensureNonEmptyString(payload.syllabusContent, "notes.syllabusContent")
+    : ensureNonEmptyString(syllabusDoc.syllabus_content, "notes.syllabusContent");
   const subTopics = splitSyllabusIntoSubTopics(syllabusContent);
   if (subTopics.length === 0) {
     throw new Error("No sub-topics found for this unit.");
