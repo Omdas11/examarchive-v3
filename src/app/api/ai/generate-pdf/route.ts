@@ -517,7 +517,7 @@ async function lookupMarkdownFileCache(
     let exactMatch = Array.isArray(cachedFiles.files) ? matchByFileName(cachedFiles.files) : null;
     if (!exactMatch && legacyCacheKey !== cacheKey) {
       const legacyCachedFiles = await storage.listFiles(cacheBucketId, [
-        Query.search("name", legacyCacheKey),
+        Query.equal("name", legacyCacheFileName),
         Query.orderDesc("$createdAt"),
         Query.limit(CACHE_FILE_QUERY_LIMIT),
       ]);

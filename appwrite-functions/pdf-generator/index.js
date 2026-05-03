@@ -1417,7 +1417,7 @@ async function processGenerationJob(rawInput, options = {}) {
     if (!loadedFromCache) {
       try {
         const cachedFiles = await storage.listFiles(cacheBucketId, [
-          Query.search("name", cacheKey),
+          Query.equal("name", cacheFileName),
           Query.orderDesc("$createdAt"),
           Query.limit(10),
         ]);
