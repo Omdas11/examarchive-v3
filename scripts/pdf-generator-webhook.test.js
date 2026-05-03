@@ -52,6 +52,8 @@ const {
   markdownToPdfHtml,
   validateSafeUrl,
   getAllowedWebhookHosts,
+  resolveFetchImageTags,
+  isPrivateOrInternalHost,
 } = require("../appwrite-functions/pdf-generator/index.js");
 
 describe("pdf-generator / validateSafeUrl", () => {
@@ -993,5 +995,318 @@ describe("pdf-generator / runGeminiCompletion internals", () => {
     
     await expect(runGeminiCompletionWithRetry({ apiKey: "key", prompt: " " }))
       .rejects.toThrow("[Gemini preflight] Missing required value: gemini.prompt is an empty string.");
+  });
+});
+
+describe("pdf-generator / isPrivateOrInternalHost", () => {
+  // Should be blocked
+  it.each([
+    ["localhost"],
+    ["LOCALHOST"],
+    ["127.0.0.1"],
+    ["127.255.255.255"],
+    ["10.0.0.1"],
+    ["10.255.255.255"],
+    ["172.16.0.1"],
+    ["172.31.255.255"],
+    ["192.168.1.100"],
+    ["192.168.255.255"],
+    ["169.254.0.1"],
+    ["169.254.169.254"],  // AWS metadata service
+    ["0.0.0.0"],
+    ["100.64.0.1"],       // CGNAT
+    ["::1"],
+    ["fc00::1"],
+    ["fd12:3456:789a::1"],
+    ["fe80::1"],          // link-local
+    ["::ffff:192.168.1.1"],  // IPv4-mapped private
+    ["::ffff:127.0.0.1"],    // IPv4-mapped loopback
+    ["internal.service.local"],
+    ["db.corp.internal"],
+    ["printer.lan"],
+  ])("blocks %s", (host) => {
+    expect(isPrivateOrInternalHost(host)).toBe(true);
+  });
+
+  // Should be allowed
+  it.each([
+    ["example.com"],
+    ["cdn.example.com"],
+    ["8.8.8.8"],          // Google DNS
+    ["1.1.1.1"],          // Cloudflare DNS
+    ["104.16.0.1"],       // public IP
+    ["2606:4700::1"],     // Cloudflare public IPv6
+    ["images.ctfassets.net"],
+    ["storage.googleapis.com"],
+  ])("allows %s", (host) => {
+    expect(isPrivateOrInternalHost(host)).toBe(false);
+  });
+});
+
+describe("pdf-generator / resolveFetchImageTags", () => {
+  let originalFetch;
+  let originalFetchImageAllowedHosts;
+  /**
+   * Node Buffers allocated from small strings share a large backing pool.
+   * `buf.buffer` covers the entire pool, not just the buffer's bytes.
+   * This helper produces a proper isolated ArrayBuffer for use in mocks.
+   */
+  function toArrayBuffer(buf) {
+    return new Uint8Array(buf).buffer;
+  }
+
+  beforeEach(() => {
+    originalFetch = global.fetch;
+    originalFetchImageAllowedHosts = process.env.FETCH_IMAGE_ALLOWED_HOSTS;
+    delete process.env.FETCH_IMAGE_ALLOWED_HOSTS;
+  });
+  afterEach(() => {
+    global.fetch = originalFetch;
+    if (originalFetchImageAllowedHosts === undefined) {
+      delete process.env.FETCH_IMAGE_ALLOWED_HOSTS;
+    } else {
+      process.env.FETCH_IMAGE_ALLOWED_HOSTS = originalFetchImageAllowedHosts;
+    }
+    jest.restoreAllMocks();
+  });
+
+  it("returns markdown unchanged when no FETCH_IMAGE tags are present", async () => {
+    const md = "# Title\n\nSome paragraph without any tags.";
+    expect(await resolveFetchImageTags(md)).toBe(md);
+  });
+
+  it("replaces a valid FETCH_IMAGE tag with a base64 data URI markdown image", async () => {
+    const fakeBytes = Buffer.from("fakepng");
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: { get: (h) => h === "content-type" ? "image/png" : null },
+      arrayBuffer: async () => toArrayBuffer(fakeBytes),
+    });
+    const md = "Before [FETCH_IMAGE: https://example.com/img.png] after.";
+    const result = await resolveFetchImageTags(md);
+    const expectedB64 = fakeBytes.toString("base64");
+    expect(result).toBe(`Before ![image](data:image/png;base64,${expectedB64}) after.`);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(global.fetch).toHaveBeenCalledWith(
+      "https://example.com/img.png",
+      expect.objectContaining({ headers: { Accept: "image/*" }, redirect: "error" }),
+    );
+  });
+
+  it("deduplicates URLs and fetches each unique URL only once", async () => {
+    const fakeBytes = Buffer.from("img");
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: { get: (h) => h === "content-type" ? "image/jpeg" : null },
+      arrayBuffer: async () => toArrayBuffer(fakeBytes),
+    });
+    const md = "[FETCH_IMAGE: https://example.com/a.jpg]\n[FETCH_IMAGE: https://example.com/a.jpg]";
+    const result = await resolveFetchImageTags(md);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    const b64 = fakeBytes.toString("base64");
+    const tag = `![image](data:image/jpeg;base64,${b64})`;
+    expect(result).toBe(`${tag}\n${tag}`);
+  });
+
+  it("removes the tag when the HTTP response is not ok", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+      headers: { get: () => null },
+      arrayBuffer: async () => new ArrayBuffer(0),
+    });
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+    const md = "text [FETCH_IMAGE: https://example.com/missing.png] end";
+    const result = await resolveFetchImageTags(md);
+    expect(result).toBe("text  end");
+  });
+
+  it("removes the tag when the content-type is not an image", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: { get: (h) => h === "content-type" ? "text/html" : null },
+      arrayBuffer: async () => new ArrayBuffer(10),
+    });
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+    const md = "[FETCH_IMAGE: https://example.com/page.html]";
+    expect(await resolveFetchImageTags(md)).toBe("");
+  });
+
+  it("skips download when Content-Length header exceeds the size limit", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: { get: (h) => {
+        if (h === "content-type") return "image/png";
+        if (h === "content-length") return String(6 * 1024 * 1024); // 6 MB
+        return null;
+      } },
+      arrayBuffer: jest.fn(), // must NOT be called
+    });
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+    const md = "[FETCH_IMAGE: https://example.com/big.png]";
+    expect(await resolveFetchImageTags(md)).toBe("");
+    // arrayBuffer should never be called when Content-Length already tells us it's too big
+    expect(global.fetch.mock.results[0].value).resolves.toMatchObject({});
+  });
+
+  it("removes the tag when the image exceeds the size limit (arrayBuffer fallback)", async () => {
+    const oversized = new ArrayBuffer(6 * 1024 * 1024); // 6 MB
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: { get: (h) => h === "content-type" ? "image/png" : null },
+      arrayBuffer: async () => oversized,
+    });
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+    const md = "[FETCH_IMAGE: https://example.com/big.png]";
+    expect(await resolveFetchImageTags(md)).toBe("");
+  });
+
+  it("aborts streaming and removes the tag when streamed bytes exceed size limit", async () => {
+    const chunkSize = 3 * 1024 * 1024; // 3 MB per chunk — two chunks exceed 5 MB cap
+    const chunk = new Uint8Array(chunkSize).fill(1);
+    let cancelled = false;
+    const mockReader = {
+      read: jest.fn()
+        .mockResolvedValueOnce({ done: false, value: chunk })
+        .mockResolvedValueOnce({ done: false, value: chunk }),
+      cancel: jest.fn().mockImplementation(() => { cancelled = true; return Promise.resolve(); }),
+    };
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: { get: (h) => h === "content-type" ? "image/png" : null },
+      body: { getReader: () => mockReader },
+    });
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+    const md = "[FETCH_IMAGE: https://example.com/stream.png]";
+    expect(await resolveFetchImageTags(md)).toBe("");
+    expect(cancelled).toBe(true);
+  });
+
+  it("uses streamed body when response.body is available and assembles correct base64", async () => {
+    const fakeBytes = Buffer.from("streamed-image-data");
+    const chunk = new Uint8Array(fakeBytes);
+    const mockReader = {
+      read: jest.fn()
+        .mockResolvedValueOnce({ done: false, value: chunk })
+        .mockResolvedValueOnce({ done: true, value: undefined }),
+      cancel: jest.fn(),
+    };
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: { get: (h) => h === "content-type" ? "image/png" : null },
+      body: { getReader: () => mockReader },
+    });
+    const md = "[FETCH_IMAGE: https://example.com/stream.png]";
+    const result = await resolveFetchImageTags(md);
+    expect(result).toBe(`![image](data:image/png;base64,${fakeBytes.toString("base64")})`);
+  });
+
+  it("removes the tag when fetch throws (e.g. network error)", async () => {
+    global.fetch = jest.fn().mockRejectedValue(new Error("network failure"));
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+    const md = "[FETCH_IMAGE: https://example.com/err.png]";
+    expect(await resolveFetchImageTags(md)).toBe("");
+  });
+
+  it("removes the tag for non-HTTPS URLs (SSRF guard)", async () => {
+    global.fetch = jest.fn();
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+    const md = "[FETCH_IMAGE: http://internal-server/img.png]";
+    const result = await resolveFetchImageTags(md);
+    expect(result).toBe("");
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("blocks private IPv4 addresses (SSRF guard)", async () => {
+    global.fetch = jest.fn();
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+    for (const ip of ["127.0.0.1", "10.0.0.1", "192.168.1.1", "169.254.169.254", "172.16.0.1"]) {
+      const md = `[FETCH_IMAGE: https://${ip}/img.png]`;
+      expect(await resolveFetchImageTags(md)).toBe("");
+    }
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("blocks localhost (SSRF guard)", async () => {
+    global.fetch = jest.fn();
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+    expect(await resolveFetchImageTags("[FETCH_IMAGE: https://localhost/img.png]")).toBe("");
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("blocks .local hostnames (SSRF guard)", async () => {
+    global.fetch = jest.fn();
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+    expect(await resolveFetchImageTags("[FETCH_IMAGE: https://internal.service.local/img.png]")).toBe("");
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("uses FETCH_IMAGE_ALLOWED_HOSTS allowlist when set and blocks unlisted hosts", async () => {
+    process.env.FETCH_IMAGE_ALLOWED_HOSTS = "cdn.trusted.com";
+    global.fetch = jest.fn();
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+    // Unlisted host should be blocked
+    expect(await resolveFetchImageTags("[FETCH_IMAGE: https://other.com/img.png]")).toBe("");
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("strips the mime-type parameters from content-type header", async () => {
+    const fakeBytes = Buffer.from("gif");
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: { get: (h) => h === "content-type" ? "image/gif; charset=utf-8" : null },
+      arrayBuffer: async () => toArrayBuffer(fakeBytes),
+    });
+    const md = "[FETCH_IMAGE: https://example.com/anim.gif]";
+    const result = await resolveFetchImageTags(md);
+    const b64 = fakeBytes.toString("base64");
+    expect(result).toBe(`![image](data:image/gif;base64,${b64})`);
+  });
+
+  it("handles multiple distinct images in one markdown string", async () => {
+    const bytes1 = Buffer.from("img1");
+    const bytes2 = Buffer.from("img2");
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: { get: (h) => h === "content-type" ? "image/png" : null },
+        arrayBuffer: async () => toArrayBuffer(bytes1),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: { get: (h) => h === "content-type" ? "image/jpeg" : null },
+        arrayBuffer: async () => toArrayBuffer(bytes2),
+      });
+    const md = "[FETCH_IMAGE: https://a.com/1.png] and [FETCH_IMAGE: https://b.com/2.jpg]";
+    const result = await resolveFetchImageTags(md);
+    const b641 = bytes1.toString("base64");
+    const b642 = bytes2.toString("base64");
+    expect(result).toBe(
+      `![image](data:image/png;base64,${b641}) and ![image](data:image/jpeg;base64,${b642})`,
+    );
+  });
+
+  it("tolerates extra whitespace inside the tag", async () => {
+    const fakeBytes = Buffer.from("px");
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: { get: (h) => h === "content-type" ? "image/webp" : null },
+      arrayBuffer: async () => toArrayBuffer(fakeBytes),
+    });
+    const md = "[FETCH_IMAGE:   https://example.com/img.webp  ]";
+    const result = await resolveFetchImageTags(md);
+    const b64 = fakeBytes.toString("base64");
+    expect(result).toBe(`![image](data:image/webp;base64,${b64})`);
   });
 });
