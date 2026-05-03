@@ -1548,6 +1548,10 @@ async function processGenerationJob(rawInput, options = {}) {
       } else {
         markdown = await generateSolvedPaperPayload(db, payload);
       }
+      // Resolve [FETCH_IMAGE: <url>] tags to inline base64 data URIs before
+      // caching so that the stored markdown is self-contained and cache hits
+      // never need to re-fetch the images.
+      markdown = await resolveFetchImageTags(markdown);
       try {
         const cacheFile = await storage.createFile(
           cacheBucketId,
@@ -1572,7 +1576,6 @@ async function processGenerationJob(rawInput, options = {}) {
       }
     }
     markdown = sanitizeAiMath(markdown);
-    markdown = await resolveFetchImageTags(markdown);
 
     await updateJob(db, jobId, { progress_percent: 80 });
 

@@ -999,6 +999,15 @@ describe("pdf-generator / runGeminiCompletion internals", () => {
 
 describe("pdf-generator / resolveFetchImageTags", () => {
   let originalFetch;
+  /**
+   * Node Buffers allocated from small strings share a large backing pool.
+   * `buf.buffer` covers the entire pool, not just the buffer's bytes.
+   * This helper produces a proper isolated ArrayBuffer for use in mocks.
+   */
+  function toArrayBuffer(buf) {
+    return new Uint8Array(buf).buffer;
+  }
+
   beforeEach(() => {
     originalFetch = global.fetch;
   });
@@ -1018,7 +1027,7 @@ describe("pdf-generator / resolveFetchImageTags", () => {
       ok: true,
       status: 200,
       headers: { get: () => "image/png" },
-      arrayBuffer: async () => fakeBytes.buffer,
+      arrayBuffer: async () => toArrayBuffer(fakeBytes),
     });
     const md = "Before [FETCH_IMAGE: https://example.com/img.png] after.";
     const result = await resolveFetchImageTags(md);
@@ -1037,7 +1046,7 @@ describe("pdf-generator / resolveFetchImageTags", () => {
       ok: true,
       status: 200,
       headers: { get: () => "image/jpeg" },
-      arrayBuffer: async () => fakeBytes.buffer,
+      arrayBuffer: async () => toArrayBuffer(fakeBytes),
     });
     const md = "[FETCH_IMAGE: https://example.com/a.jpg]\n[FETCH_IMAGE: https://example.com/a.jpg]";
     const result = await resolveFetchImageTags(md);
@@ -1107,7 +1116,7 @@ describe("pdf-generator / resolveFetchImageTags", () => {
       ok: true,
       status: 200,
       headers: { get: () => "image/gif; charset=utf-8" },
-      arrayBuffer: async () => fakeBytes.buffer,
+      arrayBuffer: async () => toArrayBuffer(fakeBytes),
     });
     const md = "[FETCH_IMAGE: https://example.com/anim.gif]";
     const result = await resolveFetchImageTags(md);
@@ -1123,13 +1132,13 @@ describe("pdf-generator / resolveFetchImageTags", () => {
         ok: true,
         status: 200,
         headers: { get: () => "image/png" },
-        arrayBuffer: async () => bytes1.buffer,
+        arrayBuffer: async () => toArrayBuffer(bytes1),
       })
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
         headers: { get: () => "image/jpeg" },
-        arrayBuffer: async () => bytes2.buffer,
+        arrayBuffer: async () => toArrayBuffer(bytes2),
       });
     const md = "[FETCH_IMAGE: https://a.com/1.png] and [FETCH_IMAGE: https://b.com/2.jpg]";
     const result = await resolveFetchImageTags(md);
@@ -1146,7 +1155,7 @@ describe("pdf-generator / resolveFetchImageTags", () => {
       ok: true,
       status: 200,
       headers: { get: () => "image/webp" },
-      arrayBuffer: async () => fakeBytes.buffer,
+      arrayBuffer: async () => toArrayBuffer(fakeBytes),
     });
     const md = "[FETCH_IMAGE:   https://example.com/img.webp  ]";
     const result = await resolveFetchImageTags(md);
