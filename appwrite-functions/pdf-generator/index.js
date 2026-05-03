@@ -95,6 +95,62 @@ function validateSafeUrl(rawUrl, allowedHosts = []) {
   return parsed.toString();
 }
 
+/**
+ * Returns true when a URL hostname resolves to a private, link-local, or
+ * loopback address — destinations that must never be reached via
+ * LLM-emitted FETCH_IMAGE tags (SSRF protection).
+ *
+ * Checked ranges:
+ *  IPv4 : 127/8, 10/8, 172.16/12, 192.168/16, 169.254/16 (link-local),
+ *         0/8, 100.64/10 (Carrier-Grade NAT), 240/4 (reserved), broadcast
+ *  IPv6 : ::1 (loopback), fc00::/7 (unique-local), fe80::/10 (link-local),
+ *         ::ffff: mapped private IPv4
+ *  Names: "localhost", *.local, *.internal, *.lan
+ *
+ * @param {string} hostname - The hostname portion from a parsed URL.
+ * @returns {boolean}
+ */
+function isPrivateOrInternalHost(hostname) {
+  const host = String(hostname || "").toLowerCase().replace(/^\[|\]$/g, ""); // strip IPv6 [ ]
+
+  if (!host) return true;
+
+  // Well-known internal names
+  if (host === "localhost") return true;
+  if (host.endsWith(".local") || host.endsWith(".internal") || host.endsWith(".lan")) return true;
+
+  // IPv4 private / loopback / reserved
+  const v4 = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (v4) {
+    const [, a, b, c, d] = v4.map(Number);
+    if (a === 0) return true;                               // 0.0.0.0/8 (this network)
+    if (a === 10) return true;                              // 10.0.0.0/8 private
+    if (a === 100 && b >= 64 && b <= 127) return true;     // 100.64.0.0/10 CGNAT
+    if (a === 127) return true;                             // 127.0.0.0/8 loopback
+    if (a === 169 && b === 254) return true;                // 169.254.0.0/16 link-local
+    if (a === 172 && b >= 16 && b <= 31) return true;      // 172.16.0.0/12 private
+    if (a === 192 && b === 168) return true;                // 192.168.0.0/16 private
+    if (a === 198 && (b === 18 || b === 19)) return true;  // 198.18.0.0/15 benchmarking
+    if (a === 203 && b === 0 && c === 113) return true;    // 203.0.113.0/24 documentation
+    if (a === 240) return true;                             // 240.0.0.0/4 reserved
+    if (a === 255 && b === 255 && c === 255 && d === 255) return true; // broadcast
+    return false;
+  }
+
+  // IPv6 loopback and private/link-local
+  if (host === "::1" || host === "0:0:0:0:0:0:0:1") return true; // loopback
+  if (host === "::" || host === "0:0:0:0:0:0:0:0") return true;  // unspecified
+  if (host.startsWith("fc") || host.startsWith("fd")) return true; // fc00::/7 unique-local
+  // fe80::/10 link-local (fe80..febf)
+  if (/^fe[89ab]/i.test(host)) return true;
+  // ::ffff: IPv4-mapped — check the embedded address
+  if (host.startsWith("::ffff:")) {
+    return isPrivateOrInternalHost(host.slice(7));
+  }
+
+  return false;
+}
+
 function splitIntoLogicalChunks(items, chunkCount) {
   if (!Array.isArray(items) || items.length === 0) return [];
   const safeChunkCount = Math.max(1, Math.min(chunkCount, items.length));
@@ -458,6 +514,15 @@ function sanitizeGeneratedHtml(html) {
  * Tags whose URL fails validation or whose fetch fails are silently removed.
  * All distinct URLs are fetched concurrently to minimise latency.
  *
+ * Security:
+ * - HTTPS is enforced by validateSafeUrl.
+ * - Requests to private/loopback/internal hosts are blocked by isPrivateOrInternalHost.
+ * - Redirects are disabled (redirect: "error") to prevent SSRF via 3xx chains.
+ * - Content-Length is checked before buffering; the response body is streamed
+ *   and aborted as soon as accumulated bytes exceed FETCH_IMAGE_MAX_BYTES.
+ * - When FETCH_IMAGE_ALLOWED_HOSTS is set (comma-separated host patterns), only
+ *   those hostnames are permitted.
+ *
  * @param {string} markdown - The markdown string to process.
  * @returns {Promise<string>} The markdown with all [FETCH_IMAGE: …] tags replaced.
  */
@@ -466,6 +531,13 @@ async function resolveFetchImageTags(markdown) {
   const matches = [...source.matchAll(FETCH_IMAGE_TAG_RE)];
   if (matches.length === 0) return source;
 
+  // Build optional explicit allowlist from environment (read fresh each call so
+  // runtime env changes and test overrides are respected).
+  const fetchImageAllowedHostsRaw = process.env.FETCH_IMAGE_ALLOWED_HOSTS || "";
+  const allowedHosts = fetchImageAllowedHostsRaw
+    ? fetchImageAllowedHostsRaw.split(",").map((h) => h.trim()).filter(Boolean)
+    : [];
+
   const uniqueUrls = [...new Set(matches.map((m) => m[1].trim()))];
   const dataUriMap = new Map();
 
@@ -473,17 +545,29 @@ async function resolveFetchImageTags(markdown) {
     uniqueUrls.map(async (rawUrl) => {
       let safeUrl;
       try {
-        safeUrl = validateSafeUrl(rawUrl); // enforces HTTPS-only, guards against SSRF
+        safeUrl = validateSafeUrl(rawUrl, allowedHosts);
       } catch (validationError) {
         console.warn(
           `[pdf-generator] FETCH_IMAGE skipped invalid URL "${rawUrl}": ${validationError?.message || validationError}`,
         );
         return;
       }
+
+      // SSRF guard: block private / internal / loopback destinations even when
+      // no allowlist is configured (validateSafeUrl only checks HTTPS in that mode).
+      const parsedForSsrf = new URL(safeUrl);
+      if (isPrivateOrInternalHost(parsedForSsrf.hostname)) {
+        console.warn(
+          `[pdf-generator] FETCH_IMAGE blocked private/internal host "${parsedForSsrf.hostname}" for URL "${rawUrl}"`,
+        );
+        return;
+      }
+
       try {
         const response = await fetch(safeUrl, {
           signal: AbortSignal.timeout(FETCH_IMAGE_TIMEOUT_MS),
           headers: { Accept: "image/*" },
+          redirect: "error", // prevent SSRF via redirect chains
         });
         if (!response.ok) {
           console.warn(
@@ -491,6 +575,8 @@ async function resolveFetchImageTags(markdown) {
           );
           return;
         }
+
+        // Cheap early checks before reading the body
         const contentType = response.headers.get("content-type") || "image/png";
         const mimeType = contentType.split(";")[0].trim().toLowerCase();
         if (!mimeType.startsWith("image/")) {
@@ -499,14 +585,60 @@ async function resolveFetchImageTags(markdown) {
           );
           return;
         }
-        const arrayBuffer = await response.arrayBuffer();
-        if (arrayBuffer.byteLength > FETCH_IMAGE_MAX_BYTES) {
-          console.warn(
-            `[pdf-generator] FETCH_IMAGE skipped oversized image at "${rawUrl}" (${arrayBuffer.byteLength} bytes)`,
-          );
-          return;
+        const contentLengthHeader = response.headers.get("content-length");
+        if (contentLengthHeader) {
+          const declared = Number(contentLengthHeader);
+          if (Number.isFinite(declared) && declared > FETCH_IMAGE_MAX_BYTES) {
+            console.warn(
+              `[pdf-generator] FETCH_IMAGE skipped oversized image at "${rawUrl}" (Content-Length: ${declared} bytes)`,
+            );
+            return;
+          }
         }
-        const base64 = Buffer.from(arrayBuffer).toString("base64");
+
+        // Stream the body and abort as soon as accumulated bytes exceed the cap,
+        // preventing the worker from buffering large responses in full.
+        let imageBuffer;
+        if (response.body && typeof response.body.getReader === "function") {
+          const reader = response.body.getReader();
+          const chunks = [];
+          let totalBytes = 0;
+          let oversized = false;
+          let streamDone = false;
+          while (!streamDone && !oversized) {
+            // eslint-disable-next-line no-await-in-loop
+            const { done, value } = await reader.read();
+            streamDone = done;
+            if (!done) {
+              totalBytes += value.byteLength;
+              if (totalBytes > FETCH_IMAGE_MAX_BYTES) {
+                oversized = true;
+                reader.cancel().catch(() => {});
+              } else {
+                chunks.push(value);
+              }
+            }
+          }
+          if (oversized) {
+            console.warn(
+              `[pdf-generator] FETCH_IMAGE skipped oversized image at "${rawUrl}" (streamed > ${FETCH_IMAGE_MAX_BYTES} bytes)`,
+            );
+            return;
+          }
+          imageBuffer = Buffer.concat(chunks.map((c) => Buffer.from(c)));
+        } else {
+          // Fallback for environments where response.body is unavailable
+          const arrayBuffer = await response.arrayBuffer();
+          if (arrayBuffer.byteLength > FETCH_IMAGE_MAX_BYTES) {
+            console.warn(
+              `[pdf-generator] FETCH_IMAGE skipped oversized image at "${rawUrl}" (${arrayBuffer.byteLength} bytes)`,
+            );
+            return;
+          }
+          imageBuffer = Buffer.from(arrayBuffer);
+        }
+
+        const base64 = imageBuffer.toString("base64");
         dataUriMap.set(rawUrl, `data:${mimeType};base64,${base64}`);
       } catch (fetchError) {
         console.warn(
@@ -1671,3 +1803,4 @@ module.exports.markdownToPdfHtml = markdownToPdfHtml;
 module.exports.validateSafeUrl = validateSafeUrl;
 module.exports.getAllowedWebhookHosts = getAllowedWebhookHosts;
 module.exports.resolveFetchImageTags = resolveFetchImageTags;
+module.exports.isPrivateOrInternalHost = isPrivateOrInternalHost;
