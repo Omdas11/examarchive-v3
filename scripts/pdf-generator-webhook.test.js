@@ -52,6 +52,7 @@ const {
   markdownToPdfHtml,
   validateSafeUrl,
   getAllowedWebhookHosts,
+  resolveFetchImageTags,
 } = require("../appwrite-functions/pdf-generator/index.js");
 
 describe("pdf-generator / validateSafeUrl", () => {
@@ -993,5 +994,163 @@ describe("pdf-generator / runGeminiCompletion internals", () => {
     
     await expect(runGeminiCompletionWithRetry({ apiKey: "key", prompt: " " }))
       .rejects.toThrow("[Gemini preflight] Missing required value: gemini.prompt is an empty string.");
+  });
+});
+
+describe("pdf-generator / resolveFetchImageTags", () => {
+  let originalFetch;
+  beforeEach(() => {
+    originalFetch = global.fetch;
+  });
+  afterEach(() => {
+    global.fetch = originalFetch;
+    jest.restoreAllMocks();
+  });
+
+  it("returns markdown unchanged when no FETCH_IMAGE tags are present", async () => {
+    const md = "# Title\n\nSome paragraph without any tags.";
+    expect(await resolveFetchImageTags(md)).toBe(md);
+  });
+
+  it("replaces a valid FETCH_IMAGE tag with a base64 data URI markdown image", async () => {
+    const fakeBytes = Buffer.from("fakepng");
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: { get: () => "image/png" },
+      arrayBuffer: async () => fakeBytes.buffer,
+    });
+    const md = "Before [FETCH_IMAGE: https://example.com/img.png] after.";
+    const result = await resolveFetchImageTags(md);
+    const expectedB64 = fakeBytes.toString("base64");
+    expect(result).toBe(`Before ![image](data:image/png;base64,${expectedB64}) after.`);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(global.fetch).toHaveBeenCalledWith(
+      "https://example.com/img.png",
+      expect.objectContaining({ headers: { Accept: "image/*" } }),
+    );
+  });
+
+  it("deduplicates URLs and fetches each unique URL only once", async () => {
+    const fakeBytes = Buffer.from("img");
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: { get: () => "image/jpeg" },
+      arrayBuffer: async () => fakeBytes.buffer,
+    });
+    const md = "[FETCH_IMAGE: https://example.com/a.jpg]\n[FETCH_IMAGE: https://example.com/a.jpg]";
+    const result = await resolveFetchImageTags(md);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    const b64 = fakeBytes.toString("base64");
+    const tag = `![image](data:image/jpeg;base64,${b64})`;
+    expect(result).toBe(`${tag}\n${tag}`);
+  });
+
+  it("removes the tag when the HTTP response is not ok", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+      headers: { get: () => "text/plain" },
+      arrayBuffer: async () => new ArrayBuffer(0),
+    });
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+    const md = "text [FETCH_IMAGE: https://example.com/missing.png] end";
+    const result = await resolveFetchImageTags(md);
+    expect(result).toBe("text  end");
+  });
+
+  it("removes the tag when the content-type is not an image", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: { get: () => "text/html" },
+      arrayBuffer: async () => new ArrayBuffer(10),
+    });
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+    const md = "[FETCH_IMAGE: https://example.com/page.html]";
+    expect(await resolveFetchImageTags(md)).toBe("");
+  });
+
+  it("removes the tag when the image exceeds the size limit", async () => {
+    const oversized = new ArrayBuffer(6 * 1024 * 1024); // 6 MB
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: { get: () => "image/png" },
+      arrayBuffer: async () => oversized,
+    });
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+    const md = "[FETCH_IMAGE: https://example.com/big.png]";
+    expect(await resolveFetchImageTags(md)).toBe("");
+  });
+
+  it("removes the tag when fetch throws (e.g. network error)", async () => {
+    global.fetch = jest.fn().mockRejectedValue(new Error("network failure"));
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+    const md = "[FETCH_IMAGE: https://example.com/err.png]";
+    expect(await resolveFetchImageTags(md)).toBe("");
+  });
+
+  it("removes the tag for non-HTTPS URLs (SSRF guard)", async () => {
+    global.fetch = jest.fn();
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+    const md = "[FETCH_IMAGE: http://internal-server/img.png]";
+    const result = await resolveFetchImageTags(md);
+    expect(result).toBe("");
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("strips the mime-type parameters from content-type header", async () => {
+    const fakeBytes = Buffer.from("gif");
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: { get: () => "image/gif; charset=utf-8" },
+      arrayBuffer: async () => fakeBytes.buffer,
+    });
+    const md = "[FETCH_IMAGE: https://example.com/anim.gif]";
+    const result = await resolveFetchImageTags(md);
+    const b64 = fakeBytes.toString("base64");
+    expect(result).toBe(`![image](data:image/gif;base64,${b64})`);
+  });
+
+  it("handles multiple distinct images in one markdown string", async () => {
+    const bytes1 = Buffer.from("img1");
+    const bytes2 = Buffer.from("img2");
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: { get: () => "image/png" },
+        arrayBuffer: async () => bytes1.buffer,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: { get: () => "image/jpeg" },
+        arrayBuffer: async () => bytes2.buffer,
+      });
+    const md = "[FETCH_IMAGE: https://a.com/1.png] and [FETCH_IMAGE: https://b.com/2.jpg]";
+    const result = await resolveFetchImageTags(md);
+    const b641 = bytes1.toString("base64");
+    const b642 = bytes2.toString("base64");
+    expect(result).toBe(
+      `![image](data:image/png;base64,${b641}) and ![image](data:image/jpeg;base64,${b642})`,
+    );
+  });
+
+  it("tolerates extra whitespace inside the tag", async () => {
+    const fakeBytes = Buffer.from("px");
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: { get: () => "image/webp" },
+      arrayBuffer: async () => fakeBytes.buffer,
+    });
+    const md = "[FETCH_IMAGE:   https://example.com/img.webp  ]";
+    const result = await resolveFetchImageTags(md);
+    const b64 = fakeBytes.toString("base64");
+    expect(result).toBe(`![image](data:image/webp;base64,${b64})`);
   });
 });

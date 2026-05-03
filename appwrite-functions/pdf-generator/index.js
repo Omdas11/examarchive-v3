@@ -46,6 +46,9 @@ const GOTENBERG_MAX_BACKOFF_MS = 6_000;
 const TRUSTED_GOTENBERG_HOST_SUFFIX = ".hf.space";
 const TRUSTED_GEMINI_HOST = "generativelanguage.googleapis.com";
 const MAX_SAFE_PDF_FILENAME_CORE_LENGTH = 120;
+const FETCH_IMAGE_TIMEOUT_MS = 10_000;
+const FETCH_IMAGE_MAX_BYTES = 5 * 1024 * 1024; // 5 MB per image
+const FETCH_IMAGE_TAG_RE = /\[FETCH_IMAGE:\s*(https?:\/\/[^\]]+?)\s*\]/g;
 const MARKED_FALLBACK_LOG_PREFIX = "[pdf-generator] Falling back to basic markdown parser.";
 const MAX_RANDOM_NAMESPACE_INT = 0x1_0000_0000;
 
@@ -441,8 +444,82 @@ function sanitizeGeneratedHtml(html) {
       "*": ["class"],
     },
     allowedSchemes: ["http", "https", "mailto"],
+    allowedSchemesByTag: {
+      img: ["data", "http", "https"],
+    },
     allowedSchemesAppliedToAttributes: ["href", "src"],
     allowProtocolRelative: false,
+  });
+}
+
+/**
+ * Scans `markdown` for [FETCH_IMAGE: <url>] tags, fetches each image over
+ * HTTPS, and replaces each tag with a Markdown image using a base64 data URI.
+ * Tags whose URL fails validation or whose fetch fails are silently removed.
+ * All distinct URLs are fetched concurrently to minimise latency.
+ *
+ * @param {string} markdown - The markdown string to process.
+ * @returns {Promise<string>} The markdown with all [FETCH_IMAGE: …] tags replaced.
+ */
+async function resolveFetchImageTags(markdown) {
+  const source = String(markdown || "");
+  const matches = [...source.matchAll(FETCH_IMAGE_TAG_RE)];
+  if (matches.length === 0) return source;
+
+  const uniqueUrls = [...new Set(matches.map((m) => m[1].trim()))];
+  const dataUriMap = new Map();
+
+  await Promise.all(
+    uniqueUrls.map(async (rawUrl) => {
+      let safeUrl;
+      try {
+        safeUrl = validateSafeUrl(rawUrl); // enforces HTTPS-only, guards against SSRF
+      } catch (validationError) {
+        console.warn(
+          `[pdf-generator] FETCH_IMAGE skipped invalid URL "${rawUrl}": ${validationError?.message || validationError}`,
+        );
+        return;
+      }
+      try {
+        const response = await fetch(safeUrl, {
+          signal: AbortSignal.timeout(FETCH_IMAGE_TIMEOUT_MS),
+          headers: { Accept: "image/*" },
+        });
+        if (!response.ok) {
+          console.warn(
+            `[pdf-generator] FETCH_IMAGE failed for "${rawUrl}": HTTP ${response.status}`,
+          );
+          return;
+        }
+        const contentType = response.headers.get("content-type") || "image/png";
+        const mimeType = contentType.split(";")[0].trim().toLowerCase();
+        if (!mimeType.startsWith("image/")) {
+          console.warn(
+            `[pdf-generator] FETCH_IMAGE skipped non-image content-type for "${rawUrl}": ${mimeType}`,
+          );
+          return;
+        }
+        const arrayBuffer = await response.arrayBuffer();
+        if (arrayBuffer.byteLength > FETCH_IMAGE_MAX_BYTES) {
+          console.warn(
+            `[pdf-generator] FETCH_IMAGE skipped oversized image at "${rawUrl}" (${arrayBuffer.byteLength} bytes)`,
+          );
+          return;
+        }
+        const base64 = Buffer.from(arrayBuffer).toString("base64");
+        dataUriMap.set(rawUrl, `data:${mimeType};base64,${base64}`);
+      } catch (fetchError) {
+        console.warn(
+          `[pdf-generator] FETCH_IMAGE fetch error for "${rawUrl}": ${fetchError?.message || fetchError}`,
+        );
+      }
+    }),
+  );
+
+  return source.replace(FETCH_IMAGE_TAG_RE, (_match, rawUrl) => {
+    const trimmedUrl = rawUrl.trim();
+    const dataUri = dataUriMap.get(trimmedUrl);
+    return dataUri ? `![image](${dataUri})` : "";
   });
 }
 
@@ -1495,6 +1572,7 @@ async function processGenerationJob(rawInput, options = {}) {
       }
     }
     markdown = sanitizeAiMath(markdown);
+    markdown = await resolveFetchImageTags(markdown);
 
     await updateJob(db, jobId, { progress_percent: 80 });
 
@@ -1589,3 +1667,4 @@ module.exports.sanitizeAiMath = sanitizeAiMath;
 module.exports.markdownToPdfHtml = markdownToPdfHtml;
 module.exports.validateSafeUrl = validateSafeUrl;
 module.exports.getAllowedWebhookHosts = getAllowedWebhookHosts;
+module.exports.resolveFetchImageTags = resolveFetchImageTags;
