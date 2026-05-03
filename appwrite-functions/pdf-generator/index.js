@@ -924,7 +924,8 @@ async function runGeminiCompletion({ apiKey, prompt, model }) {
         responseBody: bodyText,
       });
     }
-    const error = new Error(`Gemini request failed (status ${response.status})`);
+    const bodySnippet = bodyText ? ` – ${bodyText.slice(0, 300)}` : "";
+    const error = new Error(`Gemini request failed (status ${response.status})${bodySnippet}`);
     error.status = response.status;
     error.responseBody = bodyText;
     throw error;
