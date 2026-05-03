@@ -11,6 +11,11 @@ type PdfsByCode = Map<string, Syllabus[]>;
 
 type ActiveTab = "catalog" | "pdfs";
 
+/** Shared grid style for PDF card grids. */
+const PDF_GRID_STYLE = { gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" } as const;
+/** Shared grid style for paper catalog card grids. */
+const PAPER_GRID_STYLE = { gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" } as const;
+
 /** Returns the display name for a paper's subject, falling back to subjectCode. */
 function getSubjectDisplay(paper: Pick<SyllabusTablePaperSummary, "subject" | "subjectCode">): string {
   return paper.subject || paper.subjectCode;
@@ -45,6 +50,7 @@ function SyllabusPdfCard({ s }: { s: Syllabus }) {
       href={s.file_url || "#"}
       target="_blank"
       rel="noopener noreferrer"
+      aria-label={`Open PDF for ${title}`}
       className="group flex flex-col gap-3 overflow-hidden rounded-2xl border border-outline-variant/30 bg-surface p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
       style={{ textDecoration: "none", color: "inherit" }}
     >
@@ -417,7 +423,10 @@ export default function SyllabusCatalogClient({ syllabi }: { syllabi: Syllabus[]
           {syllabi.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {(["all", "dept", "sem"] as const).map((f) => {
-                const labels = { all: `All (${syllabi.length})`, dept: `Departmental (${deptSyllabi.length})`, sem: `Semester-wise (${semSyllabi.length})` };
+                const label =
+                  f === "all" ? `All (${syllabi.length})` :
+                  f === "dept" ? `Departmental (${deptSyllabi.length})` :
+                  `Semester-wise (${semSyllabi.length})`;
                 return (
                   <button
                     key={f}
@@ -430,7 +439,7 @@ export default function SyllabusCatalogClient({ syllabi }: { syllabi: Syllabus[]
                         : "bg-surface-container text-on-surface hover:bg-surface-container-high",
                     )}
                   >
-                    {labels[f]}
+                    {label}
                   </button>
                 );
               })}
@@ -458,7 +467,7 @@ export default function SyllabusCatalogClient({ syllabi }: { syllabi: Syllabus[]
                     <span className="ml-auto text-xs text-on-surface-variant">{deptSyllabi.length} file{deptSyllabi.length !== 1 ? "s" : ""}</span>
                   </div>
                   <p className="mb-3 text-xs text-on-surface-variant">Full programme syllabi covering all semesters.</p>
-                  <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
+                  <div className="grid gap-4" style={PDF_GRID_STYLE}>
                     {deptSyllabi.map((s) => (
                       <div key={s.id} className="relative">
                         <SyllabusPdfCard s={s} />
@@ -476,7 +485,7 @@ export default function SyllabusCatalogClient({ syllabi }: { syllabi: Syllabus[]
                     <h2 className="text-sm font-semibold text-on-surface">Semester Syllabi</h2>
                     <span className="ml-auto text-xs text-on-surface-variant">{semSyllabi.length} file{semSyllabi.length !== 1 ? "s" : ""}</span>
                   </div>
-                  <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
+                  <div className="grid gap-4" style={PDF_GRID_STYLE}>
                     {semSyllabi.map((s) => (
                       <div key={s.id} className="relative">
                         <SyllabusPdfCard s={s} />
@@ -553,7 +562,7 @@ export default function SyllabusCatalogClient({ syllabi }: { syllabi: Syllabus[]
               {search ? `No papers match "${search}".` : "No syllabus entries found."}
             </div>
           ) : (
-            <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
+            <div className="grid gap-4" style={PAPER_GRID_STYLE}>
               {filteredPapers.map((paper, idx) => (
                 <PaperCard
                   key={paper.paperCode}
