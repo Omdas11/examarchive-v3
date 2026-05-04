@@ -129,18 +129,42 @@ export default async function ProfilePage() {
   }
 
   // Total papers submitted by this user (all statuses)
-  let totalUploads = 0;
+  let totalPaperUploads = 0;
   try {
     const { total } = await db.listDocuments(DATABASE_ID, COLLECTION.papers, [
       Query.equal("uploaded_by", user.id),
       Query.limit(1),
     ]);
-    totalUploads = total;
+    totalPaperUploads = total;
   } catch {
     // ignore
   }
 
-  const approvalPct = totalUploads > 0 ? Math.round((approvedCount / totalUploads) * 100) : 0;
+  // Total notes submitted by this user (from the uploads collection, notes only).
+  // Papers also write a best-effort record to uploads, so we guard against double
+  // counting by only summing records that don't have a matching paper (notes don't
+  // have a course_code entry in the papers collection). Simplest reliable approach:
+  // count all uploads collection records and subtract paperUploads count — or just
+  // query uploads independently as an additive total shown alongside paper count.
+  let totalNotesUploads = 0;
+  try {
+    const { total } = await db.listDocuments(DATABASE_ID, COLLECTION.uploads, [
+      Query.equal("user_id", user.id),
+      Query.limit(1),
+    ]);
+    // uploads collection contains both paper upload records and notes upload records.
+    // We show the combined total because each user submission (paper or notes) deserves
+    // to be reflected in their profile upload count. Paper records in the papers
+    // collection are the authoritative source for approvedCount; the uploads collection
+    // total gives the broadest "I contributed N items" stat.
+    totalNotesUploads = Math.max(0, total - totalPaperUploads);
+  } catch {
+    // ignore
+  }
+
+  const totalUploads = totalPaperUploads + totalNotesUploads;
+
+  const approvalPct = totalPaperUploads > 0 ? Math.round((approvedCount / totalPaperUploads) * 100) : 0;
 
   // Date format: "Jan 2026" matches v2 screenshot "Member since Feb 2026".
   // Using en-US with { month: 'short', year: 'numeric' } gives the same output

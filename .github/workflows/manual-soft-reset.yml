@@ -25,6 +25,14 @@ on:
         options:
           - keep_files
           - clear_files
+      reset_mode:
+        description: "Choose reset depth (full-reset also clears uploaded papers, notes, ai_usage, and User_Quotas)"
+        required: true
+        default: soft
+        type: choice
+        options:
+          - soft
+          - full
 
 jobs:
   soft-reset-data:
@@ -84,9 +92,11 @@ jobs:
             fi
             echo "ingestion_mode=${{ github.event.inputs.ingestion_mode }}" >> "$GITHUB_OUTPUT"
             echo "bucket_mode=${{ github.event.inputs.bucket_mode }}" >> "$GITHUB_OUTPUT"
+            echo "reset_mode=${{ github.event.inputs.reset_mode }}" >> "$GITHUB_OUTPUT"
           else
             echo "ingestion_mode=clear_ingestions" >> "$GITHUB_OUTPUT"
             echo "bucket_mode=clear_files" >> "$GITHUB_OUTPUT"
+            echo "reset_mode=soft" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Checkout repository
@@ -124,6 +134,10 @@ jobs:
           
           if [ "${{ steps.options.outputs.bucket_mode }}" = "clear_files" ]; then
             CMD="$CMD --clear-bucket"
+          fi
+
+          if [ "${{ steps.options.outputs.reset_mode }}" = "full" ]; then
+            CMD="$CMD --full-reset"
           fi
           
           echo "Running: npx $CMD"

@@ -711,9 +711,6 @@ async function markdownToPdfHtml(markdown, title) {
   const restoredHtml = restore(typeof parsedHtml === "string" ? parsedHtml : "");
   const renderedMarkdown = sanitizeGeneratedHtml(restoredHtml);
   const coverPageHtml = buildCoverPageHtml({ title, markdown });
-  const watermarkSvg = encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300"><text x="50%" y="50%" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700" fill="#800000" fill-opacity="0.08" transform="rotate(-45 150 150)" text-anchor="middle">EXAMARCHIVE</text></svg>`,
-  );
   return [
     "<!doctype html>",
     "<html><head><meta charset=\"utf-8\"/>",
@@ -732,7 +729,7 @@ async function markdownToPdfHtml(markdown, title) {
     "<script id=\"MathJax-script\" async src=\"https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js\"></script>",
     "<style>",
     "@page{size:A4;margin:15mm;}",
-    "body{font-family:'Inter',sans-serif;font-size:12pt;line-height:1.6;color:#231515;padding:0;margin:0;width:100%;box-sizing:border-box;background-image:url(\"data:image/svg+xml," + watermarkSvg + "\");background-size:230px 230px;background-repeat:repeat;}",
+    "body{font-family:'Inter',sans-serif;font-size:12pt;line-height:1.6;color:#231515;padding:0;margin:0;width:100%;box-sizing:border-box;}",
     "main{padding:0;margin:0;width:100%;box-sizing:border-box;}",
     ".cover-page{page-break-after:always;min-height:92vh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:0 12mm;}",
     ".cover-page h1{margin:0 0 16px;border-bottom:none;font-size:34px;letter-spacing:0.04em;color:#800000;}",

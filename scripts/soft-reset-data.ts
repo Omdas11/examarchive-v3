@@ -47,7 +47,11 @@ const QUESTIONS_TABLE_COL_ID = "Questions_Table";
 const AI_INGESTIONS_COL_ID = "ai_ingestions";
 const AI_GENERATION_JOBS_COL_ID = "ai_generation_jobs";
 const SYLLABUS_REGISTRY_COL_ID = "syllabus_registry";
-const PAPERS_BUCKET_ID = process.env.APPWRITE_BUCKET_ID || "papers";
+const AI_USAGE_COL_ID = "ai_usage";
+const USER_QUOTAS_COL_ID = "User_Quotas";
+const PAPERS_COL_ID = "papers";
+const UPLOADS_COL_ID = "uploads";
+const NOTES_BUCKET_ID = process.env.APPWRITE_NOTES_BUCKET_ID || "notes";
 const GHOST_NOTES_BUCKET_ID = "cached-unit-notes";
 const NOTES_MARKDOWN_BUCKETS_TO_CLEAR = [
   GHOST_NOTES_BUCKET_ID,
@@ -365,14 +369,20 @@ async function cleanupGhostCacheRecords(): Promise<void> {
   );
 }
 
-async function softReset(includeIngestions: boolean, clearBucket: boolean): Promise<void> {
+async function softReset(includeIngestions: boolean, clearBucket: boolean, fullReset: boolean): Promise<void> {
   const indexState = await ensureUnitNumberIndex();
   if (indexState === "created") {
     await new Promise((resolve) => setTimeout(resolve, INDEX_BUILD_WAIT_MS));
   }
 
   if (indexState !== "missing_collection") {
-    await cleanupGhostCacheRecords();
+    if (fullReset) {
+      // Full reset: truncate all ai_generation_jobs (not just ghost records).
+      console.log("    [full-reset] Truncating all ai_generation_jobs records.");
+      await truncateCollection(AI_GENERATION_JOBS_COL_ID);
+    } else {
+      await cleanupGhostCacheRecords();
+    }
   }
 
   await deleteLegacySyllabusRegistryCollection();
@@ -393,6 +403,39 @@ async function softReset(includeIngestions: boolean, clearBucket: boolean): Prom
     console.log("    Skipping notes markdown cache bucket cleanup (default behavior).");
   }
 
+  if (fullReset) {
+    console.log("    [full-reset] Truncating user-upload collections and storage buckets for clean launch.");
+
+    // Clear user-submitted papers (collection documents and their stored files).
+    const papersBucketId = process.env.APPWRITE_BUCKET_ID || "papers";
+    console.log(`    [full-reset] Clearing papers bucket: ${papersBucketId}`);
+    await emptyBucket(papersBucketId);
+    console.log("    [full-reset] Truncating papers collection.");
+    await truncateCollection(PAPERS_COL_ID);
+
+    // Clear user-submitted notes files and upload records.
+    console.log(`    [full-reset] Clearing notes bucket: ${NOTES_BUCKET_ID}`);
+    await emptyBucket(NOTES_BUCKET_ID);
+    console.log("    [full-reset] Truncating uploads collection.");
+    await truncateCollection(UPLOADS_COL_ID);
+
+    // Clear daily AI usage counters so quotas start from zero.
+    console.log("    [full-reset] Truncating ai_usage collection.");
+    await truncateCollection(AI_USAGE_COL_ID);
+
+    // Clear per-user quota documents.
+    console.log("    [full-reset] Truncating User_Quotas collection.");
+    await truncateCollection(USER_QUOTAS_COL_ID);
+
+    console.log("✅  Full reset complete. All user-generated content cleared.");
+    console.log("Next steps:");
+    console.log("1) Re-ingest markdown files following docs/MASTER_SYLLABUS_ENTRY.md or docs/MASTER_QUESTION_ENTRY.md.");
+    console.log("   Be sure to include paper metadata (`paper_code`, `paper_type`, and title fields) in frontmatter.");
+    console.log("2) Upload files via the Admin → MD Ingest panel or POST /api/admin/ingest-md.");
+    console.log("3) User accounts and syllabus/question data are preserved.");
+    return;
+  }
+
   console.log("✅  Soft reset complete.");
   console.log("Next steps:");
   console.log("1) Re-ingest markdown files following docs/MASTER_SYLLABUS_ENTRY.md or docs/MASTER_QUESTION_ENTRY.md.");
@@ -402,8 +445,9 @@ async function softReset(includeIngestions: boolean, clearBucket: boolean): Prom
 
 const includeIngestions = !process.argv.includes("--skip-ingestions");
 const clearBucket = process.argv.includes("--clear-bucket");
+const fullReset = process.argv.includes("--full-reset");
 
-softReset(includeIngestions, clearBucket).catch((error) => {
+softReset(includeIngestions, clearBucket, fullReset).catch((error) => {
   console.error("[soft-reset] failed:", error);
   process.exitCode = 1;
 });

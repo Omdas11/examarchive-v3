@@ -151,6 +151,9 @@ export default function NotesUploadForm() {
       formRef.current?.reset();
 
       showToast("Notes uploaded! Redirecting to your profile…", "success");
+      // router.refresh() invalidates the Next.js router cache so the profile page
+      // re-fetches fresh data (updated upload count) instead of serving stale output.
+      router.refresh();
       redirectTimerRef.current = setTimeout(() => router.push("/profile"), 1500);
     } catch (err: unknown) {
       const text = err instanceof Error ? err.message : "Upload failed. Please try again.";

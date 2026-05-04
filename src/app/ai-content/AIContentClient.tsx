@@ -195,6 +195,8 @@ export default function AIContentClient() {
           message: "Generation started successfully. A confirmation email has been sent, and you will receive another email when generation succeeds or fails.",
         });
         showToast(successMessage, "success");
+        // Refresh the electron balance pill in the header after a successful (non-cached) generation.
+        window.dispatchEvent(new Event("focus"));
       }
     } catch (err) {
       const failureMessage = err instanceof DOMException && err.name === "AbortError"
