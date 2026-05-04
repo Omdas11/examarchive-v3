@@ -1092,21 +1092,27 @@ export async function POST(request: NextRequest) {
       });
       notesJobId = dispatched.jobId;
       if (!dispatched.executionTriggered) {
-        try {
-          await rollbackReservedGenerationResources({
-            admin,
-            userId: user.id,
-            counter: "notes_generated_today",
-          });
-        } catch (rollbackError) {
-          console.error("[ai/generate-pdf] Failed to rollback notes reservation on non-dispatch path.", {
-            userId: user.id,
-            jobId: notesJobId,
-            rollbackError,
-          });
-        }
         const normalizedExistingStatus = normalizeJobStatus(dispatched.existingStatus);
         const isCompleted = normalizedExistingStatus === JOB_STATUS_COMPLETED;
+        const shouldRollbackReservation = !isCompleted;
+
+        if (shouldRollbackReservation) {
+          try {
+            await rollbackReservedGenerationResources({
+              admin,
+              userId: user.id,
+              counter: "notes_generated_today",
+            });
+          } catch (rollbackError) {
+            console.error("[ai/generate-pdf] Failed to rollback notes reservation on non-dispatch path.", {
+              userId: user.id,
+              jobId: notesJobId,
+              rollbackError,
+            });
+          }
+        } else if (!admin) {
+          await queueGenerationRecording(user.id, "notes_generated_today");
+        }
         const responseStatus = normalizedExistingStatus || "unknown";
         const shouldAttemptReadyEmail = isCompleted && !dispatched.readyEmailAlreadySent;
         let readyEmailSent = !!dispatched.readyEmailAlreadySent;
@@ -1271,21 +1277,26 @@ export async function POST(request: NextRequest) {
     });
     solvedJobId = dispatched.jobId;
     if (!dispatched.executionTriggered) {
-      try {
-        await rollbackReservedGenerationResources({
-          admin,
-          userId: user.id,
-          counter: "papers_solved_today",
-        });
-      } catch (rollbackError) {
-        console.error("[ai/generate-pdf] Failed to rollback solved-paper reservation on non-dispatch path.", {
-          userId: user.id,
-          jobId: solvedJobId,
-          rollbackError,
-        });
-      }
       const normalizedExistingStatus = normalizeJobStatus(dispatched.existingStatus);
       const isCompleted = normalizedExistingStatus === JOB_STATUS_COMPLETED;
+      const shouldRollbackReservation = !isCompleted;
+      if (shouldRollbackReservation) {
+        try {
+          await rollbackReservedGenerationResources({
+            admin,
+            userId: user.id,
+            counter: "papers_solved_today",
+          });
+        } catch (rollbackError) {
+          console.error("[ai/generate-pdf] Failed to rollback solved-paper reservation on non-dispatch path.", {
+            userId: user.id,
+            jobId: solvedJobId,
+            rollbackError,
+          });
+        }
+      } else if (!admin) {
+        await queueGenerationRecording(user.id, "papers_solved_today");
+      }
       const responseStatus = normalizedExistingStatus || "unknown";
       const shouldAttemptReadyEmail = isCompleted && !dispatched.readyEmailAlreadySent;
       let readyEmailSent = !!dispatched.readyEmailAlreadySent;

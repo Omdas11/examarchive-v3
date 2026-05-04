@@ -9,6 +9,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import ElectronIcon from '@/components/ElectronIcon';
+import { PROFILE_REFRESH_EVENT } from '@/lib/profile-events';
 
 export interface HeaderProps {
   title?: string;
@@ -64,12 +65,17 @@ export default function Header({
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') void loadBalance();
     };
+    const onProfileRefresh = () => {
+      void loadBalance();
+    };
     window.addEventListener('focus', onVisibilityChange);
     document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener(PROFILE_REFRESH_EVENT, onProfileRefresh);
     return () => {
       cancelled = true;
       window.removeEventListener('focus', onVisibilityChange);
       document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener(PROFILE_REFRESH_EVENT, onProfileRefresh);
     };
   }, []);
 

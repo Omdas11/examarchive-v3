@@ -56,7 +56,11 @@ describe("GET /api/files/papers/[fileId]", () => {
 
   beforeEach(() => {
     jest.resetAllMocks();
-    process.env = { ...originalEnv, GOTENBERG_URL: "http://gotenberg.local" };
+    process.env = {
+      ...originalEnv,
+      GOTENBERG_URL: "http://gotenberg.local",
+      GOTENBERG_AUTH_TOKEN: "test-token",
+    };
     mockIsValidSignedPdfDownloadToken.mockReturnValue(true);
   });
 
@@ -67,6 +71,7 @@ describe("GET /api/files/papers/[fileId]", () => {
   it("serves stored PDF directly from papers bucket", async () => {
     mockStorage.getFile.mockResolvedValue({ name: "stored.pdf" });
     mockStorage.getFileDownload.mockResolvedValue(Uint8Array.from([1, 2, 3]));
+    mockDb.listDocuments.mockResolvedValueOnce({ total: 0, documents: [] });
 
     const request = new NextRequest("http://localhost/api/files/papers/file-123?uid=u1&exp=1&token=t1");
     const response = await GET(request, { params: Promise.resolve({ fileId: "file-123" }) });
@@ -74,8 +79,24 @@ describe("GET /api/files/papers/[fileId]", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("Content-Type")).toBe("application/pdf");
     expect(response.headers.get("Content-Disposition")).toContain("attachment;");
-    expect(mockDb.listDocuments).not.toHaveBeenCalled();
+    expect(mockApplyDownloadWatermark).toHaveBeenCalledTimes(1);
     expect(mockRenderMarkdownToPdfBuffer).not.toHaveBeenCalled();
+  });
+
+  it("does not apply download watermark again for AI-generated PDFs in papers bucket", async () => {
+    mockStorage.getFile.mockResolvedValue({ name: "generated.pdf" });
+    mockStorage.getFileDownload.mockResolvedValue(Uint8Array.from([1, 2, 3]));
+    mockDb.listDocuments.mockResolvedValueOnce({
+      total: 1,
+      documents: [{ $id: "job-1", result_file_id: "file-123" }],
+    });
+
+    const request = new NextRequest("http://localhost/api/files/papers/file-123?uid=u1&exp=1&token=t1");
+    const response = await GET(request, { params: Promise.resolve({ fileId: "file-123" }) });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Content-Disposition")).toContain("attachment;");
+    expect(mockApplyDownloadWatermark).not.toHaveBeenCalled();
   });
 
   it("falls back to markdown rendering when papers file is missing", async () => {

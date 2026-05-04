@@ -8,6 +8,7 @@ import {
   MAX_UPLOAD_BYTES,
   type UploadProgress,
 } from "@/lib/appwrite-client";
+import { dispatchProfileRefreshEvent } from "@/lib/profile-events";
 
 type MessageState = { type: "success" | "error"; text: string } | null;
 
@@ -150,8 +151,12 @@ export default function NotesUploadForm() {
       setFileName("");
       formRef.current?.reset();
 
+      dispatchProfileRefreshEvent();
       showToast("Notes uploaded! Redirecting to your profile…", "success");
-      redirectTimerRef.current = setTimeout(() => router.push("/profile"), 1500);
+      redirectTimerRef.current = setTimeout(() => {
+        router.push("/profile");
+        router.refresh();
+      }, 1500);
     } catch (err: unknown) {
       const text = err instanceof Error ? err.message : "Upload failed. Please try again.";
       setMessage({ type: "error", text });

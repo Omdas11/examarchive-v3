@@ -115,9 +115,9 @@ export default async function ProfilePage() {
 
   const db = adminDatabases();
 
-  // `upload_count` in the users collection tracks approved papers (incremented on
-  // approval in the gamification logic). Total submissions (all statuses) are
-  // queried separately from the papers collection.
+  // `upload_count` in the users collection tracks approved uploads (incremented on
+  // approval in moderation/gamification logic). Total submissions (all statuses)
+  // are queried from the uploads collection.
   let usernameLastChanged: string | null = null;
   let approvedCount = 0;
   try {
@@ -128,11 +128,11 @@ export default async function ProfilePage() {
     // ignore – not found or env missing
   }
 
-  // Total papers submitted by this user (all statuses)
+  // Total uploads submitted by this user (all statuses across upload types)
   let totalUploads = 0;
   try {
-    const { total } = await db.listDocuments(DATABASE_ID, COLLECTION.papers, [
-      Query.equal("uploaded_by", user.id),
+    const { total } = await db.listDocuments(DATABASE_ID, COLLECTION.uploads, [
+      Query.equal("user_id", user.id),
       Query.limit(1),
     ]);
     totalUploads = total;

@@ -123,9 +123,9 @@ export async function POST(request: NextRequest) {
     }
 
     const fileUrl = getSyllabusFileUrl(fileId);
+    const db = adminDatabases();
 
     try {
-      const db = adminDatabases();
       await db.createDocument(DATABASE_ID, COLLECTION.syllabus, ID.unique(), {
         university,
         subject,
@@ -152,6 +152,19 @@ export async function POST(request: NextRequest) {
       }
       const message = err instanceof Error ? err.message : String(err);
       return NextResponse.json({ error: message }, { status: 500 });
+    }
+
+    try {
+      await db.createDocument(DATABASE_ID, COLLECTION.uploads, ID.unique(), {
+        user_id: user.id,
+        file_id: fileId,
+        file_name: isDeptSyllabus
+          ? `${subject || department || "Departmental Syllabus"}.pdf`
+          : `${paper_code || "Syllabus"}.pdf`,
+        status: "pending",
+      });
+    } catch (uploadAuditErr) {
+      console.warn("[api/upload/syllabus] Could not write upload audit row:", uploadAuditErr);
     }
 
     void ingestPdfToRag({

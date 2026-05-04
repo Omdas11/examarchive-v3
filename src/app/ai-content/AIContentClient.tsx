@@ -5,6 +5,7 @@ import "katex/dist/katex.min.css";
 import { useToast } from "@/components/ToastContext";
 import CustomDropdown, { type CustomDropdownOption } from "@/components/CustomDropdown";
 import { ELECTRON_SYMBOL, GENERATION_COST_ELECTRONS } from "@/lib/economy";
+import { dispatchProfileRefreshEvent } from "@/lib/profile-events";
 
 const COURSE_TYPES: Record<string, string[]> = {
   FYUG: ["DSC", "DSM", "SEC", "AEC", "VAC", "IDC"],
@@ -190,6 +191,7 @@ export default function AIContentClient() {
         const successMessage = typeof data.message === "string" && data.message
           ? data.message
           : "Your PDF is being generated. We'll email it to you when ready.";
+        dispatchProfileRefreshEvent();
         setGenerationStatus({
           tone: "success",
           message: "Generation started successfully. A confirmation email has been sent, and you will receive another email when generation succeeds or fails.",

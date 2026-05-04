@@ -224,7 +224,7 @@ Before deploying a new prompt version:
 | Low confidence — rejected after review    | Full refund            | "Quality review did not pass. Coins refunded."      |
 | Low confidence — passed after review      | Coins charged on deliver | "Your notes are ready."                            |
 | User-initiated cancel before generation   | Full refund            | "Job cancelled. Coins refunded."                    |
-| Duplicate request (same cache key)        | No charge (cache hit)  | "Returning previous result."                        |
+| Duplicate request (same cache key)        | Charge on completed cache return; no charge while an identical job is still in-flight | "Returning previous result." |
 | Partial output (truncated context)        | Charge at 50%          | "Notes generated with partial source. Review recommended." |
 
 All refund events are logged with job_id, user_id, coins_refunded, and reason.

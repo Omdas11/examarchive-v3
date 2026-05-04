@@ -160,8 +160,8 @@ export async function GET() {
     dbXo = (profile.xo as number) ?? (profile.xp as number) ?? user.xo;
     // Query.limit(1) keeps payload small while still allowing Appwrite to return
     // the collection-level `total` count for the filtered query.
-    const { total } = await db.listDocuments(DATABASE_ID, COLLECTION.papers, [
-      Query.equal("uploaded_by", user.id),
+    const { total } = await db.listDocuments(DATABASE_ID, COLLECTION.uploads, [
+      Query.equal("user_id", user.id),
       Query.limit(1),
     ]);
     total_uploads = total;
