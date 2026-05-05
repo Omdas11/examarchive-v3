@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "./ToastContext";
 import {
@@ -8,6 +8,7 @@ import {
   MAX_UPLOAD_BYTES,
   type UploadProgress,
 } from "@/lib/appwrite-client";
+import { dispatchProfileRefreshEvent } from "@/lib/profile-events";
 
 type MessageState = { type: "success" | "error"; text: string } | null;
 
@@ -60,8 +61,17 @@ export default function UploadForm() {
   const formRef = useRef<HTMLFormElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const startTimeRef = useRef<number>(0);
+  const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
   const { showToast } = useToast();
+
+  useEffect(() => {
+    return () => {
+      if (redirectTimerRef.current !== null) {
+        clearTimeout(redirectTimerRef.current);
+      }
+    };
+  }, []);
 
   /** Keep paper code state in sync to derive exam type hint. */
   const handlePaperCodeChange = useCallback(
@@ -156,8 +166,12 @@ export default function UploadForm() {
       formRef.current?.reset();
 
       // Show success toast and redirect to profile
+      dispatchProfileRefreshEvent();
       showToast("Upload successful! Redirecting to your profile…", "success");
-      setTimeout(() => router.push("/profile"), 1500);
+      redirectTimerRef.current = setTimeout(() => {
+        router.push("/profile");
+        router.refresh();
+      }, 1500);
     } catch (err: unknown) {
       const text = err instanceof Error ? err.message : "Upload failed. Please try again.";
       setMessage({ type: "error", text });

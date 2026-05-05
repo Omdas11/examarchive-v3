@@ -133,11 +133,35 @@ export async function GET(
 
       // Apply watermark only on downloads so inline previews are unaffected.
       if (shouldDownload) {
-        let body: ArrayBuffer;
+        let isAiGeneratedPdf = false;
         try {
-          body = await applyDownloadWatermark(rawFileBuffer as ArrayBuffer);
-        } catch (wmErr) {
-          console.warn("[api/files/papers] Watermark failed; serving original:", wmErr);
+          const matchedJobs = await db.listDocuments(
+            DATABASE_ID,
+            COLLECTION.ai_generation_jobs,
+            [
+              Query.equal("result_file_id", fileId),
+              Query.limit(1),
+            ],
+          );
+          isAiGeneratedPdf = matchedJobs.total > 0 || matchedJobs.documents.length > 0;
+        } catch (lookupErr) {
+          console.warn(
+            "[api/files/papers] Could not determine whether file already has generation watermark; applying download watermark as fallback.",
+            { fileId, error: lookupErr },
+          );
+        }
+
+        let body: ArrayBuffer;
+        if (!isAiGeneratedPdf) {
+          try {
+            body = await applyDownloadWatermark(rawFileBuffer as ArrayBuffer);
+          } catch (wmErr) {
+            console.warn("[api/files/papers] Watermark failed; serving original:", wmErr);
+            body = rawFileBuffer as ArrayBuffer;
+          }
+        } else {
+          // AI-generated PDFs already include an embedded watermark from the generator;
+          // applying the download watermark again causes a visible double watermark.
           body = rawFileBuffer as ArrayBuffer;
         }
         return new NextResponse(body, {

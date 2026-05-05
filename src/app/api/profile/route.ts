@@ -158,13 +158,29 @@ export async function GET() {
     username_last_changed = (profile.username_last_changed as string) ?? null;
     approved_upload_count = (profile.upload_count as number) ?? 0;
     dbXo = (profile.xo as number) ?? (profile.xp as number) ?? user.xo;
-    // Query.limit(1) keeps payload small while still allowing Appwrite to return
-    // the collection-level `total` count for the filtered query.
-    const { total } = await db.listDocuments(DATABASE_ID, COLLECTION.papers, [
-      Query.equal("uploaded_by", user.id),
-      Query.limit(1),
-    ]);
-    total_uploads = total;
+    
+    // Count only moderated uploads (papers + syllabus) to match upload_count logic.
+    // Notes are tracked in uploads but don't increment upload_count, so we count
+    // only approved papers and approved syllabus to get the true moderated upload count.
+    const papersResult = await db.listDocuments(
+      DATABASE_ID,
+      COLLECTION.papers,
+      [
+        Query.equal("uploaded_by", user.id),
+        Query.equal("approved", true),
+        Query.limit(1),
+      ],
+    );
+    const syllabusResult = await db.listDocuments(
+      DATABASE_ID,
+      COLLECTION.syllabus,
+      [
+        Query.equal("uploaded_by", user.id),
+        Query.equal("approved", true),
+        Query.limit(1),
+      ],
+    );
+    total_uploads = (papersResult.total ?? 0) + (syllabusResult.total ?? 0);
   } catch {
     // ignore
   }

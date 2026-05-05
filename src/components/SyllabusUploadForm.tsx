@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import CustomSelect from "./CustomSelect";
 import { useToast } from "./ToastContext";
@@ -11,6 +11,7 @@ import {
 } from "@/lib/appwrite-client";
 import { getAllUniversities, findByPaperCode } from "@/data/syllabus-registry";
 import type { SyllabusRegistryEntry } from "@/data/syllabus-registry";
+import { dispatchProfileRefreshEvent } from "@/lib/profile-events";
 
 type MessageState = { type: "success" | "error"; text: string } | null;
 
@@ -31,8 +32,17 @@ export default function SyllabusUploadForm() {
   const formRef = useRef<HTMLFormElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const startTimeRef = useRef<number>(0);
+  const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
   const { showToast } = useToast();
+
+  useEffect(() => {
+    return () => {
+      if (redirectTimerRef.current !== null) {
+        clearTimeout(redirectTimerRef.current);
+      }
+    };
+  }, []);
 
   /** When paper code changes, auto-resolve metadata from the registry. */
   const handlePaperCodeChange = useCallback(
@@ -126,8 +136,12 @@ export default function SyllabusUploadForm() {
       formRef.current?.reset();
 
       // Show success toast and redirect to profile
+      dispatchProfileRefreshEvent();
       showToast("Syllabus uploaded! Redirecting to your profile…", "success");
-      setTimeout(() => router.push("/profile"), 1500);
+      redirectTimerRef.current = setTimeout(() => {
+        router.push("/profile");
+        router.refresh();
+      }, 1500);
     } catch (err: unknown) {
       const text = err instanceof Error ? err.message : "Upload failed. Please try again.";
       setMessage({ type: "error", text });

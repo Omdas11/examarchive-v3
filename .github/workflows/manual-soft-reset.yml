@@ -25,6 +25,14 @@ on:
         options:
           - keep_files
           - clear_files
+      scope_mode:
+        description: "Reset scope"
+        required: true
+        default: full_launch_reset
+        type: choice
+        options:
+          - full_launch_reset
+          - ingestion_only
 
 jobs:
   soft-reset-data:
@@ -84,9 +92,11 @@ jobs:
             fi
             echo "ingestion_mode=${{ github.event.inputs.ingestion_mode }}" >> "$GITHUB_OUTPUT"
             echo "bucket_mode=${{ github.event.inputs.bucket_mode }}" >> "$GITHUB_OUTPUT"
+            echo "scope_mode=${{ github.event.inputs.scope_mode }}" >> "$GITHUB_OUTPUT"
           else
             echo "ingestion_mode=clear_ingestions" >> "$GITHUB_OUTPUT"
             echo "bucket_mode=clear_files" >> "$GITHUB_OUTPUT"
+            echo "scope_mode=full_launch_reset" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Checkout repository
@@ -125,6 +135,10 @@ jobs:
           if [ "${{ steps.options.outputs.bucket_mode }}" = "clear_files" ]; then
             CMD="$CMD --clear-bucket"
           fi
+
+          if [ "${{ steps.options.outputs.scope_mode }}" = "full_launch_reset" ]; then
+            CMD="$CMD --launch-reset"
+          fi
           
           echo "Running: npx $CMD"
           npx $CMD
@@ -138,7 +152,7 @@ jobs:
           script: |
             const success = process.env.RESET_OUTCOME === "success";
             const body = success
-              ? "✅ Soft-launch cleanup completed: database rows and generated notes markdown cache buckets were cleared."
+              ? "✅ Soft-launch cleanup completed: launch collections/counters were reset and selected markdown cache buckets were cleared."
               : "❌ Soft-launch cleanup failed. Please check workflow logs.";
 
             await github.rest.issues.createComment({

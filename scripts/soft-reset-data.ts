@@ -1,10 +1,14 @@
 /**
- * Soft reset: clears all rows from Syllabus_Table, Questions_Table, and ai_ingestions.
- * Also supports optionally clearing generated notes markdown cache bucket files.
+ * Soft reset utility for launch/data cleanup.
+ * - Base reset clears Syllabus_Table and Questions_Table.
+ * - Optional launch reset additionally clears launch-facing collections and
+ *   resets users/site metrics counters back to zero.
+ * - Optional bucket cleanup clears generated markdown cache buckets.
  *
  * Usage:
  * npx tsx scripts/soft-reset-data.ts
  * npx tsx scripts/soft-reset-data.ts --skip-ingestions --clear-bucket
+ * npx tsx scripts/soft-reset-data.ts --launch-reset --clear-bucket
  *
  * Environment variables required:
  * APPWRITE_API_KEY and either:
@@ -47,6 +51,20 @@ const QUESTIONS_TABLE_COL_ID = "Questions_Table";
 const AI_INGESTIONS_COL_ID = "ai_ingestions";
 const AI_GENERATION_JOBS_COL_ID = "ai_generation_jobs";
 const SYLLABUS_REGISTRY_COL_ID = "syllabus_registry";
+const PAPERS_COL_ID = "papers";
+const SYLLABUS_COL_ID = "syllabus";
+const UPLOADS_COL_ID = "uploads";
+const AI_USAGE_COL_ID = "ai_usage";
+const PDF_USAGE_COL_ID = "pdf_usage";
+const AI_EMBEDDINGS_COL_ID = "ai_embeddings";
+const GENERATED_NOTES_CACHE_COL_ID = "Generated_Notes_Cache";
+const AI_FLASHCARDS_COL_ID = "ai_flashcards";
+const AI_CACHE_INDEX_COL_ID = "ai_cache_index";
+const PURCHASES_COL_ID = "purchases";
+const USER_PASSES_COL_ID = "user_passes";
+const USERS_COL_ID = "users";
+const SITE_METRICS_COL_ID = "site_metrics";
+const SITE_METRICS_DOC_ID = "singleton";
 const PAPERS_BUCKET_ID = process.env.APPWRITE_BUCKET_ID || "papers";
 const GHOST_NOTES_BUCKET_ID = "cached-unit-notes";
 const NOTES_MARKDOWN_BUCKETS_TO_CLEAR = [
@@ -59,6 +77,33 @@ const LIST_PAGE_LIMIT = 100;
 const MAX_TRUNCATION_ITERATIONS = 1000;
 const DELETE_THROTTLE_MS = 20;
 const GHOST_CLEANUP_MAX_NO_PROGRESS_ITERATIONS = 3;
+const BASE_RESET_COLLECTIONS = [SYLLABUS_TABLE_COL_ID, QUESTIONS_TABLE_COL_ID];
+const LAUNCH_RESET_COLLECTIONS = [
+  PAPERS_COL_ID,
+  SYLLABUS_COL_ID,
+  UPLOADS_COL_ID,
+  AI_USAGE_COL_ID,
+  PDF_USAGE_COL_ID,
+  AI_EMBEDDINGS_COL_ID,
+  GENERATED_NOTES_CACHE_COL_ID,
+  AI_FLASHCARDS_COL_ID,
+  AI_CACHE_INDEX_COL_ID,
+  PURCHASES_COL_ID,
+  USER_PASSES_COL_ID,
+  AI_GENERATION_JOBS_COL_ID,
+];
+const USER_COUNTER_FIELDS = [
+  "upload_count",
+  "view_count",
+  "download_count",
+  "xo",
+  "xp",
+  "streak",
+  "streak_days",
+  "ai_credits",
+  "referred_users_count",
+] as const;
+const DEFAULT_SITE_LAUNCH_PROGRESS = 40;
 const DEFAULT_INDEX_BUILD_WAIT_MS = 3000;
 const parsedIndexBuildWaitMs = Number(
   process.env.SOFT_RESET_INDEX_BUILD_WAIT_MS || String(DEFAULT_INDEX_BUILD_WAIT_MS),
@@ -212,6 +257,100 @@ async function truncateCollection(collectionId: string): Promise<void> {
   console.log(`[soft-reset] FINAL: truncated ${collectionId}. ${deleted} doc(s) successfully removed, ${failed} failed.`);
 }
 
+async function truncateCollections(collectionIds: readonly string[]): Promise<void> {
+  for (const collectionId of collectionIds) {
+    await truncateCollection(collectionId);
+  }
+}
+
+async function resetUserCountersToZero(): Promise<void> {
+  try {
+    await databases.getCollection(DB_ID, USERS_COL_ID);
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      console.log(`[soft-reset] skip ${USERS_COL_ID}: collection not found`);
+      return;
+    }
+    throw error;
+  }
+
+  let lastId: string | null = null;
+  let updated = 0;
+  let failed = 0;
+
+  for (let iteration = 0; iteration < MAX_TRUNCATION_ITERATIONS; iteration++) {
+    const queries = [
+      Query.limit(LIST_PAGE_LIMIT),
+      Query.orderAsc("$id"),
+    ];
+    if (lastId) {
+      queries.push(Query.cursorAfter(lastId));
+    }
+    const page = await databases.listDocuments(DB_ID, USERS_COL_ID, queries);
+    if (!Array.isArray(page.documents) || page.documents.length === 0) {
+      break;
+    }
+
+    for (const doc of page.documents) {
+      const update: Record<string, unknown> = {};
+      for (const key of USER_COUNTER_FIELDS) {
+        if (key in doc) update[key] = 0;
+      }
+      if ("last_activity" in doc) {
+        update.last_activity = null;
+      }
+      if (Object.keys(update).length === 0) continue;
+      try {
+        await databases.updateDocument(DB_ID, USERS_COL_ID, doc.$id, update);
+        updated++;
+      } catch (error) {
+        failed++;
+        console.error(`[soft-reset] Failed to zero counters for user ${doc.$id}:`, error);
+      }
+      await new Promise((resolve) => setTimeout(resolve, DELETE_THROTTLE_MS));
+    }
+
+    lastId = page.documents[page.documents.length - 1].$id;
+    if (page.documents.length < LIST_PAGE_LIMIT) break;
+  }
+
+  if (failed > 0) {
+    console.warn(`[soft-reset] reset user counters completed with ${failed} failed profile update(s).`);
+  }
+  console.log(`[soft-reset] reset counters to zero for ${updated} user profile(s).`);
+}
+
+async function resetSiteMetricsToZero(): Promise<void> {
+  try {
+    await databases.getCollection(DB_ID, SITE_METRICS_COL_ID);
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      console.log(`[soft-reset] skip ${SITE_METRICS_COL_ID}: collection not found`);
+      return;
+    }
+    throw error;
+  }
+
+  const payload = {
+    visitor_count: 0,
+  };
+
+  try {
+    await databases.updateDocument(DB_ID, SITE_METRICS_COL_ID, SITE_METRICS_DOC_ID, payload);
+    console.log("[soft-reset] reset site_metrics visitor_count to zero and preserved launch_progress.");
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      await databases.createDocument(DB_ID, SITE_METRICS_COL_ID, SITE_METRICS_DOC_ID, {
+        ...payload,
+        launch_progress: DEFAULT_SITE_LAUNCH_PROGRESS,
+      });
+      console.log("[soft-reset] created site_metrics singleton with default launch_progress.");
+      return;
+    }
+    throw error;
+  }
+}
+
 async function deleteLegacySyllabusRegistryCollection(): Promise<void> {
   try {
     await databases.deleteCollection(DB_ID, SYLLABUS_REGISTRY_COL_ID);
@@ -225,7 +364,7 @@ async function deleteLegacySyllabusRegistryCollection(): Promise<void> {
   }
 }
 
-async function ensureUnitNumberIndex(): Promise<"created" | "exists" | "missing_collection"> {
+async function ensureAiGenerationJobIndexes(): Promise<"created" | "exists" | "missing_collection"> {
   try {
     await databases.getCollection(DB_ID, AI_GENERATION_JOBS_COL_ID);
   } catch (error) {
@@ -238,24 +377,34 @@ async function ensureUnitNumberIndex(): Promise<"created" | "exists" | "missing_
     throw error;
   }
 
-  try {
-    await databases.createIndex(
-      DB_ID,
-      AI_GENERATION_JOBS_COL_ID,
-      "unit_number_idx",
-      IndexType.Key,
-      ["unit_number"],
-      [OrderBy.Asc],
-    );
-    console.log(`[soft-reset] created index unit_number_idx on ${AI_GENERATION_JOBS_COL_ID}.`);
-    return "created";
-  } catch (error) {
-    if (isConflictError(error)) {
-      console.log(`[soft-reset] index unit_number_idx already exists on ${AI_GENERATION_JOBS_COL_ID}.`);
-      return "exists";
+  let createdAny = false;
+  const indexes = [
+    { key: "unit_number_idx", attributes: ["unit_number"] },
+    { key: "result_file_id_idx", attributes: ["result_file_id"] },
+  ];
+
+  for (const index of indexes) {
+    try {
+      await databases.createIndex(
+        DB_ID,
+        AI_GENERATION_JOBS_COL_ID,
+        index.key,
+        IndexType.Key,
+        index.attributes as string[],
+        [OrderBy.Asc],
+      );
+      createdAny = true;
+      console.log(`[soft-reset] created index ${index.key} on ${AI_GENERATION_JOBS_COL_ID}.`);
+    } catch (error) {
+      if (isConflictError(error)) {
+        console.log(`[soft-reset] index ${index.key} already exists on ${AI_GENERATION_JOBS_COL_ID}.`);
+        continue;
+      }
+      throw error;
     }
-    throw error;
   }
+
+  return createdAny ? "created" : "exists";
 }
 
 async function cleanupGhostCacheRecords(): Promise<void> {
@@ -365,8 +514,8 @@ async function cleanupGhostCacheRecords(): Promise<void> {
   );
 }
 
-async function softReset(includeIngestions: boolean, clearBucket: boolean): Promise<void> {
-  const indexState = await ensureUnitNumberIndex();
+async function softReset(includeIngestions: boolean, clearBucket: boolean, launchReset: boolean): Promise<void> {
+  const indexState = await ensureAiGenerationJobIndexes();
   if (indexState === "created") {
     await new Promise((resolve) => setTimeout(resolve, INDEX_BUILD_WAIT_MS));
   }
@@ -376,6 +525,18 @@ async function softReset(includeIngestions: boolean, clearBucket: boolean): Prom
   }
 
   await deleteLegacySyllabusRegistryCollection();
+
+  console.log("    Clearing canonical ingestion tables.");
+  await truncateCollections(BASE_RESET_COLLECTIONS);
+
+  if (launchReset) {
+    console.log("    Launch reset enabled: clearing launch-facing collections and zeroing counters.");
+    await truncateCollections(LAUNCH_RESET_COLLECTIONS);
+    await resetUserCountersToZero();
+    await resetSiteMetricsToZero();
+  } else {
+    console.log("    Launch reset not requested (pass --launch-reset to clear launch-facing collections/counters).");
+  }
 
   if (includeIngestions) {
     console.log("    Clearing ai_ingestions (default behavior).");
@@ -394,16 +555,21 @@ async function softReset(includeIngestions: boolean, clearBucket: boolean): Prom
   }
 
   console.log("✅  Soft reset complete.");
-  console.log("Next steps:");
-  console.log("1) Re-ingest markdown files following docs/MASTER_SYLLABUS_ENTRY.md or docs/MASTER_QUESTION_ENTRY.md.");
-  console.log("   Be sure to include paper metadata (`paper_code`, `paper_type`, and title fields) in frontmatter.");
-  console.log("2) Upload files via the Admin → MD Ingest panel or POST /api/admin/ingest-md.");
+  if (launchReset) {
+    console.log("All configured launch counters and launch-facing collections were reset to zero/empty state.");
+  } else {
+    console.log("Next steps:");
+    console.log("1) Re-ingest markdown files following docs/MASTER_SYLLABUS_ENTRY.md or docs/MASTER_QUESTION_ENTRY.md.");
+    console.log("   Be sure to include paper metadata (`paper_code`, `paper_type`, and title fields) in frontmatter.");
+    console.log("2) Upload files via the Admin → MD Ingest panel or POST /api/admin/ingest-md.");
+  }
 }
 
 const includeIngestions = !process.argv.includes("--skip-ingestions");
 const clearBucket = process.argv.includes("--clear-bucket");
+const launchReset = process.argv.includes("--launch-reset");
 
-softReset(includeIngestions, clearBucket).catch((error) => {
+softReset(includeIngestions, clearBucket, launchReset).catch((error) => {
   console.error("[soft-reset] failed:", error);
   process.exitCode = 1;
 });

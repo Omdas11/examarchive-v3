@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import CustomSelect from "./CustomSelect";
 import { useToast } from "./ToastContext";
@@ -9,6 +9,7 @@ import {
   MAX_UPLOAD_BYTES,
   type UploadProgress,
 } from "@/lib/appwrite-client";
+import { dispatchProfileRefreshEvent } from "@/lib/profile-events";
 
 type MessageState = { type: "success" | "error"; text: string } | null;
 
@@ -27,8 +28,17 @@ export default function DeptSyllabusUploadForm() {
   const [programme, setProgramme] = useState("FYUG");
   const formRef = useRef<HTMLFormElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
   const { showToast } = useToast();
+
+  useEffect(() => {
+    return () => {
+      if (redirectTimerRef.current !== null) {
+        clearTimeout(redirectTimerRef.current);
+      }
+    };
+  }, []);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -102,8 +112,12 @@ export default function DeptSyllabusUploadForm() {
       formRef.current?.reset();
 
       // Show success toast and redirect to profile
+      dispatchProfileRefreshEvent();
       showToast("Departmental syllabus uploaded! Redirecting to your profile…", "success");
-      setTimeout(() => router.push("/profile"), 1500);
+      redirectTimerRef.current = setTimeout(() => {
+        router.push("/profile");
+        router.refresh();
+      }, 1500);
     } catch (err: unknown) {
       const text = err instanceof Error ? err.message : "Upload failed. Please try again.";
       setMessage({ type: "error", text });

@@ -6,6 +6,7 @@ import Header, { type HeaderProps } from './Header';
 import Footer from '@/components/Footer';
 import RightSidebar, { type SidebarProfileResponse } from './RightSidebar';
 import { cn } from '@/lib/utils';
+import { PROFILE_REFRESH_EVENT } from '@/lib/profile-events';
 
 const RIGHT_SIDEBAR_WIDTH = '300px';
 
@@ -60,8 +61,13 @@ export default function MainLayout({
       }
     }
     void loadSidebarProfile();
+    const onProfileRefresh = () => {
+      void loadSidebarProfile();
+    };
+    window.addEventListener(PROFILE_REFRESH_EVENT, onProfileRefresh);
     return () => {
       cancelled = true;
+      window.removeEventListener(PROFILE_REFRESH_EVENT, onProfileRefresh);
     };
   }, [isLoggedIn, showRightColumn]);
 
