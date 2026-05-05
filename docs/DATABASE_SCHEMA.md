@@ -217,7 +217,7 @@ Tracks async AI PDF generation jobs (`POST /api/ai/generate-pdf`) and worker pro
 | `created_at`       | Datetime | **Yes**  | Enqueue timestamp |
 
 **Permissions:** server-side writes, users read only their own jobs via API filtering.  
-**Index recommendation:** `(user_id, $createdAt)`, `(user_id, idempotency_key)` for fast dedupe and history.
+**Index recommendation:** `(user_id, $createdAt)`, `(user_id, idempotency_key)`, and `result_file_id` for watermark lookup.
 
 ---
 

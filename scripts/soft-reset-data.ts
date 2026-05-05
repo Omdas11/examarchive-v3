@@ -103,7 +103,7 @@ const USER_COUNTER_FIELDS = [
   "ai_credits",
   "referred_users_count",
 ] as const;
-const DEFAULT_SITE_LAUNCH_PROGRESS = 0;
+const DEFAULT_SITE_LAUNCH_PROGRESS = 40;
 const DEFAULT_INDEX_BUILD_WAIT_MS = 3000;
 const parsedIndexBuildWaitMs = Number(
   process.env.SOFT_RESET_INDEX_BUILD_WAIT_MS || String(DEFAULT_INDEX_BUILD_WAIT_MS),
@@ -274,13 +274,19 @@ async function resetUserCountersToZero(): Promise<void> {
     throw error;
   }
 
-  let offset = 0;
+  let lastId: string | null = null;
   let updated = 0;
+  let failed = 0;
+
   for (let iteration = 0; iteration < MAX_TRUNCATION_ITERATIONS; iteration++) {
-    const page = await databases.listDocuments(DB_ID, USERS_COL_ID, [
+    const queries = [
       Query.limit(LIST_PAGE_LIMIT),
-      Query.offset(offset),
-    ]);
+      Query.orderAsc("$id"),
+    ];
+    if (lastId) {
+      queries.push(Query.cursorAfter(lastId));
+    }
+    const page = await databases.listDocuments(DB_ID, USERS_COL_ID, queries);
     if (!Array.isArray(page.documents) || page.documents.length === 0) {
       break;
     }
@@ -294,15 +300,23 @@ async function resetUserCountersToZero(): Promise<void> {
         update.last_activity = "";
       }
       if (Object.keys(update).length === 0) continue;
-      await databases.updateDocument(DB_ID, USERS_COL_ID, doc.$id, update);
-      updated++;
+      try {
+        await databases.updateDocument(DB_ID, USERS_COL_ID, doc.$id, update);
+        updated++;
+      } catch (error) {
+        failed++;
+        console.error(`[soft-reset] Failed to zero counters for user ${doc.$id}:`, error);
+      }
       await new Promise((resolve) => setTimeout(resolve, DELETE_THROTTLE_MS));
     }
 
-    offset += page.documents.length;
+    lastId = page.documents[page.documents.length - 1].$id;
     if (page.documents.length < LIST_PAGE_LIMIT) break;
   }
 
+  if (failed > 0) {
+    console.warn(`[soft-reset] reset user counters completed with ${failed} failed profile update(s).`);
+  }
   console.log(`[soft-reset] reset counters to zero for ${updated} user profile(s).`);
 }
 
@@ -319,16 +333,18 @@ async function resetSiteMetricsToZero(): Promise<void> {
 
   const payload = {
     visitor_count: 0,
-    launch_progress: DEFAULT_SITE_LAUNCH_PROGRESS,
   };
 
   try {
     await databases.updateDocument(DB_ID, SITE_METRICS_COL_ID, SITE_METRICS_DOC_ID, payload);
-    console.log("[soft-reset] reset site_metrics singleton counters to zero.");
+    console.log("[soft-reset] reset site_metrics visitor_count to zero and preserved launch_progress.");
   } catch (error) {
     if (isNotFoundError(error)) {
-      await databases.createDocument(DB_ID, SITE_METRICS_COL_ID, SITE_METRICS_DOC_ID, payload);
-      console.log("[soft-reset] created site_metrics singleton with zeroed counters.");
+      await databases.createDocument(DB_ID, SITE_METRICS_COL_ID, SITE_METRICS_DOC_ID, {
+        ...payload,
+        launch_progress: DEFAULT_SITE_LAUNCH_PROGRESS,
+      });
+      console.log("[soft-reset] created site_metrics singleton with default launch_progress.");
       return;
     }
     throw error;
@@ -348,7 +364,7 @@ async function deleteLegacySyllabusRegistryCollection(): Promise<void> {
   }
 }
 
-async function ensureUnitNumberIndex(): Promise<"created" | "exists" | "missing_collection"> {
+async function ensureAiGenerationJobIndexes(): Promise<"created" | "exists" | "missing_collection"> {
   try {
     await databases.getCollection(DB_ID, AI_GENERATION_JOBS_COL_ID);
   } catch (error) {
@@ -361,24 +377,34 @@ async function ensureUnitNumberIndex(): Promise<"created" | "exists" | "missing_
     throw error;
   }
 
-  try {
-    await databases.createIndex(
-      DB_ID,
-      AI_GENERATION_JOBS_COL_ID,
-      "unit_number_idx",
-      IndexType.Key,
-      ["unit_number"],
-      [OrderBy.Asc],
-    );
-    console.log(`[soft-reset] created index unit_number_idx on ${AI_GENERATION_JOBS_COL_ID}.`);
-    return "created";
-  } catch (error) {
-    if (isConflictError(error)) {
-      console.log(`[soft-reset] index unit_number_idx already exists on ${AI_GENERATION_JOBS_COL_ID}.`);
-      return "exists";
+  let createdAny = false;
+  const indexes = [
+    { key: "unit_number_idx", attributes: ["unit_number"] },
+    { key: "result_file_id_idx", attributes: ["result_file_id"] },
+  ];
+
+  for (const index of indexes) {
+    try {
+      await databases.createIndex(
+        DB_ID,
+        AI_GENERATION_JOBS_COL_ID,
+        index.key,
+        IndexType.Key,
+        index.attributes as string[],
+        [OrderBy.Asc],
+      );
+      createdAny = true;
+      console.log(`[soft-reset] created index ${index.key} on ${AI_GENERATION_JOBS_COL_ID}.`);
+    } catch (error) {
+      if (isConflictError(error)) {
+        console.log(`[soft-reset] index ${index.key} already exists on ${AI_GENERATION_JOBS_COL_ID}.`);
+        continue;
+      }
+      throw error;
     }
-    throw error;
   }
+
+  return createdAny ? "created" : "exists";
 }
 
 async function cleanupGhostCacheRecords(): Promise<void> {
@@ -489,7 +515,7 @@ async function cleanupGhostCacheRecords(): Promise<void> {
 }
 
 async function softReset(includeIngestions: boolean, clearBucket: boolean, launchReset: boolean): Promise<void> {
-  const indexState = await ensureUnitNumberIndex();
+  const indexState = await ensureAiGenerationJobIndexes();
   if (indexState === "created") {
     await new Promise((resolve) => setTimeout(resolve, INDEX_BUILD_WAIT_MS));
   }
