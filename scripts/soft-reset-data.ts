@@ -297,7 +297,7 @@ async function resetUserCountersToZero(): Promise<void> {
         if (key in doc) update[key] = 0;
       }
       if ("last_activity" in doc) {
-        update.last_activity = "";
+        update.last_activity = null;
       }
       if (Object.keys(update).length === 0) continue;
       try {
