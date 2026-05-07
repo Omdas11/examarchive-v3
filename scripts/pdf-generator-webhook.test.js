@@ -1317,11 +1317,13 @@ describe("pdf-generator / Wikimedia image enrichment", () => {
   let originalFetch;
   let originalWikimediaEnabled;
   let originalWikimediaMaxImages;
+  let originalWikimediaApiUrl;
 
   beforeEach(() => {
     originalFetch = global.fetch;
     originalWikimediaEnabled = process.env.WIKIMEDIA_IMAGE_INJECTION_ENABLED;
     originalWikimediaMaxImages = process.env.WIKIMEDIA_MAX_IMAGES;
+    originalWikimediaApiUrl = process.env.WIKIMEDIA_API_URL;
     process.env.WIKIMEDIA_IMAGE_INJECTION_ENABLED = "true";
     process.env.WIKIMEDIA_MAX_IMAGES = "3";
   });
@@ -1338,6 +1340,11 @@ describe("pdf-generator / Wikimedia image enrichment", () => {
     } else {
       process.env.WIKIMEDIA_MAX_IMAGES = originalWikimediaMaxImages;
     }
+    if (originalWikimediaApiUrl === undefined) {
+      delete process.env.WIKIMEDIA_API_URL;
+    } else {
+      process.env.WIKIMEDIA_API_URL = originalWikimediaApiUrl;
+    }
     jest.restoreAllMocks();
   });
 
@@ -1353,6 +1360,12 @@ describe("pdf-generator / Wikimedia image enrichment", () => {
       "Thermodynamics",
       "Fourier Transform",
     ]);
+  });
+
+  it("uses WIKIMEDIA_MAX_IMAGES as default limit when limit is omitted", () => {
+    process.env.WIKIMEDIA_MAX_IMAGES = "1";
+    const markdown = "## Topic One\nText\n## Topic Two\nText";
+    expect(extractWikimediaImageQueries(markdown)).toEqual(["Topic One"]);
   });
 
   it("injects FETCH_IMAGE tags below matching headings using Wikimedia API URLs", async () => {
@@ -1381,5 +1394,21 @@ describe("pdf-generator / Wikimedia image enrichment", () => {
     const markdown = "## Topic\nBody";
     expect(await injectWikimediaFetchImageTags(markdown)).toBe(markdown);
     expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("returns original markdown when WIKIMEDIA_API_URL is invalid", async () => {
+    process.env.WIKIMEDIA_API_URL = "not-a-url";
+    global.fetch = jest.fn();
+    const markdown = "## Topic\nBody";
+    expect(await injectWikimediaFetchImageTags(markdown)).toBe(markdown);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("returns original markdown when Wikimedia API returns a non-OK status", async () => {
+    process.env.WIKIMEDIA_API_URL = "https://commons.wikimedia.org/w/api.php";
+    global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 503 });
+    const markdown = "## Topic\nBody";
+    expect(await injectWikimediaFetchImageTags(markdown)).toBe(markdown);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 });
