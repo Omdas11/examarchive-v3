@@ -51,7 +51,9 @@ const FETCH_IMAGE_MAX_BYTES = 5 * 1024 * 1024; // 5 MB per image
 const FETCH_IMAGE_TAG_RE = /\[FETCH_IMAGE:\s*(https?:\/\/[^\]]+?)\s*\]/g;
 const DEFAULT_WIKIMEDIA_API_URL = "https://commons.wikimedia.org/w/api.php";
 const DEFAULT_WIKIMEDIA_REQUEST_TIMEOUT_MS = 8_000;
+// Hard cap keeps Wikimedia lookups bounded (latency + token/buffer pressure).
 const DEFAULT_WIKIMEDIA_MAX_IMAGES = 3;
+const DEFAULT_WIKIMEDIA_QUERY_SUFFIX = "";
 const WIKIMEDIA_ALLOWED_HOSTS = ["upload.wikimedia.org", "*.wikimedia.org", "*.wikipedia.org"];
 const MARKED_FALLBACK_LOG_PREFIX = "[pdf-generator] Falling back to basic markdown parser.";
 const MAX_RANDOM_NAMESPACE_INT = 0x1_0000_0000;
@@ -179,7 +181,7 @@ function splitSyllabusIntoSubTopics(syllabusContent) {
 }
 
 function shouldEnableWikimediaInjection() {
-  const raw = String(process.env.WIKIMEDIA_IMAGE_INJECTION_ENABLED || "true").trim().toLowerCase();
+  const raw = String(process.env.WIKIMEDIA_IMAGE_INJECTION_ENABLED || "false").trim().toLowerCase();
   return raw !== "0" && raw !== "false" && raw !== "no";
 }
 
@@ -195,6 +197,10 @@ function getWikimediaRequestTimeoutMs() {
 function getWikimediaMaxImages() {
   const maxImages = Number(process.env.WIKIMEDIA_MAX_IMAGES);
   return Number.isInteger(maxImages) ? Math.max(0, Math.min(6, maxImages)) : DEFAULT_WIKIMEDIA_MAX_IMAGES;
+}
+
+function getWikimediaQuerySuffix() {
+  return String(process.env.WIKIMEDIA_IMAGE_QUERY_SUFFIX || DEFAULT_WIKIMEDIA_QUERY_SUFFIX).trim();
 }
 
 function normalizeWikimediaQuery(value) {
@@ -227,6 +233,8 @@ function extractWikimediaImageQueries(markdown, limit = getWikimediaMaxImages())
 async function fetchWikimediaImageUrl(query) {
   const normalizedQuery = normalizeWikimediaQuery(query);
   if (!normalizedQuery) return "";
+  const querySuffix = getWikimediaQuerySuffix();
+  const searchQuery = querySuffix ? `${normalizedQuery} ${querySuffix}` : normalizedQuery;
   let apiUrl;
   try {
     apiUrl = new URL(getWikimediaApiUrl());
@@ -240,7 +248,7 @@ async function fetchWikimediaImageUrl(query) {
     format: "json",
     formatversion: "2",
     generator: "search",
-    gsrsearch: `${normalizedQuery} diagram`,
+    gsrsearch: searchQuery,
     gsrnamespace: "6",
     gsrlimit: "3",
     prop: "imageinfo",
@@ -255,7 +263,10 @@ async function fetchWikimediaImageUrl(query) {
       headers: { Accept: "application/json" },
       redirect: "error",
     });
-    if (!response.ok) return "";
+    if (!response.ok) {
+      console.warn(`[pdf-generator] Wikimedia API returned HTTP ${response.status} for query "${normalizedQuery}".`);
+      return "";
+    }
     const payload = await response.json();
     const pages = Array.isArray(payload?.query?.pages) ? payload.query.pages : [];
     for (const page of pages) {

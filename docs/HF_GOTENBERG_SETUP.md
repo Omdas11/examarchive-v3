@@ -35,6 +35,7 @@ WIKIMEDIA_IMAGE_INJECTION_ENABLED=true
 WIKIMEDIA_MAX_IMAGES=3
 WIKIMEDIA_API_URL=https://commons.wikimedia.org/w/api.php
 WIKIMEDIA_REQUEST_TIMEOUT_MS=8000
+WIKIMEDIA_IMAGE_QUERY_SUFFIX=diagram
 ```
 
 In production (Vercel/hosting), set:
@@ -45,6 +46,7 @@ In production (Vercel/hosting), set:
 - `WIKIMEDIA_MAX_IMAGES` = max Wikimedia images per generated PDF (recommended `2-4`)
 - `WIKIMEDIA_API_URL` = Wikimedia API endpoint (default `https://commons.wikimedia.org/w/api.php`)
 - `WIKIMEDIA_REQUEST_TIMEOUT_MS` = timeout for Wikimedia API requests (default `8000`)
+- `WIKIMEDIA_IMAGE_QUERY_SUFFIX` = optional text appended to each heading query (for example `diagram`)
 
 Optional hardening for AI-emitted/manual image tags:
 
@@ -57,6 +59,7 @@ Notes:
 - `GOTENBERG_URL` must point to a trusted Hugging Face Space host (`*.hf.space`).
 - For private Spaces, ensure the token has permission to access the private Space.
 - Wikimedia image enrichment is free and open-source (Wikimedia Commons API + assets).
+- Wikimedia enrichment is opt-in: `WIKIMEDIA_IMAGE_INJECTION_ENABLED` defaults to `false`.
 - The pipeline injects `[FETCH_IMAGE: ...]` tags into generated markdown first, then inlines images as base64 before Gotenberg rendering.
 
 ## 3) Verify from your Next.js app
@@ -82,7 +85,9 @@ Notes:
   - Ensure the Space is not sleeping/failing startup.
 - No images in generated PDF
   - Ensure `WIKIMEDIA_IMAGE_INJECTION_ENABLED=true`.
-  - Increase `WIKIMEDIA_MAX_IMAGES` (for example from `3` to `4`).
+  - Check Appwrite function logs for Wikimedia API HTTP errors/timeouts.
+  - Try setting `WIKIMEDIA_IMAGE_QUERY_SUFFIX=diagram` for more visual matches.
+  - Increase `WIKIMEDIA_MAX_IMAGES` only if images appear for some sections but not enough sections.
   - Confirm your Appwrite Function environment also includes the Wikimedia variables.
 
 ## 5) Keep your Space warm (every 24h)
