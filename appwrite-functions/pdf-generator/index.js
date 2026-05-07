@@ -238,9 +238,17 @@ async function fetchWikimediaImageUrl(query) {
   const searchQuery = querySuffix ? `${normalizedQuery} ${querySuffix}` : normalizedQuery;
   let apiUrl;
   try {
-    apiUrl = new URL(getWikimediaApiUrl());
-  } catch {
-    console.warn("[pdf-generator] Skipping Wikimedia enrichment because WIKIMEDIA_API_URL is invalid.");
+    const rawApiUrl = getWikimediaApiUrl();
+    // Validate the base API URL (enforces HTTPS and checks against allowlist)
+    const safeApiUrl = validateSafeUrl(rawApiUrl, ["commons.wikimedia.org", "*.wikimedia.org"]);
+    apiUrl = new URL(safeApiUrl);
+
+    // Defense-in-depth: ensure it's not a private/internal host
+    if (isPrivateOrInternalHost(apiUrl.hostname)) {
+      throw new Error(`Forbidden Wikimedia API host: ${apiUrl.hostname}`);
+    }
+  } catch (err) {
+    console.warn(`[pdf-generator] Skipping Wikimedia enrichment because WIKIMEDIA_API_URL is invalid or forbidden: ${err.message}`);
     return "";
   }
 
@@ -283,7 +291,12 @@ async function fetchWikimediaImageUrl(query) {
         continue;
       }
     }
-  } catch {
+  } catch (err) {
+    if (err.name === "AbortError" || err.name === "TimeoutError") {
+      console.warn(`[pdf-generator] Wikimedia API request timed out for query "${normalizedQuery}".`);
+    } else {
+      console.warn(`[pdf-generator] Wikimedia API fetch failed for query "${normalizedQuery}": ${err.message}`);
+    }
     return "";
   }
 
