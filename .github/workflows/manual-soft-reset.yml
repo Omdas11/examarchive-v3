@@ -45,7 +45,7 @@ jobs:
       - name: Authorize mobile/issue trigger
         if: github.event_name == 'issue_comment'
         id: guard
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
             const body = String(context.payload.comment?.body || "");
@@ -107,7 +107,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch' || steps.guard.outputs.authorized == 'true'
         uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
         with:
-          node-version: "20"
+          node-version: "24"
           cache: npm
 
       - name: Install dependencies
@@ -145,7 +145,7 @@ jobs:
 
       - name: Post result comment
         if: ${{ always() && github.event_name == 'issue_comment' && steps.guard.outputs.authorized == 'true' }}
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           RESET_OUTCOME: ${{ steps.reset.outcome }}
         with:
