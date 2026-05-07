@@ -31,12 +31,24 @@ In local development (`.env.local`):
 ```bash
 GOTENBERG_URL=https://<username>-<space-name>.hf.space
 GOTENBERG_AUTH_TOKEN=hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+WIKIMEDIA_IMAGE_INJECTION_ENABLED=true
+WIKIMEDIA_MAX_IMAGES=3
+WIKIMEDIA_API_URL=https://commons.wikimedia.org/w/api.php
+WIKIMEDIA_REQUEST_TIMEOUT_MS=8000
 ```
 
 In production (Vercel/hosting), set:
 
 - `GOTENBERG_URL` = your HF Space URL
 - `GOTENBERG_AUTH_TOKEN` = HF token
+- `WIKIMEDIA_IMAGE_INJECTION_ENABLED` = `true` to inject topic images into generated markdown
+- `WIKIMEDIA_MAX_IMAGES` = max Wikimedia images per generated PDF (recommended `2-4`)
+- `WIKIMEDIA_API_URL` = Wikimedia API endpoint (default `https://commons.wikimedia.org/w/api.php`)
+- `WIKIMEDIA_REQUEST_TIMEOUT_MS` = timeout for Wikimedia API requests (default `8000`)
+
+Optional hardening for AI-emitted/manual image tags:
+
+- `FETCH_IMAGE_ALLOWED_HOSTS=upload.wikimedia.org,*.wikimedia.org,*.wikipedia.org`
 
 Notes:
 
@@ -44,6 +56,8 @@ Notes:
 - HTTPS is required.
 - `GOTENBERG_URL` must point to a trusted Hugging Face Space host (`*.hf.space`).
 - For private Spaces, ensure the token has permission to access the private Space.
+- Wikimedia image enrichment is free and open-source (Wikimedia Commons API + assets).
+- The pipeline injects `[FETCH_IMAGE: ...]` tags into generated markdown first, then inlines images as base64 before Gotenberg rendering.
 
 ## 3) Verify from your Next.js app
 
@@ -66,6 +80,10 @@ Notes:
 - Error: Gotenberg non-200 response
   - Check Space build status and logs in Hugging Face.
   - Ensure the Space is not sleeping/failing startup.
+- No images in generated PDF
+  - Ensure `WIKIMEDIA_IMAGE_INJECTION_ENABLED=true`.
+  - Increase `WIKIMEDIA_MAX_IMAGES` (for example from `3` to `4`).
+  - Confirm your Appwrite Function environment also includes the Wikimedia variables.
 
 ## 5) Keep your Space warm (every 24h)
 

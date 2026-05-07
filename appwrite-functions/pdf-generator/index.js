@@ -49,6 +49,10 @@ const MAX_SAFE_PDF_FILENAME_CORE_LENGTH = 120;
 const FETCH_IMAGE_TIMEOUT_MS = 10_000;
 const FETCH_IMAGE_MAX_BYTES = 5 * 1024 * 1024; // 5 MB per image
 const FETCH_IMAGE_TAG_RE = /\[FETCH_IMAGE:\s*(https?:\/\/[^\]]+?)\s*\]/g;
+const DEFAULT_WIKIMEDIA_API_URL = "https://commons.wikimedia.org/w/api.php";
+const DEFAULT_WIKIMEDIA_REQUEST_TIMEOUT_MS = 8_000;
+const DEFAULT_WIKIMEDIA_MAX_IMAGES = 3;
+const WIKIMEDIA_ALLOWED_HOSTS = ["upload.wikimedia.org", "*.wikimedia.org", "*.wikipedia.org"];
 const MARKED_FALLBACK_LOG_PREFIX = "[pdf-generator] Falling back to basic markdown parser.";
 const MAX_RANDOM_NAMESPACE_INT = 0x1_0000_0000;
 
@@ -172,6 +176,146 @@ function splitSyllabusIntoSubTopics(syllabusContent) {
     .split(/(?:(?<=[.;])\s*|\n{2,})/)
     .map((part) => part.replace(/\s+/g, " ").trim())
     .filter(Boolean);
+}
+
+function shouldEnableWikimediaInjection() {
+  const raw = String(process.env.WIKIMEDIA_IMAGE_INJECTION_ENABLED || "true").trim().toLowerCase();
+  return raw !== "0" && raw !== "false" && raw !== "no";
+}
+
+function getWikimediaApiUrl() {
+  return String(process.env.WIKIMEDIA_API_URL || DEFAULT_WIKIMEDIA_API_URL).trim();
+}
+
+function getWikimediaRequestTimeoutMs() {
+  const timeoutMs = Number(process.env.WIKIMEDIA_REQUEST_TIMEOUT_MS);
+  return Number.isFinite(timeoutMs) ? Math.max(1_000, timeoutMs) : DEFAULT_WIKIMEDIA_REQUEST_TIMEOUT_MS;
+}
+
+function getWikimediaMaxImages() {
+  const maxImages = Number(process.env.WIKIMEDIA_MAX_IMAGES);
+  return Number.isInteger(maxImages) ? Math.max(0, Math.min(6, maxImages)) : DEFAULT_WIKIMEDIA_MAX_IMAGES;
+}
+
+function normalizeWikimediaQuery(value) {
+  return String(value || "")
+    .replace(/`+/g, "")
+    .replace(/\[[^\]]*?\]\([^)]+\)/g, "")
+    .replace(/[>*_~#]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractWikimediaImageQueries(markdown, limit = getWikimediaMaxImages()) {
+  if (!Number.isFinite(limit) || limit <= 0) return [];
+  const lines = String(markdown || "").replace(/\r\n/g, "\n").split("\n");
+  const seen = new Set();
+  const queries = [];
+  for (const line of lines) {
+    const headingMatch = line.trim().match(/^##\s+(.+)$/);
+    if (!headingMatch) continue;
+    const query = normalizeWikimediaQuery(headingMatch[1]);
+    if (!query || /^syllabus highlights$/i.test(query)) continue;
+    if (seen.has(query.toLowerCase())) continue;
+    seen.add(query.toLowerCase());
+    queries.push(query);
+    if (queries.length >= limit) break;
+  }
+  return queries;
+}
+
+async function fetchWikimediaImageUrl(query) {
+  const normalizedQuery = normalizeWikimediaQuery(query);
+  if (!normalizedQuery) return "";
+  let apiUrl;
+  try {
+    apiUrl = new URL(getWikimediaApiUrl());
+  } catch {
+    console.warn("[pdf-generator] Skipping Wikimedia enrichment because WIKIMEDIA_API_URL is invalid.");
+    return "";
+  }
+
+  apiUrl.search = new URLSearchParams({
+    action: "query",
+    format: "json",
+    formatversion: "2",
+    generator: "search",
+    gsrsearch: `${normalizedQuery} diagram`,
+    gsrnamespace: "6",
+    gsrlimit: "3",
+    prop: "imageinfo",
+    iiprop: "url|mime",
+    redirects: "1",
+    origin: "*",
+  }).toString();
+
+  try {
+    const response = await fetch(apiUrl, {
+      signal: AbortSignal.timeout(getWikimediaRequestTimeoutMs()),
+      headers: { Accept: "application/json" },
+      redirect: "error",
+    });
+    if (!response.ok) return "";
+    const payload = await response.json();
+    const pages = Array.isArray(payload?.query?.pages) ? payload.query.pages : [];
+    for (const page of pages) {
+      const url = String(page?.imageinfo?.[0]?.url || "").trim();
+      if (!url) continue;
+      try {
+        const safeUrl = validateSafeUrl(url, WIKIMEDIA_ALLOWED_HOSTS);
+        const host = new URL(safeUrl).hostname;
+        if (!isPrivateOrInternalHost(host)) {
+          return safeUrl;
+        }
+      } catch {
+        continue;
+      }
+    }
+  } catch {
+    return "";
+  }
+
+  return "";
+}
+
+async function injectWikimediaFetchImageTags(markdown) {
+  const source = String(markdown || "");
+  const maxImages = getWikimediaMaxImages();
+  if (!source.trim()) return source;
+  if (!shouldEnableWikimediaInjection() || maxImages <= 0) return source;
+
+  const queries = extractWikimediaImageQueries(source, maxImages);
+  if (queries.length === 0) return source;
+
+  const queryToImageUrl = new Map();
+  await Promise.all(
+    queries.map(async (query) => {
+      const imageUrl = await fetchWikimediaImageUrl(query);
+      if (imageUrl) {
+        queryToImageUrl.set(query.toLowerCase(), imageUrl);
+      }
+    }),
+  );
+  if (queryToImageUrl.size === 0) return source;
+
+  const lines = source.replace(/\r\n/g, "\n").split("\n");
+  const usedImageUrls = new Set();
+  let inserted = 0;
+  const outputLines = [];
+  for (const line of lines) {
+    outputLines.push(line);
+    if (inserted >= maxImages) continue;
+    const headingMatch = line.trim().match(/^##\s+(.+)$/);
+    if (!headingMatch) continue;
+    const query = normalizeWikimediaQuery(headingMatch[1]);
+    const imageUrl = queryToImageUrl.get(query.toLowerCase());
+    if (!imageUrl || usedImageUrls.has(imageUrl)) continue;
+    usedImageUrls.add(imageUrl);
+    outputLines.push("", `[FETCH_IMAGE: ${imageUrl}]`, "");
+    inserted += 1;
+  }
+
+  return outputLines.join("\n");
 }
 
 function markdownToBasicHtml(markdown) {
@@ -1681,6 +1825,7 @@ async function processGenerationJob(rawInput, options = {}) {
       } else {
         markdown = await generateSolvedPaperPayload(db, payload);
       }
+      markdown = await injectWikimediaFetchImageTags(markdown);
       // Resolve [FETCH_IMAGE: <url>] tags to inline base64 data URIs before
       // caching so that the stored markdown is self-contained and cache hits
       // never need to re-fetch the images.
@@ -1805,3 +1950,5 @@ module.exports.validateSafeUrl = validateSafeUrl;
 module.exports.getAllowedWebhookHosts = getAllowedWebhookHosts;
 module.exports.resolveFetchImageTags = resolveFetchImageTags;
 module.exports.isPrivateOrInternalHost = isPrivateOrInternalHost;
+module.exports.extractWikimediaImageQueries = extractWikimediaImageQueries;
+module.exports.injectWikimediaFetchImageTags = injectWikimediaFetchImageTags;
