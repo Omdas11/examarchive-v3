@@ -54,6 +54,8 @@ const {
   getAllowedWebhookHosts,
   resolveFetchImageTags,
   isPrivateOrInternalHost,
+  extractWikimediaImageQueries,
+  injectWikimediaFetchImageTags,
 } = require("../appwrite-functions/pdf-generator/index.js");
 
 describe("pdf-generator / validateSafeUrl", () => {
@@ -1308,5 +1310,204 @@ describe("pdf-generator / resolveFetchImageTags", () => {
     const result = await resolveFetchImageTags(md);
     const b64 = fakeBytes.toString("base64");
     expect(result).toBe(`![image](data:image/webp;base64,${b64})`);
+  });
+});
+
+describe("pdf-generator / Wikimedia image enrichment", () => {
+  let originalFetch;
+  let originalWikimediaEnabled;
+  let originalWikimediaMaxImages;
+  let originalWikimediaApiUrl;
+
+  beforeEach(() => {
+    originalFetch = global.fetch;
+    originalWikimediaEnabled = process.env.WIKIMEDIA_IMAGE_INJECTION_ENABLED;
+    originalWikimediaMaxImages = process.env.WIKIMEDIA_MAX_IMAGES;
+    originalWikimediaApiUrl = process.env.WIKIMEDIA_API_URL;
+    process.env.WIKIMEDIA_IMAGE_INJECTION_ENABLED = "true";
+    process.env.WIKIMEDIA_MAX_IMAGES = "3";
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+    if (originalWikimediaEnabled === undefined) {
+      delete process.env.WIKIMEDIA_IMAGE_INJECTION_ENABLED;
+    } else {
+      process.env.WIKIMEDIA_IMAGE_INJECTION_ENABLED = originalWikimediaEnabled;
+    }
+    if (originalWikimediaMaxImages === undefined) {
+      delete process.env.WIKIMEDIA_MAX_IMAGES;
+    } else {
+      process.env.WIKIMEDIA_MAX_IMAGES = originalWikimediaMaxImages;
+    }
+    if (originalWikimediaApiUrl === undefined) {
+      delete process.env.WIKIMEDIA_API_URL;
+    } else {
+      process.env.WIKIMEDIA_API_URL = originalWikimediaApiUrl;
+    }
+    jest.restoreAllMocks();
+  });
+
+  it("extracts unique level-2 heading queries and skips syllabus highlights", () => {
+    const markdown = [
+      "## Syllabus Highlights",
+      "## Thermodynamics",
+      "### Sub heading",
+      "## Thermodynamics",
+      "## Fourier Transform",
+    ].join("\n");
+    expect(extractWikimediaImageQueries(markdown, 5)).toEqual([
+      "Thermodynamics",
+      "Fourier Transform",
+    ]);
+  });
+
+  it("uses WIKIMEDIA_MAX_IMAGES as default limit when limit is omitted", () => {
+    process.env.WIKIMEDIA_MAX_IMAGES = "1";
+    const markdown = "## Topic One\nText\n## Topic Two\nText";
+    expect(extractWikimediaImageQueries(markdown)).toEqual(["Topic One"]);
+  });
+
+  it("injects FETCH_IMAGE tags below matching headings using Wikimedia API URLs", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        query: {
+          pages: [
+            { imageinfo: [{ url: "https://upload.wikimedia.org/example-topic.png" }] },
+          ],
+        },
+      }),
+    });
+
+    const markdown = "## Topic One\nDetails\n\n## Topic Two\nMore details";
+    const enriched = await injectWikimediaFetchImageTags(markdown);
+
+    expect(enriched).toContain("## Topic One\n\n[FETCH_IMAGE: https://upload.wikimedia.org/example-topic.png]");
+    expect(enriched).toContain("## Topic Two");
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("returns original markdown when enrichment is disabled", async () => {
+    process.env.WIKIMEDIA_IMAGE_INJECTION_ENABLED = "false";
+    global.fetch = jest.fn();
+    const markdown = "## Topic\nBody";
+    expect(await injectWikimediaFetchImageTags(markdown)).toBe(markdown);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("returns original markdown when WIKIMEDIA_API_URL is invalid, non-HTTPS, or forbidden", async () => {
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    global.fetch = jest.fn();
+    const markdown = "## Topic\nBody";
+
+    // Invalid URL
+    process.env.WIKIMEDIA_API_URL = "not-a-url";
+    expect(await injectWikimediaFetchImageTags(markdown)).toBe(markdown);
+    expect(warnSpy).toHaveBeenLastCalledWith(expect.stringContaining("WIKIMEDIA_API_URL is invalid or forbidden"));
+
+    // Non-HTTPS
+    process.env.WIKIMEDIA_API_URL = "http://commons.wikimedia.org/w/api.php";
+    expect(await injectWikimediaFetchImageTags(markdown)).toBe(markdown);
+    expect(warnSpy).toHaveBeenLastCalledWith(expect.stringContaining("Only HTTPS is allowed"));
+
+    // Forbidden host
+    process.env.WIKIMEDIA_API_URL = "https://malicious.com/api";
+    expect(await injectWikimediaFetchImageTags(markdown)).toBe(markdown);
+    expect(warnSpy).toHaveBeenLastCalledWith(expect.stringContaining("Forbidden host"));
+
+    // Private host
+    process.env.WIKIMEDIA_API_URL = "https://localhost/api";
+    expect(await injectWikimediaFetchImageTags(markdown)).toBe(markdown);
+    expect(warnSpy).toHaveBeenLastCalledWith(expect.stringContaining("Forbidden host: localhost"));
+
+    expect(global.fetch).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
+  it("returns original markdown and logs warning when Wikimedia API returns a non-OK status", async () => {
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    process.env.WIKIMEDIA_API_URL = "https://commons.wikimedia.org/w/api.php";
+    global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 503 });
+    const markdown = "## Topic\nBody";
+    expect(await injectWikimediaFetchImageTags(markdown)).toBe(markdown);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("Wikimedia API returned HTTP 503"));
+    warnSpy.mockRestore();
+  });
+
+  it("handles Wikimedia API timeouts gracefully with logging", async () => {
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    process.env.WIKIMEDIA_API_URL = "https://commons.wikimedia.org/w/api.php";
+    const timeoutError = new Error("The operation was aborted");
+    timeoutError.name = "AbortError";
+    global.fetch = jest.fn().mockRejectedValue(timeoutError);
+
+    const markdown = "## Topic\nBody";
+    expect(await injectWikimediaFetchImageTags(markdown)).toBe(markdown);
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("Wikimedia API request timed out"));
+    warnSpy.mockRestore();
+  });
+
+  it("handles Wikimedia API network errors gracefully with logging", async () => {
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    process.env.WIKIMEDIA_API_URL = "https://commons.wikimedia.org/w/api.php";
+    global.fetch = jest.fn().mockRejectedValue(new Error("Network failure"));
+
+    const markdown = "## Topic\nBody";
+    expect(await injectWikimediaFetchImageTags(markdown)).toBe(markdown);
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("Wikimedia API fetch failed"));
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("Network failure"));
+    warnSpy.mockRestore();
+  });
+
+  it("skips images that fail validation or are on private hosts", async () => {
+    process.env.WIKIMEDIA_API_URL = "https://commons.wikimedia.org/w/api.php";
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        query: {
+          pages: [
+            { imageinfo: [{ url: "http://insecure.com/img.png" }] }, // non-HTTPS
+            { imageinfo: [{ url: "https://localhost/img.png" }] },   // private
+            { imageinfo: [{ url: "https://other.com/img.png" }] },       // forbidden host
+            { imageinfo: [{ url: "https://upload.wikimedia.org/valid.png" }] }, // valid
+          ],
+        },
+      }),
+    });
+
+    const markdown = "## Topic\nBody";
+    const enriched = await injectWikimediaFetchImageTags(markdown);
+    expect(enriched).toContain("[FETCH_IMAGE: https://upload.wikimedia.org/valid.png]");
+    expect(enriched).not.toContain("insecure.com");
+    expect(enriched).not.toContain("localhost");
+    expect(enriched).not.toContain("other.com");
+  });
+
+  it("handles empty or malformed Wikimedia API responses", async () => {
+    process.env.WIKIMEDIA_API_URL = "https://commons.wikimedia.org/w/api.php";
+    const markdown = "## Topic\nBody";
+
+    // No pages
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ query: { pages: [] } }),
+    });
+    expect(await injectWikimediaFetchImageTags(markdown)).toBe(markdown);
+
+    // Missing query
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({}),
+    });
+    expect(await injectWikimediaFetchImageTags(markdown)).toBe(markdown);
+
+    // Missing imageinfo
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ query: { pages: [{ title: "File:Test.jpg" }] } }),
+    });
+    expect(await injectWikimediaFetchImageTags(markdown)).toBe(markdown);
   });
 });
