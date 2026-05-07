@@ -45,8 +45,8 @@ In production (Vercel/hosting), set:
 - `WIKIMEDIA_IMAGE_INJECTION_ENABLED` = `true` to inject topic images into generated markdown
 - `WIKIMEDIA_MAX_IMAGES` = max Wikimedia images per generated PDF (recommended `2-4`)
 - `WIKIMEDIA_API_URL` = Wikimedia API endpoint (default `https://commons.wikimedia.org/w/api.php`)
-- `WIKIMEDIA_REQUEST_TIMEOUT_MS` = timeout for Wikimedia API requests (default `8000`)
-- `WIKIMEDIA_IMAGE_QUERY_SUFFIX` = optional text appended to each heading query (for example `diagram`)
+- `WIKIMEDIA_REQUEST_TIMEOUT_MS` = timeout for Wikimedia API requests in milliseconds (default `8000`, minimum `1000`)
+- `WIKIMEDIA_IMAGE_QUERY_SUFFIX` = optional text appended after a space to each heading query (for example `diagram`)
 
 Optional hardening for AI-emitted/manual image tags:
 

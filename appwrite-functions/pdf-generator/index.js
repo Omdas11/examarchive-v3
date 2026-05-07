@@ -196,6 +196,7 @@ function getWikimediaRequestTimeoutMs() {
 
 function getWikimediaMaxImages() {
   const maxImages = Number(process.env.WIKIMEDIA_MAX_IMAGES);
+  // Absolute max is 6 images per document to bound outbound calls and PDF payload size.
   return Number.isInteger(maxImages) ? Math.max(0, Math.min(6, maxImages)) : DEFAULT_WIKIMEDIA_MAX_IMAGES;
 }
 
