@@ -20,7 +20,7 @@ jobs:
     steps:
       - name: Validate commenter and resolve PR head
         id: guard
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
             const association = context.payload.comment.author_association;
@@ -92,7 +92,7 @@ jobs:
 
       - name: Post result comment
         if: ${{ always() && steps.guard.outputs.authorized == 'true' }}
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           SYNC_OUTCOME: ${{ steps.sync.outcome }}
         with:
