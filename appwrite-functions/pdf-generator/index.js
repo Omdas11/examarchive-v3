@@ -741,7 +741,7 @@ async function resolveFetchImageTags(markdown) {
         }
 
         // Cheap early checks before reading the body
-        const contentType = response.headers.get("content-type") || "image/png";
+        const contentType = response.headers.get("content-type") || "image/jpeg";
         const mimeType = contentType.split(";")[0].trim().toLowerCase();
         if (!mimeType.startsWith("image/")) {
           context.log(
