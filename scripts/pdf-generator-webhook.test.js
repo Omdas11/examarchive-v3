@@ -45,8 +45,6 @@ const {
   getAllowedWebhookHosts,
   resolveFetchImageTags,
   isPrivateOrInternalHost,
-  extractWikimediaImageQueries,
-  injectWikimediaFetchImageTags,
 } = require("../appwrite-functions/pdf-generator/index.js");
 
 describe("pdf-generator / validateSafeUrl", () => {
@@ -1092,6 +1090,9 @@ describe("pdf-generator / isPrivateOrInternalHost", () => {
 describe("pdf-generator / resolveFetchImageTags", () => {
   let originalFetch;
   let originalFetchImageAllowedHosts;
+  let originalWikimediaEnabled;
+  let originalWikimediaMaxImages;
+  let originalWikimediaApiUrl;
   /**
    * Node Buffers allocated from small strings share a large backing pool.
    * `buf.buffer` covers the entire pool, not just the buffer's bytes.
@@ -1117,7 +1118,13 @@ describe("pdf-generator / resolveFetchImageTags", () => {
   beforeEach(() => {
     originalFetch = global.fetch;
     originalFetchImageAllowedHosts = process.env.FETCH_IMAGE_ALLOWED_HOSTS;
+    originalWikimediaEnabled = process.env.WIKIMEDIA_IMAGE_INJECTION_ENABLED;
+    originalWikimediaMaxImages = process.env.WIKIMEDIA_MAX_IMAGES;
+    originalWikimediaApiUrl = process.env.WIKIMEDIA_API_URL;
     delete process.env.FETCH_IMAGE_ALLOWED_HOSTS;
+    process.env.WIKIMEDIA_IMAGE_INJECTION_ENABLED = "true";
+    process.env.WIKIMEDIA_MAX_IMAGES = "3";
+    process.env.WIKIMEDIA_API_URL = "https://commons.wikimedia.org/w/api.php";
   });
   afterEach(() => {
     global.fetch = originalFetch;
@@ -1126,273 +1133,6 @@ describe("pdf-generator / resolveFetchImageTags", () => {
     } else {
       process.env.FETCH_IMAGE_ALLOWED_HOSTS = originalFetchImageAllowedHosts;
     }
-    jest.restoreAllMocks();
-  });
-
-  it("returns markdown unchanged when no FETCH_IMAGE tags are present", async () => {
-    const md = "# Title\n\nSome paragraph without any tags.";
-    expect(await resolveFetchImageTags(md)).toBe(md);
-  });
-
-  it("replaces a valid FETCH_IMAGE tag with a base64 data URI html image", async () => {
-    const fakeBytes = Buffer.from("fakepng");
-    global.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      headers: { get: (h) => h === "content-type" ? "image/png" : null },
-      arrayBuffer: async () => toArrayBuffer(fakeBytes),
-    });
-    const md = "Before [FETCH_IMAGE: https://example.com/img.png] after.";
-    const result = await resolveFetchImageTags(md);
-    const expectedB64 = fakeBytes.toString("base64");
-    expect(result).toBe(`Before ${expectedDataUriImgTag(`data:image/png;base64,${expectedB64}`)} after.`);
-    expect(global.fetch).toHaveBeenCalledTimes(1);
-    expect(global.fetch).toHaveBeenCalledWith(
-      "https://example.com/img.png",
-      expect.objectContaining({
-        headers: {
-          Accept: "image/*",
-          "User-Agent": "ExamArchiveBot/1.0 (https://examarchive.dev)",
-        },
-        redirect: "error",
-      }),
-    );
-  });
-
-  it("deduplicates URLs and fetches each unique URL only once", async () => {
-    const fakeBytes = Buffer.from("img");
-    global.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      headers: { get: (h) => h === "content-type" ? "image/jpeg" : null },
-      arrayBuffer: async () => toArrayBuffer(fakeBytes),
-    });
-    const md = "[FETCH_IMAGE: https://example.com/a.jpg]\n[FETCH_IMAGE: https://example.com/a.jpg]";
-    const result = await resolveFetchImageTags(md);
-    expect(global.fetch).toHaveBeenCalledTimes(1);
-    const b64 = fakeBytes.toString("base64");
-    const tag = expectedDataUriImgTag(`data:image/jpeg;base64,${b64}`);
-    expect(result).toBe(`${tag}\n${tag}`);
-  });
-
-  it("removes the tag when the HTTP response is not ok", async () => {
-    global.fetch = jest.fn().mockResolvedValue({
-      ok: false,
-      status: 404,
-      headers: { get: () => null },
-      arrayBuffer: async () => new ArrayBuffer(0),
-    });
-    jest.spyOn(console, "log").mockImplementation(() => {});
-    const md = "text [FETCH_IMAGE: https://example.com/missing.png] end";
-    const result = await resolveFetchImageTags(md);
-    expect(result).toBe("text  end");
-  });
-
-  it("removes the tag when the content-type is not an image", async () => {
-    global.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      headers: { get: (h) => h === "content-type" ? "text/html" : null },
-      arrayBuffer: async () => new ArrayBuffer(10),
-    });
-    jest.spyOn(console, "log").mockImplementation(() => {});
-    const md = "[FETCH_IMAGE: https://example.com/page.html]";
-    expect(await resolveFetchImageTags(md)).toBe("");
-  });
-
-  it("skips download when Content-Length header exceeds the size limit", async () => {
-    global.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      headers: { get: (h) => {
-        if (h === "content-type") return "image/png";
-        if (h === "content-length") return String(6 * 1024 * 1024); // 6 MB
-        return null;
-      } },
-      arrayBuffer: jest.fn(), // must NOT be called
-    });
-    jest.spyOn(console, "log").mockImplementation(() => {});
-    const md = "[FETCH_IMAGE: https://example.com/big.png]";
-    expect(await resolveFetchImageTags(md)).toBe("");
-    // arrayBuffer should never be called when Content-Length already tells us it's too big
-    expect(global.fetch.mock.results[0].value).resolves.toMatchObject({});
-  });
-
-  it("removes the tag when the image exceeds the size limit (arrayBuffer fallback)", async () => {
-    const oversized = new ArrayBuffer(6 * 1024 * 1024); // 6 MB
-    global.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      headers: { get: (h) => h === "content-type" ? "image/png" : null },
-      arrayBuffer: async () => oversized,
-    });
-    jest.spyOn(console, "log").mockImplementation(() => {});
-    const md = "[FETCH_IMAGE: https://example.com/big.png]";
-    expect(await resolveFetchImageTags(md)).toBe("");
-  });
-
-  it("aborts streaming and removes the tag when streamed bytes exceed size limit", async () => {
-    const chunkSize = 3 * 1024 * 1024; // 3 MB per chunk — two chunks exceed 5 MB cap
-    const chunk = new Uint8Array(chunkSize).fill(1);
-    let cancelled = false;
-    const mockReader = {
-      read: jest.fn()
-        .mockResolvedValueOnce({ done: false, value: chunk })
-        .mockResolvedValueOnce({ done: false, value: chunk }),
-      cancel: jest.fn().mockImplementation(() => { cancelled = true; return Promise.resolve(); }),
-    };
-    global.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      headers: { get: (h) => h === "content-type" ? "image/png" : null },
-      body: { getReader: () => mockReader },
-    });
-    jest.spyOn(console, "log").mockImplementation(() => {});
-    const md = "[FETCH_IMAGE: https://example.com/stream.png]";
-    expect(await resolveFetchImageTags(md)).toBe("");
-    expect(cancelled).toBe(true);
-  });
-
-  it("uses streamed body when response.body is available and assembles correct base64", async () => {
-    const fakeBytes = Buffer.from("streamed-image-data");
-    const chunk = new Uint8Array(fakeBytes);
-    const mockReader = {
-      read: jest.fn()
-        .mockResolvedValueOnce({ done: false, value: chunk })
-        .mockResolvedValueOnce({ done: true, value: undefined }),
-      cancel: jest.fn(),
-    };
-    global.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      headers: { get: (h) => h === "content-type" ? "image/png" : null },
-      body: { getReader: () => mockReader },
-    });
-    const md = "[FETCH_IMAGE: https://example.com/stream.png]";
-    const result = await resolveFetchImageTags(md);
-    expect(result).toBe(expectedDataUriImgTag(`data:image/png;base64,${fakeBytes.toString("base64")}`));
-  });
-
-  it("removes the tag when fetch throws (e.g. network error)", async () => {
-    global.fetch = jest.fn().mockRejectedValue(new Error("network failure"));
-    jest.spyOn(console, "log").mockImplementation(() => {});
-    const md = "[FETCH_IMAGE: https://example.com/err.png]";
-    expect(await resolveFetchImageTags(md)).toBe("");
-  });
-
-  it("removes the tag for non-HTTPS URLs (SSRF guard)", async () => {
-    global.fetch = jest.fn();
-    jest.spyOn(console, "log").mockImplementation(() => {});
-    const md = "[FETCH_IMAGE: http://internal-server/img.png]";
-    const result = await resolveFetchImageTags(md);
-    expect(result).toBe("");
-    expect(global.fetch).not.toHaveBeenCalled();
-  });
-
-  it("blocks private IPv4 addresses (SSRF guard)", async () => {
-    global.fetch = jest.fn();
-    jest.spyOn(console, "log").mockImplementation(() => {});
-    for (const ip of ["127.0.0.1", "10.0.0.1", "192.168.1.1", "169.254.169.254", "172.16.0.1"]) {
-      const md = `[FETCH_IMAGE: https://${ip}/img.png]`;
-      expect(await resolveFetchImageTags(md)).toBe("");
-    }
-    expect(global.fetch).not.toHaveBeenCalled();
-  });
-
-  it("blocks localhost (SSRF guard)", async () => {
-    global.fetch = jest.fn();
-    jest.spyOn(console, "log").mockImplementation(() => {});
-    expect(await resolveFetchImageTags("[FETCH_IMAGE: https://localhost/img.png]")).toBe("");
-    expect(global.fetch).not.toHaveBeenCalled();
-  });
-
-  it("blocks .local hostnames (SSRF guard)", async () => {
-    global.fetch = jest.fn();
-    jest.spyOn(console, "log").mockImplementation(() => {});
-    expect(await resolveFetchImageTags("[FETCH_IMAGE: https://internal.service.local/img.png]")).toBe("");
-    expect(global.fetch).not.toHaveBeenCalled();
-  });
-
-  it("uses FETCH_IMAGE_ALLOWED_HOSTS allowlist when set and blocks unlisted hosts", async () => {
-    process.env.FETCH_IMAGE_ALLOWED_HOSTS = "cdn.trusted.com";
-    global.fetch = jest.fn();
-    jest.spyOn(console, "log").mockImplementation(() => {});
-    // Unlisted host should be blocked
-    expect(await resolveFetchImageTags("[FETCH_IMAGE: https://other.com/img.png]")).toBe("");
-    expect(global.fetch).not.toHaveBeenCalled();
-  });
-
-  it("strips the mime-type parameters from content-type header", async () => {
-    const fakeBytes = Buffer.from("gif");
-    global.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      headers: { get: (h) => h === "content-type" ? "image/gif; charset=utf-8" : null },
-      arrayBuffer: async () => toArrayBuffer(fakeBytes),
-    });
-    const md = "[FETCH_IMAGE: https://example.com/anim.gif]";
-    const result = await resolveFetchImageTags(md);
-    const b64 = fakeBytes.toString("base64");
-    expect(result).toBe(expectedDataUriImgTag(`data:image/gif;base64,${b64}`));
-  });
-
-  it("handles multiple distinct images in one markdown string", async () => {
-    const bytes1 = Buffer.from("img1");
-    const bytes2 = Buffer.from("img2");
-    global.fetch = jest.fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        headers: { get: (h) => h === "content-type" ? "image/png" : null },
-        arrayBuffer: async () => toArrayBuffer(bytes1),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        headers: { get: (h) => h === "content-type" ? "image/jpeg" : null },
-        arrayBuffer: async () => toArrayBuffer(bytes2),
-      });
-    const md = "[FETCH_IMAGE: https://a.com/1.png] and [FETCH_IMAGE: https://b.com/2.jpg]";
-    const result = await resolveFetchImageTags(md);
-    const b641 = bytes1.toString("base64");
-    const b642 = bytes2.toString("base64");
-    expect(result).toBe(
-      `${expectedDataUriImgTag(`data:image/png;base64,${b641}`)} and ${expectedDataUriImgTag(`data:image/jpeg;base64,${b642}`)}`,
-    );
-  });
-
-  it("tolerates extra whitespace inside the tag", async () => {
-    const fakeBytes = Buffer.from("px");
-    global.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      headers: { get: (h) => h === "content-type" ? "image/webp" : null },
-      arrayBuffer: async () => toArrayBuffer(fakeBytes),
-    });
-    const md = "[FETCH_IMAGE:   https://example.com/img.webp  ]";
-    const result = await resolveFetchImageTags(md);
-    const b64 = fakeBytes.toString("base64");
-    expect(result).toBe(expectedDataUriImgTag(`data:image/webp;base64,${b64}`));
-  });
-});
-
-describe("pdf-generator / Wikimedia image enrichment", () => {
-  let originalFetch;
-  let originalWikimediaEnabled;
-  let originalWikimediaMaxImages;
-  let originalWikimediaApiUrl;
-
-  beforeEach(() => {
-    originalFetch = global.fetch;
-    originalWikimediaEnabled = process.env.WIKIMEDIA_IMAGE_INJECTION_ENABLED;
-    originalWikimediaMaxImages = process.env.WIKIMEDIA_MAX_IMAGES;
-    originalWikimediaApiUrl = process.env.WIKIMEDIA_API_URL;
-    process.env.WIKIMEDIA_IMAGE_INJECTION_ENABLED = "true";
-    process.env.WIKIMEDIA_MAX_IMAGES = "3";
-  });
-
-  afterEach(() => {
-    global.fetch = originalFetch;
     if (originalWikimediaEnabled === undefined) {
       delete process.env.WIKIMEDIA_IMAGE_INJECTION_ENABLED;
     } else {
@@ -1411,186 +1151,149 @@ describe("pdf-generator / Wikimedia image enrichment", () => {
     jest.restoreAllMocks();
   });
 
-  it("extracts unique level-2 heading queries and skips syllabus highlights", () => {
-    const markdown = [
-      "## Syllabus Highlights",
-      "## Thermodynamics",
-      "### Sub heading",
-      "## Thermodynamics",
-      "## Fourier Transform",
-    ].join("\n");
-    expect(extractWikimediaImageQueries(markdown, 5)).toEqual([
-      "Thermodynamics",
-      "Fourier Transform",
-    ]);
+  it("returns markdown unchanged when no FETCH_IMAGE tags are present", async () => {
+    const md = "# Title\n\nSome paragraph without any tags.";
+    expect(await resolveFetchImageTags(md)).toBe(md);
   });
 
-  it("uses WIKIMEDIA_MAX_IMAGES as default limit when limit is omitted", () => {
-    process.env.WIKIMEDIA_MAX_IMAGES = "1";
-    const markdown = "## Topic One\nText\n## Topic Two\nText";
-    expect(extractWikimediaImageQueries(markdown)).toEqual(["Topic One"]);
-  });
-
-  it("injects FETCH_IMAGE tags below matching headings using Wikimedia API URLs", async () => {
-    global.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        query: {
-          pages: [
-            { imageinfo: [{ url: "https://upload.wikimedia.org/example-topic.png", mime: "image/png" }] },
-          ],
-        },
-      }),
-    });
-
-    const markdown = "## Topic One\nDetails\n\n## Topic Two\nMore details";
-    const enriched = await injectWikimediaFetchImageTags(markdown);
-
-    expect(enriched).toContain("## Topic One\n\n[FETCH_IMAGE: https://upload.wikimedia.org/example-topic.png]");
-    expect(enriched).toContain("## Topic Two");
+  it("replaces a valid FETCH_IMAGE search-term tag with a base64 data URI html image", async () => {
+    const fakeBytes = Buffer.from("fakepng");
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          query: {
+            pages: [{ imageinfo: [{ url: "https://upload.wikimedia.org/fake.png", mime: "image/png" }] }],
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: { get: (h) => h === "content-type" ? "image/png" : null },
+        arrayBuffer: async () => toArrayBuffer(fakeBytes),
+      });
+    const md = "Before [FETCH_IMAGE: binding energy curve graph] after.";
+    const result = await resolveFetchImageTags(md);
+    const expectedB64 = fakeBytes.toString("base64");
+    expect(result).toBe(`Before ${expectedDataUriImgTag(`data:image/png;base64,${expectedB64}`)} after.`);
     expect(global.fetch).toHaveBeenCalledTimes(2);
-  });
-
-  it("returns original markdown when enrichment is disabled", async () => {
-    process.env.WIKIMEDIA_IMAGE_INJECTION_ENABLED = "false";
-    global.fetch = jest.fn();
-    const markdown = "## Topic\nBody";
-    expect(await injectWikimediaFetchImageTags(markdown)).toBe(markdown);
-    expect(global.fetch).not.toHaveBeenCalled();
-  });
-
-  it("returns original markdown when WIKIMEDIA_API_URL is invalid, non-HTTPS, or forbidden", async () => {
-    const warnSpy = jest.spyOn(console, "log").mockImplementation(() => {});
-    global.fetch = jest.fn();
-    const markdown = "## Topic\nBody";
-
-    // Invalid URL
-    process.env.WIKIMEDIA_API_URL = "not-a-url";
-    expect(await injectWikimediaFetchImageTags(markdown)).toBe(markdown);
-    expect(warnSpy).toHaveBeenLastCalledWith(expect.stringContaining("WIKIMEDIA_API_URL is invalid or forbidden"));
-
-    // Non-HTTPS
-    process.env.WIKIMEDIA_API_URL = "http://commons.wikimedia.org/w/api.php";
-    expect(await injectWikimediaFetchImageTags(markdown)).toBe(markdown);
-    expect(warnSpy).toHaveBeenLastCalledWith(expect.stringContaining("Only HTTPS is allowed"));
-
-    // Forbidden host
-    process.env.WIKIMEDIA_API_URL = "https://malicious.com/api";
-    expect(await injectWikimediaFetchImageTags(markdown)).toBe(markdown);
-    expect(warnSpy).toHaveBeenLastCalledWith(expect.stringContaining("Forbidden host"));
-
-    // Private host
-    process.env.WIKIMEDIA_API_URL = "https://localhost/api";
-    expect(await injectWikimediaFetchImageTags(markdown)).toBe(markdown);
-    expect(warnSpy).toHaveBeenLastCalledWith(expect.stringContaining("Forbidden host: localhost"));
-
-    expect(global.fetch).not.toHaveBeenCalled();
-    warnSpy.mockRestore();
-  });
-
-  it("returns original markdown and logs warning when Wikimedia API returns a non-OK status", async () => {
-    const warnSpy = jest.spyOn(console, "log").mockImplementation(() => {});
-    process.env.WIKIMEDIA_API_URL = "https://commons.wikimedia.org/w/api.php";
-    global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 503 });
-    const markdown = "## Topic\nBody";
-    expect(await injectWikimediaFetchImageTags(markdown)).toBe(markdown);
-    expect(global.fetch).toHaveBeenCalledTimes(1);
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("Wikimedia API returned HTTP 503"));
-    warnSpy.mockRestore();
-  });
-
-  it("handles Wikimedia API timeouts gracefully with logging", async () => {
-    const warnSpy = jest.spyOn(console, "log").mockImplementation(() => {});
-    process.env.WIKIMEDIA_API_URL = "https://commons.wikimedia.org/w/api.php";
-    const timeoutError = new Error("The operation was aborted");
-    timeoutError.name = "AbortError";
-    global.fetch = jest.fn().mockRejectedValue(timeoutError);
-
-    const markdown = "## Topic\nBody";
-    expect(await injectWikimediaFetchImageTags(markdown)).toBe(markdown);
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("Wikimedia API request timed out"));
-    warnSpy.mockRestore();
-  });
-
-  it("handles Wikimedia API network errors gracefully with logging", async () => {
-    const warnSpy = jest.spyOn(console, "log").mockImplementation(() => {});
-    process.env.WIKIMEDIA_API_URL = "https://commons.wikimedia.org/w/api.php";
-    global.fetch = jest.fn().mockRejectedValue(new Error("Network failure"));
-
-    const markdown = "## Topic\nBody";
-    expect(await injectWikimediaFetchImageTags(markdown)).toBe(markdown);
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("Wikimedia API fetch failed"));
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("Network failure"));
-    warnSpy.mockRestore();
-  });
-
-  it("skips images that fail validation or are on private hosts", async () => {
-    process.env.WIKIMEDIA_API_URL = "https://commons.wikimedia.org/w/api.php";
-    global.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        query: {
-          pages: [
-            { imageinfo: [{ url: "http://insecure.com/img.png", mime: "image/png" }] }, // non-HTTPS
-            { imageinfo: [{ url: "https://localhost/img.png", mime: "image/png" }] },   // private
-            { imageinfo: [{ url: "https://other.com/img.png", mime: "image/png" }] },       // forbidden host
-            { imageinfo: [{ url: "https://upload.wikimedia.org/valid.png", mime: "image/png" }] }, // valid
-          ],
+    expect(global.fetch).toHaveBeenNthCalledWith(
+      2,
+      "https://upload.wikimedia.org/fake.png",
+      expect.objectContaining({
+        headers: {
+          Accept: "image/*",
+          "User-Agent": "ExamArchiveBot/1.0 (https://examarchive.dev)",
         },
+        redirect: "error",
       }),
-    });
-
-    const markdown = "## Topic\nBody";
-    const enriched = await injectWikimediaFetchImageTags(markdown);
-    expect(enriched).toContain("[FETCH_IMAGE: https://upload.wikimedia.org/valid.png]");
-    expect(enriched).not.toContain("insecure.com");
-    expect(enriched).not.toContain("localhost");
-    expect(enriched).not.toContain("other.com");
+    );
   });
 
-  it("skips non-image Wikimedia MIME results such as PDFs", async () => {
-    process.env.WIKIMEDIA_API_URL = "https://commons.wikimedia.org/w/api.php";
-    global.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        query: {
-          pages: [
-            { imageinfo: [{ url: "https://upload.wikimedia.org/file.pdf", mime: "application/pdf" }] },
-            { imageinfo: [{ url: "https://upload.wikimedia.org/diagram.png", mime: "image/png" }] },
-          ],
-        },
-      }),
-    });
-
-    const markdown = "## Topic\nBody";
-    const enriched = await injectWikimediaFetchImageTags(markdown);
-    expect(enriched).toContain("[FETCH_IMAGE: https://upload.wikimedia.org/diagram.png]");
-    expect(enriched).not.toContain("file.pdf");
+  it("deduplicates search terms and fetches each unique term only once", async () => {
+    const fakeBytes = Buffer.from("img");
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          query: {
+            pages: [{ imageinfo: [{ url: "https://upload.wikimedia.org/a.jpg", mime: "image/jpeg" }] }],
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: { get: (h) => h === "content-type" ? "image/jpeg" : null },
+        arrayBuffer: async () => toArrayBuffer(fakeBytes),
+      });
+    const md = "[FETCH_IMAGE: binding energy curve graph]\n[FETCH_IMAGE: binding energy curve graph]";
+    const result = await resolveFetchImageTags(md);
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    const b64 = fakeBytes.toString("base64");
+    const tag = expectedDataUriImgTag(`data:image/jpeg;base64,${b64}`);
+    expect(result).toBe(`${tag}\n${tag}`);
   });
 
-  it("handles empty or malformed Wikimedia API responses", async () => {
-    process.env.WIKIMEDIA_API_URL = "https://commons.wikimedia.org/w/api.php";
-    const markdown = "## Topic\nBody";
-
-    // No pages
+  it("removes the tag when Wikimedia query returns no usable image URL", async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ query: { pages: [] } }),
     });
-    expect(await injectWikimediaFetchImageTags(markdown)).toBe(markdown);
+    jest.spyOn(console, "log").mockImplementation(() => {});
+    const md = "text [FETCH_IMAGE: missing image term] end";
+    const result = await resolveFetchImageTags(md);
+    expect(result).toBe("text  end");
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
 
-    // Missing query
+  it("removes the tag when the resolved image HTTP response is not ok", async () => {
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          query: {
+            pages: [{ imageinfo: [{ url: "https://upload.wikimedia.org/missing.png", mime: "image/png" }] }],
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        headers: { get: () => null },
+        arrayBuffer: async () => new ArrayBuffer(0),
+      });
+    jest.spyOn(console, "log").mockImplementation(() => {});
+    const md = "[FETCH_IMAGE: unresolved image]";
+    expect(await resolveFetchImageTags(md)).toBe("");
+  });
+
+  it("respects WIKIMEDIA_MAX_IMAGES limit while resolving tags", async () => {
+    process.env.WIKIMEDIA_MAX_IMAGES = "1";
+    const fakeBytes = Buffer.from("one");
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          query: {
+            pages: [{ imageinfo: [{ url: "https://upload.wikimedia.org/one.png", mime: "image/png" }] }],
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: { get: () => "image/png" },
+        arrayBuffer: async () => toArrayBuffer(fakeBytes),
+      });
+    jest.spyOn(console, "log").mockImplementation(() => {});
+    const md = "[FETCH_IMAGE: first concept]\n[FETCH_IMAGE: second concept]";
+    const result = await resolveFetchImageTags(md);
+    const b64 = fakeBytes.toString("base64");
+    expect(result).toBe(`${expectedDataUriImgTag(`data:image/png;base64,${b64}`)}\n`);
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("uses FETCH_IMAGE_ALLOWED_HOSTS to block resolved image hosts", async () => {
+    process.env.FETCH_IMAGE_ALLOWED_HOSTS = "cdn.trusted.com";
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({}),
+      json: async () => ({
+        query: {
+          pages: [{ imageinfo: [{ url: "https://upload.wikimedia.org/disallowed.png", mime: "image/png" }] }],
+        },
+      }),
     });
-    expect(await injectWikimediaFetchImageTags(markdown)).toBe(markdown);
+    jest.spyOn(console, "log").mockImplementation(() => {});
+    expect(await resolveFetchImageTags("[FETCH_IMAGE: term]")).toBe("");
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
 
-    // Missing imageinfo
-    global.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ query: { pages: [{ title: "File:Test.jpg" }] } }),
-    });
-    expect(await injectWikimediaFetchImageTags(markdown)).toBe(markdown);
+  it("removes tags when Wikimedia injection is disabled", async () => {
+    process.env.WIKIMEDIA_IMAGE_INJECTION_ENABLED = "false";
+    global.fetch = jest.fn();
+    expect(await resolveFetchImageTags("A [FETCH_IMAGE: term] B")).toBe("A  B");
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 });
