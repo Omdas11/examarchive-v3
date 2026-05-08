@@ -57,6 +57,10 @@ const DEFAULT_WIKIMEDIA_QUERY_SUFFIX = "";
 const WIKIMEDIA_ALLOWED_HOSTS = ["upload.wikimedia.org", "*.wikimedia.org", "*.wikipedia.org"];
 const MARKED_FALLBACK_LOG_PREFIX = "[pdf-generator] Falling back to basic markdown parser.";
 const MAX_RANDOM_NAMESPACE_INT = 0x1_0000_0000;
+let context = {
+  log: (...args) => console.log(...args),
+  error: (...args) => console.error(...args),
+};
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -252,7 +256,7 @@ async function fetchWikimediaImageUrl(query) {
     return "";
   }
 
-  apiUrl.search = new URLSearchParams({
+  const wikimediaSearchParams = new URLSearchParams({
     action: "query",
     format: "json",
     formatversion: "2",
@@ -264,12 +268,16 @@ async function fetchWikimediaImageUrl(query) {
     iiprop: "url|mime",
     redirects: "1",
     origin: "*",
-  }).toString();
+  });
+  apiUrl.search = `${wikimediaSearchParams.toString()}&gsrmime=image/jpeg|image/png|image/svg%2Bxml`;
 
   try {
     const response = await fetch(apiUrl, {
       signal: AbortSignal.timeout(getWikimediaRequestTimeoutMs()),
-      headers: { Accept: "application/json" },
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "ExamArchiveBot/1.0 (https://examarchive.dev)",
+      },
       redirect: "error",
     });
     if (!response.ok) {
@@ -1086,7 +1094,7 @@ async function runGeminiCompletion({ apiKey, prompt, model }) {
         contentPartsCount: requestPayload.contents?.[0]?.parts?.length ?? 0,
         promptLength: requestPayload.contents?.[0]?.parts?.[0]?.text?.length ?? 0,
       };
-      console.error("[pdf-generator][Gemini] 4xx response.", {
+      context.error("[pdf-generator][Gemini] 4xx response.", {
         status: response.status,
         model: safeModel,
         request: redactedRequest,
@@ -1326,7 +1334,7 @@ function normalizeAbsoluteHttpUrl(rawUrl) {
     if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return "";
     const webhookSecret = String(process.env.AI_JOB_WEBHOOK_SECRET || "").trim();
     if (webhookSecret && parsed.protocol !== "https:") {
-      console.error("[pdf-generator] Webhook URL rejected: HTTPS required when AI_JOB_WEBHOOK_SECRET is configured.", {
+      context.error("[pdf-generator] Webhook URL rejected: HTTPS required when AI_JOB_WEBHOOK_SECRET is configured.", {
         protocol: parsed.protocol,
         callbackUrl: value.slice(0, MAX_LOGGED_CALLBACK_URL_CHARS),
         truncated: value.length > MAX_LOGGED_CALLBACK_URL_CHARS,
@@ -1335,7 +1343,7 @@ function normalizeAbsoluteHttpUrl(rawUrl) {
     }
     return parsed.toString();
   } catch (error) {
-    console.error("[pdf-generator] Invalid completion callback URL received.", {
+    context.error("[pdf-generator] Invalid completion callback URL received.", {
       callbackUrl: value.slice(0, MAX_LOGGED_CALLBACK_URL_CHARS),
       truncated: value.length > MAX_LOGGED_CALLBACK_URL_CHARS,
       error: String(error?.message || error),
@@ -1416,10 +1424,10 @@ function resolveNotifyCompletionUrl(callbackUrl) {
   if (callbackOverride) {
     try {
       const safeUrl = validateSafeUrl(callbackOverride, getAllowedWebhookHosts());
-      console.log("[pdf-generator] Using callbackOverride for completion webhook.", { callbackOverride: safeUrl });
+      context.log("[pdf-generator] Using callbackOverride for completion webhook.", { callbackOverride: safeUrl });
       return { url: safeUrl, reason: "callback_override" };
     } catch (e) {
-      console.error("[pdf-generator] callbackOverride rejected by security policy.", {
+      context.error("[pdf-generator] callbackOverride rejected by security policy.", {
         callbackUrl: String(callbackUrl).slice(0, MAX_LOGGED_CALLBACK_URL_CHARS),
         error: e.message,
       });
@@ -1428,7 +1436,7 @@ function resolveNotifyCompletionUrl(callbackUrl) {
   }
   const siteUrl = resolveCallbackBaseSiteUrl();
   if (!siteUrl) {
-    console.error("[pdf-generator] CRITICAL: No valid base URL found (checked SITE_URL, NEXT_PUBLIC_SITE_URL, and VERCEL_URL); completion webhook cannot be delivered safely.", {
+    context.error("[pdf-generator] CRITICAL: No valid base URL found (checked SITE_URL, NEXT_PUBLIC_SITE_URL, and VERCEL_URL); completion webhook cannot be delivered safely.", {
       hasCallbackUrl: false,
     });
     return { url: "", reason: "missing_base_url" };
@@ -1447,12 +1455,12 @@ function getNotifyCompletionUrl(callbackUrl) {
 
 async function notifyCompletionWebhook({ jobId, status, fileId, userId, userEmail, callbackUrl }) {
   if (!resolveCallbackBaseSiteUrl()) {
-    console.error("[pdf-generator] CRITICAL: No base URL environment variable found (SITE_URL, NEXT_PUBLIC_SITE_URL, or VERCEL_URL); notify-completion webhook delivery may be skipped.");
+    context.error("[pdf-generator] CRITICAL: No base URL environment variable found (SITE_URL, NEXT_PUBLIC_SITE_URL, or VERCEL_URL); notify-completion webhook delivery may be skipped.");
   }
   const notifyResolution = resolveNotifyCompletionUrl(callbackUrl);
   const notifyUrl = notifyResolution.url;
   if (!notifyUrl) {
-    console.error("[pdf-generator] Completion webhook callback skipped due to URL resolution failure.", {
+    context.error("[pdf-generator] Completion webhook callback skipped due to URL resolution failure.", {
       reason: notifyResolution.reason,
       hasCallbackUrl: Boolean(String(callbackUrl || "").trim()),
       hasSiteUrl: Boolean(String(process.env.SITE_URL || "").trim()),
@@ -1496,7 +1504,7 @@ async function notifyCompletionWebhook({ jobId, status, fileId, userId, userEmai
     } catch (error) {
       lastError = error;
       if (attempt >= maxAttempts) {
-        console.error("[pdf-generator] Completion webhook request error after all attempts.", {
+        context.error("[pdf-generator] Completion webhook request error after all attempts.", {
           url: notifyUrl,
           attempts: maxAttempts,
           message: error instanceof Error ? error.message : String(error),
@@ -1504,7 +1512,7 @@ async function notifyCompletionWebhook({ jobId, status, fileId, userId, userEmai
         });
         return;
       }
-      console.error("[pdf-generator] Completion webhook request error (will retry).", {
+      context.error("[pdf-generator] Completion webhook request error (will retry).", {
         attempt,
         maxAttempts,
         url: notifyUrl,
@@ -1518,7 +1526,7 @@ async function notifyCompletionWebhook({ jobId, status, fileId, userId, userEmai
       continue;
     }
 
-    console.log("[pdf-generator] Completion webhook callback response received.", {
+    context.log("[pdf-generator] Completion webhook callback response received.", {
       url: notifyUrl,
       status: response.status,
       ok: response.ok,
@@ -1529,7 +1537,7 @@ async function notifyCompletionWebhook({ jobId, status, fileId, userId, userEmai
       const responseBody = await response.text().catch(() => "");
       const shouldRetry = response.status === 429 || response.status >= 500;
       if (shouldRetry && attempt < maxAttempts) {
-        console.error("[pdf-generator] Completion webhook request failed (will retry).", {
+        context.error("[pdf-generator] Completion webhook request failed (will retry).", {
           attempt,
           maxAttempts,
           status: response.status,
@@ -1541,7 +1549,7 @@ async function notifyCompletionWebhook({ jobId, status, fileId, userId, userEmai
         await sleep(backoffMs);
         continue;
       }
-      console.error("[pdf-generator] Completion webhook request failed after all attempts.", {
+      context.error("[pdf-generator] Completion webhook request failed after all attempts.", {
         status: response.status,
         body: responseBody.slice(0, NOTIFY_WEBHOOK_ERROR_LOG_MAX_CHARS),
         attempts: attempt,
@@ -1552,7 +1560,7 @@ async function notifyCompletionWebhook({ jobId, status, fileId, userId, userEmai
     return;
   }
   if (lastError) {
-    console.error("[pdf-generator] Completion webhook request failed.", {
+    context.error("[pdf-generator] Completion webhook request failed.", {
       url: notifyUrl,
       message: lastError instanceof Error ? lastError.message : String(lastError),
     });
@@ -1784,7 +1792,7 @@ async function processGenerationJob(rawInput, options = {}) {
       if (trimmedCachedMarkdown) {
         markdown = trimmedCachedMarkdown;
         loadedFromCache = true;
-        console.log("[pdf-generator] Using cachedMarkdown from dispatch payload (global cache hit).", {
+        context.log("[pdf-generator] Using cachedMarkdown from dispatch payload (global cache hit).", {
           jobId,
           jobType: normalizedJobType,
           markdownLength: trimmedCachedMarkdown.length,
@@ -1808,7 +1816,7 @@ async function processGenerationJob(rawInput, options = {}) {
         // still found and bypass fresh LLM generation.
         if (!exactMatch && legacyCacheKey !== cacheKey) {
           const legacyCachedFiles = await storage.listFiles(cacheBucketId, [
-            Query.search("name", legacyCacheKey),
+            Query.equal("name", legacyCacheFileName),
             Query.orderDesc("$createdAt"),
             Query.limit(10),
           ]);
@@ -1824,7 +1832,7 @@ async function processGenerationJob(rawInput, options = {}) {
             markdown = cachedMarkdown;
             loadedFromCache = true;
             cacheFileId = String(cachedFile.$id);
-            console.log("[pdf-generator] Loaded markdown from cache bucket.", {
+            context.log("[pdf-generator] Loaded markdown from cache bucket.", {
               jobId,
               jobType: normalizedJobType,
               cacheBucketId,
@@ -1864,7 +1872,7 @@ async function processGenerationJob(rawInput, options = {}) {
         cacheFileId = String(cacheFile.$id);
       } catch (cacheWriteError) {
         const contextMessage = "[pdf-generator] Markdown cache write failed. Without the markdown cache the generation result will be lost.";
-        console.error(contextMessage, {
+        context.error(contextMessage, {
           jobId,
           jobType: normalizedJobType,
           cacheBucketId,
@@ -1927,7 +1935,7 @@ async function processGenerationJob(rawInput, options = {}) {
       status: "failed",
       completed_at: new Date().toISOString(),
       error_message: formatWorkerErrorMessage(error),
-    }).catch((err) => console.error("Failed to update job status to failed:", err));
+    }).catch((err) => context.error("Failed to update job status to failed:", err));
     try {
       await notifyCompletionWebhook({
         jobId,
@@ -1938,7 +1946,7 @@ async function processGenerationJob(rawInput, options = {}) {
         callbackUrl: String(payload.callbackUrl || "").trim(),
       });
     } catch (webhookError) {
-      console.error("[pdf-generator] failed to deliver completion webhook.", {
+      context.error("[pdf-generator] failed to deliver completion webhook.", {
         jobId,
         error: webhookError?.stack || String(webhookError),
       });
@@ -1948,6 +1956,10 @@ async function processGenerationJob(rawInput, options = {}) {
 }
 
 module.exports = async ({ req, res, log, error }) => {
+  context = {
+    log: typeof log === "function" ? log : context.log,
+    error: typeof error === "function" ? error : context.error,
+  };
   try {
     const rawInput = req?.body || process.env.APPWRITE_FUNCTION_EVENT_DATA || process.env.APPWRITE_FUNCTION_DATA || "{}";
     const result = await processGenerationJob(rawInput);
