@@ -553,7 +553,7 @@ _Generated from `scripts/v2/sync-appwrite-schema.js` to reflect backend-configur
 <!-- SCHEMA_SYNC_STATUS_START -->
 ## Schema Sync Status (Auto-generated)
 
-_Last synced: 2026-05-07T16:03:24.578Z_
+_Last synced: 2026-05-08T05:20:13.873Z_
 
 ### Storage Buckets
 | Bucket | ID | Status |
