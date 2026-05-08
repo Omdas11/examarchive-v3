@@ -1426,7 +1426,7 @@ describe("pdf-generator / Wikimedia image enrichment", () => {
       json: async () => ({
         query: {
           pages: [
-            { imageinfo: [{ url: "https://upload.wikimedia.org/example-topic.png" }] },
+            { imageinfo: [{ url: "https://upload.wikimedia.org/example-topic.png", mime: "image/png" }] },
           ],
         },
       }),
@@ -1520,10 +1520,10 @@ describe("pdf-generator / Wikimedia image enrichment", () => {
       json: async () => ({
         query: {
           pages: [
-            { imageinfo: [{ url: "http://insecure.com/img.png" }] }, // non-HTTPS
-            { imageinfo: [{ url: "https://localhost/img.png" }] },   // private
-            { imageinfo: [{ url: "https://other.com/img.png" }] },       // forbidden host
-            { imageinfo: [{ url: "https://upload.wikimedia.org/valid.png" }] }, // valid
+            { imageinfo: [{ url: "http://insecure.com/img.png", mime: "image/png" }] }, // non-HTTPS
+            { imageinfo: [{ url: "https://localhost/img.png", mime: "image/png" }] },   // private
+            { imageinfo: [{ url: "https://other.com/img.png", mime: "image/png" }] },       // forbidden host
+            { imageinfo: [{ url: "https://upload.wikimedia.org/valid.png", mime: "image/png" }] }, // valid
           ],
         },
       }),
@@ -1535,6 +1535,26 @@ describe("pdf-generator / Wikimedia image enrichment", () => {
     expect(enriched).not.toContain("insecure.com");
     expect(enriched).not.toContain("localhost");
     expect(enriched).not.toContain("other.com");
+  });
+
+  it("skips non-image Wikimedia MIME results such as PDFs", async () => {
+    process.env.WIKIMEDIA_API_URL = "https://commons.wikimedia.org/w/api.php";
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        query: {
+          pages: [
+            { imageinfo: [{ url: "https://upload.wikimedia.org/file.pdf", mime: "application/pdf" }] },
+            { imageinfo: [{ url: "https://upload.wikimedia.org/diagram.png", mime: "image/png" }] },
+          ],
+        },
+      }),
+    });
+
+    const markdown = "## Topic\nBody";
+    const enriched = await injectWikimediaFetchImageTags(markdown);
+    expect(enriched).toContain("[FETCH_IMAGE: https://upload.wikimedia.org/diagram.png]");
+    expect(enriched).not.toContain("file.pdf");
   });
 
   it("handles empty or malformed Wikimedia API responses", async () => {

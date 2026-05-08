@@ -287,7 +287,10 @@ async function fetchWikimediaImageUrl(query) {
     const payload = await response.json();
     const pages = Array.isArray(payload?.query?.pages) ? payload.query.pages : [];
     for (const page of pages) {
-      const url = String(page?.imageinfo?.[0]?.url || "").trim();
+      const imageInfo = page?.imageinfo?.[0];
+      const mime = String(imageInfo?.mime || "").trim().toLowerCase();
+      if (!mime.startsWith("image/")) continue;
+      const url = String(imageInfo?.url || "").trim();
       if (!url) continue;
       try {
         const safeUrl = validateSafeUrl(url, WIKIMEDIA_ALLOWED_HOSTS);
