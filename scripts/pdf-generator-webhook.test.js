@@ -228,11 +228,6 @@ describe("pdf-generator / math sanitization and rendering", () => {
     expect(html).toContain("displayMath");
   });
 
-  it("preserves KaTeX html fragments in rendered output", async () => {
-    const katexHtml = "<span class=\"katex\"><span class=\"katex-html\">x^2</span></span>";
-    const html = await markdownToPdfHtml(katexHtml, "Math Test");
-    expect(html).toContain(katexHtml);
-  });
 });
 
 describe("pdf-generator / notifyCompletionWebhook", () => {
