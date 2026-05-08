@@ -448,6 +448,10 @@ function escapeHtml(value) {
     .replace(/'/g, "&#039;");
 }
 
+function buildSafeImgTagFromDataUri(dataUri) {
+  return `<img src="${escapeHtml(dataUri)}" alt="image">`;
+}
+
 const MALFORMED_LATEX_COMMAND_PATTERN = /(^|[^A-Za-z0-9_])(?:l|\|)(frac|vec|pi|mu|chi|alpha|beta|gamma|theta|lambda|tau|circ|sqrt|text|hat|sin|cos)\b/g;
 const ESCAPED_DISPLAY_MATH_PATTERN = /\\\$\\\$([\s\S]*?)\\\$\\\$/g;
 // Keep inline-math unescape conservative so literal currency/prose "\$" does not become a math delimiter.
@@ -811,7 +815,7 @@ async function resolveFetchImageTags(markdown) {
   return source.replace(FETCH_IMAGE_TAG_RE, (_match, rawUrl) => {
     const trimmedUrl = rawUrl.trim();
     const dataUri = dataUriMap.get(trimmedUrl);
-    return dataUri ? `<img src="${dataUri}" alt="image">` : "";
+    return dataUri ? buildSafeImgTagFromDataUri(dataUri) : "";
   });
 }
 
