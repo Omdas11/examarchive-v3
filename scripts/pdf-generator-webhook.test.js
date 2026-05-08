@@ -29,15 +29,6 @@ jest.mock("katex", () => ({
   renderToString: jest.fn((expr) => "<math>" + expr + "</math>"),
 }), { virtual: true });
 
-jest.mock("sanitize-html", () => {
-  const sanitizeHtmlMock = jest.fn((html) => html);
-  sanitizeHtmlMock.defaults = {
-    allowedTags: [],
-    allowedAttributes: {},
-  };
-  return sanitizeHtmlMock;
-}, { virtual: true });
-
 jest.mock("he", () => ({
   encode: jest.fn((str) => str),
 }), { virtual: true });
@@ -236,6 +227,7 @@ describe("pdf-generator / math sanitization and rendering", () => {
     expect(html).toContain("cdn.jsdelivr.net/npm/mathjax");
     expect(html).toContain("displayMath");
   });
+
 });
 
 describe("pdf-generator / notifyCompletionWebhook", () => {
@@ -1109,6 +1101,19 @@ describe("pdf-generator / resolveFetchImageTags", () => {
     return new Uint8Array(buf).buffer;
   }
 
+  function escapeHtml(value) {
+    return String(value || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  function expectedDataUriImgTag(dataUri) {
+    return `<img src="${escapeHtml(dataUri)}" alt="image">`;
+  }
+
   beforeEach(() => {
     originalFetch = global.fetch;
     originalFetchImageAllowedHosts = process.env.FETCH_IMAGE_ALLOWED_HOSTS;
@@ -1129,7 +1134,7 @@ describe("pdf-generator / resolveFetchImageTags", () => {
     expect(await resolveFetchImageTags(md)).toBe(md);
   });
 
-  it("replaces a valid FETCH_IMAGE tag with a base64 data URI markdown image", async () => {
+  it("replaces a valid FETCH_IMAGE tag with a base64 data URI html image", async () => {
     const fakeBytes = Buffer.from("fakepng");
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
@@ -1140,11 +1145,17 @@ describe("pdf-generator / resolveFetchImageTags", () => {
     const md = "Before [FETCH_IMAGE: https://example.com/img.png] after.";
     const result = await resolveFetchImageTags(md);
     const expectedB64 = fakeBytes.toString("base64");
-    expect(result).toBe(`Before ![image](data:image/png;base64,${expectedB64}) after.`);
+    expect(result).toBe(`Before ${expectedDataUriImgTag(`data:image/png;base64,${expectedB64}`)} after.`);
     expect(global.fetch).toHaveBeenCalledTimes(1);
     expect(global.fetch).toHaveBeenCalledWith(
       "https://example.com/img.png",
-      expect.objectContaining({ headers: { Accept: "image/*" }, redirect: "error" }),
+      expect.objectContaining({
+        headers: {
+          Accept: "image/*",
+          "User-Agent": "ExamArchiveBot/1.0 (https://examarchive.dev)",
+        },
+        redirect: "error",
+      }),
     );
   });
 
@@ -1160,7 +1171,7 @@ describe("pdf-generator / resolveFetchImageTags", () => {
     const result = await resolveFetchImageTags(md);
     expect(global.fetch).toHaveBeenCalledTimes(1);
     const b64 = fakeBytes.toString("base64");
-    const tag = `![image](data:image/jpeg;base64,${b64})`;
+    const tag = expectedDataUriImgTag(`data:image/jpeg;base64,${b64}`);
     expect(result).toBe(`${tag}\n${tag}`);
   });
 
@@ -1259,7 +1270,7 @@ describe("pdf-generator / resolveFetchImageTags", () => {
     });
     const md = "[FETCH_IMAGE: https://example.com/stream.png]";
     const result = await resolveFetchImageTags(md);
-    expect(result).toBe(`![image](data:image/png;base64,${fakeBytes.toString("base64")})`);
+    expect(result).toBe(expectedDataUriImgTag(`data:image/png;base64,${fakeBytes.toString("base64")}`));
   });
 
   it("removes the tag when fetch throws (e.g. network error)", async () => {
@@ -1322,7 +1333,7 @@ describe("pdf-generator / resolveFetchImageTags", () => {
     const md = "[FETCH_IMAGE: https://example.com/anim.gif]";
     const result = await resolveFetchImageTags(md);
     const b64 = fakeBytes.toString("base64");
-    expect(result).toBe(`![image](data:image/gif;base64,${b64})`);
+    expect(result).toBe(expectedDataUriImgTag(`data:image/gif;base64,${b64}`));
   });
 
   it("handles multiple distinct images in one markdown string", async () => {
@@ -1346,7 +1357,7 @@ describe("pdf-generator / resolveFetchImageTags", () => {
     const b641 = bytes1.toString("base64");
     const b642 = bytes2.toString("base64");
     expect(result).toBe(
-      `![image](data:image/png;base64,${b641}) and ![image](data:image/jpeg;base64,${b642})`,
+      `${expectedDataUriImgTag(`data:image/png;base64,${b641}`)} and ${expectedDataUriImgTag(`data:image/jpeg;base64,${b642}`)}`,
     );
   });
 
@@ -1361,7 +1372,7 @@ describe("pdf-generator / resolveFetchImageTags", () => {
     const md = "[FETCH_IMAGE:   https://example.com/img.webp  ]";
     const result = await resolveFetchImageTags(md);
     const b64 = fakeBytes.toString("base64");
-    expect(result).toBe(`![image](data:image/webp;base64,${b64})`);
+    expect(result).toBe(expectedDataUriImgTag(`data:image/webp;base64,${b64}`));
   });
 });
 

@@ -2,7 +2,6 @@
 const { Client, Databases, Storage, Query, ID } = require("node-appwrite");
 const { InputFile } = require("node-appwrite/file");
 const { randomInt } = require("node:crypto");
-const sanitizeHtml = require("sanitize-html");
 
 const GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta";
 const DEFAULT_MODEL = process.env.GEMINI_MODEL_ID || "gemini-3.1-flash-lite-preview";
@@ -449,6 +448,10 @@ function escapeHtml(value) {
     .replace(/'/g, "&#039;");
 }
 
+function buildSafeImgTagFromDataUri(dataUri) {
+  return `<img src="${escapeHtml(dataUri)}" alt="image">`;
+}
+
 const MALFORMED_LATEX_COMMAND_PATTERN = /(^|[^A-Za-z0-9_])(?:l|\|)(frac|vec|pi|mu|chi|alpha|beta|gamma|theta|lambda|tau|circ|sqrt|text|hat|sin|cos)\b/g;
 const ESCAPED_DISPLAY_MATH_PATTERN = /\\\$\\\$([\s\S]*?)\\\$\\\$/g;
 // Keep inline-math unescape conservative so literal currency/prose "\$" does not become a math delimiter.
@@ -666,33 +669,9 @@ function protectBracketMath(markdown) {
   return { protectedMarkdown, restore };
 }
 
-function sanitizeGeneratedHtml(html) {
-  return sanitizeHtml(String(html || ""), {
-    allowedTags: sanitizeHtml.defaults.allowedTags.concat([
-      "h1",
-      "h2",
-      "section",
-      "main",
-      "article",
-      "img",
-    ]),
-    allowedAttributes: {
-      ...sanitizeHtml.defaults.allowedAttributes,
-      "*": ["class"],
-      img: ["src", "alt"],
-    },
-    allowedSchemes: ["http", "https", "mailto"],
-    allowedSchemesByTag: {
-      img: ["data", "http", "https"],
-    },
-    allowedSchemesAppliedToAttributes: ["href", "src"],
-    allowProtocolRelative: false,
-  });
-}
-
 /**
  * Scans `markdown` for [FETCH_IMAGE: <url>] tags, fetches each image over
- * HTTPS, and replaces each tag with a Markdown image using a base64 data URI.
+ * HTTPS, and replaces each tag with an inline HTML <img> using a base64 data URI.
  * Tags whose URL fails validation or whose fetch fails are silently removed.
  * All distinct URLs are fetched concurrently to minimise latency.
  *
@@ -748,7 +727,10 @@ async function resolveFetchImageTags(markdown) {
       try {
         const response = await fetch(safeUrl, {
           signal: AbortSignal.timeout(FETCH_IMAGE_TIMEOUT_MS),
-          headers: { Accept: "image/*" },
+          headers: {
+            Accept: "image/*",
+            "User-Agent": "ExamArchiveBot/1.0 (https://examarchive.dev)",
+          },
           redirect: "error", // prevent SSRF via redirect chains
         });
         if (!response.ok) {
@@ -833,7 +815,7 @@ async function resolveFetchImageTags(markdown) {
   return source.replace(FETCH_IMAGE_TAG_RE, (_match, rawUrl) => {
     const trimmedUrl = rawUrl.trim();
     const dataUri = dataUriMap.get(trimmedUrl);
-    return dataUri ? `![image](${dataUri})` : "";
+    return dataUri ? buildSafeImgTagFromDataUri(dataUri) : "";
   });
 }
 
@@ -890,8 +872,7 @@ function buildFooterHtml(userEmail) {
 async function markdownToPdfHtml(markdown, title) {
   const { protectedMarkdown, restore } = protectBracketMath(markdown);
   const parsedHtml = await parseMarkdownToHtml(protectedMarkdown);
-  const restoredHtml = restore(typeof parsedHtml === "string" ? parsedHtml : "");
-  const renderedMarkdown = sanitizeGeneratedHtml(restoredHtml);
+  const renderedMarkdown = restore(typeof parsedHtml === "string" ? parsedHtml : "");
   const coverPageHtml = buildCoverPageHtml({ title, markdown });
   const watermarkSvg = encodeURIComponent(
     `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300"><text x="50%" y="50%" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700" fill="#800000" fill-opacity="0.08" transform="rotate(-45 150 150)" text-anchor="middle">EXAMARCHIVE</text></svg>`,
