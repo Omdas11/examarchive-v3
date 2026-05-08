@@ -1537,6 +1537,26 @@ describe("pdf-generator / Wikimedia image enrichment", () => {
     expect(enriched).not.toContain("other.com");
   });
 
+  it("skips non-image Wikimedia MIME results such as PDFs", async () => {
+    process.env.WIKIMEDIA_API_URL = "https://commons.wikimedia.org/w/api.php";
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        query: {
+          pages: [
+            { imageinfo: [{ url: "https://upload.wikimedia.org/file.pdf", mime: "application/pdf" }] },
+            { imageinfo: [{ url: "https://upload.wikimedia.org/diagram.png", mime: "image/png" }] },
+          ],
+        },
+      }),
+    });
+
+    const markdown = "## Topic\nBody";
+    const enriched = await injectWikimediaFetchImageTags(markdown);
+    expect(enriched).toContain("[FETCH_IMAGE: https://upload.wikimedia.org/diagram.png]");
+    expect(enriched).not.toContain("file.pdf");
+  });
+
   it("handles empty or malformed Wikimedia API responses", async () => {
     process.env.WIKIMEDIA_API_URL = "https://commons.wikimedia.org/w/api.php";
     const markdown = "## Topic\nBody";
