@@ -674,10 +674,12 @@ function sanitizeGeneratedHtml(html) {
       "section",
       "main",
       "article",
+      "img",
     ]),
     allowedAttributes: {
       ...sanitizeHtml.defaults.allowedAttributes,
       "*": ["class"],
+      img: ["src", "alt"],
     },
     allowedSchemes: ["http", "https", "mailto"],
     allowedSchemesByTag: {
