@@ -73,6 +73,27 @@ const tavilyApiKey = process.env.TAVILY_API_KEY;
 const siteUrl = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL;
 const aiJobWebhookSecret = process.env.AI_JOB_WEBHOOK_SECRET;
 const resolvedVercelUrl = process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL;
+const DEFAULT_OPTIONAL_FUNCTION_ENV_KEYS = [
+  "GEMINI_MODEL_ID",
+  "GEMINI_REQUEST_TIMEOUT_MS",
+  "GEMINI_MAX_ATTEMPTS",
+  "GEMINI_BASE_BACKOFF_MS",
+  "TAVILY_TIMEOUT_MS",
+  "GOTENBERG_WAIT_DELAY",
+  "UNIT_NOTES_SYSTEM_PROMPT",
+  "SOLVED_PAPER_SYSTEM_PROMPT",
+  "WIKIMEDIA_IMAGE_INJECTION_ENABLED",
+  "WIKIMEDIA_MAX_IMAGES",
+  "WIKIMEDIA_API_URL",
+  "WIKIMEDIA_REQUEST_TIMEOUT_MS",
+  "WIKIMEDIA_IMAGE_QUERY_SUFFIX",
+  "FETCH_IMAGE_ALLOWED_HOSTS",
+];
+const extraOptionalFunctionEnvKeys = String(process.env.APPWRITE_FUNCTION_ENV_PASSTHROUGH || "")
+  .split(",")
+  .map((value) => value.trim())
+  .filter(Boolean);
+const optionalFunctionEnvKeys = [...new Set([...DEFAULT_OPTIONAL_FUNCTION_ENV_KEYS, ...extraOptionalFunctionEnvKeys])];
 
 const functionEnv = {
   GOTENBERG_URL: gotenbergUrl,
@@ -95,6 +116,12 @@ const functionEnv = {
   NEXT_PUBLIC_VERCEL_URL: resolvedVercelUrl,
   AI_JOB_WEBHOOK_SECRET: aiJobWebhookSecret,
 };
+for (const key of optionalFunctionEnvKeys) {
+  const value = process.env[key];
+  if (typeof value === "string" && value.trim() !== "") {
+    functionEnv[key] = value;
+  }
+}
 const SECRET_ENV_KEYS = new Set([
   "GOTENBERG_AUTH_TOKEN",
   "GEMINI_API_KEY",
