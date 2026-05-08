@@ -252,7 +252,7 @@ async function fetchWikimediaImageUrl(query) {
       throw new Error(`Forbidden Wikimedia API host: ${apiUrl.hostname}`);
     }
   } catch (err) {
-    console.warn(`[pdf-generator] Skipping Wikimedia enrichment because WIKIMEDIA_API_URL is invalid or forbidden: ${err.message}`);
+    context.log(`[pdf-generator] Skipping Wikimedia enrichment because WIKIMEDIA_API_URL is invalid or forbidden: ${err.message}`);
     return "";
   }
 
@@ -281,7 +281,7 @@ async function fetchWikimediaImageUrl(query) {
       redirect: "error",
     });
     if (!response.ok) {
-      console.warn(`[pdf-generator] Wikimedia API returned HTTP ${response.status} for query "${normalizedQuery}".`);
+      context.log(`[pdf-generator] Wikimedia API returned HTTP ${response.status} for query "${normalizedQuery}".`);
       return "";
     }
     const payload = await response.json();
@@ -301,9 +301,9 @@ async function fetchWikimediaImageUrl(query) {
     }
   } catch (err) {
     if (err.name === "AbortError" || err.name === "TimeoutError") {
-      console.warn(`[pdf-generator] Wikimedia API request timed out for query "${normalizedQuery}".`);
+      context.log(`[pdf-generator] Wikimedia API request timed out for query "${normalizedQuery}".`);
     } else {
-      console.warn(`[pdf-generator] Wikimedia API fetch failed for query "${normalizedQuery}": ${err.message}`);
+      context.log(`[pdf-generator] Wikimedia API fetch failed for query "${normalizedQuery}": ${err.message}`);
     }
     return "";
   }
@@ -415,7 +415,7 @@ async function parseMarkdownToHtml(markdown) {
       markedParser = markedModule.default;
     }
     if (!markedParser) {
-      console.warn(`${MARKED_FALLBACK_LOG_PREFIX} Marked parser was not found on module exports.`);
+      context.log(`${MARKED_FALLBACK_LOG_PREFIX} Marked parser was not found on module exports.`);
       return markdownToBasicHtml(markdown);
     }
     const parsedHtml = typeof markedParser?.parse === "function"
@@ -424,9 +424,9 @@ async function parseMarkdownToHtml(markdown) {
     if (typeof parsedHtml === "string" && parsedHtml.trim()) {
       return parsedHtml;
     }
-    console.warn(`${MARKED_FALLBACK_LOG_PREFIX} Marked parse output was empty.`);
+    context.log(`${MARKED_FALLBACK_LOG_PREFIX} Marked parse output was empty.`);
   } catch {
-    console.warn(`${MARKED_FALLBACK_LOG_PREFIX} Marked import failed.`);
+    context.log(`${MARKED_FALLBACK_LOG_PREFIX} Marked import failed.`);
   }
   return markdownToBasicHtml(markdown);
 }
@@ -724,7 +724,7 @@ async function resolveFetchImageTags(markdown) {
       try {
         safeUrl = validateSafeUrl(rawUrl, allowedHosts);
       } catch (validationError) {
-        console.warn(
+        context.log(
           `[pdf-generator] FETCH_IMAGE skipped invalid URL "${rawUrl}": ${validationError?.message || validationError}`,
         );
         return;
@@ -734,7 +734,7 @@ async function resolveFetchImageTags(markdown) {
       // no allowlist is configured (validateSafeUrl only checks HTTPS in that mode).
       const parsedForSsrf = new URL(safeUrl);
       if (isPrivateOrInternalHost(parsedForSsrf.hostname)) {
-        console.warn(
+        context.log(
           `[pdf-generator] FETCH_IMAGE blocked private/internal host "${parsedForSsrf.hostname}" for URL "${rawUrl}"`,
         );
         return;
@@ -747,7 +747,7 @@ async function resolveFetchImageTags(markdown) {
           redirect: "error", // prevent SSRF via redirect chains
         });
         if (!response.ok) {
-          console.warn(
+          context.log(
             `[pdf-generator] FETCH_IMAGE failed for "${rawUrl}": HTTP ${response.status}`,
           );
           return;
@@ -757,7 +757,7 @@ async function resolveFetchImageTags(markdown) {
         const contentType = response.headers.get("content-type") || "image/png";
         const mimeType = contentType.split(";")[0].trim().toLowerCase();
         if (!mimeType.startsWith("image/")) {
-          console.warn(
+          context.log(
             `[pdf-generator] FETCH_IMAGE skipped non-image content-type for "${rawUrl}": ${mimeType}`,
           );
           return;
@@ -766,7 +766,7 @@ async function resolveFetchImageTags(markdown) {
         if (contentLengthHeader) {
           const declared = Number(contentLengthHeader);
           if (Number.isFinite(declared) && declared > FETCH_IMAGE_MAX_BYTES) {
-            console.warn(
+            context.log(
               `[pdf-generator] FETCH_IMAGE skipped oversized image at "${rawUrl}" (Content-Length: ${declared} bytes)`,
             );
             return;
@@ -797,7 +797,7 @@ async function resolveFetchImageTags(markdown) {
             }
           }
           if (oversized) {
-            console.warn(
+            context.log(
               `[pdf-generator] FETCH_IMAGE skipped oversized image at "${rawUrl}" (streamed > ${FETCH_IMAGE_MAX_BYTES} bytes)`,
             );
             return;
@@ -807,7 +807,7 @@ async function resolveFetchImageTags(markdown) {
           // Fallback for environments where response.body is unavailable
           const arrayBuffer = await response.arrayBuffer();
           if (arrayBuffer.byteLength > FETCH_IMAGE_MAX_BYTES) {
-            console.warn(
+            context.log(
               `[pdf-generator] FETCH_IMAGE skipped oversized image at "${rawUrl}" (${arrayBuffer.byteLength} bytes)`,
             );
             return;
@@ -818,7 +818,7 @@ async function resolveFetchImageTags(markdown) {
         const base64 = imageBuffer.toString("base64");
         dataUriMap.set(rawUrl, `data:${mimeType};base64,${base64}`);
       } catch (fetchError) {
-        console.warn(
+        context.log(
           `[pdf-generator] FETCH_IMAGE fetch error for "${rawUrl}": ${fetchError?.message || fetchError}`,
         );
       }
@@ -1170,7 +1170,7 @@ async function runGeminiCompletionWithRetry({ apiKey, prompt, model }) {
         throw error;
       }
       const delay = GEMINI_STRICT_BACKOFF_BASE_MS * (2 ** (attempt - 1));
-      console.warn(`[Gemini Attempt ${attempt}] Failed with status ${status}. Retrying in ${delay}ms...`);
+      context.log(`[Gemini Attempt ${attempt}] Failed with status ${status}. Retrying in ${delay}ms...`);
       await sleep(delay);
     }
   }
@@ -1649,13 +1649,36 @@ ${topicsChunk.map((topic, i) => `${i + 1}. ${topic}`).join("\n")}
 }
 
 async function generateSolvedPaperPayload(db, payload) {
+  const validated = validateGeminiPromptVariables({
+    "solved.university": payload.university,
+    "solved.course": payload.course,
+    "solved.stream": payload.stream,
+    "solved.type": payload.type,
+    "solved.paperCode": payload.paperCode,
+  });
+
+  const rawYear = payload.year;
+  if (rawYear === undefined || rawYear === null) {
+    const err = new Error("[Gemini preflight] Missing required value: solved.year is undefined.");
+    err.status = 400;
+    err.code = "INVALID_INPUT";
+    throw err;
+  }
+  const year = Number(rawYear);
+  if (!Number.isInteger(year) || year <= 0) {
+    const err = new Error(`[Gemini preflight] Invalid year: solved.year must be a positive integer, got ${String(rawYear)}.`);
+    err.status = 400;
+    err.code = "INVALID_INPUT";
+    throw err;
+  }
+
   const questionsRes = await db.listDocuments(DATABASE_ID, QUESTIONS_TABLE_COLLECTION_ID, [
-    Query.equal("university", payload.university),
-    Query.equal("course", payload.course),
-    Query.equal("stream", payload.stream),
-    Query.equal("type", payload.type),
-    Query.equal("paper_code", payload.paperCode),
-    Query.equal("year", payload.year),
+    Query.equal("university", validated["solved.university"]),
+    Query.equal("course", validated["solved.course"]),
+    Query.equal("stream", validated["solved.stream"]),
+    Query.equal("type", validated["solved.type"]),
+    Query.equal("paper_code", validated["solved.paperCode"]),
+    Query.equal("year", year),
     Query.orderAsc("question_no"),
     Query.limit(500),
   ]);
@@ -1670,7 +1693,7 @@ async function generateSolvedPaperPayload(db, payload) {
   const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   if (!geminiApiKey) throw new Error("Missing GEMINI_API_KEY.");
   const tavilyContext = await fetchTavilyContext(
-    `${payload.university} ${payload.course} ${payload.paperCode} ${payload.year} solved paper key points`,
+    `${validated["solved.university"]} ${validated["solved.course"]} ${validated["solved.paperCode"]} ${year} solved paper key points`,
   );
 
   const solved = [];
@@ -1680,12 +1703,12 @@ async function generateSolvedPaperPayload(db, payload) {
     }
     const prompt = `${getSolvedPaperSystemPrompt()}
 
-University: ${payload.university}
-Course: ${payload.course}
-Stream: ${payload.stream}
-Type: ${payload.type}
-Paper Code: ${payload.paperCode}
-Year: ${payload.year}
+University: ${validated["solved.university"]}
+Course: ${validated["solved.course"]}
+Stream: ${validated["solved.stream"]}
+Type: ${validated["solved.type"]}
+Paper Code: ${validated["solved.paperCode"]}
+Year: ${year}
 Chunk: ${index + 1}/${chunks.length}
 
 Questions:
@@ -1842,7 +1865,7 @@ async function processGenerationJob(rawInput, options = {}) {
           }
         }
       } catch (cacheReadError) {
-        console.warn("[pdf-generator] Markdown cache read failed. Proceeding with fresh generation.", {
+        context.log("[pdf-generator] Markdown cache read failed. Proceeding with fresh generation.", {
           jobId,
           jobType: normalizedJobType,
           cacheBucketId,
@@ -1924,7 +1947,7 @@ async function processGenerationJob(rawInput, options = {}) {
         callbackUrl: String(payload.callbackUrl || "").trim(),
       });
     } catch (webhookError) {
-      console.warn(
+      context.log(
         `[pdf-generator] completion webhook failed for job ${jobId}: ${formatWorkerErrorMessage(webhookError)}`,
       );
     }
