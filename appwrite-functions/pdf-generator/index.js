@@ -2,7 +2,6 @@
 const { Client, Databases, Storage, Query, ID } = require("node-appwrite");
 const { InputFile } = require("node-appwrite/file");
 const { randomInt } = require("node:crypto");
-const sanitizeHtml = require("sanitize-html");
 
 const GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta";
 const DEFAULT_MODEL = process.env.GEMINI_MODEL_ID || "gemini-3.1-flash-lite-preview";
@@ -666,30 +665,6 @@ function protectBracketMath(markdown) {
   return { protectedMarkdown, restore };
 }
 
-function sanitizeGeneratedHtml(html) {
-  return sanitizeHtml(String(html || ""), {
-    allowedTags: sanitizeHtml.defaults.allowedTags.concat([
-      "h1",
-      "h2",
-      "section",
-      "main",
-      "article",
-      "img",
-    ]),
-    allowedAttributes: {
-      ...sanitizeHtml.defaults.allowedAttributes,
-      "*": ["class"],
-      img: ["src", "alt"],
-    },
-    allowedSchemes: ["http", "https", "mailto"],
-    allowedSchemesByTag: {
-      img: ["data", "http", "https"],
-    },
-    allowedSchemesAppliedToAttributes: ["href", "src"],
-    allowProtocolRelative: false,
-  });
-}
-
 /**
  * Scans `markdown` for [FETCH_IMAGE: <url>] tags, fetches each image over
  * HTTPS, and replaces each tag with a Markdown image using a base64 data URI.
@@ -890,8 +865,7 @@ function buildFooterHtml(userEmail) {
 async function markdownToPdfHtml(markdown, title) {
   const { protectedMarkdown, restore } = protectBracketMath(markdown);
   const parsedHtml = await parseMarkdownToHtml(protectedMarkdown);
-  const restoredHtml = restore(typeof parsedHtml === "string" ? parsedHtml : "");
-  const renderedMarkdown = sanitizeGeneratedHtml(restoredHtml);
+  const renderedMarkdown = restore(typeof parsedHtml === "string" ? parsedHtml : "");
   const coverPageHtml = buildCoverPageHtml({ title, markdown });
   const watermarkSvg = encodeURIComponent(
     `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300"><text x="50%" y="50%" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700" fill="#800000" fill-opacity="0.08" transform="rotate(-45 150 150)" text-anchor="middle">EXAMARCHIVE</text></svg>`,

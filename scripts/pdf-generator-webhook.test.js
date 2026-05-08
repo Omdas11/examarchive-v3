@@ -29,15 +29,6 @@ jest.mock("katex", () => ({
   renderToString: jest.fn((expr) => "<math>" + expr + "</math>"),
 }), { virtual: true });
 
-jest.mock("sanitize-html", () => {
-  const sanitizeHtmlMock = jest.fn((html) => html);
-  sanitizeHtmlMock.defaults = {
-    allowedTags: [],
-    allowedAttributes: {},
-  };
-  return sanitizeHtmlMock;
-}, { virtual: true });
-
 jest.mock("he", () => ({
   encode: jest.fn((str) => str),
 }), { virtual: true });
@@ -235,6 +226,12 @@ describe("pdf-generator / math sanitization and rendering", () => {
     expect(html).toContain("Inline \\(x+y\\) and block \\[z^2\\]");
     expect(html).toContain("cdn.jsdelivr.net/npm/mathjax");
     expect(html).toContain("displayMath");
+  });
+
+  it("preserves KaTeX html fragments in rendered output", async () => {
+    const katexHtml = "<span class=\"katex\"><span class=\"katex-html\">x^2</span></span>";
+    const html = await markdownToPdfHtml(katexHtml, "Math Test");
+    expect(html).toContain(katexHtml);
   });
 });
 
