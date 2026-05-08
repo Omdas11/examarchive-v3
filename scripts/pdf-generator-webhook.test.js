@@ -12,11 +12,11 @@ jest.mock("node-appwrite", () => ({
   Databases: jest.fn(),
   Storage: jest.fn(),
   Query: {
-    equal: jest.fn(),
-    limit: jest.fn(),
-    orderAsc: jest.fn(),
-    orderDesc: jest.fn(),
-    search: jest.fn(),
+    equal: jest.fn((f, v) => `equal(${f},${v})`),
+    limit: jest.fn((l) => `limit(${l})`),
+    orderAsc: jest.fn((f) => `orderAsc(${f})`),
+    orderDesc: jest.fn((f) => `orderDesc(${f})`),
+    search: jest.fn((f, v) => `search(${f},${v})`),
   },
   ID: { unique: jest.fn(() => "mock-id") },
 }));
@@ -396,7 +396,7 @@ describe("pdf-generator / runGeminiCompletionWithRetry", () => {
   });
 
   it("uses strict exponential backoff for 503 retries and succeeds on the fifth attempt", async () => {
-    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const warnSpy = jest.spyOn(console, "log").mockImplementation(() => {});
     const timeoutSpy = jest.spyOn(global, "setTimeout").mockImplementation((handler) => {
       if (typeof handler === "function") handler();
       return 0;
@@ -429,7 +429,7 @@ describe("pdf-generator / runGeminiCompletionWithRetry", () => {
   });
 
   it("retries 503 up to five attempts and then throws", async () => {
-    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const warnSpy = jest.spyOn(console, "log").mockImplementation(() => {});
     const timeoutSpy = jest.spyOn(global, "setTimeout").mockImplementation((handler) => {
       if (typeof handler === "function") handler();
       return 0;
@@ -599,7 +599,7 @@ describe("pdf-generator / processGenerationJob cache behavior", () => {
   });
 
   it("falls back to fresh generation when cache read throws", async () => {
-    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const warnSpy = jest.spyOn(console, "log").mockImplementation(() => {});
     const mockDb = {
       updateDocument: jest.fn().mockResolvedValue({}),
       listDocuments: jest.fn().mockResolvedValue({
@@ -986,6 +986,58 @@ describe("pdf-generator / processGenerationJob cache behavior", () => {
     expect(failedUpdate[3].error_message).toContain("responseBody=");
     expect(failedUpdate[3].error_message).toContain("API key not valid");
   });
+
+  it("passes year as an integer (not string) to the year Appwrite query for solved-paper", async () => {
+    jest.spyOn(console, "log").mockImplementation(() => {});
+    const { Query } = require("node-appwrite");
+    const mockDb = {
+      updateDocument: jest.fn().mockResolvedValue({}),
+      listDocuments: jest.fn().mockResolvedValue({
+        documents: [{ $id: "q-1", question_no: 1, question_content: "Q1 content" }],
+      }),
+    };
+    Databases.mockImplementation(() => mockDb);
+
+    const mockStorage = {
+      listFiles: jest.fn().mockResolvedValue({ files: [] }),
+      createFile: jest.fn().mockResolvedValue({ $id: "pdf-file-solved" }),
+    };
+    Storage.mockImplementation(() => mockStorage);
+
+    InputFile.fromBuffer.mockImplementation((buffer, name) => ({ buffer, name }));
+    global.fetch = jest.fn().mockImplementation(async (url) => {
+      if (isGeminiApiCall(url)) {
+        return {
+          ok: true,
+          status: 200,
+          text: async () => JSON.stringify({ candidates: [{ content: { parts: [{ text: "# Gemini markdown" }] } }] }),
+        };
+      }
+      if (String(url).includes("/forms/chromium/convert/html")) {
+        return { ok: true, status: 200, arrayBuffer: async () => Buffer.from("%PDF-1.4") };
+      }
+      return { ok: true, status: 200, text: async () => "" };
+    });
+    process.env.GEMINI_API_KEY = "test-gemini-key";
+
+    await processGenerationJob(JSON.stringify({
+      jobId: "job-solved-type",
+      payload: {
+        jobType: "solved-paper",
+        university: "Test Uni",
+        course: "BTECH",
+        stream: "CSE",
+        type: "Regular",
+        paperCode: "CS101",
+        year: "2024", // string input
+      },
+    }));
+
+    const listDocsCall = mockDb.listDocuments.mock.calls.find((call) => call[1] === "Questions_Table");
+    expect(listDocsCall).toBeDefined();
+    const queries = listDocsCall[2];
+    expect(queries).toContainEqual({ field: "year", val: 2024, type: "equal" });
+  });
 });
 
 describe("pdf-generator / runGeminiCompletion internals", () => {
@@ -1119,7 +1171,7 @@ describe("pdf-generator / resolveFetchImageTags", () => {
       headers: { get: () => null },
       arrayBuffer: async () => new ArrayBuffer(0),
     });
-    jest.spyOn(console, "warn").mockImplementation(() => {});
+    jest.spyOn(console, "log").mockImplementation(() => {});
     const md = "text [FETCH_IMAGE: https://example.com/missing.png] end";
     const result = await resolveFetchImageTags(md);
     expect(result).toBe("text  end");
@@ -1132,7 +1184,7 @@ describe("pdf-generator / resolveFetchImageTags", () => {
       headers: { get: (h) => h === "content-type" ? "text/html" : null },
       arrayBuffer: async () => new ArrayBuffer(10),
     });
-    jest.spyOn(console, "warn").mockImplementation(() => {});
+    jest.spyOn(console, "log").mockImplementation(() => {});
     const md = "[FETCH_IMAGE: https://example.com/page.html]";
     expect(await resolveFetchImageTags(md)).toBe("");
   });
@@ -1148,7 +1200,7 @@ describe("pdf-generator / resolveFetchImageTags", () => {
       } },
       arrayBuffer: jest.fn(), // must NOT be called
     });
-    jest.spyOn(console, "warn").mockImplementation(() => {});
+    jest.spyOn(console, "log").mockImplementation(() => {});
     const md = "[FETCH_IMAGE: https://example.com/big.png]";
     expect(await resolveFetchImageTags(md)).toBe("");
     // arrayBuffer should never be called when Content-Length already tells us it's too big
@@ -1163,7 +1215,7 @@ describe("pdf-generator / resolveFetchImageTags", () => {
       headers: { get: (h) => h === "content-type" ? "image/png" : null },
       arrayBuffer: async () => oversized,
     });
-    jest.spyOn(console, "warn").mockImplementation(() => {});
+    jest.spyOn(console, "log").mockImplementation(() => {});
     const md = "[FETCH_IMAGE: https://example.com/big.png]";
     expect(await resolveFetchImageTags(md)).toBe("");
   });
@@ -1184,7 +1236,7 @@ describe("pdf-generator / resolveFetchImageTags", () => {
       headers: { get: (h) => h === "content-type" ? "image/png" : null },
       body: { getReader: () => mockReader },
     });
-    jest.spyOn(console, "warn").mockImplementation(() => {});
+    jest.spyOn(console, "log").mockImplementation(() => {});
     const md = "[FETCH_IMAGE: https://example.com/stream.png]";
     expect(await resolveFetchImageTags(md)).toBe("");
     expect(cancelled).toBe(true);
@@ -1212,14 +1264,14 @@ describe("pdf-generator / resolveFetchImageTags", () => {
 
   it("removes the tag when fetch throws (e.g. network error)", async () => {
     global.fetch = jest.fn().mockRejectedValue(new Error("network failure"));
-    jest.spyOn(console, "warn").mockImplementation(() => {});
+    jest.spyOn(console, "log").mockImplementation(() => {});
     const md = "[FETCH_IMAGE: https://example.com/err.png]";
     expect(await resolveFetchImageTags(md)).toBe("");
   });
 
   it("removes the tag for non-HTTPS URLs (SSRF guard)", async () => {
     global.fetch = jest.fn();
-    jest.spyOn(console, "warn").mockImplementation(() => {});
+    jest.spyOn(console, "log").mockImplementation(() => {});
     const md = "[FETCH_IMAGE: http://internal-server/img.png]";
     const result = await resolveFetchImageTags(md);
     expect(result).toBe("");
@@ -1228,7 +1280,7 @@ describe("pdf-generator / resolveFetchImageTags", () => {
 
   it("blocks private IPv4 addresses (SSRF guard)", async () => {
     global.fetch = jest.fn();
-    jest.spyOn(console, "warn").mockImplementation(() => {});
+    jest.spyOn(console, "log").mockImplementation(() => {});
     for (const ip of ["127.0.0.1", "10.0.0.1", "192.168.1.1", "169.254.169.254", "172.16.0.1"]) {
       const md = `[FETCH_IMAGE: https://${ip}/img.png]`;
       expect(await resolveFetchImageTags(md)).toBe("");
@@ -1238,14 +1290,14 @@ describe("pdf-generator / resolveFetchImageTags", () => {
 
   it("blocks localhost (SSRF guard)", async () => {
     global.fetch = jest.fn();
-    jest.spyOn(console, "warn").mockImplementation(() => {});
+    jest.spyOn(console, "log").mockImplementation(() => {});
     expect(await resolveFetchImageTags("[FETCH_IMAGE: https://localhost/img.png]")).toBe("");
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
   it("blocks .local hostnames (SSRF guard)", async () => {
     global.fetch = jest.fn();
-    jest.spyOn(console, "warn").mockImplementation(() => {});
+    jest.spyOn(console, "log").mockImplementation(() => {});
     expect(await resolveFetchImageTags("[FETCH_IMAGE: https://internal.service.local/img.png]")).toBe("");
     expect(global.fetch).not.toHaveBeenCalled();
   });
@@ -1253,7 +1305,7 @@ describe("pdf-generator / resolveFetchImageTags", () => {
   it("uses FETCH_IMAGE_ALLOWED_HOSTS allowlist when set and blocks unlisted hosts", async () => {
     process.env.FETCH_IMAGE_ALLOWED_HOSTS = "cdn.trusted.com";
     global.fetch = jest.fn();
-    jest.spyOn(console, "warn").mockImplementation(() => {});
+    jest.spyOn(console, "log").mockImplementation(() => {});
     // Unlisted host should be blocked
     expect(await resolveFetchImageTags("[FETCH_IMAGE: https://other.com/img.png]")).toBe("");
     expect(global.fetch).not.toHaveBeenCalled();
@@ -1397,7 +1449,7 @@ describe("pdf-generator / Wikimedia image enrichment", () => {
   });
 
   it("returns original markdown when WIKIMEDIA_API_URL is invalid, non-HTTPS, or forbidden", async () => {
-    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const warnSpy = jest.spyOn(console, "log").mockImplementation(() => {});
     global.fetch = jest.fn();
     const markdown = "## Topic\nBody";
 
@@ -1426,7 +1478,7 @@ describe("pdf-generator / Wikimedia image enrichment", () => {
   });
 
   it("returns original markdown and logs warning when Wikimedia API returns a non-OK status", async () => {
-    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const warnSpy = jest.spyOn(console, "log").mockImplementation(() => {});
     process.env.WIKIMEDIA_API_URL = "https://commons.wikimedia.org/w/api.php";
     global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 503 });
     const markdown = "## Topic\nBody";
@@ -1437,7 +1489,7 @@ describe("pdf-generator / Wikimedia image enrichment", () => {
   });
 
   it("handles Wikimedia API timeouts gracefully with logging", async () => {
-    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const warnSpy = jest.spyOn(console, "log").mockImplementation(() => {});
     process.env.WIKIMEDIA_API_URL = "https://commons.wikimedia.org/w/api.php";
     const timeoutError = new Error("The operation was aborted");
     timeoutError.name = "AbortError";
@@ -1450,7 +1502,7 @@ describe("pdf-generator / Wikimedia image enrichment", () => {
   });
 
   it("handles Wikimedia API network errors gracefully with logging", async () => {
-    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const warnSpy = jest.spyOn(console, "log").mockImplementation(() => {});
     process.env.WIKIMEDIA_API_URL = "https://commons.wikimedia.org/w/api.php";
     global.fetch = jest.fn().mockRejectedValue(new Error("Network failure"));
 

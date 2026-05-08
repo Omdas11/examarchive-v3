@@ -57,6 +57,10 @@ const DEFAULT_WIKIMEDIA_QUERY_SUFFIX = "";
 const WIKIMEDIA_ALLOWED_HOSTS = ["upload.wikimedia.org", "*.wikimedia.org", "*.wikipedia.org"];
 const MARKED_FALLBACK_LOG_PREFIX = "[pdf-generator] Falling back to basic markdown parser.";
 const MAX_RANDOM_NAMESPACE_INT = 0x1_0000_0000;
+let context = {
+  log: (...args) => console.log(...args),
+  error: (...args) => console.error(...args),
+};
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -248,11 +252,11 @@ async function fetchWikimediaImageUrl(query) {
       throw new Error(`Forbidden Wikimedia API host: ${apiUrl.hostname}`);
     }
   } catch (err) {
-    console.warn(`[pdf-generator] Skipping Wikimedia enrichment because WIKIMEDIA_API_URL is invalid or forbidden: ${err.message}`);
+    context.log(`[pdf-generator] Skipping Wikimedia enrichment because WIKIMEDIA_API_URL is invalid or forbidden: ${err.message}`);
     return "";
   }
 
-  apiUrl.search = new URLSearchParams({
+  const wikimediaSearchParams = new URLSearchParams({
     action: "query",
     format: "json",
     formatversion: "2",
@@ -264,16 +268,20 @@ async function fetchWikimediaImageUrl(query) {
     iiprop: "url|mime",
     redirects: "1",
     origin: "*",
-  }).toString();
+  });
+  apiUrl.search = `${wikimediaSearchParams.toString()}&gsrmime=image/jpeg|image/png|image/svg%2Bxml`;
 
   try {
     const response = await fetch(apiUrl, {
       signal: AbortSignal.timeout(getWikimediaRequestTimeoutMs()),
-      headers: { Accept: "application/json" },
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "ExamArchiveBot/1.0 (https://examarchive.dev)",
+      },
       redirect: "error",
     });
     if (!response.ok) {
-      console.warn(`[pdf-generator] Wikimedia API returned HTTP ${response.status} for query "${normalizedQuery}".`);
+      context.log(`[pdf-generator] Wikimedia API returned HTTP ${response.status} for query "${normalizedQuery}".`);
       return "";
     }
     const payload = await response.json();
@@ -293,9 +301,9 @@ async function fetchWikimediaImageUrl(query) {
     }
   } catch (err) {
     if (err.name === "AbortError" || err.name === "TimeoutError") {
-      console.warn(`[pdf-generator] Wikimedia API request timed out for query "${normalizedQuery}".`);
+      context.log(`[pdf-generator] Wikimedia API request timed out for query "${normalizedQuery}".`);
     } else {
-      console.warn(`[pdf-generator] Wikimedia API fetch failed for query "${normalizedQuery}": ${err.message}`);
+      context.log(`[pdf-generator] Wikimedia API fetch failed for query "${normalizedQuery}": ${err.message}`);
     }
     return "";
   }
@@ -407,7 +415,7 @@ async function parseMarkdownToHtml(markdown) {
       markedParser = markedModule.default;
     }
     if (!markedParser) {
-      console.warn(`${MARKED_FALLBACK_LOG_PREFIX} Marked parser was not found on module exports.`);
+      context.log(`${MARKED_FALLBACK_LOG_PREFIX} Marked parser was not found on module exports.`);
       return markdownToBasicHtml(markdown);
     }
     const parsedHtml = typeof markedParser?.parse === "function"
@@ -416,9 +424,9 @@ async function parseMarkdownToHtml(markdown) {
     if (typeof parsedHtml === "string" && parsedHtml.trim()) {
       return parsedHtml;
     }
-    console.warn(`${MARKED_FALLBACK_LOG_PREFIX} Marked parse output was empty.`);
+    context.log(`${MARKED_FALLBACK_LOG_PREFIX} Marked parse output was empty.`);
   } catch {
-    console.warn(`${MARKED_FALLBACK_LOG_PREFIX} Marked import failed.`);
+    context.log(`${MARKED_FALLBACK_LOG_PREFIX} Marked import failed.`);
   }
   return markdownToBasicHtml(markdown);
 }
@@ -716,7 +724,7 @@ async function resolveFetchImageTags(markdown) {
       try {
         safeUrl = validateSafeUrl(rawUrl, allowedHosts);
       } catch (validationError) {
-        console.warn(
+        context.log(
           `[pdf-generator] FETCH_IMAGE skipped invalid URL "${rawUrl}": ${validationError?.message || validationError}`,
         );
         return;
@@ -726,7 +734,7 @@ async function resolveFetchImageTags(markdown) {
       // no allowlist is configured (validateSafeUrl only checks HTTPS in that mode).
       const parsedForSsrf = new URL(safeUrl);
       if (isPrivateOrInternalHost(parsedForSsrf.hostname)) {
-        console.warn(
+        context.log(
           `[pdf-generator] FETCH_IMAGE blocked private/internal host "${parsedForSsrf.hostname}" for URL "${rawUrl}"`,
         );
         return;
@@ -739,7 +747,7 @@ async function resolveFetchImageTags(markdown) {
           redirect: "error", // prevent SSRF via redirect chains
         });
         if (!response.ok) {
-          console.warn(
+          context.log(
             `[pdf-generator] FETCH_IMAGE failed for "${rawUrl}": HTTP ${response.status}`,
           );
           return;
@@ -749,7 +757,7 @@ async function resolveFetchImageTags(markdown) {
         const contentType = response.headers.get("content-type") || "image/png";
         const mimeType = contentType.split(";")[0].trim().toLowerCase();
         if (!mimeType.startsWith("image/")) {
-          console.warn(
+          context.log(
             `[pdf-generator] FETCH_IMAGE skipped non-image content-type for "${rawUrl}": ${mimeType}`,
           );
           return;
@@ -758,7 +766,7 @@ async function resolveFetchImageTags(markdown) {
         if (contentLengthHeader) {
           const declared = Number(contentLengthHeader);
           if (Number.isFinite(declared) && declared > FETCH_IMAGE_MAX_BYTES) {
-            console.warn(
+            context.log(
               `[pdf-generator] FETCH_IMAGE skipped oversized image at "${rawUrl}" (Content-Length: ${declared} bytes)`,
             );
             return;
@@ -789,7 +797,7 @@ async function resolveFetchImageTags(markdown) {
             }
           }
           if (oversized) {
-            console.warn(
+            context.log(
               `[pdf-generator] FETCH_IMAGE skipped oversized image at "${rawUrl}" (streamed > ${FETCH_IMAGE_MAX_BYTES} bytes)`,
             );
             return;
@@ -799,7 +807,7 @@ async function resolveFetchImageTags(markdown) {
           // Fallback for environments where response.body is unavailable
           const arrayBuffer = await response.arrayBuffer();
           if (arrayBuffer.byteLength > FETCH_IMAGE_MAX_BYTES) {
-            console.warn(
+            context.log(
               `[pdf-generator] FETCH_IMAGE skipped oversized image at "${rawUrl}" (${arrayBuffer.byteLength} bytes)`,
             );
             return;
@@ -810,7 +818,7 @@ async function resolveFetchImageTags(markdown) {
         const base64 = imageBuffer.toString("base64");
         dataUriMap.set(rawUrl, `data:${mimeType};base64,${base64}`);
       } catch (fetchError) {
-        console.warn(
+        context.log(
           `[pdf-generator] FETCH_IMAGE fetch error for "${rawUrl}": ${fetchError?.message || fetchError}`,
         );
       }
@@ -1086,7 +1094,7 @@ async function runGeminiCompletion({ apiKey, prompt, model }) {
         contentPartsCount: requestPayload.contents?.[0]?.parts?.length ?? 0,
         promptLength: requestPayload.contents?.[0]?.parts?.[0]?.text?.length ?? 0,
       };
-      console.error("[pdf-generator][Gemini] 4xx response.", {
+      context.error("[pdf-generator][Gemini] 4xx response.", {
         status: response.status,
         model: safeModel,
         request: redactedRequest,
@@ -1162,7 +1170,7 @@ async function runGeminiCompletionWithRetry({ apiKey, prompt, model }) {
         throw error;
       }
       const delay = GEMINI_STRICT_BACKOFF_BASE_MS * (2 ** (attempt - 1));
-      console.warn(`[Gemini Attempt ${attempt}] Failed with status ${status}. Retrying in ${delay}ms...`);
+      context.log(`[Gemini Attempt ${attempt}] Failed with status ${status}. Retrying in ${delay}ms...`);
       await sleep(delay);
     }
   }
@@ -1326,7 +1334,7 @@ function normalizeAbsoluteHttpUrl(rawUrl) {
     if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return "";
     const webhookSecret = String(process.env.AI_JOB_WEBHOOK_SECRET || "").trim();
     if (webhookSecret && parsed.protocol !== "https:") {
-      console.error("[pdf-generator] Webhook URL rejected: HTTPS required when AI_JOB_WEBHOOK_SECRET is configured.", {
+      context.error("[pdf-generator] Webhook URL rejected: HTTPS required when AI_JOB_WEBHOOK_SECRET is configured.", {
         protocol: parsed.protocol,
         callbackUrl: value.slice(0, MAX_LOGGED_CALLBACK_URL_CHARS),
         truncated: value.length > MAX_LOGGED_CALLBACK_URL_CHARS,
@@ -1335,7 +1343,7 @@ function normalizeAbsoluteHttpUrl(rawUrl) {
     }
     return parsed.toString();
   } catch (error) {
-    console.error("[pdf-generator] Invalid completion callback URL received.", {
+    context.error("[pdf-generator] Invalid completion callback URL received.", {
       callbackUrl: value.slice(0, MAX_LOGGED_CALLBACK_URL_CHARS),
       truncated: value.length > MAX_LOGGED_CALLBACK_URL_CHARS,
       error: String(error?.message || error),
@@ -1416,10 +1424,10 @@ function resolveNotifyCompletionUrl(callbackUrl) {
   if (callbackOverride) {
     try {
       const safeUrl = validateSafeUrl(callbackOverride, getAllowedWebhookHosts());
-      console.log("[pdf-generator] Using callbackOverride for completion webhook.", { callbackOverride: safeUrl });
+      context.log("[pdf-generator] Using callbackOverride for completion webhook.", { callbackOverride: safeUrl });
       return { url: safeUrl, reason: "callback_override" };
     } catch (e) {
-      console.error("[pdf-generator] callbackOverride rejected by security policy.", {
+      context.error("[pdf-generator] callbackOverride rejected by security policy.", {
         callbackUrl: String(callbackUrl).slice(0, MAX_LOGGED_CALLBACK_URL_CHARS),
         error: e.message,
       });
@@ -1428,7 +1436,7 @@ function resolveNotifyCompletionUrl(callbackUrl) {
   }
   const siteUrl = resolveCallbackBaseSiteUrl();
   if (!siteUrl) {
-    console.error("[pdf-generator] CRITICAL: No valid base URL found (checked SITE_URL, NEXT_PUBLIC_SITE_URL, and VERCEL_URL); completion webhook cannot be delivered safely.", {
+    context.error("[pdf-generator] CRITICAL: No valid base URL found (checked SITE_URL, NEXT_PUBLIC_SITE_URL, and VERCEL_URL); completion webhook cannot be delivered safely.", {
       hasCallbackUrl: false,
     });
     return { url: "", reason: "missing_base_url" };
@@ -1447,12 +1455,12 @@ function getNotifyCompletionUrl(callbackUrl) {
 
 async function notifyCompletionWebhook({ jobId, status, fileId, userId, userEmail, callbackUrl }) {
   if (!resolveCallbackBaseSiteUrl()) {
-    console.error("[pdf-generator] CRITICAL: No base URL environment variable found (SITE_URL, NEXT_PUBLIC_SITE_URL, or VERCEL_URL); notify-completion webhook delivery may be skipped.");
+    context.error("[pdf-generator] CRITICAL: No base URL environment variable found (SITE_URL, NEXT_PUBLIC_SITE_URL, or VERCEL_URL); notify-completion webhook delivery may be skipped.");
   }
   const notifyResolution = resolveNotifyCompletionUrl(callbackUrl);
   const notifyUrl = notifyResolution.url;
   if (!notifyUrl) {
-    console.error("[pdf-generator] Completion webhook callback skipped due to URL resolution failure.", {
+    context.error("[pdf-generator] Completion webhook callback skipped due to URL resolution failure.", {
       reason: notifyResolution.reason,
       hasCallbackUrl: Boolean(String(callbackUrl || "").trim()),
       hasSiteUrl: Boolean(String(process.env.SITE_URL || "").trim()),
@@ -1496,7 +1504,7 @@ async function notifyCompletionWebhook({ jobId, status, fileId, userId, userEmai
     } catch (error) {
       lastError = error;
       if (attempt >= maxAttempts) {
-        console.error("[pdf-generator] Completion webhook request error after all attempts.", {
+        context.error("[pdf-generator] Completion webhook request error after all attempts.", {
           url: notifyUrl,
           attempts: maxAttempts,
           message: error instanceof Error ? error.message : String(error),
@@ -1504,7 +1512,7 @@ async function notifyCompletionWebhook({ jobId, status, fileId, userId, userEmai
         });
         return;
       }
-      console.error("[pdf-generator] Completion webhook request error (will retry).", {
+      context.error("[pdf-generator] Completion webhook request error (will retry).", {
         attempt,
         maxAttempts,
         url: notifyUrl,
@@ -1518,7 +1526,7 @@ async function notifyCompletionWebhook({ jobId, status, fileId, userId, userEmai
       continue;
     }
 
-    console.log("[pdf-generator] Completion webhook callback response received.", {
+    context.log("[pdf-generator] Completion webhook callback response received.", {
       url: notifyUrl,
       status: response.status,
       ok: response.ok,
@@ -1529,7 +1537,7 @@ async function notifyCompletionWebhook({ jobId, status, fileId, userId, userEmai
       const responseBody = await response.text().catch(() => "");
       const shouldRetry = response.status === 429 || response.status >= 500;
       if (shouldRetry && attempt < maxAttempts) {
-        console.error("[pdf-generator] Completion webhook request failed (will retry).", {
+        context.error("[pdf-generator] Completion webhook request failed (will retry).", {
           attempt,
           maxAttempts,
           status: response.status,
@@ -1541,7 +1549,7 @@ async function notifyCompletionWebhook({ jobId, status, fileId, userId, userEmai
         await sleep(backoffMs);
         continue;
       }
-      console.error("[pdf-generator] Completion webhook request failed after all attempts.", {
+      context.error("[pdf-generator] Completion webhook request failed after all attempts.", {
         status: response.status,
         body: responseBody.slice(0, NOTIFY_WEBHOOK_ERROR_LOG_MAX_CHARS),
         attempts: attempt,
@@ -1552,7 +1560,7 @@ async function notifyCompletionWebhook({ jobId, status, fileId, userId, userEmai
     return;
   }
   if (lastError) {
-    console.error("[pdf-generator] Completion webhook request failed.", {
+    context.error("[pdf-generator] Completion webhook request failed.", {
       url: notifyUrl,
       message: lastError instanceof Error ? lastError.message : String(lastError),
     });
@@ -1641,13 +1649,36 @@ ${topicsChunk.map((topic, i) => `${i + 1}. ${topic}`).join("\n")}
 }
 
 async function generateSolvedPaperPayload(db, payload) {
+  const validated = validateGeminiPromptVariables({
+    "solved.university": payload.university,
+    "solved.course": payload.course,
+    "solved.stream": payload.stream,
+    "solved.type": payload.type,
+    "solved.paperCode": payload.paperCode,
+  });
+
+  const rawYear = payload.year;
+  if (rawYear === undefined || rawYear === null) {
+    const err = new Error("[Gemini preflight] Missing required value: solved.year is undefined.");
+    err.status = 400;
+    err.code = "INVALID_INPUT";
+    throw err;
+  }
+  const year = Number(rawYear);
+  if (!Number.isInteger(year) || year <= 0) {
+    const err = new Error(`[Gemini preflight] Invalid year: solved.year must be a positive integer, got ${String(rawYear)}.`);
+    err.status = 400;
+    err.code = "INVALID_INPUT";
+    throw err;
+  }
+
   const questionsRes = await db.listDocuments(DATABASE_ID, QUESTIONS_TABLE_COLLECTION_ID, [
-    Query.equal("university", payload.university),
-    Query.equal("course", payload.course),
-    Query.equal("stream", payload.stream),
-    Query.equal("type", payload.type),
-    Query.equal("paper_code", payload.paperCode),
-    Query.equal("year", payload.year),
+    Query.equal("university", validated["solved.university"]),
+    Query.equal("course", validated["solved.course"]),
+    Query.equal("stream", validated["solved.stream"]),
+    Query.equal("type", validated["solved.type"]),
+    Query.equal("paper_code", validated["solved.paperCode"]),
+    Query.equal("year", year),
     Query.orderAsc("question_no"),
     Query.limit(500),
   ]);
@@ -1662,7 +1693,7 @@ async function generateSolvedPaperPayload(db, payload) {
   const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   if (!geminiApiKey) throw new Error("Missing GEMINI_API_KEY.");
   const tavilyContext = await fetchTavilyContext(
-    `${payload.university} ${payload.course} ${payload.paperCode} ${payload.year} solved paper key points`,
+    `${validated["solved.university"]} ${validated["solved.course"]} ${validated["solved.paperCode"]} ${year} solved paper key points`,
   );
 
   const solved = [];
@@ -1672,12 +1703,12 @@ async function generateSolvedPaperPayload(db, payload) {
     }
     const prompt = `${getSolvedPaperSystemPrompt()}
 
-University: ${payload.university}
-Course: ${payload.course}
-Stream: ${payload.stream}
-Type: ${payload.type}
-Paper Code: ${payload.paperCode}
-Year: ${payload.year}
+University: ${validated["solved.university"]}
+Course: ${validated["solved.course"]}
+Stream: ${validated["solved.stream"]}
+Type: ${validated["solved.type"]}
+Paper Code: ${validated["solved.paperCode"]}
+Year: ${year}
 Chunk: ${index + 1}/${chunks.length}
 
 Questions:
@@ -1784,7 +1815,7 @@ async function processGenerationJob(rawInput, options = {}) {
       if (trimmedCachedMarkdown) {
         markdown = trimmedCachedMarkdown;
         loadedFromCache = true;
-        console.log("[pdf-generator] Using cachedMarkdown from dispatch payload (global cache hit).", {
+        context.log("[pdf-generator] Using cachedMarkdown from dispatch payload (global cache hit).", {
           jobId,
           jobType: normalizedJobType,
           markdownLength: trimmedCachedMarkdown.length,
@@ -1808,7 +1839,7 @@ async function processGenerationJob(rawInput, options = {}) {
         // still found and bypass fresh LLM generation.
         if (!exactMatch && legacyCacheKey !== cacheKey) {
           const legacyCachedFiles = await storage.listFiles(cacheBucketId, [
-            Query.search("name", legacyCacheKey),
+            Query.equal("name", legacyCacheFileName),
             Query.orderDesc("$createdAt"),
             Query.limit(10),
           ]);
@@ -1824,7 +1855,7 @@ async function processGenerationJob(rawInput, options = {}) {
             markdown = cachedMarkdown;
             loadedFromCache = true;
             cacheFileId = String(cachedFile.$id);
-            console.log("[pdf-generator] Loaded markdown from cache bucket.", {
+            context.log("[pdf-generator] Loaded markdown from cache bucket.", {
               jobId,
               jobType: normalizedJobType,
               cacheBucketId,
@@ -1834,7 +1865,7 @@ async function processGenerationJob(rawInput, options = {}) {
           }
         }
       } catch (cacheReadError) {
-        console.warn("[pdf-generator] Markdown cache read failed. Proceeding with fresh generation.", {
+        context.log("[pdf-generator] Markdown cache read failed. Proceeding with fresh generation.", {
           jobId,
           jobType: normalizedJobType,
           cacheBucketId,
@@ -1864,7 +1895,7 @@ async function processGenerationJob(rawInput, options = {}) {
         cacheFileId = String(cacheFile.$id);
       } catch (cacheWriteError) {
         const contextMessage = "[pdf-generator] Markdown cache write failed. Without the markdown cache the generation result will be lost.";
-        console.error(contextMessage, {
+        context.error(contextMessage, {
           jobId,
           jobType: normalizedJobType,
           cacheBucketId,
@@ -1916,7 +1947,7 @@ async function processGenerationJob(rawInput, options = {}) {
         callbackUrl: String(payload.callbackUrl || "").trim(),
       });
     } catch (webhookError) {
-      console.warn(
+      context.log(
         `[pdf-generator] completion webhook failed for job ${jobId}: ${formatWorkerErrorMessage(webhookError)}`,
       );
     }
@@ -1927,7 +1958,7 @@ async function processGenerationJob(rawInput, options = {}) {
       status: "failed",
       completed_at: new Date().toISOString(),
       error_message: formatWorkerErrorMessage(error),
-    }).catch((err) => console.error("Failed to update job status to failed:", err));
+    }).catch((err) => context.error("Failed to update job status to failed:", err));
     try {
       await notifyCompletionWebhook({
         jobId,
@@ -1938,7 +1969,7 @@ async function processGenerationJob(rawInput, options = {}) {
         callbackUrl: String(payload.callbackUrl || "").trim(),
       });
     } catch (webhookError) {
-      console.error("[pdf-generator] failed to deliver completion webhook.", {
+      context.error("[pdf-generator] failed to deliver completion webhook.", {
         jobId,
         error: webhookError?.stack || String(webhookError),
       });
@@ -1948,6 +1979,10 @@ async function processGenerationJob(rawInput, options = {}) {
 }
 
 module.exports = async ({ req, res, log, error }) => {
+  context = {
+    log: typeof log === "function" ? log : context.log,
+    error: typeof error === "function" ? error : context.error,
+  };
   try {
     const rawInput = req?.body || process.env.APPWRITE_FUNCTION_EVENT_DATA || process.env.APPWRITE_FUNCTION_DATA || "{}";
     const result = await processGenerationJob(rawInput);
