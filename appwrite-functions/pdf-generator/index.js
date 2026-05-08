@@ -803,7 +803,7 @@ async function resolveFetchImageTags(markdown) {
         }
 
         const base64 = imageBuffer.toString("base64");
-        dataUriMap.set(rawUrl, `data:${mimeType};base64,${base64}`);
+        dataUriMap.set(rawUrl, "data:" + mimeType + ";base64," + base64);
       } catch (fetchError) {
         context.log(
           `[pdf-generator] FETCH_IMAGE fetch error for "${rawUrl}": ${fetchError?.message || fetchError}`,
