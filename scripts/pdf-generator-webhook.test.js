@@ -1156,6 +1156,14 @@ describe("pdf-generator / resolveFetchImageTags", () => {
     expect(await resolveFetchImageTags(md)).toBe(md);
   });
 
+  it("returns markdown unchanged when input exceeds safe scan limit", async () => {
+    const hugeMarkdown = `${"x".repeat(200_001)} [FETCH_IMAGE: should not resolve]`;
+    global.fetch = jest.fn();
+    const result = await resolveFetchImageTags(hugeMarkdown);
+    expect(result).toBe(hugeMarkdown);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
   it("replaces a valid FETCH_IMAGE search-term tag with a base64 data URI html image", async () => {
     const fakeBytes = Buffer.from("fakepng");
     global.fetch = jest.fn()
@@ -1290,6 +1298,96 @@ describe("pdf-generator / resolveFetchImageTags", () => {
     expect(await resolveFetchImageTags(md)).toBe("");
   });
 
+  it("removes the tag when resolved response content-type is not an image", async () => {
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          query: {
+            pages: [{ imageinfo: [{ url: "https://upload.wikimedia.org/page.html", mime: "image/png" }] }],
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: { get: (h) => (h === "content-type" ? "text/html" : null) },
+        arrayBuffer: async () => new ArrayBuffer(16),
+      });
+    expect(await resolveFetchImageTags("[FETCH_IMAGE: html page]")).toBe("");
+  });
+
+  it("removes the tag when resolved image Content-Length exceeds limit", async () => {
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          query: {
+            pages: [{ imageinfo: [{ url: "https://upload.wikimedia.org/big.png", mime: "image/png" }] }],
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: {
+          get: (h) => {
+            if (h === "content-type") return "image/png";
+            if (h === "content-length") return String(6 * 1024 * 1024);
+            return null;
+          },
+        },
+        arrayBuffer: jest.fn(),
+      });
+    expect(await resolveFetchImageTags("[FETCH_IMAGE: huge diagram]")).toBe("");
+  });
+
+  it("aborts stream and removes tag when resolved image exceeds byte cap while streaming", async () => {
+    const chunk = new Uint8Array(3 * 1024 * 1024).fill(1);
+    let cancelled = false;
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          query: {
+            pages: [{ imageinfo: [{ url: "https://upload.wikimedia.org/stream.png", mime: "image/png" }] }],
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: { get: (h) => (h === "content-type" ? "image/png" : null) },
+        body: {
+          getReader: () => ({
+            read: jest.fn()
+              .mockResolvedValueOnce({ done: false, value: chunk })
+              .mockResolvedValueOnce({ done: false, value: chunk }),
+            cancel: jest.fn().mockImplementation(() => {
+              cancelled = true;
+              return Promise.resolve();
+            }),
+          }),
+        },
+      });
+    expect(await resolveFetchImageTags("[FETCH_IMAGE: streamed chart]")).toBe("");
+    expect(cancelled).toBe(true);
+  });
+
+  it("removes the tag when resolved image fetch throws", async () => {
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          query: {
+            pages: [{ imageinfo: [{ url: "https://upload.wikimedia.org/err.png", mime: "image/png" }] }],
+          },
+        }),
+      })
+      .mockRejectedValueOnce(new Error("network failure"));
+    expect(await resolveFetchImageTags("[FETCH_IMAGE: failing term]")).toBe("");
+  });
+
   it("respects WIKIMEDIA_MAX_IMAGES limit while resolving tags", async () => {
     process.env.WIKIMEDIA_MAX_IMAGES = "1";
     const fakeBytes = Buffer.from("one");
@@ -1335,6 +1433,19 @@ describe("pdf-generator / resolveFetchImageTags", () => {
     process.env.WIKIMEDIA_IMAGE_INJECTION_ENABLED = "false";
     global.fetch = jest.fn();
     expect(await resolveFetchImageTags("A [FETCH_IMAGE: term] B")).toBe("A  B");
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("removes tags when WIKIMEDIA_MAX_IMAGES is zero", async () => {
+    process.env.WIKIMEDIA_MAX_IMAGES = "0";
+    global.fetch = jest.fn();
+    expect(await resolveFetchImageTags("A [FETCH_IMAGE: term] B")).toBe("A  B");
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("drops blank FETCH_IMAGE terms without making Wikimedia requests", async () => {
+    global.fetch = jest.fn();
+    expect(await resolveFetchImageTags("A [FETCH_IMAGE:    ] B")).toBe("A  B");
     expect(global.fetch).not.toHaveBeenCalled();
   });
 });
