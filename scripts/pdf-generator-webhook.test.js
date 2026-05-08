@@ -1216,6 +1216,47 @@ describe("pdf-generator / resolveFetchImageTags", () => {
     expect(result).toBe(`${tag}\n${tag}`);
   });
 
+  it("resolves different search terms independently", async () => {
+    const bytesA = Buffer.from("img-a");
+    const bytesB = Buffer.from("img-b");
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          query: {
+            pages: [{ imageinfo: [{ url: "https://upload.wikimedia.org/a.png", mime: "image/png" }] }],
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          query: {
+            pages: [{ imageinfo: [{ url: "https://upload.wikimedia.org/b.png", mime: "image/png" }] }],
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: { get: () => "image/png" },
+        arrayBuffer: async () => toArrayBuffer(bytesA),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: { get: () => "image/png" },
+        arrayBuffer: async () => toArrayBuffer(bytesB),
+      });
+
+    const md = "[FETCH_IMAGE: binding energy curve graph] and [FETCH_IMAGE: nuclear fusion diagram]";
+    const result = await resolveFetchImageTags(md);
+    expect(result).toBe(
+      `${expectedDataUriImgTag(`data:image/png;base64,${bytesA.toString("base64")}`)} and ${expectedDataUriImgTag(`data:image/png;base64,${bytesB.toString("base64")}`)}`,
+    );
+    expect(global.fetch).toHaveBeenCalledTimes(4);
+  });
+
   it("removes the tag when Wikimedia query returns no usable image URL", async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
