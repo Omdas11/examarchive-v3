@@ -667,7 +667,7 @@ function protectBracketMath(markdown) {
 
 /**
  * Scans `markdown` for [FETCH_IMAGE: <url>] tags, fetches each image over
- * HTTPS, and replaces each tag with a Markdown image using a base64 data URI.
+ * HTTPS, and replaces each tag with an inline HTML <img> using a base64 data URI.
  * Tags whose URL fails validation or whose fetch fails are silently removed.
  * All distinct URLs are fetched concurrently to minimise latency.
  *
@@ -723,7 +723,10 @@ async function resolveFetchImageTags(markdown) {
       try {
         const response = await fetch(safeUrl, {
           signal: AbortSignal.timeout(FETCH_IMAGE_TIMEOUT_MS),
-          headers: { Accept: "image/*" },
+          headers: {
+            Accept: "image/*",
+            "User-Agent": "ExamArchiveBot/1.0 (https://examarchive.dev)",
+          },
           redirect: "error", // prevent SSRF via redirect chains
         });
         if (!response.ok) {
@@ -808,7 +811,7 @@ async function resolveFetchImageTags(markdown) {
   return source.replace(FETCH_IMAGE_TAG_RE, (_match, rawUrl) => {
     const trimmedUrl = rawUrl.trim();
     const dataUri = dataUriMap.get(trimmedUrl);
-    return dataUri ? `![image](${dataUri})` : "";
+    return dataUri ? `<img src="${dataUri}" alt="image">` : "";
   });
 }
 

@@ -1121,7 +1121,7 @@ describe("pdf-generator / resolveFetchImageTags", () => {
     expect(await resolveFetchImageTags(md)).toBe(md);
   });
 
-  it("replaces a valid FETCH_IMAGE tag with a base64 data URI markdown image", async () => {
+  it("replaces a valid FETCH_IMAGE tag with a base64 data URI html image", async () => {
     const fakeBytes = Buffer.from("fakepng");
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
@@ -1132,11 +1132,17 @@ describe("pdf-generator / resolveFetchImageTags", () => {
     const md = "Before [FETCH_IMAGE: https://example.com/img.png] after.";
     const result = await resolveFetchImageTags(md);
     const expectedB64 = fakeBytes.toString("base64");
-    expect(result).toBe(`Before ![image](data:image/png;base64,${expectedB64}) after.`);
+    expect(result).toBe(`Before <img src="data:image/png;base64,${expectedB64}" alt="image"> after.`);
     expect(global.fetch).toHaveBeenCalledTimes(1);
     expect(global.fetch).toHaveBeenCalledWith(
       "https://example.com/img.png",
-      expect.objectContaining({ headers: { Accept: "image/*" }, redirect: "error" }),
+      expect.objectContaining({
+        headers: {
+          Accept: "image/*",
+          "User-Agent": "ExamArchiveBot/1.0 (https://examarchive.dev)",
+        },
+        redirect: "error",
+      }),
     );
   });
 
@@ -1152,7 +1158,7 @@ describe("pdf-generator / resolveFetchImageTags", () => {
     const result = await resolveFetchImageTags(md);
     expect(global.fetch).toHaveBeenCalledTimes(1);
     const b64 = fakeBytes.toString("base64");
-    const tag = `![image](data:image/jpeg;base64,${b64})`;
+    const tag = `<img src="data:image/jpeg;base64,${b64}" alt="image">`;
     expect(result).toBe(`${tag}\n${tag}`);
   });
 
@@ -1251,7 +1257,7 @@ describe("pdf-generator / resolveFetchImageTags", () => {
     });
     const md = "[FETCH_IMAGE: https://example.com/stream.png]";
     const result = await resolveFetchImageTags(md);
-    expect(result).toBe(`![image](data:image/png;base64,${fakeBytes.toString("base64")})`);
+    expect(result).toBe(`<img src="data:image/png;base64,${fakeBytes.toString("base64")}" alt="image">`);
   });
 
   it("removes the tag when fetch throws (e.g. network error)", async () => {
@@ -1314,7 +1320,7 @@ describe("pdf-generator / resolveFetchImageTags", () => {
     const md = "[FETCH_IMAGE: https://example.com/anim.gif]";
     const result = await resolveFetchImageTags(md);
     const b64 = fakeBytes.toString("base64");
-    expect(result).toBe(`![image](data:image/gif;base64,${b64})`);
+    expect(result).toBe(`<img src="data:image/gif;base64,${b64}" alt="image">`);
   });
 
   it("handles multiple distinct images in one markdown string", async () => {
@@ -1338,7 +1344,7 @@ describe("pdf-generator / resolveFetchImageTags", () => {
     const b641 = bytes1.toString("base64");
     const b642 = bytes2.toString("base64");
     expect(result).toBe(
-      `![image](data:image/png;base64,${b641}) and ![image](data:image/jpeg;base64,${b642})`,
+      `<img src="data:image/png;base64,${b641}" alt="image"> and <img src="data:image/jpeg;base64,${b642}" alt="image">`,
     );
   });
 
@@ -1353,7 +1359,7 @@ describe("pdf-generator / resolveFetchImageTags", () => {
     const md = "[FETCH_IMAGE:   https://example.com/img.webp  ]";
     const result = await resolveFetchImageTags(md);
     const b64 = fakeBytes.toString("base64");
-    expect(result).toBe(`![image](data:image/webp;base64,${b64})`);
+    expect(result).toBe(`<img src="data:image/webp;base64,${b64}" alt="image">`);
   });
 });
 
