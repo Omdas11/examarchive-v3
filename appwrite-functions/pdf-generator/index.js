@@ -47,6 +47,7 @@ const TRUSTED_GEMINI_HOST = "generativelanguage.googleapis.com";
 const MAX_SAFE_PDF_FILENAME_CORE_LENGTH = 120;
 const FETCH_IMAGE_TIMEOUT_MS = 10_000;
 const FETCH_IMAGE_MAX_BYTES = 5 * 1024 * 1024; // 5 MB per image
+const FETCH_IMAGE_MARKDOWN_SCAN_MAX_CHARS = 200_000;
 const FETCH_IMAGE_TAG_RE = /\[FETCH_IMAGE:\s*([^\]]+?)\s*\]/g;
 const DEFAULT_WIKIMEDIA_API_URL = "https://commons.wikimedia.org/w/api.php";
 const DEFAULT_WIKIMEDIA_REQUEST_TIMEOUT_MS = 8_000;
@@ -632,15 +633,45 @@ function protectBracketMath(markdown) {
  */
 async function resolveFetchImageTags(markdown) {
   const source = String(markdown || "");
-  const matches = [...source.matchAll(FETCH_IMAGE_TAG_RE)];
+  if (source.length > FETCH_IMAGE_MARKDOWN_SCAN_MAX_CHARS) {
+    context.log(
+      `[pdf-generator] FETCH_IMAGE skipped because markdown exceeded safe scan limit (${FETCH_IMAGE_MARKDOWN_SCAN_MAX_CHARS} chars).`,
+    );
+    return source;
+  }
+
+  FETCH_IMAGE_TAG_RE.lastIndex = 0;
+  const matches = [];
+  let regexMatch;
+  while ((regexMatch = FETCH_IMAGE_TAG_RE.exec(source)) !== null) {
+    matches.push({
+      term: String(regexMatch[1] || "").trim(),
+      start: regexMatch.index,
+      end: FETCH_IMAGE_TAG_RE.lastIndex,
+    });
+  }
   if (matches.length === 0) return source;
   if (!shouldEnableWikimediaInjection()) {
-    return source.replace(FETCH_IMAGE_TAG_RE, "");
+    let output = "";
+    let cursor = 0;
+    for (const match of matches) {
+      output += source.slice(cursor, match.start);
+      cursor = match.end;
+    }
+    output += source.slice(cursor);
+    return output;
   }
 
   const maxImages = getWikimediaMaxImages();
   if (!Number.isFinite(maxImages) || maxImages <= 0) {
-    return source.replace(FETCH_IMAGE_TAG_RE, "");
+    let output = "";
+    let cursor = 0;
+    for (const match of matches) {
+      output += source.slice(cursor, match.start);
+      cursor = match.end;
+    }
+    output += source.slice(cursor);
+    return output;
   }
 
   // Build optional explicit allowlist from environment (read fresh each call so
@@ -650,7 +681,7 @@ async function resolveFetchImageTags(markdown) {
     ? fetchImageAllowedHostsRaw.split(",").map((h) => h.trim()).filter(Boolean)
     : [];
 
-  const uniqueTerms = [...new Set(matches.map((m) => m[1].trim()).filter(Boolean))];
+  const uniqueTerms = [...new Set(matches.map((m) => m.term).filter(Boolean))];
   const termsToResolve = uniqueTerms.slice(0, maxImages);
   const dataUriMap = new Map();
 
@@ -759,11 +790,18 @@ async function resolveFetchImageTags(markdown) {
     }),
   );
 
-  return source.replace(FETCH_IMAGE_TAG_RE, (_match, rawTerm) => {
-    const trimmedTerm = rawTerm.trim();
-    const dataUri = dataUriMap.get(trimmedTerm);
-    return dataUri ? buildSafeImgTagFromDataUri(dataUri) : "";
-  });
+  let output = "";
+  let cursor = 0;
+  for (const match of matches) {
+    output += source.slice(cursor, match.start);
+    const dataUri = dataUriMap.get(match.term);
+    if (dataUri) {
+      output += buildSafeImgTagFromDataUri(dataUri);
+    }
+    cursor = match.end;
+  }
+  output += source.slice(cursor);
+  return output;
 }
 
 function buildCoverPageHtml({ title, markdown }) {
