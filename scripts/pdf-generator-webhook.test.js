@@ -1426,7 +1426,7 @@ describe("pdf-generator / Wikimedia image enrichment", () => {
       json: async () => ({
         query: {
           pages: [
-            { imageinfo: [{ url: "https://upload.wikimedia.org/example-topic.png" }] },
+            { imageinfo: [{ url: "https://upload.wikimedia.org/example-topic.png", mime: "image/png" }] },
           ],
         },
       }),
@@ -1520,10 +1520,10 @@ describe("pdf-generator / Wikimedia image enrichment", () => {
       json: async () => ({
         query: {
           pages: [
-            { imageinfo: [{ url: "http://insecure.com/img.png" }] }, // non-HTTPS
-            { imageinfo: [{ url: "https://localhost/img.png" }] },   // private
-            { imageinfo: [{ url: "https://other.com/img.png" }] },       // forbidden host
-            { imageinfo: [{ url: "https://upload.wikimedia.org/valid.png" }] }, // valid
+            { imageinfo: [{ url: "http://insecure.com/img.png", mime: "image/png" }] }, // non-HTTPS
+            { imageinfo: [{ url: "https://localhost/img.png", mime: "image/png" }] },   // private
+            { imageinfo: [{ url: "https://other.com/img.png", mime: "image/png" }] },       // forbidden host
+            { imageinfo: [{ url: "https://upload.wikimedia.org/valid.png", mime: "image/png" }] }, // valid
           ],
         },
       }),
