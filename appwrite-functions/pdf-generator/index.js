@@ -642,7 +642,7 @@ async function resolveFetchImageTags(markdown) {
 
   const matches = [];
   for (const regexMatch of source.matchAll(FETCH_IMAGE_TAG_RE)) {
-    const matchStart = Number.isInteger(regexMatch.index) ? regexMatch.index : 0;
+    const matchStart = regexMatch.index;
     matches.push({
       term: String(regexMatch[1] || "").trim(),
       start: matchStart,
