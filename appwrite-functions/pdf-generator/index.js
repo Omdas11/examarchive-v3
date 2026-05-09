@@ -640,14 +640,13 @@ async function resolveFetchImageTags(markdown) {
     return source;
   }
 
-  const fetchImageTagRe = new RegExp(FETCH_IMAGE_TAG_RE.source, "g");
   const matches = [];
-  let regexMatch;
-  while ((regexMatch = fetchImageTagRe.exec(source)) !== null) {
+  for (const regexMatch of source.matchAll(FETCH_IMAGE_TAG_RE)) {
+    const matchStart = Number.isInteger(regexMatch.index) ? regexMatch.index : 0;
     matches.push({
       term: String(regexMatch[1] || "").trim(),
-      start: regexMatch.index,
-      end: fetchImageTagRe.lastIndex,
+      start: matchStart,
+      end: matchStart + regexMatch[0].length,
     });
   }
   if (matches.length === 0) return source;
