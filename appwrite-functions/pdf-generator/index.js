@@ -47,7 +47,8 @@ const TRUSTED_GEMINI_HOST = "generativelanguage.googleapis.com";
 const MAX_SAFE_PDF_FILENAME_CORE_LENGTH = 120;
 const FETCH_IMAGE_TIMEOUT_MS = 10_000;
 const FETCH_IMAGE_MAX_BYTES = 5 * 1024 * 1024; // 5 MB per image
-const FETCH_IMAGE_TAG_RE = /\[FETCH_IMAGE:\s*(https?:\/\/[^\]]+?)\s*\]/g;
+const FETCH_IMAGE_MARKDOWN_SCAN_MAX_CHARS = 200_000;
+const FETCH_IMAGE_TAG_RE = /\[FETCH_IMAGE:\s*([^\]]+?)\s*\]/g;
 const DEFAULT_WIKIMEDIA_API_URL = "https://commons.wikimedia.org/w/api.php";
 const DEFAULT_WIKIMEDIA_REQUEST_TIMEOUT_MS = 8_000;
 // Hard cap keeps Wikimedia lookups bounded (latency + token/buffer pressure).
@@ -199,8 +200,8 @@ function getWikimediaRequestTimeoutMs() {
 
 function getWikimediaMaxImages() {
   const maxImages = Number(process.env.WIKIMEDIA_MAX_IMAGES);
-  // Absolute max is 6 images per document to bound outbound calls and PDF payload size.
-  return Number.isInteger(maxImages) ? Math.max(0, Math.min(6, maxImages)) : DEFAULT_WIKIMEDIA_MAX_IMAGES;
+  // Absolute max is 10 images per document to bound outbound calls and PDF payload size.
+  return Number.isInteger(maxImages) ? Math.max(0, Math.min(10, maxImages)) : DEFAULT_WIKIMEDIA_MAX_IMAGES;
 }
 
 function getWikimediaQuerySuffix() {
@@ -214,24 +215,6 @@ function normalizeWikimediaQuery(value) {
     .replace(/[>*_~#]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-}
-
-function extractWikimediaImageQueries(markdown, limit = getWikimediaMaxImages()) {
-  if (!Number.isFinite(limit) || limit <= 0) return [];
-  const lines = String(markdown || "").replace(/\r\n/g, "\n").split("\n");
-  const seen = new Set();
-  const queries = [];
-  for (const line of lines) {
-    const headingMatch = line.trim().match(/^##\s+(.+)$/);
-    if (!headingMatch) continue;
-    const query = normalizeWikimediaQuery(headingMatch[1]);
-    if (!query || /^syllabus highlights$/i.test(query)) continue;
-    if (seen.has(query.toLowerCase())) continue;
-    seen.add(query.toLowerCase());
-    queries.push(query);
-    if (queries.length >= limit) break;
-  }
-  return queries;
 }
 
 async function fetchWikimediaImageUrl(query) {
@@ -311,46 +294,6 @@ async function fetchWikimediaImageUrl(query) {
   }
 
   return "";
-}
-
-async function injectWikimediaFetchImageTags(markdown) {
-  const source = String(markdown || "");
-  const maxImages = getWikimediaMaxImages();
-  if (!source.trim()) return source;
-  if (!shouldEnableWikimediaInjection() || maxImages <= 0) return source;
-
-  const queries = extractWikimediaImageQueries(source, maxImages);
-  if (queries.length === 0) return source;
-
-  const queryToImageUrl = new Map();
-  await Promise.all(
-    queries.map(async (query) => {
-      const imageUrl = await fetchWikimediaImageUrl(query);
-      if (imageUrl) {
-        queryToImageUrl.set(query.toLowerCase(), imageUrl);
-      }
-    }),
-  );
-  if (queryToImageUrl.size === 0) return source;
-
-  const lines = source.replace(/\r\n/g, "\n").split("\n");
-  const usedImageUrls = new Set();
-  let inserted = 0;
-  const outputLines = [];
-  for (const line of lines) {
-    outputLines.push(line);
-    if (inserted >= maxImages) continue;
-    const headingMatch = line.trim().match(/^##\s+(.+)$/);
-    if (!headingMatch) continue;
-    const query = normalizeWikimediaQuery(headingMatch[1]);
-    const imageUrl = queryToImageUrl.get(query.toLowerCase());
-    if (!imageUrl || usedImageUrls.has(imageUrl)) continue;
-    usedImageUrls.add(imageUrl);
-    outputLines.push("", `[FETCH_IMAGE: ${imageUrl}]`, "");
-    inserted += 1;
-  }
-
-  return outputLines.join("\n");
 }
 
 function markdownToBasicHtml(markdown) {
@@ -670,10 +613,11 @@ function protectBracketMath(markdown) {
 }
 
 /**
- * Scans `markdown` for [FETCH_IMAGE: <url>] tags, fetches each image over
+ * Scans `markdown` for [FETCH_IMAGE: <search term>] tags, resolves each term
+ * to a Wikimedia image URL, fetches each image over
  * HTTPS, and replaces each tag with an inline HTML <img> using a base64 data URI.
- * Tags whose URL fails validation or whose fetch fails are silently removed.
- * All distinct URLs are fetched concurrently to minimise latency.
+ * Tags whose term cannot be resolved or whose image fetch fails are removed.
+ * All distinct terms are resolved/fetched concurrently to minimise latency.
  *
  * Security:
  * - HTTPS is enforced by validateSafeUrl.
@@ -689,8 +633,45 @@ function protectBracketMath(markdown) {
  */
 async function resolveFetchImageTags(markdown) {
   const source = String(markdown || "");
-  const matches = [...source.matchAll(FETCH_IMAGE_TAG_RE)];
+  if (source.length > FETCH_IMAGE_MARKDOWN_SCAN_MAX_CHARS) {
+    context.log(
+      `[pdf-generator] FETCH_IMAGE skipped because markdown exceeded safe scan limit (${FETCH_IMAGE_MARKDOWN_SCAN_MAX_CHARS} chars).`,
+    );
+    return source;
+  }
+
+  const matches = [];
+  for (const regexMatch of source.matchAll(FETCH_IMAGE_TAG_RE)) {
+    const matchStart = regexMatch.index;
+    matches.push({
+      term: String(regexMatch[1] || "").trim(),
+      start: matchStart,
+      end: matchStart + regexMatch[0].length,
+    });
+  }
   if (matches.length === 0) return source;
+  if (!shouldEnableWikimediaInjection()) {
+    let output = "";
+    let cursor = 0;
+    for (const match of matches) {
+      output += source.slice(cursor, match.start);
+      cursor = match.end;
+    }
+    output += source.slice(cursor);
+    return output;
+  }
+
+  const maxImages = getWikimediaMaxImages();
+  if (!Number.isFinite(maxImages) || maxImages <= 0) {
+    let output = "";
+    let cursor = 0;
+    for (const match of matches) {
+      output += source.slice(cursor, match.start);
+      cursor = match.end;
+    }
+    output += source.slice(cursor);
+    return output;
+  }
 
   // Build optional explicit allowlist from environment (read fresh each call so
   // runtime env changes and test overrides are respected).
@@ -699,29 +680,25 @@ async function resolveFetchImageTags(markdown) {
     ? fetchImageAllowedHostsRaw.split(",").map((h) => h.trim()).filter(Boolean)
     : [];
 
-  const uniqueUrls = [...new Set(matches.map((m) => m[1].trim()))];
+  const uniqueTerms = [...new Set(matches.map((m) => m.term).filter(Boolean))];
+  const termsToResolve = uniqueTerms.slice(0, maxImages);
   const dataUriMap = new Map();
 
   await Promise.all(
-    uniqueUrls.map(async (rawUrl) => {
-      let safeUrl;
-      try {
-        safeUrl = validateSafeUrl(rawUrl, allowedHosts);
-      } catch (validationError) {
-        context.log(
-          `[pdf-generator] FETCH_IMAGE skipped invalid URL "${rawUrl}": ${validationError?.message || validationError}`,
-        );
-        return;
-      }
+    termsToResolve.map(async (term) => {
+      const imageUrl = await fetchWikimediaImageUrl(term);
+      if (!imageUrl) return;
 
-      // SSRF guard: block private / internal / loopback destinations even when
-      // no allowlist is configured (validateSafeUrl only checks HTTPS in that mode).
-      const parsedForSsrf = new URL(safeUrl);
-      if (isPrivateOrInternalHost(parsedForSsrf.hostname)) {
-        context.log(
-          `[pdf-generator] FETCH_IMAGE blocked private/internal host "${parsedForSsrf.hostname}" for URL "${rawUrl}"`,
-        );
-        return;
+      let safeUrl = imageUrl;
+      if (allowedHosts.length > 0) {
+        try {
+          safeUrl = validateSafeUrl(imageUrl, allowedHosts);
+        } catch (validationError) {
+          context.log(
+            `[pdf-generator] FETCH_IMAGE skipped resolved URL "${imageUrl}" for term "${term}": ${validationError?.message || validationError}`,
+          );
+          return;
+        }
       }
 
       try {
@@ -735,7 +712,7 @@ async function resolveFetchImageTags(markdown) {
         });
         if (!response.ok) {
           context.log(
-            `[pdf-generator] FETCH_IMAGE failed for "${rawUrl}": HTTP ${response.status}`,
+            `[pdf-generator] FETCH_IMAGE failed for term "${term}" (${safeUrl}): HTTP ${response.status}`,
           );
           return;
         }
@@ -745,7 +722,7 @@ async function resolveFetchImageTags(markdown) {
         const mimeType = contentType.split(";")[0].trim().toLowerCase();
         if (!mimeType.startsWith("image/")) {
           context.log(
-            `[pdf-generator] FETCH_IMAGE skipped non-image content-type for "${rawUrl}": ${mimeType}`,
+            `[pdf-generator] FETCH_IMAGE skipped non-image content-type for term "${term}" (${safeUrl}): ${mimeType}`,
           );
           return;
         }
@@ -754,7 +731,7 @@ async function resolveFetchImageTags(markdown) {
           const declared = Number(contentLengthHeader);
           if (Number.isFinite(declared) && declared > FETCH_IMAGE_MAX_BYTES) {
             context.log(
-              `[pdf-generator] FETCH_IMAGE skipped oversized image at "${rawUrl}" (Content-Length: ${declared} bytes)`,
+              `[pdf-generator] FETCH_IMAGE skipped oversized image for term "${term}" at "${safeUrl}" (Content-Length: ${declared} bytes)`,
             );
             return;
           }
@@ -785,7 +762,7 @@ async function resolveFetchImageTags(markdown) {
           }
           if (oversized) {
             context.log(
-              `[pdf-generator] FETCH_IMAGE skipped oversized image at "${rawUrl}" (streamed > ${FETCH_IMAGE_MAX_BYTES} bytes)`,
+              `[pdf-generator] FETCH_IMAGE skipped oversized image for term "${term}" at "${safeUrl}" (streamed > ${FETCH_IMAGE_MAX_BYTES} bytes)`,
             );
             return;
           }
@@ -795,7 +772,7 @@ async function resolveFetchImageTags(markdown) {
           const arrayBuffer = await response.arrayBuffer();
           if (arrayBuffer.byteLength > FETCH_IMAGE_MAX_BYTES) {
             context.log(
-              `[pdf-generator] FETCH_IMAGE skipped oversized image at "${rawUrl}" (${arrayBuffer.byteLength} bytes)`,
+              `[pdf-generator] FETCH_IMAGE skipped oversized image for term "${term}" at "${safeUrl}" (${arrayBuffer.byteLength} bytes)`,
             );
             return;
           }
@@ -803,20 +780,27 @@ async function resolveFetchImageTags(markdown) {
         }
 
         const base64 = imageBuffer.toString("base64");
-        dataUriMap.set(rawUrl, "data:" + mimeType + ";base64," + base64);
+        dataUriMap.set(term, "data:" + mimeType + ";base64," + base64);
       } catch (fetchError) {
         context.log(
-          `[pdf-generator] FETCH_IMAGE fetch error for "${rawUrl}": ${fetchError?.message || fetchError}`,
+          `[pdf-generator] FETCH_IMAGE fetch error for term "${term}" (${safeUrl}): ${fetchError?.message || fetchError}`,
         );
       }
     }),
   );
 
-  return source.replace(FETCH_IMAGE_TAG_RE, (_match, rawUrl) => {
-    const trimmedUrl = rawUrl.trim();
-    const dataUri = dataUriMap.get(trimmedUrl);
-    return dataUri ? buildSafeImgTagFromDataUri(dataUri) : "";
-  });
+  let output = "";
+  let cursor = 0;
+  for (const match of matches) {
+    output += source.slice(cursor, match.start);
+    const dataUri = dataUriMap.get(match.term);
+    if (dataUri) {
+      output += buildSafeImgTagFromDataUri(dataUri);
+    }
+    cursor = match.end;
+  }
+  output += source.slice(cursor);
+  return output;
 }
 
 function buildCoverPageHtml({ title, markdown }) {
@@ -1192,6 +1176,7 @@ function getNotesSystemPrompt() {
     "",
     "MATH RULES:",
     "- You MUST use \\( and \\) for inline LaTeX math. Example: The energy is \\(E = mc^2\\).",
+    "- Whenever explaining a concept, curve, or experiment, you MUST insert a descriptive image tag exactly like [FETCH_IMAGE: binding energy curve graph]. Insert multiple images wherever necessary.",
     "- Block math MUST be written as:",
     "\\[",
     "F = G \\frac{m_1 m_2}{r^2}",
@@ -1867,8 +1852,7 @@ async function processGenerationJob(rawInput, options = {}) {
       } else {
         markdown = await generateSolvedPaperPayload(db, payload);
       }
-      markdown = await injectWikimediaFetchImageTags(markdown);
-      // Resolve [FETCH_IMAGE: <url>] tags to inline base64 data URIs before
+      // Resolve [FETCH_IMAGE: <search term>] tags to inline base64 data URIs before
       // caching so that the stored markdown is self-contained and cache hits
       // never need to re-fetch the images.
       markdown = await resolveFetchImageTags(markdown);
@@ -1996,5 +1980,3 @@ module.exports.validateSafeUrl = validateSafeUrl;
 module.exports.getAllowedWebhookHosts = getAllowedWebhookHosts;
 module.exports.resolveFetchImageTags = resolveFetchImageTags;
 module.exports.isPrivateOrInternalHost = isPrivateOrInternalHost;
-module.exports.extractWikimediaImageQueries = extractWikimediaImageQueries;
-module.exports.injectWikimediaFetchImageTags = injectWikimediaFetchImageTags;
