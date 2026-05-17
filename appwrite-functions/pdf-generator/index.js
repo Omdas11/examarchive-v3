@@ -402,9 +402,46 @@ function stripGeneratedImages(text) {
     }
     cursor = tokenEnd + 1;
   }
-  return withoutFetchDirectives
-    .replace(/!\[[^\]]*]\([^)\n]*\)/g, "")
-    .replace(/<img\b[^>]*>/gi, "");
+  let withoutMarkdownImages = "";
+  cursor = 0;
+  while (cursor < withoutFetchDirectives.length) {
+    const imageStart = withoutFetchDirectives.indexOf("![", cursor);
+    if (imageStart < 0) {
+      withoutMarkdownImages += withoutFetchDirectives.slice(cursor);
+      break;
+    }
+    withoutMarkdownImages += withoutFetchDirectives.slice(cursor, imageStart);
+    const altClose = withoutFetchDirectives.indexOf("](", imageStart + 2);
+    if (altClose < 0) {
+      withoutMarkdownImages += withoutFetchDirectives.slice(imageStart);
+      break;
+    }
+    const imageEnd = withoutFetchDirectives.indexOf(")", altClose + 2);
+    if (imageEnd < 0) {
+      withoutMarkdownImages += withoutFetchDirectives.slice(imageStart);
+      break;
+    }
+    cursor = imageEnd + 1;
+  }
+
+  let withoutHtmlImages = "";
+  cursor = 0;
+  const lower = withoutMarkdownImages.toLowerCase();
+  while (cursor < withoutMarkdownImages.length) {
+    const imageStart = lower.indexOf("<img", cursor);
+    if (imageStart < 0) {
+      withoutHtmlImages += withoutMarkdownImages.slice(cursor);
+      break;
+    }
+    withoutHtmlImages += withoutMarkdownImages.slice(cursor, imageStart);
+    const imageEnd = lower.indexOf(">", imageStart + 4);
+    if (imageEnd < 0) {
+      break;
+    }
+    cursor = imageEnd + 1;
+  }
+
+  return withoutHtmlImages;
 }
 
 async function resolveFetchImageTags(markdown) {
@@ -998,7 +1035,8 @@ async function updateJob(db, jobId, payload) {
 
 function buildJobTitle(payload) {
   if (payload.jobType === "solved-paper") {
-    const yearSegment = String(payload.year ?? "").trim() || "all_years";
+    const hasYearSegment = payload.year !== null && payload.year !== undefined && String(payload.year).trim() !== "";
+    const yearSegment = hasYearSegment ? String(payload.year).trim() : "all_years";
     return `${payload.paperCode}_${yearSegment}_solved_paper.pdf`;
   }
   return `${payload.paperCode}_Unit_${payload.unitNumber}_Notes.pdf`;
@@ -1368,7 +1406,7 @@ async function generateSolvedPaperPayload(db, payload) {
   if (questions.length === 0) {
     throw new Error(year === null ? "No questions found for this paper." : "No questions found for this paper/year.");
   }
-  const extractQuestionNumber = (value) => {
+  const normalizeQuestionNumber = (value) => {
     const normalized = Number(value);
     if (Number.isFinite(normalized)) return normalized;
     const match = String(value || "").match(/\d+/);
@@ -1385,13 +1423,13 @@ async function generateSolvedPaperPayload(db, payload) {
     const bYear = normalizeQuestionYear(b.year);
     if (aYear === null && bYear !== null) return 1;
     if (aYear !== null && bYear === null) return -1;
-    const yearDiff = (aYear ?? 0) - (bYear ?? 0);
+    const yearDiff = aYear - bYear;
     if (yearDiff !== 0) return yearDiff;
-    const aQuestionNo = extractQuestionNumber(a.question_no);
-    const bQuestionNo = extractQuestionNumber(b.question_no);
+    const aQuestionNo = normalizeQuestionNumber(a.question_no);
+    const bQuestionNo = normalizeQuestionNumber(b.question_no);
     if (aQuestionNo === null && bQuestionNo !== null) return 1;
     if (aQuestionNo !== null && bQuestionNo === null) return -1;
-    const questionDiff = (aQuestionNo ?? 0) - (bQuestionNo ?? 0);
+    const questionDiff = aQuestionNo - bQuestionNo;
     if (questionDiff !== 0) return questionDiff;
     const aSub = typeof a.question_subpart === "string" ? a.question_subpart : "";
     const bSub = typeof b.question_subpart === "string" ? b.question_subpart : "";
