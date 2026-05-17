@@ -386,8 +386,23 @@ function sanitizeAiMath(text) {
 }
 
 function stripGeneratedImages(text) {
-  return String(text || "")
-    .replace(/\[FETCH_IMAGE:\s*([^\]]+?)\s*\]/g, "")
+  const source = String(text || "");
+  let withoutFetchDirectives = "";
+  let cursor = 0;
+  while (cursor < source.length) {
+    const tokenStart = source.indexOf("[FETCH_IMAGE:", cursor);
+    if (tokenStart < 0) {
+      withoutFetchDirectives += source.slice(cursor);
+      break;
+    }
+    withoutFetchDirectives += source.slice(cursor, tokenStart);
+    const tokenEnd = source.indexOf("]", tokenStart + "[FETCH_IMAGE:".length);
+    if (tokenEnd < 0) {
+      break;
+    }
+    cursor = tokenEnd + 1;
+  }
+  return withoutFetchDirectives
     .replace(/!\[[^\]]*]\([^)\n]*\)/g, "")
     .replace(/<img\b[^>]*>/gi, "");
 }
@@ -1341,12 +1356,11 @@ async function generateSolvedPaperPayload(db, payload) {
     Query.equal("stream", validated["solved.stream"]),
     Query.equal("type", validated["solved.type"]),
     Query.equal("paper_code", validated["solved.paperCode"]),
-    Query.orderAsc("question_no"),
-    Query.limit(500),
   ];
   if (year !== null) {
-    questionQueries.splice(5, 0, Query.equal("year", year));
+    questionQueries.push(Query.equal("year", year));
   }
+  questionQueries.push(Query.orderAsc("question_no"), Query.limit(500));
   const questionsRes = await db.listDocuments(DATABASE_ID, QUESTIONS_TABLE_COLLECTION_ID, questionQueries);
   const questions = (questionsRes.documents || []).filter(
     (doc) => typeof doc.question_content === "string" && doc.question_content.trim().length > 0,
@@ -1358,18 +1372,26 @@ async function generateSolvedPaperPayload(db, payload) {
     const normalized = Number(value);
     if (Number.isFinite(normalized)) return normalized;
     const match = String(value || "").match(/\d+/);
-    if (!match) return Number.MAX_SAFE_INTEGER;
+    if (!match) return null;
     const parsed = Number(match[0]);
-    return Number.isFinite(parsed) ? parsed : Number.MAX_SAFE_INTEGER;
+    return Number.isFinite(parsed) ? parsed : null;
   };
   const normalizeQuestionYear = (value) => {
     const parsed = Number(value);
-    return Number.isInteger(parsed) ? parsed : Number.MAX_SAFE_INTEGER;
+    return Number.isInteger(parsed) ? parsed : null;
   };
   questions.sort((a, b) => {
-    const yearDiff = normalizeQuestionYear(a.year) - normalizeQuestionYear(b.year);
+    const aYear = normalizeQuestionYear(a.year);
+    const bYear = normalizeQuestionYear(b.year);
+    if (aYear === null && bYear !== null) return 1;
+    if (aYear !== null && bYear === null) return -1;
+    const yearDiff = (aYear ?? 0) - (bYear ?? 0);
     if (yearDiff !== 0) return yearDiff;
-    const questionDiff = extractQuestionNumber(a.question_no) - extractQuestionNumber(b.question_no);
+    const aQuestionNo = extractQuestionNumber(a.question_no);
+    const bQuestionNo = extractQuestionNumber(b.question_no);
+    if (aQuestionNo === null && bQuestionNo !== null) return 1;
+    if (aQuestionNo !== null && bQuestionNo === null) return -1;
+    const questionDiff = (aQuestionNo ?? 0) - (bQuestionNo ?? 0);
     if (questionDiff !== 0) return questionDiff;
     const aSub = typeof a.question_subpart === "string" ? a.question_subpart : "";
     const bSub = typeof b.question_subpart === "string" ? b.question_subpart : "";
