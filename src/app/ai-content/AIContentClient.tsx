@@ -43,7 +43,7 @@ export default function AIContentClient() {
   const [paperCode, setPaperCode] = useState("");
   const [semester, setSemester] = useState<number | "">("");
   const [unitNumber, setUnitNumber] = useState(1);
-  const [selectedYear, setSelectedYear] = useState<number | "">("");
+  const [selectedYear, setSelectedYear] = useState<number | "all" | "">("");
   const [notesPaperCodes, setNotesPaperCodes] = useState<string[]>([]);
   const [papersPaperCodes, setPapersPaperCodes] = useState<string[]>([]);
   const [unitsByPaperCode, setUnitsByPaperCode] = useState<Record<string, number[]>>({});
@@ -115,7 +115,7 @@ export default function AIContentClient() {
     [availableUnits],
   );
   const yearOptions: CustomDropdownOption[] = useMemo(
-    () => availableYears.map((year) => ({ label: String(year), value: String(year) })),
+    () => [{ label: "All Years", value: "all" }, ...availableYears.map((year) => ({ label: String(year), value: String(year) }))],
     [availableYears],
   );
   // Semester options always use the full global list so the dropdown never
@@ -162,7 +162,7 @@ export default function AIContentClient() {
             stream,
             type,
             paperCode,
-            year: selectedYear === "" ? null : selectedYear,
+            year: selectedYear === "" || selectedYear === "all" ? null : selectedYear,
             semester: semester === "" ? null : semester,
             model,
           };
@@ -352,8 +352,9 @@ export default function AIContentClient() {
       return;
     }
     setSelectedYear((current) => {
+      if (current === "all") return current;
       if (typeof current === "number" && availableYears.includes(current)) return current;
-      return availableYears[0] ?? "";
+      return "all";
     });
   }, [paperCode, availableYears]);
 
@@ -498,8 +499,8 @@ export default function AIContentClient() {
                   <label className="mb-1 block text-sm font-semibold">Year</label>
                   <CustomDropdown
                     options={yearOptions}
-                    value={selectedYear === "" ? "" : String(selectedYear)}
-                    onChange={(nextValue) => setSelectedYear(Number(nextValue))}
+                    value={selectedYear === "" ? "" : selectedYear === "all" ? "all" : String(selectedYear)}
+                    onChange={(nextValue) => setSelectedYear(nextValue === "all" ? "all" : Number(nextValue))}
                     placeholder={availableYears.length > 0 ? "Select year" : "No years available for selected paper"}
                     disabled={generating || availableYears.length === 0}
                   />

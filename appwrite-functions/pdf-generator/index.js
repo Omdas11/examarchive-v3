@@ -45,16 +45,6 @@ const GOTENBERG_MAX_BACKOFF_MS = 6_000;
 const TRUSTED_GOTENBERG_HOST_SUFFIX = ".hf.space";
 const TRUSTED_GEMINI_HOST = "generativelanguage.googleapis.com";
 const MAX_SAFE_PDF_FILENAME_CORE_LENGTH = 120;
-const FETCH_IMAGE_TIMEOUT_MS = 10_000;
-const FETCH_IMAGE_MAX_BYTES = 5 * 1024 * 1024; // 5 MB per image
-const FETCH_IMAGE_MARKDOWN_SCAN_MAX_CHARS = 200_000;
-const FETCH_IMAGE_TAG_RE = /\[FETCH_IMAGE:\s*([^\]]+?)\s*\]/g;
-const DEFAULT_WIKIMEDIA_API_URL = "https://commons.wikimedia.org/w/api.php";
-const DEFAULT_WIKIMEDIA_REQUEST_TIMEOUT_MS = 8_000;
-// Hard cap keeps Wikimedia lookups bounded (latency + token/buffer pressure).
-const DEFAULT_WIKIMEDIA_MAX_IMAGES = 3;
-const DEFAULT_WIKIMEDIA_QUERY_SUFFIX = "";
-const WIKIMEDIA_ALLOWED_HOSTS = ["upload.wikimedia.org", "*.wikimedia.org", "*.wikipedia.org"];
 const MARKED_FALLBACK_LOG_PREFIX = "[pdf-generator] Falling back to basic markdown parser.";
 const MAX_RANDOM_NAMESPACE_INT = 0x1_0000_0000;
 let context = {
@@ -184,118 +174,6 @@ function splitSyllabusIntoSubTopics(syllabusContent) {
     .filter(Boolean);
 }
 
-function shouldEnableWikimediaInjection() {
-  const raw = String(process.env.WIKIMEDIA_IMAGE_INJECTION_ENABLED || "false").trim().toLowerCase();
-  return raw !== "0" && raw !== "false" && raw !== "no";
-}
-
-function getWikimediaApiUrl() {
-  return String(process.env.WIKIMEDIA_API_URL || DEFAULT_WIKIMEDIA_API_URL).trim();
-}
-
-function getWikimediaRequestTimeoutMs() {
-  const timeoutMs = Number(process.env.WIKIMEDIA_REQUEST_TIMEOUT_MS);
-  return Number.isFinite(timeoutMs) ? Math.max(1_000, timeoutMs) : DEFAULT_WIKIMEDIA_REQUEST_TIMEOUT_MS;
-}
-
-function getWikimediaMaxImages() {
-  const maxImages = Number(process.env.WIKIMEDIA_MAX_IMAGES);
-  // Absolute max is 10 images per document to bound outbound calls and PDF payload size.
-  return Number.isInteger(maxImages) ? Math.max(0, Math.min(10, maxImages)) : DEFAULT_WIKIMEDIA_MAX_IMAGES;
-}
-
-function getWikimediaQuerySuffix() {
-  return String(process.env.WIKIMEDIA_IMAGE_QUERY_SUFFIX || DEFAULT_WIKIMEDIA_QUERY_SUFFIX).trim();
-}
-
-function normalizeWikimediaQuery(value) {
-  return String(value || "")
-    .replace(/`+/g, "")
-    .replace(/\[[^\]]*?\]\([^)]+\)/g, "")
-    .replace(/[>*_~#]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-async function fetchWikimediaImageUrl(query) {
-  const normalizedQuery = normalizeWikimediaQuery(query);
-  if (!normalizedQuery) return "";
-  const querySuffix = getWikimediaQuerySuffix();
-  const searchQuery = querySuffix ? `${normalizedQuery} ${querySuffix}` : normalizedQuery;
-  let apiUrl;
-  try {
-    const rawApiUrl = getWikimediaApiUrl();
-    // Validate the base API URL (enforces HTTPS and checks against allowlist)
-    const safeApiUrl = validateSafeUrl(rawApiUrl, ["commons.wikimedia.org", "*.wikimedia.org"]);
-    apiUrl = new URL(safeApiUrl);
-
-    // Defense-in-depth: ensure it's not a private/internal host
-    if (isPrivateOrInternalHost(apiUrl.hostname)) {
-      throw new Error(`Forbidden Wikimedia API host: ${apiUrl.hostname}`);
-    }
-  } catch (err) {
-    context.log(`[pdf-generator] Skipping Wikimedia enrichment because WIKIMEDIA_API_URL is invalid or forbidden: ${err.message}`);
-    return "";
-  }
-
-  const wikimediaSearchParams = new URLSearchParams({
-    action: "query",
-    format: "json",
-    formatversion: "2",
-    generator: "search",
-    gsrsearch: searchQuery,
-    gsrnamespace: "6",
-    gsrlimit: "3",
-    prop: "imageinfo",
-    iiprop: "url|mime",
-    redirects: "1",
-    origin: "*",
-  });
-  apiUrl.search = `${wikimediaSearchParams.toString()}&gsrmime=image/jpeg|image/png|image/svg%2Bxml`;
-
-  try {
-    const response = await fetch(apiUrl, {
-      signal: AbortSignal.timeout(getWikimediaRequestTimeoutMs()),
-      headers: {
-        Accept: "application/json",
-        "User-Agent": "ExamArchiveBot/1.0 (https://examarchive.dev)",
-      },
-      redirect: "error",
-    });
-    if (!response.ok) {
-      context.log(`[pdf-generator] Wikimedia API returned HTTP ${response.status} for query "${normalizedQuery}".`);
-      return "";
-    }
-    const payload = await response.json();
-    const pages = Array.isArray(payload?.query?.pages) ? payload.query.pages : [];
-    for (const page of pages) {
-      const imageInfo = page?.imageinfo?.[0];
-      const mime = String(imageInfo?.mime || "").trim().toLowerCase();
-      if (!mime.startsWith("image/")) continue;
-      const url = String(imageInfo?.url || "").trim();
-      if (!url) continue;
-      try {
-        const safeUrl = validateSafeUrl(url, WIKIMEDIA_ALLOWED_HOSTS);
-        const host = new URL(safeUrl).hostname;
-        if (!isPrivateOrInternalHost(host)) {
-          return safeUrl;
-        }
-      } catch {
-        continue;
-      }
-    }
-  } catch (err) {
-    if (err.name === "AbortError" || err.name === "TimeoutError") {
-      context.log(`[pdf-generator] Wikimedia API request timed out for query "${normalizedQuery}".`);
-    } else {
-      context.log(`[pdf-generator] Wikimedia API fetch failed for query "${normalizedQuery}": ${err.message}`);
-    }
-    return "";
-  }
-
-  return "";
-}
-
 function markdownToBasicHtml(markdown) {
   const source = String(markdown || "").replace(/\r\n/g, "\n");
   const lines = source.split("\n");
@@ -389,10 +267,6 @@ function escapeHtml(value) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
-}
-
-function buildSafeImgTagFromDataUri(dataUri) {
-  return `<img src="${escapeHtml(dataUri)}" alt="image">`;
 }
 
 const MALFORMED_LATEX_COMMAND_PATTERN = /(^|[^A-Za-z0-9_])(?:l|\|)(frac|vec|pi|mu|chi|alpha|beta|gamma|theta|lambda|tau|circ|sqrt|text|hat|sin|cos)\b/g;
@@ -511,6 +385,17 @@ function sanitizeAiMath(text) {
   return cleaned;
 }
 
+function stripGeneratedImages(text) {
+  return String(text || "")
+    .replace(/\[FETCH_IMAGE:\s*([^\]]+?)\s*\]/g, "")
+    .replace(/!\[[^\]]*]\([^)\n]*\)/g, "")
+    .replace(/<img\b[^>]*>/gi, "");
+}
+
+async function resolveFetchImageTags(markdown) {
+  return stripGeneratedImages(markdown);
+}
+
 function extractSyllabusHighlights(markdown) {
   const lines = String(markdown || "").replace(/\r\n/g, "\n").split("\n");
   const startIndex = lines.findIndex((line) => /^#{1,6}\s*Syllabus Highlights\b/i.test(line.trim()));
@@ -610,197 +495,6 @@ function protectBracketMath(markdown) {
   };
 
   return { protectedMarkdown, restore };
-}
-
-/**
- * Scans `markdown` for [FETCH_IMAGE: <search term>] tags, resolves each term
- * to a Wikimedia image URL, fetches each image over
- * HTTPS, and replaces each tag with an inline HTML <img> using a base64 data URI.
- * Tags whose term cannot be resolved or whose image fetch fails are removed.
- * All distinct terms are resolved/fetched concurrently to minimise latency.
- *
- * Security:
- * - HTTPS is enforced by validateSafeUrl.
- * - Requests to private/loopback/internal hosts are blocked by isPrivateOrInternalHost.
- * - Redirects are disabled (redirect: "error") to prevent SSRF via 3xx chains.
- * - Content-Length is checked before buffering; the response body is streamed
- *   and aborted as soon as accumulated bytes exceed FETCH_IMAGE_MAX_BYTES.
- * - When FETCH_IMAGE_ALLOWED_HOSTS is set (comma-separated host patterns), only
- *   those hostnames are permitted.
- *
- * @param {string} markdown - The markdown string to process.
- * @returns {Promise<string>} The markdown with all [FETCH_IMAGE: …] tags replaced.
- */
-async function resolveFetchImageTags(markdown) {
-  const source = String(markdown || "");
-  if (source.length > FETCH_IMAGE_MARKDOWN_SCAN_MAX_CHARS) {
-    context.log(
-      `[pdf-generator] FETCH_IMAGE skipped because markdown exceeded safe scan limit (${FETCH_IMAGE_MARKDOWN_SCAN_MAX_CHARS} chars).`,
-    );
-    return source;
-  }
-
-  const matches = [];
-  for (const regexMatch of source.matchAll(FETCH_IMAGE_TAG_RE)) {
-    const matchStart = regexMatch.index;
-    matches.push({
-      term: String(regexMatch[1] || "").trim(),
-      start: matchStart,
-      end: matchStart + regexMatch[0].length,
-    });
-  }
-  if (matches.length === 0) return source;
-  if (!shouldEnableWikimediaInjection()) {
-    let output = "";
-    let cursor = 0;
-    for (const match of matches) {
-      output += source.slice(cursor, match.start);
-      cursor = match.end;
-    }
-    output += source.slice(cursor);
-    return output;
-  }
-
-  const maxImages = getWikimediaMaxImages();
-  if (!Number.isFinite(maxImages) || maxImages <= 0) {
-    let output = "";
-    let cursor = 0;
-    for (const match of matches) {
-      output += source.slice(cursor, match.start);
-      cursor = match.end;
-    }
-    output += source.slice(cursor);
-    return output;
-  }
-
-  // Build optional explicit allowlist from environment (read fresh each call so
-  // runtime env changes and test overrides are respected).
-  const fetchImageAllowedHostsRaw = process.env.FETCH_IMAGE_ALLOWED_HOSTS || "";
-  const allowedHosts = fetchImageAllowedHostsRaw
-    ? fetchImageAllowedHostsRaw.split(",").map((h) => h.trim()).filter(Boolean)
-    : [];
-
-  const uniqueTerms = [...new Set(matches.map((m) => m.term).filter(Boolean))];
-  const termsToResolve = uniqueTerms.slice(0, maxImages);
-  const dataUriMap = new Map();
-
-  await Promise.all(
-    termsToResolve.map(async (term) => {
-      const imageUrl = await fetchWikimediaImageUrl(term);
-      if (!imageUrl) return;
-
-      let safeUrl = imageUrl;
-      if (allowedHosts.length > 0) {
-        try {
-          safeUrl = validateSafeUrl(imageUrl, allowedHosts);
-        } catch (validationError) {
-          context.log(
-            `[pdf-generator] FETCH_IMAGE skipped resolved URL "${imageUrl}" for term "${term}": ${validationError?.message || validationError}`,
-          );
-          return;
-        }
-      }
-
-      try {
-        const response = await fetch(safeUrl, {
-          signal: AbortSignal.timeout(FETCH_IMAGE_TIMEOUT_MS),
-          headers: {
-            Accept: "image/*",
-            "User-Agent": "ExamArchiveBot/1.0 (https://examarchive.dev)",
-          },
-          redirect: "error", // prevent SSRF via redirect chains
-        });
-        if (!response.ok) {
-          context.log(
-            `[pdf-generator] FETCH_IMAGE failed for term "${term}" (${safeUrl}): HTTP ${response.status}`,
-          );
-          return;
-        }
-
-        // Cheap early checks before reading the body
-        const contentType = response.headers.get("content-type") || "image/jpeg";
-        const mimeType = contentType.split(";")[0].trim().toLowerCase();
-        if (!mimeType.startsWith("image/")) {
-          context.log(
-            `[pdf-generator] FETCH_IMAGE skipped non-image content-type for term "${term}" (${safeUrl}): ${mimeType}`,
-          );
-          return;
-        }
-        const contentLengthHeader = response.headers.get("content-length");
-        if (contentLengthHeader) {
-          const declared = Number(contentLengthHeader);
-          if (Number.isFinite(declared) && declared > FETCH_IMAGE_MAX_BYTES) {
-            context.log(
-              `[pdf-generator] FETCH_IMAGE skipped oversized image for term "${term}" at "${safeUrl}" (Content-Length: ${declared} bytes)`,
-            );
-            return;
-          }
-        }
-
-        // Stream the body and abort as soon as accumulated bytes exceed the cap,
-        // preventing the worker from buffering large responses in full.
-        let imageBuffer;
-        if (response.body && typeof response.body.getReader === "function") {
-          const reader = response.body.getReader();
-          const chunks = [];
-          let totalBytes = 0;
-          let oversized = false;
-          let streamDone = false;
-          while (!streamDone && !oversized) {
-            // eslint-disable-next-line no-await-in-loop
-            const { done, value } = await reader.read();
-            streamDone = done;
-            if (!done) {
-              totalBytes += value.byteLength;
-              if (totalBytes > FETCH_IMAGE_MAX_BYTES) {
-                oversized = true;
-                reader.cancel().catch(() => {});
-              } else {
-                chunks.push(value);
-              }
-            }
-          }
-          if (oversized) {
-            context.log(
-              `[pdf-generator] FETCH_IMAGE skipped oversized image for term "${term}" at "${safeUrl}" (streamed > ${FETCH_IMAGE_MAX_BYTES} bytes)`,
-            );
-            return;
-          }
-          imageBuffer = Buffer.concat(chunks.map((c) => Buffer.from(c)));
-        } else {
-          // Fallback for environments where response.body is unavailable
-          const arrayBuffer = await response.arrayBuffer();
-          if (arrayBuffer.byteLength > FETCH_IMAGE_MAX_BYTES) {
-            context.log(
-              `[pdf-generator] FETCH_IMAGE skipped oversized image for term "${term}" at "${safeUrl}" (${arrayBuffer.byteLength} bytes)`,
-            );
-            return;
-          }
-          imageBuffer = Buffer.from(arrayBuffer);
-        }
-
-        const base64 = imageBuffer.toString("base64");
-        dataUriMap.set(term, "data:" + mimeType + ";base64," + base64);
-      } catch (fetchError) {
-        context.log(
-          `[pdf-generator] FETCH_IMAGE fetch error for term "${term}" (${safeUrl}): ${fetchError?.message || fetchError}`,
-        );
-      }
-    }),
-  );
-
-  let output = "";
-  let cursor = 0;
-  for (const match of matches) {
-    output += source.slice(cursor, match.start);
-    const dataUri = dataUriMap.get(match.term);
-    if (dataUri) {
-      output += buildSafeImgTagFromDataUri(dataUri);
-    }
-    cursor = match.end;
-  }
-  output += source.slice(cursor);
-  return output;
 }
 
 function buildCoverPageHtml({ title, markdown }) {
@@ -1176,7 +870,6 @@ function getNotesSystemPrompt() {
     "",
     "MATH RULES:",
     "- You MUST use \\( and \\) for inline LaTeX math. Example: The energy is \\(E = mc^2\\).",
-    "- Whenever explaining a concept, curve, or experiment, you MUST insert a descriptive image tag exactly like [FETCH_IMAGE: binding energy curve graph]. Insert multiple images wherever necessary.",
     "- Block math MUST be written as:",
     "\\[",
     "F = G \\frac{m_1 m_2}{r^2}",
@@ -1290,7 +983,8 @@ async function updateJob(db, jobId, payload) {
 
 function buildJobTitle(payload) {
   if (payload.jobType === "solved-paper") {
-    return `${payload.paperCode}_${payload.year || "latest"}_solved_paper.pdf`;
+    const yearSegment = String(payload.year ?? "").trim() || "all_years";
+    return `${payload.paperCode}_${yearSegment}_solved_paper.pdf`;
   }
   return `${payload.paperCode}_Unit_${payload.unitNumber}_Notes.pdf`;
 }
@@ -1629,42 +1323,65 @@ async function generateSolvedPaperPayload(db, payload) {
   });
 
   const rawYear = payload.year;
-  if (rawYear === undefined || rawYear === null) {
-    const err = new Error("[Gemini preflight] Missing required value: solved.year is undefined.");
-    err.status = 400;
-    err.code = "INVALID_INPUT";
-    throw err;
-  }
-  const year = Number(rawYear);
-  if (!Number.isInteger(year) || year <= 0) {
-    const err = new Error(`[Gemini preflight] Invalid year: solved.year must be a positive integer, got ${String(rawYear)}.`);
-    err.status = 400;
-    err.code = "INVALID_INPUT";
-    throw err;
+  let year = null;
+  if (rawYear !== undefined && rawYear !== null && String(rawYear).trim() !== "") {
+    const parsedYear = Number(rawYear);
+    if (!Number.isInteger(parsedYear) || parsedYear <= 0) {
+      const err = new Error(`[Gemini preflight] Invalid year: solved.year must be a positive integer, got ${String(rawYear)}.`);
+      err.status = 400;
+      err.code = "INVALID_INPUT";
+      throw err;
+    }
+    year = parsedYear;
   }
 
-  const questionsRes = await db.listDocuments(DATABASE_ID, QUESTIONS_TABLE_COLLECTION_ID, [
+  const questionQueries = [
     Query.equal("university", validated["solved.university"]),
     Query.equal("course", validated["solved.course"]),
     Query.equal("stream", validated["solved.stream"]),
     Query.equal("type", validated["solved.type"]),
     Query.equal("paper_code", validated["solved.paperCode"]),
-    Query.equal("year", year),
     Query.orderAsc("question_no"),
     Query.limit(500),
-  ]);
+  ];
+  if (year !== null) {
+    questionQueries.splice(5, 0, Query.equal("year", year));
+  }
+  const questionsRes = await db.listDocuments(DATABASE_ID, QUESTIONS_TABLE_COLLECTION_ID, questionQueries);
   const questions = (questionsRes.documents || []).filter(
     (doc) => typeof doc.question_content === "string" && doc.question_content.trim().length > 0,
   );
   if (questions.length === 0) {
-    throw new Error("No questions found for this paper/year.");
+    throw new Error(year === null ? "No questions found for this paper." : "No questions found for this paper/year.");
   }
+  const extractQuestionNumber = (value) => {
+    const normalized = Number(value);
+    if (Number.isFinite(normalized)) return normalized;
+    const match = String(value || "").match(/\d+/);
+    if (!match) return Number.MAX_SAFE_INTEGER;
+    const parsed = Number(match[0]);
+    return Number.isFinite(parsed) ? parsed : Number.MAX_SAFE_INTEGER;
+  };
+  const normalizeQuestionYear = (value) => {
+    const parsed = Number(value);
+    return Number.isInteger(parsed) ? parsed : Number.MAX_SAFE_INTEGER;
+  };
+  questions.sort((a, b) => {
+    const yearDiff = normalizeQuestionYear(a.year) - normalizeQuestionYear(b.year);
+    if (yearDiff !== 0) return yearDiff;
+    const questionDiff = extractQuestionNumber(a.question_no) - extractQuestionNumber(b.question_no);
+    if (questionDiff !== 0) return questionDiff;
+    const aSub = typeof a.question_subpart === "string" ? a.question_subpart : "";
+    const bSub = typeof b.question_subpart === "string" ? b.question_subpart : "";
+    return aSub.localeCompare(bSub, undefined, { sensitivity: "base", numeric: true });
+  });
 
   const chunks = splitIntoLogicalChunks(questions, LOGICAL_CHUNK_COUNT);
   const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   if (!geminiApiKey) throw new Error("Missing GEMINI_API_KEY.");
+  const yearLabel = year === null ? "all years" : String(year);
   const tavilyContext = await fetchTavilyContext(
-    `${validated["solved.university"]} ${validated["solved.course"]} ${validated["solved.paperCode"]} ${year} solved paper key points`,
+    `${validated["solved.university"]} ${validated["solved.course"]} ${validated["solved.paperCode"]} ${yearLabel} solved paper key points`,
   );
 
   const solved = [];
@@ -1679,7 +1396,7 @@ Course: ${validated["solved.course"]}
 Stream: ${validated["solved.stream"]}
 Type: ${validated["solved.type"]}
 Paper Code: ${validated["solved.paperCode"]}
-Year: ${year}
+Year Scope: ${yearLabel}
 Chunk: ${index + 1}/${chunks.length}
 
 Questions:
@@ -1688,7 +1405,8 @@ ${questionsChunk.map((questionDoc, qIndex) => {
   const qSub = typeof questionDoc.question_subpart === "string" ? questionDoc.question_subpart.trim() : "";
   const marks = questionDoc.marks ?? "N/A";
   const content = String(questionDoc.question_content || "").trim();
-  return `Q${qNo}${qSub ? `(${qSub})` : ""} [${marks} marks]\n${content}`;
+  const questionYear = Number.isInteger(Number(questionDoc.year)) ? Number(questionDoc.year) : "N/A";
+  return `Q${qNo}${qSub ? `(${qSub})` : ""} [Year: ${questionYear}] [${marks} marks]\n${content}`;
 }).join("\n\n")}
 ${tavilyContext ? `\n\nWeb context (Tavily):\n${tavilyContext}` : ""}
 `;
@@ -1752,7 +1470,7 @@ async function processGenerationJob(rawInput, options = {}) {
     };
     const cacheScopeSegment = normalizedJobType === "notes"
       ? normalizeRequiredCacheSegment(payload.unitNumber, "unitNumber")
-      : normalizeRequiredCacheSegment(payload.year, "year");
+      : normalizeOptionalCacheSegment(payload.year, "all-years");
     const cacheKeySegments = [
       normalizeRequiredCacheSegment(payload.paperCode, "paperCode"),
       cacheScopeSegment,
@@ -1852,10 +1570,7 @@ async function processGenerationJob(rawInput, options = {}) {
       } else {
         markdown = await generateSolvedPaperPayload(db, payload);
       }
-      // Resolve [FETCH_IMAGE: <search term>] tags to inline base64 data URIs before
-      // caching so that the stored markdown is self-contained and cache hits
-      // never need to re-fetch the images.
-      markdown = await resolveFetchImageTags(markdown);
+      markdown = stripGeneratedImages(sanitizeAiMath(markdown));
       try {
         const cacheFile = await storage.createFile(
           cacheBucketId,
@@ -1879,7 +1594,7 @@ async function processGenerationJob(rawInput, options = {}) {
         throw wrappedError;
       }
     }
-    markdown = sanitizeAiMath(markdown);
+    markdown = stripGeneratedImages(sanitizeAiMath(markdown));
 
     await updateJob(db, jobId, { progress_percent: 80 });
 

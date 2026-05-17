@@ -480,7 +480,7 @@ async function lookupMarkdownFileCache(
   const cacheScopeSegment =
     normalizedJobType === "notes"
       ? normalize(payload.unitNumber)
-      : normalize(payload.year);
+      : (normalize(payload.year) || "all-years");
   if (!cacheScopeSegment) return null;
 
   const semester = normalize(payload.semester) || "na";
@@ -1217,13 +1217,16 @@ export async function POST(request: NextRequest) {
   }
 
   // solved-paper
-  const year = normalizeYear(body.year);
-  if (year === null || year < 1900 || year > 2100) {
+  const rawYear = body.year as unknown;
+  const hasYearFilter = !(rawYear === null || typeof rawYear === "undefined" || String(rawYear).trim() === "");
+  const year = hasYearFilter ? normalizeYear(rawYear) : null;
+  if (hasYearFilter && (year === null || year < 1900 || year > 2100)) {
     return NextResponse.json(
-      { error: "Invalid selection: valid year is required for solved paper." },
+      { error: "Invalid selection: year must be between 1900 and 2100 when provided." },
       { status: 400 },
     );
   }
+  const yearLabel = year === null ? "All Years" : String(year);
 
   if (!admin) {
     const quotaCheckResult = await checkQuotasOrError(user.id);
@@ -1259,7 +1262,7 @@ export async function POST(request: NextRequest) {
       userId: user.id,
       paperCode,
       unitNumber: 0,
-      title: `Solved Paper (${paperCode} ${year})`,
+      title: `Solved Paper (${paperCode} ${yearLabel})`,
       payload: {
         jobType: "solved-paper",
         userId: user.id,
@@ -1303,7 +1306,7 @@ export async function POST(request: NextRequest) {
       if (shouldAttemptReadyEmail) {
         readyEmailSent = await ensureGenerationReadyEmail(
           userEmail,
-          `Solved Paper (${paperCode} ${year})`,
+          `Solved Paper (${paperCode} ${yearLabel})`,
           dispatched.resultFileId || "",
           user.id,
         );
@@ -1354,7 +1357,7 @@ export async function POST(request: NextRequest) {
     if (!admin) {
       await queueGenerationRecording(user.id, "papers_solved_today");
     }
-    const startEmailSent = await ensureGenerationStartedEmail(userEmail, `Solved Paper (${paperCode} ${year})`);
+    const startEmailSent = await ensureGenerationStartedEmail(userEmail, `Solved Paper (${paperCode} ${yearLabel})`);
     if (!startEmailSent) {
       console.error(
         "[ai/generate-pdf] Started email failed after successful solved-paper dispatch. Job is already queued and will continue in background.",
@@ -1378,7 +1381,7 @@ export async function POST(request: NextRequest) {
       userId: user.id,
       counter: "papers_solved_today",
     });
-    await notifyGenerationFailure(userEmail, `Solved Paper (${paperCode} ${year})`, error);
+    await notifyGenerationFailure(userEmail, `Solved Paper (${paperCode} ${yearLabel})`, error);
     return NextResponse.json(
       {
         error: "Unable to start background generation right now. Please try again.",

@@ -141,7 +141,6 @@ function sanitizeGeneratedHtml(input: string): string {
     allowedTags: sanitizeHtml.defaults.allowedTags.concat([
       "h1",
       "h2",
-      "img",
       "span",
       "math",
       "semantics",
@@ -172,7 +171,6 @@ function sanitizeGeneratedHtml(input: string): string {
     allowedAttributes: {
       ...sanitizeHtml.defaults.allowedAttributes,
       a: ["href", "name", "target", "rel"],
-      img: ["src", "alt", "width", "height"],
       span: ["class", "style"],
       math: ["xmlns", "display"],
       annotation: ["encoding"],
@@ -181,6 +179,12 @@ function sanitizeGeneratedHtml(input: string): string {
     allowedSchemesAppliedToAttributes: ["href", "src"],
     allowProtocolRelative: false,
   });
+}
+
+function stripImagesFromMarkdown(markdown: string): string {
+  return markdown
+    .replace(/!\[[^\]]*]\([^)\n]*\)/g, "")
+    .replace(/<img\b[^>]*>/gi, "");
 }
 
 function renderLatexToMathMl(markdown: string): string {
@@ -289,7 +293,7 @@ export function buildPdfHtml(args: {
     year,
     syllabusContent,
   } = args;
-  const markdownWithRenderedMath = renderLatexToMathMl(markdown);
+  const markdownWithRenderedMath = renderLatexToMathMl(stripImagesFromMarkdown(markdown));
   const parsedHtml = marked.parse(markdownWithRenderedMath);
   // marked.parse can be configured to be async; guard non-string outputs defensively.
   const htmlContent = sanitizeGeneratedHtml(
