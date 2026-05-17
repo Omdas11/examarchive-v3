@@ -385,7 +385,7 @@ function sanitizeAiMath(text) {
   return cleaned;
 }
 
-function stripGeneratedImages(text) {
+function stripImagePayloads(text) {
   const source = String(text || "");
   let withoutFetchDirectives = "";
   let cursor = 0;
@@ -444,8 +444,8 @@ function stripGeneratedImages(text) {
   return withoutHtmlImages;
 }
 
-async function resolveFetchImageTags(markdown) {
-  return stripGeneratedImages(markdown);
+function resolveFetchImageTags(markdown) {
+  return stripImagePayloads(markdown);
 }
 
 function extractSyllabusHighlights(markdown) {
@@ -1630,7 +1630,7 @@ async function processGenerationJob(rawInput, options = {}) {
       } else {
         markdown = await generateSolvedPaperPayload(db, payload);
       }
-      markdown = stripGeneratedImages(sanitizeAiMath(markdown));
+      markdown = stripImagePayloads(sanitizeAiMath(markdown));
       try {
         const cacheFile = await storage.createFile(
           cacheBucketId,
@@ -1654,7 +1654,7 @@ async function processGenerationJob(rawInput, options = {}) {
         throw wrappedError;
       }
     }
-    markdown = stripGeneratedImages(sanitizeAiMath(markdown));
+    markdown = stripImagePayloads(sanitizeAiMath(markdown));
 
     await updateJob(db, jobId, { progress_percent: 80 });
 
