@@ -3,7 +3,6 @@ import { getServerUser } from "@/lib/auth";
 import {
   adminDatabases,
   deleteFileFromAppwrite,
-  getAppwriteFileUrl,
   DATABASE_ID,
   COLLECTION,
   ID,
@@ -106,7 +105,7 @@ export async function POST(request: NextRequest) {
     const programme = registryEntry?.programme ?? undefined;
     const examType = examTypeFromCode(paper_code);
 
-    const fileUrl = getAppwriteFileUrl(fileId);
+    const fileUrl = `/api/files/papers/${fileId}`;
 
     // Step 1 — Create the paper document. If this fails, roll back the uploaded
     // storage file to prevent orphaned entries.

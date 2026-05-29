@@ -99,62 +99,42 @@ const getHomepageData = unstable_cache(
     try {
       const db = adminDatabases();
 
-      const pageSize = 100;
-      const [papersRes, syllabusRes] = await Promise.all([
+      const [papersRes, syllabusRes, popularPapersRes, recentPapersRes] = await Promise.all([
         db.listDocuments(DATABASE_ID, COLLECTION.papers, [
           Query.equal("approved", true),
-          Query.limit(pageSize),
+          Query.limit(1),
         ]),
         db.listDocuments(DATABASE_ID, COLLECTION.syllabus, [
           Query.equal("approval_status", "approved"),
           Query.limit(1),
         ]),
+        db.listDocuments(DATABASE_ID, COLLECTION.papers, [
+          Query.equal("approved", true),
+          Query.orderDesc("view_count"),
+          Query.limit(4),
+        ]),
+        db.listDocuments(DATABASE_ID, COLLECTION.papers, [
+          Query.equal("approved", true),
+          Query.orderDesc("$createdAt"),
+          Query.limit(4),
+        ]),
       ]);
 
       papersTotal = papersRes.total;
       syllabusTotal = syllabusRes.total;
+      popularPapers = popularPapersRes.documents.map(toPaper);
+      recentPapers = recentPapersRes.documents.map(toPaper);
 
-      const universitiesSet = new Set<string>();
-      const allPapers: Paper[] = [];
-      const addInstitutions = (papers: Paper[]) => {
-        for (const paper of papers) {
-          const institution = paper.institution?.trim();
-          if (institution) universitiesSet.add(institution);
-        }
-      };
-
-      const firstPagePapers = papersRes.documents.map(toPaper);
-      allPapers.push(...firstPagePapers);
-      addInstitutions(firstPagePapers);
-
-      const firstPageCount = papersRes.documents.length;
-      if (papersTotal > firstPageCount && firstPageCount > 0) {
-        let offset = firstPageCount;
-        while (offset < papersTotal) {
-          const pageRes = await db.listDocuments(DATABASE_ID, COLLECTION.papers, [
-            Query.equal("approved", true),
-            Query.limit(pageSize),
-            Query.offset(offset),
-          ]);
-          if (pageRes.documents.length === 0) break;
-          const pagePapers = pageRes.documents.map(toPaper);
-          allPapers.push(...pagePapers);
-          addInstitutions(pagePapers);
-          offset += pageRes.documents.length;
-        }
-      }
-
-      // Popular papers: highest view_count
-      popularPapers = [...allPapers]
-        .sort((a, b) => (b.view_count ?? 0) - (a.view_count ?? 0))
-        .slice(0, 4);
-
-      // Recently added papers: newest first
-      recentPapers = [...allPapers]
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-        .slice(0, 4);
-
-      universitiesCount = universitiesSet.size;
+      const institutionRes = await db.listDocuments(DATABASE_ID, COLLECTION.papers, [
+        Query.equal("approved", true),
+        Query.select(["institution"]),
+        Query.limit(5000),
+      ]);
+      universitiesCount = new Set(
+        institutionRes.documents
+          .map((doc) => (typeof doc.institution === "string" ? doc.institution.trim() : ""))
+          .filter(Boolean),
+      ).size;
     } catch {
       // collections may not exist yet in dev
     }
