@@ -102,8 +102,19 @@ export async function POST(request: NextRequest) {
     const courseCode = paper_code.trim().toUpperCase();
     const paperName = registryEntry?.paper_name ?? courseCode;
     const department = registryEntry?.subject ?? courseCode;
-    const semester = registryEntry ? formatSemester(registryEntry.semester) : undefined;
-    const programme = registryEntry?.programme ?? undefined;
+
+    // Derive semester and programme from registry or paper code pattern.
+    let semester = registryEntry ? formatSemester(registryEntry.semester) : undefined;
+    let programme = registryEntry?.programme ?? undefined;
+
+    // NEP 2020 FYUG pattern: [3-letter dept][3-letter type][semDigit][2-digit num][opt elective A/B/C][T/P]
+    // e.g. PHYDSC101T -> Sem 1, FYUGP
+    const fyugMatch = /^[A-Z]{3}(?:DSC|DSM|IDC|SEC|AEC|VAC|GEC)([1-8])\d{2}[ABC]?[TP]$/.exec(courseCode);
+    if (fyugMatch) {
+      if (!semester) semester = formatSemester(parseInt(fyugMatch[1], 10));
+      if (!programme) programme = "FYUGP";
+    }
+
     const examType = examTypeFromCode(paper_code);
 
     const fileUrl = getAppwriteFileUrl(fileId);
@@ -119,6 +130,7 @@ export async function POST(request: NextRequest) {
         semester,
         department,
         programme,
+        institute: university,
         exam_type: examType,
         file_id: fileId,
         file_url: fileUrl,

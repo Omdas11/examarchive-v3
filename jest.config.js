@@ -11,6 +11,9 @@ const config = {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
+  transformIgnorePatterns: [
+    '/node_modules/(?!marked)/',
+  ],
 }
 
 module.exports = createJestConfig(config)

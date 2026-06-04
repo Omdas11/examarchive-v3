@@ -220,9 +220,7 @@ function SyllabusPdfCard({
 export default function SyllabusClient({ syllabi, isAdmin }: SyllabusClientProps) {
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
 
-  const visibleSyllabi = syllabi.filter(
-    (s) => !hiddenIds.has(s.id) && !(s.programme || "").toUpperCase().includes("CBCS"),
-  );
+  const visibleSyllabi = syllabi.filter((s) => !hiddenIds.has(s.id));
 
   const isDeptSyllabus = (s: Syllabus) => !s.semester || s.semester === "";
   const deptSyllabi = visibleSyllabi.filter(isDeptSyllabus);

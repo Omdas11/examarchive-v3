@@ -7,7 +7,8 @@
  */
 export const FYUG_DEPT_CODES = new Set([
   "PHY", // Physics
-  "CHM", // Chemistry
+  "CHE", // Chemistry
+  "CHM", // Chemistry (alternative)
   "ZOO", // Zoology
   "BOT", // Botany
   "MAT", // Mathematics

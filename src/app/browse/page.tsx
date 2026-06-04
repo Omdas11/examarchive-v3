@@ -54,8 +54,9 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
       [Query.equal("approved", true), Query.orderDesc("$createdAt"), Query.limit(500)],
     );
     papers = documents.map(toPaper);
-  } catch {
-    // collection may not exist yet
+  } catch (err) {
+    console.error("[browse] Failed to fetch approved papers:", err);
+    // collection may not exist yet or index is missing
   }
 
   // Compute distinct years, streams, paper types, and universities from the fetched papers
