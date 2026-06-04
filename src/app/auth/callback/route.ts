@@ -4,7 +4,7 @@ import { SESSION_COOKIE } from "@/lib/auth";
 
 /**
  * GET /auth/callback
- * Handles the redirect from Appwrite magic-link emails and OAuth callbacks.
+ * Handles the redirect from Appwrite magic link emails and OAuth callbacks.
  * Exchanges the `userId` + `secret` query params for a session, then sends the
  * user to the `next` URL (or `/` by default).
  */
