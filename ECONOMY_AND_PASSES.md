@@ -1,14 +1,14 @@
-# Economy & Passes — ExamArchive Electron Economy
+# Economy & Passes — ExamArchive Credit Economy
 
 ## Overview
 
-ExamArchive uses a virtual currency called **Electrons** (`e`) to gate AI-generated PDF
+ExamArchive uses a virtual currency called **Credits** (`e`) to gate AI-generated PDF
 creation. This document describes the full economy model, pricing, passes, daily-claim
 mechanics, and the Appwrite schema changes required to support passes and badges.
 
 ---
 
-## 1. Currency: Electrons (`e`)
+## 1. Currency: Credits (`e`)
 
 | Constant | Value | Location |
 |---|---|---|
@@ -25,7 +25,7 @@ Every AI-generated PDF deducts **10e** from the user's balance. With a ₹59 pac
 
 ## 2. Credit Packs (one-time top-ups)
 
-| Pack | Electrons | Price | Cost/PDF |
+| Pack | Credits | Price | Cost/PDF |
 |---|---|---|---|
 | Free Weekly Claim | 10e | ₹0 | — |
 | Pack 1 | 20e | ₹19 | ₹9.50 |
@@ -58,7 +58,7 @@ Passes are defined in `src/lib/payments.ts` as `PASSES`.
 |---|---|---|
 | Price | ₹49 | ₹39/week |
 | Allowance | 10e/day for 7 days | 10e/day (auto-renews) |
-| Total electrons | 70e | 70e/cycle |
+| Total credits | 70e | 70e/cycle |
 
 ### 3.2 Monthly Pass
 
@@ -66,7 +66,7 @@ Passes are defined in `src/lib/payments.ts` as `PASSES`.
 |---|---|---|
 | Price | ₹199 | ₹179/month |
 | Allowance | 20e/day for 30 days | 20e/day (auto-renews) |
-| Total electrons | 600e | 600e/cycle |
+| Total credits | 600e | 600e/cycle |
 
 ### 3.3 Be a Supporter
 
@@ -78,23 +78,23 @@ Passes are defined in `src/lib/payments.ts` as `PASSES`.
 
 > **Claim it or lose it**: The 100e monthly allowance is not automatically deposited.
 > The subscriber must click "Claim" once per billing cycle. If not claimed before the
-> cycle renews, those electrons are forfeited and the counter resets.
+> cycle renews, those credits are forfeited and the counter resets.
 
 ---
 
 ## 4. Daily Claim Mechanics — "Claim It or Lose It"
 
-> **Important rule:** All pass-based electron allowances (daily electrons for Weekly/Monthly
+> **Important rule:** All pass-based credit allowances (daily credits for Weekly/Monthly
 > Pass, and the monthly 100e for Supporter) are **not automatically deposited**. The user
 > must actively click "Claim" each day (or each billing cycle for Supporter). Any unclaimed
-> electrons from a given day/cycle are **permanently forfeited** — they do not carry over.
+> credits from a given day/cycle are **permanently forfeited** — they do not carry over.
 
 When a user has an active pass, a daily background job (Appwrite Scheduled Function)
 or a manual claim button (`POST /api/payments/claim-daily`) should:
 
 1. Check if the user has an active `user_passes` document that hasn't expired.
 2. Check if `last_daily_claim_at` is before today's midnight (UTC).
-3. Credit `dailyElectrons` to `users.ai_credits` (atomic increment).
+3. Credit `dailyCredits` to `users.ai_credits` (atomic increment).
 4. Update `last_daily_claim_at` to now.
 5. Decrement `days_remaining` in `user_passes`; set `status = expired` when it
    reaches 0.
@@ -116,7 +116,7 @@ The badge is shown in:
 
 - **Header** (`src/components/layout/Header.tsx`) — fetch badge list from
   `GET /api/profile` alongside `ai_credits` and render `<SupporterBadge />` next
-  to the electron balance pill.
+  to the credit balance pill.
 - **Profile page / dropdown** — same fetch.
 
 ---
@@ -143,7 +143,7 @@ The badge is shown in:
 | `pass_id` | string | yes | `weekly_pass` / `monthly_pass` / `supporter` |
 | `mode` | string | yes | `onetime` or `subscribe` |
 | `status` | string | yes | `active` / `expired` / `cancelled` |
-| `daily_electrons` | integer | yes | Electrons credited per day |
+| `daily_credits` | integer | yes | Credits credited per day |
 | `days_remaining` | integer | yes | Days left on this pass |
 | `last_daily_claim_at` | datetime | no | Last daily claim timestamp |
 | `activated_at` | datetime | yes | When pass was activated |
@@ -169,7 +169,7 @@ The badge is shown in:
 | `/api/payments/claim-weekly` | POST | 🚧 Scaffold | Claim free 10e (weekly reset) |
 | `/api/payments/razorpay/create-pass-order` | POST | 🚧 Scaffold | Create Razorpay order for pass |
 | `/api/payments/razorpay/verify-pass` | POST | 🚧 Scaffold | Verify pass payment + activate |
-| `/api/payments/claim-daily` | POST | 🚧 Scaffold | Claim daily electrons from active pass |
+| `/api/payments/claim-daily` | POST | 🚧 Scaffold | Claim daily credits from active pass |
 
 Routes marked 🚧 require the Appwrite schema changes above before full implementation.
 
@@ -217,7 +217,7 @@ Add these to Vercel → Project → Settings → Environment Variables.
 |---|---|---|
 | `POST /api/payments/razorpay/create-pass-order` | User clicks Subscribe | Create Razorpay Subscription using plan ID, return `subscription_id` + `key_id` to frontend |
 | `POST /api/payments/razorpay/webhook` | Razorpay sends event | Verify HMAC signature, handle `subscription.activated` (create `user_passes` doc + award badge), `subscription.charged` (reset monthly claim), `subscription.cancelled` (set status=cancelled) |
-| `POST /api/payments/claim-daily` | User clicks daily Claim | Check `user_passes` active + today not yet claimed → add electrons + update `last_daily_claim_at` |
+| `POST /api/payments/claim-daily` | User clicks daily Claim | Check `user_passes` active + today not yet claimed → add credits + update `last_daily_claim_at` |
 
 > **No Razorpay subscription API calls are needed from the client.** All subscription
 > lifecycle events come through the webhook. The frontend only needs to open the
@@ -230,10 +230,10 @@ Add these to Vercel → Project → Settings → Environment Variables.
 
 | Asset | Path | Usage |
 |---|---|---|
-| Electron currency icon | `src/components/ElectronIcon.tsx` | Header balance pill, Store packs |
+| Credit currency icon | `src/components/CreditIcon.tsx` | Header balance pill, Store packs |
 | Supporter badge SVG | `src/components/badges/AchievementBadges.tsx` | Store supporter card, Profile |
 | First-PDF badge SVG | `src/components/badges/AchievementBadges.tsx` | Profile achievements |
 
 ---
 
-*Last updated: 2026-04 — Electron Economy v2 soft-launch revision.*
+*Last updated: 2026-04 — Credit Economy v2 soft-launch revision.*

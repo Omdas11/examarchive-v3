@@ -43,15 +43,14 @@ jest.mock("@/lib/appwrite", () => ({
 }));
 
 describe("About page progression content", () => {
-  it("shows referral and electron policy sections", async () => {
+  it("shows credit system and policy sections", async () => {
     const jsx = await AboutPage();
     render(jsx);
 
-    expect(screen.getByText("Electrons & Referrals")).toBeInTheDocument();
-    expect(screen.getByText("Referral Rules")).toBeInTheDocument();
-    expect(screen.getByText("XO → Electron Policy")).toBeInTheDocument();
-    expect(screen.getByText("Successful referral cap per referrer")).toBeInTheDocument();
+    expect(screen.getByText("Credits System")).toBeInTheDocument();
+    expect(screen.getByText("How to Get Credits")).toBeInTheDocument();
+    expect(screen.getByText("Credit Policy")).toBeInTheDocument();
+    expect(screen.getByText("AI PDF Generation")).toBeInTheDocument();
     expect(screen.getByText("Cosmetics & Role Assignment")).toBeInTheDocument();
-    expect(screen.getByText("Direct referrals only")).toBeInTheDocument();
   });
 });

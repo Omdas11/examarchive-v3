@@ -1,26 +1,26 @@
 import Razorpay from "razorpay";
 
-export const FIRST_TIMER_DISCOUNT_PCT = 20;
+export const FIRST_TIMER_DISCOUNT_PCT = 0; // Removing first timer discount for simplicity
 
 export const CREDIT_PACKS = [
-  { code: "pack_20", label: "20e", credits: 20, amountInPaise: 1900, firstTimerDiscountPct: FIRST_TIMER_DISCOUNT_PCT },
-  { code: "pack_50", label: "50e", credits: 50, amountInPaise: 3900, firstTimerDiscountPct: FIRST_TIMER_DISCOUNT_PCT },
-  { code: "pack_100", label: "100e", credits: 100, amountInPaise: 5900, firstTimerDiscountPct: FIRST_TIMER_DISCOUNT_PCT },
+  { code: "pack_10", label: "10 Credits", credits: 10, amountInPaise: 800 },
+  { code: "pack_25", label: "25 Credits", credits: 25, amountInPaise: 1800 },
+  { code: "pack_50", label: "50 Credits", credits: 50, amountInPaise: 3000 },
+  { code: "pack_100", label: "100 Credits", credits: 100, amountInPaise: 5000 },
+  { code: "pack_250", label: "250 Credits", credits: 250, amountInPaise: 10000 },
 ] as const;
 
 export type CreditPackCode = (typeof CREDIT_PACKS)[number]["code"];
 
 /**
  * Return the discounted price for a first-time buyer.
- * Discount is applied as a whole-rupee floor to avoid sub-paisa amounts.
  */
-export function getFirstTimerAmountInPaise(pack: { amountInPaise: number; firstTimerDiscountPct: number }): number {
-  const discountPaise = Math.floor(pack.amountInPaise * pack.firstTimerDiscountPct / 100);
-  return pack.amountInPaise - discountPaise;
+export function getFirstTimerAmountInPaise(pack: { amountInPaise: number }): number {
+  return pack.amountInPaise;
 }
 
-/** Weekly reset free-claim amount (electrons). */
-export const FREE_WEEKLY_CLAIM_ELECTRONS = 10;
+/** Weekly reset free-claim amount (credits). */
+export const FREE_WEEKLY_CLAIM_CREDITS = 0; // User wants website free but AI PDF cost credits.
 
 // ── Pass & Subscription types ────────────────────────────────────────────────
 
@@ -36,8 +36,8 @@ export interface Pass {
   subscribedPaise: number;
   /** Billing period label for the subscription. */
   billingPeriod: "week" | "month";
-  /** Electrons credited per day during the pass duration. */
-  dailyElectrons: number;
+  /** Credits credited per day during the pass duration. */
+  dailyCredits: number;
   /** Duration of the pass in days. */
   durationDays: number;
   /** Extra perks included (e.g. badge IDs). */
@@ -48,33 +48,33 @@ export const PASSES: readonly Pass[] = [
   {
     id: "weekly_pass",
     label: "Weekly Pass",
-    description: "Claim 10e every day for 7 days.",
+    description: "Claim 10 Credits every day for 7 days.",
     oneTimePaise: 4900,
     subscribedPaise: 3900,
     billingPeriod: "week",
-    dailyElectrons: 10,
+    dailyCredits: 10,
     durationDays: 7,
   },
   {
     id: "monthly_pass",
     label: "Monthly Pass",
-    description: "Claim 20e every day for 30 days.",
+    description: "Claim 20 Credits every day for 30 days.",
     oneTimePaise: 19900,
     subscribedPaise: 17900,
     billingPeriod: "month",
-    dailyElectrons: 20,
+    dailyCredits: 20,
     durationDays: 30,
   },
   {
     id: "supporter",
     label: "Be a Supporter",
-    description: "Support ExamArchive. Claim 100e every month + exclusive Supporter Badge.",
+    description: "Support ExamArchive. Claim 100 Credits every month + exclusive Supporter Badge.",
     oneTimePaise: 4900,
     subscribedPaise: 4900,
     billingPeriod: "month",
-    dailyElectrons: 0,
+    dailyCredits: 0,
     durationDays: 30,
-    perks: ["supporter_badge", "monthly_100e_claim"],
+    perks: ["supporter_badge", "monthly_100credits_claim"],
   },
 ] as const;
 

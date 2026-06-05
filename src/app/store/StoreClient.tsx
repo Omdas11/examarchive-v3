@@ -3,9 +3,9 @@
 import { useState } from "react";
 import Image from "next/image";
 import type { ReactNode } from "react";
-import ElectronIcon from "@/components/ElectronIcon";
+import CreditIcon from "@/components/CreditIcon";
 import { SupporterBadge } from "@/components/badges/AchievementBadges";
-import { FREE_WEEKLY_CLAIM_ELECTRONS, type Pass } from "@/lib/payments";
+import { type Pass } from "@/lib/payments";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -14,8 +14,6 @@ type CreditPack = {
   label: string;
   credits: number;
   amountInPaise: number;
-  /** Discount percentage applied for first-time buyers (e.g. 20 = 20 % off). */
-  firstTimerDiscountPct: number;
 };
 
 type AmazonProductItem = {
@@ -38,10 +36,6 @@ declare global {
 
 function rupees(paise: number) {
   return `₹${(paise / 100).toFixed(0)}`;
-}
-
-function discountedPaise(amountInPaise: number, discountPct: number): number {
-  return amountInPaise - Math.floor(amountInPaise * discountPct / 100);
 }
 
 // ── Sub-components ───────────────────────────────────────────────────────────
@@ -132,25 +126,6 @@ export default function StoreClient({
     }
   }
 
-  // ── Free weekly claim (scaffold — backend pending) ──────────────────────
-
-  async function claimFreeWeekly() {
-    setLoadingCode("free_weekly");
-    setError(null);
-    setMessage(null);
-    try {
-      const res = await fetch("/api/payments/claim-weekly", { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Claim failed");
-      setMessage(data.message ?? `Claimed ${FREE_WEEKLY_CLAIM_ELECTRONS}e successfully!`);
-      window.location.reload();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Claim failed");
-    } finally {
-      setLoadingCode(null);
-    }
-  }
-
   // ── Buy pass via Razorpay (subscription or one-time) ───────────────────
 
   async function buyPass(passId: string, mode: "onetime" | "subscribe") {
@@ -168,7 +143,6 @@ export default function StoreClient({
       if (!window.Razorpay) throw new Error("Razorpay checkout failed to load.");
 
       if (mode === "subscribe") {
-        // Open Razorpay checkout in subscription mode
         const checkout = new window.Razorpay({
           key: createData.keyId,
           subscription_id: createData.subscriptionId,
@@ -182,7 +156,6 @@ export default function StoreClient({
         });
         checkout.open();
       } else {
-        // One-time pass: open checkout and verify after payment
         const checkout = new window.Razorpay({
           key: createData.keyId,
           amount: createData.amount,
@@ -228,19 +201,19 @@ export default function StoreClient({
     <section className="mx-auto max-w-4xl px-4 py-8 space-y-8">
       {/* ── Balance header ── */}
       <div className="card p-6">
-        <h1 className="text-2xl font-bold">Electron Store</h1>
+        <h1 className="text-2xl font-bold">Credit Store</h1>
         <div className="mt-3 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-semibold"
           style={{
-            borderColor: "var(--electron-pill-border, #f59e0b66)",
-            background: "var(--electron-pill-bg, #fffbeb)",
-            color: "var(--electron-pill-fg, #b45309)",
+            borderColor: "var(--color-primary-soft, #d3273e33)",
+            background: "var(--color-surface, #fff)",
+            color: "var(--color-primary, #d3273e)",
           }}
         >
-          <ElectronIcon size={16} />
-          <span>{currentCredits}e balance</span>
+          <CreditIcon size={16} />
+          <span>₹{currentCredits} balance</span>
         </div>
         <p className="mt-2 text-xs text-on-surface-variant">
-          Each AI-generated PDF costs 10e. Top up below or claim your free weekly electrons.
+          AI-generated PDFs are experimental and cost 10 credits per generation. The platform remains free for everyone.
         </p>
       </div>
 
@@ -252,89 +225,49 @@ export default function StoreClient({
         <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-5 py-4 flex items-start gap-3">
           <span className="text-2xl leading-none select-none">🎉</span>
           <div>
-            <p className="font-semibold text-indigo-800 text-sm">First-time buyer discount — 20% off all packs!</p>
+            <p className="font-semibold text-indigo-800 text-sm">First-time buyer discount — Applied to your first credit pack!</p>
             <p className="text-xs text-indigo-600 mt-0.5">
-              This one-time discount is applied automatically at checkout. Stock up now!
+              This one-time discount is applied automatically at checkout.
             </p>
           </div>
         </div>
       )}
 
-      {/* ── Free Weekly Claim ── */}
-      <div>
-        <SectionHeading>Free Weekly Claim</SectionHeading>
-        <SectionSubtitle>Grab {FREE_WEEKLY_CLAIM_ELECTRONS}e for free every week — no payment needed.</SectionSubtitle>
-
-        <div className="mt-4 card p-5 flex flex-col sm:flex-row sm:items-center gap-4">
-          <div className="flex items-center gap-3 flex-1">
-            <div
-              className="flex h-12 w-12 items-center justify-center rounded-full flex-shrink-0"
-              style={{ background: "var(--electron-pill-bg, #fffbeb)", border: "1.5px solid var(--electron-pill-border, #f59e0b66)" }}
-            >
-              <ElectronIcon size={24} className="text-amber-600" />
-            </div>
-            <div>
-              <p className="font-bold text-on-surface">{FREE_WEEKLY_CLAIM_ELECTRONS}e</p>
-              <p className="text-xs text-on-surface-variant">Resets every Monday · Free</p>
-            </div>
-          </div>
-          <button
-            type="button"
-            className="btn-primary w-full sm:w-auto"
-            onClick={() => void claimFreeWeekly()}
-            disabled={loadingCode === "free_weekly"}
-          >
-            {loadingCode === "free_weekly" ? "Claiming…" : "Claim Now"}
-          </button>
-        </div>
-      </div>
-
       {/* ── Credit Packs ── */}
       <div>
-        <SectionHeading>Electron Packs</SectionHeading>
-        <SectionSubtitle>One-time top-up — more electrons, better value.</SectionSubtitle>
+        <SectionHeading>Credit Packs</SectionHeading>
+        <SectionSubtitle>One-time top-up — more credits, higher discount.</SectionSubtitle>
 
         <div className="mt-4 grid gap-4 sm:grid-cols-3">
           {packs.map((pack) => {
-            const effectivePaise = isFirstTimeBuyer
-              ? discountedPaise(pack.amountInPaise, pack.firstTimerDiscountPct)
-              : pack.amountInPaise;
-            const cost = effectivePaise / pack.credits;
+            const nominalValuePaise = pack.credits * 100;
+            const discountPct = Math.round(((nominalValuePaise - pack.amountInPaise) / nominalValuePaise) * 100);
             return (
               <div key={pack.code} className="card p-5 flex flex-col relative overflow-hidden">
-                {isFirstTimeBuyer && (
-                  <div className="absolute top-0 right-0 bg-indigo-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-bl">
-                    {pack.firstTimerDiscountPct}% OFF
+                {discountPct > 0 && (
+                  <div className="absolute top-0 right-0 bg-green-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-bl">
+                    {discountPct}% OFF
                   </div>
                 )}
                 <div className="flex items-center gap-2 mb-1">
-                  <ElectronIcon size={18} className="text-amber-600" />
+                  <CreditIcon size={18} className="text-primary" />
                   <p className="text-xl font-bold">{pack.label}</p>
                 </div>
                 <div className="mt-1">
-                  {isFirstTimeBuyer ? (
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-2xl font-extrabold text-on-surface">
-                        {rupees(effectivePaise)}
-                      </span>
-                      <span className="text-sm text-on-surface-variant line-through">
-                        {rupees(pack.amountInPaise)}
-                      </span>
-                    </div>
-                  ) : (
-                    <p className="text-2xl font-extrabold text-on-surface">{rupees(pack.amountInPaise)}</p>
+                  <p className="text-2xl font-extrabold text-on-surface">{rupees(pack.amountInPaise)}</p>
+                  {discountPct > 0 && (
+                    <p className="text-sm text-on-surface-variant line-through">
+                      {rupees(nominalValuePaise)}
+                    </p>
                   )}
                 </div>
-                <p className="text-xs text-on-surface-variant mt-1">
-                  {rupees(cost * 10)} per PDF · {(cost / 100).toFixed(2)} ₹/e
-                </p>
                 <button
                   type="button"
                   className="btn-primary mt-4 w-full"
                   onClick={() => void buyPack(pack.code)}
                   disabled={loadingCode === pack.code}
                 >
-                  {loadingCode === pack.code ? "Processing…" : "Buy"}
+                  {loadingCode === pack.code ? "Processing…" : "Buy Now"}
                 </button>
               </div>
             );
@@ -345,7 +278,7 @@ export default function StoreClient({
       {/* ── Passes & Subscriptions ── */}
       <div>
         <SectionHeading>Passes &amp; Subscriptions</SectionHeading>
-        <SectionSubtitle>Daily electron allowances — perfect for exam season.</SectionSubtitle>
+        <SectionSubtitle>Daily credit allowances — perfect for intensive study.</SectionSubtitle>
 
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {passes.map((pass) => {
@@ -391,16 +324,13 @@ export default function StoreClient({
                   )}
                 </div>
 
-                {/* Daily claim info — claim it or lose it */}
-                {pass.dailyElectrons > 0 && (
+                {/* Daily claim info */}
+                {pass.dailyCredits > 0 && (
                   <div className="flex flex-col gap-1">
                     <div className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 rounded-md px-2 py-1 w-fit">
-                      <ElectronIcon size={12} className="text-amber-600" />
-                      <span>{pass.dailyElectrons}e/day for {pass.durationDays} days</span>
+                      <CreditIcon size={12} className="text-amber-600" />
+                      <span>{pass.dailyCredits} Credits/day for {pass.durationDays} days</span>
                     </div>
-                    <p className="text-xs text-on-surface-variant pl-0.5">
-                      ⚠️ Claim daily or lose it — unclaimed electrons are <strong>not</strong> carried over.
-                    </p>
                   </div>
                 )}
 
@@ -408,8 +338,8 @@ export default function StoreClient({
                 {isSupporter && (
                   <ul className="text-xs text-on-surface-variant space-y-0.5 pl-1">
                     <li className="flex items-center gap-1.5">
-                      <ElectronIcon size={11} className="text-amber-600 flex-shrink-0" />
-                      <span>Claim 100e every month (claim it or lose it)</span>
+                      <CreditIcon size={11} className="text-amber-600 flex-shrink-0" />
+                      <span>Claim 100 Credits every month</span>
                     </li>
                     <li className="flex items-center gap-1.5">
                       <SupporterBadge size={11} />
@@ -519,7 +449,7 @@ export default function StoreClient({
             ))}
           </div>
 
-          <p className="mt-3 text-[11px] text-on-surface-variant text-center">
+          <p className="mt-3 text-xs text-on-surface-variant text-center">
             ExamArchive may earn a small commission from qualifying purchases at no extra cost to you.
           </p>
         </div>

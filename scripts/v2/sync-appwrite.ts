@@ -90,7 +90,7 @@ const FALLBACK_COLLECTION_SPECS: Array<{ id: string; name: string }> = [
   { id: "uploads", name: "uploads" },
   { id: "ai_flashcards", name: "ai_flashcards" },
   { id: "ai_ingestions", name: "ai_ingestions" },
-  // PR#246: Electron Economy — Passes & Subscriptions
+  // PR#246: Credit Economy — Passes & Subscriptions
   { id: "user_passes", name: "user_passes" },
   { id: "user_badges", name: "user_badges" },
 ];

@@ -212,7 +212,7 @@ const TARGET_SCHEMA = [
       { key: "referred_users_count", type: "integer", required: false },
       { key: "specialist_subject", type: "string", required: false, size: 128 },
       { key: "subject_admin_subject", type: "string", required: false, size: 128 },
-      // Added by PR#246 — Electron Economy / Passes & Subscriptions
+      // Added by PR#246 — Credit Economy / Passes & Subscriptions
       { key: "last_weekly_claim_at", type: "datetime", required: false },
       // size 128 = max length per badge string in the array (e.g. "supporter_badge")
       { key: "badges", type: "string", required: false, size: 128, array: true },
@@ -274,7 +274,7 @@ const TARGET_SCHEMA = [
       { key: "earned_at", type: "datetime", required: true },
     ],
   },
-  // ── PR#246: Electron Economy — Passes & Subscriptions ──────────────────────
+  // ── PR#246: Credit Economy — Passes & Subscriptions ──────────────────────
   {
     id: "user_passes",
     name: "user_passes",
@@ -283,7 +283,7 @@ const TARGET_SCHEMA = [
       { key: "pass_id", type: "string", required: true, size: 32 },
       { key: "mode", type: "string", required: true, size: 16 },
       { key: "status", type: "string", required: true, size: 16 },
-      { key: "daily_electrons", type: "integer", required: true },
+      { key: "daily_credits", type: "integer", required: true },
       { key: "days_remaining", type: "integer", required: true },
       { key: "last_daily_claim_at", type: "datetime", required: false },
       { key: "activated_at", type: "datetime", required: true },

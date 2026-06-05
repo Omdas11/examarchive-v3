@@ -11,7 +11,7 @@ import StoreClient from "./StoreClient";
 
 export const metadata: Metadata = {
   title: "Store",
-  description: "Top up electron credits via Razorpay.",
+  description: "Top up credits or get a pass via Razorpay.",
   robots: { index: false, follow: false },
 };
 
@@ -21,8 +21,6 @@ export default async function StorePage() {
   const userName = user.name || user.username || "User";
 
   // ── Determine first-time buyer status ───────────────────────────────────
-  // A user is a first-time buyer when they have no completed (credits_applied)
-  // purchase records.  Checked server-side so it cannot be spoofed by the client.
   let isFirstTimeBuyer = false;
   try {
     const db = adminDatabases();
@@ -33,7 +31,6 @@ export default async function StorePage() {
     ]);
     isFirstTimeBuyer = total === 0;
   } catch {
-    // If the check fails (e.g. collection doesn't exist yet) default to no discount
     isFirstTimeBuyer = false;
   }
 
