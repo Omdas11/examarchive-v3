@@ -256,7 +256,7 @@ export default function StoreClient({
                 <div className="mt-1">
                   <p className="text-2xl font-extrabold text-on-surface">{rupees(pack.amountInPaise)}</p>
                   {discountPct > 0 && (
-                    <p className="text-xs text-on-surface-variant line-through opacity-60">
+                    <p className="text-sm text-on-surface-variant line-through">
                       {rupees(nominalValuePaise)}
                     </p>
                   )}
@@ -449,7 +449,7 @@ export default function StoreClient({
             ))}
           </div>
 
-          <p className="mt-3 text-[11px] text-on-surface-variant text-center">
+          <p className="mt-3 text-xs text-on-surface-variant text-center">
             ExamArchive may earn a small commission from qualifying purchases at no extra cost to you.
           </p>
         </div>

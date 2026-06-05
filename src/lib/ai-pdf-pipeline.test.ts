@@ -103,13 +103,10 @@ describe("ai-pdf-pipeline", () => {
     });
 
     expect(global.fetch).toHaveBeenCalledTimes(1);
-    expect(global.fetch).toHaveBeenCalledWith(
-      "https://example-gotenberg.hf.space/forms/chromium/convert/html",
-      expect.objectContaining({
-        method: "POST",
-        headers: { Authorization: "Bearer secret-token" },
-      }),
-    );
+    const [url, options] = (global.fetch as jest.Mock).mock.calls[0];
+    expect(url.toString()).toBe("https://example-gotenberg.hf.space/forms/chromium/convert/html");
+    expect(options.method).toBe("POST");
+    expect(options.headers).toMatchObject({ Authorization: "Bearer secret-token" });
   });
 
   it("normalizes token formatting before building Bearer header", async () => {
@@ -131,13 +128,10 @@ describe("ai-pdf-pipeline", () => {
       gotenbergAuthToken: " \"Bearer secret-token\" ",
     });
 
-    expect(global.fetch).toHaveBeenCalledWith(
-      "https://example-gotenberg.hf.space/forms/chromium/convert/html",
-      expect.objectContaining({
-        method: "POST",
-        headers: { Authorization: "Bearer secret-token" },
-      }),
-    );
+    const [url, options] = (global.fetch as jest.Mock).mock.calls[0];
+    expect(url.toString()).toBe("https://example-gotenberg.hf.space/forms/chromium/convert/html");
+    expect(options.method).toBe("POST");
+    expect(options.headers).toMatchObject({ Authorization: "Bearer secret-token" });
   });
 
   it("normalizes single-quoted token formatting before building Bearer header", async () => {
@@ -159,13 +153,10 @@ describe("ai-pdf-pipeline", () => {
       gotenbergAuthToken: " 'secret-token' ",
     });
 
-    expect(global.fetch).toHaveBeenCalledWith(
-      "https://example-gotenberg.hf.space/forms/chromium/convert/html",
-      expect.objectContaining({
-        method: "POST",
-        headers: { Authorization: "Bearer secret-token" },
-      }),
-    );
+    const [url, options] = (global.fetch as jest.Mock).mock.calls[0];
+    expect(url.toString()).toBe("https://example-gotenberg.hf.space/forms/chromium/convert/html");
+    expect(options.method).toBe("POST");
+    expect(options.headers).toMatchObject({ Authorization: "Bearer secret-token" });
   });
 
   it("normalizes whitespace-only token formatting before building Bearer header", async () => {
@@ -187,13 +178,10 @@ describe("ai-pdf-pipeline", () => {
       gotenbergAuthToken: "   secret-token   ",
     });
 
-    expect(global.fetch).toHaveBeenCalledWith(
-      "https://example-gotenberg.hf.space/forms/chromium/convert/html",
-      expect.objectContaining({
-        method: "POST",
-        headers: { Authorization: "Bearer secret-token" },
-      }),
-    );
+    const [url, options] = (global.fetch as jest.Mock).mock.calls[0];
+    expect(url.toString()).toBe("https://example-gotenberg.hf.space/forms/chromium/convert/html");
+    expect(options.method).toBe("POST");
+    expect(options.headers).toMatchObject({ Authorization: "Bearer secret-token" });
   });
 
   it("sends HTML/header/footer payloads using FormData files key", async () => {

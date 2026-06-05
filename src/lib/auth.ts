@@ -16,7 +16,6 @@ import {
   normalizeRole,
   ROLE_XO_THRESHOLDS,
 } from "./roles";
-import { generateUniqueReferralCode } from "./referral-server";
 import { DEFAULT_CREDITS } from "./economy";
 import type {
   Achievement,

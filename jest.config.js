@@ -10,6 +10,7 @@ const config = {
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
+    '^marked$': '<rootDir>/node_modules/marked/lib/marked.umd.js',
   },
   transformIgnorePatterns: [
     '/node_modules/(?!marked)/',

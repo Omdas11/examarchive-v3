@@ -10,7 +10,6 @@ import {
   adminDatabases,
   COLLECTION,
   DATABASE_ID,
-  Query,
   Permission,
   Role,
 } from "@/lib/appwrite";
