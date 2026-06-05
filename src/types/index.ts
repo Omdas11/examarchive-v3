@@ -90,10 +90,6 @@ export interface UserProfile {
   tier?: UserTier;
   xo: number;
   xp: number;
-  referral_code?: string;
-  referred_by?: string | null;
-  referral_path?: string[];
-  referred_users_count?: number;
   specialist_subject?: string | null;
   subject_admin_subject?: string | null;
   ai_credits?: number;

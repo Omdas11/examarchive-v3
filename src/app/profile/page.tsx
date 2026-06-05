@@ -12,7 +12,6 @@ import XPBar from "@/components/XPBar";
 import ProfileCoursePrefs from "@/components/ProfileCoursePrefs";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
-import ReferralShareCard from "./ReferralShareCard";
 import ProfileRightSidebar from "./ProfileRightSidebar";
 import { normalizeRole, roleLabel } from "@/lib/roles";
 
@@ -174,8 +173,6 @@ export default async function ProfilePage() {
   ].filter(Boolean) as EarnedAchievement[];
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.examarchive.dev";
-  const referralCode = user.referral_code ?? "";
-  const referralLink = `${siteUrl}/login?mode=signup&ref=${encodeURIComponent(referralCode)}`;
 
   const normalizedRole = normalizeRole(user.role);
   const roleDisplayLabel = roleLabel(user.role);
@@ -401,9 +398,6 @@ export default async function ProfilePage() {
 
       {/* ── Course Selection ── */}
       <ProfileCoursePrefs />
-
-      {/* ── Referral Share ── */}
-      <ReferralShareCard referralCode={referralCode} referralLink={referralLink} />
 
       {/* Sign out */}
       <form action={signOut}>

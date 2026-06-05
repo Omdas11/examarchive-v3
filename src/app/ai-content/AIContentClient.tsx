@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import "katex/dist/katex.min.css";
 import { useToast } from "@/components/ToastContext";
 import CustomDropdown, { type CustomDropdownOption } from "@/components/CustomDropdown";
-import { ELECTRON_SYMBOL, GENERATION_COST_ELECTRONS } from "@/lib/economy";
+import { CREDIT_SYMBOL, GENERATION_COST_CREDITS } from "@/lib/economy";
 import { dispatchProfileRefreshEvent } from "@/lib/profile-events";
 
 const COURSE_TYPES: Record<string, string[]> = {
@@ -400,7 +400,7 @@ export default function AIContentClient() {
             Generate full unit notes or solved papers from database-backed syllabus and question context.
           </p>
           <p className="mt-1 text-xs text-on-surface-variant">
-            Each generation costs {GENERATION_COST_ELECTRONS}{ELECTRON_SYMBOL}.
+            Each generation costs {GENERATION_COST_CREDITS}{CREDIT_SYMBOL}.
           </p>
           <div className="mt-3 inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
             {getQuotaSummaryLabel()}

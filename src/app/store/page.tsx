@@ -11,7 +11,7 @@ import StoreClient from "./StoreClient";
 
 export const metadata: Metadata = {
   title: "Store",
-  description: "Top up electron credits via Razorpay.",
+  description: "Top up credit credits via Razorpay.",
   robots: { index: false, follow: false },
 };
 

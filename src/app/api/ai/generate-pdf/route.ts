@@ -22,11 +22,11 @@ import {
 } from "@/lib/generation-notifications";
 import { buildSignedPdfDownloadPath } from "@/lib/pdf-download-link";
 import {
-  GENERATION_COST_ELECTRONS,
+  GENERATION_COST_CREDITS,
   SUPPORTED_AI_MODELS,
   isSupportedAiModel,
 } from "@/lib/economy";
-import { withElectronBalanceLock } from "@/lib/electron-lock";
+import { withCreditBalanceLock } from "@/lib/credit-lock";
 
 // Keep route timeout explicit for current deployment while allowing complex note generation.
 export const maxDuration = 60;
@@ -88,13 +88,13 @@ function isValidEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
-async function reserveElectronCost(userId: string, cost: number): Promise<void> {
-  await withElectronBalanceLock(userId, async () => {
+async function reserveCreditCost(userId: string, cost: number): Promise<void> {
+  await withCreditBalanceLock(userId, async () => {
     const db = adminDatabases();
     const profile = await db.getDocument(DATABASE_ID, COLLECTION.users, userId);
     const current = Number(profile.ai_credits ?? 0);
     if (!Number.isFinite(current) || current < cost) {
-      throw new Error("INSUFFICIENT_ELECTRONS");
+      throw new Error("INSUFFICIENT_CREDITS");
     }
     await db.updateDocument(DATABASE_ID, COLLECTION.users, userId, {
       ai_credits: current - cost,
@@ -102,9 +102,9 @@ async function reserveElectronCost(userId: string, cost: number): Promise<void> 
   });
 }
 
-async function rollbackElectronCost(userId: string, cost: number): Promise<void> {
+async function rollbackCreditCost(userId: string, cost: number): Promise<void> {
   try {
-    await withElectronBalanceLock(userId, async () => {
+    await withCreditBalanceLock(userId, async () => {
       const db = adminDatabases();
       const profile = await db.getDocument(DATABASE_ID, COLLECTION.users, userId);
       const current = Number(profile.ai_credits ?? 0);
@@ -114,7 +114,7 @@ async function rollbackElectronCost(userId: string, cost: number): Promise<void>
       });
     });
   } catch (error) {
-    console.error("[ai/generate-pdf] Failed to rollback electrons after start-email failure.", {
+    console.error("[ai/generate-pdf] Failed to rollback credits after start-email failure.", {
       userId,
       cost,
       error,
@@ -221,15 +221,15 @@ async function reserveGenerationResources(params: {
   if (params.admin) return null;
 
   try {
-    await reserveElectronCost(params.userId, GENERATION_COST_ELECTRONS);
+    await reserveCreditCost(params.userId, GENERATION_COST_CREDITS);
   } catch (error) {
-    if (error instanceof Error && error.message === "INSUFFICIENT_ELECTRONS") {
+    if (error instanceof Error && error.message === "INSUFFICIENT_CREDITS") {
       return NextResponse.json(
-        { error: `Not enough electrons. Each generation costs ${GENERATION_COST_ELECTRONS}e.` },
+        { error: `Not enough credits. Each generation costs ${GENERATION_COST_CREDITS}e.` },
         { status: 403 },
       );
     }
-    return NextResponse.json({ error: "Unable to reserve electrons. Please try again." }, { status: 503 });
+    return NextResponse.json({ error: "Unable to reserve credits. Please try again." }, { status: 503 });
   }
 
   try {
@@ -240,7 +240,7 @@ async function reserveGenerationResources(params: {
       counter: params.counter,
       error,
     });
-    await rollbackElectronCost(params.userId, GENERATION_COST_ELECTRONS);
+    await rollbackCreditCost(params.userId, GENERATION_COST_CREDITS);
     return NextResponse.json(
       { error: QUOTA_RESERVATION_FAILED_MESSAGE, code: QUOTA_RESERVATION_FAILED_CODE },
       { status: 500 },
@@ -433,7 +433,7 @@ async function rollbackReservedGenerationResources(params: {
 }): Promise<void> {
   if (params.admin) return;
   await rollbackQuotaReservation(params.userId, params.counter);
-  await rollbackElectronCost(params.userId, GENERATION_COST_ELECTRONS);
+  await rollbackCreditCost(params.userId, GENERATION_COST_CREDITS);
 }
 
 function isConflictError(error: unknown): boolean {

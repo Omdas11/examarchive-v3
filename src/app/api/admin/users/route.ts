@@ -12,7 +12,7 @@ import {
 } from "@/lib/appwrite";
 import { isValidUserRole, isValidCustomRole, isValidTier } from "@/lib/roles";
 import { logActivity } from "@/lib/activity-log";
-import { withElectronBalanceLock } from "@/lib/electron-lock";
+import { withCreditBalanceLock } from "@/lib/credit-lock";
 
 /**
  * GET /api/admin/users
@@ -176,7 +176,7 @@ export async function PATCH(request: NextRequest) {
   try {
     const db = adminDatabases();
     if (requestedCreditsDelta !== null || update.ai_credits !== undefined) {
-      const applyDetails = await withElectronBalanceLock(userId, async () => {
+      const applyDetails = await withCreditBalanceLock(userId, async () => {
         const lockedUpdate = { ...update };
         if (requestedCreditsDelta !== null) {
           const existing = await db.getDocument(DATABASE_ID, COLLECTION.users, userId);

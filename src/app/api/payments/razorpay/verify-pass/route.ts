@@ -4,7 +4,7 @@ import { AppwriteException } from "node-appwrite";
 import { getServerUser } from "@/lib/auth";
 import { adminDatabases, COLLECTION, DATABASE_ID, ID } from "@/lib/appwrite";
 import { PASSES, getRazorpayClient, type PassId } from "@/lib/payments";
-import { withElectronBalanceLock } from "@/lib/electron-lock";
+import { withCreditBalanceLock } from "@/lib/credit-lock";
 
 type VerifyPassBody = {
   passId?: string;
@@ -120,8 +120,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Activate the pass under the electron balance lock
-    return await withElectronBalanceLock(user.id, async () => {
+    // Activate the pass under the credit balance lock
+    return await withCreditBalanceLock(user.id, async () => {
       // Calculate pass expiry
       const activatedAt = new Date();
       const expiresAt = new Date(activatedAt);
@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
           pass_id: pass.id,
           mode: "onetime",
           status: "active",
-          daily_electrons: pass.dailyElectrons,
+          daily_credits: pass.dailyCredits,
           days_remaining: pass.durationDays,
           activated_at: activatedAt.toISOString(),
           expires_at: expiresAt.toISOString(),
@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         ok: true,
-        message: `Pass activated! You can now claim ${pass.dailyElectrons}e/day for ${pass.durationDays} days.`,
+        message: `Pass activated! You can now claim ${pass.dailyCredits}e/day for ${pass.durationDays} days.`,
         pass_id: pass.id,
         expires_at: expiresAt.toISOString(),
       });

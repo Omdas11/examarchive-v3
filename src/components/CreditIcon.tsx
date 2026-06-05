@@ -1,25 +1,25 @@
 /**
- * ElectronIcon — premium SVG icon for the Electron currency.
+ * CreditIcon — premium SVG icon for the Credit currency.
  *
- * Design: a glowing coin with an electron-orbit ring and the "e" glyph.
+ * Design: a glowing coin with an credit-orbit ring and the "e" glyph.
  * Colours are inherited via `currentColor` so the icon adapts to any
  * parent text colour.
  */
 
 import React from "react";
 
-interface ElectronIconProps {
+interface CreditIconProps {
   /** Width / height in pixels (square). Default: 16 */
   size?: number;
   className?: string;
   "aria-hidden"?: boolean | "true" | "false";
 }
 
-export default function ElectronIcon({
+export default function CreditIcon({
   size = 16,
   className,
   "aria-hidden": ariaHidden = true,
-}: ElectronIconProps) {
+}: CreditIconProps) {
   return (
     <svg
       width={size}
@@ -64,20 +64,20 @@ export default function ElectronIcon({
         transform="rotate(-35 12 12)"
       />
 
-      {/* Electron dot on orbit */}
+      {/* Credit dot on orbit */}
       <circle cx="17.5" cy="9.2" r="1.4" fill="currentColor" fillOpacity="0.85" />
 
-      {/* "e" glyph */}
+      {/* "₹" glyph */}
       <text
         x="12"
         y="15.8"
         textAnchor="middle"
-        fontSize="9"
+        fontSize="10"
         fontFamily="Inter, system-ui, sans-serif"
         fontWeight="800"
         fill="currentColor"
       >
-        e
+        ₹
       </text>
     </svg>
   );

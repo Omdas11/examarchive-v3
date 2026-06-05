@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
         id: pass.id,
         label: pass.label,
         oneTimePaise: pass.oneTimePaise,
-        dailyElectrons: pass.dailyElectrons,
+        dailyCredits: pass.dailyCredits,
         durationDays: pass.durationDays,
       },
     });

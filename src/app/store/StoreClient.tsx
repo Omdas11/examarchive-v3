@@ -3,9 +3,9 @@
 import { useState } from "react";
 import Image from "next/image";
 import type { ReactNode } from "react";
-import ElectronIcon from "@/components/ElectronIcon";
+import CreditIcon from "@/components/CreditIcon";
 import { SupporterBadge } from "@/components/badges/AchievementBadges";
-import { FREE_WEEKLY_CLAIM_ELECTRONS, type Pass } from "@/lib/payments";
+import { FREE_WEEKLY_CLAIM_CREDITS, type Pass } from "@/lib/payments";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -142,7 +142,7 @@ export default function StoreClient({
       const res = await fetch("/api/payments/claim-weekly", { method: "POST" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Claim failed");
-      setMessage(data.message ?? `Claimed ${FREE_WEEKLY_CLAIM_ELECTRONS}e successfully!`);
+      setMessage(data.message ?? `Claimed ${FREE_WEEKLY_CLAIM_CREDITS} Credit successfully!`);
       window.location.reload();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Claim failed");
@@ -228,19 +228,19 @@ export default function StoreClient({
     <section className="mx-auto max-w-4xl px-4 py-8 space-y-8">
       {/* ── Balance header ── */}
       <div className="card p-6">
-        <h1 className="text-2xl font-bold">Electron Store</h1>
+        <h1 className="text-2xl font-bold">Credit Store</h1>
         <div className="mt-3 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-semibold"
           style={{
-            borderColor: "var(--electron-pill-border, #f59e0b66)",
-            background: "var(--electron-pill-bg, #fffbeb)",
-            color: "var(--electron-pill-fg, #b45309)",
+            borderColor: "var(--credit-pill-border, #f59e0b66)",
+            background: "var(--credit-pill-bg, #fffbeb)",
+            color: "var(--credit-pill-fg, #b45309)",
           }}
         >
-          <ElectronIcon size={16} />
-          <span>{currentCredits}e balance</span>
+          <CreditIcon size={16} />
+          <span>{currentCredits} {currentCredits === 1 ? "Credit" : "Credits"} balance</span>
         </div>
         <p className="mt-2 text-xs text-on-surface-variant">
-          Each AI-generated PDF costs 10e. Top up below or claim your free weekly electrons.
+          Each AI-generated PDF costs 1 Credit. Top up below or claim your free weekly credits.
         </p>
       </div>
 
@@ -263,18 +263,18 @@ export default function StoreClient({
       {/* ── Free Weekly Claim ── */}
       <div>
         <SectionHeading>Free Weekly Claim</SectionHeading>
-        <SectionSubtitle>Grab {FREE_WEEKLY_CLAIM_ELECTRONS}e for free every week — no payment needed.</SectionSubtitle>
+        <SectionSubtitle>Grab {FREE_WEEKLY_CLAIM_CREDITS} Credit for free every week — no payment needed.</SectionSubtitle>
 
         <div className="mt-4 card p-5 flex flex-col sm:flex-row sm:items-center gap-4">
           <div className="flex items-center gap-3 flex-1">
             <div
               className="flex h-12 w-12 items-center justify-center rounded-full flex-shrink-0"
-              style={{ background: "var(--electron-pill-bg, #fffbeb)", border: "1.5px solid var(--electron-pill-border, #f59e0b66)" }}
+              style={{ background: "var(--credit-pill-bg, #fffbeb)", border: "1.5px solid var(--credit-pill-border, #f59e0b66)" }}
             >
-              <ElectronIcon size={24} className="text-amber-600" />
+              <CreditIcon size={24} className="text-amber-600" />
             </div>
             <div>
-              <p className="font-bold text-on-surface">{FREE_WEEKLY_CLAIM_ELECTRONS}e</p>
+              <p className="font-bold text-on-surface">{FREE_WEEKLY_CLAIM_CREDITS} Credit</p>
               <p className="text-xs text-on-surface-variant">Resets every Monday · Free</p>
             </div>
           </div>
@@ -291,8 +291,8 @@ export default function StoreClient({
 
       {/* ── Credit Packs ── */}
       <div>
-        <SectionHeading>Electron Packs</SectionHeading>
-        <SectionSubtitle>One-time top-up — more electrons, better value.</SectionSubtitle>
+        <SectionHeading>Credit Packs</SectionHeading>
+        <SectionSubtitle>One-time top-up — more credits, better value.</SectionSubtitle>
 
         <div className="mt-4 grid gap-4 sm:grid-cols-3">
           {packs.map((pack) => {
@@ -308,7 +308,7 @@ export default function StoreClient({
                   </div>
                 )}
                 <div className="flex items-center gap-2 mb-1">
-                  <ElectronIcon size={18} className="text-amber-600" />
+                  <CreditIcon size={18} className="text-amber-600" />
                   <p className="text-xl font-bold">{pack.label}</p>
                 </div>
                 <div className="mt-1">
@@ -345,7 +345,7 @@ export default function StoreClient({
       {/* ── Passes & Subscriptions ── */}
       <div>
         <SectionHeading>Passes &amp; Subscriptions</SectionHeading>
-        <SectionSubtitle>Daily electron allowances — perfect for exam season.</SectionSubtitle>
+        <SectionSubtitle>Daily credit allowances — perfect for exam season.</SectionSubtitle>
 
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {passes.map((pass) => {
@@ -392,14 +392,14 @@ export default function StoreClient({
                 </div>
 
                 {/* Daily claim info — claim it or lose it */}
-                {pass.dailyElectrons > 0 && (
+                {pass.dailyCredits > 0 && (
                   <div className="flex flex-col gap-1">
                     <div className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 rounded-md px-2 py-1 w-fit">
-                      <ElectronIcon size={12} className="text-amber-600" />
-                      <span>{pass.dailyElectrons}e/day for {pass.durationDays} days</span>
+                      <CreditIcon size={12} className="text-amber-600" />
+                      <span>{pass.dailyCredits}e/day for {pass.durationDays} days</span>
                     </div>
                     <p className="text-xs text-on-surface-variant pl-0.5">
-                      ⚠️ Claim daily or lose it — unclaimed electrons are <strong>not</strong> carried over.
+                      ⚠️ Claim daily or lose it — unclaimed credits are <strong>not</strong> carried over.
                     </p>
                   </div>
                 )}
@@ -408,8 +408,8 @@ export default function StoreClient({
                 {isSupporter && (
                   <ul className="text-xs text-on-surface-variant space-y-0.5 pl-1">
                     <li className="flex items-center gap-1.5">
-                      <ElectronIcon size={11} className="text-amber-600 flex-shrink-0" />
-                      <span>Claim 100e every month (claim it or lose it)</span>
+                      <CreditIcon size={11} className="text-amber-600 flex-shrink-0" />
+                      <span>Claim 10 Credits every month (claim it or lose it)</span>
                     </li>
                     <li className="flex items-center gap-1.5">
                       <SupporterBadge size={11} />

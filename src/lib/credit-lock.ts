@@ -3,7 +3,7 @@ import { AppwriteException } from "node-appwrite";
 import { adminDatabases, COLLECTION, DATABASE_ID } from "@/lib/appwrite";
 
 const LOCK_PREFIX = "el_";
-const LOCK_USER_PREFIX = "__electron_lock__";
+const LOCK_USER_PREFIX = "__credit_lock__";
 // Sentinel date used only for synthetic lock rows in ai_usage.
 const LOCK_MARKER_DATE = "1970-01-01";
 const LOCK_TTL_MS = 30_000;
@@ -15,13 +15,13 @@ function sleep(ms: number): Promise<void> {
 
 function lockDocumentId(userId: string): string {
   if (!userId.trim()) {
-    throw new Error("ELECTRON_BALANCE_LOCK_INVALID_USER_ID");
+    throw new Error("CREDIT_BALANCE_LOCK_INVALID_USER_ID");
   }
   const hash = crypto.createHash("sha256").update(userId.trim()).digest("hex").slice(0, LOCK_HASH_LENGTH);
   return `${LOCK_PREFIX}${hash}`;
 }
 
-export async function withElectronBalanceLock<T>(
+export async function withCreditBalanceLock<T>(
   userId: string,
   fn: () => Promise<T>,
   maxAttempts = 30,
@@ -59,11 +59,11 @@ export async function withElectronBalanceLock<T>(
       }
 
       if (attempt === maxAttempts) {
-        throw new Error("ELECTRON_BALANCE_LOCK_TIMEOUT");
+        throw new Error("CREDIT_BALANCE_LOCK_TIMEOUT");
       }
       await sleep(Math.min(150 * attempt, 1_000));
     }
   }
 
-  throw new Error("ELECTRON_BALANCE_LOCK_TIMEOUT");
+  throw new Error("CREDIT_BALANCE_LOCK_TIMEOUT");
 }

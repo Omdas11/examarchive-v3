@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { getServerUser } from "@/lib/auth";
 import { adminDatabases, DATABASE_ID, COLLECTION } from "@/lib/appwrite";
-import { FREE_WEEKLY_CLAIM_ELECTRONS } from "@/lib/payments";
-import { withElectronBalanceLock } from "@/lib/electron-lock";
+import { FREE_WEEKLY_CLAIM_CREDITS } from "@/lib/payments";
+import { withCreditBalanceLock } from "@/lib/credit-lock";
 
 /**
  * Returns the most recent Monday at midnight UTC.
@@ -22,7 +22,7 @@ export async function POST() {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    return await withElectronBalanceLock(user.id, async () => {
+    return await withCreditBalanceLock(user.id, async () => {
       const db = adminDatabases();
       const profile = await db.getDocument(DATABASE_ID, COLLECTION.users, user.id);
 
@@ -51,9 +51,9 @@ export async function POST() {
 
       const current = Number(profile.ai_credits ?? 0);
       if (!Number.isFinite(current)) {
-        return NextResponse.json({ error: "Invalid electron balance." }, { status: 500 });
+        return NextResponse.json({ error: "Invalid credit balance." }, { status: 500 });
       }
-      const newBalance = current + FREE_WEEKLY_CLAIM_ELECTRONS;
+      const newBalance = current + FREE_WEEKLY_CLAIM_CREDITS;
 
       await db.updateDocument(DATABASE_ID, COLLECTION.users, user.id, {
         ai_credits: newBalance,
@@ -61,7 +61,7 @@ export async function POST() {
       });
 
       return NextResponse.json({
-        message: `Claimed ${FREE_WEEKLY_CLAIM_ELECTRONS}e! New balance: ${newBalance}e.`,
+        message: `Claimed ${FREE_WEEKLY_CLAIM_CREDITS}e! New balance: ${newBalance}e.`,
         ai_credits: newBalance,
       });
     });

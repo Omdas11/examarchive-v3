@@ -8,7 +8,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
-import ElectronIcon from '@/components/ElectronIcon';
+import CreditIcon from '@/components/CreditIcon';
 import { PROFILE_REFRESH_EVENT } from '@/lib/profile-events';
 
 export interface HeaderProps {
@@ -39,7 +39,7 @@ export default function Header({
 }: HeaderProps & React.HTMLAttributes<HTMLElement>) {
   const [searchQuery, setSearchQuery] = useState('');
   const [showNotifications, setShowNotifications] = useState(false);
-  const [electronBalance, setElectronBalance] = useState<number | null>(null);
+  const [creditBalance, setCreditBalance] = useState<number | null>(null);
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const query = e.target.value;
@@ -55,7 +55,7 @@ export default function Header({
         if (!res.ok) return;
         const data = await res.json() as { ai_credits?: number };
         if (!cancelled && typeof data.ai_credits === 'number') {
-          setElectronBalance(data.ai_credits);
+          setCreditBalance(data.ai_credits);
         }
       } catch {
         // non-blocking
@@ -220,19 +220,19 @@ export default function Header({
           )}
         </div>
 
-        {electronBalance !== null && (
+        {creditBalance !== null && (
           <div
             className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold"
             style={{
-              borderColor: "var(--electron-pill-border, #f59e0b66)",
-              background: "var(--electron-pill-bg, #fffbeb)",
-              color: "var(--electron-pill-fg, #b45309)",
+              borderColor: "var(--credit-pill-border, #f59e0b66)",
+              background: "var(--credit-pill-bg, #fffbeb)",
+              color: "var(--credit-pill-fg, #b45309)",
             }}
-            aria-label={`Electron balance ${electronBalance}`}
-            title={`Electron balance: ${electronBalance}`}
+            aria-label={`Credit balance ${creditBalance}`}
+            title={`Credit balance: ${creditBalance}`}
           >
-            <ElectronIcon size={14} />
-            <span>{electronBalance}</span>
+            <CreditIcon size={14} />
+            <span>{creditBalance}</span>
           </div>
         )}
 

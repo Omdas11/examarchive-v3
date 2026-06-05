@@ -4,7 +4,7 @@ import { AppwriteException } from "node-appwrite";
 import { getServerUser } from "@/lib/auth";
 import { adminDatabases, COLLECTION, DATABASE_ID, ID } from "@/lib/appwrite";
 import { getCreditPackByCode, getRazorpayClient, getFirstTimerAmountInPaise } from "@/lib/payments";
-import { withElectronBalanceLock } from "@/lib/electron-lock";
+import { withCreditBalanceLock } from "@/lib/credit-lock";
 
 type VerifyBody = {
   packCode?: string;
@@ -227,7 +227,7 @@ async function applyCreditsUnderLock(params: {
 
   return NextResponse.json({
     ok: true,
-    message: `Added ${packCredits} electrons to your balance.`,
+    message: `Added ${packCredits} credits to your balance.`,
     ai_credits: updatedCredits,
   });
 }
@@ -369,7 +369,7 @@ export async function POST(request: NextRequest) {
       return alreadyVerifiedResponse(Number(userDoc.ai_credits ?? 0));
     }
 
-    return await withElectronBalanceLock(user.id, async () => {
+    return await withCreditBalanceLock(user.id, async () => {
       return applyCreditsUnderLock({
         db,
         userId: user.id,
