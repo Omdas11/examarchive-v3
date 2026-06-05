@@ -22,7 +22,7 @@ export function getFirstTimerAmountInPaise(pack: { amountInPaise: number }): num
 /** Weekly reset free-claim amount (credits). */
 export const FREE_WEEKLY_CLAIM_CREDITS = 0; // User wants website free but AI PDF cost credits.
 
-// ── Pass & Subscription types (DEPRECATED) ───────────────────────────────────
+// ── Pass & Subscription types ────────────────────────────────────────────────
 
 export type PassId = "weekly_pass" | "monthly_pass" | "supporter";
 
@@ -30,15 +30,53 @@ export interface Pass {
   id: PassId;
   label: string;
   description: string;
+  /** One-time purchase price in paise. */
   oneTimePaise: number;
+  /** Subscription price in paise (per billing period). */
   subscribedPaise: number;
+  /** Billing period label for the subscription. */
   billingPeriod: "week" | "month";
+  /** Credits credited per day during the pass duration. */
   dailyCredits: number;
+  /** Duration of the pass in days. */
   durationDays: number;
+  /** Extra perks included (e.g. badge IDs). */
   perks?: string[];
 }
 
-export const PASSES: readonly Pass[] = []; // Empty as requested to remove passes
+export const PASSES: readonly Pass[] = [
+  {
+    id: "weekly_pass",
+    label: "Weekly Pass",
+    description: "Claim 10 Credits every day for 7 days.",
+    oneTimePaise: 4900,
+    subscribedPaise: 3900,
+    billingPeriod: "week",
+    dailyCredits: 10,
+    durationDays: 7,
+  },
+  {
+    id: "monthly_pass",
+    label: "Monthly Pass",
+    description: "Claim 20 Credits every day for 30 days.",
+    oneTimePaise: 19900,
+    subscribedPaise: 17900,
+    billingPeriod: "month",
+    dailyCredits: 20,
+    durationDays: 30,
+  },
+  {
+    id: "supporter",
+    label: "Be a Supporter",
+    description: "Support ExamArchive. Claim 100 Credits every month + exclusive Supporter Badge.",
+    oneTimePaise: 4900,
+    subscribedPaise: 4900,
+    billingPeriod: "month",
+    dailyCredits: 0,
+    durationDays: 30,
+    perks: ["supporter_badge", "monthly_100credits_claim"],
+  },
+] as const;
 
 export function getCreditPackByCode(code: string) {
   return CREDIT_PACKS.find((pack) => pack.code === code);
