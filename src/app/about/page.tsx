@@ -45,12 +45,11 @@ const steps = [
   { icon: STEP_ICONS[0], title: "Upload", desc: "Students upload past question papers and notes." },
   { icon: STEP_ICONS[1], title: "Review", desc: "Moderators review and verify each submission." },
   { icon: STEP_ICONS[2], title: "Publish", desc: "Approved papers are published to the archive." },
-  { icon: STEP_ICONS[3], title: "Discover & Earn", desc: "Approved activity earns XO, cosmetic unlocks, and electrons." },
+  { icon: STEP_ICONS[3], title: "Discover & Earn", desc: "Approved activity earns XO, cosmetic unlocks, and credits." },
 ];
 
 const contributions = [
   "Upload question papers you have access to.",
-  "Refer classmates to earn referral XO and electrons.",
   "Report incorrect or duplicate papers.",
   "Share the platform with fellow students.",
   "Provide feedback to help us improve.",
@@ -183,7 +182,6 @@ const XO_EVENTS = [
   { event: "First ever upload",           xo: "+20 bonus" },
   { event: "7-day streak reached",        xo: "+100 bonus" },
   { event: "30-day streak reached",       xo: "+500 bonus" },
-  { event: "Successful direct referral",  xo: "+40" },
 ];
 
 const COSMETIC_UNLOCKS = [
@@ -198,23 +196,13 @@ const ROLE_ASSIGNMENT_RULES = [
   "Community designations (Supporter, Mentor, Archivist, Ambassador) are assigned from activity patterns and quality signals.",
 ];
 
-const ELECTRON_REWARD_EVENTS = [
-  { event: "Successful direct referral (new user)", reward: "+10e to new user" },
-  { event: "Successful direct referral (referrer)", reward: "+20e to referrer" },
-  { event: "Razorpay top-up (store)", reward: "Pack amount credited as electrons" },
+const CREDIT_REWARD_EVENTS = [
+  { event: "Razorpay top-up (store)", reward: "Pack amount credited as credits" },
 ];
 
-const REFERRAL_RULES = [
-  { rule: "Direct referrals only", value: "1 level" },
-  { rule: "Successful referral cap per referrer", value: "10 users max" },
-  { rule: "Generation spend", value: "10e per generation" },
-  { rule: "Starting balance", value: "100e (moderator/founder: 1000e)" },
-];
-
-const XO_TO_ELECTRON_POLICY = [
-  { event: "Referral milestone conversion", rule: "XO tracks reputation; electron reward is fixed by referral rules." },
-  { event: "Anti-farming guardrails", rule: "Self-referral and abuse checks are enforced; referral cap limits payout volume." },
-  { event: "Moderation dependency", rule: "Only valid successful referrals grant electron rewards." },
+const CREDIT_POLICY = [
+  { event: "AI PDF Generation", rule: "AI-generated PDFs cost credits per generation." },
+  { event: "Experimental Feature", rule: "AI features are experimental and may vary in cost or availability." },
 ];
 
 /** Fetch live platform statistics from Appwrite. Falls back to 0 on error. */
@@ -283,8 +271,7 @@ export default async function AboutPage() {
           papers from various universities, programmes, and streams.
         </p>
         <p>
-            We are documenting progression with activity-based XO, cosmetic role designations, and an
-            electron economy with direct referral rewards.
+            We are documenting progression with activity-based XO and a credit system for experimental features.
         </p>
       </div>
 
@@ -484,15 +471,15 @@ export default async function AboutPage() {
         ))}
       </div>
 
-      <h2 className="mt-10 text-xl font-semibold">Electrons & Referrals</h2>
+      <h2 className="mt-10 text-xl font-semibold">Credits System</h2>
       <p className="mt-2 text-sm" style={{ color: "var(--color-text-muted)" }}>
-        Electrons are the virtual currency used for AI generation and store top-ups.
-        Referral rewards and spend rules are intentionally simple and capped.
+        Credits are used for experimental AI features like generating PDFs.
+        The platform remains free for browsing and standard downloads.
       </p>
 
-      <h3 className="mt-6 text-base font-semibold">How to Earn Electrons</h3>
+      <h3 className="mt-6 text-base font-semibold">How to Get Credits</h3>
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
-        {ELECTRON_REWARD_EVENTS.map((e) => (
+        {CREDIT_REWARD_EVENTS.map((e) => (
           <div key={e.event} className="card flex items-center justify-between gap-3 px-4 py-3">
             <p className="text-sm">{e.event}</p>
             <span
@@ -505,34 +492,9 @@ export default async function AboutPage() {
         ))}
       </div>
 
-      <h3 className="mt-6 text-base font-semibold">Referral Rules</h3>
-      <p className="mt-1 text-xs" style={{ color: "var(--color-text-muted)" }}>
-        Referral rewards are direct-only and include anti-abuse controls.
-      </p>
-      <div className="mt-3 overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-xs uppercase text-left" style={{ color: "var(--color-text-muted)" }}>
-              <th className="pb-2 pr-4 font-medium">Rule</th>
-              <th className="pb-2 font-medium">Value</th>
-            </tr>
-          </thead>
-          <tbody>
-            {REFERRAL_RULES.map((r) => (
-              <tr key={r.rule} className="border-t" style={{ borderColor: "var(--color-border)" }}>
-                <td className="py-2 pr-4">{r.rule}</td>
-                <td className="py-2 text-xs" style={{ color: "var(--color-text-muted)" }}>
-                  {r.value}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <h3 className="mt-6 text-base font-semibold">XO → Electron Policy</h3>
+      <h3 className="mt-6 text-base font-semibold">Credit Policy</h3>
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
-        {XO_TO_ELECTRON_POLICY.map((item) => (
+        {CREDIT_POLICY.map((item) => (
           <div key={item.event} className="card flex flex-col gap-1 px-4 py-3">
             <p className="text-sm font-semibold">{item.event}</p>
             <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>{item.rule}</p>

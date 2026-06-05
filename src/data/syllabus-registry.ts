@@ -225,7 +225,7 @@ export const SYLLABUS_REGISTRY: SyllabusRegistryEntry[] = [
   },
   {
     paper_code: "PHYDSC252T",
-    paper_name: "Electronics (Analog + Digital)",
+    paper_name: "Creditics (Analog + Digital)",
     semester: 4,
     subject: "Physics",
     credits: 4,
@@ -235,7 +235,7 @@ export const SYLLABUS_REGISTRY: SyllabusRegistryEntry[] = [
   },
   {
     paper_code: "PHYDSC253P",
-    paper_name: "Lab.: (Part A: Thermal Physics + Part B: Analog Electronics)",
+    paper_name: "Lab.: (Part A: Thermal Physics + Part B: Analog Creditics)",
     semester: 4,
     subject: "Physics",
     credits: 4,
@@ -309,7 +309,7 @@ export const SYLLABUS_REGISTRY: SyllabusRegistryEntry[] = [
   },
   {
     paper_code: "PHYDSC354P",
-    paper_name: "Lab.: (Part A: Solid State Physics + Part B: Digital Electronics)",
+    paper_name: "Lab.: (Part A: Solid State Physics + Part B: Digital Creditics)",
     semester: 6,
     subject: "Physics",
     credits: 4,
@@ -351,7 +351,7 @@ export const SYLLABUS_REGISTRY: SyllabusRegistryEntry[] = [
   },
   {
     paper_code: "PHYDSC404P",
-    paper_name: "Lab.: (Part A: Numerical Techniques & Programming including Quantum Mechanics + Part B: Simulation & Software based learning of electronics i.e. virtual Labs)",
+    paper_name: "Lab.: (Part A: Numerical Techniques & Programming including Quantum Mechanics + Part B: Simulation & Software based learning of credits i.e. virtual Labs)",
     semester: 7,
     subject: "Physics",
     credits: 4,
@@ -436,7 +436,7 @@ export const SYLLABUS_REGISTRY: SyllabusRegistryEntry[] = [
   },
   {
     paper_code: "PHYDSM201T",
-    paper_name: "Electricity, Magnetism and Electronics",
+    paper_name: "Electricity, Magnetism and Creditics",
     semester: 3,
     subject: "Physics",
     credits: 4,
@@ -446,7 +446,7 @@ export const SYLLABUS_REGISTRY: SyllabusRegistryEntry[] = [
   },
   {
     paper_code: "PHYDSM251P",
-    paper_name: "Lab. (Mechanics + Optics) and (Electricity + Electronics)",
+    paper_name: "Lab. (Mechanics + Optics) and (Electricity + Creditics)",
     semester: 4,
     subject: "Physics",
     credits: 3,
@@ -456,7 +456,7 @@ export const SYLLABUS_REGISTRY: SyllabusRegistryEntry[] = [
   },
   {
     paper_code: "PHYDSM252T",
-    paper_name: "Electricity, Magnetism and Electronics",
+    paper_name: "Electricity, Magnetism and Creditics",
     semester: 4,
     subject: "Physics",
     credits: 3,
@@ -486,7 +486,7 @@ export const SYLLABUS_REGISTRY: SyllabusRegistryEntry[] = [
   },
   {
     paper_code: "PHYDSM351P",
-    paper_name: "Lab. (Mechanics + Optics) and (Electricity + Electronics)",
+    paper_name: "Lab. (Mechanics + Optics) and (Electricity + Creditics)",
     semester: 6,
     subject: "Physics",
     credits: 4,

@@ -17,7 +17,7 @@ import {
   ROLE_XO_THRESHOLDS,
 } from "./roles";
 import { generateUniqueReferralCode } from "./referral-server";
-import { DEFAULT_ELECTRONS } from "./economy";
+import { DEFAULT_CREDITS } from "./economy";
 import type {
   Achievement,
   CustomRole,
@@ -177,17 +177,6 @@ export async function getServerUser(): Promise<UserProfile | null> {
     // First try to get the document by Auth user ID (the preferred approach)
     try {
       const profile = await db.getDocument(DATABASE_ID, COLLECTION.users, user.$id);
-      let referralCode = (profile.referral_code as string) ?? "";
-      if (!referralCode) {
-        try {
-          referralCode = await generateUniqueReferralCode(db);
-          await db.updateDocument(DATABASE_ID, COLLECTION.users, profile.$id, {
-            referral_code: referralCode,
-          });
-        } catch {
-          referralCode = "";
-        }
-      }
       const rawSecondary = profile.secondary_role ?? null;
       const rawTier = profile.tier ?? "bronze";
       const currentStreak = (profile.streak as number) ?? 0;
@@ -211,10 +200,6 @@ export async function getServerUser(): Promise<UserProfile | null> {
         xo,
         // Keep xp mirrored for backward-compatible consumers during XO rollout.
         xp: xo,
-        referral_code: referralCode,
-        referred_by: (profile.referred_by as string) ?? null,
-        referral_path: (profile.referral_path as string[]) ?? [],
-        referred_users_count: (profile.referred_users_count as number) ?? 0,
         specialist_subject: (profile.specialist_subject as string) ?? null,
         subject_admin_subject: (profile.subject_admin_subject as string) ?? null,
         ai_credits: (profile.ai_credits as number) ?? 0,
@@ -236,17 +221,6 @@ export async function getServerUser(): Promise<UserProfile | null> {
 
     if (documents.length > 0) {
       const profile = documents[0];
-      let referralCode = (profile.referral_code as string) ?? "";
-      if (!referralCode) {
-        try {
-          referralCode = await generateUniqueReferralCode(db);
-          await db.updateDocument(DATABASE_ID, COLLECTION.users, profile.$id, {
-            referral_code: referralCode,
-          });
-        } catch {
-          referralCode = "";
-        }
-      }
       const rawSecondary = profile.secondary_role ?? null;
       const rawTier = profile.tier ?? "bronze";
       const currentStreak = (profile.streak as number) ?? 0;
@@ -270,10 +244,6 @@ export async function getServerUser(): Promise<UserProfile | null> {
         xo,
         // Keep xp mirrored for backward-compatible consumers during XO rollout.
         xp: xo,
-        referral_code: referralCode,
-        referred_by: (profile.referred_by as string) ?? null,
-        referral_path: (profile.referral_path as string[]) ?? [],
-        referred_users_count: (profile.referred_users_count as number) ?? 0,
         specialist_subject: (profile.specialist_subject as string) ?? null,
         subject_admin_subject: (profile.subject_admin_subject as string) ?? null,
         ai_credits: (profile.ai_credits as number) ?? 0,
@@ -286,10 +256,6 @@ export async function getServerUser(): Promise<UserProfile | null> {
     // Auto-create profile document on first login.
     // Only write fields that exist in the current DB schema.
     try {
-      const referralCode = await generateUniqueReferralCode(db);
-      const referredBy: string | null = null;
-      const referralPath: string[] = [];
-
       const newProfile = await db.createDocument(
         DATABASE_ID,
         COLLECTION.users,
@@ -307,11 +273,7 @@ export async function getServerUser(): Promise<UserProfile | null> {
           tier: "bronze",
           avatar_url: "",
           last_activity: "",
-          referral_code: referralCode,
-          referred_by: referredBy,
-          referral_path: referralPath,
-          referred_users_count: 0,
-          ai_credits: DEFAULT_ELECTRONS,
+          ai_credits: DEFAULT_CREDITS,
         },
         [
           Permission.read(Role.user(user.$id)),
@@ -331,13 +293,9 @@ export async function getServerUser(): Promise<UserProfile | null> {
         tier: "bronze" as UserTier,
         xo: 0,
         xp: 0,
-        referral_code: referralCode,
-        referred_by: referredBy,
-        referral_path: referralPath,
-        referred_users_count: 0,
         specialist_subject: null,
         subject_admin_subject: null,
-        ai_credits: DEFAULT_ELECTRONS,
+        ai_credits: DEFAULT_CREDITS,
         streak_days: 0,
         last_activity: "",
         created_at: newProfile.$createdAt,
@@ -364,10 +322,6 @@ export async function getServerUser(): Promise<UserProfile | null> {
           xo,
           // Keep xp mirrored for backward-compatible consumers during XO rollout.
           xp: xo,
-          referral_code: (existing.referral_code as string) ?? "",
-          referred_by: (existing.referred_by as string) ?? null,
-          referral_path: (existing.referral_path as string[]) ?? [],
-          referred_users_count: (existing.referred_users_count as number) ?? 0,
           specialist_subject: (existing.specialist_subject as string) ?? null,
           subject_admin_subject: (existing.subject_admin_subject as string) ?? null,
           ai_credits: (existing.ai_credits as number) ?? 0,

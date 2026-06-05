@@ -70,7 +70,7 @@ export const COLLECTION = {
   purchases: "purchases",
   /**
    * Tracks active/expired passes for each user.
-   * Fields: user_id, pass_id, mode, status, daily_electrons, days_remaining,
+   * Fields: user_id, pass_id, mode, status, daily_credits, days_remaining,
    *         last_daily_claim_at, activated_at, expires_at,
    *         razorpay_subscription_id, razorpay_order_id.
    */

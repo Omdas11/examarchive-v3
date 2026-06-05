@@ -24,26 +24,23 @@ const ERROR_MESSAGES: Record<string, string> = {
   rate_limit: "Too many attempts. Please wait before trying again.",
   invalid_credentials: "Invalid email or password. Please try again.",
   oauth_failed: "Google sign-in failed. Please try again.",
-  invalid_referral_code: "Referral code is invalid. Please check and try again.",
-  referral_limit_reached: "This referral code has reached the maximum number of successful referrals.",
 };
 
 const VALID_MODES: Mode[] = ["magic", "signin", "signup"];
 
-function resolveInitialMode(mode: string | undefined, ref: string | undefined): Mode {
+function resolveInitialMode(mode: string | undefined): Mode {
   if (VALID_MODES.includes(mode as Mode)) return mode as Mode;
-  if (ref) return "signup";
   return "magic";
 }
 
 export default async function LoginPage({ searchParams }: Props) {
-  const { error, message, mode, ref } = await searchParams;
+  const { error, message, mode } = await searchParams;
 
   const errorText = error
     ? (ERROR_MESSAGES[error] ?? decodeURIComponent(error))
     : null;
   const isRateLimit = error === "rate_limit";
-  const initialMode = resolveInitialMode(mode, ref);
+  const initialMode = resolveInitialMode(mode);
 
   return (
     <MainLayout
@@ -76,7 +73,6 @@ export default async function LoginPage({ searchParams }: Props) {
             isRateLimit={isRateLimit}
             message={message ?? null}
             initialMode={initialMode}
-            initialReferralCode={ref ?? null}
           />
         </div>
 
