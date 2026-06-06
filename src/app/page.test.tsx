@@ -62,12 +62,6 @@ jest.mock("@/components/VisitorTracker", () => {
   }
   return MockVisitorTracker;
 });
-jest.mock("@/components/FireParticles", () => {
-  function MockFireParticles() {
-    return <div />;
-  }
-  return MockFireParticles;
-});
 
 jest.mock("@/lib/appwrite", () => ({
   adminDatabases: jest.fn().mockReturnValue({
@@ -98,7 +92,7 @@ describe("homepage transparency row", () => {
     const jsx = await HomePage();
     render(jsx);
 
-    const transparency = screen.getByText(/Transparency:/i).closest("p");
+    const transparency = screen.getByText(/Archive Status:/i).closest("p");
     expect(transparency).toHaveClass("min-h-[1.5rem]");
   });
 });

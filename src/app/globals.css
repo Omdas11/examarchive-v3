@@ -2,103 +2,122 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── Indigo Scholar Palette – Light theme (default) ── */
+/* ── Academic Vitality Palette – Light theme (default) ── */
 :root {
-  /* Brand tokens — Indigo Scholar */
-  --brand-indigo: #3525cd;
-  --brand-indigo-hover: #2a1fb3;
-  --brand-indigo-soft: #eff0ff;
-  --nav-teal: #006a61;
-  --nav-teal-light: #00897b;
-  --success-green: #2A9D8F;
-  --pending-amber: #F4A261;
-  --danger-red: #ba1a1a;
+  /* Brand tokens — Academic Vitality */
+  --brand-emerald: #10b981;
+  --brand-emerald-dark: #059669;
+  --brand-emerald-soft: #ecfdf5;
+  --brand-blue: #3b82f6;
+  --success-green: #10b981;
+  --pending-amber: #f59e0b;
+  --danger-red: #ef4444;
 
   /* Legacy alias kept for backward compat */
-  --brand-crimson: var(--brand-indigo);
-  --brand-crimson-hover: var(--brand-indigo-hover);
+  --brand-indigo: var(--brand-emerald);
+  --brand-indigo-hover: var(--brand-emerald-dark);
+  --brand-indigo-soft: var(--brand-emerald-soft);
+  --brand-crimson: var(--brand-emerald);
+  --brand-crimson-hover: var(--brand-emerald-dark);
+  --nav-teal: var(--brand-emerald);
+  --nav-teal-light: #34d399;
 
   /* Semantic tokens mapped from brand */
-  --color-primary: var(--brand-indigo);
-  --color-primary-hover: var(--brand-indigo-hover);
-  --color-accent-soft: var(--brand-indigo-soft);
-  --color-bg: #f8f9ff;
+  --color-primary: var(--brand-emerald);
+  --color-primary-hover: var(--brand-emerald-dark);
+  --color-accent-soft: var(--brand-emerald-soft);
+  --color-bg: #f9fafb;
   --color-surface: #ffffff;
-  --color-text: #0b1c30;
-  --color-text-muted: #464555;
-  --color-border: #c7c4d8;
+  --color-text: #111827;
+  --color-text-muted: #6b7280;
+  --color-border: #e5e7eb;
   --color-input-bg: #ffffff;
-  --color-footer-bg: #eff4ff;
-  --rgb-primary: 53 37 205;
-  --rgb-primary-container: 79 70 229;
-  --rgb-primary-fixed: 226 223 255;
-  --rgb-primary-fixed-dim: 195 192 255;
-  --rgb-secondary: 0 106 97;
-  --rgb-secondary-container: 134 242 228;
-  --rgb-surface: 248 249 255;
+  --color-footer-bg: #f3f4f6;
+  
+  --rgb-primary: 16 185 129;
+  --rgb-primary-container: 16 185 129;
+  --rgb-primary-fixed: 209 250 229;
+  --rgb-primary-fixed-dim: 167 243 208;
+  --rgb-secondary: 59 130 246;
+  --rgb-secondary-container: 219 234 254;
+  --rgb-surface: 249 250 251;
+  --rgb-surface-dim: 243 244 246;
   --rgb-surface-container-lowest: 255 255 255;
-  --rgb-surface-container-low: 239 244 255;
-  --rgb-surface-container: 229 238 255;
-  --rgb-surface-container-high: 220 233 255;
-  --rgb-surface-container-highest: 211 228 254;
-  --rgb-on-surface: 11 28 48;
-  --rgb-on-surface-variant: 70 69 85;
-  --rgb-outline-variant: 199 196 216;
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --max-w: 1100px;
+  --rgb-surface-container-low: 243 244 246;
+  --rgb-surface-container: 229 231 235;
+  --rgb-surface-container-high: 209 213 219;
+  --rgb-surface-container-highest: 156 163 175;
+  --rgb-surface-variant: 229 231 235;
+  --rgb-on-surface: 17 24 39;
+  --rgb-on-surface-variant: 75 85 99;
+  --rgb-outline-variant: 209 213 219;
+  
+  --rgb-inverse-surface: 31 41 55;
+  --rgb-inverse-on-surface: 249 250 251;
+  --rgb-inverse-primary: 52 211 153;
+
+  /* Shape tokens - hyper-rounded */
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
+  --radius-full: 9999px;
+  
+  --max-w: 1240px;
 
   /* Layout tokens */
-  --sidebar-w: 240px;
-  --right-col-w: 280px;
-  --layout-header-height: 4rem;
+  --sidebar-w: 260px;
+  --right-col-w: 300px;
+  --layout-header-height: 4.5rem;
 
-  /* Adaptive shadow tokens */
-  --shadow-card: 0 2px 8px rgba(11, 28, 48, 0.06);
-  --shadow-card-hover: 0 4px 16px rgba(11, 28, 48, 0.10);
+  /* Adaptive shadow tokens - Academic Vitality spec */
+  --shadow-card: 0 4px 20px rgba(17, 24, 39, 0.05);
+  --shadow-card-hover: 0 8px 30px rgba(17, 24, 39, 0.10);
+  --shadow-floating: 0 12px 40px rgba(16, 185, 129, 0.15);
 }
 
 /* ── Dark theme ── */
 [data-theme="dark"] {
-  --brand-indigo: #c3c0ff;
-  --brand-indigo-hover: #a9a6f5;
-  --brand-indigo-soft: #1a1840;
-  --nav-teal: #6bd8cb;
-  --nav-teal-light: #86f2e4;
+  --brand-emerald: #34d399;
+  --brand-emerald-dark: #10b981;
+  --brand-emerald-soft: #064e3b;
+  --brand-blue: #60a5fa;
 
-  --brand-crimson: var(--brand-indigo);
-  --brand-crimson-hover: var(--brand-indigo-hover);
-
-  --color-primary: var(--brand-indigo);
-  --color-primary-hover: var(--brand-indigo-hover);
-  --color-accent-soft: var(--brand-indigo-soft);
-  --color-bg: #0b1c30;
+  --color-primary: var(--brand-emerald);
+  --color-primary-hover: var(--brand-emerald-dark);
+  --color-accent-soft: var(--brand-emerald-soft);
+  --color-bg: #030712;
   --color-surface: #111827;
-  --color-text: #eaf1ff;
+  --color-text: #f9fafb;
   --color-text-muted: #9ca3af;
-  --color-border: #2a2a3a;
-  --color-input-bg: #111827;
-  --color-footer-bg: #0d1a28;
-  --rgb-primary: 195 192 255;
-  --rgb-primary-container: 59 53 120;
-  --rgb-primary-fixed: 34 31 76;
-  --rgb-primary-fixed-dim: 55 50 115;
-  --rgb-secondary: 107 216 203;
-  --rgb-secondary-container: 0 79 73;
-  --rgb-surface: 11 28 48;
-  --rgb-surface-container-lowest: 8 20 34;
-  --rgb-surface-container-low: 21 30 46;
-  --rgb-surface-container: 28 39 58;
-  --rgb-surface-container-high: 36 49 71;
-  --rgb-surface-container-highest: 45 59 84;
-  --rgb-on-surface: 234 241 255;
+  --color-border: #374151;
+  --color-input-bg: #1f2937;
+  --color-footer-bg: #111827;
+  
+  --rgb-primary: 52 211 153;
+  --rgb-primary-container: 6 78 59;
+  --rgb-primary-fixed: 6 95 70;
+  --rgb-primary-fixed-dim: 5 150 105;
+  --rgb-secondary: 96 165 250;
+  --rgb-secondary-container: 30 58 138;
+  --rgb-surface: 3 7 18;
+  --rgb-surface-dim: 2 6 23;
+  --rgb-surface-container-lowest: 2 6 23;
+  --rgb-surface-container-low: 17 24 39;
+  --rgb-surface-container: 31 41 55;
+  --rgb-surface-container-high: 55 65 81;
+  --rgb-surface-container-highest: 75 85 99;
+  --rgb-surface-variant: 31 41 55;
+  --rgb-on-surface: 249 250 251;
   --rgb-on-surface-variant: 156 163 175;
-  --rgb-outline-variant: 42 42 58;
+  --rgb-outline-variant: 55 65 81;
 
-  /* Shadows are less visible in dark mode — reduce opacity */
-  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.24);
-  --shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.36);
+  --rgb-inverse-surface: 243 244 246;
+  --rgb-inverse-on-surface: 17 24 39;
+  --rgb-inverse-primary: 16 185 129;
+
+  --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.3);
+  --shadow-card-hover: 0 8px 30px rgba(0, 0, 0, 0.4);
 }
 
 /* ── Material Symbols base config ── */
@@ -148,22 +167,25 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
 
 @layer components {
   .input-field {
-    @apply w-full px-3 py-2 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-1;
+    @apply w-full px-5 py-3 text-sm placeholder:text-gray-400/60 focus:outline-none focus:ring-2 focus:ring-primary/20;
     background: var(--color-input-bg);
     color: var(--color-text);
     border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-full);
+    @apply transition-all duration-200;
   }
   .input-field:focus {
     border-color: var(--color-primary);
-    --tw-ring-color: var(--color-primary);
   }
 
   .btn {
-    @apply inline-flex items-center justify-center px-5 py-2 text-sm font-semibold transition-colors rounded-lg bg-surface-container text-on-surface;
+    @apply inline-flex items-center justify-center px-8 py-3 text-sm font-bold transition-all rounded-full bg-surface-container text-on-surface shadow-sm;
   }
   .btn:hover {
-    @apply bg-surface-container-high;
+    @apply bg-surface-container-high shadow-md -translate-y-0.5;
+  }
+  .btn:active {
+    @apply scale-95;
   }
 
   .btn-primary {
@@ -171,7 +193,7 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
     color: #ffffff;
   }
   .btn-primary:hover {
-    opacity: 0.92;
+    @apply shadow-floating opacity-95;
   }
 
   /* Stitch design: tonal layered card — no harsh border per "No-Line Rule" */
@@ -179,10 +201,11 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
     background: var(--color-surface);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-card);
-    @apply transition-all duration-200;
+    @apply transition-all duration-300 border border-outline-variant/5;
   }
   .card:hover {
     box-shadow: var(--shadow-card-hover);
+    @apply -translate-y-0.5;
   }
 
   .toggle-btn {
@@ -541,21 +564,22 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
 .skeleton-card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   overflow: hidden;
   display: flex;
 }
 .skeleton-card .skeleton-accent {
-  width: 4px;
+  width: 6px;
   background: var(--color-border);
   flex-shrink: 0;
+  opacity: 0.5;
 }
 .skeleton-card .skeleton-body {
   flex: 1;
-  padding: 1rem;
+  padding: 1.5rem;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.75rem;
 }
 
 /* ── Zebra-striped table ── */

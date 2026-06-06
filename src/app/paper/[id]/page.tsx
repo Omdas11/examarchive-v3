@@ -152,300 +152,242 @@ export default async function PaperPage({ params }: PaperPageProps) {
     <script type="application/ld+json">
       {serializeJsonLd(paperJsonLd)}
     </script>
-    <section className="mx-auto px-4 py-8 space-y-4" style={{ maxWidth: "var(--max-w)" }}>
+    <section className="mx-auto px-6 py-10 space-y-6" style={{ maxWidth: "var(--max-w)" }}>
 
       {/* ── Back link ── */}
       <Link
         href="/browse"
-        className="inline-flex items-center gap-1.5 text-sm transition-colors"
+        className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all hover:text-primary hover:-translate-x-1"
         style={{ color: "var(--color-text-muted)" }}
       >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M19 12H5M12 5l-7 7 7 7" />
         </svg>
-        Browse
+        Back to Archive
       </Link>
 
       {/* ── Paper header card ── */}
-      <div className="card p-5 sm:p-6">
-        <p className="text-xs font-medium mb-1" style={{ color: "var(--color-text-muted)" }}>
-          {paper.course_code}
-        </p>
-        <h1 className="text-xl sm:text-2xl font-bold leading-snug">{paper.title}</h1>
-        {paper.course_name && paper.course_name !== paper.title && (
-          <p className="mt-1 text-sm" style={{ color: "var(--color-text-muted)" }}>{paper.course_name}</p>
-        )}
+      <div className="bg-surface p-8 sm:p-12 rounded-[2.5rem] shadow-ambient border border-outline-variant/5 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-primary opacity-[0.03] rounded-full -mr-20 -mt-20 blur-3xl" />
+        
+        <div className="relative z-10">
+          <p className="text-[11px] font-black uppercase tracking-[0.2em] mb-3" style={{ color: "var(--color-primary)" }}>
+            {paper.course_code || "Academic Resource"}
+          </p>
+          <h1 className="text-2xl sm:text-4xl font-black tracking-tight leading-[1.1] text-on-surface">{paper.title}</h1>
+          {paper.course_name && paper.course_name !== paper.title && (
+            <p className="mt-4 text-lg font-medium opacity-60" style={{ color: "var(--color-text-muted)" }}>{paper.course_name}</p>
+          )}
 
-        {/* Meta badges */}
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {metaBadges.map((b) => (
-            <span
-              key={b}
-              className="inline-block rounded-full px-2.5 py-0.5 text-xs font-medium"
-              style={{ background: "var(--color-accent-soft)", color: "var(--color-primary)" }}
-            >
-              {b}
-            </span>
-          ))}
-        </div>
-
-        {/* Uploader + stats */}
-        {(uploaderDisplay || (paper.view_count ?? 0) > 0 || (paper.download_count ?? 0) > 0) && (
-          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs" style={{ color: "var(--color-text-muted)" }}>
-            {uploaderDisplay && <span>Uploaded by {uploaderDisplay}</span>}
-            {(paper.view_count ?? 0) > 0 && (
-              <span className="inline-flex items-center gap-1">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
-                </svg>
-                {paper.view_count} views
-              </span>
-            )}
-            {(paper.download_count ?? 0) > 0 && (
-              <span className="inline-flex items-center gap-1">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M12 3v12" /><path d="M7 10l5 5 5-5" /><path d="M5 21h14" />
-                </svg>
-                {paper.download_count} downloads
-              </span>
-            )}
-          </div>
-        )}
-
-        <a
-          href={paper.file_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="btn-primary mt-5 block w-full text-center"
-        >
-          Open Latest PDF →
-        </a>
-      </div>
-
-      {/* ── Available papers ── */}
-      <div className="card p-5 sm:p-6">
-        <h2 className="text-base font-semibold mb-3">Available Question Papers</h2>
-        <ul className="space-y-2">
-          {/* Current paper */}
-          <li
-            className="flex items-center justify-between rounded-lg px-3 py-2.5 text-sm"
-            style={{ border: "1px solid var(--color-border)", background: "var(--color-surface)" }}
-          >
-            <span>
-              {paper.year} — Sem {semRoman}
-              {paper.exam_type && ` · ${paper.exam_type}`}
-            </span>
-            <a
-              href={paper.file_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-medium ml-4 shrink-0"
-              style={{ color: "var(--color-primary)" }}
-            >
-              View PDF
-            </a>
-          </li>
-          {/* Other papers for same course code */}
-          {relatedPapers.map((rp) => (
-            <li
-              key={rp.id}
-              className="flex items-center justify-between rounded-lg px-3 py-2.5 text-sm"
-              style={{ border: "1px solid var(--color-border)", background: "var(--color-surface)" }}
-            >
-              <span>
-                {rp.year} — Sem {rp.semester ? toRoman(parseInt(rp.semester, 10)) : rp.semester}
-                {rp.exam_type && ` · ${rp.exam_type}`}
-              </span>
-              <Link
-                href={`/paper/${rp.id}`}
-                className="font-medium ml-4 shrink-0"
-                style={{ color: "var(--color-primary)" }}
+          {/* Meta badges */}
+          <div className="mt-8 flex flex-wrap gap-2">
+            {metaBadges.map((b) => (
+              <span
+                key={b}
+                className="inline-block rounded-full px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider shadow-sm border border-primary/10"
+                style={{ background: "var(--brand-emerald-soft)", color: "var(--brand-emerald-dark)" }}
               >
-                View PDF
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </div>
+                {b}
+              </span>
+            ))}
+          </div>
 
-      {/* ── Syllabus ── */}
-      <div className="card p-5 sm:p-6">
-        <h2 className="text-base font-semibold mb-3">Syllabus</h2>
-        {syllabusEntry ? (
-          <div className="space-y-4">
-            {/* Paper meta */}
-            <div className="flex flex-wrap gap-1.5">
-              {syllabusEntry.category && PAPER_TYPE_COLORS[syllabusEntry.category] && (
-                <span
-                  className="inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold"
-                  style={{
-                    background: PAPER_TYPE_COLORS[syllabusEntry.category].bg,
-                    color: PAPER_TYPE_COLORS[syllabusEntry.category].text,
-                  }}
-                >
-                  {syllabusEntry.category}
+          {/* Uploader + stats */}
+          {(uploaderDisplay || (paper.view_count ?? 0) > 0 || (paper.download_count ?? 0) > 0) && (
+            <div className="mt-8 flex flex-wrap items-center gap-6 text-[10px] font-black uppercase tracking-widest opacity-40">
+              {uploaderDisplay && (
+                <span className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-sm font-black">person</span>
+                  {uploaderDisplay}
                 </span>
               )}
-              <span
-                className="inline-block rounded-full px-2.5 py-0.5 text-xs"
-                style={{ background: "var(--color-border)", color: "var(--color-text-muted)" }}
-              >
-                {syllabusEntry.credits} Credits
-              </span>
-              {syllabusEntry.contact_hours != null && (
-                <span
-                  className="inline-block rounded-full px-2.5 py-0.5 text-xs"
-                  style={{ background: "var(--color-border)", color: "var(--color-text-muted)" }}
-                >
-                  {syllabusEntry.contact_hours} hrs
+              {(paper.view_count ?? 0) > 0 && (
+                <span className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-sm font-black">visibility</span>
+                  {paper.view_count} views
+                </span>
+              )}
+              {(paper.download_count ?? 0) > 0 && (
+                <span className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-sm font-black">download</span>
+                  {paper.download_count} downloads
                 </span>
               )}
             </div>
+          )}
 
-            {/* Course objective */}
-            {syllabusEntry.course_objective && (
-              <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
-                {syllabusEntry.course_objective}
-              </p>
-            )}
-
-            {/* Units summary */}
-            {Array.isArray(syllabusEntry.units) && syllabusEntry.units.length > 0 && (
-              <div className="space-y-2">
-                {syllabusEntry.units.map((unit: SyllabusUnit) => (
-                  <div
-                    key={unit.unit}
-                    className="flex gap-3 rounded-lg px-3 py-2.5 text-sm"
-                    style={{ border: "1px solid var(--color-border)", background: "var(--color-surface)" }}
-                  >
-                    <span
-                      className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
-                      style={{ background: "var(--color-accent-soft)", color: "var(--color-primary)" }}
-                    >
-                      {unit.unit}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-xs leading-snug">{unit.name}</p>
-                      {unit.lectures != null && (
-                        <p className="text-[11px] mt-0.5" style={{ color: "var(--color-text-muted)" }}>
-                          {unit.lectures} lectures
-                        </p>
-                      )}
-                      {Array.isArray(unit.topics) && unit.topics.length > 0 && (
-                        <ul className="mt-1 space-y-0.5 list-disc list-inside">
-                          {unit.topics.map((topic, ti) => (
-                            <li key={ti} className="text-[11px]" style={{ color: "var(--color-text-muted)" }}>
-                              {topic}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Link to full syllabus detail */}
-            <Link
-              href={`/syllabus/paper/${encodeURIComponent(syllabusEntry.paper_code)}`}
-              className="inline-flex items-center gap-1 text-xs font-medium"
-              style={{ color: "var(--color-primary)" }}
-            >
-              View full syllabus →
-            </Link>
-          </div>
-        ) : (
-          <div className="rounded-lg px-4 py-5 text-center" style={{ background: "var(--color-accent-soft)" }}>
-            <p className="text-sm font-medium" style={{ color: "var(--color-text-muted)" }}>Coming Soon</p>
-            <p className="text-xs mt-1" style={{ color: "var(--color-text-muted)" }}>
-              Syllabus information will be linked here once available.
-            </p>
-          </div>
-        )}
+          <a
+            href={paper.file_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-primary mt-10 py-5 rounded-full shadow-lg hover:shadow-floating transition-all active:scale-95 flex items-center justify-center gap-3 text-base font-black"
+          >
+            <span className="material-symbols-outlined font-black">picture_as_pdf</span>
+            Open Full Archive PDF
+          </a>
+        </div>
       </div>
 
-      {/* ── Repeated Questions ── */}
-      <div className="card p-5 sm:p-6">
-        <h2 className="text-base font-semibold mb-3">All Available Papers for This Course</h2>
-        {relatedPapers.length > 0 ? (
-          <>
-            <p className="text-xs mb-3" style={{ color: "var(--color-text-muted)" }}>
-              Other question papers with the same course code ({courseCode}) from different years or exams.
-            </p>
-            <ul className="space-y-2">
-              {relatedPapers.map((rp) => (
-                <li key={rp.id}>
-                  <Link
-                    href={`/paper/${rp.id}`}
-                    className="flex items-center justify-between rounded-lg px-3 py-2.5 text-sm transition-all hover:shadow-sm"
-                    style={{ border: "1px solid var(--color-border)", background: "var(--color-surface)", textDecoration: "none", color: "inherit" }}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* ── Available papers ── */}
+        <div className="bg-surface p-8 rounded-3xl shadow-lift border border-outline-variant/10">
+          <div className="flex items-center gap-3 mb-6">
+            <span className="w-1.5 h-6 rounded-full bg-primary" />
+            <h2 className="text-xl font-extrabold tracking-tight">Version History</h2>
+          </div>
+          <ul className="space-y-3">
+            {/* Current paper */}
+            <li
+              className="flex items-center justify-between rounded-2xl p-4 border-2 border-primary shadow-sm"
+              style={{ background: "var(--brand-emerald-soft)" }}
+            >
+              <div className="flex flex-col">
+                <span className="text-sm font-black text-on-surface">
+                  {paper.year} Edition
+                </span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-primary">Current Version</span>
+              </div>
+              <a
+                href={paper.file_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-primary text-white px-5 py-2 rounded-full text-xs font-bold shadow-md hover:shadow-lg transition-all"
+              >
+                View
+              </a>
+            </li>
+            {/* Other papers for same course code */}
+            {relatedPapers.map((rp) => (
+              <li
+                key={rp.id}
+                className="flex items-center justify-between rounded-2xl p-4 border border-outline-variant/10 bg-surface-container-low hover:bg-surface-container transition-colors"
+              >
+                <div className="flex flex-col">
+                  <span className="text-sm font-bold text-on-surface">
+                    {rp.year} Edition
+                  </span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider opacity-40">Previous Year</span>
+                </div>
+                <Link
+                  href={`/paper/${rp.id}`}
+                  className="bg-surface text-on-surface border border-outline-variant/20 px-5 py-2 rounded-full text-xs font-bold hover:bg-surface-container-low transition-all"
+                >
+                  Switch
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* ── Syllabus ── */}
+        <div className="bg-surface p-8 rounded-3xl shadow-lift border border-outline-variant/10">
+          <div className="flex items-center gap-3 mb-6">
+            <span className="w-1.5 h-6 rounded-full bg-secondary" />
+            <h2 className="text-xl font-extrabold tracking-tight">Syllabus Insights</h2>
+          </div>
+          {syllabusEntry ? (
+            <div className="space-y-6">
+              {/* Paper meta */}
+              <div className="flex flex-wrap gap-2">
+                {syllabusEntry.category && (
+                  <span
+                    className="inline-block rounded-full px-4 py-1.5 text-[11px] font-black uppercase tracking-widest shadow-sm"
+                    style={{
+                      background: PAPER_TYPE_COLORS[syllabusEntry.category]?.bg ?? "rgb(var(--rgb-secondary-container))",
+                      color: PAPER_TYPE_COLORS[syllabusEntry.category]?.text ?? "var(--brand-blue)",
+                    }}
                   >
-                    <span>
-                      {rp.year} — Sem {rp.semester ? toRoman(parseInt(rp.semester, 10)) : rp.semester}
-                      {rp.exam_type && ` · ${rp.exam_type}`}
-                    </span>
-                    <span className="font-medium ml-4 shrink-0 text-xs" style={{ color: "var(--color-primary)" }}>
-                      View →
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </>
-        ) : (
-          <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
-            No other papers available for this course code yet.{" "}
-            <a href="/upload" style={{ color: "var(--color-primary)" }}>Upload one</a>.
-          </p>
-        )}
+                    {syllabusEntry.category}
+                  </span>
+                )}
+                <span
+                  className="inline-block rounded-full bg-surface-container-low border border-outline-variant/10 px-4 py-1.5 text-[11px] font-bold uppercase tracking-widest"
+                >
+                  {syllabusEntry.credits} Credits
+                </span>
+              </div>
+
+              {/* Units summary */}
+              {Array.isArray(syllabusEntry.units) && syllabusEntry.units.length > 0 && (
+                <div className="space-y-3">
+                  {syllabusEntry.units.slice(0, 3).map((unit: SyllabusUnit) => (
+                    <div
+                      key={unit.unit}
+                      className="flex gap-4 rounded-2xl p-4 bg-surface-container-low border border-outline-variant/5"
+                    >
+                      <span
+                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-xs font-black shadow-sm"
+                        style={{ background: "var(--brand-emerald-soft)", color: "var(--brand-emerald-dark)" }}
+                      >
+                        {unit.unit}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-sm leading-tight text-on-surface">{unit.name}</p>
+                        {unit.lectures != null && (
+                          <p className="text-[10px] mt-1 font-bold uppercase tracking-widest opacity-40">
+                            {unit.lectures} lectures
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {syllabusEntry.units.length > 3 && (
+                    <p className="text-[10px] font-black text-center uppercase tracking-[0.2em] opacity-30 pt-2">
+                      + {syllabusEntry.units.length - 3} more modules in the full syllabus
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Link to full syllabus detail */}
+              <Link
+                href={`/syllabus/paper/${encodeURIComponent(syllabusEntry.paper_code)}`}
+                className="btn py-3.5 rounded-full w-full text-sm font-black uppercase tracking-widest border-2 border-primary/10 hover:bg-primary-fixed hover:text-primary transition-all flex items-center justify-center gap-2"
+                style={{ color: "var(--color-primary)" }}
+              >
+                Full Syllabus Registry
+                <span className="material-symbols-outlined font-black text-base">arrow_forward</span>
+              </Link>
+            </div>
+          ) : (
+            <div className="rounded-[2rem] p-10 text-center bg-surface-container-low border border-dashed border-outline-variant/20">
+              <div className="w-12 h-12 rounded-full bg-surface mx-auto flex items-center justify-center text-primary/20 mb-4 shadow-inner">
+                <span className="material-symbols-outlined font-black">inventory_2</span>
+              </div>
+              <p className="text-sm font-bold text-on-surface opacity-60">Syllabus data pending indexing</p>
+              <p className="text-[10px] mt-2 font-medium text-on-surface-variant opacity-40 uppercase tracking-widest">
+                Check back later for module breakdown
+              </p>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── Notes & Resources ── */}
-      <div className="card p-5 sm:p-6">
-        <h2 className="text-base font-semibold mb-3">Notes &amp; Resources</h2>
+      <div className="bg-surface p-8 rounded-3xl shadow-lift border border-outline-variant/10">
+        <div className="flex items-center gap-3 mb-6">
+          <span className="w-1.5 h-6 rounded-full bg-tertiary" />
+          <h2 className="text-xl font-extrabold tracking-tight">Recommended Reading</h2>
+        </div>
         {Array.isArray(syllabusEntry?.reference_books) && syllabusEntry.reference_books.length > 0 ? (
-          <div className="space-y-2">
-            <p className="text-xs mb-3" style={{ color: "var(--color-text-muted)" }}>
-              Recommended reference books from the syllabus:
-            </p>
-            <ol className="space-y-1.5 list-none">
-              {syllabusEntry.reference_books.map((book, i) => (
-                <li key={i} className="flex gap-2 text-sm" style={{ color: "var(--color-text-muted)" }}>
-                  <span className="shrink-0 font-medium" style={{ color: "var(--color-primary)" }}>
-                    {String(i + 1).padStart(2, "0")}.
-                  </span>
-                  <span>{book}</span>
-                </li>
-              ))}
-            </ol>
-            {syllabusEntry && (
-              <Link
-                href={`/syllabus/paper/${encodeURIComponent(syllabusEntry.paper_code)}`}
-                className="inline-flex items-center gap-1 text-xs font-medium mt-3"
-                style={{ color: "var(--color-primary)" }}
-              >
-                View full syllabus →
-              </Link>
-            )}
+          <div className="grid gap-4 sm:grid-cols-2">
+            {syllabusEntry.reference_books.map((book, i) => (
+              <div key={i} className="flex gap-4 p-4 rounded-2xl bg-surface-container-low border border-outline-variant/5">
+                <span className="shrink-0 text-lg font-black opacity-10 italic">
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <span className="text-sm font-medium text-on-surface/80 leading-relaxed">{book}</span>
+              </div>
+            ))}
           </div>
         ) : (
-          <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
-            {syllabusEntry
-              ? "No reference books listed for this paper."
-              : "Notes and resources will appear here once the syllabus is available."}
-            {syllabusEntry && (
-              <>
-                {" "}
-                <Link
-                  href={`/syllabus/paper/${encodeURIComponent(syllabusEntry.paper_code)}`}
-                  style={{ color: "var(--color-primary)" }}
-                >
-                  View syllabus →
-                </Link>
-              </>
-            )}
-          </p>
+          <div className="rounded-2xl p-6 bg-surface-container-low border border-outline-variant/10">
+            <p className="text-sm font-medium opacity-60">
+              {syllabusEntry
+                ? "No reference books listed for this module."
+                : "Library references will be automatically linked once syllabus indexing is complete."}
+            </p>
+          </div>
         )}
       </div>
     </section>

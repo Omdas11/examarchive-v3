@@ -2,7 +2,6 @@
 
 import { useState, useMemo, useCallback, useEffect } from "react";
 import PaperCard from "@/components/PaperCard";
-import { PAPER_TYPE_COLORS } from "@/components/PaperCard";
 import CustomSelect from "@/components/CustomSelect";
 import Breadcrumb from "@/components/Breadcrumb";
 import { SkeletonGrid } from "@/components/SkeletonCard";
@@ -217,31 +216,24 @@ export default function BrowseClient({
       <Breadcrumb items={breadcrumbItems} />
 
       {/* Search input — debounced live search */}
-      <div className="mt-2 flex flex-col gap-3 sm:flex-row">
-        <div className="relative flex-1">
+      <div className="mt-4 flex flex-col gap-4 sm:flex-row">
+        <div className="relative flex-1 group">
           <label htmlFor="browse-search" className="sr-only">
             Search papers
           </label>
-          <svg
-            width="16"
-            height="16"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            viewBox="0 0 24 24"
-            className="absolute left-3 top-1/2 -translate-y-1/2"
-            style={{ color: "var(--color-text-muted)" }}
+          <span
+            className="absolute left-4 top-1/2 -translate-y-1/2 text-primary group-focus-within:scale-110 transition-transform"
             aria-hidden="true"
           >
-            <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+            <span className="material-symbols-outlined font-bold text-lg">search</span>
+          </span>
           <input
             id="browse-search"
             type="search"
             placeholder="Search papers by title, code, or name…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="input-field flex-1 pl-10"
+            className="w-full bg-surface-container-low border border-outline-variant/10 rounded-full py-3.5 pl-12 pr-6 text-sm font-medium outline-none focus:ring-2 focus:ring-primary/20 focus:bg-surface transition-all shadow-sm"
           />
         </div>
         <CustomSelect
@@ -250,59 +242,62 @@ export default function BrowseClient({
           placeholder="Sort by"
           value={sortKey}
           onChange={(v) => setSortKey(v as SortKey)}
-          className="sm:w-44"
+          className="sm:w-52"
         />
       </div>
 
       {/* My Courses banner — shown when course prefs are set */}
       {coursePrefs && (
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg px-3 py-2"
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-4 rounded-3xl p-4 border border-primary/10 shadow-sm"
           style={{
             background: myCoursesActive
-              ? "color-mix(in srgb, var(--nav-teal) 10%, var(--color-surface))"
-              : "color-mix(in srgb, var(--color-border) 30%, var(--color-surface))",
-            border: `1px solid ${myCoursesActive ? "var(--nav-teal)" : "var(--color-border)"}`,
+              ? "var(--brand-emerald-soft)"
+              : "var(--color-bg)",
           }}
         >
-          <div className="flex items-center gap-2 min-w-0">
-            <span
-              className="text-xs font-semibold"
-              style={{ color: myCoursesActive ? "var(--nav-teal)" : "var(--color-text-muted)" }}
-            >
-              🎓 My Courses:
-            </span>
-            <span className="text-xs truncate" style={{ color: "var(--color-text-muted)" }}>
-              DSC: {coursePrefs.dsc} · DSM: {coursePrefs.dsm1}, {coursePrefs.dsm2}
-              {coursePrefs.sec ? ` · SEC: ${coursePrefs.sec}` : ""}
-              {coursePrefs.idc ? ` · IDC: ${coursePrefs.idc}` : ""}
-            </span>
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center shadow-lift text-primary shrink-0">
+              <span className="material-symbols-outlined font-bold text-xl">school</span>
+            </div>
+            <div className="min-w-0">
+              <span
+                className="text-xs font-black uppercase tracking-widest block"
+                style={{ color: "var(--brand-emerald-dark)" }}
+              >
+                My Academic Profile
+              </span>
+              <span className="text-xs font-medium truncate block opacity-70" style={{ color: "var(--color-text-muted)" }}>
+                {coursePrefs.dsc} · {coursePrefs.dsm1}, {coursePrefs.dsm2}
+                {coursePrefs.sec ? ` · ${coursePrefs.sec}` : ""}
+              </span>
+            </div>
           </div>
           <button
             type="button"
             onClick={() => setMyCoursesActive((v) => !v)}
-            className="shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-colors"
+            className="shrink-0 rounded-full px-6 py-2 text-xs font-bold uppercase tracking-widest transition-all shadow-sm active:scale-95"
             style={{
-              background: myCoursesActive ? "var(--nav-teal)" : "transparent",
-              color: myCoursesActive ? "#fff" : "var(--nav-teal)",
-              border: "1.5px solid var(--nav-teal)",
+              background: myCoursesActive ? "var(--color-primary)" : "var(--color-surface)",
+              color: myCoursesActive ? "#fff" : "var(--color-primary)",
+              border: "1px solid var(--color-primary)",
             }}
           >
-            {myCoursesActive ? "✓ Filtered" : "Filter by my courses"}
+            {myCoursesActive ? "✓ Active Filter" : "Enable My Courses"}
           </button>
         </div>
       )}
 
       {/* Filter chips — hidden when "My Courses" filter is active */}
       {!myCoursesActive && (
-        <div className="mt-4 space-y-2">
+        <div className="mt-6 space-y-4">
           {/* University filter */}
           {universities.length > 1 && (
-            <div className="flex flex-wrap gap-1.5">
-              <span className="text-[10px] uppercase tracking-wider font-semibold self-center mr-1" style={{ color: "var(--color-text-muted)" }}>University</span>
+            <div className="flex flex-wrap gap-2 items-center">
+              <span className="text-[10px] uppercase tracking-[0.15em] font-black opacity-40 mr-2">University</span>
               <button
                 type="button"
                 onClick={() => setActiveUniversity(null)}
-                className={`filter-chip${activeUniversity === null ? " active" : ""}`}
+                className={`filter-chip rounded-full px-5 py-2 text-xs font-bold border transition-all ${activeUniversity === null ? "bg-primary text-white border-primary shadow-lg shadow-primary/20" : "bg-surface text-on-surface-variant border-outline-variant/10 hover:border-primary/30"}`}
               >
                 All
               </button>
@@ -311,7 +306,7 @@ export default function BrowseClient({
                   key={u}
                   type="button"
                   onClick={() => setActiveUniversity(activeUniversity === u ? null : u)}
-                  className={`filter-chip${activeUniversity === u ? " active" : ""}`}
+                  className={`filter-chip rounded-full px-5 py-2 text-xs font-bold border transition-all ${activeUniversity === u ? "bg-primary text-white border-primary shadow-lg shadow-primary/20" : "bg-surface text-on-surface-variant border-outline-variant/10 hover:border-primary/30"}`}
                 >
                   {u}
                 </button>
@@ -320,14 +315,14 @@ export default function BrowseClient({
           )}
 
           {/* Programme filter */}
-          <div className="flex flex-wrap gap-1.5">
-            <span className="text-[10px] uppercase tracking-wider font-semibold self-center mr-1" style={{ color: "var(--color-text-muted)" }}>Stream</span>
+          <div className="flex flex-wrap gap-2 items-center">
+            <span className="text-[10px] uppercase tracking-[0.15em] font-black opacity-40 mr-2">Stream</span>
             {PROGRAMMES.map((p) => (
               <button
                 key={p}
                 type="button"
                 onClick={() => { setActiveProgramme(p); setActivePaperType(null); }}
-                className={`filter-chip${activeProgramme === p ? " active" : ""}`}
+                className={`filter-chip rounded-full px-5 py-2 text-xs font-bold border transition-all ${activeProgramme === p ? "bg-primary text-white border-primary shadow-lg shadow-primary/20" : "bg-surface text-on-surface-variant border-outline-variant/10 hover:border-primary/30"}`}
               >
                 {p}
               </button>
@@ -336,22 +331,16 @@ export default function BrowseClient({
 
           {/* Paper type filter chips */}
           {availablePaperTypes.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              <span className="text-[10px] uppercase tracking-wider font-semibold self-center mr-1" style={{ color: "var(--color-text-muted)" }}>Category</span>
+            <div className="flex flex-wrap gap-2 items-center">
+              <span className="text-[10px] uppercase tracking-[0.15em] font-black opacity-40 mr-2">Category</span>
               {availablePaperTypes.map((pt) => {
-                const colors = PAPER_TYPE_COLORS[pt];
                 const isActive = activePaperType === pt;
                 return (
                   <button
                     key={pt}
                     type="button"
                     onClick={() => setActivePaperType(isActive ? null : pt)}
-                    className={`filter-chip${isActive ? " active" : ""}`}
-                    style={
-                      isActive && colors
-                        ? { borderColor: colors.text, color: colors.text, background: colors.bg }
-                        : undefined
-                    }
+                    className={`filter-chip rounded-full px-5 py-2 text-xs font-bold border transition-all ${isActive ? "bg-secondary text-white border-secondary shadow-lg shadow-secondary/20" : "bg-surface text-on-surface-variant border-outline-variant/10 hover:border-secondary/30"}`}
                   >
                     {pt}
                   </button>
@@ -362,14 +351,14 @@ export default function BrowseClient({
 
           {/* Stream filter */}
           {streams.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              <span className="text-[10px] uppercase tracking-wider font-semibold self-center mr-1" style={{ color: "var(--color-text-muted)" }}>Dept</span>
+            <div className="flex flex-wrap gap-2 items-center">
+              <span className="text-[10px] uppercase tracking-[0.15em] font-black opacity-40 mr-2">Department</span>
               {streams.map((s) => (
                 <button
                   key={s}
                   type="button"
                   onClick={() => setActiveStream(activeStream === s ? null : s)}
-                  className={`filter-chip${activeStream === s ? " active" : ""}`}
+                  className={`filter-chip rounded-full px-5 py-2 text-xs font-bold border transition-all ${activeStream === s ? "bg-primary text-white border-primary shadow-lg shadow-primary/20" : "bg-surface text-on-surface-variant border-outline-variant/10 hover:border-primary/30"}`}
                 >
                   {s}
                 </button>
@@ -379,14 +368,14 @@ export default function BrowseClient({
 
           {/* Year filter */}
           {years.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              <span className="text-[10px] uppercase tracking-wider font-semibold self-center mr-1" style={{ color: "var(--color-text-muted)" }}>Year</span>
+            <div className="flex flex-wrap gap-2 items-center">
+              <span className="text-[10px] uppercase tracking-[0.15em] font-black opacity-40 mr-2">Year</span>
               {years.map((y) => (
                 <button
                   key={y}
                   type="button"
                   onClick={() => setActiveYear(activeYear === y ? null : y)}
-                  className={`filter-chip${activeYear === y ? " active" : ""}`}
+                  className={`filter-chip rounded-full px-5 py-2 text-xs font-bold border transition-all ${activeYear === y ? "bg-primary text-white border-primary shadow-lg shadow-primary/20" : "bg-surface text-on-surface-variant border-outline-variant/10 hover:border-primary/30"}`}
                 >
                   {y}
                 </button>
@@ -396,15 +385,15 @@ export default function BrowseClient({
         </div>
       )}
 
-      <p className="mt-3 text-xs" style={{ color: "var(--color-text-muted)" }}>
-        {filtered.length} paper{filtered.length !== 1 ? "s" : ""} found
+      <p className="mt-6 text-[10px] font-black uppercase tracking-[0.2em] opacity-40">
+        Showing {filtered.length} paper{filtered.length !== 1 ? "s" : ""}
       </p>
 
       {/* Papers grid with skeleton loading */}
       {showSkeleton ? (
         <SkeletonGrid count={6} />
       ) : filtered.length > 0 ? (
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((p) => (
             <div key={p.id} className="relative group">
               <PaperCard paper={p} />
@@ -414,9 +403,9 @@ export default function BrowseClient({
                   title="Hide this paper"
                   disabled={deleting === p.id}
                   onClick={() => handleSoftDelete(p.id)}
-                  className="absolute top-2 right-2 rounded-full px-2 py-0.5 text-[10px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute top-4 right-4 rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-widest shadow-lg opacity-0 group-hover:opacity-100 transition-all active:scale-90"
                   style={{
-                    background: "var(--color-primary)",
+                    background: "var(--danger-red)",
                     color: "#fff",
                   }}
                 >
@@ -427,11 +416,12 @@ export default function BrowseClient({
           ))}
         </div>
       ) : (
-        <div className="mt-12 text-center">
-          <svg className="mx-auto h-12 w-12 opacity-30" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-            <path d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m5.231 13.481L15 17.25m-4.5-15H5.625c-.621 0-1.125.504-1.125 1.125v16.5c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/>
-          </svg>
-          <p className="mt-3 text-sm" style={{ color: "var(--color-text-muted)" }}>No papers found.</p>
+        <div className="mt-20 text-center py-20 bg-surface-container-low rounded-[3rem] border border-dashed border-outline-variant/30">
+          <div className="w-16 h-16 rounded-full bg-surface mx-auto flex items-center justify-center text-on-surface-variant/20 mb-4 shadow-inner">
+            <span className="material-symbols-outlined font-black text-3xl">sentiment_dissatisfied</span>
+          </div>
+          <h3 className="text-lg font-extrabold tracking-tight">No Resources Found</h3>
+          <p className="mt-2 text-sm font-medium text-on-surface-variant opacity-60">Try adjusting your filters or search query</p>
         </div>
       )}
     </>

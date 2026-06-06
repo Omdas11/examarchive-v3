@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import AppShell from "@/components/AppShell";
 import { getServerUser } from "@/lib/auth";
@@ -20,6 +21,14 @@ const THEME_INIT_SCRIPT =
   '(function(){try{var t=localStorage.getItem("theme");if(t==="dark"||(!t&&window.matchMedia("(prefers-color-scheme:dark)").matches)){document.documentElement.setAttribute("data-theme","dark")}var rm=localStorage.getItem("reduceMotion");if(rm==="true"){document.documentElement.setAttribute("data-reduce-motion","true")}}catch(e){}})();';
 const SERVICE_WORKER_SCRIPT =
   'if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("/sw.js")});}';
+
+const plusJakartaSans = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  style: ["normal", "italic"],
+  display: "swap",
+  variable: "--font-jakarta",
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -106,25 +115,16 @@ export default async function RootLayout({
   const user = await getServerUser();
 
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning className={plusJakartaSans.variable}>
       <head>
         <meta name="application-name" content="ExamArchive" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="ExamArchive" />
         <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="theme-color" content="#4f46e5" />
+        <meta name="theme-color" content="#10b981" />
         <link rel="manifest" href="/manifest.json" />
         <link rel="apple-touch-icon" href="/branding/logo.png" />
-        {/* Preconnect for Google Fonts performance */}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        {/* Inter – Stitch design spec: Inter font throughout the UI */}
-        {/* eslint-disable-next-line @next/next/no-page-custom-font */}
-        <link
-          rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
-        />
         {/* Material Symbols Outlined – used by Stitch/Indigo dashboard components */}
         {/* eslint-disable-next-line @next/next/no-page-custom-font */}
         <link

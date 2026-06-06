@@ -84,7 +84,7 @@ export default function Header({
       {...rest}
       className={cn(
         'sticky top-0 z-40',
-        'h-16 flex items-center justify-between px-6',
+        'h-[var(--layout-header-height)] flex items-center justify-between px-6',
         'glass border-b border-outline-variant/10',
         className
       )}
@@ -95,14 +95,14 @@ export default function Header({
         {onMobileMenuToggle && (
           <button
             onClick={onMobileMenuToggle}
-            className="md:hidden p-2 rounded-lg hover:bg-surface-container-low transition-colors flex-shrink-0"
+            className="md:hidden p-2 rounded-full hover:bg-surface-container-low transition-colors flex-shrink-0"
             aria-label="Open navigation menu"
           >
             <span className="material-symbols-outlined text-on-surface-variant">menu</span>
           </button>
         )}
         {breadcrumbs && breadcrumbs.length > 0 ? (
-          <nav className="flex items-center gap-2 text-sm truncate">
+          <nav className="flex items-center gap-2 text-sm truncate ml-2">
             {breadcrumbs.map((crumb, idx) => (
               <React.Fragment key={idx}>
                 {idx > 0 && (
@@ -115,25 +115,25 @@ export default function Header({
                 {crumb.href ? (
                   <Link
                     href={crumb.href}
-                    className="text-on-surface-variant hover:text-on-surface transition-colors"
+                    className="text-on-surface-variant hover:text-on-surface transition-colors font-medium"
                   >
                     {crumb.label}
                   </Link>
                 ) : (
-                  <span className="text-on-surface font-medium">{crumb.label}</span>
+                  <span className="text-on-surface font-bold">{crumb.label}</span>
                 )}
               </React.Fragment>
             ))}
           </nav>
         ) : (
           title && (
-            <h2 className="text-lg font-bold text-on-surface truncate">{title}</h2>
+            <h2 className="text-xl font-extrabold text-on-surface truncate ml-2">{title}</h2>
           )
         )}
       </div>
 
       {/* Right: Search, Notifications, Profile */}
-      <div className="flex items-center gap-2 ml-2 md:ml-0">
+      <div className="flex items-center gap-3 ml-2 md:ml-0">
         {/* Search Bar */}
         {showSearch && (
           <div className="hidden md:flex items-center">
@@ -148,19 +148,19 @@ export default function Header({
                 value={searchQuery}
                 onChange={handleSearch}
                 className={cn(
-                  'w-72 px-4 py-2 pr-10',
-                  'bg-surface-container-low rounded-lg',
+                  'w-80 px-6 py-2.5 pr-12',
+                  'bg-surface rounded-full shadow-floating',
                   'text-on-surface placeholder-on-surface-variant',
                   'ghost-border focus:ghost-border-focus',
                   'transition-all duration-200',
-                  'outline-none'
+                  'outline-none text-sm'
                 )}
               />
               <span
                 aria-hidden="true"
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none"
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-primary pointer-events-none"
               >
-                <span className="material-symbols-outlined text-lg">search</span>
+                <span className="material-symbols-outlined text-xl font-bold">search</span>
               </span>
             </div>
           </div>
@@ -171,7 +171,7 @@ export default function Header({
           <button
             onClick={() => setShowNotifications(!showNotifications)}
             className={cn(
-              'p-2 rounded-lg transition-all duration-200',
+              'p-2.5 rounded-full transition-all duration-200',
               'hover:bg-surface-container-low',
               'relative group'
             )}
@@ -181,7 +181,7 @@ export default function Header({
               notifications
             </span>
             {notifications > 0 && (
-              <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full" />
+              <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full ring-2 ring-surface" />
             )}
           </button>
 
@@ -189,23 +189,23 @@ export default function Header({
           {showNotifications && (
             <div
               className={cn(
-                'absolute right-0 mt-2 w-80 bg-surface rounded-xl',
-                'shadow-ambient border border-outline-variant/20',
+                'absolute right-0 mt-3 w-80 bg-surface rounded-2xl',
+                'shadow-lift border border-outline-variant/20',
                 'overflow-hidden z-50'
               )}
             >
-              <div className="p-4 border-b border-outline-variant/10">
-                <h3 className="font-bold text-on-surface">Notifications</h3>
+              <div className="p-4 bg-surface-container-low border-b border-outline-variant/10">
+                <h3 className="font-bold text-on-surface text-sm">Notifications</h3>
               </div>
               <div className="max-h-96 overflow-y-auto">
                 {notifications > 0 ? (
-                  <div className="p-4 space-y-3">
+                  <div className="p-3 space-y-2">
                     {[...Array(Math.min(notifications, 5))].map((_, i) => (
                       <div
                         key={i}
-                        className="p-3 bg-surface-container-low rounded-lg hover:bg-surface-container transition-colors cursor-pointer"
+                        className="p-3 bg-surface hover:bg-surface-container-low rounded-xl transition-colors cursor-pointer border border-outline-variant/5"
                       >
-                        <p className="text-sm font-medium text-on-surface">Notification {i + 1}</p>
+                        <p className="text-sm font-semibold text-on-surface">Notification {i + 1}</p>
                         <p className="text-xs text-on-surface-variant mt-1">Just now</p>
                       </div>
                     ))}
@@ -222,11 +222,11 @@ export default function Header({
 
         {creditBalance !== null && (
           <div
-            className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold"
+            className="inline-flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-xs font-bold"
             style={{
-              borderColor: "var(--color-primary-soft, #d3273e33)",
-              background: "var(--color-surface, #fff)",
-              color: "var(--color-primary, #d3273e)",
+              borderColor: "var(--brand-emerald-soft)",
+              background: "var(--brand-emerald-soft)",
+              color: "var(--brand-emerald-dark)",
             }}
             aria-label={`Credit balance ${creditBalance}`}
             title={`Credit balance: ${creditBalance}`}
@@ -242,37 +242,37 @@ export default function Header({
             <button
               type="button"
               className={cn(
-                'flex items-center gap-3 px-3 py-2 rounded-lg',
-                'hover:bg-surface-container-low transition-all duration-200',
-                'group'
+                'flex items-center gap-3 px-1.5 py-1.5 pr-4 rounded-full',
+                'bg-surface-container-low hover:bg-surface-container transition-all duration-200',
+                'group border border-outline-variant/10'
               )}
               aria-label={`Profile: ${userName}`}
               onClick={onProfileClick}
             >
-              <div className="w-8 h-8 gradient-primary rounded-full flex items-center justify-center text-on-primary text-sm font-bold flex-shrink-0">
+              <div className="w-9 h-9 gradient-primary rounded-full flex items-center justify-center text-on-primary text-sm font-bold flex-shrink-0 shadow-sm">
                 {userInitials}
               </div>
               <div className="hidden sm:flex flex-col items-start">
-                <span className="text-sm font-semibold text-on-surface truncate max-w-[120px]">{userName}</span>
-                <span className="text-xs text-on-surface-variant">Scholar</span>
+                <span className="text-sm font-bold text-on-surface truncate max-w-[120px]">{userName}</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-primary">Scholar</span>
               </div>
             </button>
           ) : (
             <Link
               href="/profile"
               className={cn(
-                'flex items-center gap-3 px-3 py-2 rounded-lg',
-                'hover:bg-surface-container-low transition-all duration-200',
-                'group'
+                'flex items-center gap-3 px-1.5 py-1.5 pr-4 rounded-full',
+                'bg-surface-container-low hover:bg-surface-container transition-all duration-200',
+                'group border border-outline-variant/10'
               )}
               aria-label={`Profile: ${userName}`}
             >
-              <div className="w-8 h-8 gradient-primary rounded-full flex items-center justify-center text-on-primary text-sm font-bold flex-shrink-0">
+              <div className="w-9 h-9 gradient-primary rounded-full flex items-center justify-center text-on-primary text-sm font-bold flex-shrink-0 shadow-sm">
                 {userInitials}
               </div>
               <div className="hidden sm:flex flex-col items-start">
-                <span className="text-sm font-semibold text-on-surface truncate max-w-[120px]">{userName}</span>
-                <span className="text-xs text-on-surface-variant">Scholar</span>
+                <span className="text-sm font-bold text-on-surface truncate max-w-[120px]">{userName}</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-primary">Scholar</span>
               </div>
             </Link>
           )
@@ -280,12 +280,12 @@ export default function Header({
           <Link
             href="/login"
             className={cn(
-              'flex items-center gap-2 px-4 py-2 rounded-lg',
+              'flex items-center gap-2 px-6 py-2.5 rounded-full',
               'gradient-primary text-on-primary',
-              'font-semibold text-sm transition-opacity hover:opacity-90'
+              'font-bold text-sm transition-all hover:shadow-floating active:scale-95'
             )}
           >
-            <span className="material-symbols-outlined text-sm">login</span>
+            <span className="material-symbols-outlined text-sm font-bold">login</span>
             <span className="hidden sm:inline">Sign In</span>
           </Link>
         )}
