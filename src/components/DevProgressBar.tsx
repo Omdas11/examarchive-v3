@@ -68,7 +68,7 @@ export default function DevProgressBar({ progress = DEFAULT_LAUNCH_PROGRESS }: D
         <button
           type="button"
           className={cn(
-            "mx-auto flex items-center gap-1 rounded-b-lg border border-outline-variant/30 px-3 py-1 text-[11px] font-semibold shadow-sm transition-colors",
+            "mx-auto flex items-center gap-2 rounded-b-2xl border border-outline-variant/20 px-5 py-2 text-xs font-bold shadow-lift transition-all active:scale-95",
             "bg-surface text-on-surface-variant hover:bg-surface-container-low"
           )}
           aria-expanded={isOpen}
@@ -84,46 +84,44 @@ export default function DevProgressBar({ progress = DEFAULT_LAUNCH_PROGRESS }: D
             setTouchStartY(null);
           }}
         >
-          <span className="material-symbols-outlined text-sm">
+          <span className="material-symbols-outlined text-base font-bold">
             {isOpen ? "keyboard_arrow_up" : "keyboard_arrow_down"}
           </span>
-          {isOpen ? "Hide early development notice" : "Pull down for development notice"}
+          {isOpen ? "Hide early development notice" : "Development Progress"}
         </button>
 
         <div
           className={cn(
             "overflow-hidden transition-all duration-300 ease-out",
-            isOpen ? "max-h-[220px] opacity-100 mt-2" : "max-h-0 opacity-0"
+            isOpen ? "max-h-[220px] opacity-100 mt-3" : "max-h-0 opacity-0"
           )}
         >
           <div
-            className="rounded-lg border border-amber-300/40 bg-surface-container-low p-4 text-center"
+            className="rounded-3xl border border-primary/10 bg-surface shadow-floating p-6 text-center"
           >
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <p className="text-xs font-semibold flex items-center justify-center gap-1.5 text-on-surface-variant">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--pending-amber)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                  <line x1="12" y1="9" x2="12" y2="13"/>
-                  <line x1="12" y1="17" x2="12.01" y2="17"/>
-                </svg>
-                Early Development — Platform launch progress
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <p className="text-sm font-bold flex items-center justify-center gap-2 text-on-surface">
+                <span className="w-8 h-8 rounded-full bg-primary-fixed flex items-center justify-center text-primary">
+                  <span className="material-symbols-outlined text-base font-bold text-primary">analytics</span>
+                </span>
+                Early Development — Launch Progress
               </p>
               <button
                 type="button"
-                className="rounded-md p-1 text-on-surface-variant hover:bg-surface-container-low"
+                className="rounded-full p-1.5 text-on-surface-variant hover:bg-surface-container-low transition-colors"
                 onClick={() => setOpenState(false)}
                 aria-label="Dismiss development notice"
               >
-                <span className="material-symbols-outlined text-sm">close</span>
+                <span className="material-symbols-outlined text-sm font-bold">close</span>
               </button>
             </div>
 
             <div
-              className="relative w-full rounded-full overflow-hidden mx-auto"
+              className="relative w-full rounded-full overflow-hidden mx-auto border border-outline-variant/10 shadow-inner"
               style={{
-                height: 10,
-                maxWidth: 420,
-                background: "color-mix(in srgb, var(--pending-amber) 20%, var(--color-border))",
+                height: 12,
+                maxWidth: 480,
+                background: "var(--color-bg)",
               }}
               role="progressbar"
               aria-valuenow={clamped}
@@ -132,16 +130,16 @@ export default function DevProgressBar({ progress = DEFAULT_LAUNCH_PROGRESS }: D
               aria-label={`Platform launch progress: ${clamped}%`}
             >
               <div
-                className="h-full rounded-full bg-gradient-to-r from-amber-400 to-primary transition-all duration-1000 ease-out"
+                className="h-full rounded-full bg-gradient-primary transition-all duration-1000 ease-out"
                 style={{
                   width: `${clamped}%`,
                 }}
               />
             </div>
 
-            <p className="text-xs mt-1.5 text-on-surface-variant">
-              {clamped}% towards soft launch · Starting with{" "}
-              <span className="text-primary font-semibold">Haflong Government College</span>
+            <p className="text-xs mt-3 text-on-surface-variant font-medium">
+              <span className="text-primary font-bold">{clamped}%</span> towards soft launch · Starting with{" "}
+              <span className="text-primary font-bold">Haflong Government College</span>
             </p>
           </div>
         </div>

@@ -113,17 +113,17 @@ export default async function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="ExamArchive" />
         <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="theme-color" content="#4f46e5" />
+        <meta name="theme-color" content="#10b981" />
         <link rel="manifest" href="/manifest.json" />
         <link rel="apple-touch-icon" href="/branding/logo.png" />
         {/* Preconnect for Google Fonts performance */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        {/* Inter – Stitch design spec: Inter font throughout the UI */}
+        {/* Academic Vitality design spec: Plus Jakarta Sans font */}
         {/* eslint-disable-next-line @next/next/no-page-custom-font */}
         <link
           rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap"
         />
         {/* Material Symbols Outlined – used by Stitch/Indigo dashboard components */}
         {/* eslint-disable-next-line @next/next/no-page-custom-font */}

@@ -111,7 +111,7 @@ export default function Sidebar({
       className={cn(
         'fixed left-0 top-0 h-full flex flex-col bg-surface',
         'z-50',
-        'border-r border-outline-variant/20',
+        'border-r border-outline-variant/10',
         'transition-all duration-300 ease-in-out',
         // Desktop width
         isCollapsed ? 'md:w-20' : 'md:w-64',
@@ -124,20 +124,20 @@ export default function Sidebar({
     >
       {/* Logo Section */}
       <div className="p-6">
-        <div className="flex items-center gap-3 mb-8">
-          <div className="w-10 h-10 gradient-primary rounded-lg flex items-center justify-center text-white flex-shrink-0">
+        <div className="flex items-center gap-4 mb-10">
+          <div className="w-12 h-12 gradient-primary rounded-xl flex items-center justify-center text-white flex-shrink-0 shadow-lift">
             <Image
               src="/branding/logo.png"
               alt="ExamArchive logo"
-              width={24}
-              height={24}
-              className="rounded"
+              width={28}
+              height={28}
+              className="rounded-lg"
             />
           </div>
           {!isCollapsed && (
             <div>
-              <h1 className="text-lg font-bold text-on-surface truncate max-w-[150px]">{userName}</h1>
-              <p className="text-xs text-on-surface-variant">ExamArchive</p>
+              <h1 className="text-lg font-extrabold text-on-surface tracking-tight truncate max-w-[140px] leading-tight">{userName}</h1>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-primary mt-0.5">ExamArchive</p>
             </div>
           )}
         </div>
@@ -146,38 +146,38 @@ export default function Sidebar({
         <button
           onClick={handleCollapseToggle}
           className={cn(
-            'hidden md:flex w-full p-2 rounded-lg',
+            'hidden md:flex w-full p-2.5 rounded-full',
             'hover:bg-surface-container-low',
             'transition-colors duration-200',
-            'items-center justify-center'
+            'items-center justify-center border border-outline-variant/10'
           )}
           aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
-          <span className="material-symbols-outlined text-on-surface-variant">
+          <span className="material-symbols-outlined text-on-surface-variant font-bold">
             {isCollapsed ? 'chevron_right' : 'chevron_left'}
           </span>
         </button>
       </div>
 
       {/* Navigation Items */}
-      <nav className="flex-1 min-h-0 space-y-1 px-3 pb-4 overflow-y-auto" aria-label="Primary">
+      <nav className="flex-1 min-h-0 space-y-1.5 px-4 pb-4 overflow-y-auto scrollbar-hide" aria-label="Primary">
         {visibleItems.map((item) => (
           <Link
             key={item.href}
             href={item.href}
             onClick={() => onNavigate?.(item.href)}
             className={cn(
-              'flex items-center gap-3 px-4 py-3 rounded-lg',
+              'flex items-center gap-3 px-4 py-3.5 rounded-full',
               'transition-all duration-200 ease-in-out',
               'relative group',
               isActive(item.href)
-                ? 'bg-primary-fixed text-primary font-semibold'
-                : 'text-on-surface-variant hover:bg-surface-container-low hover:text-primary'
+                ? 'bg-primary text-on-primary font-bold shadow-floating'
+                : 'text-on-surface-variant hover:bg-surface-container-low hover:text-primary font-medium'
             )}
             title={isCollapsed ? item.label : undefined}
             aria-label={isCollapsed ? item.label : undefined}
           >
-            <span className="material-symbols-outlined flex-shrink-0 text-lg">
+            <span className="material-symbols-outlined flex-shrink-0 text-xl font-medium">
               {item.icon}
             </span>
 
@@ -185,7 +185,7 @@ export default function Sidebar({
               <>
                 <span className="flex-1 text-sm truncate">{item.label}</span>
                 {item.badge !== undefined && item.badge > 0 && (
-                  <span className="bg-primary text-on-primary text-xs font-bold px-2 py-0.5 rounded-full">
+                  <span className="bg-secondary text-on-secondary text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
                     {item.badge}
                   </span>
                 )}
@@ -196,9 +196,9 @@ export default function Sidebar({
             {isCollapsed && (
               <div
                 className={cn(
-                  'absolute left-full ml-2 px-2 py-1 bg-on-surface text-surface text-xs rounded',
+                  'absolute left-full ml-4 px-3 py-1.5 bg-on-surface text-surface text-xs font-bold rounded-full shadow-lg',
                   'opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity duration-200',
-                  'pointer-events-none whitespace-nowrap z-50'
+                  'pointer-events-none whitespace-nowrap z-50 border border-outline-variant/20'
                 )}
               >
                 {item.label}
@@ -210,25 +210,25 @@ export default function Sidebar({
       </nav>
 
       {/* Bottom Actions */}
-      <div className="p-3 space-y-2 border-t border-outline-variant/20 bg-surface">
+      <div className="p-4 space-y-2.5 border-t border-outline-variant/10 bg-surface">
         <Link
           href="/upload"
           onClick={() => onNavigate?.('/upload')}
           className={cn(
-            'w-full gradient-primary text-on-primary py-2 px-3 rounded-lg',
-            'font-semibold text-sm transition-opacity duration-200',
-            'hover:opacity-90 active:scale-95',
+            'w-full gradient-primary text-on-primary py-3 px-4 rounded-full',
+            'font-bold text-sm transition-all duration-200 shadow-lift',
+            'hover:shadow-floating active:scale-95',
             'flex items-center justify-center',
-            isCollapsed && 'p-2'
+            isCollapsed && 'p-2.5'
           )}
           title={isCollapsed ? 'Upload' : undefined}
         >
           {isCollapsed ? (
-            <span className="material-symbols-outlined">upload</span>
+            <span className="material-symbols-outlined font-bold">upload</span>
           ) : (
               <>
-                <span className="material-symbols-outlined text-sm mr-2 inline-block">upload</span>
-                Upload Question Paper
+                <span className="material-symbols-outlined text-lg mr-2 inline-block font-bold">upload</span>
+                Upload Paper
               </>
             )}
         </Link>
@@ -237,10 +237,10 @@ export default function Sidebar({
           type="button"
           onClick={handleThemeToggle}
           className={cn(
-            'w-full py-2 px-3 rounded-lg text-sm transition-colors duration-200',
+            'w-full py-2.5 px-4 rounded-full text-sm font-bold transition-all duration-200',
             'hover:bg-surface-container-low text-on-surface-variant hover:text-primary',
-            'flex items-center justify-center',
-            isCollapsed && 'p-2'
+            'flex items-center justify-center border border-outline-variant/10',
+            isCollapsed && 'p-2.5'
           )}
           aria-label={isDarkTheme ? 'Switch to light theme' : 'Switch to dark theme'}
           title={isCollapsed ? 'Toggle theme' : undefined}
@@ -261,10 +261,10 @@ export default function Sidebar({
           <form action={signOut}>
             <button
               type="submit"
-              className="w-full p-2 text-on-surface-variant hover:text-primary text-sm transition-colors flex items-center justify-center"
+              className="w-full p-2.5 text-on-surface-variant hover:text-danger-red text-xs font-bold transition-colors flex items-center justify-center gap-2 rounded-full hover:bg-danger-red/5"
             >
               <span className="material-symbols-outlined text-lg">logout</span>
-              <span className="ml-2">Logout</span>
+              <span>LOGOUT</span>
             </button>
           </form>
         )}

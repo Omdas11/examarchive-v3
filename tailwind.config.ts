@@ -10,39 +10,39 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        // Stitch design spec: Inter throughout the UI
-        sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
+        // Stitch design spec: Plus Jakarta Sans throughout the UI
+        sans: ["Plus Jakarta Sans", "Inter", "ui-sans-serif", "system-ui", "sans-serif"],
       },
       colors: {
         // Legacy support
         background: "var(--background)",
         foreground: "var(--foreground)",
 
-        // Material Design 3 - Primary (theme-adaptive via CSS vars)
+        // Academic Vitality - Primary (Emerald Green)
         primary: "rgb(var(--rgb-primary) / <alpha-value>)",
         "primary-container": "rgb(var(--rgb-primary-container) / <alpha-value>)",
         "on-primary": "#ffffff",
-        "on-primary-container": "#dad7ff",
+        "on-primary-container": "#00422b",
         "primary-fixed": "rgb(var(--rgb-primary-fixed) / <alpha-value>)",
         "primary-fixed-dim": "rgb(var(--rgb-primary-fixed-dim) / <alpha-value>)",
-        "on-primary-fixed": "#0f0069",
-        "on-primary-fixed-variant": "#3323cc",
+        "on-primary-fixed": "#002113",
+        "on-primary-fixed-variant": "#005236",
 
-        // Material Design 3 - Secondary (Muted Teal)
+        // Academic Vitality - Secondary (Blue)
         secondary: "rgb(var(--rgb-secondary) / <alpha-value>)",
         "secondary-container": "rgb(var(--rgb-secondary-container) / <alpha-value>)",
         "on-secondary": "#ffffff",
-        "on-secondary-container": "#006f66",
-        "secondary-fixed": "#89f5e7",
-        "secondary-fixed-dim": "#6bd8cb",
-        "on-secondary-fixed": "#00201d",
-        "on-secondary-fixed-variant": "#005049",
+        "on-secondary-container": "#001d35",
+        "secondary-fixed": "#d8e2ff",
+        "secondary-fixed-dim": "#adc6ff",
+        "on-secondary-fixed": "#001a42",
+        "on-secondary-fixed-variant": "#004395",
 
-        // Material Design 3 - Tertiary (Warm Brown/Gold)
-        tertiary: "#684000",
-        "tertiary-container": "#885500",
+        // Academic Vitality - Tertiary (Amber/Gold)
+        tertiary: "#855300",
+        "tertiary-container": "#e29100",
         "on-tertiary": "#ffffff",
-        "on-tertiary-container": "#ffd4a4",
+        "on-tertiary-container": "#523200",
         "tertiary-fixed": "#ffddb8",
         "tertiary-fixed-dim": "#ffb95f",
         "on-tertiary-fixed": "#2a1700",
@@ -50,14 +50,14 @@ const config: Config = {
 
         // Surface & Background
         surface: "rgb(var(--rgb-surface) / <alpha-value>)",
-        "surface-dim": "#cbdbf5",
+        "surface-dim": "rgb(var(--rgb-surface-dim) / <alpha-value>)",
         "surface-bright": "rgb(var(--rgb-surface) / <alpha-value>)",
         "surface-container-lowest": "rgb(var(--rgb-surface-container-lowest) / <alpha-value>)",
         "surface-container-low": "rgb(var(--rgb-surface-container-low) / <alpha-value>)",
         "surface-container": "rgb(var(--rgb-surface-container) / <alpha-value>)",
         "surface-container-high": "rgb(var(--rgb-surface-container-high) / <alpha-value>)",
         "surface-container-highest": "rgb(var(--rgb-surface-container-highest) / <alpha-value>)",
-        "surface-variant": "#d3e4fe",
+        "surface-variant": "rgb(var(--rgb-surface-variant) / <alpha-value>)",
         "on-surface": "rgb(var(--rgb-on-surface) / <alpha-value>)",
         "on-surface-variant": "rgb(var(--rgb-on-surface-variant) / <alpha-value>)",
 
@@ -68,54 +68,52 @@ const config: Config = {
         "on-error-container": "#93000a",
 
         // Outline & Borders
-        outline: "#777587",
+        outline: "rgb(var(--rgb-outline-variant) / <alpha-value>)",
         "outline-variant": "rgb(var(--rgb-outline-variant) / <alpha-value>)",
 
         // Background & Inverse
-        "on-background": "#0b1c30",
-        "inverse-surface": "#213145",
-        "inverse-on-surface": "#eaf1ff",
-        "inverse-primary": "#c3c0ff",
+        "on-background": "rgb(var(--rgb-on-surface) / <alpha-value>)",
+        "inverse-surface": "rgb(var(--rgb-inverse-surface) / <alpha-value>)",
+        "inverse-on-surface": "rgb(var(--rgb-inverse-on-surface) / <alpha-value>)",
+        "inverse-primary": "rgb(var(--rgb-inverse-primary) / <alpha-value>)",
 
         // Tint
-        "surface-tint": "#4d44e3",
+        "surface-tint": "rgb(var(--rgb-primary) / <alpha-value>)",
       },
       spacing: {
-        xs: "0.5rem",     // 8px
-        sm: "1rem",       // 16px
-        md: "1.5rem",     // 24px
-        lg: "2rem",       // 32px
-        xl: "2.5rem",     // 40px
-        "2xl": "3rem",    // 48px
-        "3xl": "4rem",    // 64px
-        "4xl": "6rem",    // 96px (spacing-24 in MD3)
+        xs: "0.25rem",     // 4px
+        sm: "0.75rem",     // 12px
+        md: "1.5rem",      // 24px
+        lg: "2.5rem",      // 40px
+        xl: "4rem",        // 64px
+        "2xl": "6rem",     // 96px
       },
       borderRadius: {
-        xs: "0.25rem",    // 4px
-        sm: "0.5rem",     // 8px
-        md: "0.75rem",    // 12px
-        lg: "1rem",       // 16px
-        xl: "1.5rem",     // 24px
+        sm: "0.5rem",      // 8px
+        md: "1rem",        // 16px
+        lg: "1.5rem",      // 24px
+        xl: "2rem",        // 32px
+        "2xl": "3rem",     // 48px
         full: "9999px",
       },
       fontSize: {
-        xs: ["0.75rem", { lineHeight: "1.5" }],      // 12px
-        sm: ["0.875rem", { lineHeight: "1.5" }],     // 14px
-        base: ["1rem", { lineHeight: "1.6" }],       // 16px - body-md
-        lg: ["1.125rem", { lineHeight: "1.6" }],     // 18px - body-lg
-        xl: ["1.25rem", { lineHeight: "1.6" }],      // 20px - headline-sm
-        "2xl": ["1.5rem", { lineHeight: "1.4" }],    // 24px - headline-md
-        "3xl": ["2rem", { lineHeight: "1.4" }],      // 32px - display-sm
-        "4xl": ["2.25rem", { lineHeight: "1.2" }],   // 36px - display-md
-        "5xl": ["3rem", { lineHeight: "1.2" }],      // 48px - display-lg
+        xs: ["0.6875rem", { lineHeight: "1rem" }],   // 11px
+        sm: ["0.75rem", { lineHeight: "1rem" }],     // 12px
+        base: ["0.875rem", { lineHeight: "1.25rem" }], // 14px - body-md
+        lg: ["1rem", { lineHeight: "1.5rem" }],      // 16px - body-lg
+        xl: ["1.375rem", { lineHeight: "1.75rem" }], // 22px - title-lg
+        "2xl": ["2rem", { lineHeight: "2.5rem" }],   // 32px - headline-lg
+        "3xl": ["3.5625rem", { lineHeight: "4rem" }], // 57px - display-lg
       },
       boxShadow: {
-        // Ambient shadow for floating elements (Stitch spec)
-        ambient: "0 10px 30px rgba(11, 28, 48, 0.06)",
+        // Ambient shadow for floating elements (Academic Vitality spec)
+        ambient: "0 4px 20px rgba(17, 24, 39, 0.05)",
         // Tonal lift (used for cards on tonal backgrounds)
-        lift: "0 2px 8px rgba(11, 28, 48, 0.04)",
+        lift: "0 8px 30px rgba(17, 24, 39, 0.10)",
+        // Floating shadow
+        floating: "0 12px 40px rgba(16, 185, 129, 0.15)",
         // Subtle focus state
-        focus: "0 0 0 3px rgba(53, 37, 205, 0.1)",
+        focus: "0 0 0 3px rgba(16, 185, 129, 0.2)",
       },
       backdropBlur: {
         xs: "4px",
@@ -158,10 +156,10 @@ const config: Config = {
           "-webkit-backdrop-filter": "blur(8px)",
         },
         ".gradient-primary": {
-          "background-image": "linear-gradient(135deg, #3525cd 0%, #4f46e5 100%)",
+          "background-image": "linear-gradient(135deg, #006c49 0%, #10b981 100%)",
         },
         ".gradient-secondary": {
-          "background-image": "linear-gradient(135deg, #006a61 0%, #86f2e4 100%)",
+          "background-image": "linear-gradient(135deg, #0058be 0%, #3b82f6 100%)",
         },
         ".tonal-primary": {
           "@apply bg-primary-fixed text-on-primary-fixed": {},
@@ -177,10 +175,10 @@ const config: Config = {
           "outline": "none",
         },
         ".ghost-border": {
-          "@apply border border-outline-variant/20": {},
+          "@apply border border-outline-variant/10": {},
         },
         ".ghost-border-focus": {
-          "@apply border border-outline-variant/50 shadow-focus": {},
+          "@apply border border-outline-variant/30 shadow-focus": {},
         },
       });
     },

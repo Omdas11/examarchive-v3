@@ -92,23 +92,24 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
       userName={userName}
       userInitials={userInitials}
     >
-      <section className="mx-auto px-4 py-10" style={{ maxWidth: "var(--max-w)" }}>
-        <div className="rounded-2xl bg-surface-container p-6 shadow-lift border border-outline-variant/30">
-          <h1 className="text-3xl font-bold text-on-surface">Browse</h1>
-          <p className="mt-2 max-w-2xl text-base text-on-surface-variant">
-            Quickly search and filter past papers by programme, stream, and year. Pick a paper to inspect or use it as reference for AI notes.
+      <section className="mx-auto px-6 py-10" style={{ maxWidth: "var(--max-w)" }}>
+        <div className="rounded-[2rem] bg-surface p-8 shadow-lift border border-outline-variant/10 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-primary opacity-5 rounded-full -mr-10 -mt-10 blur-2xl" />
+          <h1 className="text-3xl font-black text-on-surface tracking-tight">Browse Archive</h1>
+          <p className="mt-3 max-w-2xl text-base font-medium text-on-surface-variant/80">
+            Search and filter our verified collection of past exam papers. Access metadata freely and sign in to view the full PDF archive.
           </p>
-          <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-on-surface">
-            <span className="rounded-full bg-surface px-3 py-1 border border-outline-variant/30">
-              Library
+          <div className="mt-6 flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-widest">
+            <span className="rounded-full bg-primary-fixed text-primary px-4 py-1.5 border border-primary/10 shadow-sm">
+              Community Library
             </span>
-            <span className="rounded-full bg-surface px-3 py-1 border border-outline-variant/30">
-              Updated daily
+            <span className="rounded-full bg-secondary-container text-secondary px-4 py-1.5 border border-secondary/10 shadow-sm">
+              Daily Updates
             </span>
           </div>
         </div>
 
-        <div className="mt-6 rounded-2xl bg-surface p-4 shadow-lift border border-outline-variant/30">
+        <div className="mt-8 rounded-[2rem] bg-surface p-6 shadow-ambient border border-outline-variant/5">
           <BrowseClient
             initialPapers={papers}
             availableYears={availableYears}

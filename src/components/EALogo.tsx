@@ -33,7 +33,7 @@ export default function EALogo({ size = 28, className = "" }: EALogoProps) {
         width={size}
         height={size}
         alt="ExamArchive"
-        className={`rounded-md select-none ${className}`}
+        className={`rounded-xl select-none ${className}`}
         style={{ width: size, height: size, objectFit: "contain" }}
         onError={() => setImgFailed(true)}
       />
@@ -43,7 +43,7 @@ export default function EALogo({ size = 28, className = "" }: EALogoProps) {
   // Inline SVG fallback (always works, no network request)
   return (
     <span
-      className={`inline-flex items-center justify-center rounded-md font-black text-white select-none ${className}`}
+      className={`inline-flex items-center justify-center rounded-xl font-black text-white select-none shadow-sm ${className}`}
       style={{
         width: size,
         height: size,

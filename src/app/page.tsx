@@ -68,19 +68,19 @@ const HOW_IT_WORKS = [
     step: "1",
     title: "Upload",
     desc: "Students upload past exam papers or syllabi directly from the site. No account required for browsing.",
-    colorClass: "bg-primary",
+    colorClass: "bg-primary shadow-lg shadow-primary/20",
   },
   {
     step: "2",
     title: "Admin Verification",
     desc: "Our team reviews each submission for quality and authenticity before publishing.",
-    colorClass: "bg-amber-400",
+    colorClass: "bg-tertiary shadow-lg shadow-tertiary/20",
   },
   {
     step: "3",
     title: "Student Access",
     desc: "Verified papers go live instantly. Students can browse metadata freely and view PDFs after signing in.",
-    colorClass: "bg-emerald-600",
+    colorClass: "bg-secondary shadow-lg shadow-secondary/20",
   },
 ];
 
@@ -299,74 +299,69 @@ export default async function HomePage() {
         </div>
 
         {/* ── Hero ── */}
-        <section className="py-14 text-center rounded-2xl relative overflow-hidden">
+        <section className="py-20 text-center rounded-[2.5rem] relative overflow-hidden mt-6 bg-surface shadow-ambient border border-outline-variant/5">
           {/* Subtle decorative blobs that complement the full-site gradient */}
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute -top-16 -left-16 w-64 h-64 rounded-full opacity-10"
-            style={{ background: "var(--color-primary)", filter: "blur(60px)" }}
+            className="pointer-events-none absolute -top-24 -left-24 w-96 h-96 rounded-full opacity-[0.03]"
+            style={{ background: "var(--color-primary)", filter: "blur(80px)" }}
           />
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute -bottom-16 -right-16 w-64 h-64 rounded-full opacity-10"
-            style={{ background: "var(--nav-teal)", filter: "blur(60px)" }}
+            className="pointer-events-none absolute -bottom-24 -right-24 w-96 h-96 rounded-full opacity-[0.03]"
+            style={{ background: "var(--brand-blue)", filter: "blur(80px)" }}
           />
 
-          <div className="relative z-10 px-4">
+          <div className="relative z-10 px-6">
             {/* Early Access badge */}
-            <div className="flex items-center justify-center gap-2 mb-4 flex-wrap">
+            <div className="flex items-center justify-center gap-3 mb-8 flex-wrap">
               <div
-                className="inline-block rounded-full px-4 py-1 text-xs font-semibold"
-                style={{ background: "var(--color-accent-soft)", color: "var(--color-primary)" }}
+                className="inline-block rounded-full px-5 py-1.5 text-[11px] font-bold uppercase tracking-widest"
+                style={{ background: "var(--brand-emerald-soft)", color: "var(--brand-emerald-dark)" }}
               >
-                Free &amp; Community-Driven Archive
+                Free &amp; Community-Driven
               </div>
               <div
-                className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold tracking-wide"
+                className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-[11px] font-bold tracking-widest uppercase shadow-sm"
                 style={{
                   background: "var(--color-primary)",
                   color: "#fff",
-                  letterSpacing: "0.08em",
                 }}
               >
-                {/* Star SVG */}
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                </svg>
+                <span className="material-symbols-outlined text-sm font-bold">star</span>
                 Early Access
               </div>
             </div>
 
-            {/* Shiny heading */}
+            {/* Academic Vitality heading */}
             <h1
-              className="ea-hero-heading text-3xl font-extrabold tracking-tight sm:text-4xl lg:text-5xl mx-auto max-w-2xl leading-tight"
+              className="ea-hero-heading text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl mx-auto max-w-4xl leading-[1.1]"
             >
-              ExamArchive —{" "}
-              <span style={{ color: "var(--color-primary)" }}>Past Papers &amp; Syllabi</span>
+              Academic Intelligence —{" "}
+              <span className="text-primary">Past Papers &amp; Syllabi</span>
               {" "}for{" "}
-              <span style={{ color: "var(--success-green)" }}>Free.</span>
+              <span className="text-secondary">Everyone.</span>
             </h1>
-            <p className="mx-auto mt-4 max-w-xl text-base sm:text-lg" style={{ color: "var(--color-text-muted)" }}>
-              <strong>Sign up to view past exam papers, syllabi, and other free resources.</strong>
-              {" "}Contributed by students, verified by our team.
+            <p className="mx-auto mt-8 max-w-2xl text-lg sm:text-xl font-medium" style={{ color: "var(--color-text-muted)" }}>
+              Access a verified repository of academic resources.
+              Contributed by students, optimized by AI.
               Starting with{" "}
-              <span style={{ color: "var(--color-primary)", fontWeight: 600 }}>Haflong Government College</span>.
+              <span className="text-primary font-bold">Haflong Government College</span>.
             </p>
 
-            <div className="mt-8 flex flex-wrap justify-center gap-3">
-              <Link href="/browse" className="btn-primary text-base px-6 py-2.5">
-                Browse
+            <div className="mt-12 flex flex-wrap justify-center gap-4">
+              <Link href="/browse" className="btn-primary text-base px-10 py-4 rounded-full shadow-lg hover:shadow-floating transition-all active:scale-95">
+                Explore Archive
               </Link>
-              <Link href="/upload" className="btn text-base px-6 py-2.5">
+              <Link href="/upload" className="bg-surface text-on-surface border border-outline-variant/20 font-bold text-base px-10 py-4 rounded-full shadow-sm hover:bg-surface-container-low transition-all active:scale-95">
                 Upload Paper
               </Link>
-              {!user && (
-                <Link href="/login" className="btn text-base px-6 py-2.5">
+              {!user ? (
+                <Link href="/login" className="bg-surface-container-low text-primary font-bold text-base px-10 py-4 rounded-full hover:bg-surface-container transition-all active:scale-95">
                   Sign In
                 </Link>
-              )}
-              {user && (
-                <Link href="/profile" className="btn text-base px-6 py-2.5">
+              ) : (
+                <Link href="/profile" className="bg-surface-container-low text-primary font-bold text-base px-10 py-4 rounded-full hover:bg-surface-container transition-all active:scale-95">
                   My Profile
                 </Link>
               )}
@@ -375,57 +370,43 @@ export default async function HomePage() {
         </section>
 
         {/* ── Transparency Statement ── */}
-        <section className="py-5">
+        <section className="py-8">
           <div
-            className="card p-4 text-center"
+            className="rounded-full p-4 text-center border border-primary/10 shadow-sm"
             style={{
-              borderLeft: "4px solid var(--color-primary)",
-              background: "color-mix(in srgb, var(--color-primary) 5%, var(--color-surface))",
+              background: "var(--brand-emerald-soft)",
             }}
           >
-            <p className="text-sm font-semibold flex items-center justify-center gap-1.5 flex-wrap min-h-[1.5rem]" style={{ color: "var(--color-text)" }}>
-              {/* Chart SVG */}
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <line x1="18" y1="20" x2="18" y2="10"/>
-                <line x1="12" y1="20" x2="12" y2="4"/>
-                <line x1="6" y1="20" x2="6" y2="14"/>
-              </svg>
-              <span style={{ color: "var(--color-primary)" }}>Transparency: </span>
-              Currently the archive contains{" "}
-              <strong>{pluralCount(papersTotal, "paper", "papers")}</strong>,
-              the registry lists{" "}
-              <strong>{pluralCount(syllabusTotal, "syllabus", "syllabi")}</strong>,
-              and{" "}
+            <p className="text-sm font-bold flex items-center justify-center gap-2 flex-wrap min-h-[1.5rem]" style={{ color: "var(--brand-emerald-dark)" }}>
+              <span className="material-symbols-outlined text-lg font-bold">analytics</span>
+              <span className="uppercase tracking-widest text-xs opacity-70">Archive Status: </span>
+              <strong>{pluralCount(papersTotal, "paper", "papers")}</strong>
+              {" "}·{" "}
+              <strong>{pluralCount(syllabusTotal, "syllabus", "syllabi")}</strong>
+              {" "}·{" "}
               <strong>{pluralCount(usersTotal, "student", "students")}</strong>
-              {" "}are active.
+              {" "}online.
             </p>
           </div>
         </section>
 
         {/* ── Stats Bar ── */}
-        <section className="py-4 mb-2 ea-scroll-in">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <section className="py-6 mb-4 ea-scroll-in">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {stats.map((s) => (
               <div
                 key={s.label}
-                className="card p-4 text-center"
-                style={{
-                  background: "color-mix(in srgb, var(--color-surface) 55%, transparent)",
-                  backdropFilter: "blur(10px)",
-                  WebkitBackdropFilter: "blur(10px)",
-                  border: "1px solid color-mix(in srgb, var(--color-border) 60%, transparent)",
-                }}
+                className="bg-surface p-6 text-center rounded-3xl border border-outline-variant/10 shadow-lift group hover:shadow-ambient hover:-translate-y-1 transition-all duration-300"
               >
                 <div
-                  className="flex justify-center mb-1"
-                  style={{ color: "var(--color-primary)" }}
+                  className="flex justify-center mb-3 text-primary group-hover:scale-110 transition-transform"
                 >
                   {s.icon}
                 </div>
-                <div className="text-2xl font-extrabold" style={{ color: "var(--color-primary)" }}>
+                <div className="text-3xl font-extrabold tracking-tighter text-on-surface">
                   <AnimatedCounter value={s.value} />
                 </div>
-                <div className="text-xs mt-0.5" style={{ color: "var(--color-text-muted)" }}>
+                <div className="text-[11px] font-bold uppercase tracking-widest mt-2 text-on-surface-variant/70">
                   {s.label}
                 </div>
               </div>
@@ -434,25 +415,30 @@ export default async function HomePage() {
         </section>
 
         {/* ── Search ── */}
-        <section className="py-6">
-          <h2 className="mb-3 text-lg font-semibold">Search Exam Papers &amp; Syllabi</h2>
+        <section className="py-10">
+          <div className="flex flex-col items-center text-center mb-8">
+            <h2 className="text-2xl font-extrabold tracking-tight mb-2">Search the Archive</h2>
+            <p className="text-on-surface-variant font-medium text-sm">Find papers, syllabi, and notes by subject or code</p>
+          </div>
           <HomeSearch />
         </section>
 
         {/* ── Popular Papers ── */}
         {popularPapers.length > 0 && (
-          <section className="py-6 ea-scroll-in">
-            <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
-              <h2 className="text-lg font-semibold">Popular Papers</h2>
+          <section className="py-10 ea-scroll-in">
+            <div className="flex items-center justify-between mb-6 gap-2 flex-wrap">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-8 rounded-full bg-primary" />
+                <h2 className="text-xl font-extrabold tracking-tight">Popular Resources</h2>
+              </div>
               <Link
                 href="/browse"
-                className="text-xs font-medium hover:underline"
-                style={{ color: "var(--color-primary)" }}
+                className="text-xs font-bold uppercase tracking-widest py-2 px-4 rounded-full bg-primary-fixed text-primary hover:bg-primary hover:text-on-primary transition-all"
               >
-                View all →
+                View all Resources
               </Link>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2">
               {popularPapers.map((paper) => (
                 <PaperCard key={paper.id} paper={paper} />
               ))}
@@ -462,18 +448,20 @@ export default async function HomePage() {
 
         {/* ── Recently Added Papers ── */}
         {recentPapers.length > 0 && (
-          <section className="py-6 ea-scroll-in">
-            <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
-              <h2 className="text-lg font-semibold">Recently Added</h2>
+          <section className="py-10 ea-scroll-in">
+            <div className="flex items-center justify-between mb-6 gap-2 flex-wrap">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-8 rounded-full bg-secondary" />
+                <h2 className="text-xl font-extrabold tracking-tight">Recently Added</h2>
+              </div>
               <Link
                 href="/browse"
-                className="text-xs font-medium hover:underline"
-                style={{ color: "var(--color-primary)" }}
+                className="text-xs font-bold uppercase tracking-widest py-2 px-4 rounded-full bg-secondary-container text-secondary hover:bg-secondary hover:text-on-secondary transition-all"
               >
-                View all →
+                Browse Recent
               </Link>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2">
               {recentPapers.map((paper) => (
                 <PaperCard key={paper.id} paper={paper} />
               ))}
@@ -482,18 +470,18 @@ export default async function HomePage() {
         )}
 
         {/* ── How It Works ── */}
-        <section className="py-8 ea-scroll-in">
-          <h2 className="mb-6 text-lg font-semibold text-center">How It Works</h2>
-          <div className="grid gap-4 sm:grid-cols-3">
+        <section className="py-16 ea-scroll-in">
+          <h2 className="mb-12 text-2xl font-extrabold tracking-tight text-center">How It Works</h2>
+          <div className="grid gap-6 sm:grid-cols-3">
             {HOW_IT_WORKS.map((step) => (
-              <div key={step.step} className="card p-5 text-center">
+              <div key={step.step} className="bg-surface p-8 text-center rounded-[2rem] border border-outline-variant/10 shadow-lift hover:shadow-ambient transition-all">
                 <div
-                  className={`mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full text-lg font-extrabold text-white ${step.colorClass}`}
+                  className={`mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl text-xl font-black text-white ${step.colorClass}`}
                 >
                   {step.step}
                 </div>
-                <h3 className="font-semibold text-sm mb-1">{step.title}</h3>
-                <p className="text-xs leading-relaxed text-on-surface-variant">
+                <h3 className="font-extrabold text-lg mb-2 tracking-tight">{step.title}</h3>
+                <p className="text-sm leading-relaxed text-on-surface-variant font-medium">
                   {step.desc}
                 </p>
               </div>
@@ -502,68 +490,72 @@ export default async function HomePage() {
         </section>
 
         {/* ── Community Contribution ── */}
-        <section className="py-6 ea-scroll-in">
+        <section className="py-10 ea-scroll-in">
           <div
-            className="card p-6 sm:p-8 flex flex-col sm:flex-row items-center gap-5 overflow-hidden"
-            style={{ background: "color-mix(in srgb, var(--color-primary) 6%, var(--color-surface))" }}
+            className="p-10 sm:p-14 flex flex-col sm:flex-row items-center gap-8 rounded-[3rem] shadow-floating border border-primary/10 relative overflow-hidden"
+            style={{ background: "var(--brand-emerald-soft)" }}
           >
+            <div className="absolute top-0 right-0 w-64 h-64 bg-primary opacity-5 rounded-full -mr-20 -mt-20 blur-3xl" />
+            
             {/* Graduation cap SVG */}
-            <div className="shrink-0" aria-hidden="true" style={{ color: "var(--color-primary)" }}>
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+            <div className="shrink-0 w-20 h-20 rounded-3xl bg-white flex items-center justify-center shadow-lift text-primary" aria-hidden="true">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
                 <path d="M6 12v5c3 3 9 3 12 0v-5"/>
               </svg>
             </div>
-            <div className="flex-1 min-w-0 text-center sm:text-left">
-              <h2 className="text-base font-bold mb-1">Start Uploading Question Papers</h2>
-              <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
+            <div className="flex-1 min-w-0 text-center sm:text-left relative z-10">
+              <h2 className="text-2xl font-extrabold mb-2 tracking-tight">Start Uploading Question Papers</h2>
+              <p className="text-base font-medium text-on-surface-variant">
                 Help your fellow students by submitting past exam papers and syllabi.
-                Every contribution goes through admin verification before going live for the soft launch.
+                Every contribution builds the community repository.
               </p>
             </div>
-            <Link href="/upload" className="btn-primary shrink-0 whitespace-nowrap">
+            <Link href="/upload" className="btn-primary text-base px-10 py-4 rounded-full shadow-lg hover:shadow-floating transition-all active:scale-95 shrink-0 whitespace-nowrap">
               Contribute Now
             </Link>
           </div>
         </section>
 
         {/* ── Student Feedback ── */}
-        <section className="py-6 ea-scroll-in">
-          <h2 className="mb-4 text-lg font-semibold text-center">What Students Say</h2>
+        <section className="py-16 ea-scroll-in">
+          <h2 className="mb-10 text-2xl font-extrabold tracking-tight text-center">Student Voices</h2>
           {feedbackEntries.length > 0 ? (
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-6 sm:grid-cols-3">
               {feedbackEntries.map((t) => (
-                <div key={t.id} className="card p-5">
+                <div key={t.id} className="bg-surface p-8 rounded-[2rem] border border-outline-variant/10 shadow-lift flex flex-col h-full hover:shadow-ambient transition-all">
+                  <div className="mb-6 text-primary flex">
+                    <span className="material-symbols-outlined font-black">format_quote</span>
+                  </div>
                   <p
-                    className="text-sm leading-relaxed mb-4"
-                    style={{ color: "var(--color-text-muted)" }}
+                    className="text-sm font-medium leading-relaxed mb-8 flex-1 italic text-on-surface/80"
                   >
                     &ldquo;{t.text}&rdquo;
                   </p>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-4">
                     <div
-                      className="h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0"
+                      className="h-12 w-12 rounded-2xl flex items-center justify-center text-lg font-black text-on-primary shrink-0 shadow-sm"
                       style={{ background: "var(--color-primary)" }}
                       aria-hidden="true"
                     >
                       {t.name.charAt(0).toUpperCase()}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-xs font-semibold">{t.name}</p>
-                      <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>{t.university}</p>
+                      <p className="text-sm font-extrabold text-on-surface truncate">{t.name}</p>
+                      <p className="text-[11px] font-bold uppercase tracking-widest text-on-surface-variant/60 truncate">{t.university}</p>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="card p-6 text-center">
-              <p className="text-sm mb-3" style={{ color: "var(--color-text-muted)" }}>
+            <div className="bg-surface p-10 text-center rounded-3xl border border-outline-variant/10 shadow-lift max-w-xl mx-auto">
+              <p className="text-on-surface-variant font-medium mb-6">
                 No reviews yet — be the first to share your experience!
               </p>
               <a
                 href="mailto:feedback@examarchive.dev"
-                className="btn text-xs px-4 py-1.5"
+                className="bg-surface-container-low text-primary font-bold text-sm px-8 py-3 rounded-full hover:bg-surface-container transition-all inline-block"
               >
                 Send Feedback
               </a>
