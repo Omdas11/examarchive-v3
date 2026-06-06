@@ -222,12 +222,12 @@ export default function StoreClient({
 
       {/* ── First-time buyer banner ── */}
       {isFirstTimeBuyer && (
-        <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-5 py-4 flex items-start gap-3">
-          <span className="text-2xl leading-none select-none">🎉</span>
+        <div className="rounded-3xl border border-primary/10 bg-primary-fixed px-6 py-5 flex items-start gap-4 shadow-sm">
+          <span className="text-3xl leading-none select-none">🎉</span>
           <div>
-            <p className="font-semibold text-indigo-800 text-sm">First-time buyer discount — Applied to your first credit pack!</p>
-            <p className="text-xs text-indigo-600 mt-0.5">
-              This one-time discount is applied automatically at checkout.
+            <p className="font-black text-on-primary-fixed text-sm uppercase tracking-wider">Welcome Offer Applied!</p>
+            <p className="text-xs text-on-primary-fixed-variant font-medium mt-1">
+              Your first-time buyer discount is active and will be applied automatically at checkout.
             </p>
           </div>
         </div>

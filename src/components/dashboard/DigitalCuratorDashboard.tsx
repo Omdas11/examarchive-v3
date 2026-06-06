@@ -328,27 +328,27 @@ export default function DigitalCuratorDashboard({
             {/* CTA Card */}
             <div
               className={cn(
-                'p-6 rounded-2xl bg-gradient-to-br from-indigo-900 to-indigo-950',
-                'text-white relative overflow-hidden group'
+                'p-8 rounded-[2rem] bg-gradient-primary',
+                'text-white relative overflow-hidden group shadow-floating border border-white/10'
               )}
             >
               <div className="relative z-10">
-                <h4 className="font-bold text-lg mb-2">Collaborate with Curators</h4>
-                <p className="text-sm text-indigo-200 mb-4 leading-relaxed">
+                <h4 className="font-black text-xl mb-2 tracking-tight">Collaborate with Curators</h4>
+                <p className="text-sm text-white/80 mb-6 leading-relaxed font-medium">
                   Join our elite moderation team and verify papers to earn exclusive badges.
                 </p>
                 <a
                   href="/profile"
-                  className="inline-block px-4 py-2 bg-white text-indigo-900 rounded-lg text-xs font-bold hover:bg-indigo-50 transition-colors"
+                  className="inline-block px-6 py-2.5 bg-white text-primary rounded-full text-[10px] font-black uppercase tracking-widest hover:shadow-lg transition-all active:scale-95"
                 >
                   VIEW YOUR PROFILE
                 </a>
               </div>
 
               {/* Decorative Icon */}
-              <div className="absolute -right-8 -bottom-8 opacity-20 group-hover:opacity-40 transition-opacity transform group-hover:rotate-12 duration-300">
+              <div className="absolute -right-8 -bottom-8 opacity-10 group-hover:opacity-20 transition-opacity transform group-hover:rotate-12 duration-300">
                 <span
-                  className="material-symbols-outlined text-[120px]"
+                  className="material-symbols-outlined text-[140px]"
                   style={{ fontVariationSettings: "'FILL' 1" }}
                 >
                   auto_stories
