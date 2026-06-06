@@ -2,7 +2,6 @@
 
 import { useState, useMemo, useCallback, useEffect } from "react";
 import PaperCard from "@/components/PaperCard";
-import { PAPER_TYPE_COLORS } from "@/components/PaperCard";
 import CustomSelect from "@/components/CustomSelect";
 import Breadcrumb from "@/components/Breadcrumb";
 import { SkeletonGrid } from "@/components/SkeletonCard";

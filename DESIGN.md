@@ -24,9 +24,11 @@ The palette is anchored by **Emerald Green**, symbolizing growth and success, pa
 | Secondary | #0058BE |
 | Secondary Container | #2170E4 |
 | Tertiary | #855300 |
-| Surface | #F9F9FF |
+| Surface | #F9FAFB |
 | On Surface | #141B2B |
 | Outline | #6C7A71 |
+
+Note: The "Surface" token (#F9FAFB) represents the baseline page background, while elevated white containers (Surface Container Lowest) use pure white (#FFFFFF).
 
 ---
 

@@ -130,7 +130,7 @@ export default function DevProgressBar({ progress = DEFAULT_LAUNCH_PROGRESS }: D
               aria-label={`Platform launch progress: ${clamped}%`}
             >
               <div
-                className="h-full rounded-full bg-gradient-primary transition-all duration-1000 ease-out"
+                className="h-full rounded-full gradient-primary transition-all duration-1000 ease-out"
                 style={{
                   width: `${clamped}%`,
                 }}

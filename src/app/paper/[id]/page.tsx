@@ -289,12 +289,12 @@ export default async function PaperPage({ params }: PaperPageProps) {
             <div className="space-y-6">
               {/* Paper meta */}
               <div className="flex flex-wrap gap-2">
-                {syllabusEntry.category && PAPER_TYPE_COLORS[syllabusEntry.category] && (
+                {syllabusEntry.category && (
                   <span
                     className="inline-block rounded-full px-4 py-1.5 text-[11px] font-black uppercase tracking-widest shadow-sm"
                     style={{
-                      background: "var(--rgb-secondary-container)",
-                      color: "var(--brand-blue)",
+                      background: PAPER_TYPE_COLORS[syllabusEntry.category]?.bg ?? "rgb(var(--rgb-secondary-container))",
+                      color: PAPER_TYPE_COLORS[syllabusEntry.category]?.text ?? "var(--brand-blue)",
                     }}
                   >
                     {syllabusEntry.category}
@@ -333,7 +333,7 @@ export default async function PaperPage({ params }: PaperPageProps) {
                   ))}
                   {syllabusEntry.units.length > 3 && (
                     <p className="text-[10px] font-black text-center uppercase tracking-[0.2em] opacity-30 pt-2">
-                      + {syllabusEntry.units.length - 3} more modules in full syllabus
+                      + {syllabusEntry.units.length - 3} more modules in the full syllabus
                     </p>
                   )}
                 </div>

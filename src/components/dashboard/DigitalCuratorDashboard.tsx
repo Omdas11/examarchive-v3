@@ -328,7 +328,7 @@ export default function DigitalCuratorDashboard({
             {/* CTA Card */}
             <div
               className={cn(
-                'p-8 rounded-[2rem] bg-gradient-primary',
+                'p-8 rounded-[2rem] gradient-primary',
                 'text-white relative overflow-hidden group shadow-floating border border-white/10'
               )}
             >

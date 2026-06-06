@@ -41,14 +41,20 @@
   --rgb-secondary: 59 130 246;
   --rgb-secondary-container: 219 234 254;
   --rgb-surface: 249 250 251;
+  --rgb-surface-dim: 243 244 246;
   --rgb-surface-container-lowest: 255 255 255;
   --rgb-surface-container-low: 243 244 246;
   --rgb-surface-container: 229 231 235;
   --rgb-surface-container-high: 209 213 219;
   --rgb-surface-container-highest: 156 163 175;
+  --rgb-surface-variant: 229 231 235;
   --rgb-on-surface: 17 24 39;
   --rgb-on-surface-variant: 75 85 99;
   --rgb-outline-variant: 209 213 219;
+  
+  --rgb-inverse-surface: 31 41 55;
+  --rgb-inverse-on-surface: 249 250 251;
+  --rgb-inverse-primary: 52 211 153;
 
   /* Shape tokens - hyper-rounded */
   --radius-sm: 8px;
@@ -95,14 +101,20 @@
   --rgb-secondary: 96 165 250;
   --rgb-secondary-container: 30 58 138;
   --rgb-surface: 3 7 18;
+  --rgb-surface-dim: 2 6 23;
   --rgb-surface-container-lowest: 2 6 23;
   --rgb-surface-container-low: 17 24 39;
   --rgb-surface-container: 31 41 55;
   --rgb-surface-container-high: 55 65 81;
   --rgb-surface-container-highest: 75 85 99;
+  --rgb-surface-variant: 31 41 55;
   --rgb-on-surface: 249 250 251;
   --rgb-on-surface-variant: 156 163 175;
   --rgb-outline-variant: 55 65 81;
+
+  --rgb-inverse-surface: 243 244 246;
+  --rgb-inverse-on-surface: 17 24 39;
+  --rgb-inverse-primary: 16 185 129;
 
   --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.3);
   --shadow-card-hover: 0 8px 30px rgba(0, 0, 0, 0.4);
