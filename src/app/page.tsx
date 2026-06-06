@@ -7,7 +7,6 @@ import HomeSearch from "@/components/HomeSearch";
 import PaperCard from "@/components/PaperCard";
 import AnimatedCounter from "@/components/AnimatedCounter";
 import DevProgressBar from "@/components/DevProgressBar";
-import FireParticles from "@/components/FireParticles";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import {
@@ -287,11 +286,8 @@ export default async function HomePage() {
       userName={userName}
       userInitials={userInitials}
       showSearch={false}
-    >
-      {/* Fire particle effect — fixed bottom-to-midpoint, behind content */}
-      <FireParticles />
-
-      <div className="mx-auto px-4 relative" style={{ maxWidth: "var(--max-w)", zIndex: 1 }}>
+      >
+      <div className="mx-auto px-6 relative" style={{ maxWidth: "var(--max-w)", zIndex: 1 }}>
 
         {/* ── Development progress banner ── */}
         <div className="pt-16 md:pt-6">
