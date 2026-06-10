@@ -6,13 +6,13 @@ import { POST } from "./route";
 
 jest.setTimeout(20_000);
 
-let activePromises: Promise<any>[] = [];
+let activePromises: Promise<unknown>[] = [];
 
 jest.mock("next/server", () => {
   const original = jest.requireActual("next/server");
   return {
     ...original,
-    after: (fn: () => any) => {
+    after: (fn: () => unknown) => {
       const p = Promise.resolve(fn());
       activePromises.push(p);
     },
