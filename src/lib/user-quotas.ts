@@ -102,6 +102,10 @@ export async function incrementQuotaCounter(
   userId: string,
   counter: "notes_generated_today" | "papers_solved_today",
 ): Promise<UserQuotaRecord> {
+  // Add a random jitter (up to 750ms) to mitigate exact simultaneous read collisions
+  // leading to lost updates, as Appwrite lacks native atomic increments.
+  await new Promise((resolve) => setTimeout(resolve, Math.random() * 750));
+
   const db = adminDatabases();
   const existing = await getQuotaDocument(userId);
   const today = getTodayDateKey();
