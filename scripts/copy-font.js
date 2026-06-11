@@ -6,11 +6,16 @@ const destDir = path.join(process.cwd(), 'public', 'fonts');
 const dest = path.join(destDir, 'inter-latin-700-normal.woff');
 
 if (fs.existsSync(source)) {
-  if (!fs.existsSync(destDir)) {
-    fs.mkdirSync(destDir, { recursive: true });
+  try {
+    if (!fs.existsSync(destDir)) {
+      fs.mkdirSync(destDir, { recursive: true });
+    }
+    fs.copyFileSync(source, dest);
+    console.log('Successfully copied Inter font to public/fonts');
+  } catch (err) {
+    console.error('Failed to copy Inter font:', err.message);
+    process.exitCode = 1;
   }
-  fs.copyFileSync(source, dest);
-  console.log('✅ Successfully copied Inter font to public/fonts');
 } else {
-  console.warn('⚠️ Font source not found in node_modules. Skipping copy.');
+  console.warn('Font source not found in node_modules. Skipping copy.');
 }

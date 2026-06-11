@@ -56,13 +56,17 @@ export async function POST(request: NextRequest) {
             hasMore = true;
             break;
           }
+          const remaining = chunkSize - totalDeleted;
           const { documents } = await db.listDocuments(DATABASE_ID, col.$id, [
-            Query.limit(Math.min(100, chunkSize - totalDeleted)),
+            Query.limit(Math.min(100, remaining)),
           ]);
-          if (documents.length > 0) hasMore = true;
           for (const doc of documents) {
             await db.deleteDocument(DATABASE_ID, col.$id, doc.$id);
             totalDeleted++;
+          }
+          // If we got a full batch for this collection, there may be more docs.
+          if (documents.length >= Math.min(100, remaining)) {
+            hasMore = true;
           }
         }
 

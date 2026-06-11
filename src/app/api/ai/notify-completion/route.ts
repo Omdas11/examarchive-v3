@@ -1,8 +1,10 @@
-import { NextResponse, after, type NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 import { adminDatabases, COLLECTION, DATABASE_ID, Query } from "@/lib/appwrite";
 import { sendGenerationFailureEmail, sendGenerationPdfEmail } from "@/lib/generation-notifications";
 import { buildSignedPdfDownloadPath } from "@/lib/pdf-download-link";
+
+export const maxDuration = 60;
 
 type NotifyPayload = {
   jobId?: unknown;
@@ -232,8 +234,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid payload." }, { status: 400 });
   }
 
-  after(async () => {
-    const db = adminDatabases();
+  const db = adminDatabases();
   let job;
   try {
     job = await db.getDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, jobId);
@@ -241,18 +242,15 @@ export async function POST(request: NextRequest) {
     const errorStatus = getAppwriteErrorStatus(error);
     if (errorStatus === 404) {
       if (!hasValidBearer) {
-        console.error("[ai/notify-completion] Unauthorized (404 job) in background task.");
-        return;
+        return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
       }
-      console.error("[ai/notify-completion] Job not found in background task.");
-      return;
+      return NextResponse.json({ error: "Job not found." }, { status: 404 });
     }
     console.error("[ai/notify-completion] Failed to load job for webhook callback.", { jobId, error });
-    return;
+    return NextResponse.json({ error: "Unable to process notification callback." }, { status: 500 });
   }
   if (!job || typeof job !== "object") {
-    console.error("[ai/notify-completion] Unable to process notification callback.");
-    return;
+    return NextResponse.json({ error: "Unable to process notification callback." }, { status: 500 });
   }
   let resolvedJob = job as Record<string, unknown>;
 
@@ -342,7 +340,7 @@ export async function POST(request: NextRequest) {
             UNVERIFIED_CALLBACK_MAX_JOB_CONSISTENCY_RETRIES * UNVERIFIED_CALLBACK_JOB_CONSISTENCY_DELAY_MS,
         },
       );
-      return; // Unauthorized fallback
+      return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
     }
     console.warn("[ai/notify-completion] Processing unverified callback using strict job-state consistency fallback.", {
       jobId,
@@ -368,7 +366,10 @@ export async function POST(request: NextRequest) {
       jobUserId: String(resolvedJob.user_id || "").trim(),
       payloadUserEmail: String(payload.userEmail || "").trim(),
     });
-    return; // Cannot resolve email
+    return NextResponse.json(
+      { error: "Unable to resolve recipient email right now. Please retry this callback shortly." },
+      { status: 500 },
+    );
   }
   const title = getTitleFromPayload(payload);
 
@@ -376,8 +377,7 @@ export async function POST(request: NextRequest) {
     // Prefer fileId from callback body; fall back to what the job doc already has.
     const fileId = fileIdFromBody || String(resolvedJob.result_file_id || "").trim();
     if (!fileId) {
-      console.error("[ai/notify-completion] Missing fileId for completed status.");
-      return;
+      return NextResponse.json({ error: "Missing fileId for completed status." }, { status: 400 });
     }
     const userId = await resolveNotificationUserId({
       db,
@@ -407,7 +407,7 @@ export async function POST(request: NextRequest) {
         emailStatus: existingEmailStatus,
         emailSentAt: existingEmailSentAt,
       });
-      return;
+      return NextResponse.json({ ok: true, skipped: true, reason: "email_already_sent" });
     }
     const emailSentinelTimestamp = new Date().toISOString();
     try {
@@ -421,7 +421,7 @@ export async function POST(request: NextRequest) {
         fileId,
         error,
       });
-      return;
+      return NextResponse.json({ error: "Unable to persist completion email state." }, { status: 500 });
     }
     try {
       await sendGenerationPdfEmail({
@@ -444,7 +444,7 @@ export async function POST(request: NextRequest) {
           persistError,
         });
       });
-      return;
+      return NextResponse.json({ error: "Failed to send completion email." }, { status: 500 });
     }
     try {
       await db.updateDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, jobId, {
@@ -456,9 +456,9 @@ export async function POST(request: NextRequest) {
         jobId,
         error,
       });
-      return;
+      return NextResponse.json({ ok: true, warning: "email_state_not_persisted" });
     }
-    return;
+    return NextResponse.json({ ok: true });
   }
 
   const existingEmailStatus = String(resolvedJob.email_status || "").trim();
@@ -467,7 +467,7 @@ export async function POST(request: NextRequest) {
       jobId,
       emailStatus: existingEmailStatus,
     });
-    return;
+    return NextResponse.json({ ok: true, skipped: true, reason: "email_already_sent" });
   }
   try {
     await db.updateDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, jobId, {
@@ -478,7 +478,7 @@ export async function POST(request: NextRequest) {
       jobId,
       error,
     });
-    return;
+    return NextResponse.json({ error: "Unable to persist failure email state." }, { status: 500 });
   }
   try {
     await sendGenerationFailureEmail({
@@ -496,7 +496,7 @@ export async function POST(request: NextRequest) {
         persistError,
       });
     });
-    return;
+    return NextResponse.json({ error: "Failed to send failure email." }, { status: 500 });
   }
   try {
     await db.updateDocument(DATABASE_ID, COLLECTION.ai_generation_jobs, jobId, {
@@ -507,9 +507,7 @@ export async function POST(request: NextRequest) {
       jobId,
       error,
     });
-    return;
+    return NextResponse.json({ ok: true, warning: "email_state_not_persisted" });
   }
-  });
-
-  return NextResponse.json({ ok: true, status: "accepted_for_processing" }, { status: 202 });
+  return NextResponse.json({ ok: true });
 }
