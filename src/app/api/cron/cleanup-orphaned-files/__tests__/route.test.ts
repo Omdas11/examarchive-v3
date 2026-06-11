@@ -1,6 +1,6 @@
 import { GET } from "../route";
 import { NextRequest } from "next/server";
-import { adminDatabases, adminStorage } from "@/lib/appwrite";
+import { adminStorage } from "@/lib/appwrite";
 
 // Mock Appwrite
 jest.mock("@/lib/appwrite", () => ({

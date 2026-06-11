@@ -1,4 +1,4 @@
-import { getDailyLimit, getRpmLimit, setLimits, getLimitConfig } from "@/lib/ai-limits";
+/* eslint-disable @typescript-eslint/no-require-imports */
 
 describe("ai-limits", () => {
   const originalEnv = process.env;

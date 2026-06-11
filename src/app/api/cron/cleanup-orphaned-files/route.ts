@@ -84,15 +84,15 @@ export async function GET(request: NextRequest) {
 
       const referencedIds = new Set<string>();
       for (const doc of papersRes.documents) {
-        const fid = String((doc as any).file_id ?? "").trim();
+        const fid = String((doc as { file_id?: string }).file_id ?? "").trim();
         if (fid) referencedIds.add(fid);
       }
       for (const doc of uploadsRes.documents) {
-        const fid = String((doc as any).file_id ?? "").trim();
+        const fid = String((doc as { file_id?: string }).file_id ?? "").trim();
         if (fid) referencedIds.add(fid);
       }
       for (const doc of jobsRes.documents) {
-        const fid = String((doc as any).result_file_id ?? "").trim();
+        const fid = String((doc as { result_file_id?: string }).result_file_id ?? "").trim();
         if (fid) referencedIds.add(fid);
       }
 
