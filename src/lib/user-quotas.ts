@@ -27,7 +27,7 @@ function normalizeDate(value: unknown): string {
   return /^\d{4}-\d{2}-\d{2}$/.test(dateKey) ? dateKey : DEFAULT_DAY_START;
 }
 
-async function getQuotaDocument(userId: string) {
+async function getQuotaDocument(userId: string): Promise<any> {
   const db = adminDatabases();
   try {
     const doc = await db.getDocument(DATABASE_ID, COLLECTION.user_quotas, userId);
