@@ -1,6 +1,3 @@
-/**
- * @jest-environment node
- */
 import { POST } from "../route";
 import { NextRequest } from "next/server";
 import { getServerUser } from "@/lib/auth";
@@ -21,8 +18,6 @@ jest.mock("@/lib/appwrite", () => ({
   },
   Query: {
     limit: jest.fn().mockImplementation((val) => `limit(${val})`),
-    offset: jest.fn().mockImplementation((val) => `offset(${val})`),
-    equal: jest.fn().mockImplementation((field, val) => `equal(${field}, ${val})`),
   },
 }));
 

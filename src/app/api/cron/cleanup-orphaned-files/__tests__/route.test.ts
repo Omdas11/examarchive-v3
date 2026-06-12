@@ -1,6 +1,3 @@
-/**
- * @jest-environment node
- */
 import { GET } from "../route";
 import { NextRequest } from "next/server";
 import { adminStorage } from "@/lib/appwrite";
