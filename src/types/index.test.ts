@@ -1,4 +1,4 @@
-import { toPaper, toSyllabus } from "./index";
+import { toPaper, toSyllabus, toActivityLog, toAdminUser } from "./index";
 
 describe("toPaper", () => {
   it("maps valid Appwrite document to Paper", () => {
@@ -103,6 +103,59 @@ describe("toPaper", () => {
     expect(paper.year).toBe(0);
     expect(paper.marks).toBeUndefined();
   });
+
+  it("handles boolean string false explicitly", () => {
+    const doc = {
+      $id: "123",
+      approved: "false",
+    };
+    const paper = toPaper(doc);
+    expect(paper.approved).toBe(false);
+  });
+});
+
+describe("toActivityLog", () => {
+  it("maps valid Appwrite activity log document correctly", () => {
+    const doc = {
+      $id: "log123",
+      action: "approve",
+      target_user_id: "user456",
+      target_paper_id: "paper789",
+      admin_id: "admin101",
+      admin_email: "admin@example.com",
+      details: "Approved paper sample",
+      $createdAt: "2023-01-01T00:00:00Z",
+    };
+
+    const entry = toActivityLog(doc);
+
+    expect(entry.id).toBe("log123");
+    expect(entry.action).toBe("approve");
+    expect(entry.target_user_id).toBe("user456");
+    expect(entry.target_paper_id).toBe("paper789");
+    expect(entry.admin_id).toBe("admin101");
+    expect(entry.admin_email).toBe("admin@example.com");
+    expect(entry.details).toBe("Approved paper sample");
+    expect(entry.created_at).toBe("2023-01-01T00:00:00Z");
+  });
+
+  it("handles empty details and fallback fields", () => {
+    const doc = {
+      id: "log123",
+      created_at: "2023-01-01T00:00:00Z",
+    };
+
+    const entry = toActivityLog(doc as any);
+
+    expect(entry.id).toBe("log123");
+    expect(entry.action).toBe("approve");
+    expect(entry.target_user_id).toBeNull();
+    expect(entry.target_paper_id).toBeNull();
+    expect(entry.admin_id).toBe("");
+    expect(entry.admin_email).toBe("");
+    expect(entry.details).toBe("");
+    expect(entry.created_at).toBe("2023-01-01T00:00:00Z");
+  });
 });
 
 describe("toSyllabus", () => {
@@ -145,5 +198,77 @@ describe("toSyllabus", () => {
     expect(syllabus.university).toBe("Legacy Uni");
     expect(syllabus.subject).toBe("Legacy Course");
     expect(syllabus.uploader_id).toBe("u123");
+  });
+});
+
+describe("toAdminUser", () => {
+  it("maps valid Appwrite user document correctly", () => {
+    const doc = {
+      $id: "user123",
+      email: "user@example.com",
+      display_name: "John Doe",
+      username: "johndoe",
+      avatar_url: "https://example.com/avatar.jpg",
+      role: "admin",
+      primary_role: "admin",
+      secondary_role: "moderator",
+      tertiary_role: null,
+      specialist_subject: "Math",
+      subject_admin_subject: null,
+      tier: "gold",
+      upload_count: 5,
+      xo: 100,
+      xp: 100,
+      streak_days: 10,
+      last_login: "2023-01-01T00:00:00Z",
+      $createdAt: "2023-01-01T00:00:00Z",
+    };
+
+    const user = toAdminUser(doc);
+
+    expect(user.id).toBe("user123");
+    expect(user.email).toBe("user@example.com");
+    expect(user.name).toBe("John Doe");
+    expect(user.username).toBe("johndoe");
+    expect(user.avatar_url).toBe("https://example.com/avatar.jpg");
+    expect(user.role).toBe("admin");
+    expect(user.secondary_role).toBe("moderator");
+    expect(user.tertiary_role).toBeNull();
+    expect(user.specialist_subject).toBe("Math");
+    expect(user.subject_admin_subject).toBeNull();
+    expect(user.tier).toBe("gold");
+    expect(user.upload_count).toBe(5);
+    expect(user.xo).toBe(100);
+    expect(user.xp).toBe(100);
+    expect(user.streak_days).toBe(10);
+    expect(user.last_login).toBe("2023-01-01T00:00:00Z");
+    expect(user.created_at).toBe("2023-01-01T00:00:00Z");
+  });
+
+  it("handles fallback and missing fields in toAdminUser", () => {
+    const doc = {
+      id: "user123",
+      name: "John Doe",
+      streak: 5,
+      last_activity: "2023-01-01T00:00:00Z",
+      created_at: "2023-01-01T00:00:00Z",
+    };
+
+    const user = toAdminUser(doc as any);
+
+    expect(user.id).toBe("user123");
+    expect(user.name).toBe("John Doe");
+    expect(user.email).toBe("");
+    expect(user.role).toBe("student");
+    expect(user.primary_role).toBe("student");
+    expect(user.secondary_role).toBeNull();
+    expect(user.specialist_subject).toBeNull();
+    expect(user.tier).toBe("bronze");
+    expect(user.upload_count).toBe(0);
+    expect(user.xo).toBe(0);
+    expect(user.xp).toBe(0);
+    expect(user.streak_days).toBe(5);
+    expect(user.last_login).toBe("2023-01-01T00:00:00Z");
+    expect(user.created_at).toBe("2023-01-01T00:00:00Z");
   });
 });
