@@ -63,7 +63,7 @@ async function updateDailyStreak(
     }
 
     await db.updateDocument(DATABASE_ID, COLLECTION.users, profileId, {
-      streak: newStreak,
+      streak_days: newStreak,
       last_activity: now.toISOString(),
     });
   } catch {
@@ -87,7 +87,7 @@ async function evaluateXpAndPromotion(
     const uploadCount = (profile.upload_count as number) ?? 0;
     const currentRole = normalizeRole((profile.role as string) ?? "student");
     const currentTier = (profile.tier as string) ?? "bronze";
-    const currentXo = ((profile.xo as number) ?? (profile.xp as number) ?? 0);
+    const currentXp = (profile.xp as number) ?? 0;
     const createdAt = typeof profile.$createdAt === "string" ? profile.$createdAt : "";
     const accountAgeDays = createdAt
       ? Math.floor((Date.now() - new Date(createdAt).getTime()) / 86_400_000)
@@ -97,7 +97,7 @@ async function evaluateXpAndPromotion(
 
     if (
       currentRole === "student" &&
-      currentXo >= ROLE_XO_THRESHOLDS.contributor &&
+      currentXp >= ROLE_XO_THRESHOLDS.contributor &&
       uploadCount >= 2 &&
       accountAgeDays >= 3
     ) {
@@ -106,7 +106,7 @@ async function evaluateXpAndPromotion(
 
     if (
       currentRole === "contributor" &&
-      currentXo >= ROLE_XO_THRESHOLDS.specialist &&
+      currentXp >= ROLE_XO_THRESHOLDS.specialist &&
       uploadCount >= 10 &&
       !hasActiveAbuseFlag
     ) {
@@ -125,7 +125,36 @@ async function evaluateXpAndPromotion(
     // Silently ignore – promotion evaluation is non-critical
   }
 }
-
+/**
+ * Map a raw Appwrite profile document to a `UserProfile` object.
+ * Centralised to avoid duplicating the mapping logic across
+ * getServerUser's multiple code-paths.
+ */
+function profileToUserProfile(
+  profile: Record<string, unknown>,
+  fallbackEmail: string,
+): UserProfile {
+  const rawSecondary = (profile.secondary_role as string) ?? null;
+  const rawTier = (profile.tier as string) ?? "bronze";
+  return {
+    id: profile.$id as string,
+    email: (profile.email as string) ?? fallbackEmail,
+    name: (profile.display_name as string) ?? "",
+    username: (profile.username as string) ?? "",
+    avatar_url: (profile.avatar_url as string) ?? "",
+    avatar_file_id: (profile.avatar_file_id as string) ?? undefined,
+    role: normalizeRole((profile.role as string) ?? "student"),
+    secondary_role: isValidCustomRole(rawSecondary) ? rawSecondary : null,
+    tier: isValidTier(rawTier) ? rawTier : "bronze",
+    xp: (profile.xp as number) ?? 0,
+    specialist_subject: (profile.specialist_subject as string) ?? null,
+    subject_admin_subject: (profile.subject_admin_subject as string) ?? null,
+    ai_credits: (profile.ai_credits as number) ?? 0,
+    streak_days: (profile.streak_days as number) ?? 0,
+    last_activity: (profile.last_activity as string) ?? "",
+    created_at: profile.$createdAt as string,
+  };
+}
 
 
 /**
@@ -176,37 +205,11 @@ export async function getServerUser(): Promise<UserProfile | null> {
     // First try to get the document by Auth user ID (the preferred approach)
     try {
       const profile = await db.getDocument(DATABASE_ID, COLLECTION.users, user.$id);
-      const rawSecondary = profile.secondary_role ?? null;
-      const rawTier = profile.tier ?? "bronze";
-      const currentStreak = (profile.streak as number) ?? 0;
-      const lastActivity = (profile.last_activity as string) ?? "";
-      // Update daily streak (no-op when already recorded today)
-      void updateDailyStreak(db, profile.$id, currentStreak, lastActivity);
-      // Evaluate XO and auto-promotion on each login/page load
-      void evaluateXpAndPromotion(db, profile as Record<string, unknown>);
-      const xo = ((profile.xo as number) ?? (profile.xp as number) ?? 0);
-      return {
-        id: profile.$id,
-        email: (profile.email as string) ?? user.email,
-        // DB field is `display_name`; TypeScript property is `name`
-        name: (profile.display_name as string) ?? "",
-        username: (profile.username as string) ?? "",
-        avatar_url: (profile.avatar_url as string) ?? "",
-        avatar_file_id: (profile.avatar_file_id as string) ?? undefined,
-        role: normalizeRole((profile.role as string) ?? "student"),
-        secondary_role: isValidCustomRole(rawSecondary) ? rawSecondary : null,
-        tier: isValidTier(rawTier) ? rawTier : "bronze",
-        xo,
-        // Keep xp mirrored for backward-compatible consumers during XO rollout.
-        xp: xo,
-        specialist_subject: (profile.specialist_subject as string) ?? null,
-        subject_admin_subject: (profile.subject_admin_subject as string) ?? null,
-        ai_credits: (profile.ai_credits as number) ?? 0,
-        // DB field is `streak`; TypeScript property is `streak_days`
-        streak_days: currentStreak,
-        last_activity: lastActivity,
-        created_at: profile.$createdAt,
-      };
+      const profileRec = profile as unknown as Record<string, unknown>;
+      // Fire-and-forget: update streak & evaluate promotion
+      void updateDailyStreak(db, profile.$id, (profile.streak_days as number) ?? 0, (profile.last_activity as string) ?? "");
+      void evaluateXpAndPromotion(db, profileRec);
+      return profileToUserProfile(profileRec, user.email);
     } catch {
       // Document with Auth user ID doesn't exist, try fallback lookup by email
     }
@@ -220,36 +223,10 @@ export async function getServerUser(): Promise<UserProfile | null> {
 
     if (documents.length > 0) {
       const profile = documents[0];
-      const rawSecondary = profile.secondary_role ?? null;
-      const rawTier = profile.tier ?? "bronze";
-      const currentStreak = (profile.streak as number) ?? 0;
-      const lastActivity = (profile.last_activity as string) ?? "";
-      // Update daily streak (no-op when already recorded today)
-      void updateDailyStreak(db, profile.$id, currentStreak, lastActivity);
-      // Evaluate XO and auto-promotion on each login/page load
-      void evaluateXpAndPromotion(db, profile as Record<string, unknown>);
-      const xo = ((profile.xo as number) ?? (profile.xp as number) ?? 0);
-      // Return the actual document ID (which may differ from Auth user ID)
-      return {
-        id: profile.$id,
-        email: (profile.email as string) ?? user.email,
-        name: (profile.display_name as string) ?? "",
-        username: (profile.username as string) ?? "",
-        avatar_url: (profile.avatar_url as string) ?? "",
-        avatar_file_id: (profile.avatar_file_id as string) ?? undefined,
-        role: normalizeRole((profile.role as string) ?? "student"),
-        secondary_role: isValidCustomRole(rawSecondary) ? rawSecondary : null,
-        tier: isValidTier(rawTier) ? rawTier : "bronze",
-        xo,
-        // Keep xp mirrored for backward-compatible consumers during XO rollout.
-        xp: xo,
-        specialist_subject: (profile.specialist_subject as string) ?? null,
-        subject_admin_subject: (profile.subject_admin_subject as string) ?? null,
-        ai_credits: (profile.ai_credits as number) ?? 0,
-        streak_days: currentStreak,
-        last_activity: lastActivity,
-        created_at: profile.$createdAt,
-      };
+      const profileRec = profile as unknown as Record<string, unknown>;
+      void updateDailyStreak(db, profile.$id, (profile.streak_days as number) ?? 0, (profile.last_activity as string) ?? "");
+      void evaluateXpAndPromotion(db, profileRec);
+      return profileToUserProfile(profileRec, user.email);
     }
 
     // Auto-create profile document on first login.
@@ -264,8 +241,8 @@ export async function getServerUser(): Promise<UserProfile | null> {
           role: "student",
           display_name: "",
           username: "",
-          xo: 0,
-          streak: 0,
+          xp: 0,
+          streak_days: 0,
           upload_count: 0,
           secondary_role: null,
           tertiary_role: null,
@@ -290,7 +267,6 @@ export async function getServerUser(): Promise<UserProfile | null> {
         role: "student" as UserRole,
         secondary_role: null,
         tier: "bronze" as UserTier,
-        xo: 0,
         xp: 0,
         specialist_subject: null,
         subject_admin_subject: null,
@@ -301,40 +277,12 @@ export async function getServerUser(): Promise<UserProfile | null> {
       };
     } catch (insertError) {
       // A concurrent request may have already created the document (primary-key
-      // conflict). Attempt to read it back before giving up, so the user is
-      // never erroneously treated as unauthenticated due to a race.
+      // conflict). Attempt to read it back before giving up.
       try {
         const existing = await db.getDocument(DATABASE_ID, COLLECTION.users, user.$id);
-        const rawSecondary = existing.secondary_role ?? null;
-        const rawTier = existing.tier ?? "bronze";
-        const xo = ((existing.xo as number) ?? (existing.xp as number) ?? 0);
-        return {
-          id: existing.$id,
-          email: (existing.email as string) ?? user.email,
-          name: (existing.display_name as string) ?? "",
-          username: (existing.username as string) ?? "",
-          avatar_url: (existing.avatar_url as string) ?? "",
-          avatar_file_id: (existing.avatar_file_id as string) ?? undefined,
-          role: normalizeRole((existing.role as string) ?? "student"),
-          secondary_role: isValidCustomRole(rawSecondary) ? rawSecondary : null,
-          tier: isValidTier(rawTier) ? rawTier : "bronze",
-          xo,
-          // Keep xp mirrored for backward-compatible consumers during XO rollout.
-          xp: xo,
-          specialist_subject: (existing.specialist_subject as string) ?? null,
-          subject_admin_subject: (existing.subject_admin_subject as string) ?? null,
-          ai_credits: (existing.ai_credits as number) ?? 0,
-          streak_days: (existing.streak as number) ?? 0,
-          last_activity: (existing.last_activity as string) ?? "",
-          created_at: existing.$createdAt,
-        };
+        return profileToUserProfile(existing as unknown as Record<string, unknown>, user.email);
       } catch (fetchError) {
-        // Document genuinely does not exist — log both errors for diagnostics.
-        console.error(
-          "[auth] Failed to create profile for user",
-          user.$id,
-          insertError,
-        );
+        console.error("[auth] Failed to create profile for user", user.$id, insertError);
         console.error("[auth] Retry fetch after conflict also failed:", fetchError);
         return null;
       }
@@ -409,9 +357,8 @@ export async function getExtendedServerUser(): Promise<ExtendedUserProfile | nul
       secondary_role: secondaryRole,
       tertiary_role: tertiaryRole,
       tier,
-      xo: ((profile.xo as number) ?? (profile.xp as number) ?? 0),
-      xp: ((profile.xo as number) ?? (profile.xp as number) ?? 0),
-      streak_days: (profile.streak as number) ?? 0,
+      xp: (profile.xp as number) ?? 0,
+      streak_days: (profile.streak_days as number) ?? 0,
       last_activity: (profile.last_activity as string) ?? "",
       achievements,
       created_at: profile.$createdAt,

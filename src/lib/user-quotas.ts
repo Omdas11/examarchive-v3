@@ -27,7 +27,8 @@ function normalizeDate(value: unknown): string {
   return /^\d{4}-\d{2}-\d{2}$/.test(dateKey) ? dateKey : DEFAULT_DAY_START;
 }
 
-async function getQuotaDocument(userId: string) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function getQuotaDocument(userId: string): Promise<any> {
   const db = adminDatabases();
   try {
     const doc = await db.getDocument(DATABASE_ID, COLLECTION.user_quotas, userId);
@@ -102,49 +103,58 @@ export async function incrementQuotaCounter(
   userId: string,
   counter: "notes_generated_today" | "papers_solved_today",
 ): Promise<UserQuotaRecord> {
+  const MAX_RETRIES = 3;
   const db = adminDatabases();
-  const existing = await getQuotaDocument(userId);
   const today = getTodayDateKey();
 
-  if (!existing) {
-    const payload = {
-      user_id: userId,
-      notes_generated_today: counter === "notes_generated_today" ? 1 : 0,
-      papers_solved_today: counter === "papers_solved_today" ? 1 : 0,
-      last_generation_date: today,
-    };
-    try {
-      // Use deterministic doc id = userId to avoid duplicate records during concurrent requests.
-      await db.createDocument(DATABASE_ID, COLLECTION.user_quotas, userId, payload);
-      return payload;
-    } catch {
-      const settled = await getQuotaDocument(userId);
-      if (!settled) return payload;
-      const settledLastGenerationDate = normalizeDate(settled.last_generation_date);
-      const settledNotes = settledLastGenerationDate < today ? 0 : toInt(settled.notes_generated_today);
-      const settledPapers = settledLastGenerationDate < today ? 0 : toInt(settled.papers_solved_today);
-      const nextPayload = {
-        notes_generated_today: counter === "notes_generated_today" ? settledNotes + 1 : settledNotes,
-        papers_solved_today: counter === "papers_solved_today" ? settledPapers + 1 : settledPapers,
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const existing = await getQuotaDocument(userId);
+
+    if (!existing) {
+      const payload = {
+        user_id: userId,
+        notes_generated_today: counter === "notes_generated_today" ? 1 : 0,
+        papers_solved_today: counter === "papers_solved_today" ? 1 : 0,
         last_generation_date: today,
       };
-      await db.updateDocument(DATABASE_ID, COLLECTION.user_quotas, settled.$id, nextPayload);
-      return nextPayload;
+      try {
+        // Use deterministic doc id = userId to avoid duplicate records during concurrent requests.
+        await db.createDocument(DATABASE_ID, COLLECTION.user_quotas, userId, payload);
+        return payload;
+      } catch {
+        // Document was created concurrently — retry to read-modify-write it.
+        continue;
+      }
+    }
+
+    const lastGenerationDate = normalizeDate(existing.last_generation_date);
+    const baseNotes = lastGenerationDate < today ? 0 : toInt(existing.notes_generated_today);
+    const basePapers = lastGenerationDate < today ? 0 : toInt(existing.papers_solved_today);
+
+    const payload = {
+      notes_generated_today: counter === "notes_generated_today" ? baseNotes + 1 : baseNotes,
+      papers_solved_today: counter === "papers_solved_today" ? basePapers + 1 : basePapers,
+      last_generation_date: today,
+    };
+
+    try {
+      await db.updateDocument(DATABASE_ID, COLLECTION.user_quotas, existing.$id, payload);
+      return payload;
+    } catch {
+      // Conflict — another request updated the document concurrently.  Retry.
+      if (attempt === MAX_RETRIES) {
+        // Exhausted retries — return best-effort payload (the write may or may not have persisted).
+        return payload;
+      }
     }
   }
 
-  const lastGenerationDate = normalizeDate(existing.last_generation_date);
-  const baseNotes = lastGenerationDate < today ? 0 : toInt(existing.notes_generated_today);
-  const basePapers = lastGenerationDate < today ? 0 : toInt(existing.papers_solved_today);
-
-  const payload = {
-    notes_generated_today: counter === "notes_generated_today" ? baseNotes + 1 : baseNotes,
-    papers_solved_today: counter === "papers_solved_today" ? basePapers + 1 : basePapers,
+  // Unreachable, but satisfies TypeScript's control-flow analysis.
+  return {
+    notes_generated_today: counter === "notes_generated_today" ? 1 : 0,
+    papers_solved_today: counter === "papers_solved_today" ? 1 : 0,
     last_generation_date: today,
   };
-
-  await db.updateDocument(DATABASE_ID, COLLECTION.user_quotas, existing.$id, payload);
-  return payload;
 }
 
 export async function rollbackQuotaCounter(

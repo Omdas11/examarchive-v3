@@ -4,6 +4,8 @@ import { adminDatabases, COLLECTION, DATABASE_ID, Query } from "@/lib/appwrite";
 import { sendGenerationFailureEmail, sendGenerationPdfEmail } from "@/lib/generation-notifications";
 import { buildSignedPdfDownloadPath } from "@/lib/pdf-download-link";
 
+export const maxDuration = 60;
+
 type NotifyPayload = {
   jobId?: unknown;
   status?: unknown;

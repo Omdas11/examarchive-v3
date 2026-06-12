@@ -45,7 +45,7 @@ const steps = [
   { icon: STEP_ICONS[0], title: "Upload", desc: "Students upload past question papers and notes." },
   { icon: STEP_ICONS[1], title: "Review", desc: "Moderators review and verify each submission." },
   { icon: STEP_ICONS[2], title: "Publish", desc: "Approved papers are published to the archive." },
-  { icon: STEP_ICONS[3], title: "Discover & Earn", desc: "Approved activity earns XO, cosmetic unlocks, and credits." },
+  { icon: STEP_ICONS[3], title: "Discover & Earn", desc: "Approved activity earns XP, cosmetic unlocks, and credits." },
 ];
 
 const contributions = [
@@ -56,15 +56,15 @@ const contributions = [
   "Apply to become a moderator.",
 ];
 
-/** XO tier progression data — matches the profile module exactly. */
-const XO_TIERS = [
-  { xo: 0,    level: 0,   title: "Visitor",     color: "#6b7280" },
-  { xo: 100,  level: 5,   title: "Explorer",    color: "#2563eb" },
-  { xo: 300,  level: 10,  title: "Contributor", color: "#16a34a" },
-  { xo: 800,  level: 25,  title: "Veteran",     color: "#d97706" },
-  { xo: 1500, level: 50,  title: "Senior",      color: "#9333ea" },
-  { xo: 3000, level: 90,  title: "Elite",       color: "#db2777" },
-  { xo: 5000, level: 100, title: "Legend",      color: "#dc2626" },
+/** XP tier progression data — matches the profile module exactly. */
+const XP_TIERS = [
+  { xp: 0,    level: 0,   title: "Visitor",     color: "#6b7280" },
+  { xp: 100,  level: 5,   title: "Explorer",    color: "#2563eb" },
+  { xp: 300,  level: 10,  title: "Contributor", color: "#16a34a" },
+  { xp: 800,  level: 25,  title: "Veteran",     color: "#d97706" },
+  { xp: 1500, level: 50,  title: "Senior",      color: "#9333ea" },
+  { xp: 3000, level: 90,  title: "Elite",       color: "#db2777" },
+  { xp: 5000, level: 100, title: "Legend",      color: "#dc2626" },
 ];
 
 /** System roles with descriptions. */
@@ -176,16 +176,16 @@ const COMMUNITY_ROLES = [
   },
 ];
 
-/** XO award amounts per event. */
-const XO_EVENTS = [
-  { event: "Paper approved by moderator", xo: "+50" },
-  { event: "First ever upload",           xo: "+20 bonus" },
-  { event: "7-day streak reached",        xo: "+100 bonus" },
-  { event: "30-day streak reached",       xo: "+500 bonus" },
+/** XP award amounts per event. */
+const XP_EVENTS = [
+  { event: "Paper approved by moderator", xp: "+50" },
+  { event: "First ever upload",           xp: "+20 bonus" },
+  { event: "7-day streak reached",        xp: "+100 bonus" },
+  { event: "30-day streak reached",       xp: "+500 bonus" },
 ];
 
 const COSMETIC_UNLOCKS = [
-  "XO rank title and profile ring colours are unlocked automatically by XO milestones.",
+  "XP rank title and profile ring colours are unlocked automatically by XP milestones.",
   "Secondary and tertiary community designations are assigned by contribution quality and trust signals.",
   "Role cosmetics are display-only and never grant moderation or admin permissions.",
 ];
@@ -271,7 +271,7 @@ export default async function AboutPage() {
           papers from various universities, programmes, and streams.
         </p>
         <p>
-            We are documenting progression with activity-based XO and a credit system for experimental features.
+            We are documenting progression with activity-based XP and a credit system for experimental features.
         </p>
       </div>
 
@@ -392,25 +392,25 @@ export default async function AboutPage() {
         ))}
       </div>
 
-      {/* XO & Progression */}
-      <h2 className="mt-10 text-xl font-semibold">XO & Progression</h2>
+      {/* XP & Progression */}
+      <h2 className="mt-10 text-xl font-semibold">XP & Progression</h2>
       <p className="mt-2 text-sm" style={{ color: "var(--color-text-muted)" }}>
-        Earn XO by contributing to the archive. XO unlocks cosmetic rank titles and avatar ring
+        Earn XP by contributing to the archive. XP unlocks cosmetic rank titles and avatar ring
         colours on your profile — it does not affect permissions.
       </p>
 
-      {/* XO tier table */}
+      {/* XP tier table */}
       <div className="mt-4 overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="text-xs uppercase text-left" style={{ color: "var(--color-text-muted)" }}>
               <th className="pb-2 pr-4 font-medium">Rank</th>
-              <th className="pb-2 pr-4 font-medium">XO Required</th>
+              <th className="pb-2 pr-4 font-medium">XP Required</th>
               <th className="pb-2 font-medium">Level</th>
             </tr>
           </thead>
           <tbody>
-            {XO_TIERS.map((t) => (
+            {XP_TIERS.map((t) => (
               <tr
                 key={t.title}
                 className="border-t"
@@ -425,7 +425,7 @@ export default async function AboutPage() {
                   </span>
                 </td>
                 <td className="py-2 pr-4 text-xs" style={{ color: "var(--color-text-muted)" }}>
-                  {t.xo === 0 ? "0" : `${t.xo.toLocaleString()} XO`}
+                  {t.xp === 0 ? "0" : `${t.xp.toLocaleString()} XP`}
                 </td>
                 <td className="py-2 text-xs" style={{ color: "var(--color-text-muted)" }}>
                   {t.level}
@@ -436,10 +436,10 @@ export default async function AboutPage() {
         </table>
       </div>
 
-      {/* XO awards */}
-      <h3 className="mt-6 text-base font-semibold">How to Earn XO</h3>
+      {/* XP awards */}
+      <h3 className="mt-6 text-base font-semibold">How to Earn XP</h3>
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
-        {XO_EVENTS.map((e) => (
+        {XP_EVENTS.map((e) => (
           <div
             key={e.event}
             className="card flex items-center justify-between gap-3 px-4 py-3"
@@ -449,7 +449,7 @@ export default async function AboutPage() {
               className="shrink-0 rounded-full px-2.5 py-0.5 text-xs font-bold"
               style={{ background: "var(--color-accent-soft)", color: "var(--color-primary)" }}
             >
-              {e.xo}
+              {e.xp}
             </span>
           </div>
         ))}

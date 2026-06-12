@@ -10,6 +10,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:ci": "jest --coverage",
+    "postinstall": "node scripts/copy-font.js",
     "ensure:md-ingestion-bucket": "node scripts/ensure-md-ingestion-bucket.js",
     "ensure:master-notes-prompt": "node scripts/ensure-master-notes-prompt.js",
     "sync:appwrite-schema": "node scripts/v2/sync-appwrite-schema.js",

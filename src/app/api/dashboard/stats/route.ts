@@ -12,7 +12,7 @@ import { getServerUser } from "@/lib/auth";
  * Returns stats for the currently authenticated user sourced from AppWrite:
  * - upload_count  : from users.upload_count (backend-maintained counter)
  * - pending_count : live count of papers with approved=false
- * - xo            : from UserProfile (already fetched by getServerUser)
+ * - xp            : from UserProfile (already fetched by getServerUser)
  * - streak_days   : from UserProfile
  * - tier          : from UserProfile
  * - recent_papers : last 5 approved papers this user uploaded
@@ -65,8 +65,7 @@ export async function GET() {
     return NextResponse.json({
       upload_count: uploadCount,
       pending_count: pendingResult.total,
-      xo: user.xo,
-      xp: user.xo,
+      xp: user.xp,
       streak_days: user.streak_days,
       tier: user.tier ?? "bronze",
       recent_papers: recentPapers,

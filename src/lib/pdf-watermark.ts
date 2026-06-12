@@ -11,7 +11,7 @@ function loadInterFont(): Buffer | null {
   try {
     const fontPath = path.join(
       process.cwd(),
-      "node_modules/@fontsource/inter/files/inter-latin-700-normal.woff",
+      "public/fonts/inter-latin-700-normal.woff",
     );
     return fs.readFileSync(fontPath);
   } catch {

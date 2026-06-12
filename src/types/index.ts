@@ -23,7 +23,7 @@ export interface Paper {
   /** Academic stream or branch (e.g. Science, Arts, Commerce). */
   stream?: string;
   /** University or institution name. */
-  institution?: string;
+  institute?: string;
   /** Academic programme (e.g. CBCS, FYUG). */
   programme?: string;
   /** Total marks for the paper. */
@@ -88,7 +88,6 @@ export interface UserProfile {
   secondary_role?: CustomRole;
   /** Activity-based tier. */
   tier?: UserTier;
-  xo: number;
   xp: number;
   specialist_subject?: string | null;
   subject_admin_subject?: string | null;
@@ -162,7 +161,6 @@ export interface ExtendedUserProfile {
   tertiary_role: CustomRole;
   /** Activity-based tier. */
   tier: UserTier;
-  xo: number;
   xp: number;
   streak_days: number;
   last_activity: string;
@@ -199,7 +197,6 @@ export interface AdminUser {
   subject_admin_subject?: string | null;
   tier: UserTier;
   upload_count: number;
-  xo: number;
   xp: number;
   streak_days: number;
   /** Last login / activity timestamp (ISO 8601). */
@@ -209,7 +206,7 @@ export interface AdminUser {
 
 /** Map an Appwrite document to our `AdminUser` type. */
 export function toAdminUser(doc: Record<string, unknown>): AdminUser {
-  const xoScore = (doc.xo ?? doc.xp ?? 0) as number;
+  const xpScore = (doc.xp ?? doc.xo ?? 0) as number;
   return {
     id: (doc.$id ?? doc.id) as string,
     email: (doc.email ?? "") as string,
@@ -224,8 +221,7 @@ export function toAdminUser(doc: Record<string, unknown>): AdminUser {
     subject_admin_subject: (doc.subject_admin_subject ?? null) as string | null,
     tier: ((doc.tier ?? "bronze") as string) as UserTier,
     upload_count: (doc.upload_count ?? 0) as number,
-    xo: xoScore,
-    xp: xoScore,
+    xp: xpScore,
     streak_days: ((doc.streak_days ?? doc.streak ?? 0) as number),
     last_login: ((doc.last_login ?? doc.last_activity ?? "") as string),
     created_at: ((doc.$createdAt ?? doc.created_at) as string) ?? "",
@@ -308,7 +304,7 @@ export function toPaper(doc: any): Paper {
     stream: doc.stream ?? undefined,
     // `institute` is the canonical field name in the backend schema.
     // Fall back to the legacy `institution` field for documents created before the rename.
-    institution: doc.institute ?? doc.institution ?? doc.university ?? undefined,
+    institute: doc.institute ?? doc.institution ?? doc.university ?? undefined,
     programme: doc.programme ?? undefined,
     marks: toOptionalNumber(doc.marks),
     duration: toOptionalNumber(doc.duration),

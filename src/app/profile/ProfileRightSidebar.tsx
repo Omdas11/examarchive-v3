@@ -7,7 +7,7 @@ interface ProfileRightSidebarProps {
   roleLabel: string;
   rankLabel: string;
   tierLabel: string;
-  xoScore: number;
+  xpScore: number;
   approvedCount: number;
   totalUploads: number;
   streakDays: number;
@@ -19,7 +19,7 @@ export default function ProfileRightSidebar({
   roleLabel,
   rankLabel,
   tierLabel,
-  xoScore,
+  xpScore,
   approvedCount,
   totalUploads,
   streakDays,
@@ -120,8 +120,8 @@ export default function ProfileRightSidebar({
                 <dd className="capitalize">{tierLabel}</dd>
               </div>
               <div className="flex justify-between">
-                <dt style={{ color: "var(--color-text-muted)" }}>XO</dt>
-                <dd className="font-semibold">{xoScore}</dd>
+                <dt style={{ color: "var(--color-text-muted)" }}>XP</dt>
+                <dd className="font-semibold">{xpScore}</dd>
               </div>
               <div className="flex justify-between">
                 <dt style={{ color: "var(--color-text-muted)" }}>Approved</dt>
