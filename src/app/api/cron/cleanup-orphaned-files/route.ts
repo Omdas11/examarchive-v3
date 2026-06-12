@@ -82,19 +82,20 @@ export async function GET(request: NextRequest) {
         ]),
       ]);
 
-      const referencedIds = new Set<string>();
-      for (const doc of papersRes.documents) {
-        const fid = String((doc as { file_id?: string }).file_id ?? "").trim();
-        if (fid) referencedIds.add(fid);
-      }
-      for (const doc of uploadsRes.documents) {
-        const fid = String((doc as { file_id?: string }).file_id ?? "").trim();
-        if (fid) referencedIds.add(fid);
-      }
-      for (const doc of jobsRes.documents) {
-        const fid = String((doc as { result_file_id?: string }).result_file_id ?? "").trim();
-        if (fid) referencedIds.add(fid);
-      }
+      /** Extract non-empty string values for `field` from a document list. */
+      const collectIds = (
+        docs: { [key: string]: unknown }[],
+        field: string,
+      ): string[] =>
+        docs
+          .map((d) => String(d[field] ?? "").trim())
+          .filter(Boolean);
+
+      const referencedIds = new Set<string>([
+        ...collectIds(papersRes.documents as { [key: string]: unknown }[], "file_id"),
+        ...collectIds(uploadsRes.documents as { [key: string]: unknown }[], "file_id"),
+        ...collectIds(jobsRes.documents as { [key: string]: unknown }[], "result_file_id"),
+      ]);
 
       for (const file of candidateFiles) {
         if (!referencedIds.has(file.$id)) {

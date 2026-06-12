@@ -9,6 +9,34 @@ import {
   Query,
 } from "@/lib/appwrite";
 
+/** Safely extract an error message string from an unknown thrown value. */
+function formatError(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+/** Delete up to `limit` documents matching `queries` from a collection and return a summary. */
+async function deleteDocsBatch(
+  db: ReturnType<typeof adminDatabases>,
+  collectionId: string,
+  queries: string[],
+  limit: number,
+  noun: string,
+) {
+  const { documents } = await db.listDocuments(
+    DATABASE_ID,
+    collectionId,
+    [...queries, Query.limit(limit)],
+  );
+  for (const doc of documents) {
+    await db.deleteDocument(DATABASE_ID, collectionId, doc.$id);
+  }
+  return {
+    success: true,
+    hasMore: documents.length === limit && limit > 0,
+    message: `Deleted ${documents.length} ${noun}${documents.length !== 1 ? "s" : ""}.`,
+  };
+}
+
 /**
  * POST /api/devtool
  * Founder-only system management operations.
@@ -76,100 +104,47 @@ export async function POST(request: NextRequest) {
           message: `Purged ${totalDeleted} document${totalDeleted !== 1 ? "s" : ""} in this chunk.`,
         });
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        return NextResponse.json({ error: msg }, { status: 500 });
+        return NextResponse.json({ error: formatError(err) }, { status: 500 });
       }
     }
 
     case "clear_pending_uploads": {
       try {
-        let deleted = 0;
-        const { documents } = await db.listDocuments(
-          DATABASE_ID,
-          COLLECTION.papers,
-          [Query.equal("approved", false), Query.limit(chunkSize)],
+        return NextResponse.json(
+          await deleteDocsBatch(db, COLLECTION.papers, [Query.equal("approved", false)], chunkSize, "pending upload"),
         );
-        for (const doc of documents) {
-          await db.deleteDocument(DATABASE_ID, COLLECTION.papers, doc.$id);
-          deleted++;
-        }
-        return NextResponse.json({
-          success: true,
-          hasMore: documents.length === chunkSize && chunkSize > 0,
-          message: `Deleted ${deleted} pending upload${deleted !== 1 ? "s" : ""}.`,
-        });
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        return NextResponse.json({ error: msg }, { status: 500 });
+        return NextResponse.json({ error: formatError(err) }, { status: 500 });
       }
     }
 
     case "clear_pending_syllabus": {
       try {
-        let deleted = 0;
-        const { documents } = await db.listDocuments(
-          DATABASE_ID,
-          COLLECTION.syllabus,
-          [Query.equal("approval_status", "pending"), Query.limit(chunkSize)],
+        return NextResponse.json(
+          await deleteDocsBatch(db, COLLECTION.syllabus, [Query.equal("approval_status", "pending")], chunkSize, "pending syllabus submission"),
         );
-        for (const doc of documents) {
-          await db.deleteDocument(DATABASE_ID, COLLECTION.syllabus, doc.$id);
-          deleted++;
-        }
-        return NextResponse.json({
-          success: true,
-          hasMore: documents.length === chunkSize && chunkSize > 0,
-          message: `Deleted ${deleted} pending syllabus submission${deleted !== 1 ? "s" : ""}.`,
-        });
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        return NextResponse.json({ error: msg }, { status: 500 });
+        return NextResponse.json({ error: formatError(err) }, { status: 500 });
       }
     }
 
     case "clear_activity_logs": {
       try {
-        let deleted = 0;
-        const { documents } = await db.listDocuments(
-          DATABASE_ID,
-          COLLECTION.activity_logs,
-          [Query.limit(chunkSize)],
+        return NextResponse.json(
+          await deleteDocsBatch(db, COLLECTION.activity_logs, [], chunkSize, "activity log entr"),
         );
-        for (const doc of documents) {
-          await db.deleteDocument(DATABASE_ID, COLLECTION.activity_logs, doc.$id);
-          deleted++;
-        }
-        return NextResponse.json({
-          success: true,
-          hasMore: documents.length === chunkSize && chunkSize > 0,
-          message: `Cleared ${deleted} activity log entr${deleted !== 1 ? "ies" : "y"}.`,
-        });
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        return NextResponse.json({ error: msg }, { status: 500 });
+        return NextResponse.json({ error: formatError(err) }, { status: 500 });
       }
     }
 
     case "reset_all_papers": {
       try {
-        let deleted = 0;
-        const { documents } = await db.listDocuments(
-          DATABASE_ID,
-          COLLECTION.papers,
-          [Query.limit(chunkSize)],
+        return NextResponse.json(
+          await deleteDocsBatch(db, COLLECTION.papers, [], chunkSize, "paper"),
         );
-        for (const doc of documents) {
-          await db.deleteDocument(DATABASE_ID, COLLECTION.papers, doc.$id);
-          deleted++;
-        }
-        return NextResponse.json({
-          success: true,
-          hasMore: documents.length === chunkSize && chunkSize > 0,
-          message: `Permanently deleted ${deleted} paper${deleted !== 1 ? "s" : ""}.`,
-        });
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        return NextResponse.json({ error: msg }, { status: 500 });
+        return NextResponse.json({ error: formatError(err) }, { status: 500 });
       }
     }
 
@@ -193,8 +168,7 @@ export async function POST(request: NextRequest) {
           message: `Role overridden to "${role}" for user ${userId}.`,
         });
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        return NextResponse.json({ error: msg }, { status: 500 });
+        return NextResponse.json({ error: formatError(err) }, { status: 500 });
       }
     }
 
@@ -220,8 +194,7 @@ export async function POST(request: NextRequest) {
           message: `XP ${isAdd ? "adjusted" : "set"} to ${newXp} for user ${userId}.`,
         });
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        return NextResponse.json({ error: msg }, { status: 500 });
+        return NextResponse.json({ error: formatError(err) }, { status: 500 });
       }
     }
 
@@ -253,8 +226,7 @@ export async function POST(request: NextRequest) {
           message: `Reset XP and streak for ${updated} user${updated !== 1 ? "s" : ""} (first chunk).`,
         });
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        return NextResponse.json({ error: msg }, { status: 500 });
+        return NextResponse.json({ error: formatError(err) }, { status: 500 });
       }
     }
 

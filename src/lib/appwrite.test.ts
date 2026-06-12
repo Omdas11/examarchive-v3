@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 jest.mock("node-appwrite", () => {
   const mockClientInstance = {
     setEndpoint: jest.fn().mockReturnThis(),
@@ -40,7 +39,7 @@ jest.mock("node-appwrite/file", () => ({
 
 describe("appwrite", () => {
   const originalEnv = process.env;
-  let appwriteModule: any;
+  let appwriteModule: Record<string, (...args: unknown[]) => unknown>;
 
   beforeEach(() => {
     jest.resetModules();

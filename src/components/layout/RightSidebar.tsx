@@ -40,6 +40,41 @@ function xpRank(xp: number): string {
   return "Visitor";
 }
 
+/** Reusable key-value row for the profile stats list. */
+function StatRow({
+  label,
+  value,
+  title,
+  truncate,
+  mono,
+  capitalize,
+}: {
+  label: string;
+  value: string | number;
+  title?: string;
+  truncate?: boolean;
+  mono?: boolean;
+  capitalize?: boolean;
+}) {
+  const ddClass = [
+    "font-medium",
+    truncate && "truncate max-w-[165px]",
+    mono && "font-mono text-[10px]",
+    capitalize && "capitalize",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return (
+    <div className="flex justify-between gap-2">
+      <dt className="text-on-surface-variant">{label}</dt>
+      <dd className={ddClass} title={title}>
+        {value}
+      </dd>
+    </div>
+  );
+}
+
 export default function RightSidebar({
   userName = "Guest",
   userInitials = "GU",
@@ -94,58 +129,18 @@ export default function RightSidebar({
 
         {isLoggedIn && (
           <dl className="mt-4 space-y-1.5 text-xs">
-            <div className="flex justify-between gap-2">
-              <dt className="text-on-surface-variant">Member since</dt>
-              <dd className="font-medium">{joinedDate}</dd>
-            </div>
-            <div className="flex justify-between gap-2">
-              <dt className="text-on-surface-variant">Email</dt>
-              <dd className="font-medium truncate max-w-[165px]" title={profile?.email ?? ""}>
-                {profile?.email ?? "—"}
-              </dd>
-            </div>
-            <div className="flex justify-between gap-2">
-              <dt className="text-on-surface-variant">User ID</dt>
-              <dd className="font-mono text-[10px] truncate max-w-[165px]" title={profile?.id ?? ""}>
-                {profile?.id ?? "—"}
-              </dd>
-            </div>
-            <div className="flex justify-between gap-2">
-              <dt className="text-on-surface-variant">Role</dt>
-              <dd className="font-medium">{displayRole}</dd>
-            </div>
-            <div className="flex justify-between gap-2">
-              <dt className="text-on-surface-variant">Rank</dt>
-              <dd className="font-medium">{rank}</dd>
-            </div>
-            <div className="flex justify-between gap-2">
-              <dt className="text-on-surface-variant">Tier</dt>
-              <dd className="font-medium capitalize">{profile?.tier ?? "bronze"}</dd>
-            </div>
-            <div className="flex justify-between gap-2">
-              <dt className="text-on-surface-variant">XP</dt>
-              <dd className="font-medium">{xpScore}</dd>
-            </div>
-            <div className="flex justify-between gap-2">
-              <dt className="text-on-surface-variant">Uploads</dt>
-              <dd className="font-medium">{profile?.total_uploads ?? 0}</dd>
-            </div>
-            <div className="flex justify-between gap-2">
-              <dt className="text-on-surface-variant">Approved</dt>
-              <dd className="font-medium">{profile?.approved_upload_count ?? profile?.approved_count ?? 0}</dd>
-            </div>
-            <div className="flex justify-between gap-2">
-              <dt className="text-on-surface-variant">Approval</dt>
-              <dd className="font-medium">{profile?.approval_pct ?? 0}%</dd>
-            </div>
-            <div className="flex justify-between gap-2">
-              <dt className="text-on-surface-variant">Streak</dt>
-              <dd className="font-medium">{streakDays}d</dd>
-            </div>
-            <div className="flex justify-between gap-2">
-              <dt className="text-on-surface-variant">Credits</dt>
-              <dd className="font-medium">{profile?.ai_credits ?? 0}</dd>
-            </div>
+            <StatRow label="Member since" value={joinedDate} />
+            <StatRow label="Email" value={profile?.email ?? "—"} title={profile?.email ?? ""} truncate />
+            <StatRow label="User ID" value={profile?.id ?? "—"} title={profile?.id ?? ""} mono truncate />
+            <StatRow label="Role" value={displayRole} />
+            <StatRow label="Rank" value={rank} />
+            <StatRow label="Tier" value={profile?.tier ?? "bronze"} capitalize />
+            <StatRow label="XP" value={xpScore} />
+            <StatRow label="Uploads" value={profile?.total_uploads ?? 0} />
+            <StatRow label="Approved" value={profile?.approved_upload_count ?? profile?.approved_count ?? 0} />
+            <StatRow label="Approval" value={`${profile?.approval_pct ?? 0}%`} />
+            <StatRow label="Streak" value={`${streakDays}d`} />
+            <StatRow label="Credits" value={profile?.ai_credits ?? 0} />
           </dl>
         )}
 
