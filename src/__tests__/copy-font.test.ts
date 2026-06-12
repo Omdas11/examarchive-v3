@@ -21,9 +21,9 @@ function runScript() {
 }
 
 describe('scripts/copy-font.js', () => {
-  let originalConsoleLog: any;
-  let originalConsoleWarn: any;
-  let originalConsoleError: any;
+  let originalConsoleLog: typeof console.log;
+  let originalConsoleWarn: typeof console.warn;
+  let originalConsoleError: typeof console.error;
 
   beforeEach(() => {
     // Silence console output during tests
