@@ -202,7 +202,7 @@ export default async function ProfilePage() {
         roleLabel={roleDisplayLabel}
         rankLabel={currentRank}
         tierLabel={tier}
-        xoScore={xpScore}
+        xpScore={xpScore}
         approvedCount={approvedCount}
         totalUploads={totalUploads}
         streakDays={streakDays}
