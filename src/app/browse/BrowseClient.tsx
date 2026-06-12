@@ -148,7 +148,7 @@ export default function BrowseClient({
     }
 
     if (!myCoursesActive && activeUniversity) {
-      list = list.filter((p) => p.institution === activeUniversity);
+      list = list.filter((p) => p.institute === activeUniversity);
     }
 
     switch (sortKey) {

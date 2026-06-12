@@ -33,7 +33,7 @@ describe("toPaper", () => {
     expect(paper.title).toBe("Sample Paper");
     expect(paper.year).toBe(2023);
     expect(paper.approved).toBe(true);
-    expect(paper.institution).toBe("Test Institute");
+    expect(paper.institute).toBe("Test Institute");
     expect(paper.marks).toBe(100);
     expect(paper.view_count).toBe(10);
   });
@@ -75,7 +75,7 @@ describe("toPaper", () => {
     expect(paper.course_code).toBe("FB101");
     expect(paper.department).toBe("Fallback Subject");
     expect(paper.approved).toBe(true);
-    expect(paper.institution).toBe("Fallback Uni");
+    expect(paper.institute).toBe("Fallback Uni");
   });
 
   it("handles missing optional numbers with defaults", () => {

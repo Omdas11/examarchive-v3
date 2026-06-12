@@ -211,13 +211,13 @@ export async function POST(request: NextRequest) {
       }
       try {
         const doc = await db.getDocument(DATABASE_ID, COLLECTION.users, userId);
-        const currentXo = (doc.xo as number) ?? (doc.xp as number) ?? 0;
+        const currentXp = (doc.xp as number) ?? 0;
         const isAdd = action === "xo_add" || action === "xp_add";
-        const newXo = isAdd ? Math.max(0, currentXo + amount) : Math.max(0, amount);
-        await db.updateDocument(DATABASE_ID, COLLECTION.users, userId, { xo: newXo });
+        const newXp = isAdd ? Math.max(0, currentXp + amount) : Math.max(0, amount);
+        await db.updateDocument(DATABASE_ID, COLLECTION.users, userId, { xp: newXp });
         return NextResponse.json({
           success: true,
-          message: `XO ${isAdd ? "adjusted" : "set"} to ${newXo} for user ${userId}.`,
+          message: `XP ${isAdd ? "adjusted" : "set"} to ${newXp} for user ${userId}.`,
         });
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -242,8 +242,7 @@ export async function POST(request: NextRequest) {
         // As a compromise, we'll reset only the first chunk. To fix properly, we'd need a cursor.
         // But for Devtools, we'll just process the chunk.
         for (const doc of documents) {
-          const updatePayload: { xo: number; streak?: number; streak_days?: number } = { xo: 0 };
-          if ("streak" in doc) updatePayload.streak = 0;
+          const updatePayload: { xp: number; streak_days?: number } = { xp: 0 };
           if ("streak_days" in doc) updatePayload.streak_days = 0;
           await db.updateDocument(DATABASE_ID, COLLECTION.users, doc.$id, updatePayload);
           updated++;
@@ -251,7 +250,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
           success: true,
           hasMore: false, // Disabling recursive calls for this specific endpoint as it lacks cursor support right now
-          message: `Reset XO and streak for ${updated} user${updated !== 1 ? "s" : ""} (first chunk).`,
+          message: `Reset XP and streak for ${updated} user${updated !== 1 ? "s" : ""} (first chunk).`,
         });
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);

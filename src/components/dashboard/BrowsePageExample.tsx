@@ -62,7 +62,7 @@ type PaperApiItem = Partial<PaperItem> & {
   view_count?: number;
   download_count?: number;
   approved?: boolean;
-  institution?: string;
+  institute?: string;
   department?: string;
   paper_type?: string;
 };
@@ -90,7 +90,7 @@ export default function BrowsePageExample() {
           views: doc.views ?? doc.view_count ?? 0,
           downloads: doc.downloads ?? doc.download_count ?? 0,
           verified: doc.verified ?? doc.approved ?? false,
-          university: doc.university ?? doc.institution ?? doc.department ?? "Unknown",
+          university: doc.university ?? doc.institute ?? doc.department ?? "Unknown",
           category: doc.category ?? doc.paper_type ?? "Question Paper",
         }));
         setPapers(mapped);

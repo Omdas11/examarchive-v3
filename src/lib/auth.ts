@@ -63,7 +63,7 @@ async function updateDailyStreak(
     }
 
     await db.updateDocument(DATABASE_ID, COLLECTION.users, profileId, {
-      streak: newStreak,
+      streak_days: newStreak,
       last_activity: now.toISOString(),
     });
   } catch {
@@ -87,7 +87,7 @@ async function evaluateXpAndPromotion(
     const uploadCount = (profile.upload_count as number) ?? 0;
     const currentRole = normalizeRole((profile.role as string) ?? "student");
     const currentTier = (profile.tier as string) ?? "bronze";
-    const currentXo = ((profile.xo as number) ?? (profile.xp as number) ?? 0);
+    const currentXp = (profile.xp as number) ?? 0;
     const createdAt = typeof profile.$createdAt === "string" ? profile.$createdAt : "";
     const accountAgeDays = createdAt
       ? Math.floor((Date.now() - new Date(createdAt).getTime()) / 86_400_000)
@@ -97,7 +97,7 @@ async function evaluateXpAndPromotion(
 
     if (
       currentRole === "student" &&
-      currentXo >= ROLE_XO_THRESHOLDS.contributor &&
+      currentXp >= ROLE_XO_THRESHOLDS.contributor &&
       uploadCount >= 2 &&
       accountAgeDays >= 3
     ) {
@@ -106,7 +106,7 @@ async function evaluateXpAndPromotion(
 
     if (
       currentRole === "contributor" &&
-      currentXo >= ROLE_XO_THRESHOLDS.specialist &&
+      currentXp >= ROLE_XO_THRESHOLDS.specialist &&
       uploadCount >= 10 &&
       !hasActiveAbuseFlag
     ) {
@@ -178,13 +178,13 @@ export async function getServerUser(): Promise<UserProfile | null> {
       const profile = await db.getDocument(DATABASE_ID, COLLECTION.users, user.$id);
       const rawSecondary = profile.secondary_role ?? null;
       const rawTier = profile.tier ?? "bronze";
-      const currentStreak = (profile.streak as number) ?? 0;
+      const currentStreak = (profile.streak_days as number) ?? 0;
       const lastActivity = (profile.last_activity as string) ?? "";
       // Update daily streak (no-op when already recorded today)
       void updateDailyStreak(db, profile.$id, currentStreak, lastActivity);
       // Evaluate XO and auto-promotion on each login/page load
       void evaluateXpAndPromotion(db, profile as Record<string, unknown>);
-      const xo = ((profile.xo as number) ?? (profile.xp as number) ?? 0);
+      const xp = (profile.xp as number) ?? 0;
       return {
         id: profile.$id,
         email: (profile.email as string) ?? user.email,
@@ -196,13 +196,10 @@ export async function getServerUser(): Promise<UserProfile | null> {
         role: normalizeRole((profile.role as string) ?? "student"),
         secondary_role: isValidCustomRole(rawSecondary) ? rawSecondary : null,
         tier: isValidTier(rawTier) ? rawTier : "bronze",
-        xo,
-        // Keep xp mirrored for backward-compatible consumers during XO rollout.
-        xp: xo,
+        xp,
         specialist_subject: (profile.specialist_subject as string) ?? null,
         subject_admin_subject: (profile.subject_admin_subject as string) ?? null,
         ai_credits: (profile.ai_credits as number) ?? 0,
-        // DB field is `streak`; TypeScript property is `streak_days`
         streak_days: currentStreak,
         last_activity: lastActivity,
         created_at: profile.$createdAt,
@@ -222,13 +219,13 @@ export async function getServerUser(): Promise<UserProfile | null> {
       const profile = documents[0];
       const rawSecondary = profile.secondary_role ?? null;
       const rawTier = profile.tier ?? "bronze";
-      const currentStreak = (profile.streak as number) ?? 0;
+      const currentStreak = (profile.streak_days as number) ?? 0;
       const lastActivity = (profile.last_activity as string) ?? "";
       // Update daily streak (no-op when already recorded today)
       void updateDailyStreak(db, profile.$id, currentStreak, lastActivity);
       // Evaluate XO and auto-promotion on each login/page load
       void evaluateXpAndPromotion(db, profile as Record<string, unknown>);
-      const xo = ((profile.xo as number) ?? (profile.xp as number) ?? 0);
+      const xp = (profile.xp as number) ?? 0;
       // Return the actual document ID (which may differ from Auth user ID)
       return {
         id: profile.$id,
@@ -240,9 +237,7 @@ export async function getServerUser(): Promise<UserProfile | null> {
         role: normalizeRole((profile.role as string) ?? "student"),
         secondary_role: isValidCustomRole(rawSecondary) ? rawSecondary : null,
         tier: isValidTier(rawTier) ? rawTier : "bronze",
-        xo,
-        // Keep xp mirrored for backward-compatible consumers during XO rollout.
-        xp: xo,
+        xp,
         specialist_subject: (profile.specialist_subject as string) ?? null,
         subject_admin_subject: (profile.subject_admin_subject as string) ?? null,
         ai_credits: (profile.ai_credits as number) ?? 0,
@@ -264,8 +259,8 @@ export async function getServerUser(): Promise<UserProfile | null> {
           role: "student",
           display_name: "",
           username: "",
-          xo: 0,
-          streak: 0,
+          xp: 0,
+          streak_days: 0,
           upload_count: 0,
           secondary_role: null,
           tertiary_role: null,
@@ -290,7 +285,6 @@ export async function getServerUser(): Promise<UserProfile | null> {
         role: "student" as UserRole,
         secondary_role: null,
         tier: "bronze" as UserTier,
-        xo: 0,
         xp: 0,
         specialist_subject: null,
         subject_admin_subject: null,
@@ -307,7 +301,7 @@ export async function getServerUser(): Promise<UserProfile | null> {
         const existing = await db.getDocument(DATABASE_ID, COLLECTION.users, user.$id);
         const rawSecondary = existing.secondary_role ?? null;
         const rawTier = existing.tier ?? "bronze";
-        const xo = ((existing.xo as number) ?? (existing.xp as number) ?? 0);
+        const xp = (existing.xp as number) ?? 0;
         return {
           id: existing.$id,
           email: (existing.email as string) ?? user.email,
@@ -318,13 +312,11 @@ export async function getServerUser(): Promise<UserProfile | null> {
           role: normalizeRole((existing.role as string) ?? "student"),
           secondary_role: isValidCustomRole(rawSecondary) ? rawSecondary : null,
           tier: isValidTier(rawTier) ? rawTier : "bronze",
-          xo,
-          // Keep xp mirrored for backward-compatible consumers during XO rollout.
-          xp: xo,
+          xp,
           specialist_subject: (existing.specialist_subject as string) ?? null,
           subject_admin_subject: (existing.subject_admin_subject as string) ?? null,
           ai_credits: (existing.ai_credits as number) ?? 0,
-          streak_days: (existing.streak as number) ?? 0,
+          streak_days: (existing.streak_days as number) ?? 0,
           last_activity: (existing.last_activity as string) ?? "",
           created_at: existing.$createdAt,
         };
@@ -409,9 +401,8 @@ export async function getExtendedServerUser(): Promise<ExtendedUserProfile | nul
       secondary_role: secondaryRole,
       tertiary_role: tertiaryRole,
       tier,
-      xo: ((profile.xo as number) ?? (profile.xp as number) ?? 0),
-      xp: ((profile.xo as number) ?? (profile.xp as number) ?? 0),
-      streak_days: (profile.streak as number) ?? 0,
+      xp: (profile.xp as number) ?? 0,
+      streak_days: (profile.streak_days as number) ?? 0,
       last_activity: (profile.last_activity as string) ?? "",
       achievements,
       created_at: profile.$createdAt,

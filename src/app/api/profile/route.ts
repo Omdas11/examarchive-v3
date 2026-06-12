@@ -151,13 +151,13 @@ export async function GET() {
   let username_last_changed: string | null = null;
   let approved_upload_count = 0;
   let total_uploads = 0;
-  let dbXo = user.xo;
+  let dbXp = user.xp;
   try {
     const db = adminDatabases();
     const profile = await db.getDocument(DATABASE_ID, COLLECTION.users, user.id);
     username_last_changed = (profile.username_last_changed as string) ?? null;
     approved_upload_count = (profile.upload_count as number) ?? 0;
-    dbXo = (profile.xo as number) ?? (profile.xp as number) ?? user.xo;
+    dbXp = (profile.xp as number) ?? user.xp;
     
     // Count only moderated uploads (papers + syllabus) to match upload_count logic.
     // Notes are tracked in uploads but don't increment upload_count, so we count
@@ -194,8 +194,7 @@ export async function GET() {
     avatar_url: user.avatar_url,
     role: user.role,
     tier: user.tier ?? "bronze",
-    xp: dbXo,
-    xo: dbXo,
+    xp: dbXp,
     streak_days: user.streak_days,
     last_activity: user.last_activity,
     created_at: user.created_at,

@@ -120,9 +120,9 @@ export default function PaperCard({ paper }: PaperCardProps) {
               Sem {semRoman}
             </span>
           )}
-          {paper.institution && (
+          {paper.institute && (
             <span className="inline-flex items-center gap-1 rounded-full bg-surface-container-high px-2.5 py-1 text-on-surface-variant">
-              {paper.institution}
+              {paper.institute}
             </span>
           )}
           {paper.marks != null && (

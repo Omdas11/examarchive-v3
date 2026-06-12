@@ -48,11 +48,11 @@ async function incrementUploadCount(
     const currentCount = ((profile.upload_count as number) ?? 0) + 1;
     const update: Record<string, unknown> = { upload_count: currentCount };
 
-    // ── XO grant ──────────────────────────────────────────────────────────
-    let xoGain = XP_PER_APPROVED_UPLOAD;
-    if (currentCount === 1) xoGain += XP_FIRST_UPLOAD_BONUS; // first upload bonus
-    const nextXo = ((profile.xo as number) ?? (profile.xp as number) ?? 0) + xoGain;
-    update.xo = nextXo;
+    // ── XP grant ──────────────────────────────────────────────────────────
+    let xpGain = XP_PER_APPROVED_UPLOAD;
+    if (currentCount === 1) xpGain += XP_FIRST_UPLOAD_BONUS; // first upload bonus
+    const nextXp = ((profile.xp as number) ?? 0) + xpGain;
+    update.xp = nextXp;
 
     // ── Streak update ─────────────────────────────────────────────────────
     const now = new Date();
@@ -60,7 +60,7 @@ async function incrementUploadCount(
     const lastActivity = (profile.last_activity as string) ?? "";
     const lastDate = lastActivity ? lastActivity.slice(0, 10) : "";
 
-    const prevStreak = (profile.streak as number) ?? 0;
+    const prevStreak = (profile.streak_days as number) ?? 0;
     let streak = prevStreak;
     if (lastDate === todayStr) {
       // already active today — no streak change
@@ -73,14 +73,14 @@ async function incrementUploadCount(
       streak = 1;
     }
 
-    // Streak milestone XO bonuses — award when crossing the threshold
+    // Streak milestone XP bonuses — award when crossing the threshold
     if (prevStreak < 7 && streak >= 7) {
-      update.xo = (update.xo as number) + XP_STREAK_7_DAY_BONUS;
+      update.xp = (update.xp as number) + XP_STREAK_7_DAY_BONUS;
     } else if (prevStreak < 30 && streak >= 30) {
-      update.xo = (update.xo as number) + XP_STREAK_30_DAY_BONUS;
+      update.xp = (update.xp as number) + XP_STREAK_30_DAY_BONUS;
     }
 
-    update.streak = streak;
+    update.streak_days = streak;
     update.last_activity = now.toISOString();
 
     const currentRole = normalizeRole((profile.role as string) ?? "viewer");
@@ -91,7 +91,7 @@ async function incrementUploadCount(
     if (
       currentRole === "viewer" &&
       currentCount >= VIEWER_TO_CONTRIBUTOR_UPLOAD_THRESHOLD &&
-      nextXo >= VIEWER_TO_CONTRIBUTOR_XO_THRESHOLD &&
+      nextXp >= VIEWER_TO_CONTRIBUTOR_XO_THRESHOLD &&
       accountAgeDays >= VIEWER_TO_CONTRIBUTOR_ACCOUNT_AGE_DAYS
     ) {
       update.role = "contributor";
@@ -99,7 +99,7 @@ async function incrementUploadCount(
     if (
       currentRole === "contributor" &&
       currentCount >= CONTRIBUTOR_TO_CURATOR_UPLOAD_THRESHOLD &&
-      nextXo >= CONTRIBUTOR_TO_CURATOR_XO_THRESHOLD &&
+      nextXp >= CONTRIBUTOR_TO_CURATOR_XO_THRESHOLD &&
       !Boolean(profile.abuse_flag)
     ) {
       update.role = "curator";

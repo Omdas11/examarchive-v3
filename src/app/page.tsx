@@ -117,7 +117,7 @@ const getHomepageData = unstable_cache(
       const allPapers: Paper[] = [];
       const addInstitutions = (papers: Paper[]) => {
         for (const paper of papers) {
-          const institution = paper.institution?.trim();
+          const institution = paper.institute?.trim();
           if (institution) universitiesSet.add(institution);
         }
       };

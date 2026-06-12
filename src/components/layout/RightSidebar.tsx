@@ -14,7 +14,6 @@ export interface SidebarProfileResponse {
   role: string;
   tier: string;
   xp: number;
-  xo: number;
   streak_days: number;
   created_at: string;
   approved_upload_count: number;
@@ -31,13 +30,13 @@ interface RightSidebarProps {
   profileData?: SidebarProfileResponse | null;
 }
 
-function xoRank(xo: number): string {
-  if (xo >= 5000) return "Legend";
-  if (xo >= 3000) return "Elite";
-  if (xo >= 1500) return "Senior";
-  if (xo >= 800) return "Veteran";
-  if (xo >= 300) return "Contributor";
-  if (xo >= 100) return "Explorer";
+function xpRank(xp: number): string {
+  if (xp >= 5000) return "Legend";
+  if (xp >= 3000) return "Elite";
+  if (xp >= 1500) return "Senior";
+  if (xp >= 800) return "Veteran";
+  if (xp >= 300) return "Contributor";
+  if (xp >= 100) return "Explorer";
   return "Visitor";
 }
 
@@ -61,8 +60,8 @@ export default function RightSidebar({
   const username = profile?.username ? `@${profile.username}` : null;
   const displayRole = roleLabel(profile?.role);
   const normalizedRole = normalizeRole(profile?.role);
-  const xoScore = profile?.xo ?? profile?.xp ?? 0;
-  const rank = xoRank(xoScore);
+  const xpScore = profile?.xp ?? 0;
+  const rank = xpRank(xpScore);
   const streakDays = profile?.streak_days ?? 0;
 
   return (
@@ -124,8 +123,8 @@ export default function RightSidebar({
               <dd className="font-medium capitalize">{profile?.tier ?? "bronze"}</dd>
             </div>
             <div className="flex justify-between gap-2">
-              <dt className="text-on-surface-variant">XO</dt>
-              <dd className="font-medium">{xoScore}</dd>
+              <dt className="text-on-surface-variant">XP</dt>
+              <dd className="font-medium">{xpScore}</dd>
             </div>
             <div className="flex justify-between gap-2">
               <dt className="text-on-surface-variant">Uploads</dt>

@@ -150,9 +150,9 @@ export default async function ProfilePage() {
   });
 
   const tier = (user.tier ?? "bronze") as import("@/types").UserTier;
-  const xoScore = user.xo ?? user.xp;
-  const { progress: xpPercent, nextXp: nextXo, nextLabel } = xpProgress(xoScore);
-  const currentRank = xpRank(xoScore);
+  const xpScore = user.xp;
+  const { progress: xpPercent, nextXp: nextXpLevel, nextLabel } = xpProgress(xpScore);
+  const currentRank = xpRank(xpScore);
 
   const streakDays = user.streak_days;
   const weekActive = getWeekActiveDays(streakDays, user.last_activity ?? "");
@@ -202,7 +202,7 @@ export default async function ProfilePage() {
         roleLabel={roleDisplayLabel}
         rankLabel={currentRank}
         tierLabel={tier}
-        xoScore={xoScore}
+        xoScore={xpScore}
         approvedCount={approvedCount}
         totalUploads={totalUploads}
         streakDays={streakDays}
@@ -265,8 +265,8 @@ export default async function ProfilePage() {
           {/* ── XP progress bar (animated, no overflow pips) ── */}
             <XPBar
               percent={xpPercent}
-              leftLabel={`${xoScore} XO · ${xpLabel}`}
-              rightLabel={nextXo && nextLabel ? `Next: ${nextLabel} (${nextXo} XO)` : undefined}
+              leftLabel={`${xpScore} XP · ${xpLabel}`}
+              rightLabel={nextXpLevel && nextLabel ? `Next: ${nextLabel} (${nextXpLevel} XP)` : undefined}
             />
 
           {/* ── Daily Streak ── */}
@@ -356,8 +356,8 @@ export default async function ProfilePage() {
               className="text-center py-4"
               style={{ borderTop: "1px solid var(--color-border)" }}
             >
-               <p className="text-3xl font-bold" style={{ color: "var(--color-primary)" }}>{xoScore}</p>
-               <p className="text-[11px] tracking-wider mt-1 uppercase" style={{ color: "var(--color-text-muted)" }}>XO</p>
+               <p className="text-3xl font-bold" style={{ color: "var(--color-primary)" }}>{xpScore}</p>
+               <p className="text-[11px] tracking-wider mt-1 uppercase" style={{ color: "var(--color-text-muted)" }}>XP</p>
             </div>
           </div>
         </div>

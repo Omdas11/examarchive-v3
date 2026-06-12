@@ -99,7 +99,7 @@ export default async function PaperPage({ params }: PaperPageProps) {
   const paperJsonLd = buildPaperJsonLd(paper);
 
   const metaBadges = [
-    paper.institution,
+    paper.institute,
     paper.programme,
     paper.department,
     semRoman ? `Sem ${semRoman}` : null,

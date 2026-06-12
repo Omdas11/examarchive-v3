@@ -74,7 +74,7 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
       else streamSet.add(p.department.toUpperCase());
     }
     if (p.paper_type) paperTypeSet.add(p.paper_type);
-    if (p.institution) universitySet.add(p.institution);
+    if (p.institute) universitySet.add(p.institute);
   }
   const availableYears = [...yearSet].sort((a, b) => b - a);
   const availableStreams = [...streamSet].sort();
