@@ -5,74 +5,84 @@
  * We dynamically require() the script so fs/path are mockable at the module level.
  */
 
-const fs = require('fs');
-const path = require('path');
-
 jest.mock('fs');
 jest.mock('path');
 
-beforeEach(() => {
-  jest.resetAllMocks();
-  // Default: path.join just concatenates with /
-  (path.join as jest.Mock).mockImplementation((...args: string[]) => args.join('/'));
-  // Silence console output during tests
-  jest.spyOn(console, 'log').mockImplementation(() => {});
-  jest.spyOn(console, 'warn').mockImplementation(() => {});
-  jest.spyOn(console, 'error').mockImplementation(() => {});
-});
-
-afterEach(() => {
-  jest.restoreAllMocks();
-});
+function setupMocks() {
+  jest.resetModules();
+  const fsMock = jest.requireMock('fs');
+  const pathMock = jest.requireMock('path');
+  (pathMock.join as jest.Mock).mockImplementation((...args: string[]) => args.join('/'));
+  return { fsMock, pathMock };
+}
 
 function runScript() {
-  // Clear module cache so script re-executes on each call
-  jest.resetModules();
-  jest.mock('fs');
-  jest.mock('path');
-  (path.join as jest.Mock).mockImplementation((...args: string[]) => args.join('/'));
   return require('../../scripts/copy-font.js');
 }
 
 describe('scripts/copy-font.js', () => {
+  let originalConsoleLog: any;
+  let originalConsoleWarn: any;
+  let originalConsoleError: any;
+
+  beforeEach(() => {
+    // Silence console output during tests
+    originalConsoleLog = console.log;
+    originalConsoleWarn = console.warn;
+    originalConsoleError = console.error;
+    console.log = jest.fn();
+    console.warn = jest.fn();
+    console.error = jest.fn();
+  });
+
+  afterEach(() => {
+    console.log = originalConsoleLog;
+    console.warn = originalConsoleWarn;
+    console.error = originalConsoleError;
+  });
+
   it('copies font when source exists and dest directory does not exist', () => {
-    (fs.existsSync as jest.Mock)
+    const { fsMock } = setupMocks();
+    (fsMock.existsSync as jest.Mock)
       .mockReturnValueOnce(true)   // source exists
       .mockReturnValueOnce(false); // destDir does not exist
-    (fs.mkdirSync as jest.Mock).mockReturnValue(undefined);
-    (fs.copyFileSync as jest.Mock).mockReturnValue(undefined);
+    (fsMock.mkdirSync as jest.Mock).mockReturnValue(undefined);
+    (fsMock.copyFileSync as jest.Mock).mockReturnValue(undefined);
 
     runScript();
 
-    expect(fs.mkdirSync).toHaveBeenCalled();
-    expect(fs.copyFileSync).toHaveBeenCalled();
+    expect(fsMock.mkdirSync).toHaveBeenCalled();
+    expect(fsMock.copyFileSync).toHaveBeenCalled();
   });
 
   it('copies font when source exists and dest directory already exists', () => {
-    (fs.existsSync as jest.Mock)
+    const { fsMock } = setupMocks();
+    (fsMock.existsSync as jest.Mock)
       .mockReturnValueOnce(true)  // source exists
       .mockReturnValueOnce(true); // destDir exists
-    (fs.copyFileSync as jest.Mock).mockReturnValue(undefined);
+    (fsMock.copyFileSync as jest.Mock).mockReturnValue(undefined);
 
     runScript();
 
-    expect(fs.mkdirSync).not.toHaveBeenCalled();
-    expect(fs.copyFileSync).toHaveBeenCalled();
+    expect(fsMock.mkdirSync).not.toHaveBeenCalled();
+    expect(fsMock.copyFileSync).toHaveBeenCalled();
   });
 
   it('skips copy when source does not exist', () => {
-    (fs.existsSync as jest.Mock).mockReturnValueOnce(false); // source does not exist
+    const { fsMock } = setupMocks();
+    (fsMock.existsSync as jest.Mock).mockReturnValueOnce(false); // source does not exist
 
     runScript();
 
-    expect(fs.copyFileSync).not.toHaveBeenCalled();
+    expect(fsMock.copyFileSync).not.toHaveBeenCalled();
   });
 
   it('sets exitCode to 1 when copyFileSync throws', () => {
-    (fs.existsSync as jest.Mock)
+    const { fsMock } = setupMocks();
+    (fsMock.existsSync as jest.Mock)
       .mockReturnValueOnce(true)  // source exists
       .mockReturnValueOnce(true); // destDir exists
-    (fs.copyFileSync as jest.Mock).mockImplementation(() => {
+    (fsMock.copyFileSync as jest.Mock).mockImplementation(() => {
       throw new Error('Permission denied');
     });
 
