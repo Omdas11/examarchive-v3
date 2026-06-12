@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { toPaper, toSyllabus, toActivityLog, toAdminUser } from "./index";
 
 describe("toPaper", () => {

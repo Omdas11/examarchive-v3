@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 jest.mock("node-appwrite", () => {
   const mockClientInstance = {
     setEndpoint: jest.fn().mockReturnThis(),
