@@ -19,6 +19,8 @@ import {
   DEFAULT_CREDITS,
 } from "@/lib/economy";
 
+import { headers } from "next/headers";
+
 /**
  * Server Action – initiate Google OAuth sign-in via Appwrite.
  * Redirects the user to the Google consent screen; on success Appwrite
@@ -30,9 +32,14 @@ import {
  * caused the "/login?error=NEXT_REDIRECT" regression.
  */
 export async function signInWithGoogle() {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
-  const successUrl = siteUrl ? `${siteUrl}/auth/callback` : "/auth/callback";
-  const failureUrl = siteUrl ? `${siteUrl}/login?error=oauth_failed` : "/login?error=oauth_failed";
+  const headersList = await headers();
+  const host = headersList.get("host");
+  const protocol = headersList.get("x-forwarded-proto") ?? (host?.includes("localhost") ? "http" : "https");
+  const fallbackSiteUrl = `${protocol}://${host}`;
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || fallbackSiteUrl;
+
+  const successUrl = `${siteUrl}/auth/callback`;
+  const failureUrl = `${siteUrl}/login?error=oauth_failed`;
 
   let oauthUrl = "";
   try {
@@ -66,7 +73,11 @@ export async function signInWithOtp(formData: FormData) {
     redirect("/login?error=email_required");
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+  const headersList = await headers();
+  const host = headersList.get("host");
+  const protocol = headersList.get("x-forwarded-proto") ?? (host?.includes("localhost") ? "http" : "https");
+  const fallbackSiteUrl = `${protocol}://${host}`;
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || fallbackSiteUrl;
 
   try {
     const client = createAdminClient();
@@ -74,7 +85,7 @@ export async function signInWithOtp(formData: FormData) {
     await account.createMagicURLToken(
       ID.unique(),
       email,
-      siteUrl ? `${siteUrl}/auth/callback` : undefined,
+      `${siteUrl}/auth/callback`,
     );
   } catch (err: unknown) {
     const message =
