@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient, Account } from "@/lib/appwrite";
 import { SESSION_COOKIE } from "@/lib/auth";
@@ -30,19 +31,19 @@ export async function GET(request: NextRequest) {
 
     // Ensure `next` is a relative path to prevent open-redirect attacks.
     const safePath = next.startsWith("/") ? next : "/";
-    const response = NextResponse.redirect(`${origin}${safePath}`);
 
     // Persist the session secret as an httpOnly cookie.
-    // MUST use response.cookies in Route Handlers, NOT cookies() from next/headers.
-    response.cookies.set(SESSION_COOKIE, session.secret, {
+    // Use cookies() from next/headers to ensure it persists in the App Router.
+    const cookieStore = await cookies();
+    cookieStore.set(SESSION_COOKIE, session.secret, {
       path: "/",
       httpOnly: true,
-      secure: true,
+      secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       maxAge: 60 * 60 * 24 * 365,
     });
 
-    return response;
+    return NextResponse.redirect(`${origin}${safePath}`);
   } catch (err: unknown) {
     const message =
       err instanceof Error ? err.message : String(err);
