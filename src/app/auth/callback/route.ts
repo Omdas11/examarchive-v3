@@ -43,7 +43,33 @@ export async function GET(request: NextRequest) {
       maxAge: 60 * 60 * 24 * 365,
     });
 
-    return NextResponse.redirect(`${origin}${safePath}`);
+    // Break the redirect chain with an HTML response.
+    // Some browsers (like Safari and newer Chrome) drop Set-Cookie headers on 30x redirects
+    // if the redirect chain started cross-site (e.g. from Google OAuth -> Appwrite -> here).
+    // Returning a 200 OK with a client-side redirect guarantees the cookie is saved.
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Signing in...</title>
+          <meta http-equiv="refresh" content="0;url=${safePath}">
+          <script>
+            window.location.replace("${safePath}");
+          </script>
+        </head>
+        <body style="font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0;">
+          <p>Completing your sign in...</p>
+        </body>
+      </html>
+    `;
+
+    return new NextResponse(html, {
+      status: 200,
+      headers: {
+        "Content-Type": "text/html",
+      },
+    });
   } catch (err: unknown) {
     const message =
       err instanceof Error ? err.message : String(err);
