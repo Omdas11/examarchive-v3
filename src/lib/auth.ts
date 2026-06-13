@@ -194,11 +194,20 @@ export async function getUser() {
 export async function getServerUser(): Promise<UserProfile | null> {
   try {
     const session = await getSessionSecret();
-    if (!session) return null;
+    if (!session) {
+      console.error("[auth] getServerUser: No session cookie found");
+      return null;
+    }
 
     const client = createSessionClient(session);
     const account = new Account(client);
-    const user = await account.get();
+    let user;
+    try {
+      user = await account.get();
+    } catch (err) {
+      console.error("[auth] getServerUser: account.get() failed", err);
+      return null;
+    }
 
     const db = adminDatabases();
 
@@ -287,7 +296,8 @@ export async function getServerUser(): Promise<UserProfile | null> {
         return null;
       }
     }
-  } catch {
+  } catch (outerErr) {
+    console.error("[auth] getServerUser: Unhandled error", outerErr);
     return null;
   }
 }
