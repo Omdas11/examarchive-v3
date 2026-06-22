@@ -53,9 +53,10 @@ function resolveDownloadUrl(paper: Paper): string {
   if (!url) return "#";
   // Append download hint if it's a relative URL
   try {
+    const isAbsolute = url.startsWith("http://") || url.startsWith("https://");
     const u = new URL(url, "https://x");
     u.searchParams.set("download", "1");
-    return url.startsWith("http") ? u.toString() : u.pathname + u.search;
+    return isAbsolute ? u.toString() : u.pathname + u.search;
   } catch {
     return url;
   }
@@ -74,10 +75,8 @@ export default function PaperCard({ paper }: PaperCardProps) {
   const downloadUrl = resolveDownloadUrl(paper);
 
   return (
-    <Link
-      href={`/paper/${paper.id}`}
-      className="group block overflow-hidden rounded-3xl border border-outline-variant/20 bg-surface shadow-lift transition-all duration-200 hover:-translate-y-1 hover:shadow-ambient focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
-      style={{ textDecoration: "none" }}
+    <div
+      className="group relative block overflow-hidden rounded-3xl border border-outline-variant/20 bg-surface shadow-lift transition-all duration-200 hover:-translate-y-1 hover:shadow-ambient"
     >
       {/* Coloured accent bar */}
       <div className="h-1 w-full" style={{ background: topGradient }} aria-hidden="true" />
@@ -122,8 +121,8 @@ export default function PaperCard({ paper }: PaperCardProps) {
             style={{
               background: "var(--brand-emerald-soft)",
               color: "var(--brand-emerald-dark)",
-              ringColor: "rgba(16,185,129,0.20)",
-            }}
+              "--tw-ring-color": "rgba(16,185,129,0.20)",
+            } as React.CSSProperties}
           >
             {paper.year > 0 ? paper.year : "PDF"}
           </div>
@@ -221,13 +220,12 @@ export default function PaperCard({ paper }: PaperCardProps) {
           </div>
 
           {/* Right: Open + Download buttons */}
-          <div className="flex items-center gap-2" onClick={(e) => e.preventDefault()}>
-            {/* Download button — stops propagation so card Link doesn't fire */}
+          <div className="flex items-center gap-2 relative z-20">
+            {/* Download button */}
             <a
               href={downloadUrl}
               download
               title="Download PDF"
-              onClick={(e) => e.stopPropagation()}
               className="inline-flex items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-bold transition-all active:scale-95 hover:opacity-80"
               style={{
                 background: "var(--color-border)",
@@ -257,6 +255,12 @@ export default function PaperCard({ paper }: PaperCardProps) {
           </div>
         </div>
       </div>
-    </Link>
+
+      <Link
+        href={`/paper/${paper.id}`}
+        className="absolute inset-0 z-10 rounded-3xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
+        aria-label={`View ${paper.title}`}
+      />
+    </div>
   );
 }
