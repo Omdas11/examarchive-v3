@@ -117,6 +117,7 @@ export async function GET(request: NextRequest) {
     const db = adminDatabases();
     const normalizedPaperCode = paperCode.toUpperCase();
     const filterQueries = [
+      Query.equal("status", "published"),
       university ? Query.equal("university", university) : null,
       course ? Query.equal("course", course) : null,
       stream ? Query.equal("stream", stream) : null,

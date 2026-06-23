@@ -12,6 +12,7 @@ export interface SyllabusTableRow {
   syllabus_content: string;
   lectures?: number;
   tags: string[];
+  status?: "pending" | "published";
 }
 
 export interface SyllabusTablePaperSummary {
@@ -65,6 +66,7 @@ export function toSyllabusTableRow(doc: Record<string, unknown>): SyllabusTableR
         ? doc.lectures
         : undefined,
     tags,
+    status: (doc.status === "pending" || doc.status === "published") ? doc.status : undefined,
   };
 }
 
