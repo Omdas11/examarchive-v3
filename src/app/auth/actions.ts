@@ -31,14 +31,19 @@ import { headers } from "next/headers";
  * internally. Catching that error and re-throwing it as a login error
  * caused the "/login?error=NEXT_REDIRECT" regression.
  */
-export async function signInWithGoogle() {
+export async function signInWithGoogle(redirectUrl?: string | null) {
   const headersList = await headers();
   const host = headersList.get("host");
   const protocol = headersList.get("x-forwarded-proto") ?? (host?.includes("localhost") ? "http" : "https");
   const fallbackSiteUrl = `${protocol}://${host}`;
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || fallbackSiteUrl;
 
-  const successUrl = `${siteUrl}/auth/callback`;
+  // Pass the redirect URL through the callback as ?next=
+  const callbackUrl = new URL(`${siteUrl}/auth/callback`);
+  if (redirectUrl) {
+    callbackUrl.searchParams.set("next", redirectUrl);
+  }
+  const successUrl = callbackUrl.toString();
   const failureUrl = `${siteUrl}/login?error=oauth_failed`;
 
   let oauthUrl = "";
@@ -73,11 +78,19 @@ export async function signInWithOtp(formData: FormData) {
     redirect("/login?error=email_required");
   }
 
+  const redirectUrl = (formData.get("redirectUrl") as string | null) ?? null;
+
   const headersList = await headers();
   const host = headersList.get("host");
   const protocol = headersList.get("x-forwarded-proto") ?? (host?.includes("localhost") ? "http" : "https");
   const fallbackSiteUrl = `${protocol}://${host}`;
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || fallbackSiteUrl;
+
+  // Pass the redirect URL through the callback as ?next=
+  const callbackUrl = new URL(`${siteUrl}/auth/callback`);
+  if (redirectUrl) {
+    callbackUrl.searchParams.set("next", redirectUrl);
+  }
 
   try {
     const client = createAdminClient();
@@ -85,7 +98,7 @@ export async function signInWithOtp(formData: FormData) {
     await account.createMagicURLToken(
       ID.unique(),
       email,
-      `${siteUrl}/auth/callback`,
+      callbackUrl.toString(),
     );
   } catch (err: unknown) {
     const message =

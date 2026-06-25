@@ -113,7 +113,7 @@ export default function LoginForm({
       <form
         action={async () => {
           setGooglePending(true);
-          await signInWithGoogle();
+          await signInWithGoogle(redirectUrl);
         }}
       >
         <button
@@ -207,6 +207,7 @@ export default function LoginForm({
       {/* Magic link form */}
       {mode === "magic" && (
         <form action={signInWithOtp} className="space-y-4">
+          {redirectUrl && <input type="hidden" name="redirectUrl" value={redirectUrl} />}
           <div>
             <label htmlFor="email-magic" className="mb-1.5 block text-xs font-medium" style={{ color: "var(--color-text-muted)" }}>
               Email address
@@ -281,6 +282,7 @@ export default function LoginForm({
       {/* Create account form */}
       {mode === "signup" && (
         <form action={signUp} className="space-y-4">
+          {redirectUrl && <input type="hidden" name="redirectUrl" value={redirectUrl} />}
           <div>
             <label htmlFor="email-signup" className="mb-1.5 block text-xs font-medium" style={{ color: "var(--color-text-muted)" }}>
               Email address
