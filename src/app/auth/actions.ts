@@ -120,6 +120,7 @@ export async function signInWithPassword(formData: FormData) {
     const cookieStore = await cookies();
     cookieStore.set(SESSION_COOKIE, session.secret, {
       path: "/",
+      domain: process.env.NODE_ENV === "production" ? ".examarchive.dev" : undefined,
       httpOnly: true,
       secure: true,
       sameSite: "lax",
@@ -141,7 +142,8 @@ export async function signInWithPassword(formData: FormData) {
     redirect(`/login?mode=signin&error=${encodeURIComponent(message)}`);
   }
 
-  redirect("/");
+  const redirectUrl = formData.get("redirectUrl") as string | null;
+  redirect(redirectUrl || "/");
 }
 
 /**
@@ -201,6 +203,7 @@ export async function signUp(formData: FormData) {
     const cookieStore = await cookies();
     cookieStore.set(SESSION_COOKIE, session.secret, {
       path: "/",
+      domain: process.env.NODE_ENV === "production" ? ".examarchive.dev" : undefined,
       httpOnly: true,
       secure: true,
       sameSite: "lax",
@@ -223,7 +226,8 @@ export async function signUp(formData: FormData) {
     redirect(`/login?mode=signup&error=${encodeURIComponent(message)}`);
   }
 
-  redirect("/");
+  const redirectUrl = formData.get("redirectUrl") as string | null;
+  redirect(redirectUrl || "/");
 }
 
 /**

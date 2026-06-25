@@ -43,6 +43,7 @@ interface LoginFormProps {
   isRateLimit: boolean;
   message: string | null;
   initialMode: Mode;
+  redirectUrl?: string | null;
 }
 
 export default function LoginForm({
@@ -50,6 +51,7 @@ export default function LoginForm({
   isRateLimit,
   message,
   initialMode,
+  redirectUrl,
 }: LoginFormProps) {
   const [mode, setMode] = useState<Mode>(initialMode);
   useEffect(() => { setMode(initialMode); }, [initialMode]);
@@ -250,6 +252,7 @@ export default function LoginForm({
               className="input-field"
             />
           </div>
+          {redirectUrl && <input type="hidden" name="redirectUrl" value={redirectUrl} />}
           <div>
             <label htmlFor="password-signin" className="mb-1.5 block text-xs font-medium" style={{ color: "var(--color-text-muted)" }}>
               Password
