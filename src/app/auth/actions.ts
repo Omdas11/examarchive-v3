@@ -259,7 +259,13 @@ export async function signOut() {
   } catch {
     // Session deletion may fail if already expired – continue to clear cookie
   } finally {
+    // Clear both the old cookie (no domain) and new cross-subdomain cookie
     cookieStore.delete(SESSION_COOKIE);
+    cookieStore.set(SESSION_COOKIE, "", {
+      path: "/",
+      domain: ".examarchive.dev",
+      maxAge: 0,
+    });
   }
 
   redirect("/");
