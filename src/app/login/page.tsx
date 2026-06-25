@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 type Mode = "magic" | "signin" | "signup";
 
 interface Props {
-  searchParams: Promise<{ error?: string; message?: string; mode?: string; ref?: string }>;
+  searchParams: Promise<{ error?: string; message?: string; mode?: string; ref?: string; redirect?: string }>;
 }
 
 const ERROR_MESSAGES: Record<string, string> = {
