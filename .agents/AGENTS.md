@@ -6,6 +6,15 @@ This file provides critical context, architecture, and recent updates for the Ex
 - **examarchive-v3**: The main repository (Next.js 15, Appwrite backend). Handles core features, user accounts, and authentication. Hosted at `examarchive.dev`.
 - **examarchive-syllabus**: A secondary repository (Next.js) for hosting Syllabus MDX files. Hosted at `syllabus.examarchive.dev`.
 
+## What This Website Serves
+ExamArchive is a collaborative, open-source educational platform primarily targeted at university students (e.g. Assam University). Its core purpose is to digitize, archive, and provide easy access to academic resources.
+
+**Core Features & Domain Knowledge:**
+- **Previous Year Question Papers (PYQs)**: Students can browse, upload, and download past examination papers. The platform uses an economy system (credits) to incentivize uploads.
+- **Syllabus Vault**: A dedicated repository for university course syllabi. Syllabi are typically stored as structured markdown/MDX files for easy reading, parsing, and eventual AI processing.
+- **AI Content**: Features geared toward generating study materials, summarizing syllabi, or assisting students using AI.
+- **Economy System**: Users have roles (student, moderator, admin, founder), earn XP/credits for contributions, and have tiers (e.g., bronze).
+
 ## Authentication Flow (Cross-Subdomain)
 We have a complex authentication architecture to allow seamless cross-subdomain logins without using the native Appwrite browser SDK cookies:
 
