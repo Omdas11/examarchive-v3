@@ -1,6 +1,7 @@
 # ExamArchive Ecosystem - Master Status
 
 *Project started on: March 1, 2026 (Approx. 4 months old)*
+*Note: `examarchive-v3` is the 3rd successful iteration of the original ExamArchive platform, continually evolving based on previous architectures.*
 
 This document tracks the high-level progress, completed features, known bugs, and next steps for the `examarchive-v3` and `examarchive-syllabus` repositories.
 
