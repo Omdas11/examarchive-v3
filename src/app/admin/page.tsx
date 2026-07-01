@@ -53,7 +53,7 @@ export default async function AdminPage() {
     // collection may not exist yet
   }
 
-  // Fetch pending syllabi for moderation
+  // Fetch pending PDF syllabi for moderation
   let pendingSyllabi: Syllabus[] = [];
   try {
     const { documents } = await db.listDocuments(
@@ -62,6 +62,19 @@ export default async function AdminPage() {
       [Query.equal("approval_status", "pending"), Query.orderDesc("$createdAt")],
     );
     pendingSyllabi = documents.map((d) => toSyllabus(d));
+  } catch {
+    // collection may not exist yet
+  }
+
+  // Fetch pending Vault (MDX) syllabi from Syllabus_Table
+  let pendingVaultCount = 0;
+  try {
+    const vaultRes = await db.listDocuments(
+      DATABASE_ID,
+      COLLECTION.syllabus_table,
+      [Query.equal("status", "pending"), Query.limit(1)],
+    );
+    pendingVaultCount = vaultRes.total;
   } catch {
     // collection may not exist yet
   }
@@ -97,7 +110,8 @@ export default async function AdminPage() {
   const stats = [
     { label: "Pending Papers", value: pending?.length ?? 0 },
     { label: "Approved", value: approvedCount ?? 0 },
-    { label: "Pending Syllabi", value: pendingSyllabi.length },
+    { label: "Pending Syllabi (PDF)", value: pendingSyllabi.length },
+    { label: "Pending Vault Submissions", value: pendingVaultCount },
     { label: "Users", value: users.length },
   ];
   const userName = user.name || user.username || "Scholar";

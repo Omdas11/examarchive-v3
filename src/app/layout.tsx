@@ -13,7 +13,8 @@ import GoogleAnalytics from "@/components/GoogleAnalytics";
 import SimpleAnalytics from "@/components/SimpleAnalytics";
 
 const SITE_URL = "https://www.examarchive.dev";
-const OG_IMAGE_URL = `${SITE_URL}/branding/logo.png`;
+const OG_IMAGE_URL = `${SITE_URL}/study-preview.png`;
+const LOGO_URL = `${SITE_URL}/branding/logo.png`;
 const SITE_NAME = "ExamArchive";
 const SITE_DESCRIPTION =
   "Browse, download, and contribute past exam papers and syllabi. Free community-driven archive for FYUGP students — starting with Haflong Government College.";
@@ -75,6 +76,13 @@ export const metadata: Metadata = {
     title: `${SITE_NAME} – Free Past Exam Papers & Syllabi`,
     description: SITE_DESCRIPTION,
     images: [OG_IMAGE_URL],
+  },
+  icons: {
+    icon: [
+      { url: '/branding/logo.png', type: 'image/png' },
+    ],
+    apple: '/branding/logo.png',
+    shortcut: '/branding/logo.png',
   },
   robots: {
     index: true,

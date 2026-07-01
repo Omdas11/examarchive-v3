@@ -403,7 +403,7 @@ export default function BrowseClient({
                   title="Hide this paper"
                   disabled={deleting === p.id}
                   onClick={() => handleSoftDelete(p.id)}
-                  className="absolute top-4 right-4 rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-widest shadow-lg opacity-0 group-hover:opacity-100 transition-all active:scale-90"
+                  className="absolute top-4 right-4 rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-widest shadow-lg opacity-0 group-hover:opacity-100 transition-all active:scale-90 z-[60]"
                   style={{
                     background: "var(--danger-red)",
                     color: "#fff",
