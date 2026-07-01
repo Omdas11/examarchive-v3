@@ -70,6 +70,7 @@ export default function Sidebar({
   );
 
   const isActive = (href: string) => {
+    if (href.startsWith('http')) return false;
     return pathname === href || pathname.startsWith(href + '/');
   };
 
@@ -159,54 +160,60 @@ export default function Sidebar({
         </button>
       </div>
 
-      {/* Navigation Items */}
       <nav className="flex-1 min-h-0 space-y-1.5 px-4 pb-4 overflow-y-auto scrollbar-hide" aria-label="Primary">
-        {visibleItems.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={() => onNavigate?.(item.href)}
-            className={cn(
-              'flex items-center gap-3 px-4 py-3.5 rounded-full',
-              'transition-all duration-200 ease-in-out',
-              'relative group',
-              isActive(item.href)
-                ? 'bg-primary text-on-primary font-bold shadow-floating'
-                : 'text-on-surface-variant hover:bg-surface-container-low hover:text-primary font-medium'
-            )}
-            title={isCollapsed ? item.label : undefined}
-            aria-label={isCollapsed ? item.label : undefined}
-          >
-            <span className="material-symbols-outlined flex-shrink-0 text-xl font-medium">
-              {item.icon}
-            </span>
+        {visibleItems.map((item) => {
+          const isExternal = item.href.startsWith('http');
+          const LinkComponent = isExternal ? 'a' : Link;
+          const linkProps = isExternal 
+            ? { href: item.href, target: '_blank', rel: 'noopener noreferrer' } 
+            : { href: item.href, onClick: () => onNavigate?.(item.href) };
 
-            {!isCollapsed && (
-              <>
-                <span className="flex-1 text-sm truncate">{item.label}</span>
-                {item.badge !== undefined && item.badge > 0 && (
-                  <span className="bg-secondary text-on-secondary text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
-                    {item.badge}
-                  </span>
-                )}
-              </>
-            )}
+          return (
+            <LinkComponent
+              key={item.href}
+              {...linkProps}
+              className={cn(
+                'flex items-center gap-3 px-4 py-3.5 rounded-full',
+                'transition-all duration-200 ease-in-out',
+                'relative group',
+                isActive(item.href)
+                  ? 'bg-primary text-on-primary font-bold shadow-floating'
+                  : 'text-on-surface-variant hover:bg-surface-container-low hover:text-primary font-medium'
+              )}
+              title={isCollapsed ? item.label : undefined}
+              aria-label={isCollapsed ? item.label : undefined}
+            >
+              <span className="material-symbols-outlined flex-shrink-0 text-xl font-medium">
+                {item.icon}
+              </span>
 
-            {/* Tooltip for collapsed state */}
-            {isCollapsed && (
-              <div
-                className={cn(
-                  'absolute left-full ml-4 px-3 py-1.5 bg-on-surface text-surface text-xs font-bold rounded-full shadow-lg',
-                  'opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity duration-200',
-                  'pointer-events-none whitespace-nowrap z-50 border border-outline-variant/20'
-                )}
-              >
-                {item.label}
-                {item.badge !== undefined && item.badge > 0 && ` (${item.badge})`}
-              </div>
-            )}
-          </Link>
-        ))}
+              {!isCollapsed && (
+                <>
+                  <span className="flex-1 text-sm truncate">{item.label}</span>
+                  {item.badge !== undefined && item.badge > 0 && (
+                    <span className="bg-secondary text-on-secondary text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+                      {item.badge}
+                    </span>
+                  )}
+                </>
+              )}
+
+              {/* Tooltip for collapsed state */}
+              {isCollapsed && (
+                <div
+                  className={cn(
+                    'absolute left-full ml-4 px-3 py-1.5 bg-on-surface text-surface text-xs font-bold rounded-full shadow-lg',
+                    'opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity duration-200',
+                    'pointer-events-none whitespace-nowrap z-50 border border-outline-variant/20'
+                  )}
+                >
+                  {item.label}
+                  {item.badge !== undefined && item.badge > 0 && ` (${item.badge})`}
+                </div>
+              )}
+            </LinkComponent>
+          );
+        })}
       </nav>
 
       {/* Bottom Actions */}
