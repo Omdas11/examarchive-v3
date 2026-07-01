@@ -44,3 +44,8 @@ We have a complex authentication architecture to allow seamless cross-subdomain 
 ## Agent Instructions
 - **Do not** attempt to fix auth by changing the Appwrite Web SDK in client components. The current flow relies on the Next.js `ea_session` cookie.
 - Before modifying authentication actions, verify both `signInWithPassword`, `signInWithOtp`, and `signInWithGoogle` to ensure redirect parameter handling is maintained.
+
+## Appwrite & DNS Troubleshooting
+- **Regional Endpoints**: Appwrite Cloud enforces regional routing. If the Vercel `APPWRITE_ENDPOINT` points to `cloud.appwrite.io/v1` but the project is in Singapore, it will throw `Project is not accessible in this region. Please make sure you are using the correct endpoint`. In this case, ensure Vercel uses `sgp.cloud.appwrite.io/v1` or the correctly mapped custom domain.
+- **Custom Domain Mismatches**: If you attempt to use a custom domain (e.g. `auth.examarchive.dev`) that is attached to an *older* Appwrite project while passing the *new* project ID, Appwrite will throw `Invalid redirect` on OAuth and magic links, or return region errors. Always ensure the custom domain is registered directly on the active Appwrite Project under Settings > Custom Domains.
+- **Cloudflare Proxying**: When registering a custom domain in Appwrite, the Cloudflare DNS record **must** be set to "DNS only" (Grey Cloud) temporarily (or permanently for Appwrite API domains). If it is "Proxied" (Orange Cloud), Cloudflare injects its own CAA records and SSL certificates, causing Appwrite's SSL generation and CAA DNS verification to fail.
