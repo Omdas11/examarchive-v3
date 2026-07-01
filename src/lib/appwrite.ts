@@ -137,23 +137,6 @@ export function createAdminClient(): Client {
 }
 
 /**
- * Create an Appwrite client WITHOUT an API key (Guest Client).
- * Used for creating user sessions (e.g. createEmailPasswordSession).
- */
-export function createGuestClient(): Client {
-  if (!APPWRITE_ENDPOINT || !APPWRITE_PROJECT_ID) {
-    throw new Error(
-      "Missing Appwrite environment variables: " +
-        "NEXT_PUBLIC_APPWRITE_ENDPOINT, NEXT_PUBLIC_APPWRITE_PROJECT_ID",
-    );
-  }
-
-  return new Client()
-    .setEndpoint(APPWRITE_ENDPOINT)
-    .setProject(APPWRITE_PROJECT_ID);
-}
-
-/**
  * Create an Appwrite client scoped to a user session.
  * Pass the session secret (from cookie) so the client acts on behalf of that user.
  */

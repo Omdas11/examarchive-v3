@@ -5,7 +5,6 @@ import { redirect } from "next/navigation";
 import {
   createAdminClient,
   createSessionClient,
-  createGuestClient,
   Account,
   ID,
   adminDatabases,
@@ -49,7 +48,7 @@ export async function signInWithGoogle(redirectUrl?: string | null) {
 
   let oauthUrl = "";
   try {
-    const client = createGuestClient();
+    const client = createAdminClient();
     const account = new Account(client);
     oauthUrl = await account.createOAuth2Token(
       OAuthProvider.Google,
@@ -94,7 +93,7 @@ export async function signInWithOtp(formData: FormData) {
   }
 
   try {
-    const client = createGuestClient();
+    const client = createAdminClient();
     const account = new Account(client);
     await account.createMagicURLToken(
       ID.unique(),
@@ -126,7 +125,7 @@ export async function signInWithPassword(formData: FormData) {
   }
 
   try {
-    const client = createGuestClient();
+    const client = createAdminClient();
     const account = new Account(client);
     const session = await account.createEmailPasswordSession(email, password);
 
@@ -211,10 +210,8 @@ export async function signUp(formData: FormData) {
       console.error("[auth] Profile creation during signup failed:", profileError);
     }
 
-    // Immediately sign in (using guest client to avoid region errors)
-    const guestClient = createGuestClient();
-    const guestAccount = new Account(guestClient);
-    const session = await guestAccount.createEmailPasswordSession(email, password);
+    // Immediately sign in
+    const session = await account.createEmailPasswordSession(email, password);
 
     const cookieStore = await cookies();
     cookieStore.set(SESSION_COOKIE, session.secret, {
