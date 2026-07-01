@@ -115,6 +115,12 @@ export const APP_SIDEBAR_ITEMS: AppSidebarItem[] = [
     roles: ALL_AUTHENTICATED_ROLES,
   },
   {
+    label: "Syllabus Verification",
+    icon: "fact_check",
+    href: "/admin/syllabus-verification",
+    roles: ["moderator", "founder", "admin", "maintainer"],
+  },
+  {
     label: "Manage Users",
     icon: "group",
     href: "/admin/users",

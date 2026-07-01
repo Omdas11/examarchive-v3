@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { PROFILE_REFRESH_EVENT } from '@/lib/profile-events';
 
 const RIGHT_SIDEBAR_WIDTH = '300px';
+const RIGHT_SIDEBAR_COLLAPSED_WIDTH = '48px';
 
 interface LayoutProps extends HeaderProps {
   children: React.ReactNode;
@@ -41,8 +42,21 @@ export default function MainLayout({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
+  const [isRightCollapsed, setIsRightCollapsed] = useState(false);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [sidebarProfile, setSidebarProfile] = useState<SidebarProfileResponse | null>(null);
+
+  // Persist right sidebar collapsed state
+  useEffect(() => {
+    const saved = localStorage.getItem('ea_right_sidebar_collapsed');
+    if (saved === 'true') setIsRightCollapsed(true);
+  }, []);
+
+  const handleRightCollapseToggle = () => {
+    const next = !isRightCollapsed;
+    setIsRightCollapsed(next);
+    localStorage.setItem('ea_right_sidebar_collapsed', String(next));
+  };
 
   useEffect(() => {
     if (!isLoggedIn || !showRightColumn) {
@@ -91,6 +105,12 @@ export default function MainLayout({
     setTouchStartX(null);
   };
 
+  const rightPadding = showRightColumn
+    ? isRightCollapsed
+      ? RIGHT_SIDEBAR_COLLAPSED_WIDTH
+      : RIGHT_SIDEBAR_WIDTH
+    : '0px';
+
   return (
     <div
       className="flex h-screen bg-surface"
@@ -98,7 +118,7 @@ export default function MainLayout({
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
-      {/* Sidebar */}
+      {/* Left Sidebar */}
       {!hideSidebar && (
         <div className="no-print">
           <Sidebar
@@ -121,13 +141,13 @@ export default function MainLayout({
       <main
         className={cn(
           'flex-1 flex flex-col overflow-hidden bg-surface text-on-surface',
-          showRightColumn && 'lg:pr-[var(--right-sidebar-width)]',
           !hideSidebar && (
             isCollapsed
               ? 'md:ml-20'
               : 'md:ml-64'
           )
         )}
+        style={showRightColumn ? { paddingRight: rightPadding } : undefined}
       >
         {/* Header */}
         {!hideHeader && (
@@ -148,18 +168,44 @@ export default function MainLayout({
           </div>
         </div>
       </main>
+
+      {/* Desktop Right Sidebar */}
       {showRightColumn && (
-        <aside className="hidden lg:block fixed right-0 bottom-0 w-[var(--right-sidebar-width)] z-20 border-l border-outline-variant/20 bg-surface overflow-y-auto" style={{ top: "var(--layout-header-height)" }}>
-          <div className="p-4">
-            <RightSidebar
-              userName={headerProps.userName || "Guest"}
-              userInitials={headerProps.userInitials || "GU"}
-              isLoggedIn={isLoggedIn}
-              profileData={sidebarProfile}
-            />
-          </div>
+        <aside
+          className={cn(
+            'hidden lg:flex flex-col fixed right-0 bottom-0 z-20 border-l border-outline-variant/20 bg-surface overflow-hidden transition-all duration-300',
+            isRightCollapsed ? 'w-12' : 'w-[300px]'
+          )}
+          style={{ top: 'var(--layout-header-height)' }}
+        >
+          {/* Collapse toggle button */}
+          <button
+            type="button"
+            onClick={handleRightCollapseToggle}
+            className="flex items-center justify-center w-full p-3 border-b border-outline-variant/10 hover:bg-surface-container-low transition-colors shrink-0"
+            aria-label={isRightCollapsed ? 'Expand profile sidebar' : 'Collapse profile sidebar'}
+            title={isRightCollapsed ? 'Expand profile sidebar' : 'Collapse profile sidebar'}
+          >
+            <span className="material-symbols-outlined text-on-surface-variant text-lg">
+              {isRightCollapsed ? 'chevron_left' : 'chevron_right'}
+            </span>
+          </button>
+
+          {/* Sidebar content — hidden when collapsed */}
+          {!isRightCollapsed && (
+            <div className="flex-1 overflow-y-auto p-4">
+              <RightSidebar
+                userName={headerProps.userName || 'Guest'}
+                userInitials={headerProps.userInitials || 'GU'}
+                isLoggedIn={isLoggedIn}
+                profileData={sidebarProfile}
+              />
+            </div>
+          )}
         </aside>
       )}
+
+      {/* Mobile Right Sidebar Drawer */}
       {showRightColumn && isRightSidebarOpen && (
         <>
           <div
@@ -180,8 +226,8 @@ export default function MainLayout({
                 </button>
               </div>
               <RightSidebar
-                userName={headerProps.userName || "Guest"}
-                userInitials={headerProps.userInitials || "GU"}
+                userName={headerProps.userName || 'Guest'}
+                userInitials={headerProps.userInitials || 'GU'}
                 isLoggedIn={isLoggedIn}
                 profileData={sidebarProfile}
               />
@@ -192,3 +238,4 @@ export default function MainLayout({
     </div>
   );
 }
+
