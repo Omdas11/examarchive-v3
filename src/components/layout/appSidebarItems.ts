@@ -43,9 +43,14 @@ export const APP_SIDEBAR_ITEMS: AppSidebarItem[] = [
     href: "/browse",
   },
   {
-    label: "Syllabus",
+    label: "Syllabus Library",
     icon: "menu_book",
     href: "/syllabus",
+  },
+  {
+    label: "Syllabus Vault",
+    icon: "import_contacts",
+    href: "https://syllabus.examarchive.dev",
   },
   {
     label: "AI Content",

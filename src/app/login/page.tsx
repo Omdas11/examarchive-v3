@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 type Mode = "magic" | "signin" | "signup";
 
 interface Props {
-  searchParams: Promise<{ error?: string; message?: string; mode?: string; ref?: string }>;
+  searchParams: Promise<{ error?: string; message?: string; mode?: string; ref?: string; redirect?: string }>;
 }
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -34,7 +34,7 @@ function resolveInitialMode(mode: string | undefined): Mode {
 }
 
 export default async function LoginPage({ searchParams }: Props) {
-  const { error, message, mode } = await searchParams;
+  const { error, message, mode, redirect: redirectParam } = await searchParams;
 
   const errorText = error
     ? (ERROR_MESSAGES[error] ?? decodeURIComponent(error))
@@ -73,6 +73,7 @@ export default async function LoginPage({ searchParams }: Props) {
             isRateLimit={isRateLimit}
             message={message ?? null}
             initialMode={initialMode}
+            redirectUrl={redirectParam ?? null}
           />
         </div>
 

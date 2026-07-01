@@ -29,14 +29,29 @@ export async function GET(request: NextRequest) {
     const account = new Account(client);
     const session = await account.createSession(userId, secret);
 
-    // Ensure `next` is a relative path to prevent open-redirect attacks.
-    const safePath = next.startsWith("/") ? next : "/";
+    // Determine safe redirect target.
+    // Allow relative paths and trusted *.examarchive.dev subdomains.
+    let safePath = "/";
+    if (next.startsWith("/")) {
+      safePath = next;
+    } else {
+      try {
+        const nextUrl = new URL(next);
+        if (nextUrl.hostname === "examarchive.dev" || nextUrl.hostname.endsWith(".examarchive.dev")) {
+          safePath = next; // full URL to a trusted subdomain
+        }
+      } catch {
+        // invalid URL, fall back to "/"
+      }
+    }
 
     // Persist the session secret as an httpOnly cookie.
-    // Use cookies() from next/headers to ensure it persists in the App Router.
+    // Use domain=".examarchive.dev" in production so the cookie is shared
+    // across all subdomains (e.g. syllabus.examarchive.dev).
     const cookieStore = await cookies();
     cookieStore.set(SESSION_COOKIE, session.secret, {
       path: "/",
+      domain: process.env.NODE_ENV === "production" ? ".examarchive.dev" : undefined,
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
@@ -47,15 +62,16 @@ export async function GET(request: NextRequest) {
     // Some browsers (like Safari and newer Chrome) drop Set-Cookie headers on 30x redirects
     // if the redirect chain started cross-site (e.g. from Google OAuth -> Appwrite -> here).
     // Returning a 200 OK with a client-side redirect guarantees the cookie is saved.
+    const escapedPath = safePath.replace(/"/g, "&quot;");
     const html = `
       <!DOCTYPE html>
       <html>
         <head>
           <meta charset="utf-8">
           <title>Signing in...</title>
-          <meta http-equiv="refresh" content="0;url=${safePath}">
+          <meta http-equiv="refresh" content="0;url=${escapedPath}">
           <script>
-            window.location.replace("${safePath}");
+            window.location.replace("${escapedPath}");
           </script>
         </head>
         <body style="font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0;">
