@@ -105,16 +105,15 @@ export default function MainLayout({
     setTouchStartX(null);
   };
 
-  const rightPadding = showRightColumn
-    ? isRightCollapsed
-      ? RIGHT_SIDEBAR_COLLAPSED_WIDTH
-      : RIGHT_SIDEBAR_WIDTH
-    : '0px';
+  const rightSidebarWidth = isRightCollapsed ? RIGHT_SIDEBAR_COLLAPSED_WIDTH : RIGHT_SIDEBAR_WIDTH;
 
   return (
     <div
       className="flex h-screen bg-surface"
-      style={{ ['--right-sidebar-width' as string]: RIGHT_SIDEBAR_WIDTH }}
+      style={{ 
+        '--right-sidebar-width': RIGHT_SIDEBAR_WIDTH,
+        '--current-right-padding': showRightColumn ? rightSidebarWidth : '0px'
+      } as React.CSSProperties}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
@@ -141,13 +140,13 @@ export default function MainLayout({
       <main
         className={cn(
           'flex-1 flex flex-col overflow-hidden bg-surface text-on-surface',
+          showRightColumn && 'lg:pr-[var(--current-right-padding)]',
           !hideSidebar && (
             isCollapsed
               ? 'md:ml-20'
               : 'md:ml-64'
           )
         )}
-        style={showRightColumn ? { paddingRight: rightPadding } : undefined}
       >
         {/* Header */}
         {!hideHeader && (
