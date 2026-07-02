@@ -66,7 +66,7 @@ function sanitizeDownloadFilename(name: string): string {
  * Returns null when the code doesn't match the expected pattern.
  */
 function deriveSemesterFromCode(paperCode: string): number | null {
-  const match = /^[A-Z]{3}(?:DSC|DSM|IDC|SEC|AEC|VAC)([1-8])\d{2}[ABC]?[TP]$/.exec(paperCode);
+  const match = /^[A-Z]{3}(?:DSC|DSM|IDC|SEC|AEC|VAC|MIL|SIC)([1-8])\d{2}[ABC]?[TP]?$/.exec(paperCode);
   if (match) return parseInt(match[1], 10);
   return null;
 }
