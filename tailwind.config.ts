@@ -180,6 +180,13 @@ const config: Config = {
         ".ghost-border-focus": {
           "@apply border border-outline-variant/30 shadow-focus": {},
         },
+        ".scrollbar-hide": {
+          "-ms-overflow-style": "none",  /* IE and Edge */
+          "scrollbar-width": "none",     /* Firefox */
+          "&::-webkit-scrollbar": {
+            display: "none",             /* Safari and Chrome */
+          }
+        },
       });
     },
   ],
