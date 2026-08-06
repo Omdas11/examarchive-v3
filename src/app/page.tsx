@@ -7,6 +7,7 @@ import HomeSearch from "@/components/HomeSearch";
 import PaperCard from "@/components/PaperCard";
 import AnimatedCounter from "@/components/AnimatedCounter";
 import DevProgressBar from "@/components/DevProgressBar";
+import ContributionBanner from "@/components/ContributionBanner";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import {
@@ -293,6 +294,9 @@ export default async function HomePage() {
         <div className="pt-16 md:pt-6">
           <DevProgressBar progress={launchProgress} />
         </div>
+
+        {/* ── Contribution & WhatsApp Notice Banner ── */}
+        <ContributionBanner />
 
         {/* ── Hero ── */}
         <section className="py-20 text-center rounded-[2.5rem] relative overflow-hidden mt-6 bg-surface shadow-ambient border border-outline-variant/5">
