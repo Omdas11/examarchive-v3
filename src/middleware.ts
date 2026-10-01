@@ -34,6 +34,13 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // The AI status endpoint is public: it only reports whether AI generation is
+  // configured (a boolean) and reveals no secrets, so the "not configured"
+  // notice can be shown without a session and its state is easy to verify.
+  if (pathname === "/api/ai/status") {
+    return NextResponse.next();
+  }
+
   // Check if the user has an active session cookie.
   const session = request.cookies.get(SESSION_COOKIE)?.value;
 
