@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSessionSecret } from "@/lib/auth";
-import { createSessionClient, Account } from "@/lib/appwrite";
+import { createSessionClient, Account, APPWRITE_ENDPOINT } from "@/lib/appwrite";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -24,7 +24,15 @@ export async function GET() {
 
     const client = createSessionClient(session);
     const account = new Account(client);
-    const { jwt } = await account.createJWT();
+    // NOTE: node-appwrite v29's server SDK does not expose Account.createJWT(),
+    // so call the REST endpoint directly. The /account/jwt endpoint mints a
+    // short-lived JWT for the session user (15 min), used for direct
+    // browser-to-storage uploads.
+    const jwtUrl = new URL(`${APPWRITE_ENDPOINT}/account/jwt`);
+    const { jwt } = (await client.call("post", jwtUrl)) as { jwt: string };
+    if (!jwt) {
+      throw new Error("Appwrite did not return a JWT");
+    }
     // Also return the user ID so the browser upload can embed it as an
     // uploader-specific write permission on the file, enabling server-side
     // ownership verification in /api/upload and /api/upload/syllabus.

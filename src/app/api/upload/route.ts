@@ -28,6 +28,17 @@ function formatSemester(n: number): string {
   return `${n}${suffix}`;
 }
 
+/** Max length for uploader-supplied text overrides (paper_name, department, semester). */
+const MAX_OVERRIDE_LEN = 200;
+
+/** Sanitize an optional uploader-supplied string: trim, strip control chars, cap length. */
+function cleanOverride(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const cleaned = value.replace(/[\u0000-\u001F\u007F]/g, "").trim();
+  if (!cleaned) return undefined;
+  return cleaned.slice(0, MAX_OVERRIDE_LEN);
+}
+
 async function rollbackUploadedPaper(fileId: string, reason: string) {
   try {
     await deleteFileFromAppwrite(fileId);
@@ -60,6 +71,14 @@ async function rollbackUploadedPaper(fileId: string, reason: string) {
  *   year:       number | string
  *   file_name?: string  — Original filename (stored in uploads collection)
  * }
+ *
+ * Optional metadata overrides (sanitized server-side, max 200 chars).
+ * When omitted, values are derived from the syllabus registry / code pattern:
+ * {
+ *   paper_name?: string — Display title, e.g. "Mathematical Physics-III"
+ *   department?: string — Department name, e.g. "Physics"
+ *   semester?:   string — Semester label, e.g. "4th"
+ * }
  */
 export async function POST(request: NextRequest) {
   try {
@@ -84,6 +103,11 @@ export async function POST(request: NextRequest) {
     const university = typeof body.university === "string" ? body.university.trim() : "";
     const year = typeof body.year === "string" ? body.year.trim() : body.year;
     // `year` can arrive as either a string from form JSON or a number from tests/manual calls.
+    // Optional uploader-supplied metadata overrides (sanitized). When omitted,
+    // values are derived from the syllabus registry / paper-code pattern as before.
+    const paperNameOverride = cleanOverride(body.paper_name);
+    const departmentOverride = cleanOverride(body.department);
+    const semesterOverride = cleanOverride(body.semester);
 
     if (!fileId || !paper_code || !university || year === undefined || year === null || year === "") {
       return NextResponse.json(
@@ -98,13 +122,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Resolve all metadata from the syllabus registry using the paper code.
+    // Uploader-supplied overrides (paper_name, department, semester) take
+    // precedence when present — used by bulk/curated imports so filters,
+    // sorting and department groupings stay accurate.
     const registryEntry = findByPaperCode(paper_code, university);
     const courseCode = paper_code.trim().toUpperCase();
-    const paperName = registryEntry?.paper_name ?? courseCode;
-    const department = registryEntry?.subject ?? courseCode;
+    const paperName = paperNameOverride ?? registryEntry?.paper_name ?? courseCode;
+    const department = departmentOverride ?? registryEntry?.subject ?? courseCode;
 
     // Derive semester and programme from registry or paper code pattern.
-    let semester = registryEntry ? formatSemester(registryEntry.semester) : undefined;
+    let semester = semesterOverride ?? (registryEntry ? formatSemester(registryEntry.semester) : undefined);
     let programme = registryEntry?.programme ?? undefined;
 
     // NEP 2020 FYUG pattern: [3-letter dept][3-letter type][semDigit][2-digit num][opt elective A/B/C][T/P]

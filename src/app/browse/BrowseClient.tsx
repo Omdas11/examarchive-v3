@@ -47,6 +47,9 @@ function useDebounce(value: string, delay: number) {
   return debounced;
 }
 
+/** Papers shown per page in the browse grid. */
+const PAGE_SIZE = 24;
+
 export default function BrowseClient({
   initialPapers,
   availableYears,
@@ -72,6 +75,7 @@ export default function BrowseClient({
   const [showSkeleton, setShowSkeleton] = useState(true);
   const [coursePrefs, setCoursePrefs] = useState<CoursePreferences | null>(null);
   const [myCoursesActive, setMyCoursesActive] = useState(false);
+  const [page, setPage] = useState(1);
 
   // Simulate initial skeleton loading — no mountedRef guard so this works
   // correctly under React Strict Mode's double-invoke of effects.
@@ -99,6 +103,11 @@ export default function BrowseClient({
       window.removeEventListener(COURSE_PREFS_UPDATED_EVENT, handleCoursePrefsUpdated);
     };
   }, []);
+
+  // Reset to the first page whenever the result set changes.
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, activeProgramme, activePaperType, activeStream, activeYear, activeSemester, activeUniversity, sortKey, myCoursesActive]);
 
   const filtered = useMemo(() => {
     let list = initialPapers.filter((p) => !hiddenIds.has(p.id));
@@ -182,6 +191,26 @@ export default function BrowseClient({
 
     return list;
   }, [initialPapers, hiddenIds, debouncedSearch, activeProgramme, activePaperType, activeStream, activeYear, activeSemester, activeUniversity, sortKey, myCoursesActive, coursePrefs]);
+
+  // Pagination — slice the filtered list into pages.
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const paged = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const pageStart = filtered.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1;
+  const pageEnd = Math.min(safePage * PAGE_SIZE, filtered.length);
+
+  /** Compact page-number list: 1 … window … N */
+  const pageNumbers = useMemo(() => {
+    const nums: (number | "…")[] = [];
+    for (let n = 1; n <= totalPages; n++) {
+      if (n === 1 || n === totalPages || Math.abs(n - safePage) <= 1) {
+        nums.push(n);
+      } else if (nums[nums.length - 1] !== "…") {
+        nums.push("…");
+      }
+    }
+    return nums;
+  }, [totalPages, safePage]);
 
   const handleSoftDelete = useCallback(async (paperId: string) => {
     if (!confirm("Hide this paper from Browse? It can be restored from the admin panel.")) return;
@@ -415,15 +444,17 @@ export default function BrowseClient({
       )}
 
       <p className="mt-6 text-[10px] font-black uppercase tracking-[0.2em] opacity-40">
-        Showing {filtered.length} paper{filtered.length !== 1 ? "s" : ""}
+        {filtered.length === 0
+          ? "Showing 0 papers"
+          : `Showing ${pageStart}–${pageEnd} of ${filtered.length} paper${filtered.length !== 1 ? "s" : ""}`}
       </p>
 
       {/* Papers grid with skeleton loading */}
       {showSkeleton ? (
         <SkeletonGrid count={6} />
-      ) : filtered.length > 0 ? (
+      ) : paged.length > 0 ? (
         <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((p) => (
+          {paged.map((p) => (
             <div key={p.id} className="relative group">
               <PaperCard paper={p} />
               {isAdmin && (
@@ -452,6 +483,43 @@ export default function BrowseClient({
           <h3 className="text-lg font-extrabold tracking-tight">No Resources Found</h3>
           <p className="mt-2 text-sm font-medium text-on-surface-variant opacity-60">Try adjusting your filters or search query</p>
         </div>
+      )}
+
+      {/* Pagination controls */}
+      {!showSkeleton && totalPages > 1 && (
+        <nav aria-label="Browse pages" className="mt-10 flex items-center justify-center gap-2 flex-wrap">
+          <button
+            type="button"
+            disabled={safePage === 1}
+            onClick={() => setPage(safePage - 1)}
+            className="rounded-full px-5 py-2 text-xs font-bold border transition-all disabled:opacity-30 bg-surface text-on-surface-variant border-outline-variant/10 hover:border-primary/30"
+          >
+            ← Prev
+          </button>
+          {pageNumbers.map((n, i) =>
+            n === "…" ? (
+              <span key={`e${i}`} className="px-2 text-xs font-bold opacity-40">…</span>
+            ) : (
+              <button
+                key={n}
+                type="button"
+                onClick={() => setPage(n)}
+                aria-current={n === safePage ? "page" : undefined}
+                className={`rounded-full w-9 h-9 text-xs font-bold border transition-all ${n === safePage ? "bg-primary text-white border-primary shadow-lg shadow-primary/20" : "bg-surface text-on-surface-variant border-outline-variant/10 hover:border-primary/30"}`}
+              >
+                {n}
+              </button>
+            ),
+          )}
+          <button
+            type="button"
+            disabled={safePage === totalPages}
+            onClick={() => setPage(safePage + 1)}
+            className="rounded-full px-5 py-2 text-xs font-bold border transition-all disabled:opacity-30 bg-surface text-on-surface-variant border-outline-variant/10 hover:border-primary/30"
+          >
+            Next →
+          </button>
+        </nav>
       )}
     </>
   );
