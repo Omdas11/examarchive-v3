@@ -110,4 +110,21 @@ describe("PaperCard", () => {
       expect(screen.getByText("Test Institute")).toBeInTheDocument();
     });
   });
+
+  describe("Verified badge", () => {
+    it("shows a Verified badge for admin-approved papers", () => {
+      render(<PaperCard paper={{ ...basePaper, approved: true }} />);
+      const badge = screen.getByText("Verified");
+      expect(badge).toBeInTheDocument();
+      expect(badge).toHaveAttribute(
+        "title",
+        "Reviewed and approved by the ExamArchive admin team",
+      );
+    });
+
+    it("hides the Verified badge for unapproved papers", () => {
+      render(<PaperCard paper={{ ...basePaper, approved: false }} />);
+      expect(screen.queryByText("Verified")).not.toBeInTheDocument();
+    });
+  });
 });

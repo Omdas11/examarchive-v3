@@ -19,6 +19,9 @@ interface BrowseClientProps {
   availableStreams: string[];
   availablePaperTypes: string[];
   availableUniversities: string[];
+  availableSemesters: string[];
+  /** Pre-selected university/institute filter (e.g. Haflong Government College). */
+  defaultUniversity?: string | null;
   isAdmin: boolean;
   initialSearch?: string;
 }
@@ -50,6 +53,8 @@ export default function BrowseClient({
   availableStreams,
   availablePaperTypes,
   availableUniversities,
+  availableSemesters,
+  defaultUniversity = null,
   isAdmin,
   initialSearch = "",
 }: BrowseClientProps) {
@@ -59,7 +64,8 @@ export default function BrowseClient({
   const [activePaperType, setActivePaperType] = useState<string | null>(null);
   const [activeStream, setActiveStream] = useState<string | null>(null);
   const [activeYear, setActiveYear] = useState<number | null>(null);
-  const [activeUniversity, setActiveUniversity] = useState<string | null>(null);
+  const [activeSemester, setActiveSemester] = useState<string | null>(null);
+  const [activeUniversity, setActiveUniversity] = useState<string | null>(defaultUniversity);
   const [sortKey, setSortKey] = useState<SortKey>("newest");
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -147,6 +153,10 @@ export default function BrowseClient({
       list = list.filter((p) => p.year === activeYear);
     }
 
+    if (!myCoursesActive && activeSemester) {
+      list = list.filter((p) => p.semester === activeSemester);
+    }
+
     if (!myCoursesActive && activeUniversity) {
       list = list.filter((p) => p.institute === activeUniversity);
     }
@@ -171,7 +181,7 @@ export default function BrowseClient({
     }
 
     return list;
-  }, [initialPapers, hiddenIds, debouncedSearch, activeProgramme, activePaperType, activeStream, activeYear, activeUniversity, sortKey, myCoursesActive, coursePrefs]);
+  }, [initialPapers, hiddenIds, debouncedSearch, activeProgramme, activePaperType, activeStream, activeYear, activeSemester, activeUniversity, sortKey, myCoursesActive, coursePrefs]);
 
   const handleSoftDelete = useCallback(async (paperId: string) => {
     if (!confirm("Hide this paper from Browse? It can be restored from the admin panel.")) return;
@@ -198,6 +208,7 @@ export default function BrowseClient({
   const streams = availableStreams.length > 0 ? availableStreams : [];
   const years = availableYears.length > 0 ? availableYears : [];
   const universities = availableUniversities.length > 0 ? availableUniversities : [];
+  const semesters = availableSemesters.length > 0 ? availableSemesters : [];
 
   // Build breadcrumb items based on active filters
   const breadcrumbItems = [
@@ -207,6 +218,7 @@ export default function BrowseClient({
     ...(activeProgramme !== "ALL" ? [{ label: activeProgramme }] : []),
     ...(activePaperType ? [{ label: activePaperType }] : []),
     ...(activeStream ? [{ label: activeStream }] : []),
+    ...(activeSemester ? [{ label: `Sem ${activeSemester}` }] : []),
     ...(activeYear ? [{ label: String(activeYear) }] : []),
   ];
 
@@ -378,6 +390,23 @@ export default function BrowseClient({
                   className={`filter-chip rounded-full px-5 py-2 text-xs font-bold border transition-all ${activeYear === y ? "bg-primary text-white border-primary shadow-lg shadow-primary/20" : "bg-surface text-on-surface-variant border-outline-variant/10 hover:border-primary/30"}`}
                 >
                   {y}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Semester filter — completes the University > Department > Semester > Paper-code drilldown */}
+          {semesters.length > 0 && (
+            <div className="flex flex-wrap gap-2 items-center">
+              <span className="text-[10px] uppercase tracking-[0.15em] font-black opacity-40 mr-2">Semester</span>
+              {semesters.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setActiveSemester(activeSemester === s ? null : s)}
+                  className={`filter-chip rounded-full px-5 py-2 text-xs font-bold border transition-all ${activeSemester === s ? "bg-primary text-white border-primary shadow-lg shadow-primary/20" : "bg-surface text-on-surface-variant border-outline-variant/10 hover:border-primary/30"}`}
+                >
+                  Sem {s}
                 </button>
               ))}
             </div>

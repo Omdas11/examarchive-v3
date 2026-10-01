@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import "katex/dist/katex.min.css";
 import { useToast } from "@/components/ToastContext";
+import AiNotConfiguredNotice from "@/components/AiNotConfiguredNotice";
 import CustomDropdown, { type CustomDropdownOption } from "@/components/CustomDropdown";
 import { CREDIT_SYMBOL, GENERATION_COST_CREDITS } from "@/lib/economy";
 import { dispatchProfileRefreshEvent } from "@/lib/profile-events";
@@ -430,6 +431,7 @@ export default function AIContentClient() {
             </button>
           </div>
         </header>
+        <AiNotConfiguredNotice />
 
         <section className="card border border-outline-variant/30 p-5">
           <div className="grid gap-4 md:grid-cols-2">

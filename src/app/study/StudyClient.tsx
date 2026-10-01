@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useToast } from "@/components/ToastContext";
+import AiNotConfiguredNotice from "@/components/AiNotConfiguredNotice";
 import { FLASHCARD_COUNT_OPTIONS, FLASHCARD_FIELD_MAX_LEN } from "@/lib/flashcards-constants";
 import { IconCheck, IconSparkles, IconXMark, IconChevronLeft, IconChevronRight } from "@/components/Icons";
 import { formatIstDateTime } from "@/lib/datetime";
@@ -269,6 +270,7 @@ export default function StudyClient() {
 
   return (
     <div className="space-y-6">
+      <AiNotConfiguredNotice />
       <div className="rounded-2xl border border-outline/10 bg-surface shadow-ambient">
         <div className="flex items-center justify-between border-b border-outline/10 px-6 py-4">
           <div>

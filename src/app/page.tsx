@@ -20,9 +20,9 @@ import { toPaper } from "@/types";
 import type { Paper } from "@/types";
 
 export const metadata: Metadata = {
-  title: "ExamArchive – Free Past Exam Papers & Syllabi · Early Access",
+  title: "ExamArchive – Free FYUGP Past Papers & Syllabi · Haflong Government College",
   description:
-    "Sign up to view free past exam question papers and syllabi. Starting with Haflong Government College — community archive for students, verified by our team.",
+    "Free verified past exam question papers, syllabi & study resources for Haflong Government College FYUGP (NEP 2020) students under Assam University — all 13 departments. Contributed by students, verified by our team.",
   keywords: [
     "ExamArchive",
     "exam papers",
@@ -32,17 +32,19 @@ export const metadata: Metadata = {
     "syllabus",
     "exam",
     "Haflong Government College",
+    "Haflong Government College question papers",
     "Assam University",
+    "Assam University FYUGP papers",
     "Gauhati University",
     "free exam papers",
     "FYUGP",
-    "NEP",
+    "NEP 2020",
   ],
   alternates: { canonical: "/" },
   openGraph: {
-    title: "ExamArchive – Free Past Exam Papers & Syllabi · Early Access",
+    title: "ExamArchive – Free FYUGP Past Papers & Syllabi · Haflong Government College",
     description:
-      "Sign up to view free past exam papers and syllabi. Starting with Haflong Government College — community-driven, verified archive.",
+      "Free verified question papers, syllabi & study resources for Haflong Government College FYUGP (Assam University) students. Community-driven, verified archive.",
     url: "https://www.examarchive.dev",
     siteName: "ExamArchive",
     type: "website",
@@ -336,13 +338,13 @@ export default async function HomePage() {
               Academic Intelligence —{" "}
               <span className="text-primary">Past Papers &amp; Syllabi</span>
               {" "}for{" "}
-              <span className="text-secondary">Everyone.</span>
+              <span className="text-secondary">HGC Students.</span>
             </h1>
             <p className="mx-auto mt-8 max-w-2xl text-lg sm:text-xl font-medium" style={{ color: "var(--color-text-muted)" }}>
-              Access a verified repository of academic resources.
+              Free verified question papers, syllabi &amp; study resources for{" "}
+              <span className="text-primary font-bold">Haflong Government College</span>
+              {" "}(Assam University) FYUGP students — all 13 departments, NEP 2020 pattern.
               Contributed by students, optimized by AI.
-              Starting with{" "}
-              <span className="text-primary font-bold">Haflong Government College</span>.
             </p>
 
             <div className="mt-12 flex flex-wrap justify-center gap-4">

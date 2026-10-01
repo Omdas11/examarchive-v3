@@ -59,11 +59,12 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
     // collection may not exist yet or index is missing
   }
 
-  // Compute distinct years, streams, paper types, and universities from the fetched papers
+  // Compute distinct years, streams, paper types, universities, and semesters from the fetched papers
   const yearSet = new Set<number>();
   const streamSet = new Set<string>();
   const paperTypeSet = new Set<string>();
   const universitySet = new Set<string>();
+  const semesterSet = new Set<string>();
   for (const p of papers) {
     if (p.year) yearSet.add(p.year);
     if (p.department) {
@@ -75,11 +76,23 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
     }
     if (p.paper_type) paperTypeSet.add(p.paper_type);
     if (p.institute) universitySet.add(p.institute);
+    if (p.semester) semesterSet.add(p.semester);
   }
   const availableYears = [...yearSet].sort((a, b) => b - a);
   const availableStreams = [...streamSet].sort();
   const availablePaperTypes = [...paperTypeSet].sort();
   const availableUniversities = [...universitySet].sort();
+  const availableSemesters = [...semesterSet].sort((a, b) => {
+    const na = parseInt(a, 10);
+    const nb = parseInt(b, 10);
+    if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
+    return a.localeCompare(b);
+  });
+
+  // HGC/FYUGP focus: when papers from Haflong Government College exist in the
+  // archive, default the browse view to them so students land on relevant content.
+  const defaultUniversity =
+    availableUniversities.find((u) => u.toLowerCase().includes("haflong")) ?? null;
 
   return (
     <MainLayout
@@ -116,6 +129,8 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
             availableStreams={availableStreams}
             availablePaperTypes={availablePaperTypes}
             availableUniversities={availableUniversities}
+            availableSemesters={availableSemesters}
+            defaultUniversity={defaultUniversity}
             isAdmin={isAdmin}
             initialSearch={q ?? ""}
           />

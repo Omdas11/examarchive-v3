@@ -179,6 +179,22 @@ export default async function PaperPage({ params }: PaperPageProps) {
             <p className="mt-4 text-lg font-medium opacity-60" style={{ color: "var(--color-text-muted)" }}>{paper.course_name}</p>
           )}
 
+          {/* ── Admin-verified badge (paper detail trust signal) ── */}
+          {paper.approved && (
+            <div className="mt-6">
+              <span
+                className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider shadow-sm"
+                style={{ background: "var(--color-primary)", color: "#fff" }}
+                title="This paper passed admin review for quality and authenticity"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                Verified by ExamArchive team
+              </span>
+            </div>
+          )}
+
           {/* Meta badges */}
           <div className="mt-8 flex flex-wrap gap-2">
             {metaBadges.map((b) => (

@@ -105,6 +105,19 @@ export default function PaperCard({ paper }: PaperCardProps) {
                 {paper.exam_type}
               </span>
             )}
+            {/* Admin-verified trust signal — only papers that passed the review pipeline show this */}
+            {paper.approved && (
+              <span
+                className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold"
+                style={{ background: "var(--brand-emerald-soft)", color: "var(--brand-emerald-dark)" }}
+                title="Reviewed and approved by the ExamArchive admin team"
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                Verified
+              </span>
+            )}
             {paper.programme && (
               <span
                 className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold"
