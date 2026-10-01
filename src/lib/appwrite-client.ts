@@ -113,6 +113,7 @@ export async function uploadFileDirectly(
       Permission.write(Role.user(uploaderId)),
       Permission.delete(Role.user(uploaderId)),
     ],
+    undefined,
     sdkProgress,
   );
   return fileId;
@@ -164,6 +165,7 @@ export async function uploadSyllabusFileDirectly(
       Permission.write(Role.user(uploaderId)),
       Permission.delete(Role.user(uploaderId)),
     ],
+    undefined,
     sdkProgress,
   );
   return fileId;
@@ -207,6 +209,7 @@ export async function uploadNotesFileDirectly(
       Permission.write(Role.user(uploaderId)),
       Permission.delete(Role.user(uploaderId)),
     ],
+    undefined,
     sdkProgress,
   );
   return fileId;

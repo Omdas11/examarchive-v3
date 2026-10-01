@@ -16,7 +16,7 @@
  * - NEXT_PUBLIC_APPWRITE_ENDPOINT + NEXT_PUBLIC_APPWRITE_PROJECT_ID
  */
 
-import { Client, Databases, Storage, Query, IndexType, OrderBy } from "node-appwrite";
+import { Client, Databases, Storage, Query, DatabasesIndexType, OrderBy } from "node-appwrite";
 import path from "node:path";
 import { loadEnvConfig } from "@next/env";
 
@@ -389,7 +389,7 @@ async function ensureAiGenerationJobIndexes(): Promise<"created" | "exists" | "m
         DB_ID,
         AI_GENERATION_JOBS_COL_ID,
         index.key,
-        IndexType.Key,
+        DatabasesIndexType.Key,
         index.attributes as string[],
         [OrderBy.Asc],
       );
