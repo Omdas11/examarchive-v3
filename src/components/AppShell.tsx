@@ -27,6 +27,7 @@ const NEW_LAYOUT_PREFIXES = [
   "/study",
   "/about",
   "/support",
+  "/study-resources",
   "/store",
   "/stats",
   "/paper",

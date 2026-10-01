@@ -16,7 +16,9 @@ interface DevProgressBarProps {
 }
 
 /**
- * A thin banner shown on the homepage indicating early-access / development status.
+ * An in-flow banner shown on the homepage indicating early-access /
+ * development status. It participates in normal document flow (not fixed)
+ * so it pushes content down instead of overlaying the hero and stats.
  * The bar fills from left to right based on `progress`.
  */
 export default function DevProgressBar({ progress = DEFAULT_LAUNCH_PROGRESS }: DevProgressBarProps) {
@@ -63,8 +65,8 @@ export default function DevProgressBar({ progress = DEFAULT_LAUNCH_PROGRESS }: D
   };
 
   return (
-    <div className="fixed inset-x-0 z-30 pointer-events-none px-4" style={{ top: "var(--layout-header-height)" }}>
-      <div className="mx-auto w-full max-w-[var(--max-w)] pointer-events-auto">
+    <div className="relative z-10 w-full">
+      <div className="mx-auto w-full max-w-[var(--max-w)]">
         <button
           type="button"
           className={cn(

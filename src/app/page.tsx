@@ -291,8 +291,8 @@ export default async function HomePage() {
       >
       <div className="mx-auto px-6 relative" style={{ maxWidth: "var(--max-w)", zIndex: 1 }}>
 
-        {/* ── Development progress banner ── */}
-        <div className="pt-16 md:pt-6">
+        {/* ── Development progress banner (in-flow, pushes content down) ── */}
+        <div className="pt-6">
           <DevProgressBar progress={launchProgress} />
         </div>
 
