@@ -7,6 +7,8 @@ import {
   DATABASE_ID,
   COLLECTION,
   BUCKET_ID,
+  ID,
+  getAppwriteFileUrl,
 } from "@/lib/appwrite";
 import { logActivity } from "@/lib/activity-log";
 
@@ -134,6 +136,9 @@ export async function POST(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   let action = searchParams.get("action");
   let id = searchParams.get("id");
+  // Stash a parsed multipart body so the replace_file branch can reuse it
+  // (a request body can only be read once).
+  let multipart: FormData | null = null;
 
   // Support JSON body (used by the client-side AdminActions component)
   if (!action || !id) {
@@ -143,6 +148,10 @@ export async function POST(request: NextRequest) {
         const json = await request.json();
         action = action ?? json.action;
         id = id ?? json.id;
+      } else if (contentType.includes("multipart/form-data")) {
+        multipart = await request.formData();
+        action = action ?? (multipart.get("action") as string | null);
+        id = id ?? (multipart.get("id") as string | null);
       } else {
         const formData = await request.formData();
         action = action ?? (formData.get("action") as string | null);
@@ -158,6 +167,72 @@ export async function POST(request: NextRequest) {
   }
 
   const db = adminDatabases();
+
+  // ── replace_file: swap a paper's PDF (e.g. watermark-cleaned version) ──
+  // Moderator-only. Accepts multipart form: id (paper doc ID) + file (PDF).
+  // Uploads the new file via the admin key, points the paper doc at it,
+  // then deletes the old storage file. Returns { success, fileId }.
+  if (action === "replace_file") {
+    try {
+      let upload: File | null = null;
+      // Reuse the already-parsed multipart body when available.
+      const fd = multipart ?? (await request.formData().catch(() => null));
+      if (fd) {
+        const f = fd.get("file");
+        if (f instanceof File) upload = f;
+        if (!id) {
+          const fid = fd.get("id");
+          if (typeof fid === "string") id = fid;
+        }
+      }
+      if (!id) {
+        return NextResponse.json({ error: "Missing paper id." }, { status: 400 });
+      }
+      if (!upload || upload.size === 0) {
+        return NextResponse.json({ error: "Missing PDF file." }, { status: 400 });
+      }
+      if (upload.type !== "application/pdf" && !upload.name.toLowerCase().endsWith(".pdf")) {
+        return NextResponse.json({ error: "File must be a PDF." }, { status: 400 });
+      }
+      const storage = adminStorage();
+      const created = await storage.createFile(BUCKET_ID, ID.unique(), upload);
+      const newFileId = created.$id;
+      let oldFileId: string | null = null;
+      let paperTitle = id;
+      try {
+        const paper = await db.getDocument(DATABASE_ID, COLLECTION.papers, id);
+        oldFileId = (paper.file_id as string) ?? null;
+        paperTitle = ((paper.paper_name as string) ?? (paper.course_code as string) ?? id);
+      } catch {
+        // paper lookup failed — remove the just-uploaded file to avoid orphans
+        try { await storage.deleteFile(BUCKET_ID, newFileId); } catch { /* ignore */ }
+        return NextResponse.json({ error: "Paper not found." }, { status: 404 });
+      }
+      await db.updateDocument(DATABASE_ID, COLLECTION.papers, id, {
+        file_id: newFileId,
+        file_url: getAppwriteFileUrl(newFileId),
+      });
+      if (oldFileId && oldFileId !== newFileId) {
+        try {
+          await storage.deleteFile(BUCKET_ID, oldFileId);
+        } catch {
+          // old file deletion is best-effort; doc already points at the new file
+        }
+      }
+      void logActivity({
+        action: "replace_file",
+        target_user_id: null,
+        target_paper_id: id,
+        admin_id: user.id,
+        admin_email: user.email,
+        details: `Replaced file for paper "${paperTitle}" (${oldFileId} → ${newFileId})`,
+      });
+      return NextResponse.json({ success: true, fileId: newFileId, oldFileId });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      return NextResponse.json({ error: message }, { status: 500 });
+    }
+  }
 
   switch (action) {
     case "approve": {
