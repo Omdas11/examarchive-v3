@@ -30,27 +30,31 @@ export async function generateMetadata({ params }: PaperPageProps): Promise<Meta
     const db = adminDatabases();
     const doc = await db.getDocument(DATABASE_ID, COLLECTION.papers, id);
     const paper = toPaper(doc);
+    const prog = getProgramme(paper);
+    const progLabel = prog === "FYUGP" ? "FYUG" : prog === "CBCS" ? "CBCS" : "";
+    const title = `${paper.title} (${paper.course_code ?? "Paper"}) - Assam University ${paper.year} ${progLabel}`.trim();
+    const desc = `Download ${paper.title} ${paper.course_code ?? ""} Assam University question paper ${paper.year}${progLabel ? ` (${progLabel})` : ""}. Free PDF from Haflong Government College archive.`;
     return {
-      title: `${paper.title} – ${paper.course_code ?? "Paper"}`,
-      description: `Download ${paper.title} for ${paper.course_name} (${paper.course_code ?? "paper"}).`,
+      title,
+      description: desc,
       openGraph: {
         type: "article",
         url: `${SITE_URL}/paper/${id}`,
-        title: `${paper.title} | ExamArchive`,
-        description: `Past exam paper for ${paper.course_name ?? paper.course_code ?? "students"}.`,
+        title: `${title} | ExamArchive`,
+        description: desc,
         images: [
           {
             url: OG_IMAGE_URL,
             width: 1200,
             height: 630,
-            alt: `${paper.title} - ExamArchive`,
+            alt: `${title} - ExamArchive`,
           },
         ],
       },
       twitter: {
         card: "summary_large_image",
-        title: `${paper.title} | ExamArchive`,
-        description: `Past exam paper for ${paper.course_name ?? paper.course_code ?? "students"}.`,
+        title: `${title} | ExamArchive`,
+        description: desc,
         images: [OG_IMAGE_URL],
       },
     };

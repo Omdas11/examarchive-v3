@@ -17,7 +17,7 @@ const OG_IMAGE_URL = `${SITE_URL}/study-preview.png`;
 const LOGO_URL = `${SITE_URL}/branding/logo.png`;
 const SITE_NAME = "ExamArchive";
 const SITE_DESCRIPTION =
-  "Browse, download, and contribute past exam papers and syllabi. Free community-driven archive for FYUGP students — starting with Haflong Government College.";
+  "Free Assam University question papers, previous year papers & FYUG syllabus. Download Bengali, English, Chemistry, Physics, Mathematics papers from Haflong Government College. CBCS & FYUGP archive.";
 const THEME_INIT_SCRIPT =
   '(function(){try{var t=localStorage.getItem("theme");if(t==="dark"||(!t&&window.matchMedia("(prefers-color-scheme:dark)").matches)){document.documentElement.setAttribute("data-theme","dark")}var rm=localStorage.getItem("reduceMotion");if(rm==="true"){document.documentElement.setAttribute("data-reduce-motion","true")}}catch(e){}})();';
 const SERVICE_WORKER_SCRIPT =
@@ -34,11 +34,17 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: SITE_NAME,
+    default: "Assam University Question Papers & FYUG Syllabus | ExamArchive",
     template: `%s | ${SITE_NAME}`,
   },
   description: SITE_DESCRIPTION,
   keywords: [
+    "Assam University question papers",
+    "Assam University previous year papers",
+    "Haflong Government College question papers",
+    "Assam University FYUG syllabus",
+    "CBCS question papers Assam",
+    "Bengali honours question paper",
     "ExamArchive",
     "exam papers",
     "past papers",
@@ -46,12 +52,10 @@ export const metadata: Metadata = {
     "syllabus",
     "Haflong Government College",
     "Assam University",
-    "Gauhati University",
     "FYUGP",
     "NEP",
     "free exam papers",
     "study materials",
-    "AI study summary",
   ],
   alternates: {
     canonical: "/",
