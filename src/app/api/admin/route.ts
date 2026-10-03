@@ -139,6 +139,8 @@ export async function POST(request: NextRequest) {
   // Stash a parsed multipart body so the replace_file branch can reuse it
   // (a request body can only be read once).
   let multipart: FormData | null = null;
+  // Stash a parsed JSON body so later cases (e.g. update-paper) can reuse it.
+  let parsedJson: Record<string, unknown> | null = null;
 
   // Support JSON body (used by the client-side AdminActions component)
   if (!action || !id) {
@@ -146,6 +148,7 @@ export async function POST(request: NextRequest) {
       const contentType = request.headers.get("content-type") ?? "";
       if (contentType.includes("application/json")) {
         const json = await request.json();
+        parsedJson = json as Record<string, unknown>;
         action = action ?? json.action;
         id = id ?? json.id;
       } else if (contentType.includes("multipart/form-data")) {
@@ -235,6 +238,39 @@ export async function POST(request: NextRequest) {
   }
 
   switch (action) {
+    case "update-paper": {
+      // Moderator-only metadata correction (e.g. fix a wrong department on an
+      // already-imported record without deleting/re-uploading). Allowlisted
+      // fields only; id is the paper document ID.
+      try {
+        const fields: Record<string, unknown> = parsedJson ?? {};
+        const allowed = ["department", "paper_name", "semester", "programme"] as const;
+        const update: Record<string, string> = {};
+        for (const key of allowed) {
+          const v = fields[key];
+          if (typeof v === "string" && v.trim()) update[key] = v.trim().slice(0, 200);
+        }
+        if (Object.keys(update).length === 0) {
+          return NextResponse.json(
+            { error: "Nothing to update: provide department, paper_name, semester or programme." },
+            { status: 400 }
+          );
+        }
+        const doc = await db.updateDocument(DATABASE_ID, COLLECTION.papers, id, update);
+        void logActivity({
+          action: "update-paper",
+          target_user_id: null,
+          target_paper_id: id,
+          admin_id: user.id,
+          admin_email: user.email,
+          details: `Updated ${Object.keys(update).join(", ")} on paper "${doc.paper_name ?? id}"`,
+        });
+        return NextResponse.json({ success: true, id: doc.$id, update });
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return NextResponse.json({ error: message }, { status: 500 });
+      }
+    }
     case "approve": {
       try {
         // Fetch paper to get the uploader
