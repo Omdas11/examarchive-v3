@@ -17,6 +17,13 @@ interface DeptInfo {
 }
 
 const DEPARTMENTS: Record<string, DeptInfo> = {
+  assamese: {
+    slug: "assamese",
+    name: "Assamese",
+    blurb:
+      "Assam University Assamese question papers — Sahitya, Bhasha Honours and FYUG papers from Haflong Government College. Free PDF downloads of previous year papers.",
+    keywords: ["Assam University Assamese question papers", "Assamese honours previous year papers"],
+  },
   bengali: {
     slug: "bengali",
     name: "Bengali",
@@ -37,6 +44,20 @@ const DEPARTMENTS: Record<string, DeptInfo> = {
     blurb:
       "Assam University Chemistry question papers — Organic, Inorganic, Physical Chemistry Honours and FYUG papers from Haflong Government College. Free PDFs.",
     keywords: ["Assam University Chemistry question papers", "Chemistry honours previous year papers"],
+  },
+  botany: {
+    slug: "botany",
+    name: "Botany",
+    blurb:
+      "Assam University Botany question papers — Plant Physiology, Genetics, Ecology Honours and FYUG papers from Haflong Government College. Free PDF downloads.",
+    keywords: ["Assam University Botany question papers", "Botany honours previous year papers Assam"],
+  },
+  commerce: {
+    slug: "commerce",
+    name: "Commerce",
+    blurb:
+      "Assam University Commerce question papers — Accounting, Business Studies papers from Haflong Government College. Free PDF downloads of previous year papers.",
+    keywords: ["Assam University Commerce question papers", "B.Com previous year papers Assam"],
   },
   physics: {
     slug: "physics",
@@ -79,6 +100,13 @@ const DEPARTMENTS: Record<string, DeptInfo> = {
     blurb:
       "Assam University Political Science question papers — Political Theory, Indian Government papers from Haflong Government College. Free PDFs.",
     keywords: ["Assam University Political Science question papers"],
+  },
+  zoology: {
+    slug: "zoology",
+    name: "Zoology",
+    blurb:
+      "Assam University Zoology question papers — Animal Diversity, Physiology, Genetics Honours and FYUG papers from Haflong Government College. Free PDF downloads.",
+    keywords: ["Assam University Zoology question papers", "Zoology honours previous year papers Assam"],
   },
 };
 

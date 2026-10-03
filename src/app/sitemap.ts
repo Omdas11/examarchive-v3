@@ -4,10 +4,11 @@ import { Query } from "node-appwrite";
 
 const SITE_URL = "https://www.examarchive.dev";
 
-// Department landing pages for regional SEO
+// Department landing pages for regional SEO (13 UG departments, PG excluded)
 const DEPARTMENTS = [
-  "bengali", "english", "chemistry", "physics", "mathematics",
-  "philosophy", "economics", "history", "political-science",
+  "assamese", "bengali", "botany", "chemistry", "commerce", "economics",
+  "english", "history", "mathematics", "philosophy", "physics",
+  "political-science", "zoology",
 ];
 
 /**
