@@ -88,6 +88,9 @@ export async function POST(request: NextRequest) {
           continue;
         }
         const frontmatter = parsed.frontmatter;
+        // Main-site import: rows must be visible in the table view,
+        // which filters status == "published".
+        frontmatter.status = "published";
         const semester = deriveSemesterFromCode(frontmatter.paper_code);
         const params = new URLSearchParams({
           paperCode: frontmatter.paper_code.trim().toUpperCase(),
