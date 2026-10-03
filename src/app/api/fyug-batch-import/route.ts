@@ -1,9 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import {
   adminDatabases,
+  adminStorage,
+  BUCKET_ID,
   DATABASE_ID,
   COLLECTION,
   ID,
+  Query,
   getAppwriteFileUrl,
 } from "@/lib/appwrite";
 import { findByPaperCode } from "@/data/syllabus-registry";
@@ -57,6 +60,7 @@ export async function POST(request: NextRequest) {
     secret?: string;
     payloads?: BulkPayload[];
     updates?: { id: string; fields: Record<string, string> }[];
+    audit?: boolean;
   };
   try {
     body = await request.json();
@@ -68,6 +72,66 @@ export async function POST(request: NextRequest) {
   }
 
   const db = adminDatabases();
+
+  // ── Full audit: total count, (course_code, year) duplicates, missing PDFs ──
+  if (body.audit) {
+    const docs: { id: string; course_code: string; year: number; file_id: string; approved: boolean }[] = [];
+    let offset = 0;
+    for (;;) {
+      const page = await db.listDocuments(DATABASE_ID, COLLECTION.papers, [
+        Query.limit(500),
+        Query.offset(offset),
+        Query.select(["$id", "course_code", "year", "file_id", "approved"]),
+      ]);
+      for (const d of page.documents) {
+        docs.push({
+          id: d.$id,
+          course_code: String(d.course_code ?? ""),
+          year: Number(d.year ?? 0),
+          file_id: String(d.file_id ?? ""),
+          approved: d.approved === true,
+        });
+      }
+      if (page.documents.length < 500) break;
+      offset += 500;
+    }
+    const seen = new Map<string, string[]>();
+    for (const d of docs) {
+      const key = `${d.course_code}|||${d.year}`;
+      const arr = seen.get(key) ?? [];
+      arr.push(d.id);
+      seen.set(key, arr);
+    }
+    const duplicates = [...seen.entries()]
+      .filter(([, ids]) => ids.length > 1)
+      .map(([key, ids]) => {
+        const [course_code, year] = key.split("|||");
+        return { course_code, year: Number(year), count: ids.length, ids };
+      });
+    const storage = adminStorage();
+    const missingFiles: { id: string; course_code: string; year: number; file_id: string }[] = [];
+    let checkedFiles = 0;
+    for (const d of docs) {
+      if (!d.file_id) {
+        missingFiles.push({ id: d.id, course_code: d.course_code, year: d.year, file_id: "" });
+        continue;
+      }
+      checkedFiles++;
+      try {
+        await storage.getFile(BUCKET_ID, d.file_id);
+      } catch {
+        missingFiles.push({ id: d.id, course_code: d.course_code, year: d.year, file_id: d.file_id });
+      }
+    }
+    return NextResponse.json({
+      success: true,
+      total: docs.length,
+      approved: docs.filter((d) => d.approved).length,
+      duplicates,
+      missingFiles,
+      checkedFiles,
+    });
+  }
   const importResults: { paper_code: string; ok: boolean; error?: string }[] = [];
 
   for (const p of body.payloads ?? []) {
