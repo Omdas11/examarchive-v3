@@ -92,7 +92,6 @@ const getHomepageData = unstable_cache(
     let syllabusTotal = 0;
     let usersTotal = 0;
     let launchProgress = 40;
-    let universitiesCount = 0;
     let popularPapers: Paper[] = [];
     let recentPapers: Paper[] = [];
     let feedbackEntries: FeedbackEntry[] = [];
@@ -115,18 +114,10 @@ const getHomepageData = unstable_cache(
       papersTotal = papersRes.total;
       syllabusTotal = syllabusRes.total;
 
-      const universitiesSet = new Set<string>();
       const allPapers: Paper[] = [];
-      const addInstitutions = (papers: Paper[]) => {
-        for (const paper of papers) {
-          const institution = paper.institute?.trim();
-          if (institution) universitiesSet.add(institution);
-        }
-      };
 
       const firstPagePapers = papersRes.documents.map(toPaper);
       allPapers.push(...firstPagePapers);
-      addInstitutions(firstPagePapers);
 
       const firstPageCount = papersRes.documents.length;
       if (papersTotal > firstPageCount && firstPageCount > 0) {
@@ -140,7 +131,6 @@ const getHomepageData = unstable_cache(
           if (pageRes.documents.length === 0) break;
           const pagePapers = pageRes.documents.map(toPaper);
           allPapers.push(...pagePapers);
-          addInstitutions(pagePapers);
           offset += pageRes.documents.length;
         }
       }
@@ -154,8 +144,6 @@ const getHomepageData = unstable_cache(
       recentPapers = [...allPapers]
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
         .slice(0, 4);
-
-      universitiesCount = universitiesSet.size;
     } catch {
       // collections may not exist yet in dev
     }
@@ -205,7 +193,6 @@ const getHomepageData = unstable_cache(
       syllabusTotal,
       usersTotal,
       launchProgress,
-      universitiesCount,
       popularPapers,
       recentPapers,
       feedbackEntries,
@@ -223,7 +210,6 @@ export default async function HomePage() {
     syllabusTotal,
     usersTotal,
     launchProgress,
-    universitiesCount,
     popularPapers,
     recentPapers,
     feedbackEntries,
@@ -254,8 +240,8 @@ export default async function HomePage() {
       ),
     },
     {
-      label: "Universities",
-      value: universitiesCount,
+      label: "College",
+      value: 1,
       icon: (
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v3M12 14v3M16 14v3"/>
