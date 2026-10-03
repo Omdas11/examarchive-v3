@@ -65,7 +65,7 @@ function sanitizeDownloadFilename(name: string): string {
  * e.g. PHYDSC101T → 1, MATDSC501AT → 5
  * Returns null when the code doesn't match the expected pattern.
  */
-function deriveSemesterFromCode(paperCode: string): number | null {
+export function deriveSemesterFromCode(paperCode: string): number | null {
   const match = /^[A-Z]{3}(?:DSC|DSM|IDC|SEC|AEC|VAC|MIL|SIC)([1-8])\d{2}[ABC]?[TP]?$/.exec(paperCode);
   if (match) return parseInt(match[1], 10);
   return null;
@@ -236,7 +236,7 @@ async function renderAndStoreQuestionPdf(args: {
   };
 }
 
-async function upsertSyllabusRows(args: {
+export async function upsertSyllabusRows(args: {
   frontmatter: IngestionFrontmatter;
   semester: number | null;
   rows: ReturnType<typeof parseDemoDataEntryMarkdown>["syllabus"];
