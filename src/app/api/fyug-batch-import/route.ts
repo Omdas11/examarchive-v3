@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
 /**
- * TEMPORARY one-off route for the FYUG batch import (2026-10-03).
+ * TEMPORARY one-off route for the FYUG batch import (2026-10-03). NOTE: intentionally NOT under /api/admin so the session middleware does not block it;
  * Protected by a one-time secret instead of a user session because the
  * import is driven by a server-side script that holds no browser session.
  * DELETE THIS FILE after the import is verified.
