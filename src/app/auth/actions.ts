@@ -56,9 +56,14 @@ export async function signInWithGoogle(redirectUrl?: string | null) {
     // server-side). The user's browser must hit Appwrite's endpoint first so
     // Appwrite can set its OAuth state cookie; skipping straight to Google
     // causes "user_oauth2_state_invalid" errors.
+    //
+    // Use /account/tokens/oauth2/ (not /sessions/) — the tokens endpoint
+    // redirects to successUrl with ?userId=...&secret=... query params,
+    // which /auth/callback exchanges for a session. The sessions endpoint
+    // only sets cookies on Appwrite's domain without query params.
     const endpoint = process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT!;
     const projectId = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID!;
-    const oauthEndpoint = new URL(`${endpoint}/account/sessions/oauth2/google`);
+    const oauthEndpoint = new URL(`${endpoint}/account/tokens/oauth2/google`);
     oauthEndpoint.searchParams.set("project", projectId);
     oauthEndpoint.searchParams.set("success", successUrl);
     oauthEndpoint.searchParams.set("failure", failureUrl);
