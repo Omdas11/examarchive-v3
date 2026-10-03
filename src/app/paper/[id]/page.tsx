@@ -10,6 +10,7 @@ import {
 import type { Paper } from "@/types";
 import { toPaper } from "@/types";
 import { toRoman } from "@/lib/utils";
+import { getProgramme } from "@/lib/programme";
 import { buildPaperJsonLd, serializeJsonLd } from "@/lib/json-ld";
 import { findByPaperCode, type SyllabusRegistryEntry, type SyllabusUnit } from "@/data/syllabus-registry";
 import { PAPER_TYPE_COLORS } from "@/components/PaperCard";
@@ -100,7 +101,7 @@ export default async function PaperPage({ params }: PaperPageProps) {
 
   const metaBadges = [
     paper.institute,
-    paper.programme,
+    getProgramme(paper),
     paper.department,
     semRoman ? `Sem ${semRoman}` : null,
     paper.year && String(paper.year),
