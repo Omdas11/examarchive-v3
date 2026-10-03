@@ -111,10 +111,10 @@ export async function POST(request: NextRequest) {
     const storage = adminStorage();
     const missingFiles: { id: string; course_code: string; year: number; file_id: string }[] = [];
     let checkedFiles = 0;
-    for (const d of docs) {
+    const checkOne = async (d: (typeof docs)[number]) => {
       if (!d.file_id) {
         missingFiles.push({ id: d.id, course_code: d.course_code, year: d.year, file_id: "" });
-        continue;
+        return;
       }
       checkedFiles++;
       try {
@@ -122,6 +122,10 @@ export async function POST(request: NextRequest) {
       } catch {
         missingFiles.push({ id: d.id, course_code: d.course_code, year: d.year, file_id: d.file_id });
       }
+    };
+    // 25 concurrent storage checks per batch to stay well under the timeout.
+    for (let i = 0; i < docs.length; i += 25) {
+      await Promise.all(docs.slice(i, i + 25).map(checkOne));
     }
     return NextResponse.json({
       success: true,
