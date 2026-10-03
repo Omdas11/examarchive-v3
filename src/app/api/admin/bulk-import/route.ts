@@ -34,7 +34,17 @@ interface BulkPayload {
   paper_name?: string;
   department?: string;
   semester?: string;
+  programme?: string;
 }
+
+/** Canonical FYUG semester-code prefix → semester number (vault rules). */
+const FYUG_SEM_NO: Record<string, number> = {
+  "10": 1, "15": 2, "20": 3, "25": 4,
+  "30": 5, "35": 6, "40": 7, "45": 8,
+};
+/** Fallback FYUG detector (only when semester/programme aren't supplied). */
+const FYUG_FALLBACK_RE =
+  /^[A-Z]{3}(?:DSC|DSM|IDC|SEC|AEC|VAC|GEC)((?:10|15|20|25|30|35|40|45))[1-9](?:\/\d{3})?[ABC]?[TP]?(?:\([A-Z]\))?$/;
 
 /**
  * POST /api/admin/bulk-import (moderator only)
@@ -81,11 +91,11 @@ export async function POST(request: NextRequest) {
         const paperName = p.paper_name?.trim() || registryEntry?.paper_name || courseCode;
         const department = p.department?.trim() || registryEntry?.subject || courseCode;
         let semester = p.semester?.trim() || (registryEntry ? formatSemester(registryEntry.semester) : undefined);
-        let programme = registryEntry?.programme;
+        let programme = p.programme?.trim() || registryEntry?.programme;
 
-        const fyugMatch = /^[A-Z]{3}(?:DSC|DSM|IDC|SEC|AEC|VAC|GEC)([1-8])\d{2}[ABC]?[TP]$/.exec(courseCode);
+        const fyugMatch = FYUG_FALLBACK_RE.exec(courseCode);
         if (fyugMatch) {
-          if (!semester) semester = formatSemester(parseInt(fyugMatch[1], 10));
+          if (!semester) semester = formatSemester(FYUG_SEM_NO[fyugMatch[1]]);
           if (!programme) programme = "FYUGP";
         }
 
