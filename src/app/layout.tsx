@@ -17,7 +17,7 @@ const OG_IMAGE_URL = `${SITE_URL}/study-preview.png`;
 const LOGO_URL = `${SITE_URL}/branding/logo.png`;
 const SITE_NAME = "ExamArchive";
 const SITE_DESCRIPTION =
-  "Free Assam University question papers, previous year papers & FYUG syllabus. Download Bengali, English, Chemistry, Physics, Mathematics papers from Haflong Government College. CBCS & FYUGP archive.";
+  "Starting with Haflong Government College (Assam University): free question papers, previous year papers & FYUG syllabus. Download Bengali, English, Chemistry, Physics, Mathematics papers. CBCS & FYUGP archive for all 13 departments.";
 const THEME_INIT_SCRIPT =
   '(function(){try{var t=localStorage.getItem("theme");if(t==="dark"||(!t&&window.matchMedia("(prefers-color-scheme:dark)").matches)){document.documentElement.setAttribute("data-theme","dark")}var rm=localStorage.getItem("reduceMotion");if(rm==="true"){document.documentElement.setAttribute("data-reduce-motion","true")}}catch(e){}})();';
 const SERVICE_WORKER_SCRIPT =
@@ -34,7 +34,7 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "Assam University Question Papers & FYUG Syllabus | ExamArchive",
+    default: "ExamArchive – Question Papers for Haflong Government College (Assam University)",
     template: `%s | ${SITE_NAME}`,
   },
   description: SITE_DESCRIPTION,

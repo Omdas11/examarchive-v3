@@ -357,29 +357,13 @@ export default function BrowseClient({
       {/* Filter chips — hidden when "My Courses" filter is active */}
       {!myCoursesActive && (
         <div className="mt-6 space-y-4">
-          {/* University filter */}
-          {universities.length > 1 && (
-            <div className="flex flex-wrap gap-2 items-center">
-              <span className="text-[10px] uppercase tracking-[0.15em] font-black opacity-40 mr-2">University</span>
-              <button
-                type="button"
-                onClick={() => setActiveUniversity(null)}
-                className={`filter-chip rounded-full px-5 py-2 text-xs font-bold border transition-all ${activeUniversity === null ? "bg-primary text-white border-primary shadow-lg shadow-primary/20" : "bg-surface text-on-surface-variant border-outline-variant/10 hover:border-primary/30"}`}
-              >
-                All
-              </button>
-              {universities.map((u) => (
-                <button
-                  key={u}
-                  type="button"
-                  onClick={() => setActiveUniversity(activeUniversity === u ? null : u)}
-                  className={`filter-chip rounded-full px-5 py-2 text-xs font-bold border transition-all ${activeUniversity === u ? "bg-primary text-white border-primary shadow-lg shadow-primary/20" : "bg-surface text-on-surface-variant border-outline-variant/10 hover:border-primary/30"}`}
-                >
-                  {u}
-                </button>
-              ))}
-            </div>
-          )}
+          {/* College label — hardcoded to Haflong Government College */}
+          <div className="flex flex-wrap gap-2 items-center">
+            <span className="text-[10px] uppercase tracking-[0.15em] font-black opacity-40 mr-2">College</span>
+            <span className="rounded-full px-5 py-2 text-xs font-bold border bg-primary text-white border-primary shadow-lg shadow-primary/20">
+              Haflong Government College
+            </span>
+          </div>
 
           {/* Programme filter */}
           <div className="flex flex-wrap gap-2 items-center">

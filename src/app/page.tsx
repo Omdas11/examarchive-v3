@@ -20,9 +20,9 @@ import { toPaper } from "@/types";
 import type { Paper } from "@/types";
 
 export const metadata: Metadata = {
-  title: "ExamArchive – Free FYUGP Past Papers & Syllabi · Haflong Government College",
+  title: "ExamArchive – Free Question Papers & Syllabus for Haflong Government College",
   description:
-    "Free verified past exam question papers, syllabi & study resources for Haflong Government College FYUGP (NEP 2020) students under Assam University — all 13 departments. Contributed by students, verified by our team.",
+    "Starting with Haflong Government College (Assam University): free verified past exam question papers, FYUG syllabus & study resources for all 13 departments. CBCS & FYUGP archive, contributed by students.",
   keywords: [
     "ExamArchive",
     "exam papers",
@@ -341,9 +341,9 @@ export default async function HomePage() {
               <span className="text-secondary">HGC Students.</span>
             </h1>
             <p className="mx-auto mt-8 max-w-2xl text-lg sm:text-xl font-medium" style={{ color: "var(--color-text-muted)" }}>
-              Free verified question papers, syllabi &amp; study resources for{" "}
-              <span className="text-primary font-bold">Haflong Government College</span>
-              {" "}(Assam University) FYUGP students — all 13 departments, NEP 2020 pattern.
+              Starting with <span className="text-primary font-bold">Haflong Government College</span>
+              {" "}(Assam University) — free verified question papers, syllabi &amp; study resources for
+              FYUGP students across all 13 departments. More colleges coming soon.
               Contributed by students, optimized by AI.
             </p>
 
