@@ -35,11 +35,11 @@ export const metadata: Metadata = {
 };
 
 interface BrowsePageProps {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; department?: string; year?: string; semester?: string; programme?: string }>;
 }
 
 export default async function BrowsePage({ searchParams }: BrowsePageProps) {
-  const { q } = await searchParams;
+  const { q, department, year, semester, programme } = await searchParams;
   const user = await getServerUser();
   const userName = user?.name || "Guest";
   const userInitials = user ? userName.substring(0, 2).toUpperCase() : "";
@@ -94,6 +94,19 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
   const defaultUniversity =
     availableUniversities.find((u) => u.toLowerCase().includes("haflong")) ?? null;
 
+  // Normalize semester URL param: "4" → "4th" to match stored values
+  let normalizedSemester: string | null = null;
+  if (semester) {
+    const num = parseInt(semester, 10);
+    if (!Number.isNaN(num) && String(num) === semester.trim()) {
+      const suffix = num === 1 ? "st" : num === 2 ? "nd" : num === 3 ? "rd" : "th";
+      const candidate = `${num}${suffix}`;
+      normalizedSemester = availableSemesters.includes(candidate) ? candidate : semester;
+    } else {
+      normalizedSemester = semester;
+    }
+  }
+
   return (
     <MainLayout
       title="Browse Papers"
@@ -133,6 +146,10 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
             defaultUniversity={defaultUniversity}
             isAdmin={isAdmin}
             initialSearch={q ?? ""}
+            initialDepartment={department ?? null}
+            initialYear={year ? parseInt(year, 10) : null}
+            initialSemester={normalizedSemester}
+            initialProgramme={programme ?? "ALL"}
           />
         </div>
       </section>

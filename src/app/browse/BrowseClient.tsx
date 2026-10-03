@@ -25,6 +25,10 @@ interface BrowseClientProps {
   defaultUniversity?: string | null;
   isAdmin: boolean;
   initialSearch?: string;
+  initialDepartment?: string | null;
+  initialYear?: number | null;
+  initialSemester?: string | null;
+  initialProgramme?: string;
 }
 
 const PROGRAMMES = ["FYUGP", "CBCS", "ALL", "Other"];
@@ -61,14 +65,20 @@ export default function BrowseClient({
   defaultUniversity = null,
   isAdmin,
   initialSearch = "",
+  initialDepartment = null,
+  initialYear = null,
+  initialSemester = null,
+  initialProgramme = "ALL",
 }: BrowseClientProps) {
   const [search, setSearch] = useState(initialSearch);
   const debouncedSearch = useDebounce(search, 250);
-  const [activeProgramme, setActiveProgramme] = useState("ALL");
+  const [activeProgramme, setActiveProgramme] = useState(initialProgramme);
   const [activePaperType, setActivePaperType] = useState<string | null>(null);
-  const [activeStream, setActiveStream] = useState<string | null>(null);
-  const [activeYear, setActiveYear] = useState<number | null>(null);
-  const [activeSemester, setActiveSemester] = useState<string | null>(null);
+  const [activeStream, setActiveStream] = useState<string | null>(
+    initialDepartment ? initialDepartment.toUpperCase() : null
+  );
+  const [activeYear, setActiveYear] = useState<number | null>(initialYear);
+  const [activeSemester, setActiveSemester] = useState<string | null>(initialSemester);
   const [activeUniversity, setActiveUniversity] = useState<string | null>(defaultUniversity);
   const [sortKey, setSortKey] = useState<SortKey>("newest");
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
@@ -109,6 +119,20 @@ export default function BrowseClient({
   useEffect(() => {
     setPage(1);
   }, [debouncedSearch, activeProgramme, activePaperType, activeStream, activeYear, activeSemester, activeUniversity, sortKey, myCoursesActive]);
+
+  // Sync filter state to URL — makes each filter combo a shareable sub-page
+  // e.g. /browse?department=bengali&year=2024&semester=4&programme=FYUGP
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (debouncedSearch.trim()) params.set("q", debouncedSearch.trim());
+    if (activeStream) params.set("department", activeStream.toLowerCase());
+    if (activeYear) params.set("year", String(activeYear));
+    if (activeSemester) params.set("semester", activeSemester);
+    if (activeProgramme !== "ALL") params.set("programme", activeProgramme);
+    const qs = params.toString();
+    const newUrl = qs ? `/browse?${qs}` : "/browse";
+    window.history.replaceState(null, "", newUrl);
+  }, [debouncedSearch, activeStream, activeYear, activeSemester, activeProgramme]);
 
   const filtered = useMemo(() => {
     let list = initialPapers.filter((p) => !hiddenIds.has(p.id));
