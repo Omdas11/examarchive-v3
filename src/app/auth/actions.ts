@@ -51,15 +51,18 @@ export async function signInWithGoogle(redirectUrl?: string | null) {
 
   let oauthUrl = "";
   try {
-    // Use keyless client for OAuth URL generation — the OAuth state must bind
-    // to the user's browser, not to an API key session.
-    const client = createOAuthClient();
-    const account = new Account(client);
-    oauthUrl = await account.createOAuth2Token(
-      OAuthProvider.Google,
-      successUrl,
-      failureUrl,
-    );
+    // Build the Appwrite OAuth endpoint URL directly and redirect the user's
+    // browser there (NOT via SDK's createOAuth2Token which follows the redirect
+    // server-side). The user's browser must hit Appwrite's endpoint first so
+    // Appwrite can set its OAuth state cookie; skipping straight to Google
+    // causes "user_oauth2_state_invalid" errors.
+    const endpoint = process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT!;
+    const projectId = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID!;
+    const oauthEndpoint = new URL(`${endpoint}/account/sessions/oauth2/google`);
+    oauthEndpoint.searchParams.set("project", projectId);
+    oauthEndpoint.searchParams.set("success", successUrl);
+    oauthEndpoint.searchParams.set("failure", failureUrl);
+    oauthUrl = oauthEndpoint.toString();
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     redirect(`/login?error=${encodeURIComponent(message)}`);
