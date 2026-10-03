@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import {
   createAdminClient,
+  createOAuthClient,
   createSessionClient,
   Account,
   ID,
@@ -50,7 +51,9 @@ export async function signInWithGoogle(redirectUrl?: string | null) {
 
   let oauthUrl = "";
   try {
-    const client = createAdminClient();
+    // Use keyless client for OAuth URL generation — the OAuth state must bind
+    // to the user's browser, not to an API key session.
+    const client = createOAuthClient();
     const account = new Account(client);
     oauthUrl = await account.createOAuth2Token(
       OAuthProvider.Google,

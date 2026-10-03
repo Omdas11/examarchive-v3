@@ -112,6 +112,21 @@ export const NOTES_BUCKET_ID =
 // ── Server-side admin client (uses API key) ─────────────────────────────
 let adminClientSingleton: Client | null = null;
 /**
+ * Create a keyless Appwrite client (endpoint + project only, no API key).
+ * Use this for OAuth2 URL generation — the OAuth state must bind to the
+ * user's browser, not to an API key session. Using the admin client here
+ * causes "user_oauth2_state_invalid" errors.
+ */
+export function createOAuthClient(): Client {
+  if (!APPWRITE_ENDPOINT || !APPWRITE_PROJECT_ID) {
+    throw new Error(
+      "Missing Appwrite environment variables: " +
+        "NEXT_PUBLIC_APPWRITE_ENDPOINT, NEXT_PUBLIC_APPWRITE_PROJECT_ID",
+    );
+  }
+  return new Client().setEndpoint(APPWRITE_ENDPOINT).setProject(APPWRITE_PROJECT_ID);
+}
+/**
  * Create an Appwrite client authenticated with the server-side API key.
  * Use this for all server-only operations (database writes, user management,
  * file storage, etc.).
