@@ -453,6 +453,28 @@ export default async function HomePage() {
           </section>
         )}
 
+        {/* ── Browse by Programme ── */}
+        <section className="py-10 ea-scroll-in">
+          <div className="flex items-center gap-2 mb-6">
+            <span className="w-2 h-8 rounded-full bg-primary" />
+            <h2 className="text-xl font-extrabold tracking-tight">Browse by Programme</h2>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Link href="/fyug-question-papers" className="rounded-2xl border p-6 hover:bg-gray-50 transition-all">
+              <h3 className="font-bold text-lg">FYUG Question Papers</h3>
+              <p className="text-sm text-gray-600 mt-1">NEP 2020 Four-Year Undergraduate Programme papers</p>
+            </Link>
+            <Link href="/cbcs-question-papers" className="rounded-2xl border p-6 hover:bg-gray-50 transition-all">
+              <h3 className="font-bold text-lg">CBCS Question Papers</h3>
+              <p className="text-sm text-gray-600 mt-1">Choice Based Credit System previous year papers</p>
+            </Link>
+            <Link href="/assam-university-question-papers" className="rounded-2xl border p-6 hover:bg-gray-50 transition-all">
+              <h3 className="font-bold text-lg">Assam University Papers</h3>
+              <p className="text-sm text-gray-600 mt-1">All programmes & departments in one place</p>
+            </Link>
+          </div>
+        </section>
+
         {/* ── How It Works ── */}
         <section className="py-16 ea-scroll-in">
           <h2 className="mb-12 text-2xl font-extrabold tracking-tight text-center">How It Works</h2>
