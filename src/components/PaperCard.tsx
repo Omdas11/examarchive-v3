@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { Paper } from "@/types";
 import { toRoman } from "@/lib/utils";
 import { makeAccentGradient } from "@/lib/gradients";
+import { getProgramme } from "@/lib/programme";
 
 interface PaperCardProps {
   paper: Paper;
@@ -118,12 +119,12 @@ export default function PaperCard({ paper }: PaperCardProps) {
                 Verified
               </span>
             )}
-            {paper.programme && (
+            {getProgramme(paper) && (
               <span
                 className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold"
                 style={{ background: "var(--color-border)", color: "var(--color-text-muted)" }}
               >
-                {paper.programme}
+                {getProgramme(paper)}
               </span>
             )}
           </div>

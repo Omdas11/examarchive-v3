@@ -12,6 +12,7 @@ import {
   matchesCoursePreferenceSelection,
   type CoursePreferences,
 } from "@/data/course-selection-data";
+import { getProgramme } from "@/lib/programme";
 
 interface BrowseClientProps {
   initialPapers: Paper[];
@@ -138,11 +139,12 @@ export default function BrowseClient({
 
     if (!myCoursesActive && activeProgramme !== "ALL") {
       if (activeProgramme === "Other") {
-        list = list.filter(
-          (p) => !p.programme || (p.programme !== "FYUGP" && p.programme !== "CBCS"),
-        );
+        list = list.filter((p) => {
+          const prog = getProgramme(p);
+          return !prog || (prog !== "FYUGP" && prog !== "CBCS");
+        });
       } else {
-        list = list.filter((p) => p.programme === activeProgramme);
+        list = list.filter((p) => getProgramme(p) === activeProgramme);
       }
     }
 
