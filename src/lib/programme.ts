@@ -1,15 +1,17 @@
 /**
- * Classify a paper's academic programme (CBCS / FYUG / HS) from its course code.
+ * Classify a paper's academic programme (CBCS / FYUGP / HS) from its course code.
  * Used as a fallback when the `programme` field is not set in the database.
  *
- * Rules for Assam University / Haflong Government College:
- * - HCC / HGE codes → CBCS (Honours Core Course / Honours Generic Elective)
- * - DSC / DSM / AEC / VAC codes → FYUG
- * - FYUG numeric codes (e.g. ECO0300104, SEC0107203) → FYUG
- * - Bare GE (not HGE) → FYUG (FYUG uses DSC/GE pattern)
- * - HES (Honours Elective) → FYUG
- * - SEC / DSE / LAN / GEN → split by year (≤2022 CBCS, ≥2023 FYUG)
- * - HS semester → HS (Higher Secondary, not UG)
+ * Conservative approach: only definitive FYUG signals → FYUGP, everything else → CBCS.
+ * The collection is majority CBCS (2018-2024); FYUGP started 2022-23 at Assam University.
+ *
+ * Definitive FYUG signals:
+ * - DSC / DSM / AEC / VAC codes with year ≥ 2022
+ * - New numeric coding system (e.g. ECO0300104, SEC0107203)
+ *
+ * Everything else (HCC, HGE, SEC, DSE, LAN, GEN, bare GE) → CBCS.
+ * Pre-2022 DSC/AEC codes → CBCS (FYUG didn't exist yet).
+ * HS semester → HS (Higher Secondary, not UG).
  */
 export function classifyProgramme(
   courseCode?: string | null,
@@ -21,17 +23,16 @@ export function classifyProgramme(
   const c = courseCode.toUpperCase().trim();
   const y = year ?? 0;
 
-  if (/HCC|HGE/.test(c)) return "CBCS";
-  if (/DSC|DSM|AEC|VAC/.test(c)) return "FYUGP";
-  if (/^[A-Z]{3}\d{7}$/.test(c) || /^SEC\d{7}$/.test(c)) return "FYUGP";
-  if (/(?<!H)GE/.test(c)) return "FYUGP";
-  if (/HES/.test(c)) return "FYUGP";
-  if (/SEC|DSE|LAN|GEN/.test(c)) {
-    if (y <= 2022 && y > 0) return "CBCS";
-    if (y >= 2023) return "FYUGP";
-    return null;
+  // Definitive FYUG: DSC/DSM/AEC/VAC codes from the FYUG era (2022+)
+  if (/DSC|DSM|AEC|VAC/.test(c)) {
+    return y >= 2022 ? "FYUGP" : "CBCS";
   }
-  return null;
+  // Definitive FYUG: new numeric coding system
+  if (/^[A-Z]{3}\d{7}$/.test(c) || /^SEC\d{7}$/.test(c)) {
+    return "FYUGP";
+  }
+  // Everything else → CBCS (HCC, HGE, SEC, DSE, LAN, GEN, bare GE)
+  return "CBCS";
 }
 
 /** Resolve the display programme, preferring the stored field. */
