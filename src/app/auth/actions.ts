@@ -35,8 +35,10 @@ export async function signInWithGoogle(redirectUrl?: string | null) {
   const headersList = await headers();
   const host = headersList.get("host");
   const protocol = headersList.get("x-forwarded-proto") ?? (host?.includes("localhost") ? "http" : "https");
-  const fallbackSiteUrl = `${protocol}://${host}`;
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || fallbackSiteUrl;
+  // Always use the request's own host for OAuth callback — using NEXT_PUBLIC_SITE_URL
+  // here breaks Appwrite's OAuth state validation when the user is on a different
+  // domain (e.g. apex vs www), causing "user_oauth2_state_invalid" errors.
+  const siteUrl = `${protocol}://${host}`;
 
   // Pass the redirect URL through the callback as ?next=
   const callbackUrl = new URL(`${siteUrl}/auth/callback`);
