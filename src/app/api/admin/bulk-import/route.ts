@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getServerUser } from "@/lib/auth";
-import { isModerator } from "@/lib/roles";
+import { isModerator, normalizeRole } from "@/lib/roles";
 import {
   adminDatabases,
   DATABASE_ID,
@@ -46,7 +46,7 @@ interface BulkPayload {
 export async function POST(request: NextRequest) {
   try {
     const user = await getServerUser();
-    if (!user || !isModerator(user)) {
+    if (!user || !isModerator(normalizeRole(user.role))) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
