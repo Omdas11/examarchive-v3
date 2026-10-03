@@ -70,14 +70,14 @@ export function classifyProgramme(
   return "CBCS";
 }
 
-/** Resolve the display programme, preferring the stored field. */
+/** Resolve the display programme — always computed from the course code.
+ *  The stored `programme` DB field is unreliable (contains incorrect values),
+ *  so the classifier is the source of truth. */
 export function getProgramme(p: {
   programme?: string | null;
   course_code?: string | null;
   year?: number | null;
   semester?: string | null;
 }): string | null {
-  if (p.programme === "FYUGP" || p.programme === "CBCS") return p.programme;
-  if (p.programme) return p.programme;
   return classifyProgramme(p.course_code, p.year, p.semester);
 }
