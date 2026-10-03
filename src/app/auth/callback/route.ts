@@ -20,8 +20,12 @@ export async function GET(request: NextRequest) {
   const next = searchParams.get("next") ?? "/";
 
   if (!userId || !secret) {
-    console.error("[auth/callback] Missing userId or secret params");
-    return NextResponse.redirect(`${origin}/login?error=auth_callback_error`);
+    console.error("[auth/callback] Missing userId or secret params", {
+      url: request.url,
+      hasUserId: !!userId,
+      hasSecret: !!secret,
+    });
+    return NextResponse.redirect(`${origin}/login?error=auth_callback_missing_params`);
   }
 
   try {
@@ -93,7 +97,7 @@ export async function GET(request: NextRequest) {
 
     const errorCode = message.toLowerCase().includes("expired")
       ? "auth_callback_expired"
-      : "auth_callback_error";
+      : "auth_callback_session_failed";
 
     return NextResponse.redirect(`${origin}/login?error=${errorCode}`);
   }
