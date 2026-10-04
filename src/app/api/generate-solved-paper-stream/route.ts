@@ -649,7 +649,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const isAdminPlus = user.role === "admin" || user.role === "founder";
+  const isAdminPlus = user.role === "moderator" || user.role === "founder";
 
   await ensureSolvedPaperCacheSchema();
   await ensureMarkdownCacheBucket();

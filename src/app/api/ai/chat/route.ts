@@ -68,11 +68,11 @@ export async function POST(request: NextRequest) {
 
   const history = Array.isArray(body.history) ? body.history : [];
   const adminRequestedModel =
-    (user.role === "admin" || user.role === "founder") && typeof body.model === "string"
+    (user.role === "moderator" || user.role === "founder") && typeof body.model === "string"
       ? body.model.trim()
       : undefined;
   const adminRequestedGlobal =
-    (user.role === "admin" || user.role === "founder") && Boolean(body.applyGlobally);
+    (user.role === "moderator" || user.role === "founder") && Boolean(body.applyGlobally);
 
   try {
     const normalizedHistory: Array<{ role: "user" | "assistant"; content: string }> = history.slice(-10).flatMap((h) => {

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import type { Syllabus } from "@/types";
 import type { SyllabusTablePaperSummary } from "@/lib/syllabus-table";
@@ -15,6 +16,9 @@ type ActiveTab = "catalog" | "pdfs";
 const PDF_GRID_STYLE = { gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" } as const;
 /** Shared grid style for paper catalog card grids. */
 const PAPER_GRID_STYLE = { gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" } as const;
+
+/** Papers per page in the catalog grid. */
+const CATALOG_PAGE_SIZE = 24;
 
 /** Returns the display name for a paper's subject, falling back to subjectCode. */
 function getSubjectDisplay(paper: Pick<SyllabusTablePaperSummary, "subject" | "subjectCode">): string {
@@ -127,6 +131,8 @@ function PaperCard({
 }) {
   const pdfs = uploadedPdfs.get(paper.paperCode.toUpperCase()) ?? [];
   const [expanded, setExpanded] = useState(false);
+  const router = useRouter();
+  const detailHref = `/syllabus/paper/${encodeURIComponent(paper.paperCode)}`;
 
   const yearGroups = paper.questionPapers.reduce<Map<number, Array<{ paperId: string; examType?: string }>>>(
     (acc, qp) => {
@@ -143,8 +149,19 @@ function PaperCard({
   const hue = (serialNo * 43) % 360;
 
   return (
-    <div className="group flex flex-col overflow-hidden rounded-2xl border border-outline-variant/30 bg-surface shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
-      {/* Hue accent */}
+    <div
+      className="group flex flex-col overflow-hidden rounded-2xl border border-outline-variant/30 bg-surface shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md cursor-pointer"
+      onClick={() => router.push(detailHref)}
+      role="link"
+      tabIndex={0}
+      aria-label={`View syllabus for ${paper.paperCode}`}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          router.push(detailHref);
+        }
+      }}
+    >      {/* Hue accent */}
       <div className="h-1 w-full shrink-0" style={{ background: `hsl(${hue},60%,52%)` }} aria-hidden="true" />
 
       <div className="flex flex-1 flex-col gap-3 p-4">
@@ -184,7 +201,7 @@ function PaperCard({
             <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-on-surface-variant">
               Question Papers
             </p>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1.5" onClick={(e) => e.stopPropagation()}>
               {visibleYears.map((year) => {
                 const items = yearGroups.get(year) ?? [];
                 return items.map((item) => (
@@ -195,18 +212,16 @@ function PaperCard({
                     title={item.examType ? `${year} · ${item.examType}` : String(year)}
                   >
                     {year}
-                    {item.examType && (
-                      <span className="rounded-full bg-surface px-1 py-0.5 text-[9px] font-bold uppercase tracking-wide">
-                        {item.examType.slice(0, 3)}
-                      </span>
-                    )}
                   </Link>
                 ));
               })}
               {hasMore && (
                 <button
                   type="button"
-                  onClick={() => setExpanded((v) => !v)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setExpanded((v) => !v);
+                  }}
                   className="rounded-lg bg-surface-container px-2.5 py-1 text-[11px] font-semibold text-on-surface-variant transition-colors hover:bg-surface-container-high"
                 >
                   {expanded ? "Less ▲" : `+${sortedYears.length - 4} more`}
@@ -218,7 +233,7 @@ function PaperCard({
 
         {/* Linked PDF badge */}
         {pdfs.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-1.5" onClick={(e) => e.stopPropagation()}>
             {pdfs.map((pdf) => (
               <a
                 key={pdf.id}
@@ -238,9 +253,12 @@ function PaperCard({
         )}
 
         {/* Actions */}
-        <div className="mt-auto flex flex-wrap gap-2 border-t border-outline-variant/20 pt-3">
+        <div
+          className="mt-auto flex flex-wrap gap-2 border-t border-outline-variant/20 pt-3"
+          onClick={(e) => e.stopPropagation()}
+        >
           <Link
-            href={`/syllabus/paper/${encodeURIComponent(paper.paperCode)}`}
+            href={detailHref}
             className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-[11px] font-semibold text-on-primary transition-opacity hover:opacity-90"
           >
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -272,6 +290,8 @@ function PaperCard({
 export default function SyllabusCatalogClient({ syllabi }: { syllabi: Syllabus[] }) {
   const [activeTab, setActiveTab] = useState<ActiveTab>("catalog");
   const [activeSubject, setActiveSubject] = useState<string>("All");
+  const [activeProgramme, setActiveProgramme] = useState<string>("All");
+  const [page, setPage] = useState(1);
   const [pdfFilter, setPdfFilter] = useState<"all" | "dept" | "sem">("all");
   const [search, setSearch] = useState("");
   const [papers, setPapers] = useState<SyllabusTablePaperSummary[]>([]);
@@ -332,9 +352,22 @@ export default function SyllabusCatalogClient({ syllabi }: { syllabi: Syllabus[]
     return ["All", ...Array.from(subjects).sort((a, b) => a.localeCompare(b))];
   }, [papers]);
 
-  /** Papers after subject + search filter. */
+  /** Programme values present in the catalog (e.g. FYUG, CBCS). */
+  const programmeFilters = useMemo(() => {
+    const progs = new Set<string>();
+    for (const p of papers) {
+      const c = (p.course || "").trim().toUpperCase();
+      if (c) progs.add(c);
+    }
+    return ["All", ...Array.from(progs).sort((a, b) => a.localeCompare(b))];
+  }, [papers]);
+
+  /** Papers after subject + programme + search filter. */
   const filteredPapers = useMemo(() => {
     let list = activeSubject === "All" ? papers : papers.filter((p) => getSubjectDisplay(p) === activeSubject);
+    if (activeProgramme !== "All") {
+      list = list.filter((p) => (p.course || "").trim().toUpperCase() === activeProgramme);
+    }
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       list = list.filter(
@@ -345,7 +378,17 @@ export default function SyllabusCatalogClient({ syllabi }: { syllabi: Syllabus[]
       );
     }
     return list;
-  }, [papers, activeSubject, search]);
+  }, [papers, activeSubject, activeProgramme, search]);
+
+  /** Paginated slice of the filtered papers. */
+  const totalPages = Math.max(1, Math.ceil(filteredPapers.length / CATALOG_PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pagedPapers = useMemo(() => {
+    const start = (safePage - 1) * CATALOG_PAGE_SIZE;
+    return filteredPapers.slice(start, start + CATALOG_PAGE_SIZE);
+  }, [filteredPapers, safePage]);
+
+  const resetPage = () => setPage(1);
 
   return (
     <section className="mx-auto w-full max-w-6xl px-4 pb-16 pt-6">
@@ -514,7 +557,7 @@ export default function SyllabusCatalogClient({ syllabi }: { syllabi: Syllabus[]
                   type="search"
                   placeholder="Search by code, name, or subject…"
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) => { setSearch(e.target.value); resetPage(); }}
                   className="w-full rounded-xl border border-outline-variant/40 bg-surface py-2 pl-8 pr-4 text-sm text-on-surface placeholder-on-surface-variant/50 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                 />
               </div>
@@ -533,7 +576,7 @@ export default function SyllabusCatalogClient({ syllabi }: { syllabi: Syllabus[]
                 <button
                   key={sub}
                   type="button"
-                  onClick={() => setActiveSubject(sub)}
+                  onClick={() => { setActiveSubject(sub); resetPage(); }}
                   className={cn(
                     "rounded-full px-3.5 py-1.5 text-xs font-semibold transition shadow-sm",
                     activeSubject === sub
@@ -542,6 +585,30 @@ export default function SyllabusCatalogClient({ syllabi }: { syllabi: Syllabus[]
                   )}
                 >
                   {sub}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Programme filter chips */}
+          {!loading && !error && programmeFilters.length > 1 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-60">
+                Programme
+              </span>
+              {programmeFilters.map((prog) => (
+                <button
+                  key={prog}
+                  type="button"
+                  onClick={() => { setActiveProgramme(prog); resetPage(); }}
+                  className={cn(
+                    "rounded-full px-3.5 py-1.5 text-xs font-semibold transition shadow-sm",
+                    activeProgramme === prog
+                      ? "bg-secondary text-on-secondary shadow-md"
+                      : "bg-surface-container text-on-surface hover:bg-surface-container-high",
+                  )}
+                >
+                  {prog}
                 </button>
               ))}
             </div>
@@ -562,16 +629,43 @@ export default function SyllabusCatalogClient({ syllabi }: { syllabi: Syllabus[]
               {search ? `No papers match "${search}".` : "No syllabus entries found."}
             </div>
           ) : (
-            <div className="grid gap-4" style={PAPER_GRID_STYLE}>
-              {filteredPapers.map((paper, idx) => (
-                <PaperCard
-                  key={paper.paperCode}
-                  serialNo={idx + 1}
-                  paper={paper}
-                  uploadedPdfs={uploadedPdfs}
-                />
-              ))}
-            </div>
+            <>
+              <div className="grid gap-4" style={PAPER_GRID_STYLE}>
+                {pagedPapers.map((paper, idx) => (
+                  <PaperCard
+                    key={paper.paperCode}
+                    serialNo={(safePage - 1) * CATALOG_PAGE_SIZE + idx + 1}
+                    paper={paper}
+                    uploadedPdfs={uploadedPdfs}
+                  />
+                ))}
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="mt-6 flex items-center justify-center gap-2">
+                  <button
+                    type="button"
+                    disabled={safePage <= 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    className="rounded-full px-4 py-2 text-xs font-bold bg-surface-container text-on-surface hover:bg-surface-container-high disabled:opacity-40 disabled:cursor-not-allowed transition"
+                  >
+                    ← Prev
+                  </button>
+                  <span className="text-xs font-semibold text-on-surface-variant">
+                    Page {safePage} of {totalPages}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={safePage >= totalPages}
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    className="rounded-full px-4 py-2 text-xs font-bold bg-surface-container text-on-surface hover:bg-surface-container-high disabled:opacity-40 disabled:cursor-not-allowed transition"
+                  >
+                    Next →
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

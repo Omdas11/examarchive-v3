@@ -25,8 +25,8 @@ const XP_STREAK_30_DAY_BONUS = 500;
 const VIEWER_TO_CONTRIBUTOR_UPLOAD_THRESHOLD = 2;
 const VIEWER_TO_CONTRIBUTOR_XO_THRESHOLD = 30;
 const VIEWER_TO_CONTRIBUTOR_ACCOUNT_AGE_DAYS = 3;
-const CONTRIBUTOR_TO_CURATOR_UPLOAD_THRESHOLD = 10;
-const CONTRIBUTOR_TO_CURATOR_XO_THRESHOLD = 150;
+const CONTRIBUTOR_TO_SPECIALIST_UPLOAD_THRESHOLD = 10;
+const CONTRIBUTOR_TO_SPECIALIST_XO_THRESHOLD = 150;
 const TIER_SILVER_UPLOAD_THRESHOLD = 20;
 
 /**
@@ -85,13 +85,13 @@ async function incrementUploadCount(
     update.streak_days = streak;
     update.last_activity = now.toISOString();
 
-    const currentRole = normalizeRole((profile.role as string) ?? "viewer");
+    const currentRole = normalizeRole((profile.role as string) ?? "student");
     const createdAt = typeof profile.$createdAt === "string" ? profile.$createdAt : "";
     const accountAgeDays = createdAt
       ? Math.floor((Date.now() - new Date(createdAt).getTime()) / 86_400_000)
       : 0;
     if (
-      currentRole === "viewer" &&
+      currentRole === "student" &&
       currentCount >= VIEWER_TO_CONTRIBUTOR_UPLOAD_THRESHOLD &&
       nextXp >= VIEWER_TO_CONTRIBUTOR_XO_THRESHOLD &&
       accountAgeDays >= VIEWER_TO_CONTRIBUTOR_ACCOUNT_AGE_DAYS
@@ -100,11 +100,11 @@ async function incrementUploadCount(
     }
     if (
       currentRole === "contributor" &&
-      currentCount >= CONTRIBUTOR_TO_CURATOR_UPLOAD_THRESHOLD &&
-      nextXp >= CONTRIBUTOR_TO_CURATOR_XO_THRESHOLD &&
+      currentCount >= CONTRIBUTOR_TO_SPECIALIST_UPLOAD_THRESHOLD &&
+      nextXp >= CONTRIBUTOR_TO_SPECIALIST_XO_THRESHOLD &&
       !Boolean(profile.abuse_flag)
     ) {
-      update.role = "curator";
+      update.role = "specialist";
     }
 
     // Auto-promote: set tier to silver once moderator-eligible threshold is reached

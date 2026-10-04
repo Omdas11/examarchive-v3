@@ -14,13 +14,6 @@ const ROLES: UserRole[] = [
   "specialist",
   "contributor",
   "student",
-  // legacy values for compatibility while records are migrated
-  "admin",
-  "maintainer",
-  "curator",
-  "verified_contributor",
-  "explorer",
-  "visitor",
 ];
 
 /** Human-readable labels for the role dropdown. */
@@ -31,14 +24,6 @@ const ROLE_LABELS: Record<UserRole, string> = {
   specialist: "Specialist",
   contributor: "Contributor",
   student: "Student",
-  admin: "Moderator (legacy admin)",
-  maintainer: "Moderator (legacy maintainer)",
-  curator: "Specialist (legacy curator)",
-  verified_contributor: "Specialist (legacy verified contributor)",
-  viewer: "Student (legacy viewer)",
-  explorer: "Student (legacy explorer)",
-  visitor: "Student (legacy visitor)",
-  guest: "Student (legacy guest)",
 };
 
 const CUSTOM_ROLES: string[] = [

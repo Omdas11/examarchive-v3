@@ -14,15 +14,6 @@ const ALL_AUTHENTICATED_ROLES = [
   "subject_admin",
   "moderator",
   "founder",
-  // legacy aliases
-  "viewer",
-  "guest",
-  "curator",
-  "visitor",
-  "explorer",
-  "verified_contributor",
-  "admin",
-  "maintainer",
 ];
 
 export const APP_SIDEBAR_ITEMS: AppSidebarItem[] = [
@@ -99,19 +90,19 @@ export const APP_SIDEBAR_ITEMS: AppSidebarItem[] = [
     label: "Admin Panel",
     icon: "admin_panel_settings",
     href: "/admin",
-    roles: ["moderator", "founder", "admin", "maintainer"],
+    roles: ["moderator", "founder"],
   },
   {
     label: "AI Controls",
     icon: "monitoring",
     href: "/admin/ai-stats",
-    roles: ["moderator", "founder", "admin", "maintainer"],
+    roles: ["moderator", "founder"],
   },
   {
     label: "MD Ingestion",
     icon: "upload_file",
     href: "/admin/ingest-md",
-    roles: ["moderator", "founder", "admin", "maintainer"],
+    roles: ["moderator", "founder"],
   },
   {
     label: "Syllabus Tracker",
@@ -123,13 +114,13 @@ export const APP_SIDEBAR_ITEMS: AppSidebarItem[] = [
     label: "Syllabus Verification",
     icon: "fact_check",
     href: "/admin/syllabus-verification",
-    roles: ["moderator", "founder", "admin", "maintainer"],
+    roles: ["moderator", "founder"],
   },
   {
     label: "Manage Users",
     icon: "group",
     href: "/admin/users",
-    roles: ["moderator", "founder", "admin", "maintainer"],
+    roles: ["moderator", "founder"],
   },
   // ── Founder only ──────────────────────────────────────
   {

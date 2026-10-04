@@ -48,7 +48,7 @@ export default async function LoginPage({ searchParams }: Props) {
       breadcrumbs={[{ label: "Home", href: "/" }, { label: "Sign In" }]}
       showSearch={false}
       sidebarItems={APP_SIDEBAR_ITEMS}
-      userRole="visitor"
+      userRole="student"
       isLoggedIn={false}
       userName=""
       userInitials=""

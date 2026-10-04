@@ -10,7 +10,7 @@ const TOPIC_MAX_LENGTH = 500;
 const CONTENT_MAX_LENGTH = 100_000;
 
 function isAdminPlus(role: string): boolean {
-  return role === "admin" || role === "founder";
+  return role === "moderator" || role === "founder";
 }
 
 function normalizePageLength(raw: unknown): number {

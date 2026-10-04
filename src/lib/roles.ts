@@ -6,8 +6,6 @@ import type { CustomRole, UserRole, UserTier } from "@/types";
  * Canonical progression:
  * student → contributor → specialist → subject_admin → moderator
  * founder remains the super-admin override.
- *
- * Legacy v1 roles are accepted and normalized.
  */
 const ROLE_LEVELS: Record<UserRole, number> = {
   student: 0,
@@ -16,15 +14,6 @@ const ROLE_LEVELS: Record<UserRole, number> = {
   subject_admin: 3,
   moderator: 4,
   founder: 5,
-  // legacy aliases (kept for backward compatibility)
-  guest: 0,
-  viewer: 0,
-  visitor: 0,
-  explorer: 0,
-  curator: 2,
-  verified_contributor: 2,
-  maintainer: 4,
-  admin: 4,
 };
 
 /**
@@ -37,23 +26,11 @@ export const ROLE_XO_THRESHOLDS: Record<UserRole, number> = {
   subject_admin: 400,
   moderator: 0,
   founder: 0,
-  // legacy aliases
-  guest: 0,
-  viewer: 0,
-  visitor: 0,
-  explorer: 0,
-  curator: 150,
-  verified_contributor: 150,
-  maintainer: 0,
-  admin: 0,
 };
-
-/** @deprecated use ROLE_XO_THRESHOLDS */
-export const ROLE_XP_THRESHOLDS = ROLE_XO_THRESHOLDS;
 
 /**
  * Static ring colour for each role (shown in AvatarRing component).
- * Returns null for guest/viewer and visitor aliases (no ring).
+ * Returns null for student (no ring).
  */
 export const ROLE_RING_COLORS: Record<UserRole, string | null> = {
   student: null,
@@ -62,33 +39,12 @@ export const ROLE_RING_COLORS: Record<UserRole, string | null> = {
   subject_admin: "#0ea5e9",
   moderator: "#f97316",          // orange-500
   founder: "#ef4444",
-  // legacy aliases
-  guest: null,
-  viewer: null,
-  visitor: null,
-  explorer: null,
-  curator: "#6366f1",
-  verified_contributor: "#6366f1",
-  maintainer: "#f97316",
-  admin: "#f97316",
-};
-
-const LEGACY_ROLE_MAP: Partial<Record<UserRole, UserRole>> = {
-  guest: "student",
-  viewer: "student",
-  visitor: "student",
-  explorer: "student",
-  curator: "specialist",
-  verified_contributor: "specialist",
-  admin: "moderator",
-  maintainer: "moderator",
 };
 
 export function normalizeRole(role: string | null | undefined): UserRole {
   if (!role) return "student";
   if (!(role in ROLE_LEVELS)) return "student";
-  const typedRole = role as UserRole;
-  return LEGACY_ROLE_MAP[typedRole] ?? typedRole;
+  return role as UserRole;
 }
 
 export function roleLabel(role: string | null | undefined): string {

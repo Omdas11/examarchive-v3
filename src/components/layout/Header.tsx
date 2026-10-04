@@ -10,13 +10,13 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import CreditIcon from '@/components/CreditIcon';
 import { PROFILE_REFRESH_EVENT } from '@/lib/profile-events';
+import { useTheme } from '@/hooks/useTheme';
 
 export interface HeaderProps {
   title?: string;
   showSearch?: boolean;
   userInitials?: string;
   userName?: string;
-  notifications?: number;
   breadcrumbs?: { label: string; href?: string }[];
   onSearch?: (query: string) => void;
   onProfileClick?: () => void;
@@ -29,7 +29,6 @@ export default function Header({
   showSearch = true,
   userInitials = 'JD',
   userName = 'John Doe',
-  notifications = 0,
   breadcrumbs,
   onSearch,
   onProfileClick,
@@ -40,6 +39,23 @@ export default function Header({
   const [searchQuery, setSearchQuery] = useState('');
   const [showNotifications, setShowNotifications] = useState(false);
   const [creditBalance, setCreditBalance] = useState<number | null>(null);
+  const [notificationsList, setNotificationsList] = useState<
+    { id: string; title: string; body: string; href: string; time: string }[]
+  >([]);
+  const { isDark, toggle: toggleTheme } = useTheme();
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/notifications')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!cancelled && data && Array.isArray(data.notifications)) {
+          setNotificationsList(data.notifications);
+        }
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const query = e.target.value;
@@ -166,6 +182,22 @@ export default function Header({
           </div>
         )}
 
+        {/* Theme toggle */}
+        <button
+          type="button"
+          onClick={toggleTheme}
+          className={cn(
+            'p-2.5 rounded-full transition-all duration-200',
+            'hover:bg-surface-container-low',
+          )}
+          aria-label={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
+          title={isDark ? 'Light theme' : 'Dark theme'}
+        >
+          <span className="material-symbols-outlined text-on-surface-variant">
+            {isDark ? 'light_mode' : 'dark_mode'}
+          </span>
+        </button>
+
         {/* Notifications */}
         <div className="relative">
           <button
@@ -180,7 +212,7 @@ export default function Header({
             <span className="material-symbols-outlined text-on-surface-variant">
               notifications
             </span>
-            {notifications > 0 && (
+            {notificationsList.length > 0 && (
               <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full ring-2 ring-surface" />
             )}
           </button>
@@ -198,21 +230,26 @@ export default function Header({
                 <h3 className="font-bold text-on-surface text-sm">Notifications</h3>
               </div>
               <div className="max-h-96 overflow-y-auto">
-                {notifications > 0 ? (
+            {notificationsList.length > 0 ? (
                   <div className="p-3 space-y-2">
-                    {[...Array(Math.min(notifications, 5))].map((_, i) => (
-                      <div
-                        key={i}
-                        className="p-3 bg-surface hover:bg-surface-container-low rounded-xl transition-colors cursor-pointer border border-outline-variant/5"
+                    {notificationsList.slice(0, 5).map((n) => (
+                      <Link
+                        key={n.id}
+                        href={n.href}
+                        onClick={() => setShowNotifications(false)}
+                        className="block p-3 bg-surface hover:bg-surface-container-low rounded-xl transition-colors border border-outline-variant/5"
                       >
-                        <p className="text-sm font-semibold text-on-surface">Notification {i + 1}</p>
-                        <p className="text-xs text-on-surface-variant mt-1">Just now</p>
-                      </div>
+                        <p className="text-sm font-semibold text-on-surface">{n.title}</p>
+                        <p className="text-xs text-on-surface-variant mt-1">{n.body}</p>
+                      </Link>
                     ))}
                   </div>
                 ) : (
                   <div className="p-8 text-center">
-                    <p className="text-sm text-on-surface-variant">No notifications</p>
+                    <p className="text-sm text-on-surface-variant">You&rsquo;re all caught up</p>
+                    <p className="mt-1 text-xs text-on-surface-variant opacity-70">
+                      New papers and upload updates will appear here.
+                    </p>
                   </div>
                 )}
               </div>

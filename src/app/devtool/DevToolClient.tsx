@@ -783,8 +783,10 @@ function DangerTab({ onOpenModal }: { onOpenModal: (action: PendingDangerAction)
           <div className="flex gap-2">
             <select value={overrideRole} onChange={(e) => setOverrideRole(e.target.value)} className="input-field flex-1">
               <option value="student">student</option>
+              <option value="contributor">contributor</option>
+              <option value="specialist">specialist</option>
+              <option value="subject_admin">subject_admin</option>
               <option value="moderator">moderator</option>
-              <option value="admin">admin</option>
               <option value="founder">founder</option>
             </select>
             <button className="btn text-sm px-4 py-2 shrink-0" onClick={handleRoleOverride} disabled={overrideState.status === "loading"}>

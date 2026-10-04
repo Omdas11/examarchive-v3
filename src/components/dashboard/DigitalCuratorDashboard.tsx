@@ -181,7 +181,6 @@ export default function DigitalCuratorDashboard({
       showSearch
       userInitials={displayInitials}
       userName={userName}
-      notifications={stats?.pending_count ?? 0}
       onSearch={handleSearch}
       sidebarItems={APP_SIDEBAR_ITEMS}
       userRole={userRole}

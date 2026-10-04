@@ -32,7 +32,7 @@ function sanitizeReferenceLabel(label: string | undefined): string | undefined {
 }
 
 function isAdminPlus(role: string): boolean {
-  return role === "admin" || role === "founder";
+  return role === "moderator" || role === "founder";
 }
 
 /** Check how many documents a user has generated today. */

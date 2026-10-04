@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 
 export default async function SyllabusVerificationPage() {
   const user = await getServerUser();
-  if (!user || (user.role !== "admin" && user.role !== "founder")) {
+  if (!user || (user.role !== "moderator" && user.role !== "founder")) {
     redirect("/");
   }
 

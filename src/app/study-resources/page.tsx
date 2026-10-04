@@ -44,7 +44,7 @@ export default async function StudyResourcesPage() {
       ]}
       showSearch={false}
       sidebarItems={APP_SIDEBAR_ITEMS}
-      userRole={user?.role ?? "visitor"}
+      userRole={user?.role ?? "student"}
       isLoggedIn={!!user}
       userName={userName}
       userInitials={userInitials}

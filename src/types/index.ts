@@ -103,9 +103,6 @@ export interface UserProfile {
  * Canonical hierarchy:
  * Student → Contributor → Specialist → Subject Administrator → Moderator
  * Founder is a super-admin override outside the regular ladder.
- *
- * Legacy v1 role values are retained for backward compatibility and are
- * normalized by src/lib/roles.ts.
  */
 export type UserRole =
   | "student"
@@ -114,15 +111,6 @@ export type UserRole =
   | "subject_admin"
   | "moderator"
   | "founder"
-  // legacy aliases (v1)
-  | "guest"
-  | "viewer"
-  | "visitor"
-  | "explorer"
-  | "curator"
-  | "verified_contributor"
-  | "admin"
-  | "maintainer"
   ;
 
 /** Community/cosmetic custom roles (display-only, never grant permissions). */

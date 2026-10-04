@@ -65,7 +65,7 @@ type GenerateBody = {
 };
 
 function isAdminPlus(role: string): boolean {
-  return role === "moderator" || role === "admin" || role === "founder";
+  return role === "moderator" || role === "founder";
 }
 
 function normalizeYear(value: unknown): number | null {

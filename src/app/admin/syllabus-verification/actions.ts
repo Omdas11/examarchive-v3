@@ -6,7 +6,7 @@ import { getServerUser } from "@/lib/auth";
 export async function publishSyllabusRow(id: string) {
   try {
     const user = await getServerUser();
-    if (!user || (user.role !== "admin" && user.role !== "founder")) {
+    if (!user || (user.role !== "moderator" && user.role !== "founder")) {
       return { success: false, error: "Unauthorized" };
     }
 
@@ -25,7 +25,7 @@ export async function publishSyllabusRow(id: string) {
 export async function deleteSyllabusRow(id: string) {
   try {
     const user = await getServerUser();
-    if (!user || (user.role !== "admin" && user.role !== "founder")) {
+    if (!user || (user.role !== "moderator" && user.role !== "founder")) {
       return { success: false, error: "Unauthorized" };
     }
 

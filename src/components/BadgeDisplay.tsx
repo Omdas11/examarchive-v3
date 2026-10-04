@@ -114,7 +114,7 @@ export function buildBadges({
       description: "Reviewed a submission for the first time.",
       type: "activity",
       // Proxy: any admin/moderator who has approved at least one paper
-      earned: (role === "admin" || role === "moderator" || role === "founder") && upload_count > 0,
+      earned: (role === "moderator" || role === "founder") && upload_count > 0,
       icon: "edit",
       accentColor: "#5c6bc0",
       bgColor: "rgba(92,107,192,0.12)",
@@ -220,7 +220,7 @@ export function buildBadges({
       label: "Admin",
       description: "Platform administrator.",
       type: "role",
-      earned: role === "admin",
+      earned: role === "moderator",
       icon: "shield",
       accentColor: "#b91c1c",
       bgColor: "rgba(185,28,28,0.12)",

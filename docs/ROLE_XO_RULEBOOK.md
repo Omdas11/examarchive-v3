@@ -1,5 +1,11 @@
 # ROLE_XO_RULEBOOK.md
 
+> **Status: SUPERSEDED** — This v2 proposal was never implemented. The live
+> system is documented in `docs/ROLES.md` (canonical) and the public
+> explainer at `/roles`.
+>
+> --- original header below ---
+
 > **Status: Proposed v2 Spec** — This document describes a **future redesign** of the
 > ExamArchive role and activity-scoring system. It does **not** reflect the current
 > implementation.

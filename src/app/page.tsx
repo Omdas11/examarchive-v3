@@ -269,7 +269,7 @@ export default async function HomePage() {
     <MainLayout
       title="Home"
       sidebarItems={APP_SIDEBAR_ITEMS}
-      userRole={user?.role ?? "visitor"}
+      userRole={user?.role ?? "student"}
       isLoggedIn={!!user}
       userName={userName}
       userInitials={userInitials}

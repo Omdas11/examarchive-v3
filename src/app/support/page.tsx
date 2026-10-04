@@ -61,7 +61,7 @@ export default async function SupportPage() {
       breadcrumbs={[{ label: "Home", href: "/" }, { label: "Support" }]}
       showSearch={false}
       sidebarItems={APP_SIDEBAR_ITEMS}
-      userRole={user?.role ?? "visitor"}
+      userRole={user?.role ?? "student"}
       isLoggedIn={!!user}
       userName={userName}
       userInitials={userInitials}

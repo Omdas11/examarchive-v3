@@ -53,7 +53,6 @@ export default function Sidebar({
 }: SidebarProps) {
   const pathname = usePathname();
   const [localCollapsed, setLocalCollapsed] = useState(false);
-  const [isDarkTheme, setIsDarkTheme] = useState(false);
 
   // Use controlled collapsed state if provided, otherwise use local state
   const isCollapsed = controlledCollapsed !== undefined ? controlledCollapsed : localCollapsed;
@@ -74,29 +73,6 @@ export default function Sidebar({
     return pathname === href || pathname.startsWith(href + '/');
   };
 
-  React.useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const saved = localStorage.getItem('theme');
-    if (saved === 'dark' || saved === 'light') {
-      setIsDarkTheme(saved === 'dark');
-      document.documentElement.setAttribute('data-theme', saved);
-      return;
-    }
-
-    const current = document.documentElement.getAttribute('data-theme');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    setIsDarkTheme(current === 'dark' || (!current && prefersDark));
-  }, []);
-
-  const handleThemeToggle = () => {
-    const nextDark = !isDarkTheme;
-    setIsDarkTheme(nextDark);
-    const nextTheme = nextDark ? 'dark' : 'light';
-    document.documentElement.setAttribute('data-theme', nextTheme);
-    localStorage.setItem('theme', nextTheme);
-  };
-
   return (
     <>
       {/* Mobile backdrop overlay */}
@@ -110,7 +86,7 @@ export default function Sidebar({
 
     <aside
       className={cn(
-        'fixed left-0 top-0 h-full flex flex-col bg-surface',
+        'fixed left-0 top-0 h-dvh flex flex-col bg-surface',
         'z-50',
         'border-r border-outline-variant/10',
         'transition-all duration-300 ease-in-out',
@@ -121,11 +97,10 @@ export default function Sidebar({
         // Mobile transform: off-screen when closed, on-screen when open
         isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
       )}
-      style={{ minHeight: '100vh' }}
     >
       {/* Logo Section */}
-      <div className="p-6">
-        <div className="flex items-center gap-4 mb-10">
+      <div className="p-5 shrink-0">
+        <div className="flex items-center gap-4 mb-6">
           <div className="w-12 h-12 gradient-primary rounded-xl flex items-center justify-center text-white flex-shrink-0 shadow-lift">
             <Image
               src="/branding/logo.png"
@@ -217,7 +192,7 @@ export default function Sidebar({
       </nav>
 
       {/* Bottom Actions */}
-      <div className="p-4 space-y-2.5 border-t border-outline-variant/10 bg-surface">
+      <div className="p-4 space-y-2.5 border-t border-outline-variant/10 bg-surface shrink-0">
         <Link
           href="/upload"
           onClick={() => onNavigate?.('/upload')}
@@ -240,38 +215,16 @@ export default function Sidebar({
             )}
         </Link>
 
-        <button
-          type="button"
-          onClick={handleThemeToggle}
-          className={cn(
-            'w-full py-2.5 px-4 rounded-full text-sm font-bold transition-all duration-200',
-            'hover:bg-surface-container-low text-on-surface-variant hover:text-primary',
-            'flex items-center justify-center border border-outline-variant/10',
-            isCollapsed && 'p-2.5'
-          )}
-          aria-label={isDarkTheme ? 'Switch to light theme' : 'Switch to dark theme'}
-          title={isCollapsed ? 'Toggle theme' : undefined}
-        >
-          {isCollapsed ? (
-            <span className="material-symbols-outlined">{isDarkTheme ? 'light_mode' : 'dark_mode'}</span>
-          ) : (
-            <>
-              <span className="material-symbols-outlined text-lg mr-2 inline-block">
-                {isDarkTheme ? 'light_mode' : 'dark_mode'}
-              </span>
-              {isDarkTheme ? 'Light Theme' : 'Dark Theme'}
-            </>
-          )}
-        </button>
-
-        {!isCollapsed && isLoggedIn && (
+        {isLoggedIn && (
           <form action={signOut}>
             <button
               type="submit"
               className="w-full p-2.5 text-on-surface-variant hover:text-danger-red text-xs font-bold transition-colors flex items-center justify-center gap-2 rounded-full hover:bg-danger-red/5"
+              title={isCollapsed ? 'Logout' : undefined}
+              aria-label="Logout"
             >
               <span className="material-symbols-outlined text-lg">logout</span>
-              <span>LOGOUT</span>
+              {!isCollapsed && <span>LOGOUT</span>}
             </button>
           </form>
         )}

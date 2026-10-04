@@ -253,7 +253,7 @@ export default async function AboutPage() {
       breadcrumbs={[{ label: "Home", href: "/" }, { label: "About" }]}
       showSearch={false}
       sidebarItems={APP_SIDEBAR_ITEMS}
-      userRole={user?.role ?? "visitor"}
+      userRole={user?.role ?? "student"}
       isLoggedIn={!!user}
       userName={userName}
       userInitials={userInitials}

@@ -58,7 +58,7 @@ export default async function SyllabusPage() {
       title="Academic Curator"
       showSearch={false}
       sidebarItems={APP_SIDEBAR_ITEMS}
-      userRole={user?.role ?? "visitor"}
+      userRole={user?.role ?? "student"}
       isLoggedIn={!!user}
       userName={userName}
       userInitials={userInitials}

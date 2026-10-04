@@ -18,7 +18,7 @@ type GenerateNotesBody = {
 };
 
 function isAdminPlus(role: string): boolean {
-  return role === "admin" || role === "founder";
+  return role === "moderator" || role === "founder";
 }
 
 function normalizeTags(raw: unknown): string[] {

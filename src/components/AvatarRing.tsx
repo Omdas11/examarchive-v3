@@ -4,13 +4,11 @@
  *
  * Ring priority (role ring takes precedence over streak):
  *   founder          → static violet ring (#7c3aed)
- *   admin            → static red ring
- *   maintainer       → static purple ring
  *   moderator        → static orange ring
- *   verified_contributor → static indigo ring
+ *   subject_admin    → static sky ring
+ *   specialist       → static indigo ring
  *   contributor      → static blue ring
- *   explorer         → static sky-blue ring
- *   student/visitor  → no role ring (falls back to streak ring)
+ *   student          → no role ring (falls back to streak ring)
  *
  * Streak rings (when no role ring):
  *   0 days   → no ring

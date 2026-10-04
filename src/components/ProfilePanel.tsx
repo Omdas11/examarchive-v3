@@ -230,7 +230,7 @@ export default function ProfilePanel({ user, open, onClose }: ProfilePanelProps)
     },
   ];
 
-  if (user.role === "admin" || user.role === "moderator" || user.role === "founder") {
+  if (user.role === "moderator" || user.role === "founder") {
     navItems.push({
       href: "/admin",
       label: "Admin Dashboard",

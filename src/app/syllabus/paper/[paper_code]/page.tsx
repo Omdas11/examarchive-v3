@@ -25,6 +25,32 @@ const UNKNOWN_YEAR_LABEL = "Unknown year";
 const UNKNOWN_UNIVERSITY_LABEL = "Unknown university";
 const MAX_QUESTIONS_PER_PAPER = 500;
 
+/** Tags that are internal pipeline metadata, not meant for display. */
+const HIDDEN_TAG_PREFIXES = ["watermark:", "personalization:", "internal:", "debug:"];
+
+function isDisplayTag(tag: string): boolean {
+  const t = tag.trim().toLowerCase();
+  if (!t) return false;
+  return !HIDDEN_TAG_PREFIXES.some((p) => t.startsWith(p)) && !t.includes(":");
+}
+
+/**
+ * Splits a unit's prose content into bullet points on sentence boundaries.
+ * Falls back to a single bullet when no clean split is found.
+ */
+function splitIntoBullets(content: string): string[] {
+  const text = content.replace(/\s+/g, " ").trim();
+  if (!text) return [];
+  // Split on ". " / "! " / "? " followed by a capital letter or digit,
+  // keeping common abbreviations intact.
+  const parts = text
+    .split(/(?<=[.!?])\s+(?=[A-Z0-9])/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 1);
+  if (parts.length <= 1) return [text];
+  return parts;
+}
+
 type LinkedQuestionRow = {
   id: string;
   question_no: string;
@@ -175,7 +201,7 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
       ]}
       showSearch={false}
       sidebarItems={APP_SIDEBAR_ITEMS}
-      userRole={user?.role ?? "visitor"}
+      userRole={user?.role ?? "student"}
       isLoggedIn={!!user}
       userName={userName}
       userInitials={userInitials}
@@ -185,8 +211,8 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
             Syllabus_Table Source
           </p>
-          <h1 className="mt-2 text-3xl font-black text-on-surface">{paperName}</h1>
-          <p className="mt-1 font-mono text-sm text-on-surface-variant">{code}</p>
+          <h1 className="mt-2 text-3xl font-black text-on-surface break-words">{paperName}</h1>
+          <p className="mt-1 font-mono text-sm text-on-surface-variant break-words">{code}</p>
           <p className="mt-2 text-sm text-on-surface-variant">
             {first.university} · {first.course} · {first.stream} · {first.type}
           </p>
@@ -205,21 +231,32 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
 
         <div className="mt-6 grid gap-6 lg:grid-cols-3">
           <div className="space-y-4 lg:col-span-2">
-            {rows.map((row) => (
+            {rows.map((row) => {
+              const bullets = splitIntoBullets(row.syllabus_content);
+              const displayTags = row.tags.filter(isDisplayTag);
+              return (
               <article
                 key={row.id}
-                className="rounded-2xl border border-outline-variant/40 bg-surface p-4"
+                className="rounded-2xl border border-outline-variant/40 bg-surface p-4 overflow-hidden"
               >
-                <h2 className="text-lg font-semibold text-on-surface">Unit {row.unit_number}</h2>
+                <h2 className="text-lg font-semibold text-on-surface break-words">Unit {row.unit_number}</h2>
                 {typeof row.lectures === "number" && (
                   <p className="mt-1 text-xs text-on-surface-variant">Lectures: {row.lectures}</p>
                 )}
-                <p className="mt-3 whitespace-pre-wrap text-sm text-on-surface-variant">
-                  {row.syllabus_content}
-                </p>
-                {row.tags.length > 0 && (
+                {bullets.length > 1 ? (
+                  <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm text-on-surface-variant">
+                    {bullets.map((b, i) => (
+                      <li key={i} className="break-words leading-relaxed">{b}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-3 text-sm text-on-surface-variant break-words leading-relaxed">
+                    {row.syllabus_content}
+                  </p>
+                )}
+                {displayTags.length > 0 && (
                   <div className="mt-3 flex flex-wrap gap-2">
-                    {row.tags.map((tag) => (
+                    {displayTags.map((tag) => (
                       <span
                         key={`${row.id}-${tag}`}
                         className="rounded-full bg-surface-container px-2.5 py-1 text-[11px] font-semibold text-on-surface-variant"
@@ -230,7 +267,8 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
                   </div>
                 )}
               </article>
-            ))}
+              );
+            })}
 
             <article className="rounded-2xl border border-outline-variant/40 bg-surface p-4">
               <h2 className="text-lg font-semibold text-on-surface">Linked Questions</h2>

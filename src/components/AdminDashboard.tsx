@@ -33,7 +33,7 @@ export default function AdminDashboard({
 
   // Only admins + moderators should see the Users tab
   const visibleTabs =
-    currentAdminRole === "admin" || currentAdminRole === "moderator"
+    currentAdminRole === "moderator"
       ? TABS
       : TABS.filter((t) => t !== "Users");
 
@@ -60,7 +60,7 @@ export default function AdminDashboard({
       </div>
 
       {/* Quick links */}
-      {(currentAdminRole === "admin" || currentAdminRole === "moderator") && (
+      {(currentAdminRole === "moderator") && (
         <div className="mt-6 flex flex-wrap gap-2">
           <Link href="/admin/users" className="btn text-xs">
             <svg width="14" height="14" className="mr-1.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
@@ -104,7 +104,7 @@ export default function AdminDashboard({
           </>
         )}
 
-        {activeTab === "Users" && (currentAdminRole === "admin" || currentAdminRole === "moderator") && (
+        {activeTab === "Users" && (currentAdminRole === "moderator") && (
           <>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-lg font-semibold">User Management</h2>

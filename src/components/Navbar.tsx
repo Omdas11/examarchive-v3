@@ -136,7 +136,7 @@ export default function Navbar({ user }: NavbarProps) {
     return pathname.startsWith(href);
   }
 
-  const isAdminOrAbove = user && (user.role === "admin" || user.role === "moderator" || user.role === "founder");
+  const isAdminOrAbove = user && (user.role === "moderator" || user.role === "founder");
 
   return (
     <>

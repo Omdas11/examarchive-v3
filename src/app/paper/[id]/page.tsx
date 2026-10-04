@@ -85,7 +85,7 @@ export default async function PaperPage({ params }: PaperPageProps) {
         breadcrumbs={[{ label: "Home", href: "/" }, { label: "Paper" }]}
         showSearch={false}
         sidebarItems={APP_SIDEBAR_ITEMS}
-        userRole={user?.role ?? "visitor"}
+        userRole={user?.role ?? "student"}
         isLoggedIn={!!user}
         userName={userName}
         userInitials={userInitials}
@@ -150,7 +150,7 @@ export default async function PaperPage({ params }: PaperPageProps) {
       ]}
       showSearch={false}
       sidebarItems={APP_SIDEBAR_ITEMS}
-      userRole={user?.role ?? "visitor"}
+      userRole={user?.role ?? "student"}
       isLoggedIn={!!user}
       userName={userName}
       userInitials={userInitials}

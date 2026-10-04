@@ -76,7 +76,7 @@ export default function Sidebar({ user }: SidebarProps) {
     return pathname.startsWith(href);
   }
 
-  const isAdminOrAbove = user && (user.role === "admin" || user.role === "moderator" || user.role === "founder");
+  const isAdminOrAbove = user && (user.role === "moderator" || user.role === "founder");
 
   return (
     <aside className="sidebar-nav" aria-label="Main navigation">

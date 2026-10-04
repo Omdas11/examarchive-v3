@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { adminDatabases, COLLECTION, DATABASE_ID, Query, ID } from "@/lib/appwrite";
+import { createHash } from "node:crypto";
+import { InputFile } from "node-appwrite/file";
+import { adminDatabases, adminStorage, COLLECTION, DATABASE_ID, Query, ID, SYLLABUS_BUCKET_ID } from "@/lib/appwrite";
 import { getServerUser } from "@/lib/auth";
 import {
   buildPaperMarkdown,
@@ -23,7 +25,7 @@ const ELLIPSIS_LENGTH = 3;
 const SYLLABUS_PDF_DAILY_LIMIT = 5;
 
 function isAdminPlus(role: string): boolean {
-  return role === "admin" || role === "founder";
+  return role === "moderator" || role === "founder";
 }
 
 function safeFilenameToken(input: string, fallback: string): string {
@@ -170,6 +172,27 @@ export async function GET(request: NextRequest) {
       });
 
       if (mode === "pdf") {
+        const downloadToken = safeFilenameToken(normalizedPaperCode, "SYLLABUS");
+        const pdfHeaders = {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename="${downloadToken}_syllabus.pdf"`,
+        };
+
+        // ── Bucket cache: serve a previously generated PDF when the syllabus
+        // content hasn't changed, instead of hitting Gotenberg every time. ──
+        const contentHash = createHash("sha256").update(markdown).digest("hex").slice(0, 16);
+        const cacheFileId = `syllabus-pdf-${downloadToken.toLowerCase()}-${contentHash}`;
+        try {
+          const cached = await adminStorage().getFileDownload(SYLLABUS_BUCKET_ID, cacheFileId);
+          const cachedBuffer = Buffer.from(cached);
+          return new NextResponse(cachedBuffer as unknown as BodyInit, {
+            status: 200,
+            headers: { ...pdfHeaders, "Content-Length": cachedBuffer.length.toString() },
+          });
+        } catch {
+          // Cache miss — generate below.
+        }
+
         const html = markdownToHTML(markdown);
         const { buffer } = await generatePDF({
           html,
@@ -180,12 +203,23 @@ export async function GET(request: NextRequest) {
         if (user && !isAdminPlus(user.role)) {
           await recordPdfGeneration(user.id, todayStr);
         }
-        const downloadToken = safeFilenameToken(normalizedPaperCode, "SYLLABUS");
+
+        // Store the fresh PDF for future downloads (best-effort; the download
+        // itself must succeed even if caching fails).
+        try {
+          await adminStorage().createFile(
+            SYLLABUS_BUCKET_ID,
+            cacheFileId,
+            InputFile.fromBuffer(Buffer.from(buffer), `${downloadToken}_syllabus.pdf`),
+          );
+        } catch {
+          // Cache write failure is non-fatal.
+        }
+
         return new NextResponse(buffer as unknown as BodyInit, {
           status: 200,
           headers: {
-            "Content-Type": "application/pdf",
-            "Content-Disposition": `attachment; filename="${downloadToken}_syllabus.pdf"`,
+            ...pdfHeaders,
             "Content-Length": buffer.length.toString(),
           },
         });
