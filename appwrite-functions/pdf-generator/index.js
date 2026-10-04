@@ -1147,6 +1147,160 @@ async function runGeminiCompletionWithRetry({ apiKey, prompt, model }) {
   throw lastError || new Error("Gemini generation failed.");
 }
 
+// ── Free-tier provider fallback chain ──────────────────────────────────────
+// Tries Gemini first, then OpenAI-compatible fallbacks (Groq → OpenRouter →
+// GitHub Models → VyceAI → LLM7 → Pollinations keyless). A dead/invalid Gemini
+// key no longer fails the job — it just skips to the next provider.
+function parseKeyList(raw) {
+  if (!raw) return [];
+  return String(raw).split(",").map((k) => k.trim()).filter(Boolean);
+}
+
+function getFallbackProviders() {
+  return [
+    {
+      id: "groq",
+      baseUrl: "https://api.groq.com/openai/v1",
+      model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
+      keys: parseKeyList(process.env.GROQ_KEYS || process.env.GROQ_API_KEY),
+    },
+    {
+      id: "openrouter",
+      baseUrl: "https://openrouter.ai/api/v1",
+      model: process.env.OPENROUTER_MODEL || "meta-llama/llama-3.3-70b-instruct:free",
+      keys: parseKeyList(process.env.OPENROUTER_KEYS || process.env.OPENROUTER_API_KEY),
+      headers: { "HTTP-Referer": "https://www.examarchive.dev", "X-Title": "ExamArchive" },
+    },
+    {
+      id: "github-models",
+      baseUrl: "https://models.github.ai/inference",
+      model: process.env.GITHUB_MODEL || "openai/gpt-4o-mini",
+      keys: parseKeyList(process.env.GITHUB_KEYS || process.env.GITHUB_TOKEN),
+    },
+    {
+      id: "vyceai",
+      baseUrl: "https://vyceai.com/v1",
+      model: process.env.VYCEAI_MODEL || "deepseek-v4-flash",
+      keys: parseKeyList(process.env.VYCEAI_KEYS || process.env.VYCEAI_API_KEY),
+    },
+    {
+      id: "llm7",
+      baseUrl: "https://api.llm7.io/v1",
+      model: process.env.LLM7_MODEL || "gpt-oss:20b",
+      keys: ["keyless"],
+    },
+  ];
+}
+
+function isFallbackRetryable(status) {
+  return status === 429 || status === 503 || (status >= 500 && status <= 599);
+}
+
+function isFallbackAuthError(status) {
+  return status === 400 || status === 401 || status === 403;
+}
+
+async function callOpenAICompatibleFallback(provider, apiKey, prompt) {
+  const headers = { "Content-Type": "application/json", ...(provider.headers || {}) };
+  if (apiKey !== "keyless") headers["Authorization"] = `Bearer ${apiKey}`;
+  let response;
+  try {
+    response = await fetch(`${provider.baseUrl}/chat/completions`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        model: provider.model,
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 4000,
+        temperature: 0.4,
+      }),
+      signal: AbortSignal.timeout(GEMINI_REQUEST_TIMEOUT_MS),
+    });
+  } catch (error) {
+    const err = new Error(`${provider.id} request failed: ${error?.message || error}`);
+    err.status = 503;
+    throw err;
+  }
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    const err = new Error(`${provider.id} HTTP ${response.status}: ${body.slice(0, 200)}`);
+    err.status = response.status;
+    throw err;
+  }
+  const payload = await response.json().catch(() => ({}));
+  const text = payload?.choices?.[0]?.message?.content?.trim();
+  if (!text) {
+    const err = new Error(`${provider.id} returned empty content.`);
+    err.status = 503;
+    throw err;
+  }
+  return text;
+}
+
+async function callPollinationsKeyless(prompt) {
+  const url = `https://text.pollinations.ai/${encodeURIComponent(prompt)}?model=${encodeURIComponent(process.env.POLLINATIONS_MODEL || "openai")}`;
+  let response;
+  try {
+    response = await fetch(url, { signal: AbortSignal.timeout(GEMINI_REQUEST_TIMEOUT_MS) });
+  } catch (error) {
+    const err = new Error(`pollinations request failed: ${error?.message || error}`);
+    err.status = 503;
+    throw err;
+  }
+  if (!response.ok) {
+    const err = new Error(`pollinations HTTP ${response.status}`);
+    err.status = response.status;
+    throw err;
+  }
+  const text = (await response.text()).trim();
+  if (!text) {
+    const err = new Error("pollinations returned empty content.");
+    err.status = 503;
+    throw err;
+  }
+  return text;
+}
+
+/**
+ * Drop-in replacement for runGeminiCompletionWithRetry at the chunk call sites.
+ * Gemini first (existing retry logic), then the free-tier fallback chain.
+ */
+async function generateTextWithFallback({ apiKey, prompt, model }) {
+  const errors = [];
+  try {
+    return await runGeminiCompletionWithRetry({ apiKey, prompt, model });
+  } catch (error) {
+    errors.push(`gemini: ${error?.message || error}`);
+    context.log("[pdf-generator][fallback] Gemini failed, trying fallback providers.");
+  }
+  for (const provider of getFallbackProviders()) {
+    if (!provider.keys.length) {
+      errors.push(`${provider.id}: no keys configured`);
+      continue;
+    }
+    for (const key of provider.keys) {
+      try {
+        const text = await callOpenAICompatibleFallback(provider, key, prompt);
+        context.log(`[pdf-generator][fallback] Succeeded via ${provider.id}.`);
+        return text;
+      } catch (error) {
+        const status = Number(error?.status || 0);
+        errors.push(`${provider.id}: ${error?.message || error}`);
+        if (isFallbackAuthError(status)) break;
+        if (!isFallbackRetryable(status)) break;
+      }
+    }
+  }
+  try {
+    const text = await callPollinationsKeyless(prompt);
+    context.log("[pdf-generator][fallback] Succeeded via pollinations (keyless).");
+    return text;
+  } catch (error) {
+    errors.push(`pollinations: ${error?.message || error}`);
+  }
+  throw new Error(`All AI providers exhausted. ${errors.join(" | ")}`);
+}
+
 function getNotesSystemPrompt() {
   return String(process.env.UNIT_NOTES_SYSTEM_PROMPT || "").trim() || [
     "INSTRUCTIONS:",
@@ -1607,7 +1761,7 @@ Chunk: ${index + 1}/${chunks.length}
 Sub-topics:
 ${topicsChunk.map((topic, i) => `${i + 1}. ${topic}`).join("\n")}
 `;
-    const geminiResponseText = await runGeminiCompletionWithRetry({
+    const geminiResponseText = await generateTextWithFallback({
       apiKey: geminiApiKey,
       prompt,
       model: payload.model || DEFAULT_MODEL,
@@ -1692,7 +1846,7 @@ ${questionsChunk.map((questionDoc, qIndex) => {
 }).join("\n\n")}
 ${tavilyContext ? `\n\nWeb context (Tavily):\n${tavilyContext}` : ""}
 `;
-    const geminiResponseText = await runGeminiCompletionWithRetry({
+    const geminiResponseText = await generateTextWithFallback({
       apiKey: geminiApiKey,
       prompt,
       model: payload.model || DEFAULT_MODEL,
