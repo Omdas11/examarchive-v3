@@ -6,7 +6,7 @@ export const DEFAULT_CREDITS = 100;
 export const ADMIN_PLUS_DEFAULT_CREDITS = 1000;
 
 export const SUPPORTED_AI_MODELS = [
-  "gemini-3.1-flash-lite-preview",
+  "gemini-3.5-flash-lite",
   "gemma-4-31b-it",
 ] as const;
 

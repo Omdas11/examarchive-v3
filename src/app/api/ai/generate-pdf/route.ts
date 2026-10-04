@@ -33,7 +33,7 @@ export const maxDuration = 60;
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
-const DEFAULT_AI_MODEL = "gemini-3.1-flash-lite-preview";
+const DEFAULT_AI_MODEL = "gemini-3.5-flash-lite";
 const CACHE_LOOKUP_DEFAULT_MODEL =
   String(process.env.GEMINI_MODEL_ID || "").trim() || DEFAULT_AI_MODEL;
 const GEMMA_UNLIMITED_TPM_MODEL = "gemma-4-31b-it";

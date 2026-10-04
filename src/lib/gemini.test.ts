@@ -26,11 +26,11 @@ describe("runGeminiCompletion", () => {
 
     expect(result).toEqual({
       content: "hello world",
-      model: "gemini-3.1-flash-lite-preview",
+      model: "gemini-3.5-flash-lite",
     });
 
     const [url, options] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toContain("/models/gemini-3.1-flash-lite-preview:generateContent?key=test-key");
+    expect(url).toContain("/models/gemini-3.5-flash-lite:generateContent?key=test-key");
     expect(options.signal).toBe(timeoutSignal);
     expect(JSON.parse(String(options.body))).toMatchObject({
       contents: [{ role: "user", parts: [{ text: "Explain unit 1" }] }],

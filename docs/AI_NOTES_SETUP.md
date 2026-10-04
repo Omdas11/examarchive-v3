@@ -32,7 +32,7 @@ AI on preview deployments):
 | Variable | Required | Purpose |
 |---|---|---|
 | `GEMINI_API_KEY` | **Yes** (or `GOOGLE_API_KEY`) | Enables `/api/ai/generate`, `/api/ai/chat`, `/api/study/flashcards`. `GOOGLE_API_KEY` is accepted as a fallback alias. |
-| `GEMINI_MODEL_ID` | No | Overrides the default model (`gemini-3.1-flash-lite-preview`). |
+| `GEMINI_MODEL_ID` | No | Overrides the default model (`gemini-3.5-flash-lite`). |
 | `GEMINI_REQUEST_TIMEOUT_MS` | No | Request timeout in ms (default `120000`). |
 | `OPENAI_API_KEY` | No | Enables PDF-upload RAG embeddings (`src/lib/pdf-rag.ts`). Without it, RAG context is skipped gracefully. |
 | `AI_JOB_WEBHOOK_SECRET` | **Yes** (for PDF jobs) | Long random string shared with the Appwrite `pdf-generator` function. Used by `/api/ai/notify-completion` to authenticate the function's completion callback. |
@@ -49,7 +49,7 @@ Add:
 | Variable | Required | Purpose |
 |---|---|---|
 | `GEMINI_API_KEY` | **Yes** (or `GOOGLE_API_KEY`) | Key the function uses to call Gemini while rendering notes/solved papers. |
-| `GEMINI_MODEL_ID` | No | Model override (default `gemini-3.1-flash-lite-preview`). |
+| `GEMINI_MODEL_ID` | No | Model override (default `gemini-3.5-flash-lite`). |
 | `GEMINI_REQUEST_TIMEOUT_MS` | No | Per-request timeout. |
 | `GEMINI_MAX_ATTEMPTS` | No | Retry attempts on transient failures. |
 | `GEMINI_BASE_BACKOFF_MS` | No | Base backoff between retries. |

@@ -4,7 +4,7 @@ const { InputFile } = require("node-appwrite/file");
 const { randomInt } = require("node:crypto");
 
 const GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta";
-const DEFAULT_MODEL = process.env.GEMINI_MODEL_ID || "gemini-3.1-flash-lite-preview";
+const DEFAULT_MODEL = process.env.GEMINI_MODEL_ID || "gemini-3.5-flash-lite";
 const GEMINI_COOLDOWN_MS = 3000;
 const LOGICAL_CHUNK_COUNT = 5;
 const geminiRequestTimeoutRaw = Number(process.env.GEMINI_REQUEST_TIMEOUT_MS);

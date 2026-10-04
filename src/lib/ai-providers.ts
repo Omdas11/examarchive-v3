@@ -203,7 +203,7 @@ export async function generateAIText(args: GenerateTextArgs): Promise<GenerateTe
 
   // ── 1. Gemini native (best free quality) ──────────────────────────────
   const geminiKeys = parseKeys(process.env.GEMINI_KEYS || process.env.GEMINI_API_KEY);
-  const geminiModel = process.env.GEMINI_MODEL_ID || "gemini-3.1-flash-lite-preview";
+  const geminiModel = process.env.GEMINI_MODEL_ID || "gemini-3.5-flash-lite";
   if (geminiKeys.length > 0) {
     const startIdx = keyCursors.get("gemini") ?? 0;
     for (let i = 0; i < geminiKeys.length; i++) {
