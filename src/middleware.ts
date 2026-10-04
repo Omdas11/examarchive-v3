@@ -13,7 +13,7 @@ const PROTECTED_PATHS = [
   "/settings",
   "/devtool",
   "/stats",
-  "/paper",
+  "/paper/",
   "/ai-content",
   "/store",
   // API routes
