@@ -210,7 +210,9 @@ export default function StoreClient({
           }}
         >
           <CreditIcon size={16} />
-          <span>₹{currentCredits} balance</span>
+          <span className="inline-flex items-center gap-1">
+            {currentCredits} tokens balance
+          </span>
         </div>
         <p className="mt-2 text-xs text-on-surface-variant">
           AI-generated PDFs are experimental and cost 10 credits per generation. The platform remains free for everyone.

@@ -1,9 +1,9 @@
 /**
- * CreditIcon — premium SVG icon for the Credit currency.
+ * CreditIcon — ExamArchive virtual token icon.
  *
- * Design: a glowing coin with the "₹" glyph.
- * Colours are inherited via `currentColor` so the icon adapts to any
- * parent text colour.
+ * Design: a maroon coin with the "EA" monogram and gold ring.
+ * This is the brand symbol for virtual tokens, replacing the ₹ glyph.
+ * (₹ is reserved for real INR amounts, e.g. Razorpay pack prices.)
  */
 
 import React from "react";
@@ -29,39 +29,31 @@ export default function CreditIcon({
       xmlns="http://www.w3.org/2000/svg"
       className={className}
       aria-hidden={ariaHidden}
+      role="img"
+      aria-label="token"
     >
-      {/* Outer glow ring */}
-      <circle
-        cx="12"
-        cy="12"
-        r="10"
-        stroke="currentColor"
-        strokeWidth="1"
-        strokeOpacity="0.35"
-      />
-
       {/* Coin body */}
+      <circle cx="12" cy="12" r="11" fill="#800000" />
+      {/* Gold inner ring */}
       <circle
         cx="12"
         cy="12"
-        r="7.5"
-        fill="currentColor"
-        fillOpacity="0.12"
-        stroke="currentColor"
-        strokeWidth="1.5"
+        r="8.5"
+        fill="none"
+        stroke="#E8B84B"
+        strokeWidth="1.2"
       />
-
-      {/* "₹" glyph */}
+      {/* "EA" monogram */}
       <text
         x="12"
-        y="15.8"
+        y="16.2"
         textAnchor="middle"
-        fontSize="10"
-        fontFamily="Inter, system-ui, sans-serif"
-        fontWeight="800"
-        fill="currentColor"
+        fontSize="9.5"
+        fontFamily="Inter, Arial, sans-serif"
+        fontWeight="700"
+        fill="#FFFFFF"
       >
-        ₹
+        EA
       </text>
     </svg>
   );

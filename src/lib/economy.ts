@@ -1,7 +1,11 @@
 import { normalizeRole } from "@/lib/roles";
 
 export const CREDIT_SYMBOL = "₹";
+/** Display name for the virtual token. UI shows the CreditIcon coin instead of a text symbol. */
+export const TOKEN_NAME = "tokens";
 export const GENERATION_COST_CREDITS = 10;
+/** Cost of a cleaned print-perfect question-paper PDF (one-time batch cost, cached). */
+export const CLEAN_PAPER_COST_CREDITS = 2;
 export const DEFAULT_CREDITS = 100;
 export const ADMIN_PLUS_DEFAULT_CREDITS = 1000;
 

@@ -108,6 +108,12 @@ export const CACHED_SOLVED_PAPERS_BUCKET_ID =
 /** Storage bucket for user-uploaded handmade PDF notes. */
 export const NOTES_BUCKET_ID =
   process.env.APPWRITE_NOTES_BUCKET_ID ?? "notes";
+/** Storage bucket for digitized question-paper markdown (paper-markdown). */
+export const PAPER_MARKDOWN_BUCKET_ID =
+  process.env.APPWRITE_PAPER_MARKDOWN_BUCKET_ID ?? "paper-markdown";
+/** Storage bucket for cleaned print-perfect question-paper PDFs. */
+export const CLEAN_PAPERS_BUCKET_ID =
+  process.env.APPWRITE_CLEAN_PAPERS_BUCKET_ID ?? "clean-papers";
 
 // ── Server-side admin client (uses API key) ─────────────────────────────
 let adminClientSingleton: Client | null = null;
