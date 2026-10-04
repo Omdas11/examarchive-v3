@@ -13,7 +13,9 @@ const PROTECTED_PATHS = [
   "/settings",
   "/devtool",
   "/stats",
-  "/paper/",
+  // NOTE: /paper/[id] detail pages are intentionally public (SEO + sharing).
+  // The PDF itself stays gated: /api/files/papers requires a session, a
+  // signed token, or a CAPTCHA-issued token (see /api/captcha-download).
   "/ai-content",
   "/store",
   // API routes

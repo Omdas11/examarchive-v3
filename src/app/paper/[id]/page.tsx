@@ -15,6 +15,7 @@ import { buildPaperJsonLd, serializeJsonLd } from "@/lib/json-ld";
 import { findByPaperCode, type SyllabusRegistryEntry, type SyllabusUnit } from "@/data/syllabus-registry";
 import { PAPER_TYPE_COLORS } from "@/components/PaperCard";
 import MainLayout from "@/components/layout/MainLayout";
+import CaptchaDownloadButton from "@/components/CaptchaDownloadButton";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 
 const SITE_URL = "https://www.examarchive.dev";
@@ -237,15 +238,15 @@ export default async function PaperPage({ params }: PaperPageProps) {
             </div>
           )}
 
-          <a
-            href={paper.file_url}
-            target="_blank"
-            rel="noopener noreferrer"
+          <CaptchaDownloadButton
+            fileId={paper.file_id}
+            fileUrl={paper.file_url}
+            isLoggedIn={!!user}
             className="btn-primary mt-10 py-5 rounded-full shadow-lg hover:shadow-floating transition-all active:scale-95 flex items-center justify-center gap-3 text-base font-black"
           >
             <span className="material-symbols-outlined font-black">picture_as_pdf</span>
             Open Full Archive PDF
-          </a>
+          </CaptchaDownloadButton>
         </div>
       </div>
 
@@ -268,14 +269,14 @@ export default async function PaperPage({ params }: PaperPageProps) {
                 </span>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-primary">Current Version</span>
               </div>
-              <a
-                href={paper.file_url}
-                target="_blank"
-                rel="noopener noreferrer"
+              <CaptchaDownloadButton
+                fileId={paper.file_id}
+                fileUrl={paper.file_url}
+                isLoggedIn={!!user}
                 className="bg-primary text-white px-5 py-2 rounded-full text-xs font-bold shadow-md hover:shadow-lg transition-all"
               >
                 View
-              </a>
+              </CaptchaDownloadButton>
             </li>
             {/* Other papers for same course code */}
             {relatedPapers.map((rp) => (

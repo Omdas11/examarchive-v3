@@ -12,6 +12,7 @@ import {
 } from "@/lib/appwrite";
 import { AppwriteException } from "node-appwrite";
 import { isValidSignedPdfDownloadToken } from "@/lib/pdf-download-link";
+import { verifyCaptchaDownloadToken } from "@/lib/captcha-download";
 import { renderMarkdownToPdfBuffer } from "@/lib/ai-pdf-pipeline";
 import { applyDownloadWatermark } from "@/lib/pdf-watermark";
 
@@ -96,10 +97,13 @@ export async function GET(
   });
 
   let user = null;
-  if (!hasValidSignedToken) {
+  // Anonymous visitors who passed the CAPTCHA carry a short-lived `ctoken`.
+  const captchaToken = request.nextUrl.searchParams.get("ctoken") || "";
+  const hasValidCaptchaToken = verifyCaptchaDownloadToken({ fileId, token: captchaToken });
+  if (!hasValidSignedToken && !hasValidCaptchaToken) {
     user = await getServerUser();
   }
-  if (!hasValidSignedToken && !user) {
+  if (!hasValidSignedToken && !hasValidCaptchaToken && !user) {
     // Redirect unauthenticated visitors to the login page instead of
     // returning a raw 401 so the browser navigates to sign-in when the
     // PDF is opened in a new tab.
