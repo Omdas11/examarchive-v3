@@ -1,7 +1,7 @@
 /**
  * CreditIcon — ExamArchive virtual token icon.
  *
- * Design: a maroon coin with the "EA" monogram and gold ring.
+ * Design: a gold coin (full gold shades) with a lowercase "e" monogram.
  * This is the brand symbol for virtual tokens, replacing the ₹ glyph.
  * (₹ is reserved for real INR amounts, e.g. Razorpay pack prices.)
  */
@@ -20,6 +20,7 @@ export default function CreditIcon({
   className,
   "aria-hidden": ariaHidden = true,
 }: CreditIconProps) {
+  const gid = React.useId().replace(/[^a-zA-Z0-9]/g, "");
   return (
     <svg
       width={size}
@@ -32,28 +33,50 @@ export default function CreditIcon({
       role="img"
       aria-label="token"
     >
-      {/* Coin body */}
-      <circle cx="12" cy="12" r="11" fill="#800000" />
-      {/* Gold inner ring */}
+      <defs>
+        <radialGradient id={`coin-${gid}`} cx="35%" cy="30%" r="80%">
+          <stop offset="0%" stopColor="#FFE9A8" />
+          <stop offset="45%" stopColor="#F5C542" />
+          <stop offset="100%" stopColor="#C98A12" />
+        </radialGradient>
+        <linearGradient id={`rim-${gid}`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#B97A0E" />
+          <stop offset="50%" stopColor="#F7D774" />
+          <stop offset="100%" stopColor="#A86A0A" />
+        </linearGradient>
+      </defs>
+      {/* Coin body — gold */}
+      <circle cx="12" cy="12" r="11" fill={`url(#coin-${gid})`} />
+      {/* Rim */}
       <circle
         cx="12"
         cy="12"
-        r="8.5"
+        r="10.2"
         fill="none"
-        stroke="#E8B84B"
-        strokeWidth="1.2"
+        stroke={`url(#rim-${gid})`}
+        strokeWidth="1.6"
       />
-      {/* "EA" monogram */}
+      {/* Inner ring */}
+      <circle
+        cx="12"
+        cy="12"
+        r="7.6"
+        fill="none"
+        stroke="#9A6208"
+        strokeWidth="1"
+        strokeOpacity="0.55"
+      />
+      {/* "e" monogram */}
       <text
         x="12"
-        y="16.2"
+        y="16.8"
         textAnchor="middle"
-        fontSize="9.5"
+        fontSize="12"
         fontFamily="Inter, Arial, sans-serif"
-        fontWeight="700"
-        fill="#FFFFFF"
+        fontWeight="800"
+        fill="#7A4E06"
       >
-        EA
+        e
       </text>
     </svg>
   );
