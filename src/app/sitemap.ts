@@ -4,16 +4,35 @@ import { Query } from "node-appwrite";
 
 const SITE_URL = "https://www.examarchive.dev";
 
-// Department landing pages for regional SEO (13 UG departments, PG excluded)
+// Department landing pages for regional SEO (all departments with papers)
 const DEPARTMENTS = [
-  "assamese", "bengali", "botany", "chemistry", "commerce", "economics",
-  "english", "history", "mathematics", "philosophy", "physics",
-  "political-science", "zoology",
+  "assamese",
+  "bengali",
+  "biotechnology",
+  "botany",
+  "chemistry",
+  "commerce",
+  "economics",
+  "education",
+  "english",
+  "fish-and-fisheries",
+  "history",
+  "library-science",
+  "manipuri",
+  "mathematics",
+  "persian",
+  "philosophy",
+  "physics",
+  "political-science",
+  "sanskrit",
+  "vac",
+  "zoology",
 ];
 
 /**
  * Generates /sitemap.xml via Next.js Metadata API.
- * Includes static pages, department landing pages, and all approved papers.
+ * Includes static pages, department landing pages, and ALL approved papers
+ * (paginated — the collection exceeds a single query page).
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticRoutes: MetadataRoute.Sitemap = [
@@ -39,21 +58,29 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.8,
   }));
 
-  // All approved papers
+  // All approved papers — paginated so none are dropped as the archive grows
   let paperRoutes: MetadataRoute.Sitemap = [];
   try {
     const db = adminDatabases();
-    const res = await db.listDocuments(DATABASE_ID, COLLECTION.papers, [
-      Query.equal("approved", true),
-      Query.limit(500),
-      Query.select(["$id", "$updatedAt"]),
-    ]);
-    paperRoutes = res.documents.map((doc) => ({
-      url: `${SITE_URL}/paper/${doc.$id}`,
-      lastModified: new Date(doc.$updatedAt),
-      changeFrequency: "monthly" as const,
-      priority: 0.7,
-    }));
+    let offset = 0;
+    for (;;) {
+      const res = await db.listDocuments(DATABASE_ID, COLLECTION.papers, [
+        Query.equal("approved", true),
+        Query.limit(500),
+        Query.offset(offset),
+        Query.select(["$id", "$updatedAt"]),
+      ]);
+      for (const doc of res.documents) {
+        paperRoutes.push({
+          url: `${SITE_URL}/paper/${doc.$id}`,
+          lastModified: new Date(doc.$updatedAt),
+          changeFrequency: "monthly" as const,
+          priority: 0.7,
+        });
+      }
+      if (res.documents.length < 500) break;
+      offset += 500;
+    }
   } catch {
     // If DB is unreachable at build time, skip paper URLs
   }

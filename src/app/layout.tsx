@@ -109,6 +109,14 @@ const jsonLd = {
   alternateName: ["Exam Archive", "examarchive"],
   url: SITE_URL,
   description: SITE_DESCRIPTION,
+  publisher: {
+    "@type": "Organization",
+    name: "ExamArchive",
+    url: SITE_URL,
+    logo: `${SITE_URL}/branding/logo.png`,
+    description:
+      "ExamArchive (examarchive.dev) — free archive of Assam University previous year question papers and syllabi for Haflong Government College students.",
+  },
   potentialAction: {
     "@type": "SearchAction",
     target: {

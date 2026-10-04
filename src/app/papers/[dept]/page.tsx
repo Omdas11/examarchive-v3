@@ -108,6 +108,62 @@ const DEPARTMENTS: Record<string, DeptInfo> = {
       "Assam University Zoology question papers — Animal Diversity, Physiology, Genetics Honours and FYUG papers from Haflong Government College. Free PDF downloads.",
     keywords: ["Assam University Zoology question papers", "Zoology honours previous year papers Assam"],
   },
+  biotechnology: {
+    slug: "biotechnology",
+    name: "Biotechnology",
+    blurb:
+      "Assam University Biotechnology FYUG question papers from Haflong Government College. Free PDF downloads of previous year papers.",
+    keywords: ["Assam University Biotechnology question papers", "Biotechnology FYUG previous year papers"],
+  },
+  education: {
+    slug: "education",
+    name: "Education",
+    blurb:
+      "Assam University Education FYUG question papers from Haflong Government College. Free PDF downloads of previous year papers.",
+    keywords: ["Assam University Education question papers", "Education FYUG previous year papers Assam"],
+  },
+  "fish-and-fisheries": {
+    slug: "fish-and-fisheries",
+    name: "Fish & Fisheries",
+    blurb:
+      "Assam University Fish & Fisheries FYUG question papers from Haflong Government College. Free PDF downloads of previous year papers.",
+    keywords: ["Assam University Fish Fisheries question papers", "Fisheries FYUG previous year papers"],
+  },
+  "library-science": {
+    slug: "library-science",
+    name: "Library Science",
+    blurb:
+      "Assam University Library Science FYUG question papers from Haflong Government College. Free PDF downloads of previous year papers.",
+    keywords: ["Assam University Library Science question papers", "Library Science FYUG previous year papers"],
+  },
+  manipuri: {
+    slug: "manipuri",
+    name: "Manipuri",
+    blurb:
+      "Assam University Manipuri FYUG question papers from Haflong Government College. Free PDF downloads of previous year papers.",
+    keywords: ["Assam University Manipuri question papers", "Manipuri FYUG previous year papers"],
+  },
+  persian: {
+    slug: "persian",
+    name: "Persian",
+    blurb:
+      "Assam University Persian FYUG question papers from Haflong Government College. Free PDF downloads of previous year papers.",
+    keywords: ["Assam University Persian question papers", "Persian FYUG previous year papers"],
+  },
+  sanskrit: {
+    slug: "sanskrit",
+    name: "Sanskrit",
+    blurb:
+      "Assam University Sanskrit FYUG question papers from Haflong Government College. Free PDF downloads of previous year papers.",
+    keywords: ["Assam University Sanskrit question papers", "Sanskrit FYUG previous year papers Assam"],
+  },
+  vac: {
+    slug: "vac",
+    name: "VAC",
+    blurb:
+      "Assam University Value Added Course (VAC) FYUG question papers from Haflong Government College. Free PDF downloads of previous year papers.",
+    keywords: ["Assam University VAC question papers", "Value Added Course FYUG previous year papers"],
+  },
 };
 
 export async function generateStaticParams() {
@@ -136,14 +192,21 @@ export default async function DepartmentPage({ params }: { params: Promise<{ dep
   let papers: ReturnType<typeof toPaper>[] = [];
   try {
     const db = adminDatabases();
-    const res = await db.listDocuments(DATABASE_ID, COLLECTION.papers, [
-      Query.equal("approved", true),
-      Query.limit(100),
-    ]);
-    papers = res.documents
-      .map(toPaper)
-      .filter((p) => p.department.toLowerCase().replace(/[\s-]+/g, "-") === dept)
-      .sort((a, b) => b.year - a.year);
+    // Server-side department filter (paginated) — the old limit(100) fetch
+    // silently dropped papers from large departments as the archive grew.
+    let offset = 0;
+    for (;;) {
+      const res = await db.listDocuments(DATABASE_ID, COLLECTION.papers, [
+        Query.equal("approved", true),
+        Query.equal("department", info.name),
+        Query.limit(500),
+        Query.offset(offset),
+      ]);
+      papers.push(...res.documents.map(toPaper));
+      if (res.documents.length < 500) break;
+      offset += 500;
+    }
+    papers.sort((a, b) => b.year - a.year);
   } catch {
     // DB unreachable
   }
