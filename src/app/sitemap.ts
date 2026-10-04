@@ -59,7 +59,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }));
 
   // All approved papers — paginated so none are dropped as the archive grows
-  let paperRoutes: MetadataRoute.Sitemap = [];
+  const paperRoutes: MetadataRoute.Sitemap = [];
   try {
     const db = adminDatabases();
     let offset = 0;

@@ -189,7 +189,7 @@ export default async function DepartmentPage({ params }: { params: Promise<{ dep
   const info = DEPARTMENTS[dept];
   if (!info) notFound();
 
-  let papers: ReturnType<typeof toPaper>[] = [];
+  const papers: ReturnType<typeof toPaper>[] = [];
   try {
     const db = adminDatabases();
     // Server-side department filter (paginated) — the old limit(100) fetch
