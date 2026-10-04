@@ -4,6 +4,7 @@ import { adminDatabases, COLLECTION, DATABASE_ID, ID, Query } from "@/lib/appwri
 import { getDailyLimit } from "@/lib/ai-limits";
 import { generateAIText, AIProviderError } from "@/lib/ai-providers";
 import { readMasterNotesPrompt } from "@/lib/master-notes-prompt";
+import { getDepartmentPrompt } from "@/lib/department-prompts";
 import { checkAndResetQuotas } from "@/lib/user-quotas";
 import { NOTES_DAILY_LIMIT, PAPERS_DAILY_LIMIT } from "@/lib/quota-config";
 import curriculumData from "@/data/curriculum.json";
@@ -394,7 +395,9 @@ export async function POST(request: NextRequest) {
       .filter((line): line is string => Boolean(line))
       .join("\n");
 
-    const masterPrompt = readMasterNotesPrompt();
+    // Department-specific exam-notes prompt wins; falls back to the master prompt.
+    const deptPrompt = getDepartmentPrompt(paperCode);
+    const masterPrompt = deptPrompt || readMasterNotesPrompt();
     const prompt = `${masterPrompt}
 
 University: ${university}

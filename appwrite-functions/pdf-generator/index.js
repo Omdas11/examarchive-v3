@@ -2,6 +2,51 @@
 const { Client, Databases, Storage, Query, ID } = require("node-appwrite");
 const { InputFile } = require("node-appwrite/file");
 const { randomInt } = require("node:crypto");
+const fs = require("node:fs");
+const path = require("node:path");
+
+// Paper-code prefix → department prompt slug.
+const DEPARTMENT_PREFIX_MAP = {
+  PHY: "physics", PHS: "physics",
+  CHM: "chemistry",
+  MAT: "mathematics", MTM: "mathematics",
+  BNG: "bengali",
+  ENG: "english",
+  ASM: "assamese",
+  BOT: "botany",
+  ZOO: "zoology",
+  COM: "commerce",
+  ECO: "economics",
+  HIS: "history",
+  PHI: "philosophy",
+  POL: "political-science", PLS: "political-science",
+};
+
+function resolveDepartmentSlug(paperCode) {
+  const prefix = String(paperCode || "").trim().toUpperCase().slice(0, 3);
+  return DEPARTMENT_PREFIX_MAP[prefix] || "";
+}
+
+const departmentPromptCache = {};
+function readPromptFile(name) {
+  if (departmentPromptCache[name] !== undefined) return departmentPromptCache[name];
+  let text = "";
+  try {
+    text = fs.readFileSync(path.join(__dirname, "prompts", `${name}.md`), "utf8");
+  } catch {
+    text = "";
+  }
+  departmentPromptCache[name] = text;
+  return text;
+}
+
+/** Core exam-notes format + department style guide, resolved from paper code. */
+function getDepartmentPrompt(paperCode) {
+  const core = readPromptFile("_core");
+  const slug = resolveDepartmentSlug(paperCode);
+  const dept = slug ? readPromptFile(slug) : "";
+  return [core, dept].filter(Boolean).join("\n\n");
+}
 
 const GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta";
 const DEFAULT_MODEL = process.env.GEMINI_MODEL_ID || "gemini-3.5-flash-lite";
@@ -870,8 +915,8 @@ async function markdownToPdfHtml(markdown, title) {
     "<script>",
     "MathJax = {",
     "tex: {",
-    "inlineMath: [[\"\\\\(\", \"\\\\)\"]],",
-    "displayMath: [[\"\\\\[\", \"\\\\]\"]],",
+    "inlineMath: [[\"\\\\(\", \"\\\\)\"], [\"$\", \"$\"]],",
+    "displayMath: [[\"\\\\[\", \"\\\\]\"], [\"$$\", \"$$\"]],",
     "},",
     "svg: { fontCache: \"global\" },",
     "};",
@@ -1301,8 +1346,13 @@ async function generateTextWithFallback({ apiKey, prompt, model }) {
   throw new Error(`All AI providers exhausted. ${errors.join(" | ")}`);
 }
 
-function getNotesSystemPrompt() {
-  return String(process.env.UNIT_NOTES_SYSTEM_PROMPT || "").trim() || [
+function getNotesSystemPrompt(paperCode) {
+  // Priority: explicit env override > department prompt files > legacy built-in.
+  const envOverride = String(process.env.UNIT_NOTES_SYSTEM_PROMPT || "").trim();
+  if (envOverride) return envOverride;
+  const deptPrompt = getDepartmentPrompt(paperCode);
+  if (deptPrompt) return deptPrompt;
+  return [
     "INSTRUCTIONS:",
     "You are an academic formatting engine. You MUST output your response matching this exact Markdown template. Use double line breaks (\\n\\n) between all sections and bullet points.",
     "You are writing a comprehensive, university-level textbook chapter. You MUST write a minimum of 3000 words.",
@@ -1741,14 +1791,15 @@ async function generateNotesPayload(db, payload) {
 
   const chunks = splitIntoLogicalChunks(subTopics, LOGICAL_CHUNK_COUNT);
   const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-  if (!geminiApiKey) throw new Error("Missing GEMINI_API_KEY.");
+  // No hard failure: the fallback chain works without a Gemini key.
+  if (!geminiApiKey) context.log("[pdf-generator] No GEMINI_API_KEY; using fallback providers only.");
 
   const generated = [];
   for (const [index, topicsChunk] of chunks.entries()) {
     if (index > 0) {
       await sleep(GEMINI_COOLDOWN_MS);
     }
-    const prompt = `${getNotesSystemPrompt()}
+    const prompt = `${getNotesSystemPrompt(validated["notes.paperCode"])}
 
 University: ${validated["notes.university"]}
 Course: ${validated["notes.course"]}
