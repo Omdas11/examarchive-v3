@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getServerUser } from "@/lib/auth";
 import { adminDatabases, COLLECTION, DATABASE_ID, ID, Query } from "@/lib/appwrite";
 import { getDailyLimit } from "@/lib/ai-limits";
-import { GeminiServiceError, runGeminiCompletion } from "@/lib/gemini";
+import { generateAIText, AIProviderError } from "@/lib/ai-providers";
 import { readMasterNotesPrompt } from "@/lib/master-notes-prompt";
 import { checkAndResetQuotas } from "@/lib/user-quotas";
 import { NOTES_DAILY_LIMIT, PAPERS_DAILY_LIMIT } from "@/lib/quota-config";
@@ -308,10 +308,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
   }
 
-  const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-  if (!geminiApiKey) {
-    return NextResponse.json({ error: "Gemini is not configured." }, { status: 503 });
-  }
+  // No hard key requirement: the provider chain tries Gemini, then Groq,
+  // OpenRouter, GitHub Models, VyceAI, then keyless fallbacks.
+  // A missing key for one provider just skips it.
 
   let body: GenerateNotesBody;
   try {
@@ -413,12 +412,10 @@ Related Past Questions (matched by paper code and tags):
 ${formattedQuestions || "No related questions found."}
 `;
 
-    const gemini = await runGeminiCompletion({
-      apiKey: geminiApiKey,
+    const ai = await generateAIText({
       prompt,
       maxTokens: 8192,
       temperature: 0.4,
-      model: "gemini-3.1-flash-lite-preview",
     });
 
     if (!isAdminPlus(user.role)) {
@@ -427,13 +424,13 @@ ${formattedQuestions || "No related questions found."}
 
     const remaining = isAdminPlus(user.role) ? null : Math.max(0, dailyLimit - (usedBefore + 1));
     return NextResponse.json({
-      markdown: gemini.content,
-      model: gemini.model,
+      markdown: ai.content,
+      model: `${ai.provider}:${ai.model}`,
       syllabusContent: syllabusContent,
       remaining,
     });
   } catch (error) {
-    if (error instanceof GeminiServiceError) {
+    if (error instanceof AIProviderError) {
       if (error.status === 429) {
         return NextResponse.json(
           { error: "AI rate limit reached. Please wait a moment and try again." },
