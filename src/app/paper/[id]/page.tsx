@@ -245,7 +245,7 @@ export default async function PaperPage({ params }: PaperPageProps) {
             className="btn-primary mt-10 py-5 rounded-full shadow-lg hover:shadow-floating transition-all active:scale-95 flex items-center justify-center gap-3 text-base font-black"
           >
             <span className="material-symbols-outlined font-black">picture_as_pdf</span>
-            Open Full Archive PDF
+            Download Paper PDF
           </CaptchaDownloadButton>
         </div>
       </div>

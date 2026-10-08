@@ -31,7 +31,7 @@ interface BrowseClientProps {
   initialProgramme?: string;
 }
 
-const PROGRAMMES = ["FYUGP", "CBCS", "ALL", "Other"];
+const PROGRAMMES = ["FYUGP", "CBCS", "ALL"];
 
 type SortKey = "newest" | "oldest" | "title_asc" | "title_desc";
 
@@ -72,7 +72,9 @@ export default function BrowseClient({
 }: BrowseClientProps) {
   const [search, setSearch] = useState(initialSearch);
   const debouncedSearch = useDebounce(search, 250);
-  const [activeProgramme, setActiveProgramme] = useState(initialProgramme);
+  const [activeProgramme, setActiveProgramme] = useState(
+    PROGRAMMES.includes(initialProgramme) ? initialProgramme : "ALL"
+  );
   const [activePaperType, setActivePaperType] = useState<string | null>(null);
   const [activeStream, setActiveStream] = useState<string | null>(
     initialDepartment ? initialDepartment.toUpperCase() : null
@@ -162,14 +164,7 @@ export default function BrowseClient({
     }
 
     if (!myCoursesActive && activeProgramme !== "ALL") {
-      if (activeProgramme === "Other") {
-        list = list.filter((p) => {
-          const prog = getProgramme(p);
-          return !prog || (prog !== "FYUGP" && prog !== "CBCS");
-        });
-      } else {
-        list = list.filter((p) => getProgramme(p) === activeProgramme);
-      }
+      list = list.filter((p) => getProgramme(p) === activeProgramme);
     }
 
     if (!myCoursesActive && activePaperType) {
@@ -367,7 +362,7 @@ export default function BrowseClient({
 
           {/* Programme filter */}
           <div className="flex flex-wrap gap-2 items-center">
-            <span className="text-[10px] uppercase tracking-[0.15em] font-black opacity-40 mr-2">Stream</span>
+            <span className="text-[10px] uppercase tracking-[0.15em] font-black opacity-40 mr-2">Programme</span>
             {PROGRAMMES.map((p) => (
               <button
                 key={p}
