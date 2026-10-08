@@ -7,6 +7,7 @@ import AdminActions from "./AdminActions";
 import UserManagement from "./UserManagement";
 import ActivityLog from "./ActivityLog";
 import SyllabusModeration from "./SyllabusModeration";
+import ResetGamificationButton from "./ResetGamificationButton";
 
 interface AdminDashboardProps {
   pending: Paper[];
@@ -92,6 +93,20 @@ export default function AdminDashboard({
             <h2 className="text-lg font-semibold">Pending Approvals</h2>
             <AdminActions papers={pending} />
           </>
+        )}
+
+        {/* Danger zone — founder only */}
+        {currentAdminRole === "founder" && (
+          <div className="mt-8 rounded-2xl border border-red-200 bg-red-50 p-5">
+            <h3 className="text-sm font-black uppercase tracking-widest text-red-700">
+              Danger Zone
+            </h3>
+            <p className="mt-1 text-xs text-red-600">
+              Reset XP, tiers, streaks, and all achievements for every user
+              (including yourself). AI credits are not touched. This cannot be undone.
+            </p>
+            <ResetGamificationButton />
+          </div>
         )}
 
         {activeTab === "Syllabus" && (
