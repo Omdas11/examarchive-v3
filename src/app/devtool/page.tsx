@@ -5,6 +5,7 @@ import { isFounder } from "@/lib/roles";
 import DevToolClient from "./DevToolClient";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
+import { IconCrown, IconWarning } from "@/components/Icons";
 
 export const metadata: Metadata = {
   title: "DevTool",
@@ -34,7 +35,7 @@ export default async function DevToolPage() {
     >
     <section className="mx-auto px-4 py-10" style={{ maxWidth: "var(--max-w)" }}>
       <div className="mb-6 flex items-center gap-3">
-        <span className="text-3xl">👑</span>
+        <span className="text-3xl inline-flex" style={{ color: "var(--color-primary)" }}><IconCrown size={32} /></span>
         <div>
           <h1 className="text-2xl font-bold">DevTool</h1>
           <p className="text-sm mt-0.5" style={{ color: "var(--color-text-muted)" }}>
@@ -51,7 +52,7 @@ export default async function DevToolPage() {
           color: "#4c1d95",
         }}
       >
-        ⚠️ <strong>Restricted Access:</strong> These tools perform irreversible operations. All actions are logged.
+        <span className="inline-flex items-center gap-1.5"><IconWarning size={16} /> <strong>Restricted Access:</strong> These tools perform irreversible operations. All actions are logged.</span>
       </div>
 
       <DevToolClient adminEmail={user.email} />

@@ -13,6 +13,7 @@ import {
   type CoursePreferences,
 } from "@/data/course-selection-data";
 import { getProgramme } from "@/lib/programme";
+import { IconCheck } from "@/components/Icons";
 
 interface BrowseClientProps {
   initialPapers: Paper[];
@@ -344,7 +345,7 @@ export default function BrowseClient({
               border: "1px solid var(--color-primary)",
             }}
           >
-            {myCoursesActive ? "✓ Active Filter" : "Enable My Courses"}
+            {myCoursesActive ? <span className="inline-flex items-center gap-1"><IconCheck size={14} /> Active Filter</span> : "Enable My Courses"}
           </button>
         </div>
       )}

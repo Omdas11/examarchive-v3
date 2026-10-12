@@ -12,6 +12,7 @@ import {
 import { getAllUniversities, findByPaperCode } from "@/data/syllabus-registry";
 import type { SyllabusRegistryEntry } from "@/data/syllabus-registry";
 import { dispatchProfileRefreshEvent } from "@/lib/profile-events";
+import { IconCheck, IconWarning } from "@/components/Icons";
 
 type MessageState = { type: "success" | "error"; text: string } | null;
 
@@ -190,8 +191,8 @@ export default function SyllabusUploadForm() {
             className="mt-4 rounded-lg p-4 text-sm space-y-1"
             style={{ background: "var(--color-accent-soft)", border: "1px solid var(--color-primary)" }}
           >
-            <p className="font-semibold" style={{ color: "var(--color-primary)" }}>
-              ✓ Registry match found — metadata auto-resolved
+            <p className="font-semibold inline-flex items-center gap-1.5" style={{ color: "var(--color-primary)" }}>
+              <IconCheck size={14} /> Registry match found — metadata auto-resolved
             </p>
             <p style={{ color: "var(--color-text-muted)" }}>
               <span className="font-medium">Paper:</span> {registryEntry.paper_name}
@@ -205,8 +206,8 @@ export default function SyllabusUploadForm() {
           </div>
         )}
         {noRegistryMatch && (
-          <p className="mt-3 text-xs" style={{ color: "var(--color-text-muted)" }}>
-            ⚠ Paper code not found in registry. Please verify the code.
+          <p className="mt-3 text-xs inline-flex items-center gap-1" style={{ color: "var(--color-text-muted)" }}>
+            <IconWarning size={12} /> Paper code not found in registry. Please verify the code.
           </p>
         )}
       </div>

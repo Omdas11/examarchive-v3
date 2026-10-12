@@ -2,6 +2,7 @@
 
 import { useSearchParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { IconSparkles } from "@/components/Icons";
 
 type SlotKey = "dsc1" | "dsc2" | "dsc3" | "dsc4" | "dsm1" | "dsm2" | "idc" | "sec" | "vac" | "aec";
 const SLOT_KEYS = new Set<SlotKey>(["dsc1", "dsc2", "dsc3", "dsc4", "dsm1", "dsm2", "idc", "sec", "vac", "aec"]);
@@ -303,7 +304,7 @@ export default function SyllabusTrackerClient({ tables, slotOrder, uploadedMap, 
 
       {highlightCode && (
         <div className="flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm">
-          <span className="text-primary">✦</span>
+          <span className="text-primary"><IconSparkles size={14} /></span>
           <span>
             Highlighting <strong className="font-mono">{highlightCode}</strong>
           </span>

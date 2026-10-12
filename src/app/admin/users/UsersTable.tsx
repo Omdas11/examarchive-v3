@@ -5,6 +5,7 @@ import type { AdminUser } from "@/types";
 import { RoleBadge } from "@/components/RoleBadge";
 import AvatarRing from "@/components/AvatarRing";
 import RoleEditModal from "@/components/RoleEditModal";
+import { IconStar } from "@/components/Icons";
 
 interface UsersTableProps {
   users: AdminUser[];
@@ -157,7 +158,7 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
                             className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold"
                             style={{ background: "#fef9c3", color: "#854d0e" }}
                           >
-                            ★ {m}
+                            <IconStar size={10} /> {m}
                           </span>
                         ))}
                         {u.streak_days >= 30 && (

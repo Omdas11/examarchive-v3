@@ -9,6 +9,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { IconGraduation } from "@/components/Icons";
 import {
   COURSE_PREFS_UPDATED_EVENT,
   loadCoursePrefs,
@@ -54,7 +55,7 @@ export default function ProfileCoursePrefs({ compact = false }: ProfileCoursePre
           className="text-xs font-semibold uppercase tracking-wider mb-2 flex items-center gap-1.5"
           style={{ color: "var(--nav-teal)" }}
         >
-          🎓 My Courses
+          <IconGraduation size={14} /> My Courses
         </h3>
         {prefs ? (
           <div className="space-y-1 text-xs">

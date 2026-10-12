@@ -8,6 +8,7 @@ import CustomDropdown, { type CustomDropdownOption } from "@/components/CustomDr
 import { GENERATION_COST_CREDITS } from "@/lib/economy";
 import CreditIcon from "@/components/CreditIcon";
 import { dispatchProfileRefreshEvent } from "@/lib/profile-events";
+import { IconWarning } from "@/components/Icons";
 
 const COURSE_TYPES: Record<string, string[]> = {
   FYUG: ["DSC", "DSM", "SEC", "AEC", "VAC", "IDC"],
@@ -566,7 +567,7 @@ export default function AIContentClient() {
               {generationStatus.message}
             </p>
           ) : null}
-          {error && generationStatus?.tone !== "error" ? <p className="mt-3 text-sm text-error">⚠ {error}</p> : null}
+          {error && generationStatus?.tone !== "error" ? <p className="mt-3 inline-flex items-center gap-1 text-sm text-error"><IconWarning size={14} /> {error}</p> : null}
         </section>
       </div>
     </div>

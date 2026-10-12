@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { formatIstTime } from "@/lib/datetime";
+import { IconWrench, IconXMark } from "@/components/Icons";
 
 /**
  * Dev-only floating debug panel.
@@ -201,7 +202,7 @@ export default function DebugPanel() {
           touchAction: "manipulation",
         }}
       >
-        🛠 Debug
+        <span className="inline-flex items-center gap-1"><IconWrench size={14} /> Debug</span>
       </button>
 
       {!open ? null : (
@@ -261,7 +262,7 @@ export default function DebugPanel() {
                 marginBottom: "1.1rem",
               }}
             >
-              <strong style={{ fontSize: "0.85rem" }}>🛠 Dev Debug Panel</strong>
+              <strong style={{ fontSize: "0.85rem" }} className="inline-flex items-center gap-1.5"><IconWrench size={14} /> Dev Debug Panel</strong>
               <button
                 onClick={() => setOpen(false)}
                 aria-label="Close debug panel"
@@ -278,7 +279,7 @@ export default function DebugPanel() {
                   touchAction: "manipulation",
                 }}
               >
-                ✕
+                <IconXMark size={14} />
               </button>
             </div>
 
@@ -286,7 +287,7 @@ export default function DebugPanel() {
             <DebugSection title="Session (Appwrite)">
               <DebugRow
                 label="Status"
-                value={userInfo ? "✓ Session present" : "✗ Not authenticated"}
+                value={userInfo ? "Session present" : "Not authenticated"}
                 highlight={!!userInfo}
               />
               <DebugRow
@@ -299,7 +300,7 @@ export default function DebugPanel() {
             <DebugSection title="Device">
               <DebugRow
                 label="Network"
-                value={isOnline ? `✓ Online · ${getConnectionInfo()}` : "✗ Offline"}
+                value={isOnline ? `Online · ${getConnectionInfo()}` : "Offline"}
                 highlight={isOnline}
               />
               <DebugRow

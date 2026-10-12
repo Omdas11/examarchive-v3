@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, type ReactNode } from "react";
 import Link from "next/link";
+import { IconMessage, IconXMark } from "@/components/Icons";
 
 interface Message {
   role: "user" | "model";
@@ -49,7 +50,7 @@ export default function AIBubble({ isLoggedIn }: AIBubbleProps) {
       setMessages([
         {
           role: "model",
-          text: "👋 Hi! I'm ExamBot. I can help you navigate ExamArchive, find past papers, and answer academic questions. What can I help you with today?",
+          text: "Hi! I'm ExamBot. I can help you navigate ExamArchive, find past papers, and answer academic questions. What can I help you with today?",
         },
       ]);
     }
@@ -202,7 +203,7 @@ export default function AIBubble({ isLoggedIn }: AIBubbleProps) {
           (e.currentTarget as HTMLButtonElement).style.transform = "scale(1)";
         }}
       >
-        {open ? "✕" : "💭"}
+        {open ? <IconXMark size={22} /> : <IconMessage size={22} />}
       </button>
 
       {/* ── Chat panel ────────────────────────────────────────────────────── */}
@@ -239,7 +240,7 @@ export default function AIBubble({ isLoggedIn }: AIBubbleProps) {
               flexShrink: 0,
             }}
           >
-            <span style={{ fontSize: 18 }}>💭</span>
+            <span className="inline-flex" style={{ fontSize: 18 }}><IconMessage size={20} /></span>
             <div>
               <div style={{ fontWeight: 700, fontSize: "0.875rem" }}>ExamBot</div>
               <div style={{ fontSize: "0.7rem", opacity: 0.85 }}>AI Academic Assistant</div>

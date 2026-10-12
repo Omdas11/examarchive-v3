@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { signInWithOtp, signInWithPassword, signUp, signInWithGoogle } from "@/app/auth/actions";
+import { IconMail } from "@/components/Icons";
 
 /** Available login modes. */
 type Mode = "magic" | "signin" | "signup";
@@ -81,7 +82,7 @@ export default function LoginForm({
           className="rounded-lg p-4 text-center text-sm"
           style={{ background: "#f0fdf4", color: "#166534", border: "1px solid #86efac" }}
         >
-          <p className="font-semibold">✓ Check your inbox!</p>
+          <p className="font-semibold inline-flex items-center justify-center gap-1.5"><IconMail size={16} /> Check your inbox!</p>
           <p className="mt-1 text-xs" style={{ color: "#15803d" }}>
             We&apos;ve sent a link to your email. Click it to sign in.
           </p>

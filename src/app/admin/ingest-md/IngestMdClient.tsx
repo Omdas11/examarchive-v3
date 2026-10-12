@@ -3,6 +3,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { useToast } from "@/components/ToastContext";
 import { formatIstDateTime } from "@/lib/datetime";
+import { IconWarning } from "@/components/Icons";
 
 /** Delay in ms before navigating to the tracker page after a successful ingest. */
 const REDIRECT_DELAY_MS = 1800;
@@ -19,10 +20,10 @@ type IngestionLog = {
   errors: IngestionError[];
 };
 
-const INGEST_STATUS_PRESENTATION: Record<string, { toastType: "success" | "warning" | "error"; label: string; icon: string }> = {
-  success: { toastType: "success", label: "ingested", icon: "✓" },
-  partial: { toastType: "warning", label: "ingestion partial", icon: "⚠" },
-  failed: { toastType: "error", label: "ingestion failed", icon: "⚠" },
+const INGEST_STATUS_PRESENTATION: Record<string, { toastType: "success" | "warning" | "error"; label: string }> = {
+  success: { toastType: "success", label: "ingested" },
+  partial: { toastType: "warning", label: "ingestion partial" },
+  failed: { toastType: "error", label: "ingestion failed" },
 };
 
 function extractErrorMessages(data: unknown): string[] {
@@ -153,7 +154,7 @@ export default function IngestMdClient() {
         if (paperCode) {
           const presentation = INGEST_STATUS_PRESENTATION[status] ?? INGEST_STATUS_PRESENTATION.failed;
           showToast(
-            `${presentation.icon} ${paperCode} ${presentation.label} — view in Syllabus Tracker`,
+            `${paperCode} ${presentation.label} — view in Syllabus Tracker`,
             presentation.toastType,
           );
         }
@@ -278,7 +279,7 @@ export default function IngestMdClient() {
           </p>
           {uploading && <p className="mt-3 text-sm text-primary">Processing ingestion…</p>}
         </label>
-        {error && <p className="mt-3 text-sm text-error">⚠ {error}</p>}
+        {error && <p className="mt-3 inline-flex items-center gap-1 text-sm text-error"><IconWarning size={14} /> {error}</p>}
         {lastResult && <p className="mt-3 text-sm text-on-surface-variant">{lastResult}</p>}
       </section>
 

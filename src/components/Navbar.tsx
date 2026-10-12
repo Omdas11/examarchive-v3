@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { signOut } from "@/app/auth/actions";
 import type { UserProfile } from "@/types";
@@ -16,12 +16,14 @@ const EDGE_THRESHOLD = 48;
 /** Minimum x-origin (px) from the right edge that counts as a right-swipe open. */
 const RIGHT_EDGE_THRESHOLD = 48;
 
-const navLinks = [
+import { IconSparkles } from "@/components/Icons";
+
+const navLinks: { href: string; label: ReactNode }[] = [
   { href: "/", label: "Home" },
   { href: "/browse", label: "Browse" },
   { href: "/upload", label: "Upload" },
   { href: "/syllabus", label: "Syllabus" },
-  { href: "/ai-content", label: "✨ AI" },
+  { href: "/ai-content", label: <span className="inline-flex items-center gap-1"><IconSparkles size={14} /> AI</span> },
   { href: "/about", label: "About" },
   { href: "/support", label: "Support" },
 ];
@@ -297,7 +299,7 @@ export default function Navbar({ user }: NavbarProps) {
                       role="menuitem"
                       style={{ color: "var(--color-primary)" }}
                     >
-                      ✨ AI Content
+                      <span className="inline-flex items-center gap-1.5"><IconSparkles size={14} /> AI Content</span>
                     </Link>
                     {isAdminOrAbove && (
                       <Link

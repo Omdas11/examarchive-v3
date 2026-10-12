@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { IconWarning } from "@/components/Icons";
 
 type Limits = {
   dailyLimit: number;
@@ -130,7 +131,7 @@ export default function AiStatsClient() {
             Save limits
           </button>
           {loading && <span className="text-sm text-on-surface-variant">Working…</span>}
-          {error && <span className="text-sm text-error">⚠ {error}</span>}
+          {error && <span className="inline-flex items-center gap-1 text-sm text-error"><IconWarning size={14} /> {error}</span>}
         </div>
       </div>
     </div>

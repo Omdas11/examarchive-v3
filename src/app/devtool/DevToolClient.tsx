@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import TypeToConfirmModal from "@/components/TypeToConfirmModal";
+import { Icon, IconCheck, IconXMark, type IconName } from "@/components/Icons";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -129,7 +130,7 @@ function StatusBadge({ state }: { state: ActionState }) {
   const { bg, color } = styles[state.status];
   return (
     <p className="mt-3 rounded-md px-3 py-2 text-xs font-medium" style={{ background: bg, color }}>
-      {state.status === "success" ? "✓ " : state.status === "error" ? "✗ " : ""}
+      {state.status === "success" ? <IconCheck size={12} /> : state.status === "error" ? <IconXMark size={12} /> : null}{" "}
       {state.message}
     </p>
   );
@@ -883,12 +884,12 @@ function DangerTab({ onOpenModal }: { onOpenModal: (action: PendingDangerAction)
 
 // ── MAIN COMPONENT ────────────────────────────────────────────────────────────
 
-const TABS: { id: Tab; label: string; icon: string }[] = [
-  { id: "databases", label: "Databases", icon: "🗄️" },
-  { id: "storage", label: "Storage", icon: "🪣" },
-  { id: "auth", label: "Auth", icon: "👤" },
-  { id: "functions", label: "Functions", icon: "⚡" },
-  { id: "danger", label: "Danger", icon: "⚠️" },
+const TABS: { id: Tab; label: string; icon: IconName }[] = [
+  { id: "databases", label: "Databases", icon: "database" },
+  { id: "storage", label: "Storage", icon: "upload" },
+  { id: "auth", label: "Auth", icon: "user" },
+  { id: "functions", label: "Functions", icon: "lightning" },
+  { id: "danger", label: "Danger", icon: "warning" },
 ];
 
 export default function DevToolClient({ adminEmail }: DevToolClientProps) {
@@ -947,7 +948,7 @@ export default function DevToolClient({ adminEmail }: DevToolClientProps) {
                 : { background: "var(--color-surface-alt)", color: "var(--color-text-muted)" }
             }
           >
-            <span>{tab.icon}</span>
+            <span className="inline-flex"><Icon name={tab.icon} size={14} /></span>
             {tab.label}
           </button>
         ))}

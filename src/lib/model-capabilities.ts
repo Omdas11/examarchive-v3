@@ -376,43 +376,44 @@ function humanizeModelId(modelId: string): string {
 }
 
 /**
- * Get speed indicator emoji/icon
+ * Get speed indicator icon name (matches @/components/Icons registry)
  */
 export function getSpeedIcon(speed: "fast" | "medium" | "slow"): string {
   switch (speed) {
     case "fast":
-      return "⚡";
+      return "lightning";
     case "medium":
-      return "⏱️";
+      return "hourglass";
     case "slow":
-      return "🐢";
+      return "hourglass";
   }
 }
 
 /**
- * Get quality indicator emoji/icon
+ * Get quality indicator icon name (matches @/components/Icons registry)
  */
 export function getQualityIcon(quality: "high" | "medium" | "basic"): string {
   switch (quality) {
     case "high":
-      return "⭐";
+      return "star";
     case "medium":
-      return "✓";
+      return "check";
     case "basic":
-      return "○";
+      return "check";
   }
 }
 
 /**
- * Get cost indicator emoji/icon
+ * Get cost indicator icon name (matches @/components/Icons registry).
+ * Returns one "coins" per cost level.
  */
 export function getCostIcon(cost: "low" | "medium" | "high"): string {
   switch (cost) {
     case "low":
-      return "💰";
+      return "coins";
     case "medium":
-      return "💰💰";
+      return "coins coins";
     case "high":
-      return "💰💰💰";
+      return "coins coins coins";
   }
 }

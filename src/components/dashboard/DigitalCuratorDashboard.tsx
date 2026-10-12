@@ -191,7 +191,7 @@ export default function DigitalCuratorDashboard({
         {/* Welcome Section */}
         <section>
           <h1 className="text-3xl font-bold text-on-surface mb-2">
-            Welcome back, {firstName}! 👋
+            Welcome back, {firstName}!
           </h1>
           <p className="text-on-surface-variant">
             {uploadCount > 0

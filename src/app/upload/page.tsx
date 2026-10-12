@@ -6,6 +6,7 @@ import UploadForm from "@/components/UploadForm";
 import NotesUploadForm from "@/components/NotesUploadForm";
 import DeptSyllabusUploadForm from "@/components/DeptSyllabusUploadForm";
 import MainLayout from "@/components/layout/MainLayout";
+import { IconCheck } from "@/components/Icons";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 
 export const metadata: Metadata = {
@@ -114,7 +115,7 @@ export default async function UploadPage({
                   className="flex h-5 w-5 items-center justify-center rounded-full text-white text-xs"
                   style={{ background: "var(--color-primary)" }}
                 >
-                  ✓
+                  <IconCheck size={12} />
                 </span>
               ) : (
                 <span className="flex h-5 w-5 items-center justify-center rounded-full text-xs" style={{ border: "1px solid var(--color-border)" }}>&nbsp;</span>
@@ -137,7 +138,7 @@ export default async function UploadPage({
                   className="flex h-5 w-5 items-center justify-center rounded-full text-white text-xs"
                   style={{ background: "var(--color-primary)" }}
                 >
-                  ✓
+                  <IconCheck size={12} />
                 </span>
               ) : (
                 <span className="flex h-5 w-5 items-center justify-center rounded-full text-xs" style={{ border: "1px solid var(--color-border)" }}>&nbsp;</span>
@@ -162,7 +163,7 @@ export default async function UploadPage({
                     className="flex h-5 w-5 items-center justify-center rounded-full text-white text-xs"
                     style={{ background: "var(--color-primary)" }}
                   >
-                    ✓
+                    <IconCheck size={12} />
                   </span>
                 ) : (
                   <span className="flex h-5 w-5 items-center justify-center rounded-full text-xs" style={{ border: "1px solid var(--color-border)" }}>&nbsp;</span>

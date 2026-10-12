@@ -413,6 +413,63 @@ export function IconChevronRight({ size = 16, ...p }: IconProps) {
   );
 }
 
+export function IconMessage({ size = 16, ...p }: IconProps) {
+  return (
+    <svg {...BASE_ATTRS} width={size} height={size} viewBox="0 0 24 24" {...p}>
+      <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+    </svg>
+  );
+}
+
+export function IconPartyPopper({ size = 16, ...p }: IconProps) {
+  return (
+    <svg {...BASE_ATTRS} width={size} height={size} viewBox="0 0 24 24" {...p}>
+      <path d="M5 15l-2 7 7-2" />
+      <path d="M14 4l6 6-9 9H7v-4l7-11z" />
+      <path d="M14 4l3-3 4 4-3 3" />
+      <path d="M19 5l1.5-1.5" />
+    </svg>
+  );
+}
+
+export function IconShoppingBag({ size = 16, ...p }: IconProps) {
+  return (
+    <svg {...BASE_ATTRS} width={size} height={size} viewBox="0 0 24 24" {...p}>
+      <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" />
+      <line x1="3" y1="6" x2="21" y2="6" />
+      <path d="M16 10a4 4 0 01-8 0" />
+    </svg>
+  );
+}
+
+export function IconWrench({ size = 16, ...p }: IconProps) {
+  return (
+    <svg {...BASE_ATTRS} width={size} height={size} viewBox="0 0 24 24" {...p}>
+      <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z" />
+    </svg>
+  );
+}
+
+export function IconCoins({ size = 16, ...p }: IconProps) {
+  return (
+    <svg {...BASE_ATTRS} width={size} height={size} viewBox="0 0 24 24" {...p}>
+      <circle cx="8" cy="8" r="6" />
+      <path d="M18.09 10.37A6 6 0 1110.34 18" />
+      <path d="M7 6h1v4" />
+      <path d="M16.71 13.88l.7.71-2.82 2.82" />
+    </svg>
+  );
+}
+
+export function IconMail({ size = 16, ...p }: IconProps) {
+  return (
+    <svg {...BASE_ATTRS} width={size} height={size} viewBox="0 0 24 24" {...p}>
+      <path d="M4 4h16a2 2 0 012 2v12a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2z" />
+      <polyline points="22,6 12,13 2,6" />
+    </svg>
+  );
+}
+
 // ── Icon registry (for dynamic <Icon name="…" /> usage) ────────────────────
 
 /** All named icons. Matches v2's SvgIcons registry keys. */
@@ -457,6 +514,12 @@ export const ICONS = {
   refresh:     IconRefresh,
   chevron_left: IconChevronLeft,
   chevron_right: IconChevronRight,
+  message:     IconMessage,
+  party:       IconPartyPopper,
+  shopping_bag: IconShoppingBag,
+  wrench:      IconWrench,
+  coins:       IconCoins,
+  mail:        IconMail,
 } as const;
 
 export type IconName = keyof typeof ICONS;

@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import CreditIcon from "@/components/CreditIcon";
 import { SupporterBadge } from "@/components/badges/AchievementBadges";
 import { type Pass } from "@/lib/payments";
+import { IconPartyPopper, IconBooks, IconShoppingBag } from "@/components/Icons";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -225,7 +226,7 @@ export default function StoreClient({
       {/* ── First-time buyer banner ── */}
       {isFirstTimeBuyer && (
         <div className="rounded-3xl border border-primary/10 bg-primary-fixed px-6 py-5 flex items-start gap-4 shadow-sm">
-          <span className="text-3xl leading-none select-none">🎉</span>
+          <span className="inline-flex text-3xl leading-none select-none" style={{ color: "var(--color-primary)" }}><IconPartyPopper size={32} /></span>
           <div>
             <p className="font-black text-on-primary-fixed text-sm uppercase tracking-wider">Welcome Offer Applied!</p>
             <p className="text-xs text-on-primary-fixed-variant font-medium mt-1">
@@ -391,7 +392,7 @@ export default function StoreClient({
       {/* ── Amazon Study Materials ── */}
       {amazonProducts.length > 0 && (
         <div>
-          <SectionHeading>📚 Study Materials</SectionHeading>
+          <SectionHeading><span className="inline-flex items-center gap-2"><IconBooks size={20} /> Study Materials</span></SectionHeading>
           <SectionSubtitle>
             Handpicked supplies for students — purchased via Amazon.
           </SectionSubtitle>
@@ -417,7 +418,7 @@ export default function StoreClient({
                       unoptimized
                     />
                   ) : (
-                    <span className="text-3xl select-none">🛍️</span>
+                    <span className="inline-flex text-3xl select-none" style={{ color: "var(--color-text-muted)" }}><IconShoppingBag size={32} /></span>
                   )}
                 </div>
 
