@@ -13,7 +13,7 @@ import GoogleAnalytics from "@/components/GoogleAnalytics";
 import SimpleAnalytics from "@/components/SimpleAnalytics";
 
 const SITE_URL = "https://www.examarchive.dev";
-const OG_IMAGE_URL = `${SITE_URL}/study-preview.png`;
+const OG_IMAGE_URL = `${SITE_URL}/og-image.png`;
 const LOGO_URL = `${SITE_URL}/branding/logo.png`;
 const SITE_NAME = "ExamArchive";
 const SITE_DESCRIPTION =
@@ -81,13 +81,7 @@ export const metadata: Metadata = {
     description: SITE_DESCRIPTION,
     images: [OG_IMAGE_URL],
   },
-  icons: {
-    icon: [
-      { url: '/branding/logo.png', type: 'image/png' },
-    ],
-    apple: '/branding/logo.png',
-    shortcut: '/branding/logo.png',
-  },
+  // Icons via file convention: src/app/icon.png, apple-icon.png, favicon.ico
   robots: {
     index: true,
     follow: true,

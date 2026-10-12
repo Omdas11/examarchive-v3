@@ -1,56 +1,65 @@
 "use client";
 
-import { useState } from "react";
-
-type LoadSrc = "png" | "svg" | "none";
-
+/**
+ * ExamArchive loading screen — new brand.
+ * Shows the EA monogram with a breathing pulse + progress shimmer.
+ * Falls back to an inline emerald badge if the logo image fails.
+ */
 export default function Loading() {
-  // Track which icon source to try: png → svg → none (inline fallback)
-  const [src, setSrc] = useState<LoadSrc>("png");
-
-  const imgSrc =
-    src === "png"
-      ? "/branding/loading.png"
-      : src === "svg"
-        ? "/logos/loading/ea-loader.svg"
-        : null;
-
   return (
-    <div className="flex min-h-[calc(100vh-14rem)] flex-col items-center justify-center gap-3">
-      {/*
-        Loading icon priority:
-          1. /public/branding/loading.png  (custom PNG – recommended)
-          2. /public/logos/loading/ea-loader.svg  (legacy SVG path)
-          3. Inline animated EA badge fallback (always works)
-      */}
-      {imgSrc ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          key={src}
-          src={imgSrc}
-          width={200}
-          height={200}
-          alt=""
-          aria-hidden="true"
-          style={{ animation: "ea-logo-pulse 1.4s ease-in-out infinite" }}
-          onError={() => setSrc(src === "png" ? "svg" : "none")}
-        />
-      ) : (
-        /* Inline fallback – shown only when all image paths fail */
+    <div className="flex min-h-[calc(100vh-14rem)] flex-col items-center justify-center gap-5 px-4">
+      <div
+        className="relative flex h-28 w-28 items-center justify-center"
+        aria-hidden="true"
+      >
+        {/* Soft glow ring */}
         <div
-          className="h-[200px] w-[200px] flex items-center justify-center rounded-xl"
-          style={{ background: "var(--color-primary)", animation: "ea-logo-pulse 1.4s ease-in-out infinite" }}
-          aria-hidden="true"
-        >
-          <svg width="120" height="120" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-            {/* E */}
-            <path d="M2 3h5v1.8H3.8v2h3v1.8h-3v2.2H7V12.6H2V3Z" fill="white" />
-            {/* A */}
-            <path d="M9.5 3h2.1l3 9.6H12.4l-.55-1.9h-2.9l-.56 1.9H6.7L9.5 3Zm1.05 2.2-1.02 3.8h2.04l-1.02-3.8Z" fill="white" />
-          </svg>
-        </div>
-      )}
+          className="absolute inset-0 rounded-[2rem]"
+          style={{
+            background:
+              "radial-gradient(circle, rgba(16,185,129,0.25) 0%, transparent 70%)",
+            animation: "ea-logo-pulse 1.6s ease-in-out infinite",
+          }}
+        />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/branding/logo.png"
+          width={112}
+          height={112}
+          alt=""
+          className="relative rounded-[1.75rem] shadow-lg"
+          style={{ animation: "ea-logo-pulse 1.6s ease-in-out infinite" }}
+        />
+      </div>
+
+      <p
+        className="text-sm font-bold tracking-[0.25em] uppercase"
+        style={{ color: "var(--color-primary)" }}
+      >
+        ExamArchive
+      </p>
+
+      {/* Shimmer progress bar */}
+      <div
+        className="h-1.5 w-44 overflow-hidden rounded-full"
+        style={{ background: "var(--color-border, #e5e7eb)" }}
+      >
+        <div
+          className="h-full w-1/2 rounded-full"
+          style={{
+            background:
+              "linear-gradient(90deg, var(--color-primary), var(--color-primary-hover))",
+            animation: "ea-loading-slide 1.2s ease-in-out infinite",
+          }}
+        />
+      </div>
+
+      <style>{`
+        @keyframes ea-loading-slide {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(300%); }
+        }
+      `}</style>
     </div>
   );
 }
-

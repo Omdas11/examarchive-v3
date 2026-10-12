@@ -17,7 +17,7 @@ const PRECACHE_ASSETS = [
   "/browse",
   "/about",
   "/branding/logo.png",
-  "/branding/loading.png",
+  "/og-image.png",
   "/manifest.json",
 ];
 
