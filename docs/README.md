@@ -28,6 +28,13 @@ This repository contains the Next.js 15 + Appwrite implementation.
 - Use AI study tools (chat + note generation + PDF export).
 - Earn XP/badges with referral support and AI credit rewards.
 
+## Android App
+
+A native Android app is available in a separate repository:
+**[Omdas11/examarchive-android](https://github.com/Omdas11/examarchive-android)** —
+Flutter app sharing the same Appwrite backend (same accounts, papers and syllabi).
+Download the beta APK from its [Releases](https://github.com/Omdas11/examarchive-android/releases) page.
+
 ## Startup Readiness (Execution Docs)
 
 The growth and monetization prep checklist is now split into focused docs:
