@@ -222,11 +222,11 @@ async function fetchStats() {
     ]);
 
     const papers =
-      papersRes.status === "fulfilled" ? papersRes.value.total : 0;
+      papersRes.status === "fulfilled" ? Number(papersRes.value.total) : 0;
     const syllabi =
-      syllabusRes.status === "fulfilled" ? syllabusRes.value.total : 0;
+      syllabusRes.status === "fulfilled" ? Number(syllabusRes.value.total) : 0;
     const users =
-      usersRes.status === "fulfilled" ? usersRes.value.total : 0;
+      usersRes.status === "fulfilled" ? Number(usersRes.value.total) : 0;
 
     return { papers, syllabi, users };
   } catch {

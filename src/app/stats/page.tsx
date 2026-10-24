@@ -86,19 +86,19 @@ async function fetchPlatformStats() {
 
   return {
     papersApproved:
-      papersApproved.status === "fulfilled" ? papersApproved.value.total : 0,
+      papersApproved.status === "fulfilled" ? Number(papersApproved.value.total) : 0,
     papersPending:
-      papersPending.status === "fulfilled" ? papersPending.value.total : 0,
+      papersPending.status === "fulfilled" ? Number(papersPending.value.total) : 0,
     papersTotal:
-      papersTotal.status === "fulfilled" ? papersTotal.value.total : 0,
+      papersTotal.status === "fulfilled" ? Number(papersTotal.value.total) : 0,
     syllabusApproved:
       syllabusApproved.status === "fulfilled"
-        ? syllabusApproved.value.total
+        ? Number(syllabusApproved.value.total)
         : 0,
     syllabusTotal:
-      syllabusTotal.status === "fulfilled" ? syllabusTotal.value.total : 0,
+      syllabusTotal.status === "fulfilled" ? Number(syllabusTotal.value.total) : 0,
     usersTotal:
-      usersTotal.status === "fulfilled" ? usersTotal.value.total : 0,
+      usersTotal.status === "fulfilled" ? Number(usersTotal.value.total) : 0,
     syllabusSubjects,
     syllabusCodes,
   };

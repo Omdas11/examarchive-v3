@@ -111,8 +111,8 @@ const getHomepageData = unstable_cache(
         ]),
       ]);
 
-      papersTotal = papersRes.total;
-      syllabusTotal = syllabusRes.total;
+      papersTotal = Number(papersRes.total);
+      syllabusTotal = Number(syllabusRes.total);
 
       const allPapers: Paper[] = [];
 

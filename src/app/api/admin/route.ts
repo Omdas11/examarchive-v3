@@ -47,13 +47,13 @@ async function incrementUploadCount(
       return; // user profile may not exist
     }
 
-    const currentCount = ((profile.upload_count as number) ?? 0) + 1;
+    const currentCount = Number(profile.upload_count ?? 0) + 1;
     const update: Record<string, unknown> = { upload_count: currentCount };
 
     // ── XP grant ──────────────────────────────────────────────────────────
     let xpGain = XP_PER_APPROVED_UPLOAD;
     if (currentCount === 1) xpGain += XP_FIRST_UPLOAD_BONUS; // first upload bonus
-    const nextXp = ((profile.xp as number) ?? 0) + xpGain;
+    const nextXp = Number(profile.xp ?? 0) + xpGain;
     update.xp = nextXp;
 
     // ── Streak update ─────────────────────────────────────────────────────
@@ -62,7 +62,7 @@ async function incrementUploadCount(
     const lastActivity = (profile.last_activity as string) ?? "";
     const lastDate = lastActivity ? lastActivity.slice(0, 10) : "";
 
-    const prevStreak = (profile.streak_days as number) ?? 0;
+    const prevStreak = Number(profile.streak_days ?? 0);
     let streak = prevStreak;
     if (lastDate === todayStr) {
       // already active today — no streak change
@@ -77,9 +77,9 @@ async function incrementUploadCount(
 
     // Streak milestone XP bonuses — award when crossing the threshold
     if (prevStreak < 7 && streak >= 7) {
-      update.xp = (update.xp as number) + XP_STREAK_7_DAY_BONUS;
+      update.xp = Number(update.xp ?? 0) + XP_STREAK_7_DAY_BONUS;
     } else if (prevStreak < 30 && streak >= 30) {
-      update.xp = (update.xp as number) + XP_STREAK_30_DAY_BONUS;
+      update.xp = Number(update.xp ?? 0) + XP_STREAK_30_DAY_BONUS;
     }
 
     update.streak_days = streak;

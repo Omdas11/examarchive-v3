@@ -48,7 +48,7 @@ export default async function AdminPage() {
       COLLECTION.papers,
       [Query.equal("approved", true), Query.limit(1)],
     );
-    approvedCount = approvedResult.total;
+    approvedCount = Number(approvedResult.total);
   } catch {
     // collection may not exist yet
   }
@@ -74,7 +74,7 @@ export default async function AdminPage() {
       COLLECTION.syllabus_table,
       [Query.equal("status", "pending"), Query.limit(1)],
     );
-    pendingVaultCount = vaultRes.total;
+    pendingVaultCount = Number(vaultRes.total);
   } catch {
     // collection may not exist yet
   }

@@ -194,7 +194,7 @@ export interface AdminUser {
 
 /** Map an Appwrite document to our `AdminUser` type. */
 export function toAdminUser(doc: Record<string, unknown>): AdminUser {
-  const xpScore = (doc.xp ?? doc.xo ?? 0) as number;
+  const xpScore = toNumber(doc.xp ?? doc.xo ?? 0);
   return {
     id: (doc.$id ?? doc.id) as string,
     email: (doc.email ?? "") as string,
@@ -208,9 +208,9 @@ export function toAdminUser(doc: Record<string, unknown>): AdminUser {
     specialist_subject: (doc.specialist_subject ?? null) as string | null,
     subject_admin_subject: (doc.subject_admin_subject ?? null) as string | null,
     tier: ((doc.tier ?? "bronze") as string) as UserTier,
-    upload_count: (doc.upload_count ?? 0) as number,
+    upload_count: toNumber(doc.upload_count ?? 0),
     xp: xpScore,
-    streak_days: ((doc.streak_days ?? doc.streak ?? 0) as number),
+    streak_days: toNumber(doc.streak_days ?? doc.streak ?? 0),
     last_login: ((doc.last_login ?? doc.last_activity ?? "") as string),
     created_at: ((doc.$createdAt ?? doc.created_at) as string) ?? "",
   };
@@ -246,11 +246,22 @@ export interface BrowseFilters {
 
 function toOptionalNumber(value: unknown): number | undefined {
   if (typeof value === "number" && Number.isFinite(value)) return value;
+  // Appwrite SDK may return integer attributes as BigInt at runtime;
+  // convert explicitly — a raw BigInt breaks RSC serialization to client components.
+  if (typeof value === "bigint") {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : undefined;
+  }
   if (typeof value === "string" && value.trim()) {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : undefined;
   }
   return undefined;
+}
+
+/** Like toOptionalNumber but defaults to 0 — for counts/scores that must be numeric. */
+function toNumber(value: unknown): number {
+  return toOptionalNumber(value) ?? 0;
 }
 
 function toBoolean(value: unknown, fallback = false): boolean {
@@ -312,7 +323,7 @@ export function toSyllabus(doc: any): Syllabus {
     department: doc.department ?? "",
     semester: doc.semester ?? "",
     programme: doc.programme ?? "",
-    year: doc.year ?? null,
+    year: toOptionalNumber(doc.year) ?? null,
     uploader_id: doc.uploader_id ?? doc.uploaded_by ?? "",
     approval_status: (doc.approval_status ?? "pending") as Syllabus["approval_status"],
     file_url: doc.file_url ?? "",

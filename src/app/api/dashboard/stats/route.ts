@@ -46,7 +46,7 @@ export async function GET() {
     // Prefer the backend-maintained upload_count; fall back to live papers total
     const uploadCount: number =
       userDoc && typeof userDoc.upload_count === "number" && userDoc.upload_count >= 0
-        ? (userDoc.upload_count as number)
+        ? Number(userDoc.upload_count ?? 0)
         : approvedResult.total;
 
     const recentPapers = approvedResult.documents.map((doc) => ({
@@ -56,7 +56,7 @@ export async function GET() {
         (doc.course_code as string) ||
         "Untitled Paper",
       course_code: (doc.course_code as string) || "",
-      year: (doc.year as number) || 0,
+      year: Number(doc.year ?? 0) || 0,
       semester: (doc.semester as string) || "",
       department: (doc.department as string) || "",
       created_at: doc.$createdAt,

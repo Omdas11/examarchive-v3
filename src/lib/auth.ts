@@ -84,10 +84,10 @@ async function evaluateXpAndPromotion(
   profile: Record<string, unknown>,
 ): Promise<void> {
   try {
-    const uploadCount = (profile.upload_count as number) ?? 0;
+    const uploadCount = Number(profile.upload_count ?? 0);
     const currentRole = normalizeRole((profile.role as string) ?? "student");
     const currentTier = (profile.tier as string) ?? "bronze";
-    const currentXp = (profile.xp as number) ?? 0;
+    const currentXp = Number(profile.xp ?? 0);
     const createdAt = typeof profile.$createdAt === "string" ? profile.$createdAt : "";
     const accountAgeDays = createdAt
       ? Math.floor((Date.now() - new Date(createdAt).getTime()) / 86_400_000)
@@ -146,11 +146,11 @@ function profileToUserProfile(
     role: normalizeRole((profile.role as string) ?? "student"),
     secondary_role: isValidCustomRole(rawSecondary) ? rawSecondary : null,
     tier: isValidTier(rawTier) ? rawTier : "bronze",
-    xp: (profile.xp as number) ?? 0,
+    xp: Number(profile.xp ?? 0),
     specialist_subject: (profile.specialist_subject as string) ?? null,
     subject_admin_subject: (profile.subject_admin_subject as string) ?? null,
-    ai_credits: (profile.ai_credits as number) ?? 0,
-    streak_days: (profile.streak_days as number) ?? 0,
+    ai_credits: Number(profile.ai_credits ?? 0),
+    streak_days: Number(profile.streak_days ?? 0),
     last_activity: (profile.last_activity as string) ?? "",
     created_at: profile.$createdAt as string,
   };
@@ -216,7 +216,7 @@ export async function getServerUser(): Promise<UserProfile | null> {
       const profile = await db.getDocument(DATABASE_ID, COLLECTION.users, user.$id);
       const profileRec = profile as unknown as Record<string, unknown>;
       // Fire-and-forget: update streak & evaluate promotion
-      void updateDailyStreak(db, profile.$id, (profile.streak_days as number) ?? 0, (profile.last_activity as string) ?? "");
+      void updateDailyStreak(db, profile.$id, Number(profile.streak_days ?? 0), (profile.last_activity as string) ?? "");
       void evaluateXpAndPromotion(db, profileRec);
       return profileToUserProfile(profileRec, user.email);
     } catch {
@@ -233,7 +233,7 @@ export async function getServerUser(): Promise<UserProfile | null> {
     if (documents.length > 0) {
       const profile = documents[0];
       const profileRec = profile as unknown as Record<string, unknown>;
-      void updateDailyStreak(db, profile.$id, (profile.streak_days as number) ?? 0, (profile.last_activity as string) ?? "");
+      void updateDailyStreak(db, profile.$id, Number(profile.streak_days ?? 0), (profile.last_activity as string) ?? "");
       void evaluateXpAndPromotion(db, profileRec);
       return profileToUserProfile(profileRec, user.email);
     }
@@ -367,8 +367,8 @@ export async function getExtendedServerUser(): Promise<ExtendedUserProfile | nul
       secondary_role: secondaryRole,
       tertiary_role: tertiaryRole,
       tier,
-      xp: (profile.xp as number) ?? 0,
-      streak_days: (profile.streak_days as number) ?? 0,
+      xp: Number(profile.xp ?? 0),
+      streak_days: Number(profile.streak_days ?? 0),
       last_activity: (profile.last_activity as string) ?? "",
       achievements,
       created_at: profile.$createdAt,

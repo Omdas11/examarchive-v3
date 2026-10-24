@@ -185,7 +185,7 @@ export async function POST(request: NextRequest) {
       }
       try {
         const doc = await db.getDocument(DATABASE_ID, COLLECTION.users, userId);
-        const currentXp = (doc.xp as number) ?? 0;
+        const currentXp = Number(doc.xp ?? 0);
         const isAdd = action === "xo_add" || action === "xp_add";
         const newXp = isAdd ? Math.max(0, currentXp + amount) : Math.max(0, amount);
         await db.updateDocument(DATABASE_ID, COLLECTION.users, userId, { xp: newXp });
