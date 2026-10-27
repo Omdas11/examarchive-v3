@@ -27,7 +27,6 @@ const VIEWER_TO_CONTRIBUTOR_XO_THRESHOLD = 30;
 const VIEWER_TO_CONTRIBUTOR_ACCOUNT_AGE_DAYS = 3;
 const CONTRIBUTOR_TO_SPECIALIST_UPLOAD_THRESHOLD = 10;
 const CONTRIBUTOR_TO_SPECIALIST_XO_THRESHOLD = 150;
-const TIER_SILVER_UPLOAD_THRESHOLD = 20;
 
 /**
  * After a paper is approved, increment the uploader's `upload_count`,
@@ -105,14 +104,6 @@ async function incrementUploadCount(
       !Boolean(profile.abuse_flag)
     ) {
       update.role = "specialist";
-    }
-
-    // Auto-promote: set tier to silver once moderator-eligible threshold is reached
-    if (
-      currentCount >= TIER_SILVER_UPLOAD_THRESHOLD &&
-      ((profile.tier as string) ?? "bronze") === "bronze"
-    ) {
-      update.tier = "silver";
     }
 
     await db.updateDocument(DATABASE_ID, COLLECTION.users, uploaderId, update);

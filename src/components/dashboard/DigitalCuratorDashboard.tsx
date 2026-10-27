@@ -162,12 +162,7 @@ export default function DigitalCuratorDashboard({
       icon: 'verified',
       trend: 'Keep uploading to level up',
     },
-    {
-      label: 'Community Rank',
-      value: xp >= 5000 ? 'Legend' : xp >= 3000 ? 'Elite' : xp >= 1500 ? 'Senior' : xp >= 800 ? 'Veteran' : xp >= 300 ? 'Contributor' : xp >= 100 ? 'Explorer' : 'Visitor',
-      icon: 'emoji_events',
-      trend: `${xp.toLocaleString()} total XP`,
-    },
+
   ];
 
   const handleSearch = (query: string) => {

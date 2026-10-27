@@ -56,15 +56,13 @@ const contributions = [
   "Apply to become a moderator.",
 ];
 
-/** XP tier progression data — matches the profile module exactly. */
+/** Single XP tier ladder — matches roles.ts XP_TIERS exactly. */
 const XP_TIERS = [
-  { xp: 0,    level: 0,   title: "Visitor",     color: "#6b7280" },
-  { xp: 100,  level: 5,   title: "Explorer",    color: "#2563eb" },
-  { xp: 300,  level: 10,  title: "Contributor", color: "#16a34a" },
-  { xp: 800,  level: 25,  title: "Veteran",     color: "#d97706" },
-  { xp: 1500, level: 50,  title: "Senior",      color: "#9333ea" },
-  { xp: 3000, level: 90,  title: "Elite",       color: "#db2777" },
-  { xp: 5000, level: 100, title: "Legend",      color: "#dc2626" },
+  { xp: 0,    title: "Bronze",   color: "#b45309" },
+  { xp: 100,  title: "Silver",   color: "#6b7280" },
+  { xp: 300,  title: "Gold",     color: "#d97706" },
+  { xp: 800,  title: "Platinum", color: "#0ea5e9" },
+  { xp: 1500, title: "Diamond",  color: "#9333ea" },
 ];
 
 /** System roles with descriptions. */
@@ -185,7 +183,7 @@ const XP_EVENTS = [
 ];
 
 const COSMETIC_UNLOCKS = [
-  "XP rank title and profile ring colours are unlocked automatically by XP milestones.",
+  "Your tier and profile ring colours follow your XP automatically.",
   "Secondary and tertiary community designations are assigned by contribution quality and trust signals.",
   "Role cosmetics are display-only and never grant moderation or admin permissions.",
 ];
@@ -395,8 +393,8 @@ export default async function AboutPage() {
       {/* XP & Progression */}
       <h2 className="mt-10 text-xl font-semibold">XP & Progression</h2>
       <p className="mt-2 text-sm" style={{ color: "var(--color-text-muted)" }}>
-        Earn XP by contributing to the archive. XP unlocks cosmetic rank titles and avatar ring
-        colours on your profile — it does not affect permissions.
+        Earn XP by contributing to the archive. Your XP sets your tier (Bronze → Diamond)
+        and avatar ring colours on your profile — it does not affect permissions.
       </p>
 
       {/* XP tier table */}
@@ -404,9 +402,8 @@ export default async function AboutPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="text-xs uppercase text-left" style={{ color: "var(--color-text-muted)" }}>
-              <th className="pb-2 pr-4 font-medium">Rank</th>
-              <th className="pb-2 pr-4 font-medium">XP Required</th>
-              <th className="pb-2 font-medium">Level</th>
+              <th className="pb-2 pr-4 font-medium">Tier</th>
+              <th className="pb-2 font-medium">XP Required</th>
             </tr>
           </thead>
           <tbody>
@@ -424,11 +421,8 @@ export default async function AboutPage() {
                     {t.title}
                   </span>
                 </td>
-                <td className="py-2 pr-4 text-xs" style={{ color: "var(--color-text-muted)" }}>
-                  {t.xp === 0 ? "0" : `${t.xp.toLocaleString()} XP`}
-                </td>
                 <td className="py-2 text-xs" style={{ color: "var(--color-text-muted)" }}>
-                  {t.level}
+                  {t.xp === 0 ? "0" : `${t.xp.toLocaleString()} XP`}
                 </td>
               </tr>
             ))}

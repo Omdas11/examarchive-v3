@@ -13,8 +13,9 @@ import { logActivity } from "@/lib/activity-log";
 
 /**
  * POST /api/admin/reset-gamification
- * Full clean slate: reset XP, tier, and streak for ALL users (including the
+ * Full clean slate: reset XP and streak for ALL users (including the
  * caller), and delete ALL achievement/badge documents.
+ * Tier is derived from XP, so it resets to bronze automatically.
  * Founder-only. AI credits are NOT touched.
  */
 export async function POST() {
@@ -40,7 +41,6 @@ export async function POST() {
       for (const doc of documents) {
         await db.updateDocument(DATABASE_ID, COLLECTION.users, doc.$id, {
           xp: 0,
-          tier: "bronze",
           streak_days: 0,
         });
         usersReset++;
@@ -70,7 +70,7 @@ export async function POST() {
       action: "reset_gamification",
       target_user_id: null,
       target_paper_id: null,
-      details: `Reset XP/tier/streak for ${usersReset} users, deleted ${achievementsDeleted} achievements (full clean slate)`,
+      details: `Reset XP/streak for ${usersReset} users, deleted ${achievementsDeleted} achievements (full clean slate)`,
     });
 
     return NextResponse.json({ usersReset, achievementsDeleted });

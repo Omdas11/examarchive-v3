@@ -10,7 +10,7 @@ import {
   COLLECTION,
   Query,
 } from "@/lib/appwrite";
-import { isValidUserRole, isValidCustomRole, isValidTier } from "@/lib/roles";
+import { isValidUserRole, isValidCustomRole, xpTier } from "@/lib/roles";
 import { logActivity } from "@/lib/activity-log";
 import { withCreditBalanceLock } from "@/lib/credit-lock";
 
@@ -32,7 +32,13 @@ export async function GET() {
       [Query.orderDesc("$createdAt"), Query.limit(100)],
     );
 
-    return NextResponse.json({ users: documents });
+    // Tier is derived from XP alone (roles.ts xpTier), never from the stored value.
+    const users = documents.map((d) => ({
+      ...d,
+      tier: xpTier(Number((d as Record<string, unknown>).xp ?? 0)),
+    }));
+
+    return NextResponse.json({ users });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ error: message }, { status: 500 });
@@ -41,8 +47,9 @@ export async function GET() {
 
 /**
  * PATCH /api/admin/users
- * Update a user's role, primary_role, secondary_role, tertiary_role, tier,
+ * Update a user's role, primary_role, secondary_role, tertiary_role,
  * and/or perform manual AI credit top-up/debit.
+ * Tier is derived from XP and cannot be set here.
  * Admin-only. Prevents self-demotion.
  */
 export async function PATCH(request: NextRequest) {
@@ -122,14 +129,6 @@ export async function PATCH(request: NextRequest) {
     details.push(`tertiary_role → ${body.tertiary_role ?? "none"}`);
   }
 
-  if (body.tier !== undefined) {
-    if (!isValidTier(body.tier)) {
-      return NextResponse.json({ error: "Invalid tier value" }, { status: 400 });
-    }
-    update.tier = body.tier;
-    details.push(`tier → ${body.tier}`);
-  }
-
   if (body.specialist_subject !== undefined) {
     if (body.specialist_subject !== null && typeof body.specialist_subject !== "string") {
       return NextResponse.json({ error: "Invalid specialist_subject value" }, { status: 400 });
@@ -203,7 +202,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Log the action
-    const actionType = update.tier && !update.role ? "tier_change" : "role_change";
+    const actionType = "role_change";
     void logActivity({
       action: actionType,
       target_user_id: userId,

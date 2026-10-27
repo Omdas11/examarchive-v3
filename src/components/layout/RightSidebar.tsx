@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import AvatarRing from "@/components/AvatarRing";
-import { normalizeRole, roleLabel } from "@/lib/roles";
+import { normalizeRole, roleLabel, tierLabel, xpTier } from "@/lib/roles";
 
 export interface SidebarProfileResponse {
   id: string;
@@ -28,16 +28,6 @@ interface RightSidebarProps {
   userInitials?: string;
   isLoggedIn?: boolean;
   profileData?: SidebarProfileResponse | null;
-}
-
-function xpRank(xp: number): string {
-  if (xp >= 5000) return "Legend";
-  if (xp >= 3000) return "Elite";
-  if (xp >= 1500) return "Senior";
-  if (xp >= 800) return "Veteran";
-  if (xp >= 300) return "Contributor";
-  if (xp >= 100) return "Explorer";
-  return "Visitor";
 }
 
 /** Reusable key-value row for the profile stats list. */
@@ -96,7 +86,7 @@ export default function RightSidebar({
   const displayRole = roleLabel(profile?.role);
   const normalizedRole = normalizeRole(profile?.role);
   const xpScore = profile?.xp ?? 0;
-  const rank = xpRank(xpScore);
+  const tier = xpTier(xpScore);
   const streakDays = profile?.streak_days ?? 0;
 
   return (
@@ -122,7 +112,7 @@ export default function RightSidebar({
             {username ? (
               <p className="text-xs text-on-surface-variant truncate">{username}</p>
             ) : (
-              <p className="text-xs text-on-surface-variant">{isLoggedIn ? "Scholar" : "Guest"}</p>
+              <p className="text-xs text-on-surface-variant">{isLoggedIn ? tierLabel(tier) : "Guest"}</p>
             )}
           </div>
         </div>
@@ -133,8 +123,7 @@ export default function RightSidebar({
             <StatRow label="Email" value={profile?.email ?? "—"} title={profile?.email ?? ""} truncate />
             <StatRow label="User ID" value={profile?.id ?? "—"} title={profile?.id ?? ""} mono truncate />
             <StatRow label="Role" value={displayRole} />
-            <StatRow label="Rank" value={rank} />
-            <StatRow label="Tier" value={profile?.tier ?? "bronze"} capitalize />
+            <StatRow label="Tier" value={tier} capitalize />
             <StatRow label="XP" value={xpScore} />
             <StatRow label="Uploads" value={profile?.total_uploads ?? 0} />
             <StatRow label="Approved" value={profile?.approved_upload_count ?? profile?.approved_count ?? 0} />

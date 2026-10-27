@@ -17,6 +17,8 @@ export interface HeaderProps {
   showSearch?: boolean;
   userInitials?: string;
   userName?: string;
+  /** Derived XP tier for the logged-in user (roles.ts xpTier); falls back to "Scholar" when absent. */
+  userTier?: string;
   breadcrumbs?: { label: string; href?: string }[];
   onSearch?: (query: string) => void;
   onProfileClick?: () => void;
@@ -29,6 +31,7 @@ export default function Header({
   showSearch = true,
   userInitials = 'JD',
   userName = 'John Doe',
+  userTier,
   breadcrumbs,
   onSearch,
   onProfileClick,
@@ -291,7 +294,7 @@ export default function Header({
               </div>
               <div className="hidden sm:flex flex-col items-start">
                 <span className="text-sm font-bold text-on-surface truncate max-w-[120px]">{userName}</span>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-primary">Scholar</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-primary">{userTier ? userTier.charAt(0).toUpperCase() + userTier.slice(1) : "Scholar"}</span>
               </div>
             </button>
           ) : (
@@ -309,7 +312,7 @@ export default function Header({
               </div>
               <div className="hidden sm:flex flex-col items-start">
                 <span className="text-sm font-bold text-on-surface truncate max-w-[120px]">{userName}</span>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-primary">Scholar</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-primary">{userTier ? userTier.charAt(0).toUpperCase() + userTier.slice(1) : "Scholar"}</span>
               </div>
             </Link>
           )

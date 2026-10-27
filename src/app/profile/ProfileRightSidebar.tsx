@@ -5,7 +5,6 @@ import { useEffect, useRef, useState } from "react";
 interface ProfileRightSidebarProps {
   email: string;
   roleLabel: string;
-  rankLabel: string;
   tierLabel: string;
   xpScore: number;
   approvedCount: number;
@@ -17,7 +16,6 @@ interface ProfileRightSidebarProps {
 export default function ProfileRightSidebar({
   email,
   roleLabel,
-  rankLabel,
   tierLabel,
   xpScore,
   approvedCount,
@@ -110,10 +108,6 @@ export default function ProfileRightSidebar({
               <div className="flex justify-between">
                 <dt style={{ color: "var(--color-text-muted)" }}>Role</dt>
                 <dd className="font-medium">{roleLabel}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt style={{ color: "var(--color-text-muted)" }}>Rank</dt>
-                <dd>{rankLabel}</dd>
               </div>
               <div className="flex justify-between">
                 <dt style={{ color: "var(--color-text-muted)" }}>Tier</dt>

@@ -11,10 +11,10 @@ import {
 } from "./appwrite";
 import {
   isValidCustomRole,
-  isValidTier,
   isValidUserRole,
   normalizeRole,
   ROLE_XO_THRESHOLDS,
+  xpTier,
 } from "./roles";
 import { DEFAULT_CREDITS } from "./economy";
 import type {
@@ -86,7 +86,6 @@ async function evaluateXpAndPromotion(
   try {
     const uploadCount = Number(profile.upload_count ?? 0);
     const currentRole = normalizeRole((profile.role as string) ?? "student");
-    const currentTier = (profile.tier as string) ?? "bronze";
     const currentXp = Number(profile.xp ?? 0);
     const createdAt = typeof profile.$createdAt === "string" ? profile.$createdAt : "";
     const accountAgeDays = createdAt
@@ -113,11 +112,6 @@ async function evaluateXpAndPromotion(
       update.role = "specialist";
     }
 
-    // Keep existing tier progression.
-    if (uploadCount >= 20 && currentTier === "bronze") {
-      update.tier = "silver";
-    }
-
     if (Object.keys(update).length > 0) {
       await db.updateDocument(DATABASE_ID, COLLECTION.users, profile.$id as string, update);
     }
@@ -135,7 +129,6 @@ function profileToUserProfile(
   fallbackEmail: string,
 ): UserProfile {
   const rawSecondary = (profile.secondary_role as string) ?? null;
-  const rawTier = (profile.tier as string) ?? "bronze";
   return {
     id: profile.$id as string,
     email: (profile.email as string) ?? fallbackEmail,
@@ -145,7 +138,8 @@ function profileToUserProfile(
     avatar_file_id: (profile.avatar_file_id as string) ?? undefined,
     role: normalizeRole((profile.role as string) ?? "student"),
     secondary_role: isValidCustomRole(rawSecondary) ? rawSecondary : null,
-    tier: isValidTier(rawTier) ? rawTier : "bronze",
+    // Tier is derived from XP alone (roles.ts xpTier), never from the stored value.
+    tier: xpTier(Number(profile.xp ?? 0)),
     xp: Number(profile.xp ?? 0),
     specialist_subject: (profile.specialist_subject as string) ?? null,
     subject_admin_subject: (profile.subject_admin_subject as string) ?? null,
@@ -341,8 +335,8 @@ export async function getExtendedServerUser(): Promise<ExtendedUserProfile | nul
       ? rawTertiary
       : null;
 
-    const rawTier = profile.tier ?? "bronze";
-    const tier: UserTier = isValidTier(rawTier) ? rawTier : "bronze";
+    // Tier is derived from XP alone (roles.ts xpTier), never from the stored value.
+    const tier: UserTier = xpTier(Number(profile.xp ?? 0));
 
     // Fetch achievements (collection may not exist yet)
     let achievements: Achievement[] = [];

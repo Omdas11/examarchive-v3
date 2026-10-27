@@ -16,6 +16,8 @@ import {
   isValidTier,
   isValidUserRole,
   ROLE_XO_THRESHOLDS,
+  xpTier,
+  tierLabel,
 } from "@/lib/roles";
 
 describe("normalizeRole", () => {
@@ -169,5 +171,25 @@ describe("ROLE_XO_THRESHOLDS", () => {
     expect(ROLE_XO_THRESHOLDS.contributor).toBe(30);
     expect(ROLE_XO_THRESHOLDS.specialist).toBe(150);
     expect(ROLE_XO_THRESHOLDS.subject_admin).toBe(400);
+  });
+});
+
+describe("xpTier (single XP-based tier ladder)", () => {
+  it("maps XP to tiers at the documented thresholds", () => {
+    expect(xpTier(0)).toBe("bronze");
+    expect(xpTier(99)).toBe("bronze");
+    expect(xpTier(100)).toBe("silver");
+    expect(xpTier(299)).toBe("silver");
+    expect(xpTier(300)).toBe("gold");
+    expect(xpTier(799)).toBe("gold");
+    expect(xpTier(800)).toBe("platinum");
+    expect(xpTier(1499)).toBe("platinum");
+    expect(xpTier(1500)).toBe("diamond");
+    expect(xpTier(100000)).toBe("diamond");
+  });
+
+  it("capitalizes tier labels", () => {
+    expect(tierLabel("bronze")).toBe("Bronze");
+    expect(tierLabel("diamond")).toBe("Diamond");
   });
 });

@@ -13,7 +13,7 @@ import ProfileCoursePrefs from "@/components/ProfileCoursePrefs";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import ProfileRightSidebar from "./ProfileRightSidebar";
-import { normalizeRole, roleLabel } from "@/lib/roles";
+import { normalizeRole, roleLabel, tierLabel, xpTier, XP_TIERS } from "@/lib/roles";
 
 export const metadata: Metadata = {
   title: "Profile",
@@ -21,31 +21,13 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-// ── XP tier system (mirrors v2 ROLES.md §7 and profile-panel.js XP_LEVELS) ─
-const XP_TIERS = [
-  { xp: 0,    level: 0,   label: "Visitor" },
-  { xp: 100,  level: 5,   label: "Explorer" },
-  { xp: 300,  level: 10,  label: "Contributor" },
-  { xp: 800,  level: 25,  label: "Veteran" },
-  { xp: 1500, level: 50,  label: "Senior" },
-  { xp: 3000, level: 90,  label: "Elite" },
-  { xp: 5000, level: 100, label: "Legend" },
-];
-
-function xpRank(xp: number): string {
-  let rank = XP_TIERS[0].label;
-  for (const tier of XP_TIERS) {
-    if (xp >= tier.xp) rank = tier.label;
-  }
-  return rank;
-}
-
+// ── XP progress within the single tier ladder (see roles.ts XP_TIERS) ─
 function xpProgress(xp: number): { progress: number; nextXp: number | null; nextLabel: string | null } {
   const idx = XP_TIERS.reduce((acc, t, i) => (xp >= t.xp ? i : acc), 0);
   const next = XP_TIERS[idx + 1] ?? null;
   const prev = XP_TIERS[idx].xp;
   const progress = next ? Math.min(((xp - prev) / (next.xp - prev)) * 100, 100) : 100;
-  return { progress, nextXp: next?.xp ?? null, nextLabel: next?.label ?? null };
+  return { progress, nextXp: next?.xp ?? null, nextLabel: next ? tierLabel(next.tier) : null };
 }
 
 // ── Streak week visualisation ────────────────────────────────────────────────
@@ -149,10 +131,9 @@ export default async function ProfilePage() {
     month: "short",
   });
 
-  const tier = (user.tier ?? "bronze") as import("@/types").UserTier;
   const xpScore = user.xp;
+  const tier = xpTier(xpScore);
   const { progress: xpPercent, nextXp: nextXpLevel, nextLabel } = xpProgress(xpScore);
-  const currentRank = xpRank(xpScore);
 
   const streakDays = user.streak_days;
   const weekActive = getWeekActiveDays(streakDays, user.last_activity ?? "");
@@ -168,13 +149,12 @@ export default async function ProfilePage() {
     streakDays >= 7     ? { icon: "fire",      label: "7-Day Streak" }    : null,
     streakDays >= 30    ? { icon: "lightning", label: "30-Day Streak" }   : null,
     (approvalPct >= 90 && totalUploads >= 10) ? { icon: "badge", label: "90% Approval" } : null,
-    // Top Contributor proxy: Veteran XP level (800+) — mirrors v2 xp ≥ 800 threshold
+    // Top Contributor proxy: Platinum tier (800+ XP)
     user.xp >= 800      ? { icon: "medal",     label: "Top Contributor" } : null,
   ].filter(Boolean) as EarnedAchievement[];
 
-  const normalizedRole = normalizeRole(user.role);
   const roleDisplayLabel = roleLabel(user.role);
-  const xpLabel = normalizedRole === "student" ? currentRank : roleDisplayLabel;
+  const xpLabel = tierLabel(tier);
 
   return (
     <MainLayout
@@ -200,7 +180,6 @@ export default async function ProfilePage() {
       <ProfileRightSidebar
         email={user.email}
         roleLabel={roleDisplayLabel}
-        rankLabel={currentRank}
         tierLabel={tier}
         xpScore={xpScore}
         approvedCount={approvedCount}
@@ -230,7 +209,7 @@ export default async function ProfilePage() {
           {/* Role badge – outlined pill with SVG icon (v2 style) */}
           <div className="mt-3">
             <span
-              className={`inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium${tier === "diamond" ? " rank-glow-diamond" : ""}${currentRank === "Legend" ? " rank-glow-legend" : ""}`}
+              className={`inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium${tier === "diamond" ? " rank-glow-diamond" : ""}`}
               style={{ border: "1px solid var(--color-border)" }}
             >
               <Icon name={roleBadgeIconName(user.role)} size={14} aria-hidden="true" />
@@ -376,11 +355,6 @@ export default async function ProfilePage() {
               <dt style={{ color: "var(--color-text-muted)" }}>Role</dt>
               <dd className="font-medium">{roleDisplayLabel}</dd>
             </div>
-          <hr style={{ borderColor: "var(--color-border)" }} />
-          <div className="flex justify-between items-center">
-            <dt style={{ color: "var(--color-text-muted)" }}>Rank</dt>
-            <dd className="font-medium">{currentRank}</dd>
-          </div>
           <hr style={{ borderColor: "var(--color-border)" }} />
           <div className="flex justify-between items-center">
             <dt style={{ color: "var(--color-text-muted)" }}>Tier</dt>

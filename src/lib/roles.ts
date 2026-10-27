@@ -66,6 +66,33 @@ const TIER_LEVELS: Record<UserTier, number> = {
   diamond: 4,
 };
 
+/**
+ * Single XP-based tier ladder — the only progression on the site.
+ * Rank was removed: tier is derived from XP alone and never stored
+ * as the source of truth.
+ */
+export const XP_TIERS: Array<{ xp: number; tier: UserTier }> = [
+  { xp: 0, tier: "bronze" },
+  { xp: 100, tier: "silver" },
+  { xp: 300, tier: "gold" },
+  { xp: 800, tier: "platinum" },
+  { xp: 1500, tier: "diamond" },
+];
+
+/** Derive a user's tier from their XP. Diamond is the top tier. */
+export function xpTier(xp: number): UserTier {
+  let tier: UserTier = "bronze";
+  for (const t of XP_TIERS) {
+    if (xp >= t.xp) tier = t.tier;
+  }
+  return tier;
+}
+
+/** Display label for a tier ("Gold"). */
+export function tierLabel(tier: UserTier): string {
+  return tier.charAt(0).toUpperCase() + tier.slice(1);
+}
+
 /** Valid custom (secondary / tertiary) role values. */
 const VALID_CUSTOM_ROLES = new Set<string>([
   "supporter",

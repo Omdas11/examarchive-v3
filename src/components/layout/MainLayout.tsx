@@ -7,6 +7,7 @@ import Header, { type HeaderProps } from './Header';
 import Footer from '@/components/Footer';
 import RightSidebar, { type SidebarProfileResponse } from './RightSidebar';
 import { cn } from '@/lib/utils';
+import { xpTier } from '@/lib/roles';
 import { PROFILE_REFRESH_EVENT } from '@/lib/profile-events';
 
 const RIGHT_SIDEBAR_WIDTH = '300px';
@@ -162,6 +163,7 @@ export default function MainLayout({
           <Header
             className="no-print"
             {...headerProps}
+            userTier={sidebarProfile ? xpTier(sidebarProfile.xp ?? 0) : undefined}
             onMobileMenuToggle={!hideSidebar ? () => setIsMobileOpen((v) => !v) : undefined}
             onProfileClick={() => setIsRightSidebarOpen(true)}
           />

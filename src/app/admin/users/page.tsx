@@ -16,7 +16,7 @@ import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 
 export const metadata: Metadata = {
   title: "User Management",
-  description: "Manage users, roles, and tiers.",
+  description: "Manage users and roles.",
 };
 
 export default async function AdminUsersPage() {
