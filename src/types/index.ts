@@ -1,3 +1,5 @@
+import { xpTier } from "@/lib/roles";
+
 /** Represents a single exam paper stored in the database. */
 export interface Paper {
   id: string;
@@ -185,6 +187,8 @@ export interface AdminUser {
   subject_admin_subject?: string | null;
   tier: UserTier;
   upload_count: number;
+  /** Verifications submitted (set by callers that count them; optional). */
+  verified_count?: number;
   xp: number;
   streak_days: number;
   /** Last login / activity timestamp (ISO 8601). */
@@ -207,7 +211,8 @@ export function toAdminUser(doc: Record<string, unknown>): AdminUser {
     tertiary_role: (doc.tertiary_role ?? null) as CustomRole,
     specialist_subject: (doc.specialist_subject ?? null) as string | null,
     subject_admin_subject: (doc.subject_admin_subject ?? null) as string | null,
-    tier: ((doc.tier ?? "bronze") as string) as UserTier,
+    // Tier is derived from XP alone (roles.ts xpTier), never from the stored value.
+    tier: xpTier(xpScore),
     upload_count: toNumber(doc.upload_count ?? 0),
     xp: xpScore,
     streak_days: toNumber(doc.streak_days ?? doc.streak ?? 0),

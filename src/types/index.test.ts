@@ -236,7 +236,8 @@ describe("toAdminUser", () => {
     expect(user.tertiary_role).toBeNull();
     expect(user.specialist_subject).toBe("Math");
     expect(user.subject_admin_subject).toBeNull();
-    expect(user.tier).toBe("gold");
+    // Tier is derived from XP (100 → silver), ignoring the stored "gold".
+    expect(user.tier).toBe("silver");
     expect(user.upload_count).toBe(5);
     expect(user.xp).toBe(100);
     expect(user.streak_days).toBe(10);

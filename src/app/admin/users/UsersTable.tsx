@@ -86,6 +86,7 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
               <th className="whitespace-nowrap text-left text-xs font-semibold">Role</th>
               <th className="whitespace-nowrap text-left text-xs font-semibold">Community Badges</th>
               <th className="whitespace-nowrap text-right text-xs font-semibold">Uploads</th>
+              <th className="whitespace-nowrap text-right text-xs font-semibold">Verified</th>
               <th className="whitespace-nowrap text-right text-xs font-semibold">XP</th>
               <th className="whitespace-nowrap text-left text-xs font-semibold">Achievements</th>
               <th className="whitespace-nowrap text-right text-xs font-semibold">Streak</th>
@@ -141,6 +142,11 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
                   {/* Uploads (= approved papers) */}
                   <td className="whitespace-nowrap text-right font-medium text-sm">
                     {u.upload_count}
+                  </td>
+
+                  {/* Verified (verify-to-earn) */}
+                  <td className="whitespace-nowrap text-right font-medium text-sm">
+                    {u.verified_count ?? 0}
                   </td>
 
                   {/* XP */}

@@ -11,6 +11,7 @@ import {
 import type { Syllabus } from "@/types";
 import { toSyllabus } from "@/types";
 import MainLayout from "@/components/layout/MainLayout";
+import VerifyStrip from "@/components/VerifyStrip";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import {
   derivePaperNameFromContent,
@@ -266,6 +267,10 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
                     ))}
                   </div>
                 )}
+                <VerifyStrip
+                  contentType="syllabus"
+                  contentId={`syllabus:${paper_code}:unit:${row.unit_number}`}
+                />
               </article>
               );
             })}

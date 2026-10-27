@@ -176,8 +176,9 @@ const COMMUNITY_ROLES = [
 
 /** XP award amounts per event. */
 const XP_EVENTS = [
-  { event: "Paper approved by moderator", xp: "+50" },
-  { event: "First ever upload",           xp: "+20 bonus" },
+  { event: "Verify AI content as correct", xp: "+10 XP, +1 credit" },
+  { event: "Report an error in AI content", xp: "+10 XP" },
+  { event: "Correction accepted by moderator", xp: "+25 XP, +5 credits" },
   { event: "7-day streak reached",        xp: "+100 bonus" },
   { event: "30-day streak reached",       xp: "+500 bonus" },
 ];
@@ -191,11 +192,14 @@ const COSMETIC_UNLOCKS = [
 const ROLE_ASSIGNMENT_RULES = [
   "Student is the default role for new accounts.",
   "Promotion follows the canonical ladder: Student → Contributor → Specialist → Subject Administrator → Moderator.",
+  "Auto-promotion comes from verifying AI content: Contributor at 10 verifications + 100 XP (account 3+ days old), Specialist at 50 verifications + 800 XP.",
   "Community designations (Supporter, Mentor, Archivist, Ambassador) are assigned from activity patterns and quality signals.",
 ];
 
 const CREDIT_REWARD_EVENTS = [
   { event: "Razorpay top-up (store)", reward: "Pack amount credited as credits" },
+  { event: "Verify AI content as correct", reward: "1 credit per check (up to 10/day)" },
+  { event: "Correction accepted by moderator", reward: "+5 credits" },
 ];
 
 const CREDIT_POLICY = [

@@ -8,6 +8,7 @@ interface ProfileRightSidebarProps {
   tierLabel: string;
   xpScore: number;
   approvedCount: number;
+  verifiedCount: number;
   totalUploads: number;
   streakDays: number;
   joinedDate: string;
@@ -19,6 +20,7 @@ export default function ProfileRightSidebar({
   tierLabel,
   xpScore,
   approvedCount,
+  verifiedCount,
   totalUploads,
   streakDays,
   joinedDate,
@@ -120,6 +122,10 @@ export default function ProfileRightSidebar({
               <div className="flex justify-between">
                 <dt style={{ color: "var(--color-text-muted)" }}>Approved</dt>
                 <dd>{approvedCount}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt style={{ color: "var(--color-text-muted)" }}>Verified</dt>
+                <dd>{verifiedCount}</dd>
               </div>
               <div className="flex justify-between">
                 <dt style={{ color: "var(--color-text-muted)" }}>Uploads</dt>

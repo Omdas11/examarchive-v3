@@ -20,6 +20,7 @@ export interface SidebarProfileResponse {
   approved_count: number;
   total_uploads: number;
   approval_pct: number;
+  verified_count?: number;
   ai_credits: number;
 }
 
@@ -127,6 +128,7 @@ export default function RightSidebar({
             <StatRow label="XP" value={xpScore} />
             <StatRow label="Uploads" value={profile?.total_uploads ?? 0} />
             <StatRow label="Approved" value={profile?.approved_upload_count ?? profile?.approved_count ?? 0} />
+            <StatRow label="Verified" value={profile?.verified_count ?? 0} />
             <StatRow label="Approval" value={`${profile?.approval_pct ?? 0}%`} />
             <StatRow label="Streak" value={`${streakDays}d`} />
             <StatRow label="Credits" value={profile?.ai_credits ?? 0} />

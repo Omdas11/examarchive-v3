@@ -90,6 +90,14 @@ export const COLLECTION = {
    * does not exist yet, so pages never break.
    */
   visit_logs: "visit_logs",
+  /**
+   * Verify-to-earn ledger: one row per (user, content) verification.
+   * Fields: user_id, content_type, content_id, verdict, correction,
+   * xp_awarded, credits_awarded, status (pending/accepted/rejected).
+   * Server-key only; no page ever reads this collection client-side
+   * except through /api/verify and /api/admin/verifications.
+   */
+  content_verifications: "content_verifications",
 } as const;
 
 /**

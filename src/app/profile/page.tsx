@@ -123,6 +123,18 @@ export default async function ProfilePage() {
 
   const approvalPct = totalUploads > 0 ? Math.round((approvedCount / totalUploads) * 100) : 0;
 
+  // Verifications submitted (verify-to-earn ledger).
+  let verifiedCount = 0;
+  try {
+    const { total } = await db.listDocuments(DATABASE_ID, COLLECTION.content_verifications, [
+      Query.equal("user_id", user.id),
+      Query.limit(1),
+    ]);
+    verifiedCount = Number(total ?? 0);
+  } catch {
+    // ignore
+  }
+
   // Date format: "Jan 2026" matches v2 screenshot "Member since Feb 2026".
   // Using en-US with { month: 'short', year: 'numeric' } gives the same output
   // regardless of browser locale (e.g. "Feb 2026"), which is what v2 renders.
@@ -183,6 +195,7 @@ export default async function ProfilePage() {
         tierLabel={tier}
         xpScore={xpScore}
         approvedCount={approvedCount}
+        verifiedCount={verifiedCount}
         totalUploads={totalUploads}
         streakDays={streakDays}
         joinedDate={joinedDate}
@@ -359,6 +372,11 @@ export default async function ProfilePage() {
           <div className="flex justify-between items-center">
             <dt style={{ color: "var(--color-text-muted)" }}>Tier</dt>
             <dd><TierBadge tier={tier} /></dd>
+          </div>
+          <hr style={{ borderColor: "var(--color-border)" }} />
+          <div className="flex justify-between">
+            <dt style={{ color: "var(--color-text-muted)" }}>Verified</dt>
+            <dd className="font-medium">{verifiedCount}</dd>
           </div>
           <hr style={{ borderColor: "var(--color-border)" }} />
           <div className="flex justify-between">

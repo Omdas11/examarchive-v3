@@ -35,7 +35,22 @@ export default async function AdminUsersPage() {
       COLLECTION.users,
       [Query.orderDesc("$createdAt"), Query.limit(100)],
     );
-    users = documents.map((d) => toAdminUser(d as unknown as Record<string, unknown>));
+    const mapped = documents.map((d) => toAdminUser(d as unknown as Record<string, unknown>));
+    // Verified counts (verify-to-earn ledger), one count query per user.
+    users = await Promise.all(
+      mapped.map(async (u) => {
+        try {
+          const { total } = await db.listDocuments(
+            DATABASE_ID,
+            COLLECTION.content_verifications,
+            [Query.equal("user_id", u.id), Query.limit(1)],
+          );
+          return { ...u, verified_count: Number(total ?? 0) };
+        } catch {
+          return { ...u, verified_count: 0 };
+        }
+      }),
+    );
   } catch {
     // collection may not exist yet
   }

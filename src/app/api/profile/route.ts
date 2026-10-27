@@ -186,6 +186,20 @@ export async function GET() {
   }
   const approval_pct = total_uploads > 0 ? Math.round((approved_upload_count / total_uploads) * 100) : 0;
 
+  // Verifications submitted (verify-to-earn ledger).
+  let verified_count = 0;
+  try {
+    const db = adminDatabases();
+    const verifiedRes = await db.listDocuments(
+      DATABASE_ID,
+      COLLECTION.content_verifications,
+      [Query.equal("user_id", user.id), Query.limit(1)],
+    );
+    verified_count = Number(verifiedRes.total ?? 0);
+  } catch {
+    // ignore
+  }
+
   return NextResponse.json({
     id: user.id,
     email: user.email,
@@ -202,6 +216,7 @@ export async function GET() {
     approved_count: approved_upload_count,
     total_uploads,
     approval_pct,
+    verified_count,
     ai_credits: user.ai_credits ?? 0,
     specialist_subject: user.specialist_subject ?? null,
     subject_admin_subject: user.subject_admin_subject ?? null,

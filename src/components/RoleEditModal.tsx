@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { AdminUser, UserRole, CustomRole, UserTier } from "@/types";
+import type { AdminUser, UserRole, CustomRole } from "@/types";
 
 /**
  * Roles available for assignment, in descending privilege order.
@@ -33,7 +33,7 @@ const CUSTOM_ROLES: string[] = [
   "archivist",
   "ambassador",
 ];
-const TIERS: UserTier[] = ["bronze", "silver", "gold", "platinum", "diamond"];
+
 const SUBJECT_OPTIONS = [
   "Assamese",
   "Bengali",
@@ -71,7 +71,6 @@ export default function RoleEditModal({
   const [tertiaryRole, setTertiaryRole] = useState<CustomRole | "none">(
     user.tertiary_role ?? "none",
   );
-  const [tier, setTier] = useState<UserTier>(user.tier);
   const [specialistSubject, setSpecialistSubject] = useState<string>(user.specialist_subject ?? "");
   const [subjectAdminSubject, setSubjectAdminSubject] = useState<string>(user.subject_admin_subject ?? "");
   const [saving, setSaving] = useState(false);
@@ -101,7 +100,6 @@ export default function RoleEditModal({
           tertiary_role: tertiaryRole === "none" ? null : tertiaryRole,
           specialist_subject: specialistSubject || null,
           subject_admin_subject: subjectAdminSubject || null,
-          tier,
         }),
       });
 
@@ -118,7 +116,6 @@ export default function RoleEditModal({
         tertiary_role: tertiaryRole === "none" ? null : tertiaryRole,
         specialist_subject: specialistSubject || null,
         subject_admin_subject: subjectAdminSubject || null,
-        tier,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Update failed");
@@ -274,20 +271,6 @@ export default function RoleEditModal({
             </select>
           </div>
 
-          <div>
-            <label className="block text-xs font-medium mb-1">Tier</label>
-            <select
-              className="input-field"
-              value={tier}
-              onChange={(e) => setTier(e.target.value as UserTier)}
-            >
-              {TIERS.map((t) => (
-                <option key={t} value={t}>
-                  {t.charAt(0).toUpperCase() + t.slice(1)}
-                </option>
-              ))}
-            </select>
-          </div>
         </div>
 
         <div className="mt-6 flex gap-2 justify-end">
