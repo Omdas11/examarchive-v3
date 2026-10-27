@@ -22,14 +22,14 @@ const ROLES = [
     name: "Contributor",
     level: "Level 1",
     color: "#3b82f6",
-    how: "Automatic — 2 approved uploads + 30 XP + account older than 3 days.",
+    how: "Automatic — 10 verifications + 100 XP + account older than 3 days.",
     can: "Everything a Student can, plus a blue avatar ring.",
   },
   {
     name: "Specialist",
     level: "Level 2",
     color: "#6366f1",
-    how: "Automatic — 10 approved uploads + 150 XP.",
+    how: "Automatic — 50 verifications + 800 XP, no abuse flag.",
     can: "Trusted uploader badge with an indigo avatar ring.",
   },
   {
@@ -56,8 +56,9 @@ const ROLES = [
 ];
 
 const XP_RULES = [
-  { action: "Approved paper upload", xp: "+50 XP" },
-  { action: "First-ever approved upload (one-time)", xp: "+20 XP" },
+  { action: "Verify AI content as correct", xp: "+10 XP, +1 credit" },
+  { action: "Report an error in AI content", xp: "+10 XP" },
+  { action: "Correction accepted by moderator", xp: "+25 XP, +5 credits" },
   { action: "Reaching a 7-day streak", xp: "+100 XP" },
   { action: "Reaching a 30-day streak", xp: "+500 XP" },
 ];
@@ -155,8 +156,9 @@ export default async function RolesPage() {
         {/* Tiers */}
         <h2 className="mt-10 text-xl font-extrabold text-on-surface">Tiers</h2>
         <p className="mt-2 text-sm text-on-surface-variant leading-relaxed">
-          Tiers are a separate cosmetic ladder shown on your profile. Reach 20
-          approved uploads to move from Bronze to Silver.
+          Tiers are a cosmetic ladder shown on your profile, set by your XP
+          alone: Bronze at 0, Silver at 100, Gold at 300, Platinum at 800,
+          Diamond at 1500+.
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
           {TIERS.map((t) => (

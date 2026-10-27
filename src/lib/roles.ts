@@ -17,12 +17,13 @@ const ROLE_LEVELS: Record<UserRole, number> = {
 };
 
 /**
- * XO thresholds for role eligibility.
+ * XP thresholds for verification-based role eligibility.
+ * (Promotion now comes from verifying AI content, not uploads.)
  */
 export const ROLE_XO_THRESHOLDS: Record<UserRole, number> = {
   student: 0,
-  contributor: 30,
-  specialist: 150,
+  contributor: 100,
+  specialist: 800,
   subject_admin: 400,
   moderator: 0,
   founder: 0,

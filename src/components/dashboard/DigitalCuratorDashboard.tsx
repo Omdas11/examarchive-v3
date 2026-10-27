@@ -160,7 +160,7 @@ export default function DigitalCuratorDashboard({
       label: 'Activity Tier',
       value: loading ? '–' : tier.charAt(0).toUpperCase() + tier.slice(1),
       icon: 'verified',
-      trend: 'Keep uploading to level up',
+      trend: 'Keep verifying to level up',
     },
 
   ];

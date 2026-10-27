@@ -173,7 +173,7 @@ export function buildBadges({
     {
       slug: "top_contributor",
       label: "Top Contributor",
-      description: "Achieved Veteran rank (800+ XP).",
+      description: "Reached 800+ XP (Platinum tier).",
       type: "activity",
       // Proxy for "monthly top uploader" — uses Veteran XP threshold
       earned: xp >= 800,
@@ -186,7 +186,7 @@ export function buildBadges({
     {
       slug: "silver_tier",
       label: "Silver",
-      description: "Reached Silver activity tier (20+ approved uploads).",
+      description: "Reached Silver tier (100+ XP).",
       type: "activity",
       earned: hasTierOrAbove(tier, "silver"),
       icon: "sparkles",
@@ -196,7 +196,7 @@ export function buildBadges({
     {
       slug: "gold_tier",
       label: "Gold",
-      description: "Reached Gold activity tier (admin-assigned).",
+      description: "Reached Gold tier (300+ XP).",
       type: "activity",
       earned: hasTierOrAbove(tier, "gold"),
       icon: "trophy",

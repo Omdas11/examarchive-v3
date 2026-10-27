@@ -13,7 +13,6 @@ import {
   isValidCustomRole,
   isValidUserRole,
   normalizeRole,
-  ROLE_XO_THRESHOLDS,
   xpTier,
 } from "./roles";
 import { DEFAULT_CREDITS } from "./economy";
@@ -71,54 +70,6 @@ async function updateDailyStreak(
   }
 }
 
-/**
- * Evaluate XO/role auto-assignment on each login/page load.
- * Runs silently — any failure is ignored so it never blocks page rendering.
- *
- * Role thresholds (ROLE_XO_RULEBOOK.md):
- *  - student → contributor: xo>=30, approved uploads>=2, account age>=3 days
- *  - contributor → specialist: xo>=150, approved uploads>=10, no active abuse flag
- */
-async function evaluateXpAndPromotion(
-  db: ReturnType<typeof adminDatabases>,
-  profile: Record<string, unknown>,
-): Promise<void> {
-  try {
-    const uploadCount = Number(profile.upload_count ?? 0);
-    const currentRole = normalizeRole((profile.role as string) ?? "student");
-    const currentXp = Number(profile.xp ?? 0);
-    const createdAt = typeof profile.$createdAt === "string" ? profile.$createdAt : "";
-    const accountAgeDays = createdAt
-      ? Math.floor((Date.now() - new Date(createdAt).getTime()) / 86_400_000)
-      : 0;
-    const hasActiveAbuseFlag = Boolean(profile.abuse_flag);
-    const update: Record<string, unknown> = {};
-
-    if (
-      currentRole === "student" &&
-      currentXp >= ROLE_XO_THRESHOLDS.contributor &&
-      uploadCount >= 2 &&
-      accountAgeDays >= 3
-    ) {
-      update.role = "contributor";
-    }
-
-    if (
-      currentRole === "contributor" &&
-      currentXp >= ROLE_XO_THRESHOLDS.specialist &&
-      uploadCount >= 10 &&
-      !hasActiveAbuseFlag
-    ) {
-      update.role = "specialist";
-    }
-
-    if (Object.keys(update).length > 0) {
-      await db.updateDocument(DATABASE_ID, COLLECTION.users, profile.$id as string, update);
-    }
-  } catch {
-    // Silently ignore – promotion evaluation is non-critical
-  }
-}
 /**
  * Map a raw Appwrite profile document to a `UserProfile` object.
  * Centralised to avoid duplicating the mapping logic across
@@ -209,9 +160,8 @@ export async function getServerUser(): Promise<UserProfile | null> {
     try {
       const profile = await db.getDocument(DATABASE_ID, COLLECTION.users, user.$id);
       const profileRec = profile as unknown as Record<string, unknown>;
-      // Fire-and-forget: update streak & evaluate promotion
+      // Fire-and-forget: update streak (promotion now runs on verification)
       void updateDailyStreak(db, profile.$id, Number(profile.streak_days ?? 0), (profile.last_activity as string) ?? "");
-      void evaluateXpAndPromotion(db, profileRec);
       return profileToUserProfile(profileRec, user.email);
     } catch {
       // Document with Auth user ID doesn't exist, try fallback lookup by email
@@ -228,7 +178,6 @@ export async function getServerUser(): Promise<UserProfile | null> {
       const profile = documents[0];
       const profileRec = profile as unknown as Record<string, unknown>;
       void updateDailyStreak(db, profile.$id, Number(profile.streak_days ?? 0), (profile.last_activity as string) ?? "");
-      void evaluateXpAndPromotion(db, profileRec);
       return profileToUserProfile(profileRec, user.email);
     }
 

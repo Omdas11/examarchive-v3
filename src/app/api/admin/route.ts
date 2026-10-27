@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getServerUser } from "@/lib/auth";
-import { isModerator, normalizeRole } from "@/lib/roles";
+import { isModerator } from "@/lib/roles";
 import {
   adminDatabases,
   adminStorage,
@@ -12,26 +12,16 @@ import {
 } from "@/lib/appwrite";
 import { logActivity } from "@/lib/activity-log";
 
-/** XO awarded when a paper is approved. */
-const XP_PER_APPROVED_UPLOAD = 50;
-/** Bonus XO for the very first approved upload. */
-const XP_FIRST_UPLOAD_BONUS = 20;
 /** Bonus XO at 7-day streak. */
 const XP_STREAK_7_DAY_BONUS = 100;
 /** Bonus XO at 30-day streak. */
 const XP_STREAK_30_DAY_BONUS = 500;
 
-/** Role/XO thresholds (docs/ROLE_XO_RULEBOOK.md). */
-const VIEWER_TO_CONTRIBUTOR_UPLOAD_THRESHOLD = 2;
-const VIEWER_TO_CONTRIBUTOR_XO_THRESHOLD = 30;
-const VIEWER_TO_CONTRIBUTOR_ACCOUNT_AGE_DAYS = 3;
-const CONTRIBUTOR_TO_SPECIALIST_UPLOAD_THRESHOLD = 10;
-const CONTRIBUTOR_TO_SPECIALIST_XO_THRESHOLD = 150;
-
 /**
- * After a paper is approved, increment the uploader's `upload_count`,
-  * grant XO (+50 per upload, +20 first-upload bonus), update streak,
- * and auto-promote based on thresholds.
+ * After a paper is approved, increment the uploader's `upload_count` and
+ * update streak (streak milestones still grant XP). Approvals no longer
+ * grant XP and no longer promote roles — both now come from verifying
+ * AI content (see src/lib/verify-promotion.ts).
  */
 async function incrementUploadCount(
   db: ReturnType<typeof adminDatabases>,
@@ -48,12 +38,6 @@ async function incrementUploadCount(
 
     const currentCount = Number(profile.upload_count ?? 0) + 1;
     const update: Record<string, unknown> = { upload_count: currentCount };
-
-    // ── XP grant ──────────────────────────────────────────────────────────
-    let xpGain = XP_PER_APPROVED_UPLOAD;
-    if (currentCount === 1) xpGain += XP_FIRST_UPLOAD_BONUS; // first upload bonus
-    const nextXp = Number(profile.xp ?? 0) + xpGain;
-    update.xp = nextXp;
 
     // ── Streak update ─────────────────────────────────────────────────────
     const now = new Date();
@@ -76,35 +60,13 @@ async function incrementUploadCount(
 
     // Streak milestone XP bonuses — award when crossing the threshold
     if (prevStreak < 7 && streak >= 7) {
-      update.xp = Number(update.xp ?? 0) + XP_STREAK_7_DAY_BONUS;
+      update.xp = Number(profile.xp ?? 0) + XP_STREAK_7_DAY_BONUS;
     } else if (prevStreak < 30 && streak >= 30) {
-      update.xp = Number(update.xp ?? 0) + XP_STREAK_30_DAY_BONUS;
+      update.xp = Number(profile.xp ?? 0) + XP_STREAK_30_DAY_BONUS;
     }
 
     update.streak_days = streak;
     update.last_activity = now.toISOString();
-
-    const currentRole = normalizeRole((profile.role as string) ?? "student");
-    const createdAt = typeof profile.$createdAt === "string" ? profile.$createdAt : "";
-    const accountAgeDays = createdAt
-      ? Math.floor((Date.now() - new Date(createdAt).getTime()) / 86_400_000)
-      : 0;
-    if (
-      currentRole === "student" &&
-      currentCount >= VIEWER_TO_CONTRIBUTOR_UPLOAD_THRESHOLD &&
-      nextXp >= VIEWER_TO_CONTRIBUTOR_XO_THRESHOLD &&
-      accountAgeDays >= VIEWER_TO_CONTRIBUTOR_ACCOUNT_AGE_DAYS
-    ) {
-      update.role = "contributor";
-    }
-    if (
-      currentRole === "contributor" &&
-      currentCount >= CONTRIBUTOR_TO_SPECIALIST_UPLOAD_THRESHOLD &&
-      nextXp >= CONTRIBUTOR_TO_SPECIALIST_XO_THRESHOLD &&
-      !Boolean(profile.abuse_flag)
-    ) {
-      update.role = "specialist";
-    }
 
     await db.updateDocument(DATABASE_ID, COLLECTION.users, uploaderId, update);
   } catch {

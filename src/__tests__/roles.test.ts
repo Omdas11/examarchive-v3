@@ -168,8 +168,8 @@ describe("isValidUserRole", () => {
 describe("ROLE_XO_THRESHOLDS", () => {
   it("has thresholds for canonical roles", () => {
     expect(ROLE_XO_THRESHOLDS.student).toBe(0);
-    expect(ROLE_XO_THRESHOLDS.contributor).toBe(30);
-    expect(ROLE_XO_THRESHOLDS.specialist).toBe(150);
+    expect(ROLE_XO_THRESHOLDS.contributor).toBe(100);
+    expect(ROLE_XO_THRESHOLDS.specialist).toBe(800);
     expect(ROLE_XO_THRESHOLDS.subject_admin).toBe(400);
   });
 });
