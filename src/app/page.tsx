@@ -6,7 +6,6 @@ import { getServerUser } from "@/lib/auth";
 import HomeSearch from "@/components/HomeSearch";
 import PaperCard from "@/components/PaperCard";
 import AnimatedCounter from "@/components/AnimatedCounter";
-import DevProgressBar from "@/components/DevProgressBar";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import {
@@ -91,7 +90,6 @@ const getHomepageData = unstable_cache(
     let papersTotal = 0;
     let syllabusTotal = 0;
     let usersTotal = 0;
-    let launchProgress = 40;
     let popularPapers: Paper[] = [];
     let recentPapers: Paper[] = [];
     let feedbackEntries: FeedbackEntry[] = [];
@@ -162,15 +160,6 @@ const getHomepageData = unstable_cache(
       }
     }
 
-    // Fetch site metrics (launch_progress)
-    try {
-      const db = adminDatabases();
-      const doc = await db.getDocument(DATABASE_ID, COLLECTION.site_metrics, "singleton");
-      launchProgress = (doc.launch_progress as number) ?? 40;
-    } catch {
-      // collection may not exist yet
-    }
-
     // Fetch approved feedback entries (max 3 for homepage)
     try {
       const db = adminDatabases();
@@ -192,7 +181,6 @@ const getHomepageData = unstable_cache(
       papersTotal,
       syllabusTotal,
       usersTotal,
-      launchProgress,
       popularPapers,
       recentPapers,
       feedbackEntries,
@@ -209,7 +197,6 @@ export default async function HomePage() {
     papersTotal,
     syllabusTotal,
     usersTotal,
-    launchProgress,
     popularPapers,
     recentPapers,
     feedbackEntries,
@@ -276,11 +263,6 @@ export default async function HomePage() {
       showSearch={false}
       >
       <div className="mx-auto px-6 relative" style={{ maxWidth: "var(--max-w)", zIndex: 1 }}>
-
-        {/* ── Development progress banner (in-flow, pushes content down) ── */}
-        <div className="pt-6">
-          <DevProgressBar progress={launchProgress} />
-        </div>
 
         {/* ── Hero ── */}
         <section className="py-20 text-center rounded-[2.5rem] relative overflow-hidden mt-6 bg-surface shadow-ambient border border-outline-variant/5">

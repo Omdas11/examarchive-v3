@@ -50,12 +50,6 @@ jest.mock("@/components/AnimatedCounter", () => {
   }
   return MockAnimatedCounter;
 });
-jest.mock("@/components/DevProgressBar", () => {
-  function MockDevProgressBar() {
-    return <div />;
-  }
-  return MockDevProgressBar;
-});
 jest.mock("@/components/VisitorTracker", () => {
   function MockVisitorTracker() {
     return <div />;
@@ -194,17 +188,4 @@ describe("getHomepageData — pagination", () => {
   });
 });
 
-describe("getHomepageData — launchProgress from site_metrics", () => {
-  it("reads launch_progress from site_metrics singleton document", async () => {
-    const { adminDatabases } = jest.requireMock("@/lib/appwrite");
-    const db = adminDatabases();
 
-    (db.getDocument as jest.Mock).mockResolvedValue({ launch_progress: 75 });
-
-    const jsx = await HomePage();
-    render(jsx);
-    expect(screen.getByTestId("main-layout")).toBeTruthy();
-
-    (db.getDocument as jest.Mock).mockRejectedValue(new Error("not found"));
-  });
-});
