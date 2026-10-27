@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import Sidebar from './Sidebar';
 import Header, { type HeaderProps } from './Header';
 import Footer from '@/components/Footer';
@@ -9,7 +10,15 @@ import { cn } from '@/lib/utils';
 import { PROFILE_REFRESH_EVENT } from '@/lib/profile-events';
 
 const RIGHT_SIDEBAR_WIDTH = '300px';
-const RIGHT_SIDEBAR_COLLAPSED_WIDTH = '48px';
+const RIGHT_SIDEBAR_COLLAPSED_WIDTH = '84px';
+
+/** Minimized-rail shortcuts (2-column icon grid, no scrolling). */
+const RAIL_LINKS = [
+  { href: '/profile', icon: 'person', label: 'Profile' },
+  { href: '/upload', icon: 'upload', label: 'Upload' },
+  { href: '/browse', icon: 'search', label: 'Browse' },
+  { href: '/syllabus', icon: 'menu_book', label: 'Syllabus' },
+];
 
 interface LayoutProps extends HeaderProps {
   children: React.ReactNode;
@@ -173,7 +182,7 @@ export default function MainLayout({
         <aside
           className={cn(
             'hidden lg:flex flex-col fixed right-0 bottom-0 z-20 border-l border-outline-variant/20 bg-surface overflow-hidden transition-all duration-300',
-            isRightCollapsed ? 'w-12' : 'w-[300px]'
+            isRightCollapsed ? 'w-[84px]' : 'w-[300px]'
           )}
           style={{ top: 'var(--layout-header-height)' }}
         >
@@ -190,9 +199,27 @@ export default function MainLayout({
             </span>
           </button>
 
-          {/* Sidebar content — hidden when collapsed */}
-          {!isRightCollapsed && (
-            <div className="flex-1 overflow-y-auto p-4">
+          {/* Sidebar content — icon rail when collapsed, full panel otherwise */}
+          {isRightCollapsed ? (
+            <div className="flex-1 min-h-0 overflow-y-auto p-2">
+              <nav aria-label="Quick access" className="grid grid-cols-2 gap-2">
+                {RAIL_LINKS.map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    title={link.label}
+                    aria-label={link.label}
+                    className="flex items-center justify-center rounded-lg p-1.5 text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-[18px] leading-none" aria-hidden="true">
+                      {link.icon}
+                    </span>
+                  </Link>
+                ))}
+              </nav>
+            </div>
+          ) : (
+            <div className="flex-1 min-h-0 overflow-y-auto p-4">
               <RightSidebar
                 userName={headerProps.userName || 'Guest'}
                 userInitials={headerProps.userInitials || 'GU'}
