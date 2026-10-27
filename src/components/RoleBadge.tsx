@@ -15,7 +15,11 @@ const ROLE_COLORS: Record<string, { bg: string; text: string }> = {
   mentor: { bg: "#ede9fe", text: "#4c1d95" },
   archivist: { bg: "#e0f2fe", text: "#075985" },
   ambassador: { bg: "#dcfce7", text: "#14532d" },
+  visitor: { bg: "#f1f5f9", text: "#475569" },
 };
+
+/** Safe fallback for unknown/legacy roles — never undefined. */
+const FALLBACK_COLORS = { bg: "#f1f5f9", text: "#475569" };
 
 /** Tier color map – soft pastel backgrounds, legible text. */
 const TIER_COLORS: Record<UserTier, { bg: string; text: string }> = {
@@ -42,7 +46,7 @@ export const ROLE_LABELS: Record<string, string> = {
 
 export function RoleBadge({ role }: { role: UserRole | CustomRole }) {
   if (!role) return null;
-  const colors = ROLE_COLORS[role] ?? ROLE_COLORS.visitor;
+  const colors = ROLE_COLORS[role] ?? FALLBACK_COLORS;
   const label = ROLE_LABELS[role] ?? role;
   return (
     <span
