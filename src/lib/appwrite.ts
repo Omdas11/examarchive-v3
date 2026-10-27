@@ -77,6 +77,19 @@ export const COLLECTION = {
   user_passes: "user_passes",
   ai_cache_index: "ai_cache_index",
   ai_generation_jobs: "ai_generation_jobs",
+  /**
+   * Raw visit log for the site's own analytics (IPs, bots, own-visit detection).
+   * Written server-side by /api/log-visit from a fire-and-forget beacon.
+   * Fields: ip (string), path (string), user_agent (string),
+   * referrer (string), country (string), city (string),
+   * user_id (string, optional), user_role (string, optional).
+   * Create this collection manually in the Appwrite console with those
+   * attributes. Read access must stay admin-only: the route writes with the
+   * server API key, and no page ever reads this collection client-side.
+   * The route degrades silently (still returns 200) if the collection
+   * does not exist yet, so pages never break.
+   */
+  visit_logs: "visit_logs",
 } as const;
 
 /** Storage bucket for uploaded PDFs and files. */

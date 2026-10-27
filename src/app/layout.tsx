@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import AppShell from "@/components/AppShell";
@@ -11,6 +12,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/next";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
 import SimpleAnalytics from "@/components/SimpleAnalytics";
+import VisitLogger from "@/components/VisitLogger";
 
 const SITE_URL = "https://www.examarchive.dev";
 const OG_IMAGE_URL = `${SITE_URL}/og-image.png`;
@@ -169,6 +171,9 @@ export default async function RootLayout({
         <Analytics />
         <SimpleAnalytics />
         <GoogleAnalytics />
+        <Suspense fallback={null}>
+          <VisitLogger />
+        </Suspense>
       </body>
     </html>
   );
