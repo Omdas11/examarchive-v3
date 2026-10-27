@@ -38,8 +38,8 @@ jest.mock("@/lib/appwrite", () => ({
   adminStorage: () => mockStorage,
   adminDatabases: () => mockDb,
   BUCKET_ID: "papers",
-  CACHED_UNIT_NOTES_BUCKET_ID: "cached-unit-notes",
-  CACHED_SOLVED_PAPERS_BUCKET_ID: "cached-solved-papers",
+  CACHED_UNIT_NOTES_BUCKET_ID: "paper-markdown",
+  CACHED_SOLVED_PAPERS_BUCKET_ID: "paper-markdown",
   DATABASE_ID: "examarchive",
   COLLECTION: { ai_generation_jobs: "ai_generation_jobs" },
   Query: {
@@ -125,7 +125,7 @@ describe("GET /api/files/papers/[fileId]", () => {
     expect(response.status).toBe(200);
     expect(mockDb.listDocuments).toHaveBeenCalledTimes(1);
     expect(mockRenderMarkdownToPdfBuffer).toHaveBeenCalledTimes(1);
-    expect(mockStorage.getFileDownload).toHaveBeenNthCalledWith(2, "cached-unit-notes", "file-legacy");
+    expect(mockStorage.getFileDownload).toHaveBeenNthCalledWith(2, "paper-markdown", "file-legacy");
   });
 
   it("returns 404 when file is missing in papers and cache fallback cannot resolve markdown", async () => {
@@ -208,7 +208,7 @@ describe("GET /api/files/papers/[fileId]", () => {
     const response = await GET(request, { params: Promise.resolve({ fileId: "file-solved" }) });
 
     expect(response.status).toBe(200);
-    expect(mockStorage.getFileDownload).toHaveBeenNthCalledWith(2, "cached-solved-papers", "file-solved");
+    expect(mockStorage.getFileDownload).toHaveBeenNthCalledWith(2, "paper-markdown", "file-solved");
   });
 
   it("returns 500 when papers bucket lookup throws non-file-missing errors", async () => {

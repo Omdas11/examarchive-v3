@@ -11,6 +11,7 @@ import {
   getAppwriteFileDownloadUrl,
   ID,
   MARKDOWN_CACHE_BUCKET_ID,
+  MARKDOWN_CACHE_FOLDER,
   Query,
 } from "@/lib/appwrite";
 import { getDailyLimit } from "@/lib/ai-limits";
@@ -673,13 +674,13 @@ async function writeCachedNotes(
   );
   let markdownFileId: string;
   try {
-    const uploadResult = await storage.createFile(MARKDOWN_CACHE_BUCKET_ID, ID.unique(), inputFile);
+    const uploadResult = await storage.createFile(MARKDOWN_CACHE_BUCKET_ID, ID.unique(), inputFile, undefined, MARKDOWN_CACHE_FOLDER);
     markdownFileId = String(uploadResult.$id);
   } catch (uploadError) {
     console.error("[generate-notes-stream] Failed to upload markdown cache file (first attempt):", uploadError);
     try {
       await ensureMarkdownCacheBucket();
-      const retryUploadResult = await storage.createFile(MARKDOWN_CACHE_BUCKET_ID, ID.unique(), inputFile);
+      const retryUploadResult = await storage.createFile(MARKDOWN_CACHE_BUCKET_ID, ID.unique(), inputFile, undefined, MARKDOWN_CACHE_FOLDER);
       markdownFileId = String(retryUploadResult.$id);
     } catch (retryUploadError) {
       console.error("[generate-notes-stream] Failed to upload markdown cache file (retry):", retryUploadError);

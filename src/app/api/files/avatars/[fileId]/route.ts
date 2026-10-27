@@ -12,15 +12,13 @@ export const dynamic = "force-dynamic";
  * GET /api/files/avatars/[fileId]
  *
  * Proxy route that fetches an avatar image from Appwrite Storage using
- * server-side admin credentials. This is required because the avatars
- * bucket is restricted to authenticated users only, so direct browser
- * requests to the Appwrite URL would fail with 401/403.
+ * server-side admin credentials. Avatars live in the avatars folder of
+ * the syllabus-files bucket (free-tier 3-bucket consolidation).
  *
  * This endpoint intentionally does not require the caller to be
  * authenticated: avatars are user profile pictures displayed publicly
  * in navigation bars and profile pages visible to all visitors.
- * The admin SDK is used solely to bypass the Appwrite bucket-level
- * restriction; the images themselves are not sensitive.
+ * The images themselves are not sensitive.
  *
  * Query params:
  *   w – image width in px (default 200, clamped to 16–800)

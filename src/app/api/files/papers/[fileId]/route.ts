@@ -65,7 +65,8 @@ function isMissingOrInvalidAppwriteFileError(error: unknown): boolean {
  * Dynamic Markdown-to-PDF delivery route.
  *
  * When the `fileId` belongs to an AI generation job (stored as a markdown
- * cache file in `cached-unit-notes` or `cached-solved-papers`), this route
+ * cache file in the `cached-unit-notes/` or `cached-solved-papers/` folders
+ * of the `paper-markdown` bucket), this route
  * fetches the `.md` file, converts it to PDF on-the-fly via Gotenberg, and
  * streams the result back to the user as `application/pdf`.
  *

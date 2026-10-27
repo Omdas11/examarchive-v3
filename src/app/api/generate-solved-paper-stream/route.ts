@@ -10,6 +10,7 @@ import {
   getAppwriteFileDownloadUrl,
   ID,
   MARKDOWN_CACHE_BUCKET_ID,
+  MARKDOWN_CACHE_FOLDER,
   Query,
 } from "@/lib/appwrite";
 import { getDailyLimit } from "@/lib/ai-limits";
@@ -353,7 +354,7 @@ async function uploadMarkdownToCacheFile(args: {
     Buffer.from(args.markdown, "utf-8"),
     `${args.cachePaperCode}_${args.year}_part${args.partNumber}.md`,
   );
-  const upload = await storage.createFile(MARKDOWN_CACHE_BUCKET_ID, ID.unique(), inputFile);
+  const upload = await storage.createFile(MARKDOWN_CACHE_BUCKET_ID, ID.unique(), inputFile, undefined, MARKDOWN_CACHE_FOLDER);
   return String(upload.$id);
 }
 

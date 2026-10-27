@@ -21,8 +21,14 @@ export const APPWRITE_PROJECT_ID =
 export const BUCKET_ID = process.env.NEXT_PUBLIC_APPWRITE_BUCKET_ID ?? "papers";
 export const SYLLABUS_BUCKET_ID =
   process.env.NEXT_PUBLIC_APPWRITE_SYLLABUS_BUCKET_ID ?? "syllabus-files";
+/**
+ * User-uploaded handmade PDF notes live in papers/notes/ (free-tier
+ * 3-bucket consolidation, 2026-10-27). The old standalone "notes" bucket
+ * was deleted; keep NOTES_FOLDER in sync with the server constant.
+ */
 export const NOTES_BUCKET_ID =
-  process.env.NEXT_PUBLIC_APPWRITE_NOTES_BUCKET_ID ?? "notes";
+  process.env.NEXT_PUBLIC_APPWRITE_NOTES_BUCKET_ID ?? "papers";
+export const NOTES_FOLDER = "notes";
 
 /** Maximum allowed upload size (bytes). Enforced client-side before upload. */
 export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024; // 20 MB
@@ -209,7 +215,7 @@ export async function uploadNotesFileDirectly(
       Permission.write(Role.user(uploaderId)),
       Permission.delete(Role.user(uploaderId)),
     ],
-    undefined,
+    NOTES_FOLDER,
     sdkProgress,
   );
   return fileId;

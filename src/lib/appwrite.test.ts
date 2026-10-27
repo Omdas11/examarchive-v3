@@ -165,12 +165,13 @@ describe("appwrite", () => {
       const storage = new Storage();
       const result = await uploadAvatarToAppwrite(fakeFile);
       expect(result.fileId).toBe("mocked-unique-id");
-      expect(result.bucketId).toBe("avatars");
+      expect(result.bucketId).toBe("syllabus-files");
       expect(storage.createFile).toHaveBeenCalledWith(
-        "avatars",
+        "syllabus-files",
         "mocked-unique-id",
         expect.any(Object),
-        ["read:users-role"]
+        ["read:users-role"],
+        "avatars"
       );
     });
 
@@ -179,7 +180,7 @@ describe("appwrite", () => {
       const { Storage } = require("node-appwrite");
       const storage = new Storage();
       await deleteAvatarFromAppwrite("avatar-id");
-      expect(storage.deleteFile).toHaveBeenCalledWith("avatars", "avatar-id");
+      expect(storage.deleteFile).toHaveBeenCalledWith("syllabus-files", "avatar-id");
     });
 
     it("deleteFileFromAppwrite deletes the file", async () => {

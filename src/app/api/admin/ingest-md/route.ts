@@ -12,8 +12,10 @@ import {
   DATABASE_ID,
   ID,
   QUESTION_INGESTION_ASSETS_BUCKET_ID,
+  QUESTION_INGESTION_FOLDER,
   Query,
   SYLLABUS_MD_INGESTION_BUCKET_ID,
+  SYLLABUS_MD_INGESTION_FOLDER,
 } from "@/lib/appwrite";
 import { parseDemoDataEntryMarkdown, type IngestionFrontmatter } from "@/lib/admin-md-ingestion";
 import { FYUG_DEPT_CODES } from "@/lib/fyug-depts";
@@ -229,6 +231,8 @@ async function renderAndStoreQuestionPdf(args: {
     QUESTION_INGESTION_ASSETS_BUCKET_ID,
     fileId,
     InputFile.fromBuffer(buffer, questionPdfFilename(args.frontmatter)),
+    undefined,
+    QUESTION_INGESTION_FOLDER,
   );
   return {
     fileId,
@@ -622,6 +626,8 @@ export async function POST(request: NextRequest) {
       sourceBucketId,
       fileId,
       InputFile.fromBuffer(buffer, file.name),
+      undefined,
+      parsed.entryType === "question" ? QUESTION_INGESTION_FOLDER : SYLLABUS_MD_INGESTION_FOLDER,
     );
 
     if (!parsed.frontmatter || !parsed.entryType) {

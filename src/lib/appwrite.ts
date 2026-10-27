@@ -92,41 +92,51 @@ export const COLLECTION = {
   visit_logs: "visit_logs",
 } as const;
 
+/**
+ * Surviving storage buckets (Appwrite free tier allows 3 per project).
+ * Everything else lives as a folder inside one of these three — see the
+ * folder constants below. Do NOT add a new bucket without deleting one
+ * first, or Appwrite disables the oldest buckets on the free plan.
+ */
 /** Storage bucket for uploaded PDFs and files. */
 export const BUCKET_ID = process.env.APPWRITE_BUCKET_ID ?? "papers";
 
-/** Storage bucket for user avatar images. */
-export const AVATARS_BUCKET_ID = process.env.APPWRITE_AVATARS_BUCKET_ID ?? "avatars";
-
-/** Storage bucket for syllabus PDFs. */
+/** Storage bucket for syllabus PDFs (allows any file type). */
 export const SYLLABUS_BUCKET_ID = process.env.APPWRITE_SYLLABUS_BUCKET_ID ?? "syllabus-files";
-/** Storage bucket for uploaded syllabus markdown ingestion files. */
-export const SYLLABUS_MD_INGESTION_BUCKET_ID =
-  process.env.APPWRITE_SYLLABUS_MD_INGESTION_BUCKET_ID ?? "examarchive-syllabus-md-ingestion";
-/** Storage bucket for question ingestion assets (source markdown + rendered PDFs). */
-export const QUESTION_INGESTION_ASSETS_BUCKET_ID =
-  process.env.APPWRITE_QUESTION_INGESTION_ASSETS_BUCKET_ID ?? "examarchive_question_ingest_assets";
-/** Storage bucket for generated markdown cache payloads. */
-export const MARKDOWN_CACHE_BUCKET_ID =
-  process.env.APPWRITE_MD_CACHE_BUCKET_ID ??
-  "generated-md-cache";
-/** Storage bucket for stitched unit-notes markdown cache payloads. */
-export const CACHED_UNIT_NOTES_BUCKET_ID =
-  process.env.APPWRITE_CACHED_UNIT_NOTES_BUCKET_ID ??
-  "cached-unit-notes";
-/** Storage bucket for stitched solved-paper markdown cache payloads. */
-export const CACHED_SOLVED_PAPERS_BUCKET_ID =
-  process.env.APPWRITE_CACHED_SOLVED_PAPERS_BUCKET_ID ??
-  "cached-solved-papers";
-/** Storage bucket for user-uploaded handmade PDF notes. */
-export const NOTES_BUCKET_ID =
-  process.env.APPWRITE_NOTES_BUCKET_ID ?? "notes";
 /** Storage bucket for digitized question-paper markdown (paper-markdown). */
 export const PAPER_MARKDOWN_BUCKET_ID =
   process.env.APPWRITE_PAPER_MARKDOWN_BUCKET_ID ?? "paper-markdown";
-/** Storage bucket for cleaned print-perfect question-paper PDFs. */
-export const CLEAN_PAPERS_BUCKET_ID =
-  process.env.APPWRITE_CLEAN_PAPERS_BUCKET_ID ?? "clean-papers";
+
+/**
+ * Folder-based homes for the former single-purpose buckets (deleted
+ * 2026-10-27 for the free-tier 3-bucket limit). Fetch-by-ID calls only
+ * need the bucket; pass the folder when UPLOADING so files stay organised
+ * (node-appwrite createFile takes folder as its 5th argument).
+ */
+/** User avatar images live in syllabus-files/avatars/ (it allows images; papers is PDF-only). */
+export const AVATARS_BUCKET_ID = SYLLABUS_BUCKET_ID;
+export const AVATARS_FOLDER = "avatars";
+/** Uploaded syllabus markdown ingestion files live in paper-markdown/syllabus-md-ingestion/. */
+export const SYLLABUS_MD_INGESTION_BUCKET_ID = PAPER_MARKDOWN_BUCKET_ID;
+export const SYLLABUS_MD_INGESTION_FOLDER = "syllabus-md-ingestion";
+/** Question ingestion assets (source markdown + rendered PDFs) live in syllabus-files/question-ingest-assets/. */
+export const QUESTION_INGESTION_ASSETS_BUCKET_ID = SYLLABUS_BUCKET_ID;
+export const QUESTION_INGESTION_FOLDER = "question-ingest-assets";
+/** Generated markdown cache payloads live in paper-markdown/generated-md-cache/. */
+export const MARKDOWN_CACHE_BUCKET_ID = PAPER_MARKDOWN_BUCKET_ID;
+export const MARKDOWN_CACHE_FOLDER = "generated-md-cache";
+/** Stitched unit-notes markdown cache payloads live in paper-markdown/cached-unit-notes/. */
+export const CACHED_UNIT_NOTES_BUCKET_ID = PAPER_MARKDOWN_BUCKET_ID;
+export const CACHED_UNIT_NOTES_FOLDER = "cached-unit-notes";
+/** Stitched solved-paper markdown cache payloads live in paper-markdown/cached-solved-papers/. */
+export const CACHED_SOLVED_PAPERS_BUCKET_ID = PAPER_MARKDOWN_BUCKET_ID;
+export const CACHED_SOLVED_PAPERS_FOLDER = "cached-solved-papers";
+/** User-uploaded handmade PDF notes live in papers/notes/. */
+export const NOTES_BUCKET_ID = BUCKET_ID;
+export const NOTES_FOLDER = "notes";
+/** Cleaned print-perfect question-paper PDFs live in papers/clean-papers/. */
+export const CLEAN_PAPERS_BUCKET_ID = BUCKET_ID;
+export const CLEAN_PAPERS_FOLDER = "clean-papers";
 
 // ── Server-side admin client (uses API key) ─────────────────────────────
 let adminClientSingleton: Client | null = null;
@@ -227,8 +237,9 @@ export async function uploadFileToAppwrite(
 }
 
 /**
- * Upload an avatar image to the avatars bucket and return its file ID.
- * Sets authenticated-user read permissions to match the bucket's access policy.
+ * Upload an avatar image to the avatars folder and return its file ID.
+ * Sets authenticated-user read permissions; the syllabus-files bucket
+ * itself is public-read, so avatars stay publicly viewable via the proxy.
  */
 export async function uploadAvatarToAppwrite(
   file: File,
@@ -241,12 +252,12 @@ export async function uploadAvatarToAppwrite(
   // Allow any authenticated user to read avatars (matches the bucket's "users" permission)
   await storage.createFile(AVATARS_BUCKET_ID, fileId, inputFile, [
     Permission.read(Role.users()),
-  ]);
+  ], AVATARS_FOLDER);
   return { fileId, bucketId: AVATARS_BUCKET_ID };
 }
 
 /**
- * Delete an avatar file from the avatars bucket.
+ * Delete an avatar file from the avatars folder.
  */
 export async function deleteAvatarFromAppwrite(fileId: string): Promise<void> {
   const storage = adminStorage();
@@ -254,12 +265,11 @@ export async function deleteAvatarFromAppwrite(fileId: string): Promise<void> {
 }
 
 /**
- * Build the preview URL for an avatar stored in the avatars bucket.
+ * Build the preview URL for an avatar stored in the avatars folder.
  *
  * Returns a Next.js proxy URL (/api/files/avatars/{fileId}) instead of a
  * direct Appwrite URL so that requests are authenticated server-side with
- * the admin API key. This is required because the avatars bucket is
- * restricted to authenticated users and direct browser requests would fail.
+ * the admin API key.
  */
 export function getAvatarPreviewUrl(fileId: string, width = 200): string {
   return `/api/files/avatars/${fileId}?w=${width}`;
