@@ -120,6 +120,40 @@
   --shadow-card-hover: 0 8px 30px rgba(0, 0, 0, 0.4);
 }
 
+/* ── Scrollbars: themed, never the browser default white in dark mode ──
+ *  color-scheme is what makes Chrome/Edge render native scrollbars dark
+ *  when the site is in dark mode; without it the scrollbar stays white
+ *  against a dark page. Thumb uses the theme border token so it stays
+ *  visible but quiet in both themes. */
+:root {
+  color-scheme: light;
+}
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
 /* ── Material Symbols base config ── */
 .material-symbols-outlined {
   font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;

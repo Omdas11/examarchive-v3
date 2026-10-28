@@ -13,7 +13,7 @@ import { PROFILE_REFRESH_EVENT } from '@/lib/profile-events';
 const RIGHT_SIDEBAR_WIDTH = '300px';
 const RIGHT_SIDEBAR_COLLAPSED_WIDTH = '84px';
 
-/** Minimized-rail shortcuts (2-column icon grid, no scrolling). */
+/** Minimized-rail shortcuts (single-column icon rail, one icon per row). */
 const RAIL_LINKS = [
   { href: '/profile', icon: 'person', label: 'Profile' },
   { href: '/upload', icon: 'upload', label: 'Upload' },
@@ -204,14 +204,14 @@ export default function MainLayout({
           {/* Sidebar content — icon rail when collapsed, full panel otherwise */}
           {isRightCollapsed ? (
             <div className="flex-1 min-h-0 overflow-y-auto p-2">
-              <nav aria-label="Quick access" className="grid grid-cols-2 gap-2">
+              <nav aria-label="Quick access" className="flex flex-col gap-2">
                 {RAIL_LINKS.map((link) => (
                   <Link
                     key={link.href}
                     href={link.href}
                     title={link.label}
                     aria-label={link.label}
-                    className="flex items-center justify-center rounded-lg p-1.5 text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors"
+                    className="flex items-center justify-center rounded-lg p-2.5 text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors"
                   >
                     <span className="material-symbols-outlined text-[18px] leading-none" aria-hidden="true">
                       {link.icon}

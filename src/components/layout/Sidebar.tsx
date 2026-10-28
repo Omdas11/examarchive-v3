@@ -135,7 +135,7 @@ export default function Sidebar({
         </button>
       </div>
 
-      <nav className="flex-1 min-h-0 space-y-1.5 px-4 pb-4 overflow-y-auto scrollbar-hide" aria-label="Primary">
+      <nav className="flex-1 min-h-0 space-y-1.5 px-4 pb-4 overflow-y-auto" aria-label="Primary">
         {visibleItems.map((item) => {
           const isExternal = item.href.startsWith('http');
           const LinkComponent = isExternal ? 'a' : Link;

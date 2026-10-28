@@ -3,6 +3,7 @@ import Link from "next/link";
 import { adminDatabases, DATABASE_ID, COLLECTION } from "@/lib/appwrite";
 import { Query } from "node-appwrite";
 import { toPaper } from "@/types";
+import { getProgramme } from "@/lib/programme";
 import PaperCard from "@/components/PaperCard";
 import Breadcrumb from "@/components/Breadcrumb";
 
@@ -31,13 +32,27 @@ export default async function CbcsQuestionPapersPage() {
   let papers: ReturnType<typeof toPaper>[] = [];
   try {
     const db = adminDatabases();
-    const res = await db.listDocuments(DATABASE_ID, COLLECTION.papers, [
-      Query.equal("programme", "CBCS"),
-      Query.equal("approved", true),
-      Query.orderDesc("year"),
-      Query.limit(48),
-    ]);
-    papers = res.documents.map(toPaper);
+    // Do NOT query the stored `programme` field: programme.ts documents it as
+    // unreliable, and that query returned zero papers even though CBCS papers
+    // exist site-wide (audit fix #3). Fetch approved papers in pages, then
+    // filter by the computed programme (course code + year + semester), the
+    // same source of truth used for dept badges elsewhere.
+    const all: ReturnType<typeof toPaper>[] = [];
+    let offset = 0;
+    for (;;) {
+      const res = await db.listDocuments(DATABASE_ID, COLLECTION.papers, [
+        Query.equal("approved", true),
+        Query.limit(500),
+        Query.offset(offset),
+      ]);
+      all.push(...res.documents.map(toPaper));
+      if (res.documents.length < 500) break;
+      offset += 500;
+    }
+    papers = all
+      .filter((p) => getProgramme(p) === "CBCS")
+      .sort((a, b) => b.year - a.year)
+      .slice(0, 48);
   } catch {
     papers = [];
   }
