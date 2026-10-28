@@ -38,6 +38,7 @@ export async function generateMetadata({ params }: PaperPageProps): Promise<Meta
     return {
       title,
       description: desc,
+      alternates: { canonical: `/paper/${id}` },
       openGraph: {
         type: "article",
         url: `${SITE_URL}/paper/${id}`,

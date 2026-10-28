@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "@/app/auth/actions";
 import type { UserProfile } from "@/types";
+import { XP_TIERS, tierLabel, xpTier } from "@/lib/roles";
 import AvatarRing from "./AvatarRing";
 import { RoleBadge, TierBadge } from "./RoleBadge";
 
@@ -14,26 +15,17 @@ interface ProfilePanelProps {
   onClose: () => void;
 }
 
-/** Derive the XP tier label from xp value. */
-function xpTitle(xp: number): string {
-  if (xp >= 5000) return "Legend";
-  if (xp >= 3000) return "Elite";
-  if (xp >= 1500) return "Senior";
-  if (xp >= 800) return "Veteran";
-  if (xp >= 300) return "Contributor";
-  if (xp >= 100) return "Explorer";
-  return "Visitor";
-}
-
-/** XP tier thresholds. */
-const XP_TIERS = [0, 100, 300, 800, 1500, 3000, 5000];
-
-/** XP progress bar that fills between current tier and next tier. */
+/** XP progress bar that fills between current tier and next tier.
+ *  Uses the single source of truth in @/lib/roles (Bronze 0 / Silver 100 /
+ *  Gold 300 / Platinum 800 / Diamond 1500+). The old Visitor-to-Legend ladder
+ *  lived here until 28 Oct 2026 and contradicted /profile and /roles. */
 function XpBar({ xp }: { xp: number }) {
-  const currentIndex = XP_TIERS.reduce((acc, t, i) => (xp >= t ? i : acc), 0);
+  const currentIndex = XP_TIERS.reduce((acc, t, i) => (xp >= t.xp ? i : acc), 0);
   const next = XP_TIERS[currentIndex + 1];
   const prev = XP_TIERS[currentIndex];
-  const progress = next ? Math.min(((xp - prev) / (next - prev)) * 100, 100) : 100;
+  const progress = next
+    ? Math.min(((xp - prev.xp) / (next.xp - prev.xp)) * 100, 100)
+    : 100;
 
   return (
     <div className="mt-1">
@@ -48,7 +40,7 @@ function XpBar({ xp }: { xp: number }) {
       </div>
       {next && (
         <p className="mt-0.5 text-[10px]" style={{ color: "var(--color-text-muted)" }}>
-          {xp} / {next} XP → {xpTitle(next)}
+          {xp} / {next.xp} XP → {tierLabel(next.tier)}
         </p>
       )}
     </div>
@@ -347,7 +339,7 @@ export default function ProfilePanel({ user, open, onClose }: ProfilePanelProps)
             <div className="flex items-center justify-between text-sm">
               <span className="font-medium">XP</span>
               <span style={{ color: "var(--color-text-muted)" }}>
-                {xpTitle(user.xp)}
+                {tierLabel(xpTier(user.xp))}
               </span>
             </div>
             <XpBar xp={user.xp} />
