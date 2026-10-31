@@ -78,10 +78,11 @@ export default function PrivacyPage() {
             <strong>Essential cookies</strong> (sign-in session) are always needed for the site to
             work. <strong>Optional cookies</strong> are used only if you click Accept in the cookie
             banner: Google Analytics cookies, which help us understand which papers students use,
-            and, once advertising is enabled, Google AdSense cookies, which Google and its partners
+            and, once advertising is enabled and you accept cookies, Google AdSense cookies, which Google and its partners
             use to show and measure ads, including personalised ads where allowed. If you click
-            Reject, neither Google Analytics nor Google AdSense loads, and the site still works
-            fully. You can change your choice at any time from the Cookie Settings link in the
+            Reject, Google Analytics does not load and no personalised ads show, and the site still works
+            fully. The AdSense site-connection script itself is in the page head so Google can verify the site;
+            that script alone shows no ads. You can change your choice at any time from the Cookie Settings link in the
             footer.
           </p>
           <p className="mt-2">
@@ -120,9 +121,10 @@ export default function PrivacyPage() {
               views and site usage. Google Analytics cookies are set by Google.
             </li>
             <li>
-              <strong>Google AdSense</strong> (only after you accept cookies, and only once
-              advertising is approved and enabled) — serves ads and may set advertising cookies.
-              See section 4 for how to opt out of personalised advertising.
+              <strong>Google AdSense</strong> — its site-connection script is in the page head so
+              Google can verify the site; it shows no ads on its own. Ads are served, and advertising
+              cookies may be set, only once advertising is approved and enabled and you have accepted
+              cookies. See section 4 for how to opt out of personalised advertising.
             </li>
           </ul>
           <p className="mt-2">

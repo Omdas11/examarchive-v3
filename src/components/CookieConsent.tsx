@@ -12,10 +12,13 @@ import {
 /**
  * Cookie banner with Accept / Reject.
  *
- * - No choice yet: banner shows, and no cookie-based tracking (Google
- *   Analytics, Google AdSense) loads.
- * - Accept: tracking scripts load.
- * - Reject: tracking scripts stay off.
+ * - No choice yet: banner shows, and Google Analytics does not load.
+ * - Accept: Google Analytics loads, and, once AdSense is approved,
+ *   personalised ads may show.
+ * - Reject: Google Analytics stays off, and no personalised ads.
+ * The AdSense site-connection script itself is in the page head on
+ * every page so Google can verify the site; the script alone shows
+ * no ads and creates no ad units.
  * - Choice is stored in localStorage and can be changed any time from
  *   the "Cookie Settings" link in the footer.
  * Essential cookies (sign-in session, theme) are not gated: the site

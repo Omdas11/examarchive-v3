@@ -11,7 +11,6 @@ import CourseSetupWrapper from "@/components/CourseSetupWrapper";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/next";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
-import AdSense from "@/components/AdSense";
 import CookieConsent from "@/components/CookieConsent";
 import SimpleAnalytics from "@/components/SimpleAnalytics";
 import VisitLogger from "@/components/VisitLogger";
@@ -151,6 +150,18 @@ export default async function RootLayout({
         />
         <script>{THEME_INIT_SCRIPT}</script>
         <script>{SERVICE_WORKER_SCRIPT}</script>
+        {/* AdSense site-connection script, exactly as Google gives it.
+            It is in the HTML head on every page so Google can detect it
+            without needing a cookie choice first. The script alone shows
+            no ads and creates no ad units: ads only appear after AdSense
+            approval, and personalised ads only after the visitor accepts
+            cookies. Google Analytics, by contrast, stays fully gated by
+            the cookie banner. */}
+        <script
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2814629639937169"
+          crossOrigin="anonymous"
+        />
         <script type="application/ld+json">
           {JSON.stringify(jsonLd).replace(/</g, "\\u003c")}
         </script>
@@ -173,7 +184,6 @@ export default async function RootLayout({
         <Analytics />
         <SimpleAnalytics />
         <GoogleAnalytics />
-        <AdSense />
         <CookieConsent />
         <Suspense fallback={null}>
           <VisitLogger />
