@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
+import { getServerUser } from "@/lib/auth";
+import MainLayout from "@/components/layout/MainLayout";
+import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import Link from "next/link";
 import { adminDatabases, DATABASE_ID, COLLECTION } from "@/lib/appwrite";
 import { Query } from "node-appwrite";
 import { toPaper } from "@/types";
 import PaperCard from "@/components/PaperCard";
-import Breadcrumb from "@/components/Breadcrumb";
 
 const SITE_URL = "https://www.examarchive.dev";
 
@@ -50,6 +52,9 @@ const FAQS = [
 ];
 
 export default async function FyugQuestionPapersPage() {
+  const user = await getServerUser();
+  const userName = user ? (user.name || user.username || "Scholar") : "";
+  const userInitials = userName ? userName.slice(0, 2).toUpperCase() : "";
   let papers: ReturnType<typeof toPaper>[] = [];
   try {
     const db = adminDatabases();
@@ -87,15 +92,19 @@ export default async function FyugQuestionPapersPage() {
   };
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-8">
+    <MainLayout
+      title="FYUG Question Papers"
+      breadcrumbs={[{ label: "Home", href: "/" }, { label: "FYUG Question Papers" }]}
+      showSearch={false}
+      sidebarItems={APP_SIDEBAR_ITEMS}
+      userRole={user?.role ?? "student"}
+      isLoggedIn={!!user}
+      userName={userName}
+      userInitials={userInitials}
+    >
+    <div className="mx-auto max-w-6xl px-4 py-8">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListJsonLd) }} />
-      <Breadcrumb
-        items={[
-          { label: "Home", href: "/" },
-          { label: "FYUG Question Papers" },
-        ]}
-      />
       <h1 className="mt-4 text-3xl font-bold">
         FYUG Question Papers — Assam University (Free PDF Download)
       </h1>
@@ -164,6 +173,7 @@ export default async function FyugQuestionPapersPage() {
           Browse all papers
         </Link>
       </p>
-    </main>
+    </div>
+    </MainLayout>
   );
 }

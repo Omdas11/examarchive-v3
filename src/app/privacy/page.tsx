@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import { getServerUser } from "@/lib/auth";
+import MainLayout from "@/components/layout/MainLayout";
+import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import Link from "next/link";
 
 export const metadata: Metadata = {
@@ -6,8 +9,21 @@ export const metadata: Metadata = {
   description: "Privacy Policy for ExamArchive — how we collect, use, and protect your data.",
 };
 
-export default function PrivacyPage() {
+export default async function PrivacyPage() {
+  const user = await getServerUser();
+  const userName = user ? (user.name || user.username || "Scholar") : "";
+  const userInitials = userName ? userName.slice(0, 2).toUpperCase() : "";
   return (
+    <MainLayout
+      title="Privacy Policy"
+      breadcrumbs={[{ label: "Home", href: "/" }, { label: "Privacy Policy" }]}
+      showSearch={false}
+      sidebarItems={APP_SIDEBAR_ITEMS}
+      userRole={user?.role ?? "student"}
+      isLoggedIn={!!user}
+      userName={userName}
+      userInitials={userInitials}
+    >
     <section className="mx-auto px-4 py-10" style={{ maxWidth: "var(--max-w)" }}>
       <h1 className="text-2xl font-bold">Privacy Policy</h1>
       <p className="mt-1 text-sm" style={{ color: "var(--color-text-muted)" }}>
@@ -200,5 +216,6 @@ export default function PrivacyPage() {
         </div>
       </div>
     </section>
+    </MainLayout>
   );
 }

@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import { getServerUser } from "@/lib/auth";
+import MainLayout from "@/components/layout/MainLayout";
+import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import Link from "next/link";
 
 export const metadata: Metadata = {
@@ -6,8 +9,21 @@ export const metadata: Metadata = {
   description: "Terms and conditions for using ExamArchive.",
 };
 
-export default function TermsPage() {
+export default async function TermsPage() {
+  const user = await getServerUser();
+  const userName = user ? (user.name || user.username || "Scholar") : "";
+  const userInitials = userName ? userName.slice(0, 2).toUpperCase() : "";
   return (
+    <MainLayout
+      title="Terms of Use"
+      breadcrumbs={[{ label: "Home", href: "/" }, { label: "Terms of Use" }]}
+      showSearch={false}
+      sidebarItems={APP_SIDEBAR_ITEMS}
+      userRole={user?.role ?? "student"}
+      isLoggedIn={!!user}
+      userName={userName}
+      userInitials={userInitials}
+    >
     <section className="mx-auto px-4 py-10" style={{ maxWidth: "var(--max-w)" }}>
       <h1 className="text-2xl font-bold">Terms of Use</h1>
       <p className="mt-1 text-sm" style={{ color: "var(--color-text-muted)" }}>
@@ -131,5 +147,6 @@ export default function TermsPage() {
         </div>
       </div>
     </section>
+    </MainLayout>
   );
 }

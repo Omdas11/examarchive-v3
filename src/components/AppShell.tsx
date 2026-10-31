@@ -34,6 +34,16 @@ const NEW_LAYOUT_PREFIXES = [
   "/admin",
   "/devtool",
   "/login",
+  // Pages moved to MainLayout 2026-10-31: previously fell back to the
+  // old Navbar / Sidebar / RightColumn layout.
+  "/privacy",
+  "/terms",
+  "/contact",
+  "/guides",
+  "/roles",
+  "/assam-university-question-papers",
+  "/cbcs-question-papers",
+  "/fyug-question-papers",
   "/",
 ];
 

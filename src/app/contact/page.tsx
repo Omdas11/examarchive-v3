@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import { getServerUser } from "@/lib/auth";
+import MainLayout from "@/components/layout/MainLayout";
+import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import Link from "next/link";
 
 export const metadata: Metadata = {
@@ -30,8 +33,21 @@ const CONTACTS = [
   },
 ];
 
-export default function ContactPage() {
+export default async function ContactPage() {
+  const user = await getServerUser();
+  const userName = user ? (user.name || user.username || "Scholar") : "";
+  const userInitials = userName ? userName.slice(0, 2).toUpperCase() : "";
   return (
+    <MainLayout
+      title="Contact Us"
+      breadcrumbs={[{ label: "Home", href: "/" }, { label: "Contact Us" }]}
+      showSearch={false}
+      sidebarItems={APP_SIDEBAR_ITEMS}
+      userRole={user?.role ?? "student"}
+      isLoggedIn={!!user}
+      userName={userName}
+      userInitials={userInitials}
+    >
     <section className="mx-auto px-4 py-10" style={{ maxWidth: "var(--max-w)" }}>
       <h1 className="text-2xl font-bold">Contact Us</h1>
       <p className="mt-2 text-sm leading-relaxed" style={{ color: "var(--color-text-muted)" }}>
@@ -68,5 +84,6 @@ export default function ContactPage() {
         . We reply as students in our free time, so please allow a few days.
       </p>
     </section>
+    </MainLayout>
   );
 }

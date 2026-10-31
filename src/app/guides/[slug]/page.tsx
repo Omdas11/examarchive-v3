@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import { getServerUser } from "@/lib/auth";
+import MainLayout from "@/components/layout/MainLayout";
+import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { GUIDES, MORE_GUIDES } from "@/lib/guides";
@@ -24,7 +27,20 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
   const { slug } = await params;
   const guide = ALL.find((g) => g.slug === slug);
   if (!guide) notFound();
+  const user = await getServerUser();
+  const userName = user ? (user.name || user.username || "Scholar") : "";
+  const userInitials = userName ? userName.slice(0, 2).toUpperCase() : "";
   return (
+    <MainLayout
+      title={guide.title}
+      breadcrumbs={[{ label: "Home", href: "/" }, { label: "Study Guides", href: "/guides" }, { label: guide.title }]}
+      showSearch={false}
+      sidebarItems={APP_SIDEBAR_ITEMS}
+      userRole={user?.role ?? "student"}
+      isLoggedIn={!!user}
+      userName={userName}
+      userInitials={userInitials}
+    >
     <section className="mx-auto px-4 py-10" style={{ maxWidth: "var(--max-w)" }}>
       <Link href="/guides" className="text-sm font-bold underline" style={{ color: "var(--color-primary)" }}>
         ← All study guides
@@ -60,5 +76,6 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
         </Link>
       </div>
     </section>
+    </MainLayout>
   );
 }

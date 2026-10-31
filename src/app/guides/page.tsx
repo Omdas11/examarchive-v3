@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import { getServerUser } from "@/lib/auth";
+import MainLayout from "@/components/layout/MainLayout";
+import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import Link from "next/link";
 import { GUIDES, MORE_GUIDES } from "@/lib/guides";
 
@@ -10,8 +13,21 @@ export const metadata: Metadata = {
 
 const ALL = [...GUIDES, ...MORE_GUIDES];
 
-export default function GuidesPage() {
+export default async function GuidesPage() {
+  const user = await getServerUser();
+  const userName = user ? (user.name || user.username || "Scholar") : "";
+  const userInitials = userName ? userName.slice(0, 2).toUpperCase() : "";
   return (
+    <MainLayout
+      title="Study Guides"
+      breadcrumbs={[{ label: "Home", href: "/" }, { label: "Study Guides" }]}
+      showSearch={false}
+      sidebarItems={APP_SIDEBAR_ITEMS}
+      userRole={user?.role ?? "student"}
+      isLoggedIn={!!user}
+      userName={userName}
+      userInitials={userInitials}
+    >
     <section className="mx-auto px-4 py-10" style={{ maxWidth: "var(--max-w)" }}>
       <h1 className="text-2xl font-bold">Study Guides</h1>
       <p className="mt-2 text-sm leading-relaxed" style={{ color: "var(--color-text-muted)" }}>
@@ -37,5 +53,6 @@ export default function GuidesPage() {
         ))}
       </div>
     </section>
+    </MainLayout>
   );
 }
