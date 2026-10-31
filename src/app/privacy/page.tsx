@@ -11,7 +11,7 @@ export default function PrivacyPage() {
     <section className="mx-auto px-4 py-10" style={{ maxWidth: "var(--max-w)" }}>
       <h1 className="text-2xl font-bold">Privacy Policy</h1>
       <p className="mt-1 text-sm" style={{ color: "var(--color-text-muted)" }}>
-        Last updated: March 2026
+        Last updated: October 2026
       </p>
 
       <div className="mt-6 space-y-6 text-sm leading-relaxed" style={{ color: "var(--color-text-muted)" }}>
@@ -71,8 +71,28 @@ export default function PrivacyPage() {
           <h2 className="text-base font-semibold" style={{ color: "var(--color-text)" }}>4. Cookies and Local Storage</h2>
           <p className="mt-2">
             ExamArchive uses a secure HTTP-only session cookie to keep you signed in. We also use
-            browser <code>localStorage</code> to remember your theme preference (light/dark). No
-            third-party advertising cookies are used.
+            browser <code>localStorage</code> to remember your theme preference (light/dark) and
+            your cookie choice (accepted or rejected).
+          </p>
+          <p className="mt-2">
+            <strong>Essential cookies</strong> (sign-in session) are always needed for the site to
+            work. <strong>Optional cookies</strong> are used only if you click Accept in the cookie
+            banner: Google Analytics cookies, which help us understand which papers students use,
+            and, once advertising is enabled, Google AdSense cookies, which Google and its partners
+            use to show and measure ads, including personalised ads where allowed. If you click
+            Reject, neither Google Analytics nor Google AdSense loads, and the site still works
+            fully. You can change your choice at any time from the Cookie Settings link in the
+            footer.
+          </p>
+          <p className="mt-2">
+            Third-party vendors, including Google, use cookies to serve ads based on your prior
+            visits to this and other websites. Google&apos;s use of advertising cookies enables it
+            and its partners to serve ads based on your visit to this site and other sites on the
+            internet. You can opt out of personalised advertising by visiting{" "}
+            <a href="https://www.google.com/settings/ads" style={{ color: "var(--color-primary)" }} className="underline">
+              Google Ads Settings
+            </a>
+            .
           </p>
         </div>
 
@@ -94,6 +114,15 @@ export default function PrivacyPage() {
             <li>
               <strong>Google OAuth</strong> (optional) — if you choose to sign in with Google, your
               Google account email is shared with us.
+            </li>
+            <li>
+              <strong>Google Analytics</strong> (only after you accept cookies) — measures page
+              views and site usage. Google Analytics cookies are set by Google.
+            </li>
+            <li>
+              <strong>Google AdSense</strong> (only after you accept cookies, and only once
+              advertising is approved and enabled) — serves ads and may set advertising cookies.
+              See section 4 for how to opt out of personalised advertising.
             </li>
           </ul>
           <p className="mt-2">

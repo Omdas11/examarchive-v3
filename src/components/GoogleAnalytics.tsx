@@ -1,16 +1,25 @@
 "use client";
 
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Script from "next/script";
 import { usePathname, useSearchParams } from "next/navigation";
+import { COOKIE_CONSENT_EVENT, getCookieConsent } from "@/lib/consent";
 
 /**
- * Lightweight GA4 snippet that loads only when a measurement ID is provided.
- * Keeps analytics opt-in via env: NEXT_PUBLIC_GA_MEASUREMENT_ID.
+ * Lightweight GA4 snippet that loads only when a measurement ID is provided
+ * AND the visitor has accepted cookies in the cookie banner. With no
+ * choice yet, or after Reject, no Google Analytics script loads at all.
  */
 export default function GoogleAnalytics() {
   const measurementId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
-  if (!measurementId) return null;
+  const [accepted, setAccepted] = useState(false);
+  useEffect(() => {
+    const refresh = () => setAccepted(getCookieConsent() === "accepted");
+    refresh();
+    window.addEventListener(COOKIE_CONSENT_EVENT, refresh);
+    return () => window.removeEventListener(COOKIE_CONSENT_EVENT, refresh);
+  }, []);
+  if (!measurementId || !accepted) return null;
   return (
     <Suspense fallback={null}>
       <GoogleAnalyticsInner measurementId={measurementId} />

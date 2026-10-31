@@ -11,6 +11,8 @@ import CourseSetupWrapper from "@/components/CourseSetupWrapper";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/next";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
+import AdSense from "@/components/AdSense";
+import CookieConsent from "@/components/CookieConsent";
 import SimpleAnalytics from "@/components/SimpleAnalytics";
 import VisitLogger from "@/components/VisitLogger";
 
@@ -171,6 +173,8 @@ export default async function RootLayout({
         <Analytics />
         <SimpleAnalytics />
         <GoogleAnalytics />
+        <AdSense />
+        <CookieConsent />
         <Suspense fallback={null}>
           <VisitLogger />
         </Suspense>

@@ -251,6 +251,39 @@ export default async function PaperPage({ params }: PaperPageProps) {
         </div>
       </div>
 
+      {/* ── About this paper: original summary, so the page is more than a download link ── */}
+      <div className="bg-surface p-8 rounded-3xl shadow-lift border border-outline-variant/10">
+        <div className="flex items-center gap-3 mb-4">
+          <span className="w-1.5 h-6 rounded-full bg-primary" />
+          <h2 className="text-xl font-extrabold tracking-tight">About this paper</h2>
+        </div>
+        <p className="text-sm leading-relaxed" style={{ color: "var(--color-text-muted)" }}>
+          This is the {paper.year ? `${paper.year} ` : ""}question paper for {paper.title}
+          {paper.course_code ? ` (${paper.course_code})` : ""}
+          {paper.department ? `, ${paper.department}` : ""}
+          {semRoman ? `, semester ${semRoman}` : ""}
+          {paper.institute ? ` at ${paper.institute}` : ""}. It was shared by a student and
+          checked by the ExamArchive team for authenticity before publishing. Use it as a
+          practice paper: attempt it timed, mark it honestly, and then study the topics it
+          exposed, rather than memorising its answers.
+        </p>
+        <p className="mt-3 text-sm leading-relaxed" style={{ color: "var(--color-text-muted)" }}>
+          For the best result, compare this paper with other years for the same course code in
+          the Version History below. Topics that repeat across years are the topics to revise
+          first. Check the current syllabus for your course before the exam, because a past
+          paper shows what was asked in one year, not what will be asked this year.
+        </p>
+        <p className="mt-3 text-sm leading-relaxed" style={{ color: "var(--color-text-muted)" }}>
+          Source note: this paper is an Assam University examination paper shared for student
+          study. ExamArchive does not claim ownership of it. If you hold rights in this paper
+          and want it removed, contact us at{" "}
+          <a href="mailto:contact@examarchive.dev" className="font-bold underline" style={{ color: "var(--color-primary)" }}>
+            contact@examarchive.dev
+          </a>{" "}
+          with the title, course code, and year.
+        </p>
+      </div>
+
       <div className="grid gap-6 lg:grid-cols-2">
         {/* ── Available papers ── */}
         <div className="bg-surface p-8 rounded-3xl shadow-lift border border-outline-variant/10">

@@ -1,6 +1,9 @@
+"use client";
+
 import Link from "next/link";
 import VisitorTracker from "@/components/VisitorTracker";
 import FooterContactModal from "@/components/FooterContactModal";
+import { openCookieSettings } from "@/lib/consent";
 
 /** Partner/platform logos uploaded to /public/branding/footer/. */
 const PLATFORM_LOGOS = [
@@ -34,6 +37,7 @@ export default function Footer() {
             <Link href="/browse" className="hover:text-primary transition-colors text-sm font-medium">Browse Archive</Link>
             <Link href="/upload" className="hover:text-primary transition-colors text-sm font-medium">Upload Paper</Link>
             <Link href="/syllabus" className="hover:text-primary transition-colors text-sm font-medium">Syllabus Registry</Link>
+            <Link href="/guides" className="hover:text-primary transition-colors text-sm font-medium">Study Guides</Link>
             <Link href="/about" className="hover:text-primary transition-colors text-sm font-medium">About ExamArchive</Link>
           </div>
 
@@ -57,8 +61,16 @@ export default function Footer() {
             <FooterContactModal label="Technical Support" />
             <FooterContactModal label="Contact Team" />
             <FooterContactModal label="Send Feedback" />
+            <Link href="/contact" className="hover:text-primary transition-colors text-sm font-medium">Contact Us</Link>
             <Link href="/terms" className="hover:text-primary transition-colors text-sm font-medium">Terms &amp; Conditions</Link>
             <Link href="/privacy" className="hover:text-primary transition-colors text-sm font-medium">Privacy Policy</Link>
+            <button
+              type="button"
+              onClick={openCookieSettings}
+              className="text-left hover:text-primary transition-colors text-sm font-medium"
+            >
+              Cookie Settings
+            </button>
           </div>
         </div>
 
