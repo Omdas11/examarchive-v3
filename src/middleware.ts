@@ -17,7 +17,9 @@ const PROTECTED_PATHS = [
   // The PDF itself stays gated: /api/files/papers requires a session, a
   // signed token, or a CAPTCHA-issued token (see /api/captcha-download).
   "/ai-content",
-  "/store",
+  // NOTE: /store is intentionally NOT protected here — while the store is
+  // "Coming Soon" anyone can see it. When the store reopens, the page
+  // itself redirects logged-out users to /login.
   // API routes
   "/api/upload",
   "/api/admin",
