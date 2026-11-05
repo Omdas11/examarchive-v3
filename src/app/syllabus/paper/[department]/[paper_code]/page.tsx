@@ -20,6 +20,7 @@ import {
 import {
   SYLLABUS_DEPARTMENTS,
   syllabusDeptBySubjectCode,
+  syllabusDeptSlugForPaperCode,
 } from "@/lib/syllabus-departments";
 
 const SITE_URL = "https://www.examarchive.dev";
@@ -189,6 +190,12 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
   const info = SYLLABUS_DEPARTMENTS[department];
   if (!info) notFound();
   const code = decodeURIComponent(paper_code).toUpperCase();
+  // Wrong department in the URL: redirect before any slow database call,
+  // so the redirect is a real HTTP 308 instead of a client-side one.
+  const prefixSlug = syllabusDeptSlugForPaperCode(code);
+  if (prefixSlug && prefixSlug !== department) {
+    permanentRedirect(`/syllabus/paper/${prefixSlug}/${code}`);
+  }
   const user = await getServerUser();
   const userName = user ? (user.name || user.username || "Scholar") : "";
   const userInitials = userName ? userName.slice(0, 2).toUpperCase() : "";

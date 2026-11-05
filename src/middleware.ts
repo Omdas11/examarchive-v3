@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { syllabusDeptSlugForPaperCode } from "@/lib/syllabus-departments";
 
 /** Name of the cookie that stores the Appwrite session secret. */
 const SESSION_COOKIE = "ea_session";
@@ -30,6 +31,36 @@ const PROTECTED_PATHS = [
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // Legacy syllabus paper URLs moved to /syllabus/paper/<department>/<CODE>.
+  // Redirected HERE, not in the page: a redirect thrown from the page
+  // renders after the shell streams, so Next.js downgrades it to a
+  // client-side redirect (HTTP 200 + RSC payload) instead of a real 308.
+  // Middleware runs before any rendering, so this is a true HTTP 308.
+  const legacyPaper = pathname.match(/^\/syllabus\/paper\/([^/]+)$/);
+  if (legacyPaper) {
+    const code = decodeURIComponent(legacyPaper[1]).toUpperCase();
+    const slug = syllabusDeptSlugForPaperCode(code);
+    if (slug) {
+      const url = request.nextUrl.clone();
+      url.pathname = `/syllabus/paper/${slug}/${code}`;
+      return NextResponse.redirect(url, 308);
+    }
+    // Unknown code prefix: fall through; the page renders a 404.
+  }
+
+  // Paper visited under the wrong department: same treatment.
+  const nestedPaper = pathname.match(/^\/syllabus\/paper\/([^/]+)\/([^/]+)$/);
+  if (nestedPaper) {
+    const dept = nestedPaper[1];
+    const code = decodeURIComponent(nestedPaper[2]).toUpperCase();
+    const slug = syllabusDeptSlugForPaperCode(code);
+    if (slug && slug !== dept) {
+      const url = request.nextUrl.clone();
+      url.pathname = `/syllabus/paper/${slug}/${code}`;
+      return NextResponse.redirect(url, 308);
+    }
+  }
 
   // Allow Appwrite webhook calls to proceed; route performs its own secret validation.
   if (pathname.startsWith("/api/ai/notify-completion")) {
