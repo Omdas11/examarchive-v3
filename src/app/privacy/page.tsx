@@ -37,7 +37,7 @@ export default async function PrivacyPage() {
             ExamArchive (&quot;we&quot;, &quot;us&quot;, or &quot;our&quot;) is committed to protecting your privacy. This
             Privacy Policy explains how we collect, use, disclose, and safeguard your information
             when you visit ExamArchive at{" "}
-            <a href="https://examarchive.dev" style={{ color: "var(--color-primary)" }} className="underline">
+            <a href="https://www.examarchive.dev" style={{ color: "var(--color-primary)" }} className="underline">
               examarchive.dev
             </a>
             .

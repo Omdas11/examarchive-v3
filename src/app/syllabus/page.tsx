@@ -1,61 +1,90 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import {
   adminDatabases,
   DATABASE_ID,
   COLLECTION,
   Query,
 } from "@/lib/appwrite";
-import type { Syllabus } from "@/types";
-import { toSyllabus } from "@/types";
 import { getServerUser } from "@/lib/auth";
+import { isAdmin } from "@/lib/roles";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
-import SyllabusCatalogClient from "./SyllabusCatalogClient";
+import { SYLLABUS_DEPARTMENTS, SYLLABUS_DEPARTMENT_SLUGS } from "@/lib/syllabus-departments";
 
 export const metadata: Metadata = {
-  title: "Syllabus Library by Paper Code and Subject",
+  title: "Syllabus Library by Department | ExamArchive",
   description:
-    "Browse approved syllabus PDFs and structured syllabus pages by paper code, subject, and university on ExamArchive.",
+    "Browse Assam University FYUG syllabus by department — 13 departments from Haflong Government College, 500+ papers with unit-wise syllabus content and free PDF downloads.",
   keywords: [
     "syllabus library",
-    "paper code syllabus",
-    "university syllabus pdf",
+    "Assam University syllabus",
     "FYUGP syllabus",
+    "Haflong Government College syllabus",
+    "department syllabus",
   ],
   alternates: { canonical: "/syllabus" },
   openGraph: {
     title: "Syllabus Library | ExamArchive",
     description:
-      "Explore approved syllabus PDFs and paper-code syllabus pages for faster exam preparation.",
-    url: "https://examarchive.dev/syllabus",
+      "Assam University FYUG syllabus by department — 13 departments, 500+ papers, unit-wise content and free PDF downloads.",
+    url: "https://www.examarchive.dev/syllabus",
     type: "website",
   },
 };
+
+interface DeptCounts {
+  papers: number;
+  units: number;
+}
 
 export default async function SyllabusPage() {
   const user = await getServerUser();
   const userName = user ? (user.name || user.username || "Scholar") : "";
   const userInitials = userName ? userName.slice(0, 2).toUpperCase() : "";
+  const userIsAdmin = !!user && isAdmin(user.role);
 
-  let syllabi: Syllabus[] = [];
+  // ── Per-department counts from the syllabus table (511 papers, 2,789 rows).
+  const counts = new Map<string, DeptCounts>();
   try {
     const db = adminDatabases();
-    const { documents } = await db.listDocuments(
-      DATABASE_ID,
-      COLLECTION.syllabus,
-      [
-        Query.equal("approval_status", "approved"),
-        Query.orderDesc("$createdAt"),
-      ],
-    );
-    syllabi = documents.map(toSyllabus).filter((s) => !s.is_hidden);
+    // subject -> paper code -> distinct unit numbers
+    const bySubject = new Map<string, Map<string, Set<number>>>();
+    let offset = 0;
+    for (;;) {
+      const res = await db.listDocuments(DATABASE_ID, COLLECTION.syllabus_table, [
+        Query.equal("status", "published"),
+        Query.limit(500),
+        Query.offset(offset),
+        Query.select(["subject", "paper_code", "unit_number"]),
+      ]);
+      for (const doc of res.documents) {
+        const subject = String(doc.subject ?? "").trim().toUpperCase();
+        const code = String(doc.paper_code ?? "").trim().toUpperCase();
+        if (!subject || !code) continue;
+        if (!bySubject.has(subject)) bySubject.set(subject, new Map());
+        const papers = bySubject.get(subject)!;
+        if (!papers.has(code)) papers.set(code, new Set());
+        papers.get(code)!.add(Number(doc.unit_number ?? 0));
+      }
+      if (res.documents.length < 500) break;
+      offset += 500;
+    }
+    for (const [subject, papers] of bySubject.entries()) {
+      let units = 0;
+      for (const unitSet of papers.values()) units += unitSet.size;
+      counts.set(subject, { papers: papers.size, units });
+    }
   } catch {
-    // collection may not exist yet
+    // DB unreachable — directory still renders with zero counts
   }
+
+  const totalPapers = Array.from(counts.values()).reduce((sum, c) => sum + c.papers, 0);
 
   return (
     <MainLayout
-      title="Academic Curator"
+      title="Syllabus Library"
+      breadcrumbs={[{ label: "Home", href: "/" }, { label: "Syllabus" }]}
       showSearch={false}
       sidebarItems={APP_SIDEBAR_ITEMS}
       userRole={user?.role ?? "student"}
@@ -63,7 +92,55 @@ export default async function SyllabusPage() {
       userName={userName}
       userInitials={userInitials}
     >
-      <SyllabusCatalogClient syllabi={syllabi} userRole={user?.role ?? "student"} />
+      <section className="mx-auto w-full px-4 pb-16 pt-8" style={{ maxWidth: "var(--max-w)" }}>
+        <div className="rounded-3xl border border-outline-variant/40 bg-surface p-6 shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+            Syllabus Library
+          </p>
+          <h1 className="mt-2 text-3xl font-black text-on-surface">
+            Assam University Syllabus by Department
+          </h1>
+          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-on-surface-variant">
+            FYUG syllabus from Haflong Government College, organised by department. Pick a
+            department to see its papers with unit-wise syllabus content, or download the
+            official departmental syllabus PDF.
+          </p>
+          <p className="mt-2 text-sm text-on-surface-variant">
+            13 departments · {totalPapers} papers · Assam University · FYUGP
+          </p>
+          {userIsAdmin && (
+            <div className="mt-5">
+              <Link
+                href="/upload?type=dept_syllabus"
+                className="inline-flex items-center gap-2 rounded-2xl bg-primary px-4 py-2 text-sm font-semibold text-on-primary"
+              >
+                Upload Syllabus
+              </Link>
+            </div>
+          )}
+        </div>
+
+        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {SYLLABUS_DEPARTMENT_SLUGS.map((slug) => {
+            const info = SYLLABUS_DEPARTMENTS[slug];
+            const c = counts.get(info.subjectCode);
+            return (
+              <Link
+                key={slug}
+                href={`/syllabus/${slug}`}
+                className="group flex flex-col gap-2 rounded-2xl border border-outline-variant/30 bg-surface p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+                style={{ textDecoration: "none", color: "inherit" }}
+              >
+                <p className="text-lg font-bold text-on-surface">{info.name}</p>
+                <p className="text-sm leading-relaxed text-on-surface-variant">{info.blurb}</p>
+                <p className="mt-auto pt-2 text-xs font-semibold text-primary">
+                  {c ? `${c.papers} papers · ${c.units} units` : "View syllabus"} →
+                </p>
+              </Link>
+            );
+          })}
+        </div>
+      </section>
     </MainLayout>
   );
 }

@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { adminDatabases, DATABASE_ID, COLLECTION } from "@/lib/appwrite";
 import { Query } from "node-appwrite";
+import { SYLLABUS_DEPARTMENT_SLUGS } from "@/lib/syllabus-departments";
 
 const SITE_URL = "https://www.examarchive.dev";
 
@@ -31,8 +32,9 @@ const DEPARTMENTS = [
 
 /**
  * Generates /sitemap.xml via Next.js Metadata API.
- * Includes static pages, department landing pages, and ALL approved papers
- * (paginated — the collection exceeds a single query page).
+ * Includes static pages, department landing pages (/papers + /syllabus),
+ * ALL approved papers (paginated — the collection exceeds a single query
+ * page), and ALL syllabus papers from the syllabus table (511 paper codes).
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticRoutes: MetadataRoute.Sitemap = [
@@ -59,6 +61,46 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     changeFrequency: "weekly" as const,
     priority: 0.8,
   }));
+
+  // Syllabus department pages (13 HGC departments)
+  const syllabusDeptRoutes: MetadataRoute.Sitemap = SYLLABUS_DEPARTMENT_SLUGS.map((slug) => ({
+    url: `${SITE_URL}/syllabus/${slug}`,
+    lastModified: new Date(),
+    changeFrequency: "weekly" as const,
+    priority: 0.8,
+  }));
+
+  // All syllabus papers from the syllabus table (distinct paper codes)
+  const syllabusPaperRoutes: MetadataRoute.Sitemap = [];
+  try {
+    const db = adminDatabases();
+    const codes = new Set<string>();
+    let offset = 0;
+    for (;;) {
+      const res = await db.listDocuments(DATABASE_ID, COLLECTION.syllabus_table, [
+        Query.equal("status", "published"),
+        Query.limit(500),
+        Query.offset(offset),
+        Query.select(["paper_code"]),
+      ]);
+      for (const doc of res.documents) {
+        const code = String(doc.paper_code ?? "").trim().toUpperCase();
+        if (code) codes.add(code);
+      }
+      if (res.documents.length < 500) break;
+      offset += 500;
+    }
+    for (const code of codes) {
+      syllabusPaperRoutes.push({
+        url: `${SITE_URL}/syllabus/paper/${code}`,
+        lastModified: new Date(),
+        changeFrequency: "monthly" as const,
+        priority: 0.7,
+      });
+    }
+  } catch {
+    // If DB is unreachable at build time, skip syllabus paper URLs
+  }
 
   // All approved papers — paginated so none are dropped as the archive grows
   const paperRoutes: MetadataRoute.Sitemap = [];
@@ -87,5 +129,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // If DB is unreachable at build time, skip paper URLs
   }
 
-  return [...staticRoutes, ...deptRoutes, ...paperRoutes];
+  return [...staticRoutes, ...deptRoutes, ...syllabusDeptRoutes, ...paperRoutes, ...syllabusPaperRoutes];
 }

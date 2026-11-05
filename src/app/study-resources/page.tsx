@@ -25,7 +25,7 @@ export const metadata: Metadata = {
     title: "Study Resources | ExamArchive",
     description:
       "Official links every HGC FYUGP student should bookmark — college, university, syllabi and free national study platforms.",
-    url: "https://examarchive.dev/study-resources",
+    url: "https://www.examarchive.dev/study-resources",
     type: "website",
   },
 };

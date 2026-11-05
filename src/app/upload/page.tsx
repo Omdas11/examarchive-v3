@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     title: "Upload Papers | ExamArchive",
     description:
       "Contribute question papers to help students prepare with verified resources.",
-    url: "https://examarchive.dev/upload",
+    url: "https://www.examarchive.dev/upload",
     type: "website",
   },
 };

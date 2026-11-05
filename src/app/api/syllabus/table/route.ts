@@ -5,7 +5,7 @@ import { adminDatabases, adminStorage, COLLECTION, DATABASE_ID, Query, ID, SYLLA
 import { getServerUser } from "@/lib/auth";
 import {
   buildPaperMarkdown,
-  derivePaperNameFromContent,
+  derivePaperNameFromRows,
   extractSubjectCode,
   toSyllabusTableRow,
   type SyllabusTablePaperSummary,
@@ -16,12 +16,12 @@ import { findByPaperCode } from "@/data/syllabus-registry";
 
 const MAX_PAGES_SINGLE_PAPER = 20;
 const MAX_PAGES_DEPARTMENTAL = 40;
+// MAX_PAPER_NAME_LENGTH / ELLIPSIS_LENGTH live with derivePaperNameFromRows
+// in lib/syllabus-table.ts now (shared with /syllabus/[department]).
 const SYLLABUS_TABLE_PAGE_SIZE = 500;
 const SYLLABUS_TABLE_MAX_PAGES = 20;
 const QUESTIONS_TABLE_PAGE_SIZE = 500;
 const QUESTIONS_TABLE_MAX_PAGES = 20;
-const MAX_PAPER_NAME_LENGTH = 80;
-const ELLIPSIS_LENGTH = 3;
 const SYLLABUS_PDF_DAILY_LIMIT = 5;
 
 function isAdminPlus(role: string): boolean {
@@ -63,23 +63,6 @@ async function recordPdfGeneration(userId: string, todayStr: string): Promise<vo
   } catch (error) {
     console.error("[syllabus-table] Failed to record PDF usage:", error);
   }
-}
-
-function derivePaperNameFromRows(paperCode: string, rows: SyllabusTableRow[]): string {
-  const capPaperName = (name: string): string =>
-    name.length > MAX_PAPER_NAME_LENGTH
-      ? `${name.slice(0, MAX_PAPER_NAME_LENGTH - ELLIPSIS_LENGTH)}...`
-      : name;
-  const storedPaperName = rows
-    .map((row) => row.paper_name.trim())
-    .find((name) => name.length > 0);
-  if (storedPaperName) return capPaperName(storedPaperName);
-  const derivedPaperName = rows
-    .map((row) => row.syllabus_content.trim())
-    .find((content) => content.length > 0);
-  if (!derivedPaperName) return paperCode;
-  const name = derivePaperNameFromContent(derivedPaperName, paperCode);
-  return capPaperName(name);
 }
 
 export async function GET(request: NextRequest) {

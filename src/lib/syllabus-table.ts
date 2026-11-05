@@ -110,3 +110,29 @@ export function derivePaperNameFromContent(content: string, fallback: string): s
   const firstLine = content.split(PAPER_NAME_SPLIT_RE)[0]?.trim();
   return firstLine && firstLine.length > 0 ? firstLine : fallback;
 }
+
+const MAX_PAPER_NAME_LENGTH = 80;
+const ELLIPSIS_LENGTH = 3;
+
+/**
+ * Paper display name from its syllabus rows: the stored paper_name when
+ * present, otherwise the first line of the first non-empty unit content,
+ * capped at 80 characters. Shared by the syllabus-table API route and the
+ * /syllabus/[department] pages so both name a paper the same way.
+ */
+export function derivePaperNameFromRows(paperCode: string, rows: SyllabusTableRow[]): string {
+  const capPaperName = (name: string): string =>
+    name.length > MAX_PAPER_NAME_LENGTH
+      ? `${name.slice(0, MAX_PAPER_NAME_LENGTH - ELLIPSIS_LENGTH)}...`
+      : name;
+  const storedPaperName = rows
+    .map((row) => row.paper_name.trim())
+    .find((name) => name.length > 0);
+  if (storedPaperName) return capPaperName(storedPaperName);
+  const derivedPaperName = rows
+    .map((row) => row.syllabus_content.trim())
+    .find((content) => content.length > 0);
+  if (!derivedPaperName) return paperCode;
+  const name = derivePaperNameFromContent(derivedPaperName, paperCode);
+  return capPaperName(name);
+}
