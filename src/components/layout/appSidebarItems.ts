@@ -62,6 +62,8 @@ export const APP_SIDEBAR_ITEMS: AppSidebarItem[] = [
     label: "Upload Question Paper",
     icon: "upload_file",
     href: "/upload",
+    // Team-only while public uploads are closed (see /upload).
+    roles: ["moderator", "founder"],
   },
   // ── Info ──────────────────────────────────────────────
   {

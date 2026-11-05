@@ -9,6 +9,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import CreditIcon from '@/components/CreditIcon';
+import { STORE_COMING_SOON } from '@/lib/economy';
 import { PROFILE_REFRESH_EVENT } from '@/lib/profile-events';
 import { useTheme } from '@/hooks/useTheme';
 
@@ -67,6 +68,8 @@ export default function Header({
   };
 
   useEffect(() => {
+    // Credit balances are hidden while the store is coming soon — skip the fetch.
+    if (STORE_COMING_SOON) return;
     let cancelled = false;
     async function loadBalance() {
       try {
@@ -260,7 +263,7 @@ export default function Header({
           )}
         </div>
 
-        {creditBalance !== null && (
+        {!STORE_COMING_SOON && creditBalance !== null && (
           <div
             className="inline-flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-xs font-bold"
             style={{

@@ -287,7 +287,7 @@ function PaperCard({
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function SyllabusCatalogClient({ syllabi }: { syllabi: Syllabus[] }) {
+export default function SyllabusCatalogClient({ syllabi, userRole = "student" }: { syllabi: Syllabus[]; userRole?: string }) {
   const [activeTab, setActiveTab] = useState<ActiveTab>("catalog");
   const [activeSubject, setActiveSubject] = useState<string>("All");
   const [activeProgramme, setActiveProgramme] = useState<string>("All");
@@ -425,15 +425,21 @@ export default function SyllabusCatalogClient({ syllabi }: { syllabi: Syllabus[]
             </div>
           </div>
 
-          <Link
-            href="/upload?type=dept-syllabus"
-            className="inline-flex shrink-0 items-center gap-2 rounded-2xl bg-white px-5 py-2.5 text-sm font-bold text-primary shadow-md transition-transform hover:-translate-y-0.5 hover:shadow-lg"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
-            </svg>
-            Upload Syllabus
-          </Link>
+          {/* Team-only while public uploads are closed (see /upload).
+              NOTE: the href uses dept_syllabus (underscore) — the upload
+              page only recognises that form; the old dept-syllabus link
+              silently landed on the paper form. */}
+          {["moderator", "founder"].includes(userRole) && (
+            <Link
+              href="/upload?type=dept_syllabus"
+              className="inline-flex shrink-0 items-center gap-2 rounded-2xl bg-white px-5 py-2.5 text-sm font-bold text-primary shadow-md transition-transform hover:-translate-y-0.5 hover:shadow-lg"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
+              Upload Syllabus
+            </Link>
+          )}
         </div>
       </div>
 

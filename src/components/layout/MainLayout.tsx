@@ -14,9 +14,10 @@ const RIGHT_SIDEBAR_WIDTH = '300px';
 const RIGHT_SIDEBAR_COLLAPSED_WIDTH = '84px';
 
 /** Minimized-rail shortcuts (single-column icon rail, one icon per row). */
-const RAIL_LINKS = [
+const RAIL_LINKS: Array<{ href: string; icon: string; label: string; roles?: string[] }> = [
   { href: '/profile', icon: 'person', label: 'Profile' },
-  { href: '/upload', icon: 'upload', label: 'Upload' },
+  // Team-only while public uploads are closed (see /upload).
+  { href: '/upload', icon: 'upload', label: 'Upload', roles: ['moderator', 'founder'] },
   { href: '/browse', icon: 'search', label: 'Browse' },
   { href: '/syllabus', icon: 'menu_book', label: 'Syllabus' },
 ];
@@ -205,7 +206,7 @@ export default function MainLayout({
           {isRightCollapsed ? (
             <div className="flex-1 min-h-0 overflow-y-auto p-2">
               <nav aria-label="Quick access" className="flex flex-col gap-2">
-                {RAIL_LINKS.map((link) => (
+                {RAIL_LINKS.filter((link) => !link.roles || link.roles.includes(userRole ?? 'user')).map((link) => (
                   <Link
                     key={link.href}
                     href={link.href}

@@ -63,7 +63,7 @@ export default async function SyllabusPage() {
       userName={userName}
       userInitials={userInitials}
     >
-      <SyllabusCatalogClient syllabi={syllabi} />
+      <SyllabusCatalogClient syllabi={syllabi} userRole={user?.role ?? "student"} />
     </MainLayout>
   );
 }

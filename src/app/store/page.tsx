@@ -5,18 +5,65 @@ import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import { getServerUser } from "@/lib/auth";
 import { adminDatabases, DATABASE_ID, COLLECTION, Query } from "@/lib/appwrite";
+import { STORE_COMING_SOON } from "@/lib/economy";
 import { CREDIT_PACKS, PASSES } from "@/lib/payments";
+import Link from "next/link";
 import { getProductsWithLivePricing, buildAffiliateLink } from "@/lib/amazon-products";
 import StoreClient from "./StoreClient";
 
 export const metadata: Metadata = {
   title: "Store",
-  description: "Top up credits or get a pass via Razorpay.",
+  description: "The ExamArchive store is coming soon — credit top-ups and passes.",
   robots: { index: false, follow: false },
 };
 
 export default async function StorePage() {
   const user = await getServerUser();
+  const displayName = user?.name || user?.username || "Guest";
+
+  // ── Store closed for now: show "Coming Soon" (public, no data fetching).
+  // Flip STORE_COMING_SOON in lib/economy.ts to reopen the store.
+  if (STORE_COMING_SOON) {
+    return (
+      <MainLayout
+        title="Store"
+        breadcrumbs={[{ label: "Dashboard", href: "/dashboard" }, { label: "Store" }]}
+        showSearch={false}
+        sidebarItems={APP_SIDEBAR_ITEMS}
+        userRole={user?.role ?? "student"}
+        isLoggedIn={!!user}
+        userName={displayName}
+        userInitials={displayName.substring(0, 2).toUpperCase()}
+      >
+        <section className="mx-auto px-4 py-16 text-center" style={{ maxWidth: "var(--max-w)" }}>
+          <span
+            className="material-symbols-outlined mx-auto flex h-16 w-16 items-center justify-center rounded-full text-3xl"
+            style={{ background: "var(--brand-emerald-soft)", color: "var(--brand-emerald-dark)" }}
+            aria-hidden="true"
+          >
+            storefront
+          </span>
+          <h1 className="mt-5 text-2xl font-bold text-on-surface">Store — Coming Soon</h1>
+          <p className="mx-auto mt-2 max-w-md text-sm text-on-surface-variant">
+            We&apos;re setting up credit top-ups and passes. The store will be back soon — in the
+            meantime, everything in the archive stays free to browse.
+          </p>
+          <div className="mt-6 flex flex-wrap justify-center gap-3">
+            <Link href="/browse" className="btn-primary text-sm px-6 py-2.5 rounded-full">
+              Browse the Archive
+            </Link>
+            <Link
+              href="/dashboard"
+              className="bg-surface text-on-surface border border-outline-variant/20 font-bold text-sm px-6 py-2.5 rounded-full hover:bg-surface-container-low transition-all"
+            >
+              Back to Dashboard
+            </Link>
+          </div>
+        </section>
+      </MainLayout>
+    );
+  }
+
   if (!user) redirect("/login?next=/store");
   const userName = user.name || user.username || "User";
 

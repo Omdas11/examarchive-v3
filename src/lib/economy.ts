@@ -5,6 +5,14 @@ export const CREDIT_SYMBOL = "₹";
 export const TOKEN_NAME = "tokens";
 export const GENERATION_COST_CREDITS = 10;
 export const DEFAULT_CREDITS = 100;
+/**
+ * Store is closed for now: the store page shows "Coming Soon" and credit
+ * balances are hidden (header chip, profile stats). Flip to `false` when
+ * credit top-ups reopen — the store, its routes and the balance displays
+ * all come back with it. The economy itself (earning/spending tokens)
+ * keeps running underneath.
+ */
+export const STORE_COMING_SOON = true;
 export const ADMIN_PLUS_DEFAULT_CREDITS = 1000;
 
 export const SUPPORTED_AI_MODELS = [

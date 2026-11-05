@@ -268,6 +268,8 @@ export default function DigitalCuratorDashboard({
             <div>
               <h3 className="text-lg font-bold text-on-surface mb-4">Quick Actions</h3>
               <div className="space-y-2">
+                {/* Team-only while public uploads are closed (see /upload). */}
+                {["moderator", "founder"].includes(userRole) && (
                 <a
                   href="/upload"
                   className={cn(
@@ -284,6 +286,7 @@ export default function DigitalCuratorDashboard({
                   </div>
                   <span className="font-bold text-sm">Upload New Paper</span>
                 </a>
+                )}
 
                 <a
                   href="/browse"

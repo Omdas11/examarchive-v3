@@ -12,7 +12,7 @@ import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 export const metadata: Metadata = {
   title: "Upload Question Papers",
   description:
-    "Upload question papers to ExamArchive. Submissions are reviewed by admins before publishing.",
+    "Uploads are handled by the ExamArchive team. If you have papers we don't have yet, contact us and we'll add them.",
   keywords: [
     "upload question paper",
     "submit past paper",
@@ -92,6 +92,39 @@ export default async function UploadPage({
       userInitials={userInitials}
     >
       <section className="mx-auto px-4 py-10" style={{ maxWidth: "var(--max-w)" }}>
+        {!userIsAdmin ? (
+          /* ── Public uploads are closed: the team collects and verifies
+             papers and syllabi itself. Regular users see this notice. ── */
+          <div className="mx-auto max-w-2xl py-16 text-center">
+            <span
+              className="material-symbols-outlined mx-auto flex h-16 w-16 items-center justify-center rounded-full text-3xl"
+              style={{ background: "var(--brand-emerald-soft)", color: "var(--brand-emerald-dark)" }}
+              aria-hidden="true"
+            >
+              upload_file
+            </span>
+            <h1 className="mt-5 text-2xl font-bold text-on-surface">
+              Uploads are handled by the ExamArchive team
+            </h1>
+            <p className="mx-auto mt-2 max-w-md text-sm text-on-surface-variant">
+              We collect, verify and publish question papers and syllabi ourselves, so public
+              uploads are closed for now. If you have a paper or syllabus we don&apos;t have
+              yet, send it to us and we&apos;ll add it.
+            </p>
+            <div className="mt-6 flex flex-wrap justify-center gap-3">
+              <a href="/browse" className="btn-primary text-sm px-6 py-2.5 rounded-full">
+                Browse the Archive
+              </a>
+              <a
+                href="/contact"
+                className="bg-surface text-on-surface border border-outline-variant/20 font-bold text-sm px-6 py-2.5 rounded-full hover:bg-surface-container-low transition-all"
+              >
+                Contact Us
+              </a>
+            </div>
+          </div>
+        ) : (
+          <>
         {/* Intro */}
         <h1 className="text-2xl font-bold text-on-surface">Upload to ExamArchive</h1>
         <p className="mt-1 text-sm text-on-surface-variant">
@@ -205,6 +238,8 @@ export default async function UploadPage({
             ))}
           </ul>
         </div>
+          </>
+        )}
       </section>
     </MainLayout>
   );

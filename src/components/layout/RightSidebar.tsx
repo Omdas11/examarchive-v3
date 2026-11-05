@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo } from "react";
 import AvatarRing from "@/components/AvatarRing";
 import { normalizeRole, roleLabel, tierLabel, xpTier } from "@/lib/roles";
+import { STORE_COMING_SOON } from "@/lib/economy";
 
 export interface SidebarProfileResponse {
   id: string;
@@ -131,7 +132,7 @@ export default function RightSidebar({
             <StatRow label="Verified" value={profile?.verified_count ?? 0} />
             <StatRow label="Approval" value={`${profile?.approval_pct ?? 0}%`} />
             <StatRow label="Streak" value={`${streakDays}d`} />
-            <StatRow label="Credits" value={profile?.ai_credits ?? 0} />
+            {!STORE_COMING_SOON && <StatRow label="Credits" value={profile?.ai_credits ?? 0} />}
           </dl>
         )}
 
@@ -146,9 +147,11 @@ export default function RightSidebar({
       <div className="card p-4">
         <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary">Quick Access</p>
         <div className="mt-3 space-y-2 text-sm">
-          <Link href="/upload" className="block rounded-lg px-3 py-2 hover:bg-surface-container-low transition-colors">
-            Upload Question Paper
-          </Link>
+          {["moderator", "founder"].includes(profile?.role ?? "") && (
+            <Link href="/upload" className="block rounded-lg px-3 py-2 hover:bg-surface-container-low transition-colors">
+              Upload Question Paper
+            </Link>
+          )}
           <Link href="/browse" className="block rounded-lg px-3 py-2 hover:bg-surface-container-low transition-colors">
             Browse
           </Link>

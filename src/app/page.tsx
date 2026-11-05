@@ -319,9 +319,6 @@ export default async function HomePage() {
               <Link href="/browse" className="btn-primary text-base px-10 py-4 rounded-full shadow-lg hover:shadow-floating transition-all active:scale-95">
                 Explore Archive
               </Link>
-              <Link href="/upload" className="bg-surface text-on-surface border border-outline-variant/20 font-bold text-base px-10 py-4 rounded-full shadow-sm hover:bg-surface-container-low transition-all active:scale-95">
-                Upload Paper
-              </Link>
               {!user ? (
                 <Link href="/login" className="bg-surface-container-low text-primary font-bold text-base px-10 py-4 rounded-full hover:bg-surface-container transition-all active:scale-95">
                   Sign In
@@ -493,14 +490,14 @@ export default async function HomePage() {
               </svg>
             </div>
             <div className="flex-1 min-w-0 text-center sm:text-left relative z-10">
-              <h2 className="text-2xl font-extrabold mb-2 tracking-tight">Start Uploading Question Papers</h2>
+              <h2 className="text-2xl font-extrabold mb-2 tracking-tight">Have question papers to share?</h2>
               <p className="text-base font-medium text-on-surface-variant">
-                Help your fellow students by submitting past exam papers and syllabi.
-                Every contribution builds the community repository.
+                The ExamArchive team collects and verifies papers and syllabi. If you have
+                papers we don&apos;t have yet, let us know and we&apos;ll add them.
               </p>
             </div>
-            <Link href="/upload" className="btn-primary text-base px-10 py-4 rounded-full shadow-lg hover:shadow-floating transition-all active:scale-95 shrink-0 whitespace-nowrap">
-              Contribute Now
+            <Link href="/contact" className="btn-primary text-base px-10 py-4 rounded-full shadow-lg hover:shadow-floating transition-all active:scale-95 shrink-0 whitespace-nowrap">
+              Contact Us
             </Link>
           </div>
         </section>

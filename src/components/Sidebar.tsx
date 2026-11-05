@@ -87,9 +87,11 @@ export default function Sidebar({ user }: SidebarProps) {
       <Link href="/browse" className={isActive("/browse") ? "active" : ""}>
         {icons.browse} Browse
       </Link>
-      <Link href="/upload" className={isActive("/upload") ? "active" : ""}>
-        {icons.upload} Upload
-      </Link>
+      {isAdminOrAbove && (
+        <Link href="/upload" className={isActive("/upload") ? "active" : ""}>
+          {icons.upload} Upload
+        </Link>
+      )}
       <a href="https://syllabus.examarchive.dev" target="_blank" rel="noopener noreferrer">
         {icons.syllabus} Syllabus Vault
       </a>
