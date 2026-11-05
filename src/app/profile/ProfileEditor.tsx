@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ToastContext";
 import AvatarRing from "@/components/AvatarRing";
-import { IconEdit, IconRefresh } from "@/components/Icons";
+import { IconEdit } from "@/components/Icons";
 import type { UserRole } from "@/types";
 
 interface ProfileEditorProps {
@@ -43,18 +43,16 @@ export default function ProfileEditor({
   const router = useRouter();
   const [name, setName] = useState(initialName);
   const [username, setUsername] = useState(initialUsername);
-  const [avatarUrl, setAvatarUrl] = useState(initialAvatarUrl);
   const [saving, setSaving] = useState(false);
-  const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [usernameLastChanged, setUsernameLastChanged] = useState<string | null | undefined>(initialUsernameLastChanged);
   const [editingUsername, setEditingUsername] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const usernameInputRef = useRef<HTMLInputElement>(null);
   const { showToast } = useToast();
 
   const displayName = name || username || "User";
-  const shownAvatar = avatarPreview ?? avatarUrl;
+  // Avatar is display-only now: the Google profile photo for Google sign-ins,
+  // initials otherwise. No uploads.
+  const avatarUrl = initialAvatarUrl;
   const daysLeft = cooldownDaysLeft(usernameLastChanged);
   const canChangeUsername = daysLeft === 0;
 
@@ -64,59 +62,6 @@ export default function ProfileEditor({
       usernameInputRef.current.select();
     }
   }, [editingUsername]);
-
-  async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const localUrl = URL.createObjectURL(file);
-    setAvatarPreview(localUrl);
-
-    setUploadingAvatar(true);
-    try {
-      const fd = new FormData();
-      fd.append("avatar", file);
-      const res = await fetch("/api/profile/avatar", { method: "POST", body: fd });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        const msg = data.error ?? "Avatar upload failed";
-        const detail = data.details ? ` (${data.details})` : "";
-        showToast(msg + detail, "error");
-        setAvatarPreview(null);
-      } else {
-        setAvatarUrl(data.avatar_url ?? "");
-        setAvatarPreview(null);
-        showToast("Profile photo updated", "success");
-        router.refresh();
-      }
-    } catch (err) {
-      showToast(toErrorMessage(err, "Network error – please try again"), "error");
-      setAvatarPreview(null);
-    } finally {
-      setUploadingAvatar(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
-  }
-
-  async function handleRemoveAvatar() {
-    setUploadingAvatar(true);
-    try {
-      const res = await fetch("/api/profile/avatar", { method: "DELETE" });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        showToast(data.error ?? "Failed to remove photo", "error");
-      } else {
-        setAvatarUrl("");
-        setAvatarPreview(null);
-        showToast("Profile photo removed", "success");
-        router.refresh();
-      }
-    } catch {
-      showToast("Network error – please try again", "error");
-    } finally {
-      setUploadingAvatar(false);
-    }
-  }
 
   async function handleSave() {
     setSaving(true);
@@ -146,42 +91,14 @@ export default function ProfileEditor({
 
   return (
     <div className="flex flex-col items-center gap-2 text-center">
-      {/* ── Centered avatar with red camera button ── */}
-      <div className="relative inline-block">
-        <AvatarRing
-          displayName={displayName}
-          avatarUrl={shownAvatar || undefined}
-          streakDays={0}
-          role={role}
-          size={96}
-        />
-        {/* Camera overlay button — z-10 ensures it floats above the AvatarRing stacking context */}
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={uploadingAvatar}
-          className="absolute bottom-0 right-0 z-10 flex items-center justify-center rounded-full w-8 h-8 shadow-md transition-opacity hover:opacity-90"
-          style={{ background: "var(--color-primary)", color: "#fff" }}
-          aria-label="Change profile photo"
-        >
-          {uploadingAvatar ? (
-            <IconRefresh size={15} className="animate-spin" aria-hidden="true" />
-          ) : (
-            <IconEdit size={15} aria-hidden="true" />
-          )}
-        </button>
-
-        {/* Hidden file input */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp,image/gif"
-          className="sr-only"
-          onChange={handleAvatarChange}
-          disabled={uploadingAvatar}
-          aria-label="Upload avatar image"
-        />
-      </div>
+      {/* ── Avatar is display-only: Google photo or initials ── */}
+      <AvatarRing
+        displayName={displayName}
+        avatarUrl={avatarUrl || undefined}
+        streakDays={0}
+        role={role}
+        size={96}
+      />
 
       {/* Display name – styled as a large heading, editable inline */}
       <input
@@ -233,29 +150,15 @@ export default function ProfileEditor({
         </div>
       )}
 
-      {shownAvatar && !uploadingAvatar && (
-        <button
-          type="button"
-          onClick={handleRemoveAvatar}
-          className="text-[11px]"
-          style={{ color: "var(--color-text-muted)" }}
-        >
-          Remove photo
-        </button>
-      )}
-
       {/* Save button */}
       <button
         type="button"
         onClick={handleSave}
         className="btn-primary text-sm px-5 py-1.5 mt-1"
-        disabled={saving || uploadingAvatar}
+        disabled={saving}
       >
         {saving ? "Saving…" : "Save Changes"}
       </button>
-      <p className="text-[10px]" style={{ color: "var(--color-text-muted)" }}>
-        JPEG, PNG, WebP or GIF · max 2 MB
-      </p>
     </div>
   );
 }

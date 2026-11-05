@@ -121,9 +121,6 @@ export const PAPER_MARKDOWN_BUCKET_ID =
  * need the bucket; pass the folder when UPLOADING so files stay organised
  * (node-appwrite createFile takes folder as its 5th argument).
  */
-/** User avatar images live in syllabus-files/avatars/ (it allows images; papers is PDF-only). */
-export const AVATARS_BUCKET_ID = SYLLABUS_BUCKET_ID;
-export const AVATARS_FOLDER = "avatars";
 /** Uploaded syllabus markdown ingestion files live in paper-markdown/syllabus-md-ingestion/. */
 export const SYLLABUS_MD_INGESTION_BUCKET_ID = PAPER_MARKDOWN_BUCKET_ID;
 export const SYLLABUS_MD_INGESTION_FOLDER = "syllabus-md-ingestion";
@@ -142,9 +139,6 @@ export const CACHED_SOLVED_PAPERS_FOLDER = "cached-solved-papers";
 /** User-uploaded handmade PDF notes live in papers/notes/. */
 export const NOTES_BUCKET_ID = BUCKET_ID;
 export const NOTES_FOLDER = "notes";
-/** Cleaned print-perfect question-paper PDFs live in papers/clean-papers/. */
-export const CLEAN_PAPERS_BUCKET_ID = BUCKET_ID;
-export const CLEAN_PAPERS_FOLDER = "clean-papers";
 
 // ── Server-side admin client (uses API key) ─────────────────────────────
 let adminClientSingleton: Client | null = null;
@@ -242,45 +236,6 @@ export async function uploadFileToAppwrite(
   const inputFile = InputFile.fromBuffer(buffer, file.name);
   await storage.createFile(BUCKET_ID, fileId, inputFile);
   return { fileId, bucketId: BUCKET_ID };
-}
-
-/**
- * Upload an avatar image to the avatars folder and return its file ID.
- * Sets authenticated-user read permissions; the syllabus-files bucket
- * itself is public-read, so avatars stay publicly viewable via the proxy.
- */
-export async function uploadAvatarToAppwrite(
-  file: File,
-): Promise<{ fileId: string; bucketId: string }> {
-  const storage = adminStorage();
-  const fileId = ID.unique();
-  const arrayBuffer = await file.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
-  const inputFile = InputFile.fromBuffer(buffer, file.name);
-  // Allow any authenticated user to read avatars (matches the bucket's "users" permission)
-  await storage.createFile(AVATARS_BUCKET_ID, fileId, inputFile, [
-    Permission.read(Role.users()),
-  ], AVATARS_FOLDER);
-  return { fileId, bucketId: AVATARS_BUCKET_ID };
-}
-
-/**
- * Delete an avatar file from the avatars folder.
- */
-export async function deleteAvatarFromAppwrite(fileId: string): Promise<void> {
-  const storage = adminStorage();
-  await storage.deleteFile(AVATARS_BUCKET_ID, fileId);
-}
-
-/**
- * Build the preview URL for an avatar stored in the avatars folder.
- *
- * Returns a Next.js proxy URL (/api/files/avatars/{fileId}) instead of a
- * direct Appwrite URL so that requests are authenticated server-side with
- * the admin API key.
- */
-export function getAvatarPreviewUrl(fileId: string, width = 200): string {
-  return `/api/files/avatars/${fileId}?w=${width}`;
 }
 
 /**

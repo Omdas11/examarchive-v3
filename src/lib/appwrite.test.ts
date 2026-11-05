@@ -159,30 +159,6 @@ describe("appwrite", () => {
       expect(storage.createFile).toHaveBeenCalledWith("papers", "mocked-unique-id", expect.any(Object));
     });
 
-    it("uploadAvatarToAppwrite uploads avatar with read permission correctly", async () => {
-      const { uploadAvatarToAppwrite } = appwriteModule;
-      const { Storage } = require("node-appwrite");
-      const storage = new Storage();
-      const result = await uploadAvatarToAppwrite(fakeFile);
-      expect(result.fileId).toBe("mocked-unique-id");
-      expect(result.bucketId).toBe("syllabus-files");
-      expect(storage.createFile).toHaveBeenCalledWith(
-        "syllabus-files",
-        "mocked-unique-id",
-        expect.any(Object),
-        ["read:users-role"],
-        "avatars"
-      );
-    });
-
-    it("deleteAvatarFromAppwrite deletes the file", async () => {
-      const { deleteAvatarFromAppwrite } = appwriteModule;
-      const { Storage } = require("node-appwrite");
-      const storage = new Storage();
-      await deleteAvatarFromAppwrite("avatar-id");
-      expect(storage.deleteFile).toHaveBeenCalledWith("syllabus-files", "avatar-id");
-    });
-
     it("deleteFileFromAppwrite deletes the file", async () => {
       const { deleteFileFromAppwrite } = appwriteModule;
       const { Storage } = require("node-appwrite");
@@ -195,14 +171,11 @@ describe("appwrite", () => {
   describe("URL builders", () => {
     it("returns correct preview and download URLs", () => {
       const {
-        getAvatarPreviewUrl,
         getAppwriteFileUrl,
         getAppwriteFileDownloadUrl,
         getNotesFileUrl,
         getNotesFileDownloadUrl,
       } = appwriteModule;
-      expect(getAvatarPreviewUrl("avatar123", 100)).toBe("/api/files/avatars/avatar123?w=100");
-      expect(getAvatarPreviewUrl("avatar123")).toBe("/api/files/avatars/avatar123?w=200");
       expect(getAppwriteFileUrl("file123")).toBe("/api/files/papers/file123");
       expect(getAppwriteFileDownloadUrl("file123")).toBe("/api/files/papers/file123?download=1");
       expect(getNotesFileUrl("notes123")).toBe("/api/files/notes/notes123");

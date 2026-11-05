@@ -75,6 +75,52 @@ async function updateDailyStreak(
  * Centralised to avoid duplicating the mapping logic across
  * getServerUser's multiple code-paths.
  */
+/**
+ * Avatar URLs that pointed at the deleted avatars bucket are treated as
+ * empty — AvatarRing falls back to initials for those users.
+ */
+function normalizeAvatarUrl(url: string): string {
+  return url.startsWith("/api/files/avatars/") ? "" : url;
+}
+
+/**
+ * Fill a missing avatar from the user's Google profile photo. Runs only
+ * when the stored avatar is empty (or a stale deleted-bucket URL): it reads
+ * the OAuth provider token from the current session, asks Google for the
+ * profile picture, and stores the URL. Never throws — on any failure the
+ * caller keeps the empty avatar (initials fallback).
+ */
+async function withGoogleAvatar(
+  user: UserProfile,
+  db: ReturnType<typeof adminDatabases>,
+  profileId: string,
+  sessionSecret: string,
+): Promise<UserProfile> {
+  if (user.avatar_url) return user;
+  try {
+    const client = createSessionClient(sessionSecret);
+    const account = new Account(client);
+    const session = await account.getSession("current");
+    const token = (session as unknown as Record<string, unknown>)
+      .providerAccessToken as string | undefined;
+    if (!token) return user;
+    const res = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) return user;
+    const data = (await res.json()) as { picture?: unknown };
+    const picture = typeof data.picture === "string" ? data.picture : "";
+    if (!picture) return user;
+    await db.updateDocument(DATABASE_ID, COLLECTION.users, profileId, {
+      avatar_url: picture,
+    });
+    return { ...user, avatar_url: picture };
+  } catch {
+    return user;
+  }
+}
+
 function profileToUserProfile(
   profile: Record<string, unknown>,
   fallbackEmail: string,
@@ -85,8 +131,7 @@ function profileToUserProfile(
     email: (profile.email as string) ?? fallbackEmail,
     name: (profile.display_name as string) ?? "",
     username: (profile.username as string) ?? "",
-    avatar_url: (profile.avatar_url as string) ?? "",
-    avatar_file_id: (profile.avatar_file_id as string) ?? undefined,
+    avatar_url: normalizeAvatarUrl((profile.avatar_url as string) ?? ""),
     role: normalizeRole((profile.role as string) ?? "student"),
     secondary_role: isValidCustomRole(rawSecondary) ? rawSecondary : null,
     // Tier is derived from XP alone (roles.ts xpTier), never from the stored value.
@@ -162,7 +207,12 @@ export async function getServerUser(): Promise<UserProfile | null> {
       const profileRec = profile as unknown as Record<string, unknown>;
       // Fire-and-forget: update streak (promotion now runs on verification)
       void updateDailyStreak(db, profile.$id, Number(profile.streak_days ?? 0), (profile.last_activity as string) ?? "");
-      return profileToUserProfile(profileRec, user.email);
+      return withGoogleAvatar(
+        profileToUserProfile(profileRec, user.email),
+        db,
+        profile.$id,
+        session,
+      );
     } catch {
       // Document with Auth user ID doesn't exist, try fallback lookup by email
     }
@@ -178,7 +228,12 @@ export async function getServerUser(): Promise<UserProfile | null> {
       const profile = documents[0];
       const profileRec = profile as unknown as Record<string, unknown>;
       void updateDailyStreak(db, profile.$id, Number(profile.streak_days ?? 0), (profile.last_activity as string) ?? "");
-      return profileToUserProfile(profileRec, user.email);
+      return withGoogleAvatar(
+        profileToUserProfile(profileRec, user.email),
+        db,
+        profile.$id,
+        session,
+      );
     }
 
     // Auto-create profile document on first login.
@@ -209,30 +264,39 @@ export async function getServerUser(): Promise<UserProfile | null> {
         ],
       );
 
-      return {
-        id: newProfile.$id,
-        email: (newProfile.email as string) ?? user.email,
-        name: "",
-        username: "",
-        avatar_url: "",
-        avatar_file_id: undefined,
-        role: "student" as UserRole,
-        secondary_role: null,
-        tier: "bronze" as UserTier,
-        xp: 0,
-        specialist_subject: null,
-        subject_admin_subject: null,
-        ai_credits: DEFAULT_CREDITS,
-        streak_days: 0,
-        last_activity: "",
-        created_at: newProfile.$createdAt,
-      };
+      return withGoogleAvatar(
+        {
+          id: newProfile.$id,
+          email: (newProfile.email as string) ?? user.email,
+          name: "",
+          username: "",
+          avatar_url: "",
+          role: "student" as UserRole,
+          secondary_role: null,
+          tier: "bronze" as UserTier,
+          xp: 0,
+          specialist_subject: null,
+          subject_admin_subject: null,
+          ai_credits: DEFAULT_CREDITS,
+          streak_days: 0,
+          last_activity: "",
+          created_at: newProfile.$createdAt,
+        },
+        db,
+        newProfile.$id,
+        session,
+      );
     } catch (insertError) {
       // A concurrent request may have already created the document (primary-key
       // conflict). Attempt to read it back before giving up.
       try {
         const existing = await db.getDocument(DATABASE_ID, COLLECTION.users, user.$id);
-        return profileToUserProfile(existing as unknown as Record<string, unknown>, user.email);
+        return withGoogleAvatar(
+          profileToUserProfile(existing as unknown as Record<string, unknown>, user.email),
+          db,
+          user.$id,
+          session,
+        );
       } catch (fetchError) {
         console.error("[auth] Failed to create profile for user", user.$id, insertError);
         console.error("[auth] Retry fetch after conflict also failed:", fetchError);
@@ -305,7 +369,7 @@ export async function getExtendedServerUser(): Promise<ExtendedUserProfile | nul
       email: (profile.email as string) ?? user.email,
       name: (profile.display_name as string) ?? "",
       username: (profile.username as string) ?? "",
-      avatar_url: (profile.avatar_url as string) ?? "",
+      avatar_url: normalizeAvatarUrl((profile.avatar_url as string) ?? ""),
       role: primaryRole,
       secondary_role: secondaryRole,
       tertiary_role: tertiaryRole,

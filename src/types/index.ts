@@ -82,9 +82,8 @@ export interface UserProfile {
   email: string;
   name: string;
   username: string;
+  /** Google profile photo URL for Google sign-ins, "" otherwise (initials fallback). */
   avatar_url: string;
-  /** File ID of the avatar in Appwrite Storage (avatars bucket). */
-  avatar_file_id?: string;
   role: UserRole;
   /** Community/custom secondary role, if any. */
   secondary_role?: CustomRole;

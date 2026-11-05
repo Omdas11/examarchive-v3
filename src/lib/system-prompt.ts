@@ -8,10 +8,10 @@ type PromptKind = "solved_paper" | "unit_notes";
 function determinePromptKind(params?: { routePath?: string; promptType?: PromptKind | string }): PromptKind {
   const promptType = typeof params?.promptType === "string" ? params.promptType.trim().toLowerCase() : "";
   const routePath = typeof params?.routePath === "string" ? params.routePath.trim().toLowerCase() : "";
-  if (promptType === "unit_notes" || routePath.endsWith("/api/generate-notes-stream")) {
+  if (promptType === "unit_notes") {
     return "unit_notes";
   }
-  if (promptType === "solved_paper" || routePath.endsWith("/api/generate-solved-paper-stream")) {
+  if (promptType === "solved_paper") {
     return "solved_paper";
   }
   // Default to solved-paper to preserve previous behavior for callers that do not
