@@ -1,3 +1,5 @@
+import { extractSubjectCode } from "@/lib/syllabus-table";
+
 /**
  * The 13 Haflong Government College departments in the syllabus library.
  *
@@ -126,3 +128,17 @@ export const SYLLABUS_DEPARTMENTS: Record<string, SyllabusDeptInfo> = {
 };
 
 export const SYLLABUS_DEPARTMENT_SLUGS = Object.keys(SYLLABUS_DEPARTMENTS);
+
+/** Department slug for a paper code (e.g. PHYDSC401T -> "physics"). */
+export function syllabusDeptSlugForPaperCode(paperCode: string): string | undefined {
+  const subjectCode = extractSubjectCode(paperCode);
+  return Object.values(SYLLABUS_DEPARTMENTS).find(
+    (d) => d.subjectCode === subjectCode,
+  )?.slug;
+}
+
+/** Department info for a 3-letter subject code (e.g. "PHY" -> physics). */
+export function syllabusDeptBySubjectCode(subjectCode: string): SyllabusDeptInfo | undefined {
+  const code = subjectCode.trim().toUpperCase();
+  return Object.values(SYLLABUS_DEPARTMENTS).find((d) => d.subjectCode === code);
+}

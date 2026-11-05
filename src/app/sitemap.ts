@@ -1,7 +1,10 @@
 import type { MetadataRoute } from "next";
 import { adminDatabases, DATABASE_ID, COLLECTION } from "@/lib/appwrite";
 import { Query } from "node-appwrite";
-import { SYLLABUS_DEPARTMENT_SLUGS } from "@/lib/syllabus-departments";
+import {
+  SYLLABUS_DEPARTMENT_SLUGS,
+  syllabusDeptBySubjectCode,
+} from "@/lib/syllabus-departments";
 
 const SITE_URL = "https://www.examarchive.dev";
 
@@ -70,29 +73,32 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.8,
   }));
 
-  // All syllabus papers from the syllabus table (distinct paper codes)
+  // All syllabus papers from the syllabus table (distinct paper codes,
+  // grouped under their department: /syllabus/paper/<dept>/<code>)
   const syllabusPaperRoutes: MetadataRoute.Sitemap = [];
   try {
     const db = adminDatabases();
-    const codes = new Set<string>();
+    const codes = new Map<string, string>();
     let offset = 0;
     for (;;) {
       const res = await db.listDocuments(DATABASE_ID, COLLECTION.syllabus_table, [
         Query.equal("status", "published"),
         Query.limit(500),
         Query.offset(offset),
-        Query.select(["paper_code"]),
+        Query.select(["paper_code", "subject"]),
       ]);
       for (const doc of res.documents) {
         const code = String(doc.paper_code ?? "").trim().toUpperCase();
-        if (code) codes.add(code);
+        if (!code || codes.has(code)) continue;
+        const dept = syllabusDeptBySubjectCode(String(doc.subject ?? ""));
+        if (dept) codes.set(code, dept.slug);
       }
       if (res.documents.length < 500) break;
       offset += 500;
     }
-    for (const code of codes) {
+    for (const [code, slug] of codes) {
       syllabusPaperRoutes.push({
-        url: `${SITE_URL}/syllabus/paper/${code}`,
+        url: `${SITE_URL}/syllabus/paper/${slug}/${code}`,
         lastModified: new Date(),
         changeFrequency: "monthly" as const,
         priority: 0.7,

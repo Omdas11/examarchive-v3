@@ -216,7 +216,7 @@ export default async function SyllabusDepartmentPage({
               {papers.map((p) => (
                 <Link
                   key={p.code}
-                  href={`/syllabus/paper/${p.code}`}
+                  href={`/syllabus/paper/${department}/${p.code}`}
                   className="group flex flex-col gap-2 rounded-2xl border border-outline-variant/30 bg-surface p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
                   style={{ textDecoration: "none", color: "inherit" }}
                 >

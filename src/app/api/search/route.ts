@@ -6,6 +6,7 @@ import {
   Query,
 } from "@/lib/appwrite";
 import type { Models } from "node-appwrite";
+import { syllabusDeptSlugForPaperCode } from "@/lib/syllabus-departments";
 
 export async function GET(request: NextRequest) {
   const q = request.nextUrl.searchParams.get("q")?.trim();
@@ -59,7 +60,14 @@ export async function GET(request: NextRequest) {
         sublabel: doc.course_code
           ? `${doc.course_code}${doc.semester ? ` · Sem ${doc.semester}` : ""}`
           : doc.university ?? "",
-        href: doc.course_code ? `/syllabus/paper/${encodeURIComponent(doc.course_code as string)}` : "/syllabus",
+        href: doc.course_code
+          ? (() => {
+              const slug = syllabusDeptSlugForPaperCode(doc.course_code as string);
+              return slug
+                ? `/syllabus/paper/${slug}/${encodeURIComponent(doc.course_code as string)}`
+                : `/syllabus/paper/${encodeURIComponent(doc.course_code as string)}`;
+            })()
+          : "/syllabus",
       })),
       {
         type: "browse" as const,

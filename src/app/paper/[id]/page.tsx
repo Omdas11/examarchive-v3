@@ -13,6 +13,7 @@ import { toRoman } from "@/lib/utils";
 import { getProgramme } from "@/lib/programme";
 import { buildPaperJsonLd, serializeJsonLd } from "@/lib/json-ld";
 import { findByPaperCode, type SyllabusRegistryEntry, type SyllabusUnit } from "@/data/syllabus-registry";
+import { syllabusDeptSlugForPaperCode } from "@/lib/syllabus-departments";
 import { PAPER_TYPE_COLORS } from "@/components/PaperCard";
 import MainLayout from "@/components/layout/MainLayout";
 import CaptchaDownloadButton from "@/components/CaptchaDownloadButton";
@@ -397,7 +398,12 @@ export default async function PaperPage({ params }: PaperPageProps) {
 
               {/* Link to full syllabus detail */}
               <Link
-                href={`/syllabus/paper/${encodeURIComponent(syllabusEntry.paper_code)}`}
+                href={(() => {
+                  const slug = syllabusDeptSlugForPaperCode(syllabusEntry.paper_code);
+                  return slug
+                    ? `/syllabus/paper/${slug}/${encodeURIComponent(syllabusEntry.paper_code)}`
+                    : `/syllabus/paper/${encodeURIComponent(syllabusEntry.paper_code)}`;
+                })()}
                 className="btn py-3.5 rounded-full w-full text-sm font-black uppercase tracking-widest border-2 border-primary/10 hover:bg-primary-fixed hover:text-primary transition-all flex items-center justify-center gap-2"
                 style={{ color: "var(--color-primary)" }}
               >
