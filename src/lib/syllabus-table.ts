@@ -36,6 +36,18 @@ export interface SyllabusTablePaperSummary {
 
 export const PAPER_NAME_SPLIT_RE = /[.;\n]/;
 
+/**
+ * Semester (1-8) for an FYUG paper code, from its 3-digit number:
+ * 101/102 -> 1, 151/152 -> 2, 201/202 -> 3, 251/252 -> 4,
+ * 301/302 -> 5, 351/352 -> 6, 401/402 -> 7, 451+ -> 8.
+ * Returns 0 when the code carries no semester number.
+ */
+export function semesterForPaperCode(paperCode: string): number {
+  const m = paperCode.trim().toUpperCase().match(/(\d)(\d)\d/);
+  if (!m) return 0;
+  return (Number(m[1]) - 1) * 2 + (Number(m[2]) >= 5 ? 2 : 1);
+}
+
 export function extractSubjectCode(paperCode: string): string {
   const upper = paperCode.trim().toUpperCase();
   if (!upper) return "GEN";

@@ -2,7 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { adminDatabases, DATABASE_ID, COLLECTION, Query } from "@/lib/appwrite";
-import { derivePaperNameFromRows, toSyllabusTableRow } from "@/lib/syllabus-table";
+import {
+  derivePaperNameFromRows,
+  semesterForPaperCode,
+  toSyllabusTableRow,
+} from "@/lib/syllabus-table";
 import { toSyllabus, type Syllabus } from "@/types";
 import { getServerUser } from "@/lib/auth";
 import { isAdmin } from "@/lib/roles";
@@ -17,6 +21,8 @@ interface PaperSummary {
   name: string;
   units: number;
   lectures: number;
+  type: string;
+  semester: number;
 }
 
 export async function generateStaticParams() {
@@ -106,6 +112,8 @@ export default async function SyllabusDepartmentPage({
           (sum, r) => sum + (typeof r.lectures === "number" ? r.lectures : 0),
           0,
         ),
+        type: rows.map((r) => r.type.trim()).find((t) => t.length > 0) ?? "",
+        semester: semesterForPaperCode(code),
       });
     }
     papers.sort((a, b) => a.code.localeCompare(b.code));
@@ -114,6 +122,19 @@ export default async function SyllabusDepartmentPage({
   }
 
   const totalUnits = papers.reduce((sum, p) => sum + p.units, 0);
+
+  // Papers grouped by semester (1-8); codes with no semester number last.
+  const bySemester = new Map<number, PaperSummary[]>();
+  for (const p of papers) {
+    const key = p.semester > 0 ? p.semester : 0;
+    if (!bySemester.has(key)) bySemester.set(key, []);
+    bySemester.get(key)!.push(p);
+  }
+  const semesterKeys = [...bySemester.keys()].sort((a, b) => {
+    if (a === 0) return 1;
+    if (b === 0) return -1;
+    return a - b;
+  });
 
   const faqJsonLd = {
     "@context": "https://schema.org",
@@ -210,25 +231,55 @@ export default async function SyllabusDepartmentPage({
         )}
 
         <section aria-label={`${info.name} syllabus papers`} className="mt-8">
-          <h2 className="text-xl font-bold text-on-surface">Papers ({papers.length})</h2>
+          <h2 className="text-xl font-bold text-on-surface">Papers by semester ({papers.length})</h2>
           {papers.length > 0 ? (
-            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {papers.map((p) => (
-                <Link
-                  key={p.code}
-                  href={`/syllabus/paper/${department}/${p.code}`}
-                  className="group flex flex-col gap-2 rounded-2xl border border-outline-variant/30 bg-surface p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
-                  style={{ textDecoration: "none", color: "inherit" }}
-                >
-                  <p className="font-mono text-xs font-bold text-primary">{p.code}</p>
-                  <p className="text-sm font-semibold leading-snug text-on-surface">{p.name}</p>
-                  <p className="mt-auto text-xs text-on-surface-variant">
-                    {p.units} unit{p.units !== 1 ? "s" : ""}
-                    {p.lectures > 0 ? ` · ${p.lectures} lectures` : ""}
-                  </p>
-                </Link>
+            <>
+              <nav aria-label="Semesters" className="mt-3 flex flex-wrap gap-2">
+                {semesterKeys.map((sem) => (
+                  <a
+                    key={sem}
+                    href={`#semester-${sem}`}
+                    className="rounded-full border border-outline-variant/40 bg-surface px-3 py-1 text-xs font-bold text-on-surface"
+                  >
+                    {sem === 0 ? "Other" : `Semester ${sem}`} · {bySemester.get(sem)!.length}
+                  </a>
+                ))}
+              </nav>
+              {semesterKeys.map((sem) => (
+                <div key={sem} id={`semester-${sem}`} className="mt-8 scroll-mt-24">
+                  <h3 className="text-lg font-bold text-on-surface">
+                    {sem === 0 ? "Other papers" : `Semester ${sem}`}{" "}
+                    <span className="text-sm font-semibold text-on-surface-variant">
+                      ({bySemester.get(sem)!.length} papers)
+                    </span>
+                  </h3>
+                  <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {bySemester.get(sem)!.map((p) => (
+                      <Link
+                        key={p.code}
+                        href={`/syllabus/paper/${department}/${p.code}`}
+                        className="group flex flex-col gap-2 rounded-2xl border border-outline-variant/30 bg-surface p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+                        style={{ textDecoration: "none", color: "inherit" }}
+                      >
+                        <p className="flex items-center gap-2 font-mono text-xs font-bold text-primary">
+                          {p.code}
+                          {p.type && (
+                            <span className="rounded-full bg-primary/10 px-2 py-0.5 font-sans text-[10px] font-black uppercase tracking-wider text-primary">
+                              {p.type}
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-sm font-semibold leading-snug text-on-surface">{p.name}</p>
+                        <p className="mt-auto text-xs text-on-surface-variant">
+                          {p.units} unit{p.units !== 1 ? "s" : ""}
+                          {p.lectures > 0 ? ` · ${p.lectures} lectures` : ""}
+                        </p>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
               ))}
-            </div>
+            </>
           ) : (
             <p className="mt-4 text-sm text-on-surface-variant">
               No syllabus papers found for this department yet.{" "}

@@ -15,6 +15,7 @@ import VerifyStrip from "@/components/VerifyStrip";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import {
   derivePaperNameFromContent,
+  semesterForPaperCode,
   toSyllabusTableRow,
 } from "@/lib/syllabus-table";
 import {
@@ -190,6 +191,7 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
   const info = SYLLABUS_DEPARTMENTS[department];
   if (!info) notFound();
   const code = decodeURIComponent(paper_code).toUpperCase();
+  const semester = semesterForPaperCode(code);
   // Wrong department in the URL: redirect before any slow database call,
   // so the redirect is a real HTTP 308 instead of a client-side one.
   const prefixSlug = syllabusDeptSlugForPaperCode(code);
@@ -233,6 +235,9 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
         { label: "Home", href: "/" },
         { label: "Syllabus", href: "/syllabus" },
         { label: info.name, href: `/syllabus/${department}` },
+        ...(semester > 0
+          ? [{ label: `Semester ${semester}`, href: `/syllabus/${department}#semester-${semester}` }]
+          : []),
         { label: code },
       ]}
       showSearch={false}
