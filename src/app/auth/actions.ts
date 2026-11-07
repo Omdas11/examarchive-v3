@@ -19,6 +19,13 @@ import { SESSION_COOKIE } from "@/lib/auth";
 import {
   DEFAULT_CREDITS,
 } from "@/lib/economy";
+import {
+  MFA_PENDING_COOKIE,
+  beginMfaLoginIfNeeded,
+  encodeMfaPending,
+  mfaPendingCookieOptions,
+  type MfaPendingState,
+} from "@/lib/mfa";
 
 import { headers } from "next/headers";
 
@@ -128,6 +135,12 @@ export async function signInWithOtp(formData: FormData) {
 /**
  * Server Action – sign in with email and password.
  * Creates an Appwrite session and persists it as an httpOnly cookie.
+ *
+ * MFA: when the account has two-factor authentication on, the session
+ * created here is only half-finished — account.get() answers with
+ * `user_more_factors_required`. In that case NO session cookie is issued;
+ * instead the challenge is started and the user is sent to /login/mfa.
+ * Accounts without MFA take the exact same path as before this change.
  */
 export async function signInWithPassword(formData: FormData) {
   const email = (formData.get("email") as string | null)?.trim();
@@ -137,21 +150,21 @@ export async function signInWithPassword(formData: FormData) {
     redirect("/login?mode=signin&error=fields_required");
   }
 
+  const redirectUrl = formData.get("redirectUrl") as string | null;
+  let session: { secret: string; userId: string } | null = null;
+  let mfaPending: MfaPendingState | null = null;
+
   try {
     const client = createAdminClient();
     const account = new Account(client);
-    const session = await account.createEmailPasswordSession(email, password);
+    session = await account.createEmailPasswordSession(email, password);
 
-    // Persist the session secret as an httpOnly cookie.
-    const cookieStore = await cookies();
-    cookieStore.set(SESSION_COOKIE, session.secret, {
-      path: "/",
-      domain: process.env.NODE_ENV === "production" ? ".examarchive.dev" : undefined,
-      httpOnly: true,
-      secure: true,
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 365, // 1 year – Appwrite manages actual expiry
-    });
+    // MFA check (fails closed: any error here aborts the login).
+    mfaPending = await beginMfaLoginIfNeeded(
+      session.secret,
+      session.userId,
+      redirectUrl || "/",
+    );
   } catch (err: unknown) {
     const message =
       err instanceof Error ? err.message : String(err);
@@ -168,7 +181,33 @@ export async function signInWithPassword(formData: FormData) {
     redirect(`/login?mode=signin&error=${encodeURIComponent(message)}`);
   }
 
-  const redirectUrl = formData.get("redirectUrl") as string | null;
+  // redirect() is intentionally outside the try/catch so the NEXT_REDIRECT
+  // internal error is not swallowed and re-emitted as a login error.
+  if (!session) {
+    redirect("/login?mode=signin&error=invalid_credentials");
+  }
+
+  if (mfaPending) {
+    const cookieStore = await cookies();
+    cookieStore.set(
+      MFA_PENDING_COOKIE,
+      encodeMfaPending(mfaPending),
+      mfaPendingCookieOptions(),
+    );
+    redirect("/login/mfa");
+  }
+
+  // Persist the session secret as an httpOnly cookie.
+  const cookieStore = await cookies();
+  cookieStore.set(SESSION_COOKIE, session.secret, {
+    path: "/",
+    domain: process.env.NODE_ENV === "production" ? ".examarchive.dev" : undefined,
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    maxAge: 60 * 60 * 24 * 365, // 1 year – Appwrite manages actual expiry
+  });
+
   redirect(redirectUrl || "/");
 }
 

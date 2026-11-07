@@ -2,6 +2,12 @@ import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient, Account } from "@/lib/appwrite";
 import { SESSION_COOKIE } from "@/lib/auth";
+import {
+  MFA_PENDING_COOKIE,
+  beginMfaLoginIfNeeded,
+  encodeMfaPending,
+  mfaPendingCookieOptions,
+} from "@/lib/mfa";
 
 /**
  * GET /auth/callback
@@ -32,6 +38,31 @@ export async function GET(request: NextRequest) {
     const client = createAdminClient();
     const account = new Account(client);
     const session = await account.createSession(userId, secret);
+
+    // MFA: magic-link and Google sessions get the same second step as a
+    // password login. When MFA is on, no session cookie is issued here;
+    // the challenge is started and the user is sent to /login/mfa instead.
+    // Accounts without MFA take the exact same path as before this change.
+    // The check fails closed: any error aborts the login (no cookie).
+    let mfaPending: Awaited<ReturnType<typeof beginMfaLoginIfNeeded>> = null;
+    try {
+      mfaPending = await beginMfaLoginIfNeeded(session.secret, userId, next);
+    } catch (mfaErr) {
+      console.error("[auth/callback] MFA check failed:", mfaErr);
+      return NextResponse.redirect(
+        `${origin}/login?error=auth_callback_session_failed`,
+      );
+    }
+
+    if (mfaPending) {
+      const response = NextResponse.redirect(`${origin}/login/mfa`);
+      response.cookies.set(
+        MFA_PENDING_COOKIE,
+        encodeMfaPending(mfaPending),
+        mfaPendingCookieOptions(),
+      );
+      return response;
+    }
 
     // Determine safe redirect target.
     // Allow relative paths and trusted *.examarchive.dev subdomains.

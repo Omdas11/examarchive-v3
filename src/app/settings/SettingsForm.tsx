@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { signOut } from "@/app/auth/actions";
 import type { UserProfile } from "@/types";
 import dynamic from "next/dynamic";
+import MfaSettingsSection from "@/components/MfaSettingsSection";
 import {
   loadCoursePrefs,
   clearCoursePrefs,
@@ -228,6 +229,9 @@ export default function SettingsForm({ user }: SettingsFormProps) {
           )}
         </div>
       </div>
+
+      {/* Two-Factor Authentication */}
+      <MfaSettingsSection />
 
       {/* Account Actions */}
       <div className="card p-6">
