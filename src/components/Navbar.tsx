@@ -158,7 +158,10 @@ export default function Navbar({ user }: NavbarProps) {
         className="sticky top-0 z-50 backdrop-blur"
         style={{
           borderBottom: "1px solid var(--color-border)",
-          background: "color-mix(in srgb, var(--color-bg) 85%, transparent)",
+          // Solid background: the old 85%-translucent header let page
+          // content show through while scrolling under it, so headings
+          // (e.g. "How It Works") were half-covered and unreadable.
+          background: "var(--color-bg)",
         }}
       >
         <div className="mx-auto flex h-14 items-center justify-between px-4" style={{ maxWidth: "var(--max-w)" }}>

@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { adminDatabases, DATABASE_ID, COLLECTION, Query } from "@/lib/appwrite";
 import {
   derivePaperNameFromRows,
+  dedupeSyllabusRowsByUnit,
+  normalizePaperCode,
   semesterForPaperCode,
   toSyllabusTableRow,
 } from "@/lib/syllabus-table";
@@ -95,7 +97,9 @@ export default async function SyllabusDepartmentPage({
       ]);
       for (const doc of res.documents) {
         const row = toSyllabusTableRow(doc as Record<string, unknown>);
-        const code = row.paper_code.trim().toUpperCase();
+        // Group by the canonical code: "PHYSEC-101" and "PHYSEC101" are the
+        // same paper stored under two spellings (see normalizePaperCode).
+        const code = normalizePaperCode(row.paper_code);
         if (!code) continue;
         if (!grouped.has(code)) grouped.set(code, []);
         grouped.get(code)!.push(row);
@@ -104,15 +108,19 @@ export default async function SyllabusDepartmentPage({
       offset += 500;
     }
     for (const [code, rows] of grouped.entries()) {
+      // Collapse raw code variants to one row per unit first: without this,
+      // lectures would be double-counted for papers stored under two
+      // spellings (e.g. "PHYSEC-101" + "PHYSEC101").
+      const uniqueRows = dedupeSyllabusRowsByUnit(rows);
       papers.push({
         code,
-        name: derivePaperNameFromRows(code, rows),
-        units: new Set(rows.map((r) => r.unit_number)).size,
-        lectures: rows.reduce(
+        name: derivePaperNameFromRows(code, uniqueRows),
+        units: new Set(uniqueRows.map((r) => r.unit_number)).size,
+        lectures: uniqueRows.reduce(
           (sum, r) => sum + (typeof r.lectures === "number" ? r.lectures : 0),
           0,
         ),
-        type: rows.map((r) => r.type.trim()).find((t) => t.length > 0) ?? "",
+        type: uniqueRows.map((r) => r.type.trim()).find((t) => t.length > 0) ?? "",
         semester: semesterForPaperCode(code),
       });
     }

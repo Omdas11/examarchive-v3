@@ -123,28 +123,51 @@ export function derivePaperNameFromContent(content: string, fallback: string): s
   return firstLine && firstLine.length > 0 ? firstLine : fallback;
 }
 
-const MAX_PAPER_NAME_LENGTH = 80;
-const ELLIPSIS_LENGTH = 3;
+/**
+ * Canonical paper code: upper-cased with every non-alphanumeric character
+ * stripped. The syllabus table stores the same paper under several spellings
+ * ("PHYSEC-101" vs "PHYSEC101", "PHYDSC453(A)T" vs "PHYDSC453AT"); grouping
+ * and lookups must use this form or the paper appears twice. The data itself
+ * is untouched — the duplicate rows stay in Appwrite for a human to merge.
+ */
+export function normalizePaperCode(paperCode: string): string {
+  return paperCode.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+/**
+ * One representative row per unit, for a paper whose rows arrived under
+ * several raw code spellings. Prefers the row with the longest stored
+ * paper_name (the most complete spelling); ties keep the first row seen.
+ * Rows are returned sorted by unit number.
+ */
+export function dedupeSyllabusRowsByUnit(rows: SyllabusTableRow[]): SyllabusTableRow[] {
+  const byUnit = new Map<number, SyllabusTableRow>();
+  for (const row of rows) {
+    const prev = byUnit.get(row.unit_number);
+    if (!prev || row.paper_name.trim().length > prev.paper_name.trim().length) {
+      byUnit.set(row.unit_number, row);
+    }
+  }
+  return [...byUnit.values()].sort((a, b) => a.unit_number - b.unit_number);
+}
 
 /**
  * Paper display name from its syllabus rows: the stored paper_name when
- * present, otherwise the first line of the first non-empty unit content,
- * capped at 80 characters. Shared by the syllabus-table API route and the
+ * present, otherwise the first line of the first non-empty unit content.
+ * The full name is shown — paper names are never cut off (cards wrap text).
+ * When rows carry variant spellings of the same name, the longest (most
+ * complete) spelling wins. Shared by the syllabus-table API route and the
  * /syllabus/[department] pages so both name a paper the same way.
  */
 export function derivePaperNameFromRows(paperCode: string, rows: SyllabusTableRow[]): string {
-  const capPaperName = (name: string): string =>
-    name.length > MAX_PAPER_NAME_LENGTH
-      ? `${name.slice(0, MAX_PAPER_NAME_LENGTH - ELLIPSIS_LENGTH)}...`
-      : name;
   const storedPaperName = rows
     .map((row) => row.paper_name.trim())
-    .find((name) => name.length > 0);
-  if (storedPaperName) return capPaperName(storedPaperName);
+    .filter((name) => name.length > 0)
+    .sort((a, b) => b.length - a.length)[0];
+  if (storedPaperName) return storedPaperName;
   const derivedPaperName = rows
     .map((row) => row.syllabus_content.trim())
     .find((content) => content.length > 0);
   if (!derivedPaperName) return paperCode;
-  const name = derivePaperNameFromContent(derivedPaperName, paperCode);
-  return capPaperName(name);
+  return derivePaperNameFromContent(derivedPaperName, paperCode);
 }

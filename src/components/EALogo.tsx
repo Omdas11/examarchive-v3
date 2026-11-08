@@ -29,7 +29,10 @@ export default function EALogo({ size = 28, className = "" }: EALogoProps) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src="/branding/logo.png"
+        // 128px variant: the 512px logo.png (368KB) is overkill at the
+        // 28px sizes this renders at. logo.png stays for apple-touch-icon,
+        // OG image and JSON-LD.
+        src="/branding/logo-128.png"
         width={size}
         height={size}
         alt="ExamArchive"

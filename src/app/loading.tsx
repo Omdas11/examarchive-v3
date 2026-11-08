@@ -23,7 +23,7 @@ export default function Loading() {
         />
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/branding/logo.png"
+          src="/branding/logo-128.png"
           width={112}
           height={112}
           alt=""

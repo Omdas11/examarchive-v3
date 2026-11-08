@@ -449,7 +449,7 @@ export default function BrowseClient({
         </div>
       )}
 
-      <p className="mt-6 text-[10px] font-black uppercase tracking-[0.2em] opacity-40">
+      <p className="mt-6 text-[10px] font-black uppercase tracking-[0.2em] opacity-70">
         {filtered.length === 0
           ? "Showing 0 papers"
           : `Showing ${pageStart}–${pageEnd} of ${filtered.length} paper${filtered.length !== 1 ? "s" : ""}`}

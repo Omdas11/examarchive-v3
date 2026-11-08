@@ -153,6 +153,10 @@ export default function PaperCard({ paper }: PaperCardProps) {
               {paper.course_name && paper.course_name !== paper.title ? (
                 paper.course_code ? <> · {paper.course_name}</> : <>{paper.course_name}</>
               ) : null}
+              {/* Year in the subtitle too: same-code papers from different
+                  years (e.g. ZOOSEC-201T 2024 vs 2025) otherwise read as
+                  duplicates at a glance — the year pill alone is easy to miss. */}
+              {paper.year > 0 ? <> · {paper.year}</> : null}
             </p>
           )}
         </div>

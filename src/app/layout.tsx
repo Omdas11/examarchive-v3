@@ -13,6 +13,7 @@ import { Analytics } from "@vercel/analytics/next";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
 import CookieConsent from "@/components/CookieConsent";
 import SimpleAnalytics from "@/components/SimpleAnalytics";
+import MaterialSymbolsLoader from "@/components/MaterialSymbolsLoader";
 import VisitLogger from "@/components/VisitLogger";
 
 const SITE_URL = "https://www.examarchive.dev";
@@ -142,12 +143,18 @@ export default async function RootLayout({
         <meta name="theme-color" content="#10b981" />
         <link rel="manifest" href="/manifest.json" />
         <link rel="apple-touch-icon" href="/branding/logo.png" />
-        {/* Material Symbols Outlined – used by Stitch/Indigo dashboard components */}
-        {/* eslint-disable-next-line @next/next/no-page-custom-font */}
-        <link
-          rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap"
-        />
+        {/* Material Symbols Outlined – used by Stitch/Indigo dashboard components.
+            Loaded after hydration by MaterialSymbolsLoader so the Google
+            Fonts CSS is not render-blocking on first paint. The <noscript>
+            fallback keeps icons working with JavaScript off. */}
+        <MaterialSymbolsLoader />
+        <noscript>
+          {/* eslint-disable-next-line @next/next/no-page-custom-font */}
+          <link
+            rel="stylesheet"
+            href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap"
+          />
+        </noscript>
         <script>{THEME_INIT_SCRIPT}</script>
         <script>{SERVICE_WORKER_SCRIPT}</script>
         {/* AdSense site-connection script, exactly as Google gives it.
@@ -159,6 +166,7 @@ export default async function RootLayout({
             the cookie banner. */}
         <script
           async
+          fetchPriority="low"
           src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2814629639937169"
           crossOrigin="anonymous"
         />

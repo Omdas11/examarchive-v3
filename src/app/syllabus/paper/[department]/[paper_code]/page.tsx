@@ -14,7 +14,9 @@ import MainLayout from "@/components/layout/MainLayout";
 import VerifyStrip from "@/components/VerifyStrip";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import {
+  dedupeSyllabusRowsByUnit,
   derivePaperNameFromContent,
+  normalizePaperCode,
   semesterForPaperCode,
   toSyllabusTableRow,
 } from "@/lib/syllabus-table";
@@ -93,8 +95,41 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-async function getPaperRows(paperCode: string) {
+/**
+ * All syllabus-table rows for one paper. Rows are matched by canonical code
+ * ("PHYSEC-101" and "PHYSEC101" are the same paper), so a paper stored under
+ * several spellings returns every variant's rows. Fetches the whole subject
+ * (one department's rows fit in a single 500-row page) because Appwrite has
+ * no "normalised code" field to query. Falls back to the exact-code query
+ * when the subject fetch finds nothing (defensive: rows whose subject field
+ * disagrees with the URL department still resolve).
+ */
+async function getPaperRows(paperCode: string, subjectCode: string) {
   const db = adminDatabases();
+  const wanted = normalizePaperCode(paperCode);
+  const rows: ReturnType<typeof toSyllabusTableRow>[] = [];
+  let offset = 0;
+  for (;;) {
+    const { documents } = await db.listDocuments(
+      DATABASE_ID,
+      COLLECTION.syllabus_table,
+      [
+        Query.equal("status", "published"),
+        Query.equal("subject", subjectCode),
+        Query.limit(500),
+        Query.offset(offset),
+      ],
+    );
+    for (const doc of documents) {
+      const row = toSyllabusTableRow(doc as Record<string, unknown>);
+      if (normalizePaperCode(row.paper_code) === wanted) rows.push(row);
+    }
+    if (documents.length < 500) break;
+    offset += 500;
+  }
+  if (rows.length > 0) {
+    return rows.sort((a, b) => a.unit_number - b.unit_number);
+  }
   const { documents } = await db.listDocuments(
     DATABASE_ID,
     COLLECTION.syllabus_table,
@@ -154,12 +189,14 @@ function sortLinkedQuestions(a: LinkedQuestionRow, b: LinkedQuestionRow): number
   return (b.year ?? 0) - (a.year ?? 0);
 }
 
-async function getLinkedQuestionRows(paperCode: string, linkedSyllabusIds: Set<string>) {
+async function getLinkedQuestionRows(paperCodes: string[], linkedSyllabusIds: Set<string>) {
   const db = adminDatabases();
   const { documents } = await db.listDocuments(
     DATABASE_ID,
     COLLECTION.questions_table,
-    [Query.equal("paper_code", paperCode), Query.limit(MAX_QUESTIONS_PER_PAPER)],
+    // One query for every raw spelling of the code: questions may be stored
+    // under "PHYDSC453(A)T" while the page URL is the canonical "PHYDSC453AT".
+    [Query.equal("paper_code", paperCodes), Query.limit(MAX_QUESTIONS_PER_PAPER)],
   );
 
   const allRows: LinkedQuestionRow[] = documents.map((doc) => ({
@@ -191,7 +228,14 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
   const info = SYLLABUS_DEPARTMENTS[department];
   if (!info) notFound();
   const code = decodeURIComponent(paper_code).toUpperCase();
-  const semester = semesterForPaperCode(code);
+  const canonicalCode = normalizePaperCode(code);
+  const semester = semesterForPaperCode(canonicalCode);
+  // One canonical URL per paper: a hyphenated or parenthesised spelling in
+  // the URL ("PHYSEC-101", "PHYDSC453(A)T") redirects to the canonical code
+  // before any slow database call, so the redirect is a real HTTP 308.
+  if (code !== canonicalCode) {
+    permanentRedirect(`/syllabus/paper/${department}/${canonicalCode}`);
+  }
   // Wrong department in the URL: redirect before any slow database call,
   // so the redirect is a real HTTP 308 instead of a client-side one.
   const prefixSlug = syllabusDeptSlugForPaperCode(code);
@@ -202,31 +246,40 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
   const userName = user ? (user.name || user.username || "Scholar") : "";
   const userInitials = userName ? userName.slice(0, 2).toUpperCase() : "";
 
-  const [rows, uploadedPdfs] = await Promise.all([
-    getPaperRows(code),
+  const [allRows, uploadedPdfs] = await Promise.all([
+    getPaperRows(code, info.subjectCode),
     getUploadedSyllabusPdfs(code),
   ]);
 
-  if (rows.length === 0) {
+  if (allRows.length === 0) {
     notFound();
   }
 
+  // Display one article per unit: rows stored under several raw spellings
+  // of the same code collapse to a single representative row each.
+  const rows = dedupeSyllabusRowsByUnit(allRows);
+
   // One canonical URL per paper: a paper visited under the wrong department
   // permanently redirects to its own department (subject field is ground truth).
-  const paperDept = syllabusDeptBySubjectCode(rows[0]?.subject ?? "");
+  const paperDept = syllabusDeptBySubjectCode(allRows[0]?.subject ?? "");
   if (paperDept && paperDept.slug !== department) {
     permanentRedirect(`/syllabus/paper/${paperDept.slug}/${code}`);
   }
 
   const first = rows[0];
   const paperName = first.paper_name?.trim() || derivePaperNameFromContent(first.syllabus_content, code);
+  // Entry IDs and raw code spellings from ALL matched rows (both variants),
+  // so questions linked to either spelling are found.
   const linkedSyllabusIds = new Set(
-    rows.flatMap((row) => [row.entry_id, row.id]).filter((entryId): entryId is string => {
+    allRows.flatMap((row) => [row.entry_id, row.id]).filter((entryId): entryId is string => {
       if (typeof entryId !== "string") return false;
       return entryId.trim().length > 0;
     }),
   );
-  const { rowsToShow: linkedQuestions, filteredOutCount, usedFallbackToAll } = await getLinkedQuestionRows(code, linkedSyllabusIds);
+  const rawCodes = [...new Set(allRows.map((row) => row.paper_code.trim().toUpperCase()))].filter(
+    (c) => c.length > 0,
+  );
+  const { rowsToShow: linkedQuestions, filteredOutCount, usedFallbackToAll } = await getLinkedQuestionRows(rawCodes.length > 0 ? rawCodes : [code], linkedSyllabusIds);
 
   return (
     <MainLayout

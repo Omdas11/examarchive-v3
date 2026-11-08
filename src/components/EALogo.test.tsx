@@ -7,7 +7,7 @@ describe("EALogo", () => {
     render(<EALogo />);
     const img = screen.getByAltText("ExamArchive");
     expect(img).toBeInTheDocument();
-    expect(img).toHaveAttribute("src", "/branding/logo.png");
+    expect(img).toHaveAttribute("src", "/branding/logo-128.png");
   });
 
   it("renders the SVG fallback if image fails to load", () => {

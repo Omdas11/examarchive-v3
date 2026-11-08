@@ -38,10 +38,15 @@ export default function VerifyStrip({
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    // A hung /verify request must never leave the strip stuck on
+    // "Loading…": the buttons are the useful part, the counts are not.
+    // 10s abort, then the strip settles into its usable state.
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
     try {
       const res = await fetch(
         `/api/verify?content_type=${encodeURIComponent(contentType)}&content_id=${encodeURIComponent(contentId)}`,
-        { credentials: "include" },
+        { credentials: "include", signal: controller.signal },
       );
       if (res.status === 401) {
         setHidden(true);
@@ -53,6 +58,7 @@ export default function VerifyStrip({
     } catch {
       // Non-critical — strip stays usable for a fresh verdict.
     } finally {
+      clearTimeout(timeout);
       setLoading(false);
     }
   }, [contentType, contentId]);
@@ -120,36 +126,39 @@ export default function VerifyStrip({
       style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}
     >
       <p className="text-sm font-semibold">Is this content correct?</p>
-      {state && state.total > 0 && (
-        <p className="mt-1 text-xs" style={{ color: "var(--color-text-muted)" }}>
-          {state.correct} verified correct · {state.flagged} flagged
-          {state.mine ? ` · Verified by you (${state.mine.verdict})` : ""}
-        </p>
-      )}
       {loading ? (
-        <p className="mt-2 text-xs" style={{ color: "var(--color-text-muted)" }}>
+        <p className="mt-1 text-xs" style={{ color: "var(--color-text-muted)" }}>
           Loading…
         </p>
       ) : (
-        <div className="mt-3 flex flex-wrap gap-2">
-          <button
-            type="button"
-            disabled={submitting}
-            onClick={() => void submit("correct")}
-            className="rounded-lg bg-surface-container px-3 py-2 text-sm hover:bg-surface-container-high transition-colors disabled:opacity-50"
-          >
-            Correct
-          </button>
-          <button
-            type="button"
-            disabled={submitting}
-            onClick={() => setShowForm((v) => !v)}
-            className="rounded-lg bg-surface-container px-3 py-2 text-sm hover:bg-surface-container-high transition-colors disabled:opacity-50"
-          >
-            Report error
-          </button>
-        </div>
+        state &&
+        state.total > 0 && (
+          <p className="mt-1 text-xs" style={{ color: "var(--color-text-muted)" }}>
+            {state.correct} verified correct · {state.flagged} flagged
+            {state.mine ? ` · Verified by you (${state.mine.verdict})` : ""}
+          </p>
+        )
       )}
+      {/* Buttons are always usable — only the counts line waits on the
+          /api/verify fetch. A slow or failed fetch must never hide them. */}
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          type="button"
+          disabled={submitting}
+          onClick={() => void submit("correct")}
+          className="rounded-lg bg-surface-container px-3 py-2 text-sm hover:bg-surface-container-high transition-colors disabled:opacity-50"
+        >
+          Correct
+        </button>
+        <button
+          type="button"
+          disabled={submitting}
+          onClick={() => setShowForm((v) => !v)}
+          className="rounded-lg bg-surface-container px-3 py-2 text-sm hover:bg-surface-container-high transition-colors disabled:opacity-50"
+        >
+          Report error
+        </button>
+      </div>
       {showForm && (
         <div className="mt-3 space-y-2">
           <textarea

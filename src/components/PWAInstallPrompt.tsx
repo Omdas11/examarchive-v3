@@ -122,7 +122,7 @@ export default function PWAInstallPrompt() {
         {/* App icon */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/branding/logo.png"
+          src="/branding/logo-128.png"
           alt="ExamArchive"
           width={44}
           height={44}

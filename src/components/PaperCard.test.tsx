@@ -17,7 +17,9 @@ describe("PaperCard", () => {
   it("renders basic paper information", () => {
     render(<PaperCard paper={basePaper} />);
     expect(screen.getByText("Test Paper")).toBeInTheDocument();
-    expect(screen.getByText("CS101")).toBeInTheDocument();
+    // Subtitle combines code and year so same-code papers from different
+    // years don't read as duplicates; the year pill shows it as well.
+    expect(screen.getByText("CS101 · 2024")).toBeInTheDocument();
     expect(screen.getByText("2024")).toBeInTheDocument();
   });
 

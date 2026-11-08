@@ -5,8 +5,10 @@ import { adminDatabases, adminStorage, COLLECTION, DATABASE_ID, Query, ID, SYLLA
 import { getServerUser } from "@/lib/auth";
 import {
   buildPaperMarkdown,
+  dedupeSyllabusRowsByUnit,
   derivePaperNameFromRows,
   extractSubjectCode,
+  normalizePaperCode,
   toSyllabusTableRow,
   type SyllabusTablePaperSummary,
   type SyllabusTableRow,
@@ -16,8 +18,6 @@ import { findByPaperCode } from "@/data/syllabus-registry";
 
 const MAX_PAGES_SINGLE_PAPER = 20;
 const MAX_PAGES_DEPARTMENTAL = 40;
-// MAX_PAPER_NAME_LENGTH / ELLIPSIS_LENGTH live with derivePaperNameFromRows
-// in lib/syllabus-table.ts now (shared with /syllabus/[department]).
 const SYLLABUS_TABLE_PAGE_SIZE = 500;
 const SYLLABUS_TABLE_MAX_PAGES = 20;
 const QUESTIONS_TABLE_PAGE_SIZE = 500;
@@ -100,14 +100,26 @@ export async function GET(request: NextRequest) {
     }
 
     const db = adminDatabases();
-    const normalizedPaperCode = paperCode.toUpperCase();
+    const normalizedPaperCode = normalizePaperCode(paperCode);
+    // Single-paper mode: fetch the whole subject and match by canonical code
+    // below — the table stores the same paper under several spellings
+    // ("PHYSEC-101" vs "PHYSEC101"), so an exact paper_code query would
+    // miss half the rows. Falls back to the exact query when the code
+    // carries no recognisable subject prefix.
+    const subjectForPaper = normalizedPaperCode
+      ? extractSubjectCode(normalizedPaperCode)
+      : "";
     const filterQueries = [
       Query.equal("status", "published"),
       university ? Query.equal("university", university) : null,
       course ? Query.equal("course", course) : null,
       stream ? Query.equal("stream", stream) : null,
       type ? Query.equal("type", type) : null,
-      normalizedPaperCode ? Query.equal("paper_code", normalizedPaperCode) : null,
+      normalizedPaperCode && subjectForPaper
+        ? Query.equal("subject", subjectForPaper)
+        : normalizedPaperCode
+          ? Query.equal("paper_code", normalizedPaperCode)
+          : null,
     ].filter(Boolean) as string[];
     const rows: SyllabusTableRow[] = [];
     let cursorAfter: string | null = null;
@@ -136,9 +148,21 @@ export async function GET(request: NextRequest) {
     }
 
     if (normalizedPaperCode) {
-      const paperRows = rows
-        .filter((row) => row.paper_code === normalizedPaperCode)
-        .sort((a, b) => a.unit_number - b.unit_number);
+      let paperRows = dedupeSyllabusRowsByUnit(
+        rows.filter((row) => normalizePaperCode(row.paper_code) === normalizedPaperCode),
+      ).sort((a, b) => a.unit_number - b.unit_number);
+      if (paperRows.length === 0) {
+        // Defensive fallback: rows whose subject field disagrees with the
+        // code prefix are invisible to the subject-scoped fetch above.
+        const retry = await db.listDocuments(DATABASE_ID, COLLECTION.syllabus_table, [
+          Query.equal("status", "published"),
+          Query.equal("paper_code", paperCode.toUpperCase()),
+          Query.limit(SYLLABUS_TABLE_PAGE_SIZE),
+        ]);
+        paperRows = dedupeSyllabusRowsByUnit(
+          retry.documents.map((doc) => toSyllabusTableRow(doc as Record<string, unknown>)),
+        ).sort((a, b) => a.unit_number - b.unit_number);
+      }
       if (paperRows.length === 0) {
         return NextResponse.json({ error: "No syllabus rows found for this paper." }, { status: 404 });
       }
@@ -232,8 +256,12 @@ export async function GET(request: NextRequest) {
         } else if (subjectCode && !row.paper_code.startsWith(subjectCode)) {
           continue;
         }
-        if (!groupedByPaper.has(row.paper_code)) groupedByPaper.set(row.paper_code, []);
-        groupedByPaper.get(row.paper_code)!.push(row);
+        // Canonical key: variant spellings of one paper merge into a single
+        // section instead of appearing twice in the departmental PDF.
+        const key = normalizePaperCode(row.paper_code);
+        if (!key) continue;
+        if (!groupedByPaper.has(key)) groupedByPaper.set(key, []);
+        groupedByPaper.get(key)!.push(row);
       }
       if (groupedByPaper.size === 0) {
         return NextResponse.json({ error: "No syllabus rows found for this subject." }, { status: 404 });
@@ -241,7 +269,7 @@ export async function GET(request: NextRequest) {
       const orderedCodes = Array.from(groupedByPaper.keys()).sort((a, b) => a.localeCompare(b));
       const mergedSections: string[] = [];
       for (const code of orderedCodes) {
-        const paperRows = groupedByPaper.get(code) ?? [];
+        const paperRows = dedupeSyllabusRowsByUnit(groupedByPaper.get(code) ?? []);
         const paperName = derivePaperNameFromRows(code, paperRows);
         const md = buildPaperMarkdown({
           paperCode: code,
@@ -286,8 +314,11 @@ export async function GET(request: NextRequest) {
     const grouped = new Map<string, SyllabusTableRow[]>();
     for (const row of rows) {
       if (!row.paper_code) continue;
-      if (!grouped.has(row.paper_code)) grouped.set(row.paper_code, []);
-      grouped.get(row.paper_code)!.push(row);
+      // Canonical key: variant spellings of one paper merge into one entry.
+      const key = normalizePaperCode(row.paper_code);
+      if (!key) continue;
+      if (!grouped.has(key)) grouped.set(key, []);
+      grouped.get(key)!.push(row);
     }
 
     // Build question-paper year map from approved papers collection.
@@ -313,7 +344,9 @@ export async function GET(request: NextRequest) {
     }
 
     const questionYearsByCode = questionDocs.reduce<Map<string, Map<string, { paperId: string; year: number; examType?: string }>>>((acc, doc) => {
-      const code = String(doc.course_code ?? "").trim().toUpperCase();
+      // Canonical key: the papers collection stores hyphenated codes
+      // ("COMGE-601T") that must match the normalised syllabus code.
+      const code = normalizePaperCode(String(doc.course_code ?? ""));
       const yearRaw = Number(doc.year ?? 0);
       if (!code || !Number.isInteger(yearRaw) || yearRaw < 1900 || yearRaw > 2100) return acc;
       const paperId = String(doc.$id ?? doc.id ?? "");
@@ -328,10 +361,17 @@ export async function GET(request: NextRequest) {
     }, new Map());
 
     const papers: SyllabusTablePaperSummary[] = Array.from(grouped.entries())
-      .map(([code, paperRows]) => {
+      .map(([code, rawPaperRows]) => {
+        // One row per unit: variant spellings of one paper must not
+        // double-count lectures or units in the summary.
+        const paperRows = dedupeSyllabusRowsByUnit(rawPaperRows);
         const derivedSubjectCode = extractSubjectCode(code);
         const storedSubject = paperRows.find((r) => r.subject)?.subject ?? "";
-        const registry = findByPaperCode(code);
+        // The registry matches exact spellings, so try the canonical code
+        // first, then each raw variant stored in the table.
+        const rawCodes = [...new Set(rawPaperRows.map((r) => r.paper_code.trim().toUpperCase()))];
+        const registry =
+          findByPaperCode(code) ?? rawCodes.map((c) => findByPaperCode(c)).find(Boolean);
         const questionPapers = Array.from(questionYearsByCode.get(code)?.values() ?? []).sort((a, b) =>
           a.year === b.year
             ? (a.examType ?? "").localeCompare(b.examType ?? "")

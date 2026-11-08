@@ -32,7 +32,7 @@ export default function Footer() {
         <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-3 mb-16">
           {/* Resources */}
           <div className="flex flex-col gap-3">
-            <h4 className="mb-2 text-xs font-black uppercase tracking-[0.15em] text-primary">Resources</h4>
+            <h3 className="mb-2 text-xs font-black uppercase tracking-[0.15em] text-primary">Resources</h3>
             <Link href="/" className="hover:text-primary transition-colors text-sm font-medium">Home</Link>
             <Link href="/browse" className="hover:text-primary transition-colors text-sm font-medium">Browse Archive</Link>
             <Link href="/contact" className="hover:text-primary transition-colors text-sm font-medium">Contact Us</Link>
@@ -43,7 +43,7 @@ export default function Footer() {
 
           {/* Platform info */}
           <div className="flex flex-col gap-3">
-            <h4 className="mb-2 text-xs font-black uppercase tracking-[0.15em] text-primary">Platform</h4>
+            <h3 className="mb-2 text-xs font-black uppercase tracking-[0.15em] text-primary">Platform</h3>
             <span className="text-sm font-medium leading-relaxed">
               Currently in <strong className="text-on-surface">Early Access</strong> · Starting with Haflong Government College
             </span>
@@ -57,7 +57,7 @@ export default function Footer() {
 
           {/* Help & Support */}
           <div className="flex flex-col gap-3">
-            <h4 className="mb-2 text-xs font-black uppercase tracking-[0.15em] text-primary">Help &amp; Support</h4>
+            <h3 className="mb-2 text-xs font-black uppercase tracking-[0.15em] text-primary">Help &amp; Support</h3>
             <FooterContactModal label="Technical Support" />
             <FooterContactModal label="Contact Team" />
             <FooterContactModal label="Send Feedback" />
@@ -78,7 +78,7 @@ export default function Footer() {
         <div
           className="py-10 text-center border-t border-outline-variant/10"
         >
-          <p className="mb-6 text-[10px] font-black tracking-[0.2em] uppercase opacity-40">Powered By</p>
+          <p className="mb-6 text-[10px] font-black tracking-[0.2em] uppercase opacity-60">Powered By</p>
           <div className="flex flex-wrap justify-center items-center gap-8 md:gap-12">
             {PLATFORM_LOGOS.map((logo) => (
               <a
@@ -87,7 +87,7 @@ export default function Footer() {
                 target="_blank"
                 rel="noopener noreferrer"
                 title={logo.title}
-                className="opacity-40 hover:opacity-100 transition-all hover:scale-110 grayscale hover:grayscale-0"
+                className="opacity-60 hover:opacity-100 transition-all hover:scale-110 grayscale hover:grayscale-0"
                 style={{ display: "inline-flex", alignItems: "center" }}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -107,7 +107,7 @@ export default function Footer() {
         <div
           className="pt-8 text-center flex flex-col items-center gap-4 border-t border-outline-variant/10"
         >
-          <p className="text-xs font-medium opacity-60">
+          <p className="text-xs font-medium opacity-80">
             © {new Date().getFullYear()} <span className="font-bold text-on-surface">ExamArchive</span> · Built by students for students · Soft Launch Phase
           </p>
           <VisitorTracker />

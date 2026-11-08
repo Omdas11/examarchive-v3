@@ -166,6 +166,9 @@
 /* ── Full-page brand gradient — on html so it spans the entire document height ── */
 html {
   min-height: 100%;
+  /* Anchor targets (e.g. #how-it-works) must land below the 56px sticky
+     header instead of under it. */
+  scroll-padding-top: 4.5rem;
   background:
     linear-gradient(
       160deg,

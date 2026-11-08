@@ -11,6 +11,7 @@ import { isAdmin } from "@/lib/roles";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import { SYLLABUS_DEPARTMENTS, SYLLABUS_DEPARTMENT_SLUGS } from "@/lib/syllabus-departments";
+import { normalizePaperCode } from "@/lib/syllabus-table";
 
 export const metadata: Metadata = {
   title: "Syllabus Library by Department | ExamArchive",
@@ -44,7 +45,8 @@ export default async function SyllabusPage() {
   const userInitials = userName ? userName.slice(0, 2).toUpperCase() : "";
   const userIsAdmin = !!user && isAdmin(user.role);
 
-  // ── Per-department counts from the syllabus table (511 papers, 2,789 rows).
+  // ── Per-department counts from the syllabus table (2,789 published rows;
+  // codes are canonicalised, so "PHYSEC-101" + "PHYSEC101" count once).
   const counts = new Map<string, DeptCounts>();
   try {
     const db = adminDatabases();
@@ -60,7 +62,8 @@ export default async function SyllabusPage() {
       ]);
       for (const doc of res.documents) {
         const subject = String(doc.subject ?? "").trim().toUpperCase();
-        const code = String(doc.paper_code ?? "").trim().toUpperCase();
+        // Canonical code: "PHYSEC-101" and "PHYSEC101" are one paper, not two.
+        const code = normalizePaperCode(String(doc.paper_code ?? ""));
         if (!subject || !code) continue;
         if (!bySubject.has(subject)) bySubject.set(subject, new Map());
         const papers = bySubject.get(subject)!;

@@ -455,7 +455,7 @@ export default async function HomePage() {
         </section>
 
         {/* ── How It Works ── */}
-        <section className="py-16 ea-scroll-in">
+        <section id="how-it-works" className="py-16 ea-scroll-in">
           <h2 className="mb-12 text-2xl font-extrabold tracking-tight text-center">How It Works</h2>
           <div className="grid gap-6 sm:grid-cols-3">
             {HOW_IT_WORKS.map((step) => (

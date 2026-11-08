@@ -5,6 +5,7 @@ import {
   SYLLABUS_DEPARTMENT_SLUGS,
   syllabusDeptBySubjectCode,
 } from "@/lib/syllabus-departments";
+import { normalizePaperCode } from "@/lib/syllabus-table";
 
 const SITE_URL = "https://www.examarchive.dev";
 
@@ -37,7 +38,8 @@ const DEPARTMENTS = [
  * Generates /sitemap.xml via Next.js Metadata API.
  * Includes static pages, department landing pages (/papers + /syllabus),
  * ALL approved papers (paginated — the collection exceeds a single query
- * page), and ALL syllabus papers from the syllabus table (511 paper codes).
+ * page), and ALL syllabus papers from the syllabus table (506 canonical
+ * paper codes; variant spellings of one paper share a single URL).
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticRoutes: MetadataRoute.Sitemap = [
@@ -88,7 +90,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         Query.select(["paper_code", "subject"]),
       ]);
       for (const doc of res.documents) {
-        const code = String(doc.paper_code ?? "").trim().toUpperCase();
+        // Canonical code: "PHYSEC-101" and "PHYSEC101" are one paper, so
+        // the sitemap lists one URL per paper instead of one per spelling.
+        const code = normalizePaperCode(String(doc.paper_code ?? ""));
         if (!code || codes.has(code)) continue;
         const dept = syllabusDeptBySubjectCode(String(doc.subject ?? ""));
         if (dept) codes.set(code, dept.slug);
