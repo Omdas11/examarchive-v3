@@ -3,8 +3,7 @@ import { getServerUser } from "@/lib/auth";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import Link from "next/link";
-import { adminDatabases, DATABASE_ID, COLLECTION } from "@/lib/appwrite";
-import { Query } from "node-appwrite";
+import { getAllApprovedPapers } from "@/lib/papers-cache";
 import { toPaper } from "@/types";
 import { getProgramme } from "@/lib/programme";
 import PaperCard from "@/components/PaperCard";
@@ -36,24 +35,12 @@ export default async function CbcsQuestionPapersPage() {
   const userInitials = userName ? userName.slice(0, 2).toUpperCase() : "";
   let papers: ReturnType<typeof toPaper>[] = [];
   try {
-    const db = adminDatabases();
     // Do NOT query the stored `programme` field: programme.ts documents it as
     // unreliable, and that query returned zero papers even though CBCS papers
-    // exist site-wide (audit fix #3). Fetch approved papers in pages, then
-    // filter by the computed programme (course code + year + semester), the
-    // same source of truth used for dept badges elsewhere.
-    const all: ReturnType<typeof toPaper>[] = [];
-    let offset = 0;
-    for (;;) {
-      const res = await db.listDocuments(DATABASE_ID, COLLECTION.papers, [
-        Query.equal("approved", true),
-        Query.limit(500),
-        Query.offset(offset),
-      ]);
-      all.push(...res.documents.map(toPaper));
-      if (res.documents.length < 500) break;
-      offset += 500;
-    }
+    // exist site-wide (audit fix #3). Filter by the computed programme
+    // (course code + year + semester) out of the shared cached paper list
+    // instead of re-reading all 615 papers on every visit.
+    const all = await getAllApprovedPapers();
     papers = all
       .filter((p) => getProgramme(p) === "CBCS")
       .sort((a, b) => b.year - a.year)

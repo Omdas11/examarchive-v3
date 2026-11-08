@@ -1,17 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import {
-  adminDatabases,
-  DATABASE_ID,
-  COLLECTION,
-  Query,
-} from "@/lib/appwrite";
 import { getServerUser } from "@/lib/auth";
 import { isAdmin } from "@/lib/roles";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import { SYLLABUS_DEPARTMENTS, SYLLABUS_DEPARTMENT_SLUGS } from "@/lib/syllabus-departments";
 import { normalizePaperCode } from "@/lib/syllabus-table";
+import { getAllSyllabusRows } from "@/lib/syllabus-cache";
 
 export const metadata: Metadata = {
   title: "Syllabus Library by Department | ExamArchive",
@@ -47,31 +42,22 @@ export default async function SyllabusPage() {
 
   // ── Per-department counts from the syllabus table (2,789 published rows;
   // codes are canonicalised, so "PHYSEC-101" + "PHYSEC101" count once).
+  // Uses the shared 7-day syllabus cache instead of re-reading all 2,789
+  // rows from Appwrite on every visit.
   const counts = new Map<string, DeptCounts>();
   try {
-    const db = adminDatabases();
     // subject -> paper code -> distinct unit numbers
     const bySubject = new Map<string, Map<string, Set<number>>>();
-    let offset = 0;
-    for (;;) {
-      const res = await db.listDocuments(DATABASE_ID, COLLECTION.syllabus_table, [
-        Query.equal("status", "published"),
-        Query.limit(500),
-        Query.offset(offset),
-        Query.select(["subject", "paper_code", "unit_number"]),
-      ]);
-      for (const doc of res.documents) {
-        const subject = String(doc.subject ?? "").trim().toUpperCase();
-        // Canonical code: "PHYSEC-101" and "PHYSEC101" are one paper, not two.
-        const code = normalizePaperCode(String(doc.paper_code ?? ""));
-        if (!subject || !code) continue;
-        if (!bySubject.has(subject)) bySubject.set(subject, new Map());
-        const papers = bySubject.get(subject)!;
-        if (!papers.has(code)) papers.set(code, new Set());
-        papers.get(code)!.add(Number(doc.unit_number ?? 0));
-      }
-      if (res.documents.length < 500) break;
-      offset += 500;
+    const rows = await getAllSyllabusRows();
+    for (const row of rows) {
+      const subject = String(row.subject ?? "").trim().toUpperCase();
+      // Canonical code: "PHYSEC-101" and "PHYSEC101" are one paper, not two.
+      const code = normalizePaperCode(String(row.paper_code ?? ""));
+      if (!subject || !code) continue;
+      if (!bySubject.has(subject)) bySubject.set(subject, new Map());
+      const papers = bySubject.get(subject)!;
+      if (!papers.has(code)) papers.set(code, new Set());
+      papers.get(code)!.add(Number(row.unit_number ?? 0));
     }
     for (const [subject, papers] of bySubject.entries()) {
       let units = 0;

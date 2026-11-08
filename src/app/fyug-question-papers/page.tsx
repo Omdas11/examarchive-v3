@@ -3,8 +3,7 @@ import { getServerUser } from "@/lib/auth";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import Link from "next/link";
-import { adminDatabases, DATABASE_ID, COLLECTION } from "@/lib/appwrite";
-import { Query } from "node-appwrite";
+import { getAllApprovedPapers } from "@/lib/papers-cache";
 import { toPaper } from "@/types";
 import PaperCard from "@/components/PaperCard";
 
@@ -57,14 +56,12 @@ export default async function FyugQuestionPapersPage() {
   const userInitials = userName ? userName.slice(0, 2).toUpperCase() : "";
   let papers: ReturnType<typeof toPaper>[] = [];
   try {
-    const db = adminDatabases();
-    const res = await db.listDocuments(DATABASE_ID, COLLECTION.papers, [
-      Query.equal("programme", "FYUGP"),
-      Query.equal("approved", true),
-      Query.orderDesc("year"),
-      Query.limit(48),
-    ]);
-    papers = res.documents.map(toPaper);
+    // Shared cache (one 615-read fetch per day for all paper-list pages).
+    const allPapers = await getAllApprovedPapers();
+    papers = allPapers
+      .filter((p) => p.programme === "FYUGP")
+      .sort((a, b) => b.year - a.year)
+      .slice(0, 48);
   } catch {
     papers = [];
   }

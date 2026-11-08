@@ -1,5 +1,10 @@
 import type { Models } from "node-appwrite";
 
+jest.mock("next/cache", () => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  unstable_cache: (fn: any) => fn,
+}));
+
 jest.mock("@/lib/appwrite", () => ({
   adminDatabases: jest.fn(),
   DATABASE_ID: "db",

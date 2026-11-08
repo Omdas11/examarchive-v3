@@ -1,13 +1,6 @@
 import type { Metadata } from "next";
-import { unstable_cache } from "next/cache";
-import {
-  adminDatabases,
-  DATABASE_ID,
-  COLLECTION,
-  Query,
-} from "@/lib/appwrite";
 import type { Paper } from "@/types";
-import { toPaper } from "@/types";
+import { getAllApprovedPapers } from "@/lib/papers-cache";
 import { getServerUser } from "@/lib/auth";
 import { isModerator } from "@/lib/roles";
 import MainLayout from "@/components/layout/MainLayout";
@@ -39,66 +32,6 @@ interface BrowsePageProps {
   searchParams: Promise<{ q?: string; department?: string; year?: string; semester?: string; programme?: string }>;
 }
 
-// Browse data lives behind unstable_cache because the fetch reads every
-// approved paper document — without the cache each /browse visit pays a
-// full collection scan. The revalidate window matches the homepage's so
-// counts agree across pages.
-const getBrowsePapers = unstable_cache(
-  async (): Promise<Paper[]> => {
-    // Paginated, slim fetch: the old code fetched 500 full documents
-    // (Query.limit(500)) and dropped the rest — /browse showed "OF 500"
-    // while the homepage showed the true 615. Pagination reads all rows;
-    // Query.select keeps the payload to the fields the cards render.
-    const papers: Paper[] = [];
-    let offset = 0;
-    for (;;) {
-      const db = adminDatabases();
-      const { documents } = await db.listDocuments(
-        DATABASE_ID,
-        COLLECTION.papers,
-        [
-          Query.equal("approved", true),
-          Query.select([
-            "$id",
-            "$createdAt",
-            "approved",
-            "course_code",
-            "department",
-            "download_count",
-            "duration",
-            "exam_type",
-            "file_id",
-            "file_url",
-            "institute",
-            "institution",
-            "marks",
-            "paper_name",
-            "paper_type",
-            "programme",
-            "semester",
-            "status",
-            "stream",
-            "title",
-            "uploaded_by",
-            "uploaded_by_username",
-            "view_count",
-            "year",
-          ]),
-          Query.orderDesc("$createdAt"),
-          Query.limit(500),
-          Query.offset(offset),
-        ],
-      );
-      papers.push(...documents.map(toPaper));
-      if (documents.length < 500) break;
-      offset += 500;
-    }
-    return papers;
-  },
-  ["browse-papers"],
-  { revalidate: 3600 },
-);
-
 export default async function BrowsePage({ searchParams }: BrowsePageProps) {
   const { q, department, year, semester, programme } = await searchParams;
   const user = await getServerUser();
@@ -108,7 +41,8 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
 
   let papers: Paper[] = [];
   try {
-    papers = await getBrowsePapers();
+    // Shared cache: one 615-read fetch per day for all paper-list pages.
+    papers = await getAllApprovedPapers();
   } catch (err) {
     console.error("[browse] Failed to fetch approved papers:", err);
     // collection may not exist yet or index is missing

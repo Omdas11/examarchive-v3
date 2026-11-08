@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { unstable_cache } from "next/cache";
 import { notFound, permanentRedirect } from "next/navigation";
 import Link from "next/link";
 import { getServerUser } from "@/lib/auth";
@@ -20,6 +21,7 @@ import {
   semesterForPaperCode,
   toSyllabusTableRow,
 } from "@/lib/syllabus-table";
+import { getAllSyllabusRows } from "@/lib/syllabus-cache";
 import {
   SYLLABUS_DEPARTMENTS,
   syllabusDeptBySubjectCode,
@@ -104,32 +106,19 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
  * when the subject fetch finds nothing (defensive: rows whose subject field
  * disagrees with the URL department still resolve).
  */
-async function getPaperRows(paperCode: string, subjectCode: string) {
-  const db = adminDatabases();
+async function getPaperRows(paperCode: string) {
   const wanted = normalizePaperCode(paperCode);
-  const rows: ReturnType<typeof toSyllabusTableRow>[] = [];
-  let offset = 0;
-  for (;;) {
-    const { documents } = await db.listDocuments(
-      DATABASE_ID,
-      COLLECTION.syllabus_table,
-      [
-        Query.equal("status", "published"),
-        Query.equal("subject", subjectCode),
-        Query.limit(500),
-        Query.offset(offset),
-      ],
-    );
-    for (const doc of documents) {
-      const row = toSyllabusTableRow(doc as Record<string, unknown>);
-      if (normalizePaperCode(row.paper_code) === wanted) rows.push(row);
-    }
-    if (documents.length < 500) break;
-    offset += 500;
-  }
+  // Rows come from the shared 7-day syllabus cache instead of re-reading
+  // the whole department from Appwrite on every paper visit.
+  const rows = (await getAllSyllabusRows())
+    .filter((row) => normalizePaperCode(row.paper_code) === wanted)
+    .sort((a, b) => a.unit_number - b.unit_number);
   if (rows.length > 0) {
-    return rows.sort((a, b) => a.unit_number - b.unit_number);
+    return rows;
   }
+  // Fallback: exact-code query for rows whose subject field disagrees with
+  // the URL department (defensive: the cache covers published rows only).
+  const db = adminDatabases();
   const { documents } = await db.listDocuments(
     DATABASE_ID,
     COLLECTION.syllabus_table,
@@ -140,7 +129,10 @@ async function getPaperRows(paperCode: string, subjectCode: string) {
     .sort((a, b) => a.unit_number - b.unit_number);
 }
 
-async function getUploadedSyllabusPdfs(paperCode: string): Promise<Syllabus[]> {
+// Cached per paper for 7 days: the lookups below cost up to ~100 reads
+// per visit when run live (two limit(50) syllabus queries plus seeds).
+const getUploadedSyllabusPdfs = unstable_cache(
+  async (paperCode: string): Promise<Syllabus[]> => {
   const db = adminDatabases();
   const byCourseCode = await db.listDocuments(
     DATABASE_ID,
@@ -178,7 +170,10 @@ async function getUploadedSyllabusPdfs(paperCode: string): Promise<Syllabus[]> {
     [Query.equal("approval_status", "approved"), Query.equal("subject", paperName), Query.limit(50)],
   );
   return bySubject.documents.map(toSyllabus).filter((s) => !s.is_hidden);
-}
+  },
+  ["syllabus-pdfs"],
+  { revalidate: 604800 },
+);
 
 function sortLinkedQuestions(a: LinkedQuestionRow, b: LinkedQuestionRow): number {
   const aNo = Number(a.question_no);
@@ -189,7 +184,12 @@ function sortLinkedQuestions(a: LinkedQuestionRow, b: LinkedQuestionRow): number
   return (b.year ?? 0) - (a.year ?? 0);
 }
 
-async function getLinkedQuestionRows(paperCodes: string[], linkedSyllabusIds: Set<string>) {
+// Cached per paper for 7 days: the questions query reads up to 500 rows
+// per visit when run live. The linked-IDs arrive as a sorted string array
+// (a Set is not a serializable cache key), rebuilt into a Set inside.
+const getLinkedQuestionRows = unstable_cache(
+  async (paperCodes: string[], linkedSyllabusIdList: string[]) => {
+  const linkedSyllabusIds = new Set(linkedSyllabusIdList);
   const db = adminDatabases();
   const { documents } = await db.listDocuments(
     DATABASE_ID,
@@ -221,7 +221,10 @@ async function getLinkedQuestionRows(paperCodes: string[], linkedSyllabusIds: Se
   const rowsToShow = (usedFallbackToAll ? allRows : linkedRows).sort(sortLinkedQuestions);
   const filteredOutCount = linkedRows.length > 0 ? allRows.length - linkedRows.length : 0;
   return { rowsToShow, filteredOutCount, usedFallbackToAll };
-}
+  },
+  ["linked-questions"],
+  { revalidate: 604800 },
+);
 
 export default async function SyllabusPaperPage({ params }: PageProps) {
   const { department, paper_code } = await params;
@@ -247,7 +250,7 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
   const userInitials = userName ? userName.slice(0, 2).toUpperCase() : "";
 
   const [allRows, uploadedPdfs] = await Promise.all([
-    getPaperRows(code, info.subjectCode),
+    getPaperRows(code),
     getUploadedSyllabusPdfs(code),
   ]);
 
@@ -279,7 +282,7 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
   const rawCodes = [...new Set(allRows.map((row) => row.paper_code.trim().toUpperCase()))].filter(
     (c) => c.length > 0,
   );
-  const { rowsToShow: linkedQuestions, filteredOutCount, usedFallbackToAll } = await getLinkedQuestionRows(rawCodes.length > 0 ? rawCodes : [code], linkedSyllabusIds);
+  const { rowsToShow: linkedQuestions, filteredOutCount, usedFallbackToAll } = await getLinkedQuestionRows(rawCodes.length > 0 ? rawCodes : [code], [...linkedSyllabusIds].sort());
 
   return (
     <MainLayout

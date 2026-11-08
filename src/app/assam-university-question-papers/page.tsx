@@ -3,8 +3,7 @@ import { getServerUser } from "@/lib/auth";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import Link from "next/link";
-import { adminDatabases, DATABASE_ID, COLLECTION } from "@/lib/appwrite";
-import { Query } from "node-appwrite";
+import { getAllApprovedPapers } from "@/lib/papers-cache";
 import { toPaper } from "@/types";
 import PaperCard from "@/components/PaperCard";
 
@@ -55,13 +54,9 @@ export default async function AssamUniversityPapersPage() {
   const userInitials = userName ? userName.slice(0, 2).toUpperCase() : "";
   let papers: ReturnType<typeof toPaper>[] = [];
   try {
-    const db = adminDatabases();
-    const res = await db.listDocuments(DATABASE_ID, COLLECTION.papers, [
-      Query.equal("approved", true),
-      Query.orderDesc("$createdAt"),
-      Query.limit(24),
-    ]);
-    papers = res.documents.map(toPaper);
+    // Shared cache (one 615-read fetch per day for all paper-list pages).
+    // The cached list is already newest-first; take the latest 24.
+    papers = (await getAllApprovedPapers()).slice(0, 24);
   } catch {
     papers = [];
   }

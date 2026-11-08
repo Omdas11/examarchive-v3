@@ -9,6 +9,7 @@ import {
   semesterForPaperCode,
   toSyllabusTableRow,
 } from "@/lib/syllabus-table";
+import { getAllSyllabusRows } from "@/lib/syllabus-cache";
 import { toSyllabus, type Syllabus } from "@/types";
 import { getServerUser } from "@/lib/auth";
 import { isAdmin } from "@/lib/roles";
@@ -82,30 +83,21 @@ export default async function SyllabusDepartmentPage({
     // collection may not exist yet
   }
 
-  // ── Syllabus-table papers for this department (subject = 3-letter code)
+  // ── Syllabus-table papers for this department (subject = 3-letter code).
+  // Uses the shared 7-day syllabus cache instead of re-reading the whole
+  // department from Appwrite on every visit.
   const papers: PaperSummary[] = [];
   try {
-    const db = adminDatabases();
     const grouped = new Map<string, ReturnType<typeof toSyllabusTableRow>[]>();
-    let offset = 0;
-    for (;;) {
-      const res = await db.listDocuments(DATABASE_ID, COLLECTION.syllabus_table, [
-        Query.equal("status", "published"),
-        Query.equal("subject", info.subjectCode),
-        Query.limit(500),
-        Query.offset(offset),
-      ]);
-      for (const doc of res.documents) {
-        const row = toSyllabusTableRow(doc as Record<string, unknown>);
-        // Group by the canonical code: "PHYSEC-101" and "PHYSEC101" are the
-        // same paper stored under two spellings (see normalizePaperCode).
-        const code = normalizePaperCode(row.paper_code);
-        if (!code) continue;
-        if (!grouped.has(code)) grouped.set(code, []);
-        grouped.get(code)!.push(row);
-      }
-      if (res.documents.length < 500) break;
-      offset += 500;
+    const rows = await getAllSyllabusRows();
+    for (const row of rows) {
+      if (row.subject !== info.subjectCode) continue;
+      // Group by the canonical code: "PHYSEC-101" and "PHYSEC101" are the
+      // same paper stored under two spellings (see normalizePaperCode).
+      const code = normalizePaperCode(row.paper_code);
+      if (!code) continue;
+      if (!grouped.has(code)) grouped.set(code, []);
+      grouped.get(code)!.push(row);
     }
     for (const [code, rows] of grouped.entries()) {
       // Collapse raw code variants to one row per unit first: without this,

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { unstable_cache } from "next/cache";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
@@ -24,8 +25,10 @@ interface StatCard {
   accent?: boolean;
 }
 
-/** Fetch all platform stats from Appwrite. */
-async function fetchPlatformStats() {
+/** Fetch all platform stats from Appwrite — cached for 24h: the syllabus
+ * walk below reads all 506 syllabus documents on every call. */
+const fetchPlatformStats = unstable_cache(
+  async () => {
   const db = adminDatabases();
 
   const [
@@ -102,7 +105,10 @@ async function fetchPlatformStats() {
     syllabusSubjects,
     syllabusCodes,
   };
-}
+  },
+  ["platform-stats"],
+  { revalidate: 86400 },
+);
 
 export default async function StatsPage() {
   const user = await getServerUser();

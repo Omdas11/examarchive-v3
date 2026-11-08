@@ -10,7 +10,6 @@ import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import {
   adminDatabases,
-  adminUsers,
   DATABASE_ID,
   COLLECTION,
   Query,
@@ -90,74 +89,38 @@ const getHomepageData = unstable_cache(
     let papersTotal = 0;
     let syllabusTotal = 0;
     let usersTotal = 0;
-    let popularPapers: Paper[] = [];
     let recentPapers: Paper[] = [];
     let feedbackEntries: FeedbackEntry[] = [];
 
     try {
       const db = adminDatabases();
-
-      const pageSize = 100;
-      const [papersRes, syllabusRes] = await Promise.all([
+      // Counts come from limit(1) queries: `total` is metadata, so each
+      // costs 1 read. The 8 newest papers come from a single limit(8)
+      // query — the old code fetched all 615 papers and sorted them in
+      // memory (620 reads per refresh) just to show 8 cards.
+      const [papersRes, syllabusRes, usersRes, recentRes] = await Promise.all([
         db.listDocuments(DATABASE_ID, COLLECTION.papers, [
           Query.equal("approved", true),
-          Query.limit(pageSize),
+          Query.limit(1),
         ]),
         db.listDocuments(DATABASE_ID, COLLECTION.syllabus, [
           Query.equal("approval_status", "approved"),
           Query.limit(1),
         ]),
+        db.listDocuments(DATABASE_ID, COLLECTION.users, [Query.limit(1)]),
+        db.listDocuments(DATABASE_ID, COLLECTION.papers, [
+          Query.equal("approved", true),
+          Query.orderDesc("$createdAt"),
+          Query.limit(8),
+        ]),
       ]);
 
       papersTotal = Number(papersRes.total);
       syllabusTotal = Number(syllabusRes.total);
-
-      const allPapers: Paper[] = [];
-
-      const firstPagePapers = papersRes.documents.map(toPaper);
-      allPapers.push(...firstPagePapers);
-
-      const firstPageCount = papersRes.documents.length;
-      if (papersTotal > firstPageCount && firstPageCount > 0) {
-        let offset = firstPageCount;
-        while (offset < papersTotal) {
-          const pageRes = await db.listDocuments(DATABASE_ID, COLLECTION.papers, [
-            Query.equal("approved", true),
-            Query.limit(pageSize),
-            Query.offset(offset),
-          ]);
-          if (pageRes.documents.length === 0) break;
-          const pagePapers = pageRes.documents.map(toPaper);
-          allPapers.push(...pagePapers);
-          offset += pageRes.documents.length;
-        }
-      }
-
-      // Popular papers: highest view_count
-      popularPapers = [...allPapers]
-        .sort((a, b) => (b.view_count ?? 0) - (a.view_count ?? 0))
-        .slice(0, 4);
-
-      // Recently added papers: newest first
-      recentPapers = [...allPapers]
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-        .slice(0, 4);
+      usersTotal = Number(usersRes.total);
+      recentPapers = recentRes.documents.map(toPaper);
     } catch {
       // collections may not exist yet in dev
-    }
-
-    try {
-      const db = adminDatabases();
-      // Use the users collection so service accounts aren't included in the public metric.
-      const { total } = await db.listDocuments(DATABASE_ID, COLLECTION.users, [Query.limit(1)]);
-      usersTotal = total;
-    } catch {
-      try {
-        const { total } = await adminUsers().list([]);
-        usersTotal = total;
-      } catch {
-        // may not have permission in dev
-      }
     }
 
     // Fetch approved feedback entries (max 3 for homepage)
@@ -181,7 +144,6 @@ const getHomepageData = unstable_cache(
       papersTotal,
       syllabusTotal,
       usersTotal,
-      popularPapers,
       recentPapers,
       feedbackEntries,
     };
@@ -197,7 +159,6 @@ export default async function HomePage() {
     papersTotal,
     syllabusTotal,
     usersTotal,
-    popularPapers,
     recentPapers,
     feedbackEntries,
   } = await getHomepageData();
@@ -385,29 +346,6 @@ export default async function HomePage() {
           </div>
           <HomeSearch />
         </section>
-
-        {/* ── Popular Papers ── */}
-        {popularPapers.length > 0 && (
-          <section className="py-10 ea-scroll-in">
-            <div className="flex items-center justify-between mb-6 gap-2 flex-wrap">
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-8 rounded-full bg-primary" />
-                <h2 className="text-xl font-extrabold tracking-tight">Popular Resources</h2>
-              </div>
-              <Link
-                href="/browse"
-                className="text-xs font-bold uppercase tracking-widest py-2 px-4 rounded-full bg-primary-fixed text-primary hover:bg-primary hover:text-on-primary transition-all"
-              >
-                View all Resources
-              </Link>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              {popularPapers.map((paper) => (
-                <PaperCard key={paper.id} paper={paper} />
-              ))}
-            </div>
-          </section>
-        )}
 
         {/* ── Recently Added Papers ── */}
         {recentPapers.length > 0 && (

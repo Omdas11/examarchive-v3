@@ -2,6 +2,11 @@ import { render, screen } from "@testing-library/react";
 import PaperPage from "./page";
 import React from "react";
 
+jest.mock("next/cache", () => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  unstable_cache: (fn: any) => fn,
+}));
+
 jest.mock("@/lib/auth", () => ({
   getServerUser: jest.fn().mockResolvedValue(null),
 }));

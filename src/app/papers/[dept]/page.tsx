@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { adminDatabases, DATABASE_ID, COLLECTION } from "@/lib/appwrite";
-import { Query } from "node-appwrite";
+import { getAllApprovedPapers } from "@/lib/papers-cache";
 import { toPaper } from "@/types";
 import PaperCard from "@/components/PaperCard";
 import Breadcrumb from "@/components/Breadcrumb";
@@ -191,21 +190,13 @@ export default async function DepartmentPage({ params }: { params: Promise<{ dep
 
   const papers: ReturnType<typeof toPaper>[] = [];
   try {
-    const db = adminDatabases();
-    // Server-side department filter (paginated) — the old limit(100) fetch
-    // silently dropped papers from large departments as the archive grew.
-    let offset = 0;
-    for (;;) {
-      const res = await db.listDocuments(DATABASE_ID, COLLECTION.papers, [
-        Query.equal("approved", true),
-        Query.equal("department", info.name),
-        Query.limit(500),
-        Query.offset(offset),
-      ]);
-      papers.push(...res.documents.map(toPaper));
-      if (res.documents.length < 500) break;
-      offset += 500;
-    }
+    // Shared cache (one 615-read fetch per day for all paper-list pages):
+    // filter this department's papers out of the cached list instead of
+    // re-reading the department from Appwrite on every visit.
+    const allPapers = await getAllApprovedPapers();
+    papers.push(
+      ...allPapers.filter((p) => p.department === info.name),
+    );
     papers.sort((a, b) => b.year - a.year);
   } catch {
     // DB unreachable

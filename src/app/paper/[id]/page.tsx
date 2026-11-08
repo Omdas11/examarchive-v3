@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { unstable_cache } from "next/cache";
 import Link from "next/link";
 import { getServerUser } from "@/lib/auth";
 import {
@@ -25,6 +26,23 @@ const OG_IMAGE_URL = `${SITE_URL}/branding/logo.png`;
 interface PaperPageProps {
   params: Promise<{ id: string }>;
 }
+
+/** Papers sharing a course code (multi-year view) — cached 24h per code:
+ * the live query read up to 20 documents on every paper-page visit. */
+const getRelatedPapers = unstable_cache(
+  async (courseCode: string, excludeId: string): Promise<Paper[]> => {
+    const db = adminDatabases();
+    const { documents } = await db.listDocuments(DATABASE_ID, COLLECTION.papers, [
+      Query.equal("approved", true),
+      Query.equal("course_code", courseCode),
+      Query.orderDesc("$createdAt"),
+      Query.limit(20),
+    ]);
+    return documents.map(toPaper).filter((p) => p.id !== excludeId);
+  },
+  ["related-papers"],
+  { revalidate: 86400 },
+);
 
 export async function generateMetadata({ params }: PaperPageProps): Promise<Metadata> {
   const { id } = await params;
@@ -129,14 +147,7 @@ export default async function PaperPage({ params }: PaperPageProps) {
   let relatedPapers: Paper[] = [];
   if (courseCode) {
     try {
-      const db = adminDatabases();
-      const { documents } = await db.listDocuments(DATABASE_ID, COLLECTION.papers, [
-        Query.equal("approved", true),
-        Query.equal("course_code", courseCode),
-        Query.orderDesc("$createdAt"),
-        Query.limit(20),
-      ]);
-      relatedPapers = documents.map(toPaper).filter((p) => p.id !== paper!.id);
+      relatedPapers = await getRelatedPapers(courseCode, paper!.id);
     } catch {
       // ignore
     }
