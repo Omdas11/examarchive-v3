@@ -40,6 +40,7 @@ const NEW_LAYOUT_PREFIXES = [
   "/terms",
   "/contact",
   "/guides",
+  "/notes",
   "/roles",
   "/assam-university-question-papers",
   "/cbcs-question-papers",

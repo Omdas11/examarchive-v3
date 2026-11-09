@@ -23,6 +23,7 @@ const navLinks: { href: string; label: ReactNode }[] = [
   { href: "/browse", label: "Browse" },
   { href: "/upload", label: "Upload" },
   { href: "/syllabus", label: "Syllabus" },
+  { href: "/notes", label: "Notes" },
   { href: "/ai-content", label: <span className="inline-flex items-center gap-1"><IconSparkles size={14} /> AI</span> },
   { href: "/about", label: "About" },
   { href: "/support", label: "Support" },
