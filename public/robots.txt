@@ -5,7 +5,8 @@ Disallow: /api/
 Disallow: /devtool
 Disallow: /settings
 
-# Aggressive SEO/AI crawlers kept out. Googlebot and Bingbot not listed, so they keep indexing.
+# Aggressive SEO crawlers kept out. Googlebot and Bingbot not listed, so they keep indexing.
+# AI assistants (ClaudeBot, GPTBot, CCBot) are allowed in — they read the site and cite it.
 User-agent: AhrefsBot
 Disallow: /
 
@@ -22,15 +23,6 @@ User-agent: PetalBot
 Disallow: /
 
 User-agent: Bytespider
-Disallow: /
-
-User-agent: ClaudeBot
-Disallow: /
-
-User-agent: GPTBot
-Disallow: /
-
-User-agent: CCBot
 Disallow: /
 
 User-agent: YandexBot

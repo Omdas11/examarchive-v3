@@ -15,8 +15,10 @@ export default function robots(): MetadataRoute.Robots {
         allow: "/",
         disallow: ["/admin", "/api/", "/devtool", "/settings"],
       },
-      // Aggressive SEO/AI crawlers: kept out (advisory — good bots obey it).
+      // Aggressive SEO crawlers: kept out (advisory — good bots obey it).
       // Googlebot and Bingbot are NOT listed, so they keep indexing.
+      // AI assistants (ClaudeBot, GPTBot, CCBot) are allowed in — they read
+      // the site and cite it, which is free promotion.
       {
         userAgent: [
           "AhrefsBot",
@@ -25,9 +27,6 @@ export default function robots(): MetadataRoute.Robots {
           "DotBot",
           "PetalBot",
           "Bytespider",
-          "ClaudeBot",
-          "GPTBot",
-          "CCBot",
           "YandexBot",
         ],
         disallow: "/",
