@@ -1,5 +1,7 @@
 # Amazon Affiliate Products — Setup Guide
 
+> **Status 2026-11-12: the Store is Coming Soon, so the Study Materials section is currently unreachable.** `STORE_COMING_SOON = true` makes `/store` return "Coming Soon" before any product fetching. This guide is still accurate for setup, but nothing below is visible to users until the store reopens.
+
 This guide explains how to configure the **Study Materials** section that appears
 on the ExamArchive Store page.  The section shows curated Amazon products with
 thumbnails, pricing, and "Buy from Amazon" links that include your affiliate tag.
@@ -81,6 +83,8 @@ and add all four.  Redeploy after saving.
 
 ### 3.3 Verify live pricing is active
 
+> **Cannot be performed while the store is Coming Soon** — the Store page returns "Coming Soon" before any product fetching. Re-check after the store reopens.
+
 After deploying, visit the Store page as a logged-in user.  Products fetched
 via PA API show a green **Live** badge next to the price.  If you see no badge
 the fallback static price is being used (check server logs for errors).
@@ -141,13 +145,13 @@ object to the array or delete an existing one, then redeploy.
 
 - **Disclose the affiliate relationship.** The Store page already includes the
   disclosure *"ExamArchive may earn a small commission from qualifying purchases
-  at no extra cost to you."* Keep this visible whenever affiliate links appear.
+  at no extra cost to you."* (in `StoreClient.tsx`, currently hidden behind Coming Soon). Keep this visible whenever affiliate links appear.
 - **Do not modify prices** shown to users — always display the price returned by
   Amazon (via PA API) or an honest static estimate.  Never artificially inflate
   the Amazon price.
-- **PA API terms** prohibit caching prices for more than 24 hours.  The route
-  (`/api/amazon-products`) is set to `revalidate = 3600` (1 hour) which is
-  within the allowed window.
+- **PA API terms** prohibit caching prices for more than 24 hours.  There is no
+  `/api/amazon-products` route and no `revalidate = 3600` — products are fetched
+  server-side from `src/app/store/page.tsx`, so keep any future caching under 24 h.
 
 ---
 
@@ -156,13 +160,14 @@ object to the array or delete an existing one, then redeploy.
 | File | Role |
 |---|---|
 | `src/lib/amazon-products.ts` | Product catalogue, PA API signing, `getProductsWithLivePricing()` |
-| `src/app/api/amazon-products/route.ts` | Public GET endpoint; cached 1 h |
 | `src/app/store/page.tsx` | Calls `getProductsWithLivePricing()` at render; passes data to StoreClient |
 | `src/app/store/StoreClient.tsx` | Renders the "Study Materials" grid |
+
+> Note: there is no `src/app/api/amazon-products/route.ts` — products are fetched directly from the `page.tsx` server component, with no API route and no 1-hour revalidate.
 
 The store page fetches products **server-side** so there is no client-side
 waterfall — the section renders on first load even without JavaScript.
 
 ---
 
-*Last updated: 2026-04*
+*Last updated: 2026-11-12 (store-closed status, no API route, disclosure qualification). Previous version: 2026-04.*

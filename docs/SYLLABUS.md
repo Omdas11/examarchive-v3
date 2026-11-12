@@ -1,4 +1,8 @@
-﻿Subject,Semester,Course Code,Paper Name\
+﻿# OBSOLETE 2026-11-12 — do not use as a reference.
+# This raw CSV covers only 8 of 13 departments (Botany, Chemistry, Commerce, Physics, Zoology missing),
+# duplicates bare codes across departments, and is truncated for Assamese/English.
+# Use docs/SYLLABUS_REGISTRY.md and src/data/syllabus-registry.ts instead (566 papers, 13 departments).
+Subject,Semester,Course Code,Paper Name\
 BENGALI,I,DSC101,"বাংলা সাহিত্যের ইতিহাস (প্রাচীন ও মধ্যযুগ)"\
 BENGALI,I,DSC102,"বাংলা সাহিত্যের ইতিহাস (উনিশ শতক)"\
 BENGALI,II,DSC151,"বাংলা সাহিত্যের ইতিহাস (বিশ শতক)"\

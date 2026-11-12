@@ -1,5 +1,7 @@
 # LAUNCH_CHECKLIST.md
 
+> **Archived 2026-11-12 — do not use as a working checklist.** All 26 items are still `todo` and all gates `pending` because this checklist was written for the April 30, 2026 launch, which already happened. The site is live and temporarily closed until Dec 5, 2026. Kept as a historical record only.
+
 Phase-wise go-live checklist for ExamArchive v3 launch.
 
 **Legend — Status:** `todo` | `in-progress` | `done`

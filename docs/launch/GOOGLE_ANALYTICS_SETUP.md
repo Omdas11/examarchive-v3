@@ -50,12 +50,14 @@ Use these event names consistently for startup metrics:
 - `ai_pdf_exported`
 
 ## Growth / Gamification
+> **Planned, not live.** No badges exist, rank was deleted (one XP ladder only), and referral is only planned — zero hits for these event names in `src/`. Do not instrument them yet.
 - `referral_link_copied`
 - `referral_signup_completed`
 - `badge_unlocked`
 - `tier_upgraded`
 
 ## Monetization Readiness
+> **Not yet live.** The store is Coming Soon and billing is not live, so no purchase funnel exists to instrument yet.
 - `credits_pack_viewed`
 - `credits_purchase_initiated`
 - `credits_purchase_completed`

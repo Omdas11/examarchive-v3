@@ -67,7 +67,7 @@ The current parser (`src/lib/admin-md-ingestion.ts`) reads these frontmatter key
 | `paper_type`         | string | `type`              | One of: `DSC`, `DSM`, `SEC`, `IDC`, `AEC`, `VAC`                 |
 | `semester_code`      | string | `semester_code`     | 3-digit semester code                                              |
 | `semester_no`        | number | `semester_no`       | Derived semester number (1–8)                                     |
-| `question_pdf_url`   | string | `question_pdf_url`  | Optional override; auto-generated from uploaded markdown          |
+| `question_pdf_url`   | string | `question_pdf_url`  | Optional override; auto-generated from uploaded markdown — **currently broken: the ingestion route reads the deleted `syllabus-files` bucket** |
 | `source_reference`   | string | `source_reference`  | Source doc or upload batch this was ingested from                 |
 | `status`             | string | `status`            | `active`, `archived`, or `draft`                                  |
 
@@ -113,6 +113,7 @@ semester_code: "101"
 semester_no: 1
 
 # Optional: ingestion auto-renders a PDF and fills this URL when omitted.
+# (Currently broken — the ingestion route reads the deleted `syllabus-files` bucket.)
 question_pdf_url: "/api/files/ingestion-question/<generated-file-id>"
 source_reference: "MASTER_QUESTION_ENTRY.md"
 status: "active"

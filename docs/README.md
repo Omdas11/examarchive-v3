@@ -1,7 +1,14 @@
 # ExamArchive v3
 
-ExamArchive is a student-first platform to discover, contribute, and study from university exam papers and syllabi.  
+ExamArchive is a student-first platform to discover, contribute, and study from university exam papers and syllabi.
 This repository contains the Next.js 15 + Appwrite implementation.
+
+> **Current status 2026-11-12: the site is temporarily closed until Dec 5, 2026.** Free Appwrite DB reads are 92% used (462K/500K, cycle Nov 5–Dec 5); middleware redirects all pages to `/closed` and API calls return 503. The features below describe the live product, but they are not usable until the site reopens. Only the `papers` bucket survives; the store is Coming Soon and uploads are team-only.
+
+## Live site
+
+- **examarchive.dev** — 615 papers, 29 users; syllabus for 13 Haflong Government College departments (566 papers, 2,789 syllabus-table rows); Notes section at `/notes` (20 PDFs, 534 pages).
+- **Android app** — separate repo **[Omdas11/examarchive-android](https://github.com/Omdas11/examarchive-android)** (Flutter, v0.6.1-beta), same Appwrite backend.
 
 ## Quick Start
 
@@ -21,12 +28,11 @@ This repository contains the Next.js 15 + Appwrite implementation.
 
 ## Core Product Features
 
-- Upload papers and syllabi with registry-based metadata auto-fill.
-- Moderate every upload through an admin approval queue.
+- Uploads are team-only (moderator+); regular users see a team-handled notice on `/upload`. Team uploads use registry-based metadata auto-fill and are reviewed before publishing.
 - Browse by department, semester, year, exam type, and paper code.
 - Access files through authenticated proxy routes (no public bucket exposure).
 - Use AI study tools (chat + note generation + PDF export).
-- Earn XP/badges with referral support and AI credit rewards.
+- Earn XP on a single ladder (Bronze 0 / Silver 100 / Gold 300 / Platinum 800 / Diamond 1500+) by verifying AI content, with referral support and token rewards. Credit balances are hidden while the store is Coming Soon.
 
 ## Android App
 

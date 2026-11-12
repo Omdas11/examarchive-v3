@@ -4,6 +4,8 @@
 
 > FYUG Curriculum Structure mapped across 8 Semesters and 13 Departments.
 > **Color Legend:** <font color='#2563eb'><b>DSC</b></font> | <font color='#9333ea'><b>DSM</b></font> | <font color='#ea580c'><b>IDC</b></font> | <font color='#b8860b'><b>SEC</b></font> | <font color='#16a34a'><b>VAC</b></font> | <font color='#dc2626'><b>AEC</b></font>
+>
+> **Status 2026-11-12 — counts in this file are stale; do not use as the source of truth.** Verified total is **566 unique papers**, not 526 (see `docs/SYLLABUS_REGISTRY.md` and `docs/PAPER_TABLE_DETAILED.md` in the syllabus-restore output). Known errors: (1) Semester 5 shows 5 papers per department but should be 6 — the common Internship paper (e.g. `INDITR301`) is missing from every department table. (2) Semester 8 shows a fixed 5, but it is 3 on the research track (DSC-451 + DSM-451 + Research Project) or 5 on the coursework track. (3) Every "Name" cell in the department tables is blank — paper names were never filled in. (4) The Syllabus Acquisition Tracker at the bottom is entirely blank. (5) The per-department TOTAL of 46 double-counts shared common papers (VAC/AEC/IDC); the 526/566 figures count unique codes once — that is not an arithmetic error. This file is a planning/tracking sheet, not the live registry.
 
 ## PHYSICS DEPARTMENT
 
@@ -207,7 +209,9 @@
 | 12 | **HISTORY** | 8 | 8 | 5 | 3 | 8 | 2 | 3 | 3 | 0 | 0 | **40** |
 | 13 | **PHILOSOPHY** | 8 | 8 | 5 | 3 | 8 | 2 | 3 | 3 | 0 | 0 | **40** |
 | 14 | **COMMON COLLEGE PAPERS** | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 2 | 4 | **6** |
-| **-** | **OVERALL EXPECTED** | **104** | **104** | **65** | **39** | **104** | **26** | **39** | **39** | **2** | **4** | **526** |
+| **-** | **OVERALL EXPECTED** | **104** | **104** | **65** | **39** | **104** | **26** | **39** | **39** | **2** | **4** | **566** |
+
+> **Note:** the per-column values above are the pre-recount baseline (they sum to 526). The verified unique-paper total is **566** — see the status note at the top of this file.
 
 ---
 

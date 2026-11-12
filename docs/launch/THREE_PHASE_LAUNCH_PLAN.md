@@ -1,5 +1,7 @@
 # ExamArchive v3 — Three Phase Launch Plan
 
+> **Archived 2026-11-12 — do not follow.** This plan targeted an April 30, 2026 launch (fallback June 1) that already happened. The site is live and temporarily closed until Dec 5, 2026. Its Role/XO and virtual-currency sections are also stale: rank/XO were deleted, the currency is tokens, and the store is Coming Soon. Kept as a historical record only.
+
 **Repository:** `Omdas11/examarchive-v3`
 **Plan start date:** April 8, 2026 (IST)
 **Primary launch window:** Apr 30, 2026

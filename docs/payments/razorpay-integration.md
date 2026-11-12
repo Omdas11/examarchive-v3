@@ -1,11 +1,13 @@
 # Razorpay Integration Architecture
 
+> **Status 2026-11-12: design doc, not live.** This defines a payment architecture that was never fully built: the store is Coming Soon, no purchase can occur, and the replacement of quota-based monetization with purchase-backed access has not happened — the token economy keeps running as-is. Only `create-order` and `verify` routes exist; the webhook and pass routes below do not.
+
 This document defines the payment architecture that replaces quota-based monetization with purchase-backed access in Next.js + Appwrite.
 
 ## Goals
 
 - Verify Razorpay payment signatures server-side.
-- Persist purchase truth in Appwrite (`Purchases` collection).
+- Persist purchase truth in Appwrite (`purchases` collection — lowercase collection ID).
 - Use purchases to authorize premium generation flows.
 - Keep client-side payment code free of trusted verification logic.
 
@@ -33,16 +35,18 @@ This document defines the payment architecture that replaces quota-based monetiz
 
 ## 3) Optional webhook route (recommended)
 
+> **Not implemented** — no webhook route exists in `src/app/api/payments/razorpay/` (only `create-order` and `verify`).
+
 - **Route:** `POST /api/payments/razorpay/webhook`
 - **Responsibility:**
   - Validate Razorpay webhook signature with webhook secret.
   - Handle authoritative async events (captured, failed, refunded, chargeback, etc.).
-  - Reconcile `Purchases` status changes idempotently.
+  - Reconcile `purchases` status changes idempotently.
   - Keep verification route fast while webhooks remain source-of-truth for late state updates.
 
-## Appwrite Collection Schema: `Purchases`
+## Appwrite Collection Schema: `purchases`
 
-Recommended collection ID: `Purchases`
+Recommended collection ID: `purchases` (lowercase — this is the ID used in code)
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
@@ -84,4 +88,4 @@ Recommended collection ID: `Purchases`
   - Resolve active purchase/subscription for `user_id`.
   - Derive generation allowance from purchase entitlements.
   - Reject requests when no active entitlement exists.
-- `user_quotas` can remain for temporary compatibility, but final gating should use `Purchases` as source of truth.
+- `user_quotas` can remain for temporary compatibility, but final gating should use `purchases` as source of truth. (Not yet live — see the status note at the top.)

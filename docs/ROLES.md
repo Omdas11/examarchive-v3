@@ -64,10 +64,12 @@ can attach to a profile. They grant **no permissions**.
 
 ## Permissions summary
 
+> **Note 2026-11-12:** these are authorizations, not current availability. The site is temporarily closed until Dec 5, 2026 (middleware redirects all pages to `/closed`, API returns 503), so browsing, downloading, and AI generation are unreachable until it reopens.
+
 | Capability | Student | Contributor | Specialist | Subject Admin | Moderator | Founder |
 |------------|---------|-------------|------------|---------------|-----------|---------|
 | Browse & download papers | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Upload papers (pending review) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Upload papers (pending review) | – | – | – | – | ✓ | ✓ |
 | AI notes / PDF generation | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Approve/reject uploads | – | – | – | ✓ (own subjects) | ✓ | ✓ |
 | Edit paper metadata | – | – | – | ✓ | ✓ | ✓ |

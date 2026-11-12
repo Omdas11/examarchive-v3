@@ -18,7 +18,7 @@ Version note:
   - HTML conversion endpoint compatibility (`/forms/chromium/convert/html`)
   - Header/footer rendering (`displayHeaderFooter=true`)
   - Wait-delay rendering behavior (`waitDelay`)
-  - Successful PDF upload back into Appwrite storage
+  - Successful PDF upload back into Appwrite storage (generated-PDF cache used to live in the deleted `paper-markdown` bucket — on the current setup it goes to a folder in the surviving `papers` bucket, or the static-notes flow)
 
 After deploy, your Space URL should look like:
 
@@ -68,7 +68,7 @@ Notes:
    ```bash
    npm run dev
    ```
-2. Trigger Notes or Solved Paper generation from the AI content flow.
+2. Trigger Notes or Solved Paper generation from the AI content flow. (**Blocked:** AI generation is disabled and the site is closed until Dec 5, 2026 — nothing can be triggered now.)
 3. Confirm PDF is generated and downloadable.
 
 ## 4) Troubleshooting

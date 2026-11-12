@@ -8,12 +8,13 @@
 
 > **Status: Proposed v2 Spec** — This document describes a **future redesign** of the
 > ExamArchive role and activity-scoring system. It does **not** reflect the current
-> implementation.
+> implementation, and the redesign was never built.
 >
-> **Current system** (`src/lib/roles.ts`): roles are
-> `visitor → explorer → contributor → verified_contributor → moderator → maintainer → admin → founder`.
-> Promotions in the current system are **always confirmed manually** by an admin or founder;
-> XP thresholds are informational only.
+> **Live system** (`src/lib/roles.ts`, see `docs/ROLES.md`): roles are
+> `student → contributor → specialist → subject_admin → moderator → founder`.
+> Contributor and Specialist auto-promote on verification + XP thresholds
+> (10 verifications + 100 XP; 50 verifications + 800 XP). There is no XO score,
+> no Curator/Admin roles, no XO decay, demotion, or appeals process.
 >
 > See the **Mapping from Current Roles** section at the end of this document for the
 > transition plan between the current and proposed systems.

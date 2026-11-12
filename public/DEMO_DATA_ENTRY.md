@@ -4,7 +4,7 @@ course: FYUG
 stream: Science
 type: DSC
 paper_code: PHYDSC101T
-paper_name: Mechanics
+paper_name: Mathematical Physics - I
 ---
 
 > **File Naming Convention: The file must be named exactly as the Paper Code. Example: `PHYDSC101T.md`.**

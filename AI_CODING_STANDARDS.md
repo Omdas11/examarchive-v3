@@ -3,9 +3,9 @@
 This document outlines the strict ESLint and TypeScript rules that **both Developers and AI Assistants** must follow when contributing to the `examarchive-v3` codebase.
 
 ## 1. Strict Vercel Build Environment
-Vercel is configured to run `npm run build` (via `next build`) on every deployment. During this build process, Next.js automatically runs ESLint across the entire codebase. 
+Vercel is configured to run `npm run build` (via `next build`) on every deployment. During this build process, Next.js automatically runs ESLint across the directories it lints (pages, components, lib, and `src/`, including `__tests__` directories under them). Root-level test files (e.g. `initial.test.js`, `scripts/*.test.js`) are not covered by build-time linting.
 
-**Crucially, this includes test files (e.g., inside `__tests__` directories).** Any ESLint error or TypeScript type error will result in a failed Vercel deployment.
+**Crucially, this includes test files (e.g., inside `__tests__` directories under the linted paths).** Any ESLint error or TypeScript type error will result in a failed Vercel deployment.
 
 ## 2. No `any` Types (`@typescript-eslint/no-explicit-any`)
 The use of the `any` type is strictly forbidden. The ESLint rule `@typescript-eslint/no-explicit-any` will flag any usage of `any` and cause the build to fail.

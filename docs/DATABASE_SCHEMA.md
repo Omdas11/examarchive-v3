@@ -4,6 +4,8 @@
 
 All collections live inside this single Appwrite database.
 
+> **Status 2026-11-12:** Only the `papers` bucket survives — `syllabus-files`, `avatars`, `paper-markdown`, and the other buckets listed below were deleted when the project was downgraded to the Free plan on 2026-11-05. Any bucket below marked as live other than `papers` is stale. The auto-generated sync appendix at the end of this file is an Oct 1, 2026 snapshot that predates the deletions — do not treat it as current. Also note the main body is missing sections for the live collections `purchases`, `user_passes`, `user_badges`, `ai_cache_index`, and `content_verifications`.
+
 ---
 
 ## Collection: `papers`
@@ -41,7 +43,7 @@ Stores exam question paper metadata. Files are held in the `papers` Appwrite Sto
 
 ## Collection: `syllabus`
 
-Stores syllabus document metadata. Files are held in the `syllabus-files` bucket (restricted to authenticated users).
+Stores syllabus document metadata. Files were held in the `syllabus-files` bucket — **that bucket was deleted 2026-11-05** and only the `papers` bucket remains, so the syllabus file path below is currently broken (dept syllabus "View PDF" buttons fail until the bucket fix).
 
 | Field                  | Type    | Required | Notes                                               |
 |------------------------|---------|----------|-----------------------------------------------------|
@@ -53,7 +55,7 @@ Stores syllabus document metadata. Files are held in the `syllabus-files` bucket
 | `year`                 | Integer | No       | Year the syllabus is applicable                     |
 | `uploader_id`          | String  | No       | Appwrite user ID of the uploader                    |
 | `approval_status`      | String  | No       | `"pending"` \| `"approved"` \| `"rejected"`         |
-| `file_url`             | String  | No       | Next.js proxy URL (`/api/files/syllabus/{fileId}`)  |
+| `file_url`             | String  | No       | Next.js proxy URL (`/api/files/syllabus/{fileId}`) — **currently broken: the route reads the deleted `syllabus-files` bucket** |
 | `uploaded_by_username` | String  | No       | Denormalised username for display                   |
 | `course_code`          | String  | No       | Legacy alias when a syllabus maps to a course       |
 | `course_name`          | String  | No       | Legacy alias for subject                            |
@@ -68,17 +70,16 @@ Stores user profile data alongside Appwrite Auth accounts.
 | Field                    | Type     | Required | Notes                                                                                                 |
 |--------------------------|----------|----------|-------------------------------------------------------------------------------------------------------|
 | `email`                  | String   | **Yes**  | User email address                                                                                    |
-| `role`                   | String   | **Yes**  | Primary role: `visitor` / `explorer` / `contributor` / `verified_contributor` / `moderator` / `maintainer` / `admin` / `founder` |
+| `role`                   | String   | **Yes**  | Primary role: `student` / `contributor` / `specialist` / `subject_admin` / `moderator` / `founder` (see `docs/ROLES.md`; the old visitor/explorer/verified_contributor/maintainer/admin names were removed 2026-10-04) |
 | `primary_role`           | String   | No       | Legacy alias for `role` (kept for backwards compatibility)                                            |
 | `secondary_role`         | String   | No       | Cosmetic community role (display-only)                                                                |
 | `tertiary_role`          | String   | No       | Additional cosmetic community role                                                                    |
-| `tier`                   | String   | No       | Activity tier: `bronze` / `silver` / `gold` / `platinum` / `diamond`                                  |
+| `tier`                   | String   | No       | **Derived only, never stored as truth** — activity tier (`bronze` / `silver` / `gold` / `platinum` / `diamond`) computed from XP via `xpTier()` in `src/lib/roles.ts` |
 | `display_name`           | String   | No       | User's display name                                                                                   |
 | `username`               | String   | No       | Unique @username                                                                                      |
 | `xp`                     | Integer  | No       | Experience points                                                                                     |
 | `streak_days`            | Integer  | No       | Current daily streak; legacy name `streak` is accepted                                                |
-| `avatar_url`             | String   | No       | URL of user's avatar image                                                                            |
-| `avatar_file_id`         | String   | No       | Appwrite file ID in the avatars bucket                                                                |
+| `avatar_url`             | String   | No       | URL of user's avatar image — Google profile photo only (avatar uploads were removed and the `avatars` bucket deleted) |
 | `last_activity`          | Datetime | No       | ISO 8601 timestamp of last activity                                                                   |
 | `upload_count`           | Integer  | No       | Total approved uploads; drives auto-promotion                                                         |
 | `username_last_changed`  | String   | No       | ISO 8601 timestamp of last username change; enforces 7-day cooldown                                   |
@@ -474,38 +475,25 @@ Recommended index:
 
 ## Storage Buckets
 
+> **Only the `papers` bucket survives.** `syllabus-files` and `avatars` were deleted 2026-11-05. The two ingestion rows below were never created as standalone buckets — ingestion data maps to folders inside the `papers` bucket.
+
 | Bucket ID        | Purpose                         | Max File Size | Access           |
 |------------------|---------------------------------|---------------|------------------|
 | `papers`         | Exam question paper PDFs        | 20 MB         | `read("users")` — authenticated only |
-| `syllabus-files` | Syllabus PDFs                   | 20 MB         | `read("users")` — authenticated only |
-| `avatars`        | User avatar images              | 5 MB          | `read("users")`  |
 | `examarchive-syllabus-md-ingestion` | Uploaded syllabus markdown ingestion files | 2 MB | server-side admin only |
 | `examarchive_question_ingest_assets` | Question ingestion assets (markdown + rendered PDFs) | 5 MB | server-side admin only |
 
 All files are served via Next.js proxy routes that verify the user's session:
 - Papers: `/api/files/papers/[fileId]`
-- Syllabi: `/api/files/syllabus/[fileId]`
-- Avatars: `/api/files/avatars/[fileId]`
+- Syllabi: `/api/files/syllabus/[fileId]` — **currently broken: reads the deleted `syllabus-files` bucket**
 - Ingestion-rendered question PDFs: `/api/files/ingestion-question/[fileId]`
-
----
-
-## Soft launch reset checklist
-
-Use this checklist to wipe counters and storage before relaunch:
-
-1) **Storage buckets:** Empty `papers`, `syllabus-files`, and (optionally) `avatars` buckets from the Appwrite console or CLI.  
-2) **Collections to clear:** Truncate `papers`, `syllabus`, `uploads`, `ai_usage`, `pdf_usage`, and `ai_embeddings` if you want a clean slate.  
-3) **Visitor counter:** Call `DELETE /api/visitor` with header `x-admin-key: APPWRITE_API_KEY` to reset `site_metrics.visitor_count` to `0` (e.g. via DevTools).  
-4) **User counters:** Set `upload_count`, `view_count`, and `download_count` to `0` for any seed documents you keep; adjust `launch_progress` as needed.  
-5) **Verify schema:** Ensure `institute`/`institution` is present on papers so university totals render correctly, and that `users` collection totals match the Auth user count after cleanup.
-
----
 
 ---
 
 <!-- SCHEMA_SYNC_RESOURCES_START -->
 ## Backend Resource Map (Auto-generated)
+
+> **Stale 2026-11-12 — do not treat as current.** This section is an Oct 1, 2026 snapshot that predates the Nov 5, 2026 downgrade and bucket deletions. Buckets listed here as "Connected" other than `papers` (`syllabus-files`, `avatars`, `notes`, `generated-md-cache`, `cached-unit-notes`, `cached-solved-papers`) no longer exist. Re-run the schema sync to refresh it.
 
 _Generated from `scripts/v2/sync-appwrite-schema.js` to reflect backend-configured Appwrite resources._
 

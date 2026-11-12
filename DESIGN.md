@@ -10,7 +10,7 @@ The style adheres to **Modern Material 3** principles, utilizing tonal elevation
 ## 2. Colors
 The palette is anchored by **Emerald Green**, symbolizing growth and success, paired with **Action Blue** for interactive elements.
 
-- **Primary (Emerald):** #10B981 - Used for brand expression, key actions, and success states.
+- **Primary (Emerald):** #047857 (light mode; dark variant #065f46) - Used for brand expression, key actions, and success states. #10B981 survives only as the dark-mode primary-dark / success green (`--success-green`).
 - **Secondary (Blue):** #3B82F6 - Dedicated to secondary utilities, links, and informational callouts.
 - **Background:** #F9FAFB - A cool-toned off-white to minimize glare during long study sessions.
 - **Surface:** #FFFFFF - Pure white containers create a clear "layered" effect against the background.
@@ -19,16 +19,15 @@ The palette is anchored by **Emerald Green**, symbolizing growth and success, pa
 ### Semantic Mapping (MD3)
 | Role | Color |
 | :--- | :--- |
-| Primary | #006C49 |
+| Primary | #047857 |
 | Primary Container | #10B981 |
-| Secondary | #0058BE |
-| Secondary Container | #2170E4 |
-| Tertiary | #855300 |
+| Secondary | #3b82f6 |
+| Secondary Container | — (no matching token in `src/app/globals.css`) |
 | Surface | #F9FAFB |
-| On Surface | #141B2B |
-| Outline | #6C7A71 |
+| On Surface | #111827 |
+| Outline Variant | #D1D5DB |
 
-Note: The "Surface" token (#F9FAFB) represents the baseline page background, while elevated white containers (Surface Container Lowest) use pure white (#FFFFFF).
+Note: there is no Tertiary token in `src/app/globals.css`. The "Surface" token (#F9FAFB) represents the baseline page background, while elevated white containers (Surface Container Lowest) use pure white (#FFFFFF).
 
 ---
 

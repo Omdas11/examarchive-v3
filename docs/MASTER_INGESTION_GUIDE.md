@@ -58,7 +58,7 @@ Questions are linked to syllabus entries using `linked_syllabus_entry_id`:
   - Generated format:
     `/api/syllabus/table?paperCode=<PAPER_CODE>&mode=pdf&university=<...>&course=<...>&stream=<...>&type=<...>`
 - `question_pdf_url` is auto-filled during question ingestion when omitted.
-  - The uploaded question markdown is rendered to PDF and stored in the question-ingestion assets bucket.
+  - The uploaded question markdown is rendered to PDF and stored in the question-ingestion assets bucket. (**Currently broken:** that bucket lives in the deleted `syllabus-files` bucket — the route reads a bucket that no longer exists. The fix is to point ingestion PDFs at a folder in the surviving `papers` bucket.)
   - Generated format:
     `/api/files/ingestion-question/<generated-file-id>`
 - You may still provide either URL manually in frontmatter as an override.

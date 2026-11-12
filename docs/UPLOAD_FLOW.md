@@ -1,5 +1,7 @@
 # Upload Flow — ExamArchive v3
 
+> **Status 2026-11-12: uploads are team-only (moderator+).** Regular users do not upload — they see a team-handled notice. This doc describes the team/moderator upload path only. Also note the site is temporarily closed until Dec 5, 2026 (middleware redirects to `/closed`), and the `syllabus-files` and `avatars` buckets referenced below were deleted on 2026-11-05 — only the `papers` bucket remains.
+
 ExamArchive uses a **deterministic two-step upload** pattern: the browser uploads the file directly to Appwrite Storage (bypassing Next.js), then the Next.js server saves metadata to the database. If the database insertion fails, the uploaded file is automatically deleted to prevent orphaned storage entries.
 
 ---
@@ -77,7 +79,7 @@ Users only enter three fields. All other metadata is resolved server-side:
 
 ## Syllabus Upload Flow
 
-Same two-step pattern, but uses the `syllabus-files` bucket and `POST /api/upload/syllabus`.
+Same two-step pattern, but it used the `syllabus-files` bucket and `POST /api/upload/syllabus`. **That bucket was deleted 2026-11-05 and only the `papers` bucket remains, so syllabus uploads are currently broken until the bucket fix (syllabus files move into a folder inside `papers`).**
 
 | User Input   | Auto-Resolved Fields                           |
 |--------------|------------------------------------------------|
@@ -99,13 +101,13 @@ Uses `DeptSyllabusUploadForm.tsx` and `POST /api/upload/syllabus`. The user manu
 
 All PDFs are stored with `read("users")` permission and are only accessible to authenticated users. They are served through Next.js proxy routes that verify the session:
 
-| Route                            | Bucket         | Auth required |
-|----------------------------------|----------------|---------------|
-| `/api/files/papers/[fileId]`     | `papers`       | ✅ Yes        |
-| `/api/files/syllabus/[fileId]`   | `syllabus-files` | ✅ Yes      |
-| `/api/files/avatars/[fileId]`    | `avatars`      | No            |
+| Route                            | Bucket         | Auth required | Status |
+|----------------------------------|----------------|---------------|--------|
+| `/api/files/papers/[fileId]`     | `papers`       | ✅ Yes        | Live |
+| `/api/files/syllabus/[fileId]`   | `syllabus-files` (deleted) | ✅ Yes | **Broken** — reads the deleted bucket |
+| `/api/files/avatars/[fileId]`    | `avatars` (deleted) | No       | **Removed** — avatar uploads were removed; Google sign-ins use the Google photo |
 
-Guests visiting `/paper/*` pages are automatically redirected to `/login` by the middleware.
+Guests visiting `/paper/*` pages are currently redirected to `/closed` by the closure middleware (until Dec 5, 2026); before the closure they were redirected to `/login`.
 
 ---
 
@@ -118,15 +120,15 @@ After submission:
    - `papers.status` → `"approved"`
    - user's `upload_count` increments
    - XP is awarded
-   - AI credits can be granted by activity policy
+   - tokens can be granted by activity policy
 3. On **rejection**: paper document is deleted; storage file is also deleted to prevent orphaned files.
 4. All admin actions are logged to the `activity_logs` collection.
 
-### Referral + credit policy (planned)
+### Referral + token policy (planned)
 
 - Referral onboarding can assign `users.referred_by` and a bounded `users.referral_path` (up to 5 hierarchy levels).
-- When referred users complete qualifying activity, credit and XP rewards can be distributed from level 1 through level 5 ancestors.
-- Future monetization provision: purchased credits should increase `users.ai_credits` without changing XP-based role permissions.
+- When referred users complete qualifying activity, token and XP rewards can be distributed from level 1 through level 5 ancestors.
+- Future monetization provision: purchased tokens should increase `users.ai_credits` without changing XP-based role permissions.
 
 ---
 

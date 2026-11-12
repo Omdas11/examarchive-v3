@@ -1,5 +1,7 @@
 # 30_DAY_EXECUTION_PLAN.md
 
+> **Archived 2026-11-12 — do not follow.** This plan treated the April 30, 2026 launch as future. The site already launched and is temporarily closed until Dec 5, 2026 (free Appwrite reads 92% used). Kept as a historical record only.
+
 **Execution window:** April 8, 2026 → April 30, 2026  
 **Target:** Complete all launch checklist plans by April 30, 2026
 

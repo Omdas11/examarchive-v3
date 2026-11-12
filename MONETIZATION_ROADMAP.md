@@ -1,5 +1,9 @@
 # MONETIZATION_ROADMAP
 
+> **Status 2026-11-12: this is a proposal, not a status doc. Nothing in Phases 1–10 is implemented.** The Phase 1 collections (`wallet_accounts`, `wallet_ledger`, `credit_purchase_requests`, `note_catalog`, `note_entitlements`, `semester_passes`, `role_economy_rules`) exist nowhere in `src/` or `scripts/` — only `ai_generation_jobs`, `user_passes`, and `user_badges` actually exist. Do not read this file as "what the site does today."
+>
+> **Blocked:** the site is temporarily closed until Dec 5, 2026 (free Appwrite reads 92% used; middleware redirects all pages to `/closed`, API returns 503). No rollout in this roadmap can happen until the reads reset and the store reopens. Only the `papers` bucket survives — the `paper-markdown` and `syllabus-files` buckets were deleted 2026-11-05, so any bucket-per-tier plan here needs the folder-move fix first.
+
 ## Objective
 
 Implement a production-ready monetization and contribution economy for ExamArchive using the existing **Next.js + TypeScript + Appwrite** stack, without replacing current XP/Roles patterns.
@@ -43,10 +47,10 @@ This roadmap covers:
 
 ### Appwrite Storage & Functions
 - Define bucket strategy:
-  - Existing paper/syllabus buckets remain unchanged.
+  - Only the `papers` bucket survives; `paper-markdown` and `syllabus-files` were deleted 2026-11-05. Any new tiered-note storage must use folders inside the `papers` bucket (the folder-move fix is a precondition) — do not plan new standalone buckets on the Free plan.
   - Add dedicated bucket(s) for peer handwritten notes and premium typed notes.
 - Define function responsibilities:
-  - `ai-note-worker` (Gemini generation + status updates)
+  - `pdf-generator` (the only surviving Appwrite function; `ai-note-worker` was removed) handles PDF generation + status updates
   - `wallet-reconciliation` (optional scheduled checks/stipends)
 
 ### Frontend UI Components

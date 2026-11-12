@@ -1,5 +1,7 @@
 # AI Notes Setup Guide
 
+> **Blocked until Dec 5, 2026.** The site is temporarily closed (free Appwrite reads 92% used); middleware 503s `/api/ai/*` (except `/api/ai/status` and notify-completion) and 307-redirects `/ai-content`/`/study` to `/closed`. Setting the API key alone does not restore AI features — the site must also reopen on Dec 5, 2026.
+
 The AI features (AI study-notes generation on `/ai-content`, the AI assistant
 chat, solved-paper generation, and study flashcards) were intentionally
 disabled by removing the API key. The routes (`/api/ai/*`), the `/ai-content`
@@ -64,7 +66,7 @@ Deployments → Redeploy) so the new variables take effect.
 
 1. Visit `https://www.examarchive.dev/api/ai/status` — it should return
    `{"configured": true}`.
-2. Open `/ai-content` — the "AI notes unavailable" notice should be gone.
+2. Open `/ai-content` — the "AI notes unavailable" notice should be gone. (**Blocked until Dec 5, 2026:** `/ai-content` currently redirects to `/closed`.)
 3. Generate a small test note (a founder/admin account is not rate-limited).
 
 ## 5. Troubleshooting
@@ -74,7 +76,9 @@ Deployments → Redeploy) so the new variables take effect.
   change. Redeploy.
 - **`AI generation is not configured` (503) on `/api/ai/generate`** —
   `GEMINI_API_KEY`/`GOOGLE_API_KEY` is missing or empty in the Vercel runtime
-  environment.
+  environment. Note: during the closure until Dec 5, 2026, `/api/ai/generate`
+  returns 503 "temporarily closed" regardless of whether the key is set — the
+  closure 503 takes precedence over the missing-key 503.
 - **PDF jobs never complete** — check that `AI_JOB_WEBHOOK_SECRET` matches
   byte-for-byte between Vercel and the Appwrite function, and that
   `GOTENBERG_URL` is reachable (see `docs/HF_GOTENBERG_SETUP.md`).

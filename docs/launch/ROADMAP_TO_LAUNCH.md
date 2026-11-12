@@ -1,5 +1,7 @@
 # ExamArchive v3 - 30 Day Master Plan (Target: Apr 30)
 
+> **Archived 2026-11-12 — do not follow.** This plan targeted an April 30, 2026 launch that already happened. The site is live and temporarily closed until Dec 5, 2026. Its role/XO and virtual-currency sections are also stale: rank/XO were deleted, the currency is tokens, and notes are free static PDFs. Kept as a historical record only.
+
 ## Team Recommendation (3-4 Members)
 To hit the aggressive late-April/early-May deadline, a team of **3 to 4 people** is ideal so tasks can be run in parallel:
 1. **Data/Backend Engineer:** Handles the new Markdown parsing logic (Syllabus vs Questions split) and the complex Paper Code regex system.

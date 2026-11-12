@@ -1,5 +1,7 @@
 # Bucket Setup Guide: Ingestion Buckets
 
+> **Paused 2026-11-12 — do not follow as-is.** Only the `papers` bucket survives on the Free plan; the `paper-markdown` and `syllabus-files` buckets were deleted 2026-11-05. The two ingestion buckets below were never created as standalone buckets, and the code now maps ingestion data to folders inside the `papers` bucket instead. Do not create these buckets until the bucket fix is decided. The settings and automation notes below are kept for reference.
+
 If automatic bucket creation fails (insufficient permissions), configure both ingestion buckets manually in Appwrite:
 
 1. Open **Storage** → **Create Bucket**.

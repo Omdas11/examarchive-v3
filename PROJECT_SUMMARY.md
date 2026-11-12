@@ -5,7 +5,7 @@
 
 **How it connects:**
 * **Authentication:** Next.js Server Actions (`src/app/auth/actions.ts`) proxy authentication requests to Appwrite and securely store the session secret in an `httpOnly` cookie (`ea_session`).
-* **Direct-to-Storage Uploads:** To bypass Vercel's 4.5MB serverless payload limit, the frontend requests a short-lived Appwrite JWT (`/api/upload/token`). The browser then uploads PDFs directly to the Appwrite Storage bucket (`src/lib/appwrite-client.ts`), followed by a metadata submission to a Next.js API route.
+* **Direct-to-Storage Uploads:** To bypass Vercel's 4.5MB serverless payload limit, the frontend requests a short-lived Appwrite JWT (`/api/upload/token`). The browser then uploads PDFs directly to the Appwrite Storage bucket (`src/lib/appwrite-client.ts`), followed by a metadata submission to a Next.js API route. Note: this flow is team/moderator-only — public uploads are closed and regular users see a team-handled notice on `/upload`.
 * **Server-side Proxying:** Database reads and writes (like fetching syllabus data or updating user stats) are securely proxied through Next.js API routes using a server-side Appwrite API Key or the user's session token. This prevents exposing the DB directly to the client.
 * **Asynchronous AI Workers:** AI PDF generation (`/api/ai/generate-pdf`) relies on an Appwrite Function (`@appwrite-functions/pdf-generator`). The Next.js backend enqueues the job in the database, triggers the Appwrite function asynchronously, and provides a webhook callback URL (`/api/ai/notify-completion`) to get notified when the PDF is ready.
 
@@ -13,10 +13,10 @@
 ### Architectural Improvements
 * **Migrate Appwrite Functions to TypeScript:** The `pdf-generator` function is currently written in plain JavaScript. Migrating it to TypeScript will ensure type parity with the Next.js backend, reducing runtime errors related to mismatched JSON payloads.
 * **Centralized API Validation:** Many API routes (e.g., `src/app/api/upload/route.ts`, `src/app/api/payments/...`) rely on manual `typeof` checks to validate incoming JSON payloads. Implementing a validation library like `Zod` or `Valibot` would drastically clean up the API routes and ensure stronger type safety.
-* **Decouple In-Route Puppeteer Rendering:** The `/api/ai/pdf` route spins up `@sparticuz/chromium` via Puppeteer directly inside a Next.js serverless function. This is highly susceptible to cold start delays, memory limits, and timeouts. This logic should be fully offloaded to the existing Gotenberg microservice.
+* **Decouple In-Route Puppeteer Rendering:** In-route Puppeteer rendering (`src/lib/pdf-generator.ts`, which spins up `@sparticuz/chromium` via Puppeteer directly inside a Next.js serverless function) is used by `/api/admin/ingest-md` and `/api/syllabus/table`. There is no `/api/ai/pdf` route. This is highly susceptible to cold start delays, memory limits, and timeouts. This logic should be fully offloaded to the existing Gotenberg microservice.
 
 ### Performance Optimizations
-* **Aggressive Caching for Reads:** Public data like the `Syllabus_Table`, `papers`, and platform stats are fetched from Appwrite on every request. Introducing Redis or Next.js `unstable_cache` with revalidation tags would significantly reduce database reads and lower TTFB (Time to First Byte).
+* **Aggressive Caching for Reads:** `papers` is already cached 24h with `unstable_cache` (`src/lib/papers-cache.ts`, 615 reads per cold fetch), and the paper page got a 24h cache on 2026-11-12. Audit whether `Syllabus_Table` and platform stats still fetch from Appwrite on every request; introducing Redis or `unstable_cache` with revalidation tags there would further reduce database reads and lower TTFB (Time to First Byte).
 * **Pagination Refactoring:** The `/api/devtool` and `/api/syllabus/table` routes use `while(true)` loops to fetch chunks of documents up to a hard cap. This is inefficient and memory-heavy. The frontend should rely on cursor-based infinite scrolling or explicit pagination rather than having the backend fetch massive arrays in memory.
 
 ### Cleaner TypeScript Types

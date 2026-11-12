@@ -151,17 +151,17 @@ is rejected as a failed generation.
 |------------------|------------------|-------------------------------------------------|
 | 0.90 – 1.00      | High confidence  | Auto-accept; deliver to user                    |
 | 0.70 – 0.89      | Medium confidence| Accept; flag `low_confidence_fields` for review |
-| 0.50 – 0.69      | Low confidence   | Queue for Curator review before delivery         |
+| 0.50 – 0.69      | Low confidence   | Queue for human review before delivery (proposed flow — no review queue currently exists) |
 | 0.00 – 0.49      | Very low         | Reject; do not deliver; trigger fallback         |
 
 ### Low-Confidence Fallback Behaviour
 
 When `confidence < 0.70`:
 1. Do not deliver output directly to user.
-2. Add to Curator review queue with flagged fields highlighted.
+2. Add to the human review queue (proposed flow — no such queue currently exists) with flagged fields highlighted.
 3. Notify user: *"Your request is under review for quality. Expected delivery: [ETA]."*
-4. Do not charge coins until delivery is confirmed after review.
-5. If review not completed within 24 hours, auto-refund coins and notify user.
+4. Do not charge tokens until delivery is confirmed after review.
+5. If review not completed within 24 hours, auto-refund tokens and notify user.
 
 ---
 
@@ -215,16 +215,18 @@ Before deploying a new prompt version:
 
 ---
 
-## Failure Handling and Coin Refund Guidance
+## Failure Handling and Token Refund Guidance
 
-| Failure Type                              | Coin Action            | User Notification                                   |
+> **Intended flow, currently inoperative.** The currency is called **tokens** (not "coins"), and no charging or refunding can happen right now: the store is Coming Soon, live AI generation is disabled, and the site is closed until Dec 5, 2026.
+
+| Failure Type                              | Token Action           | User Notification                                   |
 |-------------------------------------------|------------------------|-----------------------------------------------------|
-| API error (provider timeout/rate limit)   | Full refund            | "Generation failed. Coins refunded. Try again."     |
+| API error (provider timeout/rate limit)   | Full refund            | "Generation failed. Tokens refunded. Try again."    |
 | Output schema validation failed           | Full refund            | "Output did not meet quality standards. Refunded."  |
-| Low confidence — rejected after review    | Full refund            | "Quality review did not pass. Coins refunded."      |
-| Low confidence — passed after review      | Coins charged on deliver | "Your notes are ready."                            |
-| User-initiated cancel before generation   | Full refund            | "Job cancelled. Coins refunded."                    |
+| Low confidence — rejected after review    | Full refund            | "Quality review did not pass. Tokens refunded."     |
+| Low confidence — passed after review      | Tokens charged on delivery | "Your notes are ready."                            |
+| User-initiated cancel before generation   | Full refund            | "Job cancelled. Tokens refunded."                   |
 | Duplicate request (same cache key)        | Charge on completed cache return; no charge while an identical job is still in-flight | "Returning previous result." |
 | Partial output (truncated context)        | Charge at 50%          | "Notes generated with partial source. Review recommended." |
 
-All refund events are logged with job_id, user_id, coins_refunded, and reason.
+All refund events are logged with job_id, user_id, tokens_refunded, and reason.

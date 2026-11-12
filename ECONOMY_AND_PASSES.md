@@ -1,50 +1,47 @@
-# Economy & Passes — ExamArchive Credit Economy
+# Economy & Passes — ExamArchive Token Economy
+
+> **Status 2026-11-12: the Store is Coming Soon — nothing below is purchasable.** `STORE_COMING_SOON = true` in `src/lib/economy.ts` makes `/store` return "Coming Soon" before any data fetching, and credit balances are hidden. The token economy keeps running (verify-to-earn XP), but no packs, passes, or claims can be bought or claimed right now. This doc describes the designed economy, not a live shop.
 
 ## Overview
 
-ExamArchive uses a virtual currency called **Credits** (`e`) to gate AI-generated PDF
+ExamArchive uses a virtual currency called **tokens** (shown with an `e` coin icon) to gate AI-generated PDF
 creation. This document describes the full economy model, pricing, passes, daily-claim
 mechanics, and the Appwrite schema changes required to support passes and badges.
 
 ---
 
-## 1. Currency: Credits (`e`)
+## 1. Currency: tokens (`e`)
 
 | Constant | Value | Location |
 |---|---|---|
-| `GENERATION_COST_ELECTRONS` | 10 | `src/lib/economy.ts` |
-| `DEFAULT_ELECTRONS` (signup) | 100 | `src/lib/economy.ts` |
-| `FREE_WEEKLY_CLAIM_ELECTRONS` | 10 | `src/lib/payments.ts` |
+| `GENERATION_COST_CREDITS` | 10 | `src/lib/economy.ts` |
+| `DEFAULT_CREDITS` (signup) | 100 | `src/lib/economy.ts` |
+| `FREE_WEEKLY_CLAIM_CREDITS` | 0 | `src/lib/payments.ts` |
 
 ### Cost per PDF
 
-Every AI-generated PDF deducts **10e** from the user's balance. With a ₹59 pack
-(100e) that equals **₹5.90 per PDF**.
+Every AI-generated PDF deducts **10 tokens** from the user's balance. With a ₹50 pack
+(100 tokens) that equals **₹5.00 per PDF**.
 
 ---
 
 ## 2. Credit Packs (one-time top-ups)
 
-| Pack | Credits | Price | Cost/PDF |
+| Pack | Tokens | Price | Cost/PDF |
 |---|---|---|---|
-| Free Weekly Claim | 10e | ₹0 | — |
-| Pack 1 | 20e | ₹19 | ₹9.50 |
-| Pack 2 | 50e | ₹39 | ₹7.80 |
-| Pack 3 | 100e | ₹59 | ₹5.90 |
+| Pack 1 | 10 | ₹8 | ₹8.00 |
+| Pack 2 | 25 | ₹18 | ₹7.20 |
+| Pack 3 | 50 | ₹30 | ₹6.00 |
+| Pack 4 | 100 | ₹50 | ₹5.00 |
+| Pack 5 | 250 | ₹100 | ₹4.00 |
 
-The packs are defined in `src/lib/payments.ts` as `CREDIT_PACKS`.
+The packs are defined in `src/lib/payments.ts` as `CREDIT_PACKS` (cost per PDF at 10 tokens per PDF).
 
 ### Free Weekly Claim
 
-New users start with 100e. Any user can claim an additional **10e per week** (resets
-every Monday) at zero cost via `POST /api/payments/claim-weekly`.
+> **Designed, never built.** The weekly claim was designed as 10 tokens/week, but no `POST /api/payments/claim-weekly` route exists, and the amount in code is 0 (`FREE_WEEKLY_CLAIM_CREDITS = 0` in `src/lib/payments.ts`). There is nothing to claim.
 
-**Backend requirements (to be implemented):**
-
-- Add `last_weekly_claim_at` (datetime) attribute to the `users` Appwrite collection.
-- In the claim route: check if `last_weekly_claim_at` is older than 7 days (or null);
-  if so, add 10e and update the timestamp; otherwise return an error with the next
-  reset time.
+New users start with 100 tokens. The `last_weekly_claim_at` attribute exists in the `users` collection schema, but without a claim route it is unused.
 
 ---
 
@@ -90,7 +87,7 @@ Passes are defined in `src/lib/payments.ts` as `PASSES`.
 > credits from a given day/cycle are **permanently forfeited** — they do not carry over.
 
 When a user has an active pass, a daily background job (Appwrite Scheduled Function)
-or a manual claim button (`POST /api/payments/claim-daily`) should:
+or a manual claim button (`POST /api/payments/claim-daily` — **not implemented; no route file exists**) should:
 
 1. Check if the user has an active `user_passes` document that hasn't expired.
 2. Check if `last_daily_claim_at` is before today's midnight (UTC).
@@ -112,12 +109,7 @@ Badge component files live in `src/components/badges/AchievementBadges.tsx`.
 
 ### Displaying the Supporter Badge
 
-The badge is shown in:
-
-- **Header** (`src/components/layout/Header.tsx`) — fetch badge list from
-  `GET /api/profile` alongside `ai_credits` and render `<SupporterBadge />` next
-  to the credit balance pill.
-- **Profile page / dropdown** — same fetch.
+> **Not displayed anywhere reachable.** `<SupporterBadge />` is rendered only inside `StoreClient.tsx` (unreachable while the store is Coming Soon), and `<FirstPdfBadge />` is never rendered outside its definition file. The Header does not render badges, and `GET /api/profile` returns `ai_credits` but no badges field. Badge components are defined in `src/components/badges/AchievementBadges.tsx`; wiring them into the Header/Profile is still to do.
 
 ---
 
@@ -166,12 +158,12 @@ The badge is shown in:
 
 | Route | Method | Status | Description |
 |---|---|---|---|
-| `/api/payments/claim-weekly` | POST | 🚧 Scaffold | Claim free 10e (weekly reset) |
-| `/api/payments/razorpay/create-pass-order` | POST | 🚧 Scaffold | Create Razorpay order for pass |
-| `/api/payments/razorpay/verify-pass` | POST | 🚧 Scaffold | Verify pass payment + activate |
-| `/api/payments/claim-daily` | POST | 🚧 Scaffold | Claim daily credits from active pass |
+| `/api/payments/claim-weekly` | POST | ❌ Not implemented — no route file | Claim free tokens (weekly reset); amount in code is 0 |
+| `/api/payments/razorpay/create-pass-order` | POST | ❌ Not implemented — no route file | Create Razorpay order for pass |
+| `/api/payments/razorpay/verify-pass` | POST | ❌ Not implemented — no route file | Verify pass payment + activate |
+| `/api/payments/claim-daily` | POST | ❌ Not implemented — no route file | Claim daily tokens from active pass |
 
-Routes marked 🚧 require the Appwrite schema changes above before full implementation.
+Only `/api/payments/razorpay/create-order` and `/api/payments/razorpay/verify` exist. Note: `StoreClient.tsx` already fetches `create-pass-order` / `verify-pass` — those are dead endpoints until the routes are built.
 
 ---
 
@@ -191,8 +183,9 @@ the following one-time Razorpay setup is required:
    Record each `plan_id` (format: `plan_XXXXX`) — these go in your environment variables.
 3. **Register Webhook** — Subscriptions → Settings → Webhooks → add your production URL:
    ```
-   https://examarchive.vercel.app/api/payments/razorpay/webhook
+   https://examarchive.dev/api/payments/razorpay/webhook
    ```
+   > **Route not implemented:** no webhook route exists under `src/app/api/payments/` yet.
    Enable the events: `subscription.activated`, `subscription.charged`,
    `subscription.cancelled`, `subscription.completed`.
    Copy the **Webhook Secret** to your env as `RAZORPAY_WEBHOOK_SECRET`.
@@ -212,6 +205,8 @@ RAZORPAY_WEBHOOK_SECRET=your_webhook_secret_here
 Add these to Vercel → Project → Settings → Environment Variables.
 
 ### 8.3 Backend Routes to Implement
+
+> **None of these routes exist yet** — see §7.
 
 | Route | Trigger | Action |
 |---|---|---|
@@ -236,4 +231,4 @@ Add these to Vercel → Project → Settings → Environment Variables.
 
 ---
 
-*Last updated: 2026-04 — Credit Economy v2 soft-launch revision.*
+*Last updated: 2026-11-12 — Store Coming Soon banner added; pack prices, constant names, weekly claim (0, never built), dead routes, badge display, and webhook domain corrected. Previous version: 2026-04.*

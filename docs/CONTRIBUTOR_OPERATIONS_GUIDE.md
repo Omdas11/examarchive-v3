@@ -35,9 +35,8 @@ The following must remain stable unless an explicit migration plan is approved:
    - Maintain bug evidence with repro steps + screenshots
 
 3. **Product Ops Lane**
-   - Maintain launch checklist statuses
+   - Maintain closure/reopening readiness (site closed until Dec 5, 2026)
    - Track blocker owners and due dates
-   - Drive soft-launch readiness tasks
 
 4. **Admin Ops Lane**
    - Moderate uploads
@@ -46,7 +45,7 @@ The following must remain stable unless an explicit migration plan is approved:
 
 ## How to Contribute (Step-by-step)
 
-1. Pick checklist item(s) from `docs/launch/LAUNCH_CHECKLIST.md`.
+1. Pick current work from the repo (the launch checklist `docs/launch/LAUNCH_CHECKLIST.md` is archived 2026-11-12 — the April 30, 2026 launch already happened; do not pick items from it).
 2. Confirm if the change is:
    - docs-only,
    - UI/content-only,
