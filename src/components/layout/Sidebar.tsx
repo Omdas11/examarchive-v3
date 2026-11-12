@@ -103,7 +103,7 @@ export default function Sidebar({
         <div className="flex items-center gap-4 mb-6">
           <div className="w-12 h-12 gradient-primary rounded-xl flex items-center justify-center text-white flex-shrink-0 shadow-lift">
             <Image
-              src="/branding/logo.png"
+              src="/branding/logo-128.png"
               alt="ExamArchive logo"
               width={28}
               height={28}

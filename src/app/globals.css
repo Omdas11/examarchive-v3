@@ -5,8 +5,8 @@
 /* ── Academic Vitality Palette – Light theme (default) ── */
 :root {
   /* Brand tokens — Academic Vitality */
-  --brand-emerald: #10b981;
-  --brand-emerald-dark: #059669;
+  --brand-emerald: #047857;
+  --brand-emerald-dark: #065f46;
   --brand-emerald-soft: #ecfdf5;
   --brand-blue: #3b82f6;
   --success-green: #10b981;
@@ -34,7 +34,7 @@
   --color-input-bg: #ffffff;
   --color-footer-bg: #f3f4f6;
   
-  --rgb-primary: 16 185 129;
+  --rgb-primary: 4 120 87;
   --rgb-primary-container: 16 185 129;
   --rgb-primary-fixed: 209 250 229;
   --rgb-primary-fixed-dim: 167 243 208;
