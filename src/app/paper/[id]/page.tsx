@@ -27,6 +27,24 @@ interface PaperPageProps {
   params: Promise<{ id: string }>;
 }
 
+/** One paper by id — cached 24h: the page fetched it fresh twice per visit
+ * (once for metadata, once for content), so every bot crawl of the 615
+ * paper pages burned 2 reads per page. Now at most one read per paper
+ * per day. Same 1-day staleness trade-off as the papers list cache. */
+const getPaperById = unstable_cache(
+  async (id: string): Promise<Paper | null> => {
+    try {
+      const db = adminDatabases();
+      const doc = await db.getDocument(DATABASE_ID, COLLECTION.papers, id);
+      return toPaper(doc);
+    } catch {
+      return null;
+    }
+  },
+  ["paper-by-id"],
+  { revalidate: 86400 },
+);
+
 /** Papers sharing a course code (multi-year view) — cached 24h per code:
  * the live query read up to 20 documents on every paper-page visit. */
 const getRelatedPapers = unstable_cache(
@@ -47,9 +65,8 @@ const getRelatedPapers = unstable_cache(
 export async function generateMetadata({ params }: PaperPageProps): Promise<Metadata> {
   const { id } = await params;
   try {
-    const db = adminDatabases();
-    const doc = await db.getDocument(DATABASE_ID, COLLECTION.papers, id);
-    const paper = toPaper(doc);
+    const paper = await getPaperById(id);
+    if (!paper) return { title: "Paper Not Found" };
     const prog = getProgramme(paper);
     const progLabel = prog === "FYUGP" ? "FYUG" : prog === "CBCS" ? "CBCS" : "";
     const title = `${paper.title} (${paper.course_code ?? "Paper"}) - Assam University ${paper.year} ${progLabel}`.trim();
@@ -89,14 +106,7 @@ export default async function PaperPage({ params }: PaperPageProps) {
   const userName = user ? (user.name || user.username || "Scholar") : "";
   const userInitials = userName ? userName.slice(0, 2).toUpperCase() : "";
   const { id } = await params;
-  let paper: Paper | null = null;
-  try {
-    const db = adminDatabases();
-    const doc = await db.getDocument(DATABASE_ID, COLLECTION.papers, id);
-    paper = toPaper(doc);
-  } catch {
-    // document not found
-  }
+  const paper = await getPaperById(id);
 
   if (!paper) {
     return (
