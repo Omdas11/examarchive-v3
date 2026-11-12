@@ -6,7 +6,6 @@ import AppShell from "@/components/AppShell";
 import { getServerUser } from "@/lib/auth";
 import DebugPanel from "@/components/DebugPanel";
 import { ToastProvider } from "@/components/ToastContext";
-import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 import CourseSetupWrapper from "@/components/CourseSetupWrapper";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/next";
@@ -180,7 +179,6 @@ export default async function RootLayout({
             <AppShell user={user}>
               {children}
             </AppShell>
-            <PWAInstallPrompt />
             <CourseSetupWrapper isLoggedIn={!!user} />
             {process.env.NODE_ENV !== "production" &&
               process.env.NEXT_PUBLIC_ENABLE_DEBUG_PANEL === "true" && (
