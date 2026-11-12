@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import RazorpayButton from "@/components/RazorpayButton";
 
 /**
  * /closed — shown nightly 10pm-6am IST until Dec 5, 2026 (when the free
@@ -12,7 +13,6 @@ import Link from "next/link";
  * the assistant) to use the site for the night, or an admin can enter
  * directly. 3 wrong codes block the IP (contact the admin to unblock).
  */
-const RAZORPAY_SUPPORT_URL = "https://razorpay.me/@examarchive";
 const WHATSAPP_GROUP_URL =
   "https://chat.whatsapp.com/DDE3VssePR77bBTsesoyXm";
 
@@ -140,18 +140,14 @@ export default function ClosedPage() {
         .
       </p>
 
-      <p className="mt-4 text-sm text-on-surface-variant">
-        To support the site,{" "}
-        <a
-          href={RAZORPAY_SUPPORT_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="font-semibold text-primary underline"
-        >
-          pay securely via Razorpay
-        </a>
-        .
-      </p>
+      <div className="mt-6">
+        <p className="text-sm text-on-surface-variant">
+          To support the site, pay securely via Razorpay:
+        </p>
+        <div className="mt-2 flex justify-center">
+          <RazorpayButton />
+        </div>
+      </div>
 
       <Link href="/" className="mt-6 text-sm font-semibold text-primary underline">
         Back to home (reopens 6am)

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import RazorpayButton from "./RazorpayButton";
 
 /**
  * SupportBanner
@@ -15,7 +16,6 @@ import { useEffect, useState } from "react";
  */
 const STORAGE_KEY = "ea_support_banner_dismissed_v2";
 
-export const RAZORPAY_SUPPORT_URL = "https://razorpay.me/@examarchive";
 export const WHATSAPP_GROUP_URL =
   "https://chat.whatsapp.com/DDE3VssePR77bBTsesoyXm";
 
@@ -62,17 +62,11 @@ export default function SupportBanner() {
           >
             Join the WhatsApp group
           </a>
-          . To support the site,{" "}
-          <a
-            href={RAZORPAY_SUPPORT_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-semibold underline"
-          >
-            pay securely via Razorpay
-          </a>
           .
         </p>
+        <div className="mt-2">
+          <RazorpayButton />
+        </div>
         <button
           type="button"
           onClick={dismiss}
