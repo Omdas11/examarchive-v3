@@ -12,27 +12,16 @@ import Link from "next/link";
  * the assistant) to use the site for the night, or an admin can enter
  * directly. 3 wrong codes block the IP (contact the admin to unblock).
  */
-const UPI_ID = "omdasg11@oksbi";
+const RAZORPAY_SUPPORT_URL = "https://razorpay.me/@examarchive";
 const WHATSAPP_GROUP_URL =
   "https://chat.whatsapp.com/DDE3VssePR77bBTsesoyXm";
 
 export default function ClosedPage() {
-  const [copied, setCopied] = useState(false);
   const [code, setCode] = useState("");
   const [codeMsg, setCodeMsg] = useState("");
   const [codeBusy, setCodeBusy] = useState(false);
   const [adminMsg, setAdminMsg] = useState("");
   const [adminBusy, setAdminBusy] = useState(false);
-
-  const copyUpiId = async () => {
-    try {
-      await navigator.clipboard.writeText(UPI_ID);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
-    } catch {
-      setCopied(false);
-    }
-  };
 
   const submitCode = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -152,16 +141,16 @@ export default function ClosedPage() {
       </p>
 
       <p className="mt-4 text-sm text-on-surface-variant">
-        To support the site, UPI:{" "}
-        <button
-          type="button"
-          onClick={copyUpiId}
+        To support the site,{" "}
+        <a
+          href={RAZORPAY_SUPPORT_URL}
+          target="_blank"
+          rel="noopener noreferrer"
           className="font-semibold text-primary underline"
-          aria-label="Copy UPI ID"
         >
-          {UPI_ID}
-          {copied ? " (copied)" : ""}
-        </button>
+          pay securely via Razorpay
+        </a>
+        .
       </p>
 
       <Link href="/" className="mt-6 text-sm font-semibold text-primary underline">

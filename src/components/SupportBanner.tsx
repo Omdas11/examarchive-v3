@@ -7,22 +7,20 @@ import { useEffect, useState } from "react";
  *
  * A slim, text-only site-wide notice while the free Appwrite plan is nearly
  * exhausted. Deliberately plain — no QR image, no big buttons — so it reads
- * as a notice, not a shop. It states the 92% usage, the closure until the
- * next billing cycle (Dec 5), the UPI ID (tap to copy) and the WhatsApp
- * group link.
+ * as a notice, not a shop. It states the 92% usage, the nightly closure
+ * until Dec 5, the Razorpay support link and the WhatsApp group link.
  *
  * Dismissible; the dismissal is remembered in localStorage. Bump
  * STORAGE_KEY to show it again.
  */
 const STORAGE_KEY = "ea_support_banner_dismissed_v2";
 
-export const SUPPORT_UPI_ID = "omdasg11@oksbi";
+export const RAZORPAY_SUPPORT_URL = "https://razorpay.me/@examarchive";
 export const WHATSAPP_GROUP_URL =
   "https://chat.whatsapp.com/DDE3VssePR77bBTsesoyXm";
 
 export default function SupportBanner() {
   const [dismissed, setDismissed] = useState(true);
-  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     try {
@@ -41,16 +39,6 @@ export default function SupportBanner() {
       // localStorage unavailable (private mode) — just hide for this visit.
     }
     setDismissed(true);
-  };
-
-  const copyUpiId = async () => {
-    try {
-      await navigator.clipboard.writeText(SUPPORT_UPI_ID);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
-    } catch {
-      setCopied(false);
-    }
   };
 
   return (
@@ -74,16 +62,15 @@ export default function SupportBanner() {
           >
             Join the WhatsApp group
           </a>
-          . To support the site, UPI:{" "}
-          <button
-            type="button"
-            onClick={copyUpiId}
+          . To support the site,{" "}
+          <a
+            href={RAZORPAY_SUPPORT_URL}
+            target="_blank"
+            rel="noopener noreferrer"
             className="font-semibold underline"
-            aria-label="Copy UPI ID"
           >
-            {SUPPORT_UPI_ID}
-            {copied ? " (copied)" : ""}
-          </button>
+            pay securely via Razorpay
+          </a>
           .
         </p>
         <button
