@@ -1,21 +1,26 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { syllabusDeptSlugForPaperCode } from "@/lib/syllabus-departments";
+import {
+  NIGHT_ACCESS_COOKIE,
+  isNightClosed,
+  verifyNightAccess,
+} from "@/lib/night-access";
 
 /** Name of the cookie that stores the Appwrite session secret. */
 const SESSION_COOKIE = "ea_session";
 
 /**
- * Temporary closure until the next Appwrite billing cycle, when the free-plan
- * reads reset (billing cycle Nov 5 - Dec 5, 2026). The site reopens on
- * Dec 5, 2026 (00:00 IST). This replaced the earlier nightly 10pm-6am
- * closure (2026-11-12) — the site now stays closed continuously until
- * the limit resets.
+ * Temporary nightly closure until Dec 5, 2026 (next Appwrite billing cycle,
+ * when the free-plan reads reset). The site closes 10pm-6am IST each night
+ * until then. Admins and holders of a valid temporary access code bypass
+ * it via a signed `ea_night_access` cookie (set by the night-access API
+ * routes). After Dec 5 the site stays open all night.
+ * (The date + nightly window live in `@/lib/night-access`.)
  */
-const REOPEN_AT_IST_MS = Date.UTC(2026, 11, 4, 18, 30, 0); // Dec 5, 2026 00:00 IST
 
-/** True while the site is temporarily closed (before the reopen date). */
+/** True while the site is temporarily closed (nightly until Dec 5). */
 function isTemporarilyClosed(now: Date): boolean {
-  return now.getTime() < REOPEN_AT_IST_MS;
+  return isNightClosed(now);
 }
 
 /** Routes that require an authenticated session. */
@@ -46,23 +51,30 @@ const PROTECTED_PATHS = [
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Temporary closure until the next billing cycle (Dec 5, 2026), when the
+  // Temporary nightly closure (10pm-6am IST) until Dec 5, 2026, when the
   // free Appwrite plan reads reset. Page visits go to /closed; API calls
-  // get a 503 JSON. /closed itself, the AI webhook and the public AI-status
-  // endpoint stay reachable.
+  // get a 503 JSON. /closed itself, the AI webhook, the public AI-status
+  // endpoint and the night-access API stay reachable. A valid signed
+  // `ea_night_access` cookie (admins + temporary access codes) bypasses
+  // the closure entirely.
   if (isTemporarilyClosed(new Date())) {
     if (pathname === "/closed") return NextResponse.next();
     if (
       pathname.startsWith("/api/ai/notify-completion") ||
-      pathname === "/api/ai/status"
+      pathname === "/api/ai/status" ||
+      pathname.startsWith("/api/night-access/")
     ) {
+      return NextResponse.next();
+    }
+    const bypass = request.cookies.get(NIGHT_ACCESS_COOKIE)?.value;
+    if (bypass && (await verifyNightAccess(bypass)) !== null) {
       return NextResponse.next();
     }
     if (pathname.startsWith("/api/")) {
       return NextResponse.json(
         {
           error:
-            "ExamArchive is temporarily closed until Dec 5, 2026. Please visit after then.",
+            "ExamArchive is closed for the night (10pm-6am IST) until Dec 5, 2026. Please visit after 6am.",
         },
         { status: 503 }
       );

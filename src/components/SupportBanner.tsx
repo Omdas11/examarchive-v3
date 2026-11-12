@@ -62,8 +62,8 @@ export default function SupportBanner() {
       <div className="mx-auto flex max-w-6xl items-center gap-2 px-4 py-2 text-sm">
         <p className="min-w-0 flex-1 leading-snug">
           <span className="font-semibold">
-            Notice: our free server limit is 92% used, so the site is closed
-            until Dec 5.
+            Notice: our free server limit is 92% used, so the site closes
+            every night 10pm–6am until Dec 5.
           </span>{" "}
           Need help?{" "}
           <a

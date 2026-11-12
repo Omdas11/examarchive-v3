@@ -30,6 +30,10 @@ export const COLLECTION = {
   uploads: "uploads",
   activity_logs: "activity_logs",
   achievements: "achievements",
+  /** Night access codes (temporary closure bypass). */
+  night_access_codes: "night_access_codes",
+  /** Failed access-code attempts + IP blocks for the night closure. */
+  night_access_blocks: "night_access_blocks",
   /**
    * Site-wide analytics / metrics.
    * Stores a single document (ID = "singleton") with fields:
