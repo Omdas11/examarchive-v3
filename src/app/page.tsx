@@ -260,6 +260,33 @@ export default async function HomePage() {
               </div>
             </div>
 
+            {/* Hero search — the main task is finding a paper, so search comes first */}
+            <form
+              action="/browse"
+              method="get"
+              role="search"
+              className="mx-auto mb-8 max-w-xl"
+            >
+              <label htmlFor="hero-search" className="sr-only">
+                Search papers
+              </label>
+              <div className="relative">
+                <span
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-primary"
+                  aria-hidden="true"
+                >
+                  <span className="material-symbols-outlined font-bold text-xl">search</span>
+                </span>
+                <input
+                  id="hero-search"
+                  name="q"
+                  type="search"
+                  placeholder="Search by title, code, or name"
+                  className="w-full rounded-full border border-outline-variant/20 bg-surface py-4 pl-12 pr-6 text-base font-medium shadow-lift outline-none placeholder:text-on-surface-variant focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+            </form>
+
             {/* Academic Vitality heading */}
             <h1
               className="ea-hero-heading text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl mx-auto max-w-4xl leading-[1.1]"
@@ -278,17 +305,8 @@ export default async function HomePage() {
 
             <div className="mt-12 flex flex-wrap justify-center gap-4">
               <Link href="/browse" className="btn-primary text-base px-10 py-4 rounded-full shadow-lg hover:shadow-floating transition-all active:scale-95">
-                Explore Archive
+                Search papers
               </Link>
-              {!user ? (
-                <Link href="/login" className="bg-surface-container-low text-primary font-bold text-base px-10 py-4 rounded-full hover:bg-surface-container transition-all active:scale-95">
-                  Sign In
-                </Link>
-              ) : (
-                <Link href="/profile" className="bg-surface-container-low text-primary font-bold text-base px-10 py-4 rounded-full hover:bg-surface-container transition-all active:scale-95">
-                  My Profile
-                </Link>
-              )}
             </div>
           </div>
         </section>

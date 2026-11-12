@@ -87,7 +87,7 @@ export default async function SyllabusPage() {
             Syllabus Library
           </p>
           <h1 className="mt-2 text-3xl font-black text-on-surface">
-            Assam University Syllabus by Department
+            Haflong Government College Syllabus by Department
           </h1>
           <p className="mt-2 max-w-3xl text-sm leading-relaxed text-on-surface-variant">
             FYUG syllabus from Haflong Government College, organised by department. Pick a
@@ -117,13 +117,15 @@ export default async function SyllabusPage() {
               <Link
                 key={slug}
                 href={`/syllabus/${slug}`}
-                className="group flex flex-col gap-2 rounded-2xl border border-outline-variant/30 bg-surface p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+                className="group flex flex-col gap-2 rounded-2xl border border-outline-variant/30 bg-surface p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md"
                 style={{ textDecoration: "none", color: "inherit" }}
               >
                 <p className="text-lg font-bold text-on-surface">{info.name}</p>
                 <p className="text-sm leading-relaxed text-on-surface-variant">{info.blurb}</p>
-                <p className="mt-auto pt-2 text-xs font-semibold text-primary">
-                  {c ? `${c.papers} papers · ${c.units} units` : "View syllabus"} →
+                <p className="mt-auto pt-2">
+                  <span className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold text-white shadow-sm transition-all group-hover:opacity-90" style={{ background: "var(--color-primary)" }}>
+                    {c ? `${c.papers} papers · ${c.units} units` : "View syllabus"} →
+                  </span>
                 </p>
               </Link>
             );

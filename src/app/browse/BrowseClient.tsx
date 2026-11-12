@@ -293,11 +293,22 @@ export default function BrowseClient({
           <input
             id="browse-search"
             type="search"
-            placeholder="Search papers by title, code, or name…"
+            placeholder="Search by title, code, or name"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-surface-container-low border border-outline-variant/10 rounded-full py-3.5 pl-12 pr-6 text-sm font-medium outline-none focus:ring-2 focus:ring-primary/20 focus:bg-surface transition-all shadow-sm"
+            className="w-full bg-surface-container-low border border-outline-variant/10 rounded-full py-3.5 pl-12 pr-12 text-base font-medium outline-none placeholder:text-on-surface-variant focus:ring-2 focus:ring-primary/20 focus:bg-surface transition-all shadow-sm"
           />
+          {/* Clear search — appears once the student has typed something */}
+          {search.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              aria-label="Clear search"
+              className="absolute right-3 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container active:scale-95"
+            >
+              <span className="material-symbols-outlined text-lg font-bold">close</span>
+            </button>
+          )}
         </div>
         <CustomSelect
           name="sort"
@@ -449,7 +460,9 @@ export default function BrowseClient({
         </div>
       )}
 
-      <p className="mt-6 text-[10px] font-black uppercase tracking-[0.2em] opacity-70">
+      {/* Live result count — sits right above the list so a student sees the
+          filters worked without scrolling. */}
+      <p className="mt-6 text-sm font-bold text-on-surface">
         {filtered.length === 0
           ? "Showing 0 papers"
           : `Showing ${pageStart}–${pageEnd} of ${filtered.length} paper${filtered.length !== 1 ? "s" : ""}`}

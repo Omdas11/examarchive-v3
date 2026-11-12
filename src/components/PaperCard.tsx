@@ -239,22 +239,22 @@ export default function PaperCard({ paper }: PaperCardProps) {
 
           {/* Right: Open + Download buttons */}
           <div className="flex items-center gap-2 relative z-20">
-            {/* Download button */}
+            {/* Download button — prominent primary action: the card's main job
+                is getting the PDF onto the student's device. */}
             <a
               href={downloadUrl}
               download
               title="Download PDF"
-              className="inline-flex items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-bold transition-all active:scale-95 hover:opacity-80"
+              className="inline-flex items-center justify-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold text-white shadow-sm transition-all active:scale-95 hover:opacity-90"
               style={{
-                background: "var(--color-border)",
-                color: "var(--color-text-muted)",
+                background: "var(--color-primary)",
               }}
               aria-label="Download PDF"
             >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M12 3v12" /><path d="M7 10l5 5 5-5" /><path d="M5 21h14" />
               </svg>
-              Download
+              Download PDF
             </a>
 
             {/* Open PDF button */}

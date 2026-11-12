@@ -70,11 +70,11 @@ export default function NotesPage() {
               >
                 {paper.blurb}
               </p>
-              <ul className="mt-4 space-y-1.5">
+              <ul className="mt-4 space-y-3">
                 {paper.units.map((unit) => (
-                  <li key={unit.number} className="flex items-baseline justify-between gap-3 text-sm">
+                  <li key={unit.number} className="flex items-baseline justify-between gap-3 text-[15px] leading-relaxed">
                     <span className="leading-snug">
-                      <span className="font-semibold">{unit.label}:</span> {unit.title}
+                      <span className="font-bold">{unit.label}:</span> {unit.title}
                     </span>
                     <span
                       className="shrink-0 text-xs font-semibold"
