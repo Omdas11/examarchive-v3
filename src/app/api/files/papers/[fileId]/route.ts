@@ -22,6 +22,78 @@ export const dynamic = "force-dynamic";
 // 30 s on Pro) is too short for a full PDF render pass.
 export const maxDuration = 120;
 
+/**
+ * Bots allowed to crawl the site (Google, Gemini, Claude, ChatGPT). They may
+ * read pages, but they may NOT download PDFs — they get a friendly message
+ * telling the person to visit the link instead.
+ */
+const ALLOWED_BOT_SUBSTRINGS = [
+  "Googlebot",
+  "Google-Extended",
+  "Gemini",
+  "ClaudeBot",
+  "Claude-Web",
+  "anthropic-ai",
+  "GPTBot",
+  "OAI-SearchBot",
+  "ChatGPT-User",
+];
+
+/** Common bot / automation markers in a User-Agent. */
+const BOT_SUBSTRINGS = [
+  "bot",
+  "crawler",
+  "spider",
+  "scraper",
+  "HeadlessChrome",
+  "curl",
+  "python",
+  "Go-http-client",
+  "scrapy",
+  "PostmanRuntime",
+  "facebookexternalhit",
+  "Twitterbot",
+  "Slackbot",
+  "LinkedInBot",
+  "WhatsApp",
+  "TelegramBot",
+  "AhrefsBot",
+  "SemrushBot",
+  "MJ12bot",
+  "DotBot",
+  "PetalBot",
+  "Bytespider",
+  "YandexBot",
+  "Bingbot",
+  "DuckDuckBot",
+  "Baiduspider",
+  "Sogou",
+  "Exabot",
+];
+
+function isAllowedChatbot(userAgent: string): boolean {
+  const ua = userAgent.toLowerCase();
+  return ALLOWED_BOT_SUBSTRINGS.some((s) => ua.includes(s.toLowerCase()));
+}
+
+function isBot(userAgent: string): boolean {
+  const ua = userAgent.toLowerCase();
+  return BOT_SUBSTRINGS.some((s) => ua.includes(s.toLowerCase()));
+}
+
+/**
+ * Friendly page for the allowed chatbots (Google, Gemini, Claude, ChatGPT)
+ * when they try to download a PDF. Bots are blocked from downloading; the
+ * message tells the person to visit the link on examarchive.dev instead.
+ */
+function botDownloadBlockedPage(): NextResponse {
+  const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Bots cannot download PDFs — ExamArchive</title><meta name="viewport" content="width=device-width, initial-scale=1"></head><body style="font-family: system-ui, sans-serif; max-width: 560px; margin: 48px auto; padding: 0 16px; line-height: 1.6;"><h1>Please visit the link instead</h1><p>Bots are blocked from downloading PDFs on ExamArchive. If you are a person, please visit <a href="https://examarchive.dev">examarchive.dev</a> to view and download this paper.</p><p><a href="https://examarchive.dev">Go to examarchive.dev</a></p></body></html>`;
+  return new NextResponse(html, {
+    status: 403,
+    headers: { "Content-Type": "text/html; charset=utf-8" },
+  });
+}
+
 function sanitizeDownloadFilename(name: string): string {
   const trimmed = name.trim();
   const safe = trimmed.replace(/[\r\n"]/g, "").replace(/[/\\:*?<>|]/g, "_");
@@ -85,6 +157,20 @@ export async function GET(
 
   if (!fileId) {
     return new NextResponse("Missing file ID", { status: 400 });
+  }
+
+  // Bots are blocked from downloading PDFs. The allowed chatbots (Google,
+  // Gemini, Claude, ChatGPT) get a friendly message telling the person to
+  // visit the link instead; every other bot gets a plain 403. This runs
+  // before any auth/Appwrite work so bot hits cost no database reads.
+  const userAgent = request.headers.get("user-agent") || "";
+  if (isBot(userAgent)) {
+    if (isAllowedChatbot(userAgent)) {
+      return botDownloadBlockedPage();
+    }
+    return new NextResponse("Forbidden: bots cannot download PDFs.", {
+      status: 403,
+    });
   }
 
   const signedUserId = request.nextUrl.searchParams.get("uid") || "";

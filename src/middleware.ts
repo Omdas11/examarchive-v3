@@ -4,18 +4,18 @@ import { syllabusDeptSlugForPaperCode } from "@/lib/syllabus-departments";
 /** Name of the cookie that stores the Appwrite session secret. */
 const SESSION_COOKIE = "ea_session";
 
-/** IST offset from UTC in milliseconds (UTC+5:30). */
-const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+/**
+ * Temporary closure until the next Appwrite billing cycle, when the free-plan
+ * reads reset (billing cycle Nov 5 - Dec 5, 2026). The site reopens on
+ * Dec 5, 2026 (00:00 IST). This replaced the earlier nightly 10pm-6am
+ * closure (2026-11-12) — the site now stays closed continuously until
+ * the limit resets.
+ */
+const REOPEN_AT_IST_MS = Date.UTC(2026, 11, 4, 18, 30, 0); // Dec 5, 2026 00:00 IST
 
-/** Nightly closure window (IST): the site is closed from 22:00 to 06:00. */
-const CLOSED_START_HOUR = 22;
-const CLOSED_END_HOUR = 6;
-
-/** True when the site is closed for the night (IST 10pm-6am). */
-function isNightlyClosed(now: Date): boolean {
-  const ist = new Date(now.getTime() + IST_OFFSET_MS);
-  const hour = ist.getUTCHours();
-  return hour >= CLOSED_START_HOUR || hour < CLOSED_END_HOUR;
+/** True while the site is temporarily closed (before the reopen date). */
+function isTemporarilyClosed(now: Date): boolean {
+  return now.getTime() < REOPEN_AT_IST_MS;
 }
 
 /** Routes that require an authenticated session. */
@@ -46,11 +46,11 @@ const PROTECTED_PATHS = [
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Nightly closure (10pm-6am IST) to protect the nearly-exhausted free
-  // Appwrite plan (92% of reads used). Page visits go to /closed; API
-  // calls get a 503 JSON. /closed itself, the AI webhook and the public
-  // AI-status endpoint stay reachable.
-  if (isNightlyClosed(new Date())) {
+  // Temporary closure until the next billing cycle (Dec 5, 2026), when the
+  // free Appwrite plan reads reset. Page visits go to /closed; API calls
+  // get a 503 JSON. /closed itself, the AI webhook and the public AI-status
+  // endpoint stay reachable.
+  if (isTemporarilyClosed(new Date())) {
     if (pathname === "/closed") return NextResponse.next();
     if (
       pathname.startsWith("/api/ai/notify-completion") ||
@@ -62,7 +62,7 @@ export async function middleware(request: NextRequest) {
       return NextResponse.json(
         {
           error:
-            "ExamArchive is closed for the night (10pm-6am IST). Please visit after 6am.",
+            "ExamArchive is temporarily closed until Dec 5, 2026. Please visit after then.",
         },
         { status: 503 }
       );
