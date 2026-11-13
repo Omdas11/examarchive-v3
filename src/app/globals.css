@@ -373,11 +373,13 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
 .ea-rotating-word {
   /* Fixed width (longest word is "Questions", 9 chars) so the total line
    * width never changes — otherwise the centred "Exam" shifts left/right
-   * every time the word changes. Text is left-aligned so each word starts
-   * right after "Exam". */
+   * every time the word changes. The word is centred inside that fixed
+   * slot so the visible line stays centred too (left-aligned text left
+   * all the empty space on the right, which pushed the whole line left
+   * of centre). */
   display: inline-block;
   min-width: 10ch;
-  text-align: left;
+  text-align: center;
   vertical-align: baseline;
 }
 
