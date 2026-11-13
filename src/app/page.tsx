@@ -83,7 +83,11 @@ const HOW_IT_WORKS = [
   },
 ];
 
-/** Cached homepage data — revalidates every hour to avoid hitting Appwrite on every request. */
+/** Cached homepage data — revalidates every hour to avoid hitting Appwrite on every request.
+ * Cache key is v2: v1 was poisoned with 0s on 2026-11-13 when the site was
+ * repointed to the new Appwrite project while the API key was still the old
+ * one, so every query failed and the 0s were cached for an hour. Bumping the
+ * key forces a fresh fetch. */
 const getHomepageData = unstable_cache(
   async () => {
     let papersTotal = 0;
@@ -148,7 +152,7 @@ const getHomepageData = unstable_cache(
       feedbackEntries,
     };
   },
-  ["homepage-data"],
+  ["homepage-data-v2"],
   { revalidate: 3600 },
 );
 
