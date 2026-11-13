@@ -275,7 +275,7 @@ export default async function HomePage() {
                 className="inline-block rounded-full px-5 py-1.5 text-[11px] font-bold uppercase tracking-widest"
                 style={{ background: "var(--brand-emerald-soft)", color: "var(--brand-emerald-dark)" }}
               >
-                Free &amp; Community-Driven
+                ExamArchive
               </div>
             </div>
 
