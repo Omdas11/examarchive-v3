@@ -68,7 +68,7 @@ export default function Header({
   };
 
   useEffect(() => {
-    // Credit balances are hidden while the store is coming soon — skip the fetch.
+    // Credit balances are hidden while the store is closed — skip the fetch.
     if (STORE_COMING_SOON) return;
     let cancelled = false;
     async function loadBalance() {

@@ -38,7 +38,7 @@ const PROTECTED_PATHS = [
   // signed token, or a CAPTCHA-issued token (see /api/captcha-download).
   "/ai-content",
   // NOTE: /store is intentionally NOT protected here — while the store is
-  // "Coming Soon" anyone can see it. When the store reopens, the page
+  // closed anyone can see it. When the store reopens, the page
   // itself redirects logged-out users to /login.
   // API routes
   "/api/upload",
