@@ -109,7 +109,7 @@ export default function Footer() {
           className="pt-8 text-center flex flex-col items-center gap-4 border-t border-outline-variant/10"
         >
           <p className="text-xs font-medium opacity-80">
-            © {new Date().getFullYear()} <span className="font-bold text-on-surface">ExamArchive</span> · Built by students for students · Soft Launch Phase
+            © {new Date().getFullYear()} <span className="font-bold text-on-surface">ExamArchive</span> · Built by students for students
           </p>
           <VisitorTracker />
         </div>
