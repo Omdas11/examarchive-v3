@@ -225,6 +225,7 @@ export default async function HomePage() {
       isLoggedIn={!!user}
       userName={userName}
       userInitials={userInitials}
+      avatarUrl={user?.avatar_url || undefined}
       showSearch={false}
       >
       <div className="mx-auto px-6 relative" style={{ maxWidth: "var(--max-w)", zIndex: 1 }}>

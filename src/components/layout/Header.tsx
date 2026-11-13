@@ -18,6 +18,8 @@ export interface HeaderProps {
   showSearch?: boolean;
   userInitials?: string;
   userName?: string;
+  /** Google profile photo URL (or empty for the initials fallback). */
+  avatarUrl?: string;
   /** Derived XP tier for the logged-in user (roles.ts xpTier); falls back to "Scholar" when absent. */
   userTier?: string;
   breadcrumbs?: { label: string; href?: string }[];
@@ -32,6 +34,7 @@ export default function Header({
   showSearch = true,
   userInitials = 'JD',
   userName = 'John Doe',
+  avatarUrl,
   userTier,
   breadcrumbs,
   onSearch,
@@ -42,11 +45,36 @@ export default function Header({
 }: HeaderProps & React.HTMLAttributes<HTMLElement>) {
   const [searchQuery, setSearchQuery] = useState('');
   const [showNotifications, setShowNotifications] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
   const [creditBalance, setCreditBalance] = useState<number | null>(null);
   const [notificationsList, setNotificationsList] = useState<
     { id: string; title: string; body: string; href: string; time: string }[]
   >([]);
   const { isDark, toggle: toggleTheme } = useTheme();
+
+  // Reset the broken-image fallback when the avatar URL changes.
+  useEffect(() => {
+    setAvatarError(false);
+  }, [avatarUrl]);
+
+  const showAvatarPhoto = !!avatarUrl && !avatarError;
+
+  /** The top-right avatar circle: Google photo when available, initials otherwise. */
+  const avatarCircle = showAvatarPhoto ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={avatarUrl}
+      alt={userName}
+      width={36}
+      height={36}
+      className="w-9 h-9 rounded-full object-cover flex-shrink-0 shadow-sm"
+      onError={() => setAvatarError(true)}
+    />
+  ) : (
+    <div className="w-9 h-9 gradient-primary rounded-full flex items-center justify-center text-on-primary text-sm font-bold flex-shrink-0 shadow-sm">
+      {userInitials}
+    </div>
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -292,9 +320,7 @@ export default function Header({
               aria-label={`Profile: ${userName}`}
               onClick={onProfileClick}
             >
-              <div className="w-9 h-9 gradient-primary rounded-full flex items-center justify-center text-on-primary text-sm font-bold flex-shrink-0 shadow-sm">
-                {userInitials}
-              </div>
+              {avatarCircle}
               <div className="hidden sm:flex flex-col items-start">
                 <span className="text-sm font-bold text-on-surface truncate max-w-[120px]">{userName}</span>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-primary">{userTier ? userTier.charAt(0).toUpperCase() + userTier.slice(1) : "Scholar"}</span>
@@ -310,9 +336,7 @@ export default function Header({
               )}
               aria-label={`Profile: ${userName}`}
             >
-              <div className="w-9 h-9 gradient-primary rounded-full flex items-center justify-center text-on-primary text-sm font-bold flex-shrink-0 shadow-sm">
-                {userInitials}
-              </div>
+              {avatarCircle}
               <div className="hidden sm:flex flex-col items-start">
                 <span className="text-sm font-bold text-on-surface truncate max-w-[120px]">{userName}</span>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-primary">{userTier ? userTier.charAt(0).toUpperCase() + userTier.slice(1) : "Scholar"}</span>
