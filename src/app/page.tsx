@@ -275,7 +275,7 @@ export default async function HomePage() {
                 heading. "Exam" stays fixed; the second word rotates through
                 what the site offers (Archive, Papers, Syllabi, Notes, Questions). */}
             <div
-              className="text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl mx-auto max-w-4xl leading-[1.1] mb-8"
+              className="ea-brand-line font-extrabold tracking-tight mx-auto max-w-4xl leading-[1.1] mb-8"
               aria-label="ExamArchive — Exam Papers, Syllabi, Notes and Questions"
             >
               <RotatingExamWord />

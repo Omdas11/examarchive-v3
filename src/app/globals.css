@@ -361,6 +361,15 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
   to   { opacity: 1; transform: translateY(0); }
 }
 
+/* Big brand line: fluid font size so "Exam" + the rotating word always fit
+ * on one line, even on the narrowest phone. The size scales with the
+ * viewport (9vw) between 1.6rem and 3.75rem (the lg:text-6xl size), and
+ * white-space: nowrap guarantees it never wraps to a second line. */
+.ea-brand-line {
+  font-size: clamp(1.6rem, 9vw, 3.75rem);
+  white-space: nowrap;
+}
+
 .ea-rotating-word {
   /* Fixed width (longest word is "Questions", 9 chars) so the total line
    * width never changes — otherwise the centred "Exam" shifts left/right
