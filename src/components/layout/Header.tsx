@@ -71,7 +71,10 @@ export default function Header({
       onError={() => setAvatarError(true)}
     />
   ) : (
-    <div className="w-9 h-9 gradient-primary rounded-full flex items-center justify-center text-on-primary text-sm font-bold flex-shrink-0 shadow-sm">
+    <div
+      className="w-9 h-9 rounded-full flex items-center justify-center text-on-primary text-sm font-bold flex-shrink-0 shadow-sm"
+      style={{ background: "var(--color-primary)" }}
+    >
       {userInitials}
     </div>
   );
