@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
 import { unstable_cache } from "next/cache";
-import { permanentRedirect } from "next/navigation";
 import Link from "next/link";
 import { getServerUser } from "@/lib/auth";
-import paperIdRedirects from "@/data/paper-id-redirects.json";
 import {
   adminDatabases,
   DATABASE_ID,
@@ -111,13 +109,6 @@ export default async function PaperPage({ params }: PaperPageProps) {
   const paper = await getPaperById(id);
 
   if (!paper) {
-    // Old-project paper IDs (pre-migration, 2026-11-13) redirect permanently
-    // to the new IDs. The migration gave every paper a new document ID, so
-    // old /paper/<id> links (bookmarks, Google index, shared links) would
-    // 404 without this map.
-    const newId = (paperIdRedirects as Record<string, string>)[id];
-    if (newId) permanentRedirect(`/paper/${newId}`);
-
     return (
       <MainLayout
         title="Paper Not Found"

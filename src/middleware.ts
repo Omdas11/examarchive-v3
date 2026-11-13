@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { syllabusDeptSlugForPaperCode } from "@/lib/syllabus-departments";
+import paperIdRedirects from "@/data/paper-id-redirects.json";
 import {
   NIGHT_ACCESS_COOKIE,
   isNightClosed,
@@ -112,6 +113,22 @@ export async function middleware(request: NextRequest) {
       url.pathname = `/syllabus/paper/${slug}/${code}`;
       return NextResponse.redirect(url, 308);
     }
+  }
+
+  // Old-project paper IDs (pre-migration, 2026-11-13) redirect permanently
+  // to the new IDs. The migration gave every paper a new document ID, so
+  // old /paper/<id> links (bookmarks, Google index, shared links) would
+  // 404 without this map. Same reason as above: done here, not in the
+  // page, so it is a true HTTP 308 instead of a client-side redirect.
+  const paperPage = pathname.match(/^\/paper\/([^/]+)$/);
+  if (paperPage) {
+    const newId = (paperIdRedirects as Record<string, string>)[paperPage[1]];
+    if (newId) {
+      const url = request.nextUrl.clone();
+      url.pathname = `/paper/${newId}`;
+      return NextResponse.redirect(url, 308);
+    }
+    // Unknown ID: fall through; the page renders a 404.
   }
 
   // Allow Appwrite webhook calls to proceed; route performs its own secret validation.
