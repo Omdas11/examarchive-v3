@@ -46,7 +46,7 @@ export default function Footer() {
           <div className="flex flex-col gap-3">
             <h3 className="mb-2 text-xs font-black uppercase tracking-[0.15em] text-primary">Platform</h3>
             <span className="text-sm font-medium leading-relaxed">
-              Currently in <strong className="text-on-surface">Early Access</strong> · Starting with Haflong Government College
+              Starting with Haflong Government College
             </span>
             <span className="text-sm font-medium text-on-surface-variant/80">
               Community-driven · Admin-verified repository for FYUGP students.

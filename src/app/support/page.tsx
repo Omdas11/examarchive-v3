@@ -96,7 +96,7 @@ export default async function SupportPage() {
           Interested in becoming an admin or moderator? Fill out the form below and we&apos;ll review your application.
         </p>
         <div className="mt-4 rounded-md p-8 text-center text-sm" style={{ background: "var(--color-accent-soft)", color: "var(--color-text-muted)" }}>
-          Application form coming soon.
+          Admin applications are currently closed.
         </div>
       </div>
     </section>

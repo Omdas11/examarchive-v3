@@ -181,13 +181,6 @@ export default function Navbar({ user }: NavbarProps) {
           <Link href="/" className="flex items-center gap-1.5 text-lg font-bold tracking-tight">
             <EALogo size={28} />
             <span>ExamArchive</span>
-            <span
-              className="hidden sm:inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-bold tracking-wide leading-none"
-              style={{ background: "var(--color-primary)", color: "#fff", letterSpacing: "0.07em" }}
-              aria-label="Early Access"
-            >
-              Early Access
-            </span>
           </Link>
 
           {/* Desktop nav */}

@@ -6,7 +6,7 @@ export const TOKEN_NAME = "tokens";
 export const GENERATION_COST_CREDITS = 10;
 export const DEFAULT_CREDITS = 100;
 /**
- * Store is closed for now: the store page shows "Coming Soon" and credit
+ * Store is closed for now: the store page shows a closed notice and credit
  * balances are hidden (header chip, profile stats). Flip to `false` when
  * credit top-ups reopen — the store, its routes and the balance displays
  * all come back with it. The economy itself (earning/spending tokens)

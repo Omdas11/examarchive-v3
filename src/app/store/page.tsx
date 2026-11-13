@@ -13,7 +13,7 @@ import StoreClient from "./StoreClient";
 
 export const metadata: Metadata = {
   title: "Store",
-  description: "The ExamArchive store is coming soon — credit top-ups and passes.",
+  description: "ExamArchive store — credit top-ups and passes.",
   robots: { index: false, follow: false },
 };
 
@@ -21,7 +21,7 @@ export default async function StorePage() {
   const user = await getServerUser();
   const displayName = user?.name || user?.username || "Guest";
 
-  // ── Store closed for now: show "Coming Soon" (public, no data fetching).
+  // ── Store closed for now: show the closed notice (public, no data fetching).
   // Flip STORE_COMING_SOON in lib/economy.ts to reopen the store.
   if (STORE_COMING_SOON) {
     return (
@@ -43,10 +43,10 @@ export default async function StorePage() {
           >
             storefront
           </span>
-          <h1 className="mt-5 text-2xl font-bold text-on-surface">Store — Coming Soon</h1>
+          <h1 className="mt-5 text-2xl font-bold text-on-surface">Store</h1>
           <p className="mx-auto mt-2 max-w-md text-sm text-on-surface-variant">
-            We&apos;re setting up credit top-ups and passes. The store will be back soon — in the
-            meantime, everything in the archive stays free to browse.
+            Credit top-ups and passes aren&apos;t available right now. Everything in the
+            archive stays free to browse.
           </p>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
             <Link href="/browse" className="btn-primary text-sm px-6 py-2.5 rounded-full">

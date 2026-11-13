@@ -240,23 +240,12 @@ export default async function HomePage() {
           />
 
           <div className="relative z-10 px-6">
-            {/* Early Access badge */}
             <div className="flex items-center justify-center gap-3 mb-8 flex-wrap">
               <div
                 className="inline-block rounded-full px-5 py-1.5 text-[11px] font-bold uppercase tracking-widest"
                 style={{ background: "var(--brand-emerald-soft)", color: "var(--brand-emerald-dark)" }}
               >
                 Free &amp; Community-Driven
-              </div>
-              <div
-                className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-[11px] font-bold tracking-widest uppercase shadow-sm"
-                style={{
-                  background: "var(--color-primary)",
-                  color: "#fff",
-                }}
-              >
-                <span className="material-symbols-outlined text-sm font-bold">star</span>
-                Early Access
               </div>
             </div>
 
@@ -299,8 +288,7 @@ export default async function HomePage() {
             <p className="mx-auto mt-8 max-w-2xl text-lg sm:text-xl font-medium" style={{ color: "var(--color-text-muted)" }}>
               Starting with <span className="text-primary font-bold">Haflong Government College</span>
               {" "}(Assam University) — free verified question papers, syllabi &amp; study resources for
-              FYUGP students across all 13 departments. More colleges coming soon.
-              Contributed by students, optimized by AI.
+              FYUGP students across all 13 departments. Contributed by students, optimized by AI.
             </p>
 
             <div className="mt-12 flex flex-wrap justify-center gap-4">
