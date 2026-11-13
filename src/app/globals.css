@@ -355,6 +355,22 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
   animation: page-in 0.25s ease-out forwards;
 }
 
+/* ── Rotating hero word (Exam + Archive/Papers/Syllabi/...) ── */
+@keyframes ea-rotating-word-in {
+  from { opacity: 0; transform: translateY(0.45em); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.ea-rotating-word {
+  display: inline-block;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ea-rotating-word {
+    animation: ea-rotating-word-in 0.45s ease-out;
+  }
+}
+
 /* ── Hero heading shimmer / shine sweep ── */
 @keyframes ea-hero-shine {
   0%   { left: -80%; }

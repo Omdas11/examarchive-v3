@@ -6,6 +6,7 @@ import { getServerUser } from "@/lib/auth";
 import HomeSearch from "@/components/HomeSearch";
 import PaperCard from "@/components/PaperCard";
 import AnimatedCounter from "@/components/AnimatedCounter";
+import RotatingExamWord from "@/components/RotatingExamWord";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import {
@@ -270,13 +271,14 @@ export default async function HomePage() {
           />
 
           <div className="relative z-10 px-6">
-            <div className="flex items-center justify-center gap-3 mb-8 flex-wrap">
-              <div
-                className="inline-block rounded-full px-5 py-1.5 text-[11px] font-bold uppercase tracking-widest"
-                style={{ background: "var(--brand-emerald-soft)", color: "var(--brand-emerald-dark)" }}
-              >
-                ExamArchive
-              </div>
+            {/* Big animated brand line — same size as the Academic Intelligence
+                heading. "Exam" stays fixed; the second word rotates through
+                what the site offers (Archive, Papers, Syllabi, Notes, Questions). */}
+            <div
+              className="text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl mx-auto max-w-4xl leading-[1.1] mb-8"
+              aria-label="ExamArchive — Exam Papers, Syllabi, Notes and Questions"
+            >
+              <RotatingExamWord />
             </div>
 
             {/* Hero search — the main task is finding a paper, so search comes first */}
