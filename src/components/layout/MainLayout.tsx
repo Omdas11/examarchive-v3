@@ -167,7 +167,6 @@ export default function MainLayout({
             avatarUrl={headerProps.avatarUrl || sidebarProfile?.avatar_url || undefined}
             userTier={sidebarProfile ? xpTier(sidebarProfile.xp ?? 0) : undefined}
             onMobileMenuToggle={!hideSidebar ? () => setIsMobileOpen((v) => !v) : undefined}
-            onProfileClick={() => setIsRightSidebarOpen(true)}
           />
         )}
 

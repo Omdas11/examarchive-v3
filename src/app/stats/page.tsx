@@ -56,7 +56,10 @@ const fetchPlatformStats = unstable_cache(
     db.listDocuments(DATABASE_ID, COLLECTION.users, [Query.limit(1)]),
   ]);
 
-  // Walk all approved syllabi to compute subject/code coverage without a hard cap
+  // Walk all approved syllabi to compute subject/code coverage without a hard cap.
+  // The catalogue lives in Syllabus_Table (one row per unit), so dedupe by
+  // subject and paper_code. The legacy `syllabus` collection is empty in the
+  // new project.
   let syllabusSubjects = 0;
   let syllabusCodes = 0;
   try {
@@ -65,15 +68,12 @@ const fetchPlatformStats = unstable_cache(
     let cursor: string | undefined;
     // eslint-disable-next-line no-constant-condition
     while (true) {
-      const queries = [
-        Query.equal("approval_status", "approved"),
-        Query.limit(100),
-      ];
+      const queries = [Query.limit(100)];
       if (cursor) queries.push(Query.cursorAfter(cursor));
-      const page = await db.listDocuments(DATABASE_ID, COLLECTION.syllabus, queries);
+      const page = await db.listDocuments(DATABASE_ID, COLLECTION.syllabus_table, queries);
       for (const doc of page.documents) {
         const subj = (doc.subject as string | undefined)?.trim();
-        const code = (doc.course_code as string | undefined)?.trim();
+        const code = (doc.paper_code as string | undefined)?.trim();
         if (subj) subjects.add(subj);
         if (code) codes.add(code);
       }
@@ -184,7 +184,7 @@ const fetchPlatformStats = unstable_cache(
     notesUnits: NOTES_UNITS,
   };
   },
-  ["platform-stats-v2"],
+  ["platform-stats-v3"],
   { revalidate: 86400 },
 );
 
@@ -218,8 +218,8 @@ export default async function StatsPage() {
     },
     {
       label: "Syllabi Available",
-      value: stats.syllabusApproved,
-      sub: `${stats.syllabusTotal} total (incl. pending)`,
+      value: stats.syllabusTablePapers,
+      sub: "Syllabus papers in the catalogue",
       accent: true,
     },
     {
@@ -337,8 +337,8 @@ export default async function StatsPage() {
       </p>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
         <div className="card p-5 text-center">
-          <p className="text-3xl font-bold" style={{ color: "var(--color-primary)" }}>{stats.syllabusApproved}</p>
-          <p className="mt-1 text-sm font-medium">Approved Syllabi</p>
+          <p className="text-3xl font-bold" style={{ color: "var(--color-primary)" }}>{stats.syllabusTablePapers}</p>
+          <p className="mt-1 text-sm font-medium">Syllabus Papers</p>
         </div>
         <div className="card p-5 text-center">
           <p className="text-3xl font-bold">{stats.syllabusSubjects}</p>

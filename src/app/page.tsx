@@ -84,10 +84,11 @@ const HOW_IT_WORKS = [
 ];
 
 /** Cached homepage data — revalidates every hour to avoid hitting Appwrite on every request.
- * Cache key is v2: v1 was poisoned with 0s on 2026-11-13 when the site was
+ * Cache key is v3: v1 was poisoned with 0s on 2026-11-13 when the site was
  * repointed to the new Appwrite project while the API key was still the old
- * one, so every query failed and the 0s were cached for an hour. Bumping the
- * key forces a fresh fetch. */
+ * one, so every query failed and the 0s were cached for an hour. v2 counted
+ * syllabi from the legacy `syllabus` collection (empty in the new project,
+ * so it read 0); v3 counts distinct syllabus papers from Syllabus_Table. */
 const getHomepageData = unstable_cache(
   async () => {
     let papersTotal = 0;
@@ -102,13 +103,9 @@ const getHomepageData = unstable_cache(
       // costs 1 read. The 8 newest papers come from a single limit(8)
       // query — the old code fetched all 615 papers and sorted them in
       // memory (620 reads per refresh) just to show 8 cards.
-      const [papersRes, syllabusRes, usersRes, recentRes] = await Promise.all([
+      const [papersRes, usersRes, recentRes] = await Promise.all([
         db.listDocuments(DATABASE_ID, COLLECTION.papers, [
           Query.equal("approved", true),
-          Query.limit(1),
-        ]),
-        db.listDocuments(DATABASE_ID, COLLECTION.syllabus, [
-          Query.equal("approval_status", "approved"),
           Query.limit(1),
         ]),
         db.listDocuments(DATABASE_ID, COLLECTION.users, [Query.limit(1)]),
@@ -120,11 +117,39 @@ const getHomepageData = unstable_cache(
       ]);
 
       papersTotal = Number(papersRes.total);
-      syllabusTotal = Number(syllabusRes.total);
       usersTotal = Number(usersRes.total);
       recentPapers = recentRes.documents.map(toPaper);
     } catch {
       // collections may not exist yet in dev
+    }
+
+    // Syllabi count: the real syllabus catalogue lives in Syllabus_Table
+    // (one row per unit, so dedupe by paper_code). The legacy `syllabus`
+    // collection is for user-uploaded syllabi and is empty in the new
+    // project — counting it showed 0 even though 133 syllabus papers exist.
+    try {
+      const db = adminDatabases();
+      const codes = new Set<string>();
+      let cursor: string | undefined;
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const queries = [Query.limit(100)];
+        if (cursor) queries.push(Query.cursorAfter(cursor));
+        const page = await db.listDocuments(
+          DATABASE_ID,
+          COLLECTION.syllabus_table,
+          queries,
+        );
+        for (const doc of page.documents) {
+          const code = (doc.paper_code as string | undefined)?.trim();
+          if (code) codes.add(code);
+        }
+        if (page.documents.length < 100) break;
+        cursor = page.documents[page.documents.length - 1].$id;
+      }
+      syllabusTotal = codes.size;
+    } catch {
+      syllabusTotal = 0;
     }
 
     // Fetch approved feedback entries (max 3 for homepage)
@@ -152,7 +177,7 @@ const getHomepageData = unstable_cache(
       feedbackEntries,
     };
   },
-  ["homepage-data-v2"],
+  ["homepage-data-v3"],
   { revalidate: 3600 },
 );
 
