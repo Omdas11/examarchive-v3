@@ -23,39 +23,29 @@ describe("PaperCard", () => {
     expect(screen.getByText("2024")).toBeInTheDocument();
   });
 
-  describe("resolveDownloadUrl logic", () => {
-    it("uses file_id over file_url if present", () => {
-      render(<PaperCard paper={{ ...basePaper, file_id: "file_456", file_url: "https://example.com/test.pdf" }} isLoggedIn />);
-      const downloadLink = screen.getByTitle("Download PDF");
-      expect(downloadLink).toHaveAttribute("href", "/api/files/papers/file_456?download=1");
-    });
-
-    it("uses absolute file_url and appends download parameter", () => {
-      render(<PaperCard paper={{ ...basePaper, file_url: "https://example.com/test.pdf" }} isLoggedIn />);
-      const downloadLink = screen.getByTitle("Download PDF");
-      expect(downloadLink).toHaveAttribute("href", "https://example.com/test.pdf?download=1");
-    });
-
-    it("uses http absolute file_url and appends download parameter", () => {
-      render(<PaperCard paper={{ ...basePaper, file_url: "http://example.com/test.pdf" }} isLoggedIn />);
-      const downloadLink = screen.getByTitle("Download PDF");
-      expect(downloadLink).toHaveAttribute("href", "http://example.com/test.pdf?download=1");
-    });
-
-    it("handles relative file_url and appends download parameter", () => {
-      render(<PaperCard paper={{ ...basePaper, file_url: "/local/path.pdf" }} isLoggedIn />);
-      const downloadLink = screen.getByTitle("Download PDF");
-      expect(downloadLink).toHaveAttribute("href", "/local/path.pdf?download=1");
-    });
-
-    it("shows a CAPTCHA button instead of a direct link for anonymous visitors", () => {
-      // The CAPTCHA gate only renders when a site key is configured.
+  describe("download button (CAPTCHA-gated for everyone)", () => {
+    // Downloads always go through the hCaptcha gate — logged-in or not —
+    // so the card renders a button that opens the check, never a direct
+    // link. The CAPTCHA gate only renders when a site key is configured.
+    beforeEach(() => {
       process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY = "test-site-key";
+    });
+    afterEach(() => {
+      delete process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY;
+    });
+
+    it("renders a CAPTCHA button, not a direct link, for a paper with a file", () => {
       render(<PaperCard paper={{ ...basePaper, file_id: "file_456", file_url: "https://example.com/test.pdf" }} />);
       const downloadButton = screen.getByTitle("Download PDF");
       expect(downloadButton.tagName).toBe("BUTTON");
       expect(downloadButton).not.toHaveAttribute("href");
-      delete process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY;
+    });
+
+    it("links directly for a file_url-only paper (external file, no bucket id)", () => {
+      render(<PaperCard paper={{ ...basePaper, file_url: "https://example.com/test.pdf" }} />);
+      const downloadLink = screen.getByTitle("Download PDF");
+      expect(downloadLink.tagName).toBe("A");
+      expect(downloadLink).toHaveAttribute("href", "https://example.com/test.pdf?download=1");
     });
 
     it("handles missing url gracefully", () => {
@@ -64,12 +54,6 @@ describe("PaperCard", () => {
       // instead of a dead href="#" link.
       expect(screen.getByText("PDF unavailable")).toBeInTheDocument();
       expect(screen.queryByTitle("Download PDF")).not.toBeInTheDocument();
-    });
-
-    it("does not incorrectly process relative URLs that start with http string without protocol", () => {
-      render(<PaperCard paper={{ ...basePaper, file_url: "http-course-notes.pdf" }} isLoggedIn />);
-      const downloadLink = screen.getByTitle("Download PDF");
-      expect(downloadLink).toHaveAttribute("href", "/http-course-notes.pdf?download=1");
     });
   });
 

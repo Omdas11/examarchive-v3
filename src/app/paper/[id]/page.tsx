@@ -264,7 +264,6 @@ export default async function PaperPage({ params }: PaperPageProps) {
           <CaptchaDownloadButton
             fileId={paper.file_id}
             fileUrl={paper.file_url}
-            isLoggedIn={!!user}
             className="btn-primary mt-10 py-5 rounded-full shadow-lg hover:shadow-floating transition-all active:scale-95 flex items-center justify-center gap-3 text-base font-black"
           >
             <span className="material-symbols-outlined font-black">picture_as_pdf</span>
@@ -328,7 +327,6 @@ export default async function PaperPage({ params }: PaperPageProps) {
               <CaptchaDownloadButton
                 fileId={paper.file_id}
                 fileUrl={paper.file_url}
-                isLoggedIn={!!user}
                 className="bg-primary text-white px-5 py-2 rounded-full text-xs font-bold shadow-md hover:shadow-lg transition-all"
               >
                 View

@@ -227,7 +227,6 @@ export default async function SyllabusDepartmentPage({
               <CaptchaDownloadButton
                 fileId={deptPdf.file_id}
                 fileUrl={deptPdf.file_url}
-                isLoggedIn={!!user}
                 className="inline-flex items-center gap-2 rounded-2xl bg-primary px-4 py-2 text-sm font-semibold text-on-primary"
               >
                 View PDF

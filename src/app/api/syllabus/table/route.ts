@@ -80,12 +80,13 @@ export async function GET(request: NextRequest) {
   try {
     const user = await getServerUser();
     const isPdfMode = mode === "pdf";
-    // PDF downloads: logged-in users pass, and anonymous visitors who
-    // solved the hCaptcha pass with a short-lived `ctoken` bound to the
-    // paper code (single-paper PDF) or `dept-<code>` (departmental PDF).
-    // Without either, the download is refused — the plain link alone
-    // must never serve a PDF to a bot.
-    if (isPdfMode && !user) {
+    // PDF downloads need a CAPTCHA token (`ctoken`, issued after solving
+    // the hCaptcha) — for EVERYONE, logged-in or not. A bare session is
+    // not enough, so a bot with an account cannot bulk-download generated
+    // PDFs and burn the Appwrite read budget. The download buttons always
+    // supply a `ctoken`. The token is bound to the paper code
+    // (single-paper PDF) or `dept-<code>` (departmental PDF).
+    if (isPdfMode) {
       const ctoken = (searchParams.get("ctoken") || "").trim();
       const normalizedCode = normalizePaperCode(paperCode);
       const deptScope = subjectCode ? `dept-${subjectCode}` : "";
@@ -93,7 +94,7 @@ export async function GET(request: NextRequest) {
         (normalizedCode && verifyCaptchaDownloadToken({ fileId: normalizedCode, token: ctoken })) ||
         (deptScope && verifyCaptchaDownloadToken({ fileId: deptScope, token: ctoken }));
       if (!hasValidCaptcha) {
-        return NextResponse.json({ error: "Login required." }, { status: 401 });
+        return NextResponse.json({ error: "Complete the human check to download this PDF." }, { status: 401 });
       }
     }
     const todayStr = new Date().toISOString().slice(0, 10);

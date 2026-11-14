@@ -25,9 +25,6 @@ interface BrowseClientProps {
   /** Pre-selected university/institute filter (e.g. Haflong Government College). */
   defaultUniversity?: string | null;
   isAdmin: boolean;
-  /** True when a user is signed in — passed to PaperCard so anonymous
-   *  visitors get the hCaptcha gate on downloads instead of a direct link. */
-  isLoggedIn: boolean;
   initialSearch?: string;
   initialDepartment?: string | null;
   initialYear?: number | null;
@@ -68,7 +65,6 @@ export default function BrowseClient({
   availableSemesters,
   defaultUniversity = null,
   isAdmin,
-  isLoggedIn,
   initialSearch = "",
   initialDepartment = null,
   initialYear = null,
@@ -479,7 +475,7 @@ export default function BrowseClient({
         <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {paged.map((p) => (
             <div key={p.id} className="relative group">
-              <PaperCard paper={p} isLoggedIn={isLoggedIn} />
+              <PaperCard paper={p} />
               {isAdmin && (
                 <button
                   type="button"

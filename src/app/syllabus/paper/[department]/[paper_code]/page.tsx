@@ -334,7 +334,6 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
           <div className="mt-4">
             <CaptchaSyllabusDownloadButton
               paperCode={code}
-              isLoggedIn={!!user}
               className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-2.5 text-sm font-semibold text-on-primary sm:w-auto"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
@@ -352,7 +351,6 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
                   key={pdf.id}
                   fileId={pdf.file_id}
                   fileUrl={pdf.file_url}
-                  isLoggedIn={!!user}
                   className="shrink-0 rounded-full border border-outline-variant/40 bg-surface px-3 py-1.5 text-xs font-semibold text-on-surface"
                 >
                   {[pdf.year, pdf.university].filter(Boolean).join(" · ") || "Syllabus PDF"}
@@ -402,6 +400,11 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
                   className="scroll-mt-24 px-4 py-4"
                   lang={bengali ? "bn" : undefined}
                 >
+                  <VerifyStrip
+                    variant="compact"
+                    contentType="syllabus"
+                    contentId={`syllabus:${canonicalCode}:unit:${row.unit_number}`}
+                  >
                   <div className="flex items-center gap-2.5">
                     <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-on-primary">
                       {row.unit_number}
@@ -438,11 +441,7 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
                       ))}
                     </div>
                   )}
-                  <VerifyStrip
-                    variant="compact"
-                    contentType="syllabus"
-                    contentId={`syllabus:${canonicalCode}:unit:${row.unit_number}`}
-                  />
+                  </VerifyStrip>
                 </section>
                 );
               })}
@@ -538,7 +537,6 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
                       key={pdf.id}
                       fileId={pdf.file_id}
                       fileUrl={pdf.file_url}
-                      isLoggedIn={!!user}
                       className="block w-full rounded-xl bg-surface-container px-3 py-2 text-left text-xs font-semibold text-on-surface"
                     >
                       {[pdf.year, pdf.university].filter(Boolean).join(" · ") || "Syllabus PDF"}

@@ -184,17 +184,28 @@ export async function GET(
   });
 
   let user = null;
-  // Anonymous visitors who passed the CAPTCHA carry a short-lived `ctoken`.
+  // A download needs a CAPTCHA token (`ctoken`, issued after solving the
+  // hCaptcha) or a signed token (AI-generated PDF links). A bare session
+  // is NOT enough — the CAPTCHA gate applies to logged-in users too, so
+  // a bot with an account cannot bulk-download and burn the Appwrite
+  // read budget. The download buttons always supply a `ctoken`.
   const captchaToken = request.nextUrl.searchParams.get("ctoken") || "";
   const hasValidCaptchaToken = verifyCaptchaDownloadToken({ fileId, token: captchaToken });
   if (!hasValidSignedToken && !hasValidCaptchaToken) {
     user = await getServerUser();
+    if (!user) {
+      // Redirect unauthenticated visitors to the login page instead of
+      // returning a raw 401 so the browser navigates to sign-in when the
+      // PDF is opened in a new tab.
+      return NextResponse.redirect(new URL("/login", request.url));
+    }
+    return new NextResponse(
+      "Please complete the human check to download. Use the Download button on the paper page.",
+      { status: 403 }
+    );
   }
-  if (!hasValidSignedToken && !hasValidCaptchaToken && !user) {
-    // Redirect unauthenticated visitors to the login page instead of
-    // returning a raw 401 so the browser navigates to sign-in when the
-    // PDF is opened in a new tab.
-    return NextResponse.redirect(new URL("/login", request.url));
+  if (!user) {
+    user = await getServerUser();
   }
 
   const requestedDownload = request.nextUrl.searchParams.get("download") === "1";

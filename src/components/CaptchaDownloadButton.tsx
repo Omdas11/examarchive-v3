@@ -45,7 +45,6 @@ function loadHCaptchaScript(): Promise<void> {
 interface CaptchaDownloadButtonProps {
   fileId: string | undefined;
   fileUrl: string;
-  isLoggedIn: boolean;
   className?: string;
   /** Accessible title / tooltip for the button (e.g. "Download PDF"). */
   title?: string;
@@ -53,14 +52,15 @@ interface CaptchaDownloadButtonProps {
 }
 
 /**
- * Download button with a CAPTCHA gate for anonymous visitors.
- * Logged-in users get a direct link; everyone else solves one hCaptcha
- * checkbox, after which a short-lived download URL is issued server-side.
+ * Download button with a CAPTCHA gate for EVERYONE (logged-in or not).
+ * Every download solves one hCaptcha checkbox, after which a short-lived
+ * download URL is issued server-side. The gate applies to logged-in
+ * users too, so a bot with an account cannot bulk-download and burn
+ * the Appwrite read budget. There is no direct-link path.
  */
 export default function CaptchaDownloadButton({
   fileId,
   fileUrl,
-  isLoggedIn,
   className,
   title,
   children,
@@ -147,15 +147,19 @@ export default function CaptchaDownloadButton({
     };
   }, [showChallenge, siteKey, handleVerified]);
 
-  if (isLoggedIn) {
-    // No file at all: a dead href="" link helps nobody — say so plainly.
-    if (!fileId && !fileUrl) {
-      return (
-        <span className={className} aria-disabled="true" style={{ opacity: 0.55 }}>
-          PDF not yet uploaded
-        </span>
-      );
-    }
+  if (!fileId && !fileUrl) {
+    // No file at all: a dead button helps nobody — say so plainly.
+    return (
+      <span className={className} aria-disabled="true" style={{ opacity: 0.55 }}>
+        PDF not yet uploaded
+      </span>
+    );
+  }
+
+  if (!fileId) {
+    // External / non-bucket file (plain file_url, no Appwrite file id):
+    // it is not served by our server, so the CAPTCHA gate (which exists
+    // to protect the Appwrite read budget) does not apply — link directly.
     return (
       <a href={fileUrl} target="_blank" rel="noopener noreferrer" className={className} title={title}>
         {children}
@@ -163,9 +167,8 @@ export default function CaptchaDownloadButton({
     );
   }
 
-  if (!siteKey || !fileId) {
-    // Misconfigured or file-less paper: fall back to prompting sign-in
-    // rather than rendering a dead button.
+  if (!siteKey) {
+    // Misconfigured: fall back to prompting sign-in rather than a dead button.
     return (
       <a href="/login" className={className} title={title}>
         {children}

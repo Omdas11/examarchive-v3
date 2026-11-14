@@ -131,7 +131,7 @@ export default async function FyugQuestionPapersPage() {
           <h2 className="mt-8 text-2xl font-semibold">Latest FYUG Papers</h2>
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {papers.map((p) => (
-              <PaperCard key={p.id} paper={p} isLoggedIn={!!user} />
+              <PaperCard key={p.id} paper={p} />
             ))}
           </div>
         </>

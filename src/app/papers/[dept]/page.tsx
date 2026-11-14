@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getAllApprovedPapers } from "@/lib/papers-cache";
-import { getServerUser } from "@/lib/auth";
 import { toPaper } from "@/types";
 import PaperCard from "@/components/PaperCard";
 import Breadcrumb from "@/components/Breadcrumb";
@@ -189,7 +188,6 @@ export default async function DepartmentPage({ params }: { params: Promise<{ dep
   const info = DEPARTMENTS[dept];
   if (!info) notFound();
 
-  const user = await getServerUser();
 
   const papers: ReturnType<typeof toPaper>[] = [];
   try {
@@ -247,7 +245,7 @@ export default async function DepartmentPage({ params }: { params: Promise<{ dep
         {papers.length > 0 ? (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {papers.map((p) => (
-              <PaperCard key={p.id} paper={p} isLoggedIn={!!user} />
+              <PaperCard key={p.id} paper={p} />
             ))}
           </div>
         ) : (

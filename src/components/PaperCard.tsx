@@ -9,10 +9,6 @@ import CaptchaDownloadButton from "@/components/CaptchaDownloadButton";
 
 interface PaperCardProps {
   paper: Paper;
-  /** True when a user is signed in. Anonymous visitors get the hCaptcha
-   *  gate on the download button instead of a direct link. Defaults to
-   *  false (fail closed — treat as anonymous). */
-  isLoggedIn?: boolean;
 }
 
 /** Category badge colours — maps paper_type to theme-aware CSS variable colours. */
@@ -68,7 +64,7 @@ function resolveDownloadUrl(paper: Paper): string {
   }
 }
 
-export default function PaperCard({ paper, isLoggedIn = false }: PaperCardProps) {
+export default function PaperCard({ paper }: PaperCardProps) {
   const accent = subjectColor(paper.department);
   const semNum = paper.semester ? parseInt(paper.semester, 10) : NaN;
   const semRoman = !isNaN(semNum) && semNum >= 1 ? toRoman(semNum) : paper.semester;
@@ -264,7 +260,6 @@ export default function PaperCard({ paper, isLoggedIn = false }: PaperCardProps)
               <CaptchaDownloadButton
                 fileId={paper.file_id}
                 fileUrl={downloadUrl}
-                isLoggedIn={isLoggedIn}
                 title="Download PDF"
                 className="inline-flex items-center justify-center gap-1.5 rounded-full bg-primary px-4 py-2 text-xs font-bold text-white shadow-sm transition-all active:scale-95 hover:opacity-90"
               >

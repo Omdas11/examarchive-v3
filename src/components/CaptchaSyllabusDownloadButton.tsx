@@ -45,22 +45,21 @@ function loadHCaptchaScript(): Promise<void> {
 interface CaptchaSyllabusDownloadButtonProps {
   paperCode?: string;
   subjectCode?: string;
-  isLoggedIn: boolean;
   className?: string;
   children: React.ReactNode;
 }
 
 /**
  * Download button for a generated syllabus PDF (single-paper or
- * departmental) with a CAPTCHA gate for anonymous visitors.
- * Logged-in users get the direct /api/syllabus/table link; everyone else
- * solves one hCaptcha checkbox, after which a short-lived signed PDF URL
- * is issued server-side.
+ * departmental) with a CAPTCHA gate for EVERYONE (logged-in or not).
+ * Every download solves one hCaptcha checkbox, after which a short-lived
+ * signed PDF URL is issued server-side. The gate applies to logged-in
+ * users too, so a bot with an account cannot bulk-download and burn
+ * the Appwrite read budget. There is no direct-link path.
  */
 export default function CaptchaSyllabusDownloadButton({
   paperCode,
   subjectCode,
-  isLoggedIn,
   className,
   children,
 }: CaptchaSyllabusDownloadButtonProps) {
@@ -71,13 +70,6 @@ export default function CaptchaSyllabusDownloadButton({
   const widgetIdRef = useRef<string | null>(null);
 
   const siteKey = process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY || "";
-
-  const directUrl = (() => {
-    const params = new URLSearchParams({ mode: "pdf" });
-    if (paperCode) params.set("paperCode", paperCode);
-    if (subjectCode) params.set("subjectCode", subjectCode);
-    return `/api/syllabus/table?${params.toString()}`;
-  })();
 
   const closeChallenge = useCallback(() => {
     setShowChallenge(false);
@@ -148,14 +140,6 @@ export default function CaptchaSyllabusDownloadButton({
       cancelled = true;
     };
   }, [showChallenge, siteKey, handleVerified]);
-
-  if (isLoggedIn) {
-    return (
-      <a href={directUrl} target="_blank" rel="noopener noreferrer" className={className}>
-        {children}
-      </a>
-    );
-  }
 
   if (!siteKey || (!paperCode && !subjectCode)) {
     // Misconfigured: fall back to prompting sign-in rather than a dead button.
