@@ -137,7 +137,7 @@ export default function Header({
       {...rest}
       className={cn(
         'sticky top-0 z-40',
-        'h-[var(--layout-header-height)] flex items-center justify-between px-6',
+        'h-[var(--layout-header-height)] flex items-center justify-between px-3 sm:px-6',
         'glass border-b border-outline-variant/10',
         className
       )}
@@ -155,11 +155,11 @@ export default function Header({
           </button>
         )}
         {breadcrumbs && breadcrumbs.length > 0 ? (
-          <nav className="flex items-center gap-2 text-sm truncate ml-2">
+          <nav className="flex items-center gap-2 text-sm ml-2 min-w-0 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {breadcrumbs.map((crumb, idx) => (
               <React.Fragment key={idx}>
                 {idx > 0 && (
-                  <span className="text-on-surface-variant/40">
+                  <span className="text-on-surface-variant/40 shrink-0">
                     <span className="material-symbols-outlined text-base">
                       chevron_right
                     </span>
@@ -168,19 +168,19 @@ export default function Header({
                 {crumb.href ? (
                   <Link
                     href={crumb.href}
-                    className="text-on-surface-variant hover:text-on-surface transition-colors font-medium"
+                    className="text-on-surface-variant hover:text-on-surface transition-colors font-medium shrink-0"
                   >
                     {crumb.label}
                   </Link>
                 ) : (
-                  <span className="text-on-surface font-bold">{crumb.label}</span>
+                  <span className="text-on-surface font-bold shrink-0">{crumb.label}</span>
                 )}
               </React.Fragment>
             ))}
           </nav>
         ) : (
           title && (
-            <h2 className="text-xl font-extrabold text-on-surface truncate ml-2">{title}</h2>
+            <h2 className="text-lg sm:text-xl font-extrabold text-on-surface truncate ml-2 min-w-0">{title}</h2>
           )
         )}
       </div>

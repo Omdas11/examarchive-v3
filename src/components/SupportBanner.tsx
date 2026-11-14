@@ -20,7 +20,12 @@ export const WHATSAPP_GROUP_URL =
   "https://chat.whatsapp.com/DDE3VssePR77bBTsesoyXm";
 
 export default function SupportBanner() {
-  const [dismissed, setDismissed] = useState(true);
+  // Start VISIBLE (not dismissed) so the server render matches what a new
+  // visitor sees. Starting hidden then revealing it in useEffect pushed the
+  // whole page down after hydration — a 0.24 layout shift (CLS). Returning
+  // visitors who dismissed it see a brief flash before it hides; that is
+  // the better trade-off, and this banner is temporary (until Dec 5).
+  const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
     try {
