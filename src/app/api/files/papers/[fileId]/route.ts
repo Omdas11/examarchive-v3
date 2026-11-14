@@ -12,6 +12,7 @@ import {
 } from "@/lib/appwrite";
 import { AppwriteException } from "node-appwrite";
 import { isValidSignedPdfDownloadToken } from "@/lib/pdf-download-link";
+import { verifyTurnstileDownloadToken } from "@/lib/turnstile";
 import { renderMarkdownToPdfBuffer } from "@/lib/ai-pdf-pipeline";
 import { applyDownloadWatermark } from "@/lib/pdf-watermark";
 
@@ -145,13 +146,14 @@ function isMissingOrInvalidAppwriteFileError(error: unknown): boolean {
  * before (pass-through proxy).
  *
  * Requires either:
- * - an authenticated user session, or
+ * - a valid Turnstile download token (`ctoken`, issued after passing the
+ *   Cloudflare Turnstile check), or
  * - a valid HMAC-signed download token generated for email delivery links.
  *
- * NOTE: downloads used to also require an hCaptcha token (`ctoken`). The
- * hCaptcha secret in Vercel never matched the site key, so the check
- * rejected every solved checkbox and downloads were broken for everyone.
- * The gate was removed (2026-11-14); a logged-in session is enough again.
+ * NOTE: a bare logged-in session is NOT enough — the Turnstile gate
+ * applies to logged-in users too, so a bot with an account cannot
+ * bulk-download and burn the Appwrite read budget. The download buttons
+ * always supply a `ctoken`.
  */
 export async function GET(
   request: NextRequest,
@@ -188,11 +190,17 @@ export async function GET(
   });
 
   let user = null;
-  // A download needs an authenticated session or a signed token
-  // (AI-generated PDF links). No CAPTCHA token is required — the hCaptcha
-  // gate was removed (2026-11-14) after its secret proved wrong and it
-  // blocked every download.
-  if (!hasValidSignedToken) {
+  // A download needs a Turnstile token (`ctoken`, issued after passing
+  // the Turnstile check) or a signed token (AI-generated PDF links). A
+  // bare session is NOT enough — the Turnstile gate applies to logged-in
+  // users too, so a bot with an account cannot bulk-download and burn
+  // the Appwrite read budget. The download buttons always supply a `ctoken`.
+  const turnstileToken = request.nextUrl.searchParams.get("ctoken") || "";
+  const hasValidTurnstileToken = verifyTurnstileDownloadToken({
+    fileId,
+    token: turnstileToken,
+  });
+  if (!hasValidSignedToken && !hasValidTurnstileToken) {
     user = await getServerUser();
     if (!user) {
       // Redirect unauthenticated visitors to the login page instead of
@@ -200,6 +208,10 @@ export async function GET(
       // PDF is opened in a new tab.
       return NextResponse.redirect(new URL("/login", request.url));
     }
+    return new NextResponse(
+      "Please complete the human check to download. Use the Download button on the paper page.",
+      { status: 403 },
+    );
   }
   if (!user) {
     user = await getServerUser();

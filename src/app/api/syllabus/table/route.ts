@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createHash } from "node:crypto";
 import { InputFile } from "node-appwrite/file";
 import { adminDatabases, adminStorage, COLLECTION, DATABASE_ID, Query, ID, SYLLABUS_BUCKET_ID } from "@/lib/appwrite";
+import { verifyTurnstileDownloadToken } from "@/lib/turnstile";
 import { getServerUser } from "@/lib/auth";
 import {
   buildPaperMarkdown,
@@ -79,11 +80,28 @@ export async function GET(request: NextRequest) {
   try {
     const user = await getServerUser();
     const isPdfMode = mode === "pdf";
-    // NOTE: PDF downloads used to require an hCaptcha token (`ctoken`).
-    // The hCaptcha secret in Vercel never matched the site key, so the
-    // check rejected every solved checkbox and downloads were broken for
-    // everyone. The gate was removed (2026-11-14); the per-user daily
-    // PDF limit below still applies to logged-in non-admin users.
+    // PDF downloads need a Turnstile token (`ctoken`, issued after passing
+    // the Turnstile check) — for EVERYONE, logged-in or not. A bare session
+    // is not enough, so a bot with an account cannot bulk-download generated
+    // PDFs and burn the Appwrite read budget. The download buttons always
+    // supply a `ctoken`. The token is bound to the paper code
+    // (single-paper PDF) or `dept-<code>` (departmental PDF).
+    if (isPdfMode) {
+      const ctoken = (searchParams.get("ctoken") || "").trim();
+      const normalizedCode = normalizePaperCode(paperCode);
+      const deptScope = subjectCode ? `dept-${subjectCode}` : "";
+      const hasValidTurnstile =
+        (normalizedCode &&
+          verifyTurnstileDownloadToken({ fileId: normalizedCode, token: ctoken })) ||
+        (deptScope &&
+          verifyTurnstileDownloadToken({ fileId: deptScope, token: ctoken }));
+      if (!hasValidTurnstile) {
+        return NextResponse.json(
+          { error: "Complete the human check to download this PDF." },
+          { status: 401 },
+        );
+      }
+    }
     const todayStr = new Date().toISOString().slice(0, 10);
     let usedBefore = 0;
     if (isPdfMode && user && !isAdminPlus(user.role)) {

@@ -6,6 +6,7 @@ import { AppwriteException } from "node-appwrite";
 
 const mockGetServerUser = jest.fn();
 const mockIsValidSignedPdfDownloadToken = jest.fn();
+const mockVerifyTurnstileDownloadToken = jest.fn();
 const mockRenderMarkdownToPdfBuffer = jest.fn();
 const mockApplyDownloadWatermark = jest.fn(async (buf: ArrayBuffer) => buf);
 
@@ -24,6 +25,10 @@ jest.mock("@/lib/auth", () => ({
 
 jest.mock("@/lib/pdf-download-link", () => ({
   isValidSignedPdfDownloadToken: (...args: unknown[]) => mockIsValidSignedPdfDownloadToken(...args),
+}));
+
+jest.mock("@/lib/turnstile", () => ({
+  verifyTurnstileDownloadToken: (...args: unknown[]) => mockVerifyTurnstileDownloadToken(...args),
 }));
 
 jest.mock("@/lib/ai-pdf-pipeline", () => ({
@@ -144,6 +149,7 @@ describe("GET /api/files/papers/[fileId]", () => {
 
   it("falls back from papers view path when user is authenticated without download mode", async () => {
     mockIsValidSignedPdfDownloadToken.mockReturnValue(false);
+    mockVerifyTurnstileDownloadToken.mockReturnValue(true);
     mockGetServerUser.mockResolvedValue({ $id: "user-1" });
     mockStorage.getFileView.mockRejectedValue(Object.assign(new Error("not found"), { code: 404 }));
     mockDb.listDocuments.mockResolvedValue({ documents: [] });
@@ -167,12 +173,25 @@ describe("GET /api/files/papers/[fileId]", () => {
     expect(response.headers.get("location")).toBe("http://localhost/login");
   });
 
-  it("serves the file to a logged-in user without any token (no CAPTCHA gate)", async () => {
+  it("returns 403 for a logged-in user without a Turnstile token", async () => {
     mockIsValidSignedPdfDownloadToken.mockReturnValue(false);
+    mockVerifyTurnstileDownloadToken.mockReturnValue(false);
+    mockGetServerUser.mockResolvedValue({ $id: "user-1" });
+
+    const request = new NextRequest("http://localhost/api/files/papers/file-1");
+    const response = await GET(request, { params: Promise.resolve({ fileId: "file-1" }) });
+
+    expect(response.status).toBe(403);
+    expect(mockStorage.getFileView).not.toHaveBeenCalled();
+  });
+
+  it("serves the file to a logged-in user with a valid Turnstile token", async () => {
+    mockIsValidSignedPdfDownloadToken.mockReturnValue(false);
+    mockVerifyTurnstileDownloadToken.mockReturnValue(true);
     mockGetServerUser.mockResolvedValue({ $id: "user-1" });
     mockStorage.getFileView.mockResolvedValue(new Uint8Array([37, 80, 68, 70]));
 
-    const request = new NextRequest("http://localhost/api/files/papers/file-1");
+    const request = new NextRequest("http://localhost/api/files/papers/file-1?ctoken=valid.token");
     const response = await GET(request, { params: Promise.resolve({ fileId: "file-1" }) });
 
     expect(response.status).toBe(200);
@@ -249,6 +268,7 @@ describe("GET /api/files/papers/[fileId]", () => {
 
   it("serves inline PDF from papers bucket when authenticated user does not request download", async () => {
     mockIsValidSignedPdfDownloadToken.mockReturnValue(false);
+    mockVerifyTurnstileDownloadToken.mockReturnValue(true);
     mockGetServerUser.mockResolvedValue({ $id: "user-1" });
     mockStorage.getFileView.mockResolvedValue(Uint8Array.from([1, 2, 3]));
 

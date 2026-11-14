@@ -23,16 +23,20 @@ describe("PaperCard", () => {
     expect(screen.getByText("2024")).toBeInTheDocument();
   });
 
-  describe("download button (direct link, no CAPTCHA gate)", () => {
-    // Downloads are plain direct links — the hCaptcha gate was removed
-    // (2026-11-14) after its secret proved wrong and it blocked every
-    // download. A paper with a bucket file links to the file route;
-    // a file_url-only paper links straight to the external file.
-    it("renders a direct link to the file route for a paper with a file", () => {
+  describe("download button (Turnstile gate)", () => {
+    // Downloads run a Cloudflare Turnstile check — a paper with a bucket
+    // file renders a button that opens the Turnstile modal (not a direct
+    // link), so a bot cannot bulk-download and burn the Appwrite read
+    // budget. A file_url-only paper links straight to the external file.
+    it("renders a Turnstile-gated button for a paper with a file", () => {
+      // The button only renders as a <button> when the Turnstile site key
+      // is configured; without it the component falls back to a /login link.
+      process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY = "test-turnstile-site-key";
       render(<PaperCard paper={{ ...basePaper, file_id: "file_456", file_url: "https://example.com/test.pdf" }} />);
-      const downloadLink = screen.getByTitle("Download PDF");
-      expect(downloadLink.tagName).toBe("A");
-      expect(downloadLink).toHaveAttribute("href", "/api/files/papers/file_456");
+      const downloadButton = screen.getByTitle("Download PDF");
+      expect(downloadButton.tagName).toBe("BUTTON");
+      expect(downloadButton).not.toHaveAttribute("href");
+      delete process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
     });
 
     it("links directly for a file_url-only paper (external file, no bucket id)", () => {
