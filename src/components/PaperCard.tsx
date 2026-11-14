@@ -145,7 +145,7 @@ export default function PaperCard({ paper }: PaperCardProps) {
         {/* ── Row 2: title + course code ── */}
         <div className="space-y-0.5">
           <h3 className="text-base font-bold leading-snug text-on-surface line-clamp-2">
-            {paper.title}
+            {paper.title?.trim() || paper.course_code || "Untitled paper"}
           </h3>
           {courseLabel && (
             <p className="text-[12px] font-medium text-on-surface-variant line-clamp-1 opacity-70">

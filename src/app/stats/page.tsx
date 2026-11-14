@@ -184,7 +184,7 @@ const fetchPlatformStats = unstable_cache(
     notesUnits: NOTES_UNITS,
   };
   },
-  ["platform-stats-v3"],
+  ["platform-stats-v4"],
   { revalidate: 86400 },
 );
 

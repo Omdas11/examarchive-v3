@@ -34,6 +34,6 @@ export const getAllSyllabusRows = unstable_cache(
     }
     return rows;
   },
-  ["syllabus-table-all"],
+  ["syllabus-table-all-v2"],
   { revalidate: 604800 },
 );
