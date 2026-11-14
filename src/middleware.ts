@@ -35,8 +35,8 @@ const PROTECTED_PATHS = [
   "/devtool",
   "/stats",
   // NOTE: /paper/[id] detail pages are intentionally public (SEO + sharing).
-  // The PDF itself stays gated: /api/files/papers requires a session, a
-  // signed token, or a CAPTCHA-issued token (see /api/captcha-download).
+  // The PDF itself stays gated: /api/files/papers requires a session or a
+  // signed token. (The hCaptcha gate was removed 2026-11-14.)
   "/ai-content",
   // NOTE: /store is intentionally NOT protected here — while the store is
   // closed anyone can see it. When the store reopens, the page
