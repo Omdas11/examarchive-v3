@@ -20,8 +20,10 @@ export interface HeaderProps {
   userName?: string;
   /** Google profile photo URL (or empty for the initials fallback). */
   avatarUrl?: string;
-  /** Derived XP tier for the logged-in user (roles.ts xpTier); falls back to "Scholar" when absent. */
+  /** Derived XP tier for the logged-in user (roles.ts xpTier); shown only when no role label is given. */
   userTier?: string;
+  /** Role label for the logged-in user (e.g. "Founder"); shown in the chip in place of the XP tier. */
+  userRoleLabel?: string;
   breadcrumbs?: { label: string; href?: string }[];
   onSearch?: (query: string) => void;
   onProfileClick?: () => void;
@@ -36,6 +38,7 @@ export default function Header({
   userName = 'John Doe',
   avatarUrl,
   userTier,
+  userRoleLabel,
   breadcrumbs,
   onSearch,
   onProfileClick,
@@ -326,7 +329,9 @@ export default function Header({
               {avatarCircle}
               <div className="hidden sm:flex flex-col items-start">
                 <span className="text-sm font-bold text-on-surface truncate max-w-[120px]">{userName}</span>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-primary">{userTier ? userTier.charAt(0).toUpperCase() + userTier.slice(1) : "Scholar"}</span>
+                {(userRoleLabel || userTier) && (
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-primary">{userRoleLabel ?? (userTier ? userTier.charAt(0).toUpperCase() + userTier.slice(1) : "")}</span>
+                )}
               </div>
             </button>
           ) : (
@@ -342,7 +347,9 @@ export default function Header({
               {avatarCircle}
               <div className="hidden sm:flex flex-col items-start">
                 <span className="text-sm font-bold text-on-surface truncate max-w-[120px]">{userName}</span>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-primary">{userTier ? userTier.charAt(0).toUpperCase() + userTier.slice(1) : "Scholar"}</span>
+                {(userRoleLabel || userTier) && (
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-primary">{userRoleLabel ?? (userTier ? userTier.charAt(0).toUpperCase() + userTier.slice(1) : "")}</span>
+                )}
               </div>
             </Link>
           )

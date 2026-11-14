@@ -39,7 +39,7 @@ export const ROLE_RING_COLORS: Record<UserRole, string | null> = {
   specialist: "#6366f1",
   subject_admin: "#0ea5e9",
   moderator: "#f97316",          // orange-500
-  founder: "#ef4444",
+  founder: "#047857",           // brand emerald (was red-500 #ef4444)
 };
 
 export function normalizeRole(role: string | null | undefined): UserRole {

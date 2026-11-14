@@ -7,7 +7,7 @@ import Header, { type HeaderProps } from './Header';
 import Footer from '@/components/Footer';
 import RightSidebar, { type SidebarProfileResponse } from './RightSidebar';
 import { cn } from '@/lib/utils';
-import { xpTier } from '@/lib/roles';
+import { roleLabel, xpTier } from '@/lib/roles';
 import { PROFILE_REFRESH_EVENT } from '@/lib/profile-events';
 
 const RIGHT_SIDEBAR_WIDTH = '300px';
@@ -166,6 +166,7 @@ export default function MainLayout({
             {...headerProps}
             avatarUrl={headerProps.avatarUrl || sidebarProfile?.avatar_url || undefined}
             userTier={sidebarProfile ? xpTier(sidebarProfile.xp ?? 0) : undefined}
+            userRoleLabel={sidebarProfile ? roleLabel(sidebarProfile.role) : undefined}
             onMobileMenuToggle={!hideSidebar ? () => setIsMobileOpen((v) => !v) : undefined}
           />
         )}
