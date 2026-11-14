@@ -1013,13 +1013,6 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
   }
 }
 
-/* ── Mobile bottom-nav spacer ── */
-@media (max-width: 1023px) {
-  .has-bottom-nav {
-    padding-bottom: 4rem;
-  }
-}
-
 /* ── AI markdown preview + print/PDF rules ── */
 .markdown-preview {
   white-space: normal;

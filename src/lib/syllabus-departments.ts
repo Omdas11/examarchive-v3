@@ -26,7 +26,7 @@ export const SYLLABUS_DEPARTMENTS: Record<string, SyllabusDeptInfo> = {
     name: "Assamese",
     subjectCode: "ASM",
     blurb:
-      "Assam University Assamese FYUG syllabus — DSC, honours and MIL papers from Haflong Government College. Unit-wise syllabus with lectures, free PDF downloads.",
+      "DSC, honours and MIL papers.",
     keywords: ["Assam University Assamese syllabus", "Assamese FYUG syllabus", "Assamese syllabus PDF"],
   },
   bengali: {
@@ -34,7 +34,7 @@ export const SYLLABUS_DEPARTMENTS: Record<string, SyllabusDeptInfo> = {
     name: "Bengali",
     subjectCode: "BEN",
     blurb:
-      "Assam University Bengali FYUG syllabus — Honours (HCC), DSC, Generic Elective and MIL papers from Haflong Government College. Unit-wise syllabus, free PDF downloads.",
+      "Honours (HCC), DSC, Generic Elective and MIL papers.",
     keywords: ["Assam University Bengali syllabus", "Bengali FYUG syllabus", "Bengali syllabus PDF"],
   },
   botany: {
@@ -42,7 +42,7 @@ export const SYLLABUS_DEPARTMENTS: Record<string, SyllabusDeptInfo> = {
     name: "Botany",
     subjectCode: "BOT",
     blurb:
-      "Assam University Botany FYUG syllabus — Plant Physiology, Genetics, Ecology honours and DSC papers from Haflong Government College. Unit-wise syllabus, free PDF downloads.",
+      "Plant Physiology, Genetics and Ecology — honours and DSC papers.",
     keywords: ["Assam University Botany syllabus", "Botany FYUG syllabus", "Botany syllabus PDF"],
   },
   chemistry: {
@@ -50,7 +50,7 @@ export const SYLLABUS_DEPARTMENTS: Record<string, SyllabusDeptInfo> = {
     name: "Chemistry",
     subjectCode: "CHM",
     blurb:
-      "Assam University Chemistry FYUG syllabus — Organic, Inorganic and Physical Chemistry honours and DSC papers from Haflong Government College. Unit-wise syllabus, free PDF downloads.",
+      "Organic, Inorganic and Physical Chemistry — honours and DSC papers.",
     keywords: ["Assam University Chemistry syllabus", "Chemistry FYUG syllabus", "Chemistry syllabus PDF"],
   },
   commerce: {
@@ -58,7 +58,7 @@ export const SYLLABUS_DEPARTMENTS: Record<string, SyllabusDeptInfo> = {
     name: "Commerce",
     subjectCode: "COM",
     blurb:
-      "Assam University Commerce FYUG syllabus — Accounting and Business Studies papers from Haflong Government College. Unit-wise syllabus, free PDF downloads.",
+      "Accounting and Business Studies papers.",
     keywords: ["Assam University Commerce syllabus", "Commerce FYUG syllabus", "B.Com syllabus PDF"],
   },
   economics: {
@@ -66,7 +66,7 @@ export const SYLLABUS_DEPARTMENTS: Record<string, SyllabusDeptInfo> = {
     name: "Economics",
     subjectCode: "ECO",
     blurb:
-      "Assam University Economics FYUG syllabus — Microeconomics and Macroeconomics papers from Haflong Government College. Unit-wise syllabus, free PDF downloads.",
+      "Microeconomics and Macroeconomics papers.",
     keywords: ["Assam University Economics syllabus", "Economics FYUG syllabus", "Economics syllabus PDF"],
   },
   english: {
@@ -74,7 +74,7 @@ export const SYLLABUS_DEPARTMENTS: Record<string, SyllabusDeptInfo> = {
     name: "English",
     subjectCode: "ENG",
     blurb:
-      "Assam University English FYUG syllabus — British Poetry, Communication Skills, SEC and honours papers from Haflong Government College. Unit-wise syllabus, free PDF downloads.",
+      "British Poetry, Communication Skills, SEC and honours papers.",
     keywords: ["Assam University English syllabus", "English FYUG syllabus", "English syllabus PDF"],
   },
   history: {
@@ -82,7 +82,7 @@ export const SYLLABUS_DEPARTMENTS: Record<string, SyllabusDeptInfo> = {
     name: "History",
     subjectCode: "HIS",
     blurb:
-      "Assam University History FYUG syllabus — Ancient, Medieval, Modern India and Assam History papers from Haflong Government College. Unit-wise syllabus, free PDF downloads.",
+      "Ancient, Medieval and Modern India, and Assam History papers.",
     keywords: ["Assam University History syllabus", "History FYUG syllabus", "History syllabus PDF"],
   },
   mathematics: {
@@ -90,7 +90,7 @@ export const SYLLABUS_DEPARTMENTS: Record<string, SyllabusDeptInfo> = {
     name: "Mathematics",
     subjectCode: "MTM",
     blurb:
-      "Assam University Mathematics FYUG syllabus — Algebra, Calculus and Differential Equations honours and DSC papers from Haflong Government College. Unit-wise syllabus, free PDF downloads.",
+      "Algebra, Calculus and Differential Equations — honours and DSC papers.",
     keywords: ["Assam University Mathematics syllabus", "Maths FYUG syllabus", "Mathematics syllabus PDF"],
   },
   philosophy: {
@@ -98,7 +98,7 @@ export const SYLLABUS_DEPARTMENTS: Record<string, SyllabusDeptInfo> = {
     name: "Philosophy",
     subjectCode: "PHI",
     blurb:
-      "Assam University Philosophy FYUG syllabus — Logic, Ethics and Indian Philosophy papers from Haflong Government College. Unit-wise syllabus, free PDF downloads.",
+      "Logic, Ethics and Indian Philosophy papers.",
     keywords: ["Assam University Philosophy syllabus", "Philosophy FYUG syllabus", "Philosophy syllabus PDF"],
   },
   physics: {
@@ -106,7 +106,7 @@ export const SYLLABUS_DEPARTMENTS: Record<string, SyllabusDeptInfo> = {
     name: "Physics",
     subjectCode: "PHY",
     blurb:
-      "Assam University Physics FYUG syllabus — Mathematical Physics, Mechanics and Quantum Mechanics honours and DSC papers from Haflong Government College. Unit-wise syllabus, free PDF downloads.",
+      "Mathematical Physics, Mechanics and Quantum Mechanics — honours and DSC papers.",
     keywords: ["Assam University Physics syllabus", "Physics FYUG syllabus", "Physics syllabus PDF"],
   },
   "political-science": {
@@ -114,7 +114,7 @@ export const SYLLABUS_DEPARTMENTS: Record<string, SyllabusDeptInfo> = {
     name: "Political Science",
     subjectCode: "POL",
     blurb:
-      "Assam University Political Science FYUG syllabus — Political Theory and Indian Government papers from Haflong Government College. Unit-wise syllabus, free PDF downloads.",
+      "Political Theory and Indian Government papers.",
     keywords: ["Assam University Political Science syllabus", "Political Science FYUG syllabus", "Political Science syllabus PDF"],
   },
   zoology: {
@@ -122,7 +122,7 @@ export const SYLLABUS_DEPARTMENTS: Record<string, SyllabusDeptInfo> = {
     name: "Zoology",
     subjectCode: "ZOO",
     blurb:
-      "Assam University Zoology FYUG syllabus — Animal Diversity, Physiology and Genetics honours and DSC papers from Haflong Government College. Unit-wise syllabus, free PDF downloads.",
+      "Animal Diversity, Physiology and Genetics — honours and DSC papers.",
     keywords: ["Assam University Zoology syllabus", "Zoology FYUG syllabus", "Zoology syllabus PDF"],
   },
 };
@@ -141,4 +141,21 @@ export function syllabusDeptSlugForPaperCode(paperCode: string): string | undefi
 export function syllabusDeptBySubjectCode(subjectCode: string): SyllabusDeptInfo | undefined {
   const code = subjectCode.trim().toUpperCase();
   return Object.values(SYLLABUS_DEPARTMENTS).find((d) => d.subjectCode === code);
+}
+
+/**
+ * Resolve a Syllabus_Table `subject` field value to its department.
+ *
+ * The data is inconsistent: Mathematics rows store the 3-letter code
+ * ("MTM") but the other 12 departments store the full name ("Physics",
+ * "Political Science", ...). So match the value against the subject code
+ * first, then against the department name. Returns undefined when the
+ * value matches no department.
+ */
+export function syllabusDeptForSubjectValue(subject: string): SyllabusDeptInfo | undefined {
+  const v = subject.trim().toUpperCase();
+  if (!v) return undefined;
+  const byCode = Object.values(SYLLABUS_DEPARTMENTS).find((d) => d.subjectCode === v);
+  if (byCode) return byCode;
+  return Object.values(SYLLABUS_DEPARTMENTS).find((d) => d.name.toUpperCase() === v);
 }

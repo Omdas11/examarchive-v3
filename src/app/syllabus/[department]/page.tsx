@@ -15,7 +15,7 @@ import { getServerUser } from "@/lib/auth";
 import { isAdmin } from "@/lib/roles";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
-import { SYLLABUS_DEPARTMENTS } from "@/lib/syllabus-departments";
+import { SYLLABUS_DEPARTMENTS, syllabusDeptForSubjectValue } from "@/lib/syllabus-departments";
 
 const SITE_URL = "https://www.examarchive.dev";
 
@@ -83,7 +83,10 @@ export default async function SyllabusDepartmentPage({
     // collection may not exist yet
   }
 
-  // ── Syllabus-table papers for this department (subject = 3-letter code).
+  // ── Syllabus-table papers for this department. The `subject` field is
+  // inconsistent in the data (Mathematics stores the code "MTM", the other
+  // 12 departments store the full name like "Physics"), so resolve it
+  // through syllabusDeptForSubjectValue instead of comparing to the code.
   // Uses the shared 7-day syllabus cache instead of re-reading the whole
   // department from Appwrite on every visit.
   const papers: PaperSummary[] = [];
@@ -91,7 +94,7 @@ export default async function SyllabusDepartmentPage({
     const grouped = new Map<string, ReturnType<typeof toSyllabusTableRow>[]>();
     const rows = await getAllSyllabusRows();
     for (const row of rows) {
-      if (row.subject !== info.subjectCode) continue;
+      if (syllabusDeptForSubjectValue(String(row.subject ?? ""))?.slug !== slug) continue;
       // Group by the canonical code: "PHYSEC-101" and "PHYSEC101" are the
       // same paper stored under two spellings (see normalizePaperCode).
       const code = normalizePaperCode(row.paper_code);

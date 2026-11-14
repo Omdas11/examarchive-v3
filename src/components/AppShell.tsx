@@ -7,7 +7,6 @@ import type { UserProfile } from "@/types";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Sidebar from "@/components/Sidebar";
-import BottomNav from "@/components/BottomNav";
 import RightColumn from "@/components/RightColumn";
 
 /**
@@ -71,13 +70,12 @@ export default function AppShell({ user, children }: AppShellProps) {
       <Navbar user={user} />
       <div className="dashboard-grid flex-1">
         <Sidebar user={user} />
-        <main className="main-content flex-1 has-bottom-nav animate-page-in">
+        <main className="main-content flex-1 animate-page-in">
           {children}
           <Footer />
         </main>
         <RightColumn user={user} />
       </div>
-      <BottomNav />
     </>
   );
 }

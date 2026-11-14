@@ -4,7 +4,7 @@ import { getServerUser } from "@/lib/auth";
 import { isAdmin } from "@/lib/roles";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
-import { SYLLABUS_DEPARTMENTS, SYLLABUS_DEPARTMENT_SLUGS } from "@/lib/syllabus-departments";
+import { SYLLABUS_DEPARTMENTS, SYLLABUS_DEPARTMENT_SLUGS, syllabusDeptForSubjectValue } from "@/lib/syllabus-departments";
 import { normalizePaperCode } from "@/lib/syllabus-table";
 import { getAllSyllabusRows } from "@/lib/syllabus-cache";
 
@@ -40,20 +40,25 @@ export default async function SyllabusPage() {
   const userInitials = userName ? userName.slice(0, 2).toUpperCase() : "";
   const userIsAdmin = !!user && isAdmin(user.role);
 
-  // ── Per-department counts from the syllabus table (2,789 published rows;
-  // codes are canonicalised, so "PHYSEC-101" + "PHYSEC101" count once).
-  // Uses the shared 7-day syllabus cache instead of re-reading all 2,789
-  // rows from Appwrite on every visit.
+  // ── Per-department counts from the syllabus table. The `subject` field
+  // is inconsistent in the data (Mathematics stores the code "MTM", the
+  // other 12 departments store the full name like "Physics"), so resolve
+  // it through syllabusDeptForSubjectValue. Codes are canonicalised, so
+  // "PHYSEC-101" + "PHYSEC101" count once.
+  // Uses the shared 7-day syllabus cache instead of re-reading all rows
+  // from Appwrite on every visit.
   const counts = new Map<string, DeptCounts>();
   try {
     // subject -> paper code -> distinct unit numbers
     const bySubject = new Map<string, Map<string, Set<number>>>();
     const rows = await getAllSyllabusRows();
     for (const row of rows) {
-      const subject = String(row.subject ?? "").trim().toUpperCase();
+      const dept = syllabusDeptForSubjectValue(String(row.subject ?? ""));
+      if (!dept) continue;
+      const subject = dept.slug;
       // Canonical code: "PHYSEC-101" and "PHYSEC101" are one paper, not two.
       const code = normalizePaperCode(String(row.paper_code ?? ""));
-      if (!subject || !code) continue;
+      if (!code) continue;
       if (!bySubject.has(subject)) bySubject.set(subject, new Map());
       const papers = bySubject.get(subject)!;
       if (!papers.has(code)) papers.set(code, new Set());
@@ -112,7 +117,7 @@ export default async function SyllabusPage() {
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {SYLLABUS_DEPARTMENT_SLUGS.map((slug) => {
             const info = SYLLABUS_DEPARTMENTS[slug];
-            const c = counts.get(info.subjectCode);
+            const c = counts.get(slug);
             return (
               <Link
                 key={slug}
