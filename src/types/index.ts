@@ -99,6 +99,12 @@ export interface UserProfile {
   streak_days: number;
   last_activity: string;
   created_at: string;
+  /** Linked Discord account (OAuth2), if any. */
+  discord_id?: string | null;
+  discord_username?: string | null;
+  discord_avatar?: string | null;
+  /** True when the linked Discord account was in the ExamArchive server at link time. */
+  discord_in_server?: boolean;
 }
 
 /**

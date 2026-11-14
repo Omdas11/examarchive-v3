@@ -89,10 +89,15 @@ function roleBadgeIconName(role: string): IconName {
 // ── Achievement types matching v2 ACHIEVEMENTS.md ───────────────────────────
 type EarnedAchievement = { icon: IconName; label: string };
 
-export default async function ProfilePage() {
+export default async function ProfilePage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ discord?: string }>;
+}) {
   const user = await getServerUser();
   if (!user) redirect("/login?next=/profile");
   const userName = user.name || "User";
+  const discordStatus = (await searchParams)?.discord ?? null;
 
   const db = adminDatabases();
 
@@ -101,10 +106,18 @@ export default async function ProfilePage() {
   // are queried from the uploads collection.
   let usernameLastChanged: string | null = null;
   let approvedCount = 0;
+  let discordId: string | null = null;
+  let discordUsername: string | null = null;
+  let discordAvatar: string | null = null;
+  let discordInServer = false;
   try {
     const profileDoc = await db.getDocument(DATABASE_ID, COLLECTION.users, user.id);
     usernameLastChanged = (profileDoc.username_last_changed as string) ?? null;
     approvedCount = (profileDoc.upload_count as number) ?? 0;
+    discordId = (profileDoc.discord_id as string) ?? null;
+    discordUsername = (profileDoc.discord_username as string) ?? null;
+    discordAvatar = (profileDoc.discord_avatar as string) ?? null;
+    discordInServer = (profileDoc.discord_in_server as boolean) ?? false;
   } catch {
     // ignore – not found or env missing
   }
@@ -384,6 +397,70 @@ export default async function ProfilePage() {
             <dd className="font-mono text-xs truncate max-w-[200px]" title={user.id}>{user.id}</dd>
           </div>
         </dl>
+      </div>
+
+      {/* ── Connected Accounts ── */}
+      <div className="card p-6">
+        <h2 className="text-base font-semibold mb-3">Connected Accounts</h2>
+        {discordStatus === "linked" && (
+          <p className="text-sm mb-3" style={{ color: "var(--color-primary)" }}>
+            Discord connected — and you are in the ExamArchive server.
+          </p>
+        )}
+        {discordStatus === "linked_not_in_server" && (
+          <p className="text-sm mb-3" style={{ color: "var(--color-primary)" }}>
+            Discord connected. You are not in the ExamArchive server yet — join it from the Discord app to get server updates.
+          </p>
+        )}
+        {discordStatus === "already_linked" && (
+          <p className="text-sm mb-3 text-red-600">
+            That Discord account is already linked to a different ExamArchive account.
+          </p>
+        )}
+        {discordStatus === "unlinked" && (
+          <p className="text-sm mb-3" style={{ color: "var(--color-primary)" }}>
+            Discord disconnected.
+          </p>
+        )}
+        {discordStatus === "error" && (
+          <p className="text-sm mb-3 text-red-600">
+            Discord linking failed. Please try again.
+          </p>
+        )}
+        {discordId ? (
+          <div className="flex items-center gap-3">
+            {discordAvatar ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={discordAvatar} alt="" width={40} height={40} className="w-10 h-10 rounded-full object-cover" />
+            ) : (
+              <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-white" style={{ background: "#5865F2" }}>
+                {(discordUsername ?? "D").substring(0, 1).toUpperCase()}
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold truncate">{discordUsername ?? "Discord user"}</p>
+              <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+                {discordInServer ? "Member of the ExamArchive server" : "Discord connected"}
+              </p>
+            </div>
+            <form action="/api/auth/discord/unlink" method="post">
+              <button type="submit" className="btn text-sm px-3 py-1.5">Unlink</button>
+            </form>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-white shrink-0" style={{ background: "#5865F2" }}>
+              D
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold">Discord</p>
+              <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+                Link your Discord to show it on your profile and confirm your server membership.
+              </p>
+            </div>
+            <a href="/api/auth/discord/link" className="btn text-sm px-3 py-1.5 shrink-0">Connect</a>
+          </div>
+        )}
       </div>
 
       {/* ── Course Selection ── */}
