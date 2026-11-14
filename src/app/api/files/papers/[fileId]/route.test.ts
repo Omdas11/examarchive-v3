@@ -6,7 +6,6 @@ import { AppwriteException } from "node-appwrite";
 
 const mockGetServerUser = jest.fn();
 const mockIsValidSignedPdfDownloadToken = jest.fn();
-const mockVerifyCaptchaDownloadToken = jest.fn();
 const mockRenderMarkdownToPdfBuffer = jest.fn();
 const mockApplyDownloadWatermark = jest.fn(async (buf: ArrayBuffer) => buf);
 
@@ -25,10 +24,6 @@ jest.mock("@/lib/auth", () => ({
 
 jest.mock("@/lib/pdf-download-link", () => ({
   isValidSignedPdfDownloadToken: (...args: unknown[]) => mockIsValidSignedPdfDownloadToken(...args),
-}));
-
-jest.mock("@/lib/captcha-download", () => ({
-  verifyCaptchaDownloadToken: (...args: unknown[]) => mockVerifyCaptchaDownloadToken(...args),
 }));
 
 jest.mock("@/lib/ai-pdf-pipeline", () => ({
@@ -69,7 +64,6 @@ describe("GET /api/files/papers/[fileId]", () => {
     mockIsValidSignedPdfDownloadToken.mockReturnValue(true);
     // Most tests exercise the file-serving paths with a valid token.
     // Tests for the auth gate set this to false explicitly.
-    mockVerifyCaptchaDownloadToken.mockReturnValue(true);
   });
 
   afterEach(() => {
@@ -164,7 +158,6 @@ describe("GET /api/files/papers/[fileId]", () => {
 
   it("redirects to login when signed token is invalid and no session user exists", async () => {
     mockIsValidSignedPdfDownloadToken.mockReturnValue(false);
-    mockVerifyCaptchaDownloadToken.mockReturnValue(false);
     mockGetServerUser.mockResolvedValue(null);
 
     const request = new NextRequest("http://localhost/api/files/papers/file-auth");
@@ -174,17 +167,16 @@ describe("GET /api/files/papers/[fileId]", () => {
     expect(response.headers.get("location")).toBe("http://localhost/login");
   });
 
-  it("returns 403 for a logged-in user without a CAPTCHA token", async () => {
+  it("serves the file to a logged-in user without any token (no CAPTCHA gate)", async () => {
     mockIsValidSignedPdfDownloadToken.mockReturnValue(false);
-    mockVerifyCaptchaDownloadToken.mockReturnValue(false);
     mockGetServerUser.mockResolvedValue({ $id: "user-1" });
+    mockStorage.getFileView.mockResolvedValue(new Uint8Array([37, 80, 68, 70]));
 
     const request = new NextRequest("http://localhost/api/files/papers/file-1");
     const response = await GET(request, { params: Promise.resolve({ fileId: "file-1" }) });
 
-    expect(response.status).toBe(403);
-    expect(mockStorage.getFile).not.toHaveBeenCalled();
-    expect(mockStorage.getFileView).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(mockStorage.getFileView).toHaveBeenCalledWith("papers", "file-1");
   });
 
   it("returns 400 when fileId is missing", async () => {

@@ -23,22 +23,16 @@ describe("PaperCard", () => {
     expect(screen.getByText("2024")).toBeInTheDocument();
   });
 
-  describe("download button (CAPTCHA-gated for everyone)", () => {
-    // Downloads always go through the hCaptcha gate — logged-in or not —
-    // so the card renders a button that opens the check, never a direct
-    // link. The CAPTCHA gate only renders when a site key is configured.
-    beforeEach(() => {
-      process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY = "test-site-key";
-    });
-    afterEach(() => {
-      delete process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY;
-    });
-
-    it("renders a CAPTCHA button, not a direct link, for a paper with a file", () => {
+  describe("download button (direct link, no CAPTCHA gate)", () => {
+    // Downloads are plain direct links — the hCaptcha gate was removed
+    // (2026-11-14) after its secret proved wrong and it blocked every
+    // download. A paper with a bucket file links to the file route;
+    // a file_url-only paper links straight to the external file.
+    it("renders a direct link to the file route for a paper with a file", () => {
       render(<PaperCard paper={{ ...basePaper, file_id: "file_456", file_url: "https://example.com/test.pdf" }} />);
-      const downloadButton = screen.getByTitle("Download PDF");
-      expect(downloadButton.tagName).toBe("BUTTON");
-      expect(downloadButton).not.toHaveAttribute("href");
+      const downloadLink = screen.getByTitle("Download PDF");
+      expect(downloadLink.tagName).toBe("A");
+      expect(downloadLink).toHaveAttribute("href", "/api/files/papers/file_456");
     });
 
     it("links directly for a file_url-only paper (external file, no bucket id)", () => {

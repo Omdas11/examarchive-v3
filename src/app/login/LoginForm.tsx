@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { signInWithOtp, signInWithPassword, signUp, signInWithGoogle } from "@/app/auth/actions";
-import HCaptchaField from "@/components/HCaptchaField";
 import { IconMail } from "@/components/Icons";
 
 /** Available login modes. */
@@ -225,7 +224,6 @@ export default function LoginForm({
               className="input-field"
             />
           </div>
-          <HCaptchaField />
           <SubmitButton label="Send magic link" pendingLabel="Sending…" />
           <p className="text-center text-xs" style={{ color: "var(--color-text-muted)" }}>
             We&apos;ll email you a one-time sign-in link — no password needed.
@@ -272,7 +270,6 @@ export default function LoginForm({
               className="input-field"
             />
           </div>
-          <HCaptchaField />
           <SubmitButton label="Sign in" pendingLabel="Signing in…" />
           {/* Toggle hint */}
           <p className="text-center text-xs" style={{ color: "var(--color-text-muted)" }}>
@@ -317,7 +314,6 @@ export default function LoginForm({
               className="input-field"
             />
           </div>
-          <HCaptchaField />
           <SubmitButton label="Create account" pendingLabel="Creating account…" />
           {/* Toggle hint */}
           <p className="text-center text-xs" style={{ color: "var(--color-text-muted)" }}>
