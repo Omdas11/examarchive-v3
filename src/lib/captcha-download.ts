@@ -39,7 +39,10 @@ export async function verifyHCaptchaTokenDetailed(
     console.error("[hcaptcha] verify failed: HCAPTCHA_SECRET_KEY is not set");
     return { ok: false, reason: "secret-not-set" };
   }
-  if (!clean || clean.length > 2048) return { ok: false, reason: "bad-token" };
+  // Only reject an empty token. Do NOT cap the length: hCaptcha response
+  // tokens vary and can exceed 2048 chars; siteverify is the authority on
+  // whether a token is valid. (A 2048 cap here wrongly rejected real tokens.)
+  if (!clean) return { ok: false, reason: "bad-token" };
   try {
     const res = await fetch(HCAPTCHA_SITEVERIFY_URL, {
       method: "POST",
