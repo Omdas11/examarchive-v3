@@ -19,6 +19,9 @@
 
 const DISCORD_API = "https://discord.com/api/v10";
 
+/** Name of the short-lived cookie holding the OAuth2 state token. */
+export const DISCORD_OAUTH_STATE_COOKIE = "discord_oauth_state";
+
 /** Public Discord application id (same as the bot user id). */
 export const DISCORD_CLIENT_ID =
   process.env.DISCORD_CLIENT_ID ?? "1571172607707848774";

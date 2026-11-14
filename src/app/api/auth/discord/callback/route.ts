@@ -3,13 +3,13 @@ import { cookies } from "next/headers";
 import { getServerUser } from "@/lib/auth";
 import { adminDatabases, DATABASE_ID, COLLECTION, Query } from "@/lib/appwrite";
 import {
+  DISCORD_OAUTH_STATE_COOKIE,
   discordAvatarUrl,
   discordDisplayName,
   exchangeDiscordCode,
   fetchDiscordInServer,
   fetchDiscordUser,
 } from "@/lib/discord-oauth";
-import { DISCORD_OAUTH_STATE_COOKIE } from "../link/route";
 
 const SITE = "https://examarchive.dev";
 

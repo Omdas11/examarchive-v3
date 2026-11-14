@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import { getServerUser } from "@/lib/auth";
-import { discordAuthorizeUrl } from "@/lib/discord-oauth";
-
-/** Name of the short-lived cookie holding the OAuth2 state token. */
-export const DISCORD_OAUTH_STATE_COOKIE = "discord_oauth_state";
+import {
+  DISCORD_OAUTH_STATE_COOKIE,
+  discordAuthorizeUrl,
+} from "@/lib/discord-oauth";
 
 /**
  * Start Discord account linking. Logged-in users only.
