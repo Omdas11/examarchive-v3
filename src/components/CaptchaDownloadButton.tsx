@@ -47,6 +47,8 @@ interface CaptchaDownloadButtonProps {
   fileUrl: string;
   isLoggedIn: boolean;
   className?: string;
+  /** Accessible title / tooltip for the button (e.g. "Download PDF"). */
+  title?: string;
   children: React.ReactNode;
 }
 
@@ -60,6 +62,7 @@ export default function CaptchaDownloadButton({
   fileUrl,
   isLoggedIn,
   className,
+  title,
   children,
 }: CaptchaDownloadButtonProps) {
   const [showChallenge, setShowChallenge] = useState(false);
@@ -154,7 +157,7 @@ export default function CaptchaDownloadButton({
       );
     }
     return (
-      <a href={fileUrl} target="_blank" rel="noopener noreferrer" className={className}>
+      <a href={fileUrl} target="_blank" rel="noopener noreferrer" className={className} title={title}>
         {children}
       </a>
     );
@@ -164,7 +167,7 @@ export default function CaptchaDownloadButton({
     // Misconfigured or file-less paper: fall back to prompting sign-in
     // rather than rendering a dead button.
     return (
-      <a href="/login" className={className}>
+      <a href="/login" className={className} title={title}>
         {children}
       </a>
     );
@@ -172,7 +175,7 @@ export default function CaptchaDownloadButton({
 
   return (
     <>
-      <button type="button" onClick={() => setShowChallenge(true)} className={className} disabled={busy}>
+      <button type="button" onClick={() => setShowChallenge(true)} className={className} disabled={busy} title={title}>
         {children}
       </button>
       {showChallenge && (

@@ -13,6 +13,8 @@ import type { Syllabus } from "@/types";
 import { toSyllabus } from "@/types";
 import MainLayout from "@/components/layout/MainLayout";
 import VerifyStrip from "@/components/VerifyStrip";
+import CaptchaSyllabusDownloadButton from "@/components/CaptchaSyllabusDownloadButton";
+import CaptchaDownloadButton from "@/components/CaptchaDownloadButton";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import {
   dedupeSyllabusRowsByUnit,
@@ -330,15 +332,14 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
           </p>
 
           <div className="mt-4">
-            <a
-              href={`/api/syllabus/table?paperCode=${encodeURIComponent(code)}&mode=pdf`}
-              target="_blank"
-              rel="noopener noreferrer"
+            <CaptchaSyllabusDownloadButton
+              paperCode={code}
+              isLoggedIn={!!user}
               className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-2.5 text-sm font-semibold text-on-primary sm:w-auto"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
               Download Syllabus PDF
-            </a>
+            </CaptchaSyllabusDownloadButton>
           </div>
         </div>
 
@@ -347,15 +348,15 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
             <p className="text-xs font-semibold text-on-surface-variant">Uploaded PDFs</p>
             <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
               {uploadedPdfs.filter((pdf) => pdf.file_url).map((pdf) => (
-                <a
+                <CaptchaDownloadButton
                   key={pdf.id}
-                  href={pdf.file_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  fileId={pdf.file_id}
+                  fileUrl={pdf.file_url}
+                  isLoggedIn={!!user}
                   className="shrink-0 rounded-full border border-outline-variant/40 bg-surface px-3 py-1.5 text-xs font-semibold text-on-surface"
                 >
                   {[pdf.year, pdf.university].filter(Boolean).join(" · ") || "Syllabus PDF"}
-                </a>
+                </CaptchaDownloadButton>
               ))}
             </div>
           </div>
@@ -533,15 +534,15 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
               ) : (
                 <div className="mt-3 space-y-2">
                   {uploadedPdfs.filter((pdf) => pdf.file_url).map((pdf) => (
-                    <a
+                    <CaptchaDownloadButton
                       key={pdf.id}
-                      href={pdf.file_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block rounded-xl bg-surface-container px-3 py-2 text-xs font-semibold text-on-surface"
+                      fileId={pdf.file_id}
+                      fileUrl={pdf.file_url}
+                      isLoggedIn={!!user}
+                      className="block w-full rounded-xl bg-surface-container px-3 py-2 text-left text-xs font-semibold text-on-surface"
                     >
                       {[pdf.year, pdf.university].filter(Boolean).join(" · ") || "Syllabus PDF"}
-                    </a>
+                    </CaptchaDownloadButton>
                   ))}
                 </div>
               )}

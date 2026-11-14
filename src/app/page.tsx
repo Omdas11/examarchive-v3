@@ -402,7 +402,7 @@ export default async function HomePage() {
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               {recentPapers.map((paper) => (
-                <PaperCard key={paper.id} paper={paper} />
+                <PaperCard key={paper.id} paper={paper} isLoggedIn={!!user} />
               ))}
             </div>
           </section>

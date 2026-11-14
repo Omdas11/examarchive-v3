@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { InputFile } from "node-appwrite/file";
 import { adminDatabases, adminStorage, COLLECTION, DATABASE_ID, Query, ID, SYLLABUS_BUCKET_ID } from "@/lib/appwrite";
 import { getServerUser } from "@/lib/auth";
+import { verifyCaptchaDownloadToken } from "@/lib/captcha-download";
 import {
   buildPaperMarkdown,
   dedupeSyllabusRowsByUnit,
@@ -79,8 +80,21 @@ export async function GET(request: NextRequest) {
   try {
     const user = await getServerUser();
     const isPdfMode = mode === "pdf";
+    // PDF downloads: logged-in users pass, and anonymous visitors who
+    // solved the hCaptcha pass with a short-lived `ctoken` bound to the
+    // paper code (single-paper PDF) or `dept-<code>` (departmental PDF).
+    // Without either, the download is refused — the plain link alone
+    // must never serve a PDF to a bot.
     if (isPdfMode && !user) {
-      return NextResponse.json({ error: "Login required." }, { status: 401 });
+      const ctoken = (searchParams.get("ctoken") || "").trim();
+      const normalizedCode = normalizePaperCode(paperCode);
+      const deptScope = subjectCode ? `dept-${subjectCode}` : "";
+      const hasValidCaptcha =
+        (normalizedCode && verifyCaptchaDownloadToken({ fileId: normalizedCode, token: ctoken })) ||
+        (deptScope && verifyCaptchaDownloadToken({ fileId: deptScope, token: ctoken }));
+      if (!hasValidCaptcha) {
+        return NextResponse.json({ error: "Login required." }, { status: 401 });
+      }
     }
     const todayStr = new Date().toISOString().slice(0, 10);
     let usedBefore = 0;

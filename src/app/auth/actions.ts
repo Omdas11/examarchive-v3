@@ -16,6 +16,7 @@ import {
 } from "@/lib/appwrite";
 import { OAuthProvider } from "node-appwrite";
 import { SESSION_COOKIE } from "@/lib/auth";
+import { verifyHCaptchaToken } from "@/lib/captcha-download";
 import {
   DEFAULT_CREDITS,
 } from "@/lib/economy";
@@ -91,11 +92,26 @@ export async function signInWithGoogle(redirectUrl?: string | null) {
  * Uses Appwrite's `createMagicURLToken` which emails a link; the callback
  * route exchanges `userId` + `secret` for a session.
  */
+/**
+ * Verifies the hCaptcha token submitted with a login/signup form.
+ * Returns true when the visitor proved they are human. Fails closed:
+ * a missing token, an unverifiable token, or a missing server secret
+ * all count as not human, so bots cannot skip the check by omitting it.
+ */
+async function verifyLoginCaptcha(formData: FormData): Promise<boolean> {
+  const token = (formData.get("captchaToken") as string | null) ?? "";
+  return verifyHCaptchaToken(token);
+}
+
 export async function signInWithOtp(formData: FormData) {
   const email = (formData.get("email") as string | null)?.trim();
 
   if (!email) {
     redirect("/login?error=email_required");
+  }
+
+  if (!(await verifyLoginCaptcha(formData))) {
+    redirect("/login?error=captcha_required");
   }
 
   const redirectUrl = (formData.get("redirectUrl") as string | null) ?? null;
@@ -148,6 +164,10 @@ export async function signInWithPassword(formData: FormData) {
 
   if (!email || !password) {
     redirect("/login?mode=signin&error=fields_required");
+  }
+
+  if (!(await verifyLoginCaptcha(formData))) {
+    redirect("/login?mode=signin&error=captcha_required");
   }
 
   const redirectUrl = formData.get("redirectUrl") as string | null;
@@ -221,6 +241,10 @@ export async function signUp(formData: FormData) {
 
   if (!email || !password) {
     redirect("/login?mode=signup&error=fields_required");
+  }
+
+  if (!(await verifyLoginCaptcha(formData))) {
+    redirect("/login?mode=signup&error=captcha_required");
   }
 
   try {

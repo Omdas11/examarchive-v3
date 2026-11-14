@@ -126,6 +126,7 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
             availableSemesters={availableSemesters}
             defaultUniversity={defaultUniversity}
             isAdmin={isAdmin}
+            isLoggedIn={!!user}
             initialSearch={q ?? ""}
             initialDepartment={department ?? null}
             initialYear={year ? parseInt(year, 10) : null}

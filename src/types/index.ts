@@ -68,6 +68,9 @@ export interface Syllabus {
   approval_status: "pending" | "approved" | "rejected";
   /** Public URL of the syllabus PDF. */
   file_url: string;
+  /** Appwrite Storage file ID. Stored alongside file_url so downloads can
+   *  be gated through the CAPTCHA flow (which needs the file ID). */
+  file_id?: string;
   created_at: string;
   // Legacy fields for backwards compatibility
   course_code?: string;

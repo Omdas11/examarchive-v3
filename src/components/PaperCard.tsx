@@ -5,9 +5,14 @@ import type { Paper } from "@/types";
 import { toRoman } from "@/lib/utils";
 import { makeAccentGradient } from "@/lib/gradients";
 import { getProgramme } from "@/lib/programme";
+import CaptchaDownloadButton from "@/components/CaptchaDownloadButton";
 
 interface PaperCardProps {
   paper: Paper;
+  /** True when a user is signed in. Anonymous visitors get the hCaptcha
+   *  gate on the download button instead of a direct link. Defaults to
+   *  false (fail closed — treat as anonymous). */
+  isLoggedIn?: boolean;
 }
 
 /** Category badge colours — maps paper_type to theme-aware CSS variable colours. */
@@ -63,7 +68,7 @@ function resolveDownloadUrl(paper: Paper): string {
   }
 }
 
-export default function PaperCard({ paper }: PaperCardProps) {
+export default function PaperCard({ paper, isLoggedIn = false }: PaperCardProps) {
   const accent = subjectColor(paper.department);
   const semNum = paper.semester ? parseInt(paper.semester, 10) : NaN;
   const semRoman = !isNaN(semNum) && semNum >= 1 ? toRoman(semNum) : paper.semester;
@@ -256,21 +261,18 @@ export default function PaperCard({ paper }: PaperCardProps) {
                 PDF unavailable
               </span>
             ) : (
-              <a
-                href={downloadUrl}
-                download
+              <CaptchaDownloadButton
+                fileId={paper.file_id}
+                fileUrl={downloadUrl}
+                isLoggedIn={isLoggedIn}
                 title="Download PDF"
-                className="inline-flex items-center justify-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold text-white shadow-sm transition-all active:scale-95 hover:opacity-90"
-                style={{
-                  background: "var(--color-primary)",
-                }}
-                aria-label="Download PDF"
+                className="inline-flex items-center justify-center gap-1.5 rounded-full bg-primary px-4 py-2 text-xs font-bold text-white shadow-sm transition-all active:scale-95 hover:opacity-90"
               >
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M12 3v12" /><path d="M7 10l5 5 5-5" /><path d="M5 21h14" />
                 </svg>
                 Download PDF
-              </a>
+              </CaptchaDownloadButton>
             )}
 
             {/* Open PDF button — a real link to the paper page (the whole

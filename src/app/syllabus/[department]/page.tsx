@@ -14,6 +14,7 @@ import { toSyllabus, type Syllabus } from "@/types";
 import { getServerUser } from "@/lib/auth";
 import { isAdmin } from "@/lib/roles";
 import MainLayout from "@/components/layout/MainLayout";
+import CaptchaDownloadButton from "@/components/CaptchaDownloadButton";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import { SYLLABUS_DEPARTMENTS, syllabusDeptForSubjectValue } from "@/lib/syllabus-departments";
 
@@ -223,14 +224,14 @@ export default async function SyllabusDepartmentPage({
               </p>
             </div>
             {deptPdf.file_url ? (
-              <a
-                href={deptPdf.file_url}
-                target="_blank"
-                rel="noopener noreferrer"
+              <CaptchaDownloadButton
+                fileId={deptPdf.file_id}
+                fileUrl={deptPdf.file_url}
+                isLoggedIn={!!user}
                 className="inline-flex items-center gap-2 rounded-2xl bg-primary px-4 py-2 text-sm font-semibold text-on-primary"
               >
                 View PDF
-              </a>
+              </CaptchaDownloadButton>
             ) : (
               <span className="inline-flex items-center gap-2 rounded-2xl bg-surface-container px-4 py-2 text-sm font-semibold text-on-surface-variant">
                 Departmental PDF not uploaded yet
