@@ -22,17 +22,28 @@ export function isValidFileId(fileId: string): boolean {
 export async function verifyHCaptchaToken(token: string): Promise<boolean> {
   const secret = getHCaptchaSecret();
   const clean = String(token || "").trim();
-  if (!secret || !clean || clean.length > 2048) return false;
+  if (!secret) {
+    console.error("[hcaptcha] verify failed: HCAPTCHA_SECRET_KEY is not set");
+    return false;
+  }
+  if (!clean || clean.length > 2048) return false;
   try {
     const res = await fetch(HCAPTCHA_SITEVERIFY_URL, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ secret, response: clean }).toString(),
     });
-    if (!res.ok) return false;
-    const data = (await res.json()) as { success?: boolean };
+    if (!res.ok) {
+      console.error("[hcaptcha] siteverify HTTP error:", res.status);
+      return false;
+    }
+    const data = (await res.json()) as { success?: boolean; "error-codes"?: string[] };
+    if (data.success !== true) {
+      console.error("[hcaptcha] siteverify rejected token:", (data["error-codes"] || []).join(",") || "unknown");
+    }
     return data.success === true;
-  } catch {
+  } catch (err) {
+    console.error("[hcaptcha] siteverify fetch failed:", err instanceof Error ? err.message : String(err));
     return false;
   }
 }
