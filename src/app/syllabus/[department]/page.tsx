@@ -94,7 +94,7 @@ export default async function SyllabusDepartmentPage({
     const grouped = new Map<string, ReturnType<typeof toSyllabusTableRow>[]>();
     const rows = await getAllSyllabusRows();
     for (const row of rows) {
-      if (syllabusDeptForSubjectValue(String(row.subject ?? ""))?.slug !== slug) continue;
+      if (syllabusDeptForSubjectValue(String(row.subject ?? ""))?.slug !== info.slug) continue;
       // Group by the canonical code: "PHYSEC-101" and "PHYSEC101" are the
       // same paper stored under two spellings (see normalizePaperCode).
       const code = normalizePaperCode(row.paper_code);
