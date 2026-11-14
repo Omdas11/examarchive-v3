@@ -3,7 +3,6 @@ import { Suspense } from "react";
 import { Plus_Jakarta_Sans, Noto_Sans_Bengali } from "next/font/google";
 import "./globals.css";
 import AppShell from "@/components/AppShell";
-import SupportBanner from "@/components/SupportBanner";
 import { getServerUser } from "@/lib/auth";
 import DebugPanel from "@/components/DebugPanel";
 import { ToastProvider } from "@/components/ToastContext";
@@ -186,7 +185,6 @@ export default async function RootLayout({
       <body className="font-sans antialiased">
         <div className="flex min-h-screen flex-col">
           <ToastProvider>
-            <SupportBanner />
             <AppShell user={user}>
               {children}
             </AppShell>

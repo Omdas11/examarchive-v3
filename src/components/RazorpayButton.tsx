@@ -9,7 +9,7 @@ import { useEffect, useRef } from "react";
  * pl_TzM0LNGhNHlx26, linked to https://razorpay.me/@examarchive).
  * The script is injected programmatically on mount (a <script> placed
  * via JSX/innerHTML would not execute), and Razorpay replaces it with
- * the button. Used in the SupportBanner and on /closed.
+ * the button. Used on the support page.
  */
 const RAZORPAY_BUTTON_ID = "pl_TzM0LNGhNHlx26";
 

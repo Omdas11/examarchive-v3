@@ -43,8 +43,6 @@ const NEW_LAYOUT_PREFIXES = [
   "/assam-university-question-papers",
   "/cbcs-question-papers",
   "/fyug-question-papers",
-  // /closed is a fully static page (no DB reads) shown nightly 10pm-6am.
-  "/closed",
   "/",
 ];
 
