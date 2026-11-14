@@ -84,7 +84,6 @@ export async function GET(request: NextRequest) {
     // check rejected every solved checkbox and downloads were broken for
     // everyone. The gate was removed (2026-11-14); the per-user daily
     // PDF limit below still applies to logged-in non-admin users.
-    if (isPdfMode) {
     const todayStr = new Date().toISOString().slice(0, 10);
     let usedBefore = 0;
     if (isPdfMode && user && !isAdminPlus(user.role)) {
