@@ -207,7 +207,16 @@ export default function VerifyStrip({
     }
   }
 
-  if (hidden) return null;
+  // Guests (401 on /api/verify) never see the verify strip — but the
+  // unit content is this component's children now, so hiding the whole
+  // component would hide the units too. Render the content plainly
+  // (no swipe, no footer) instead of returning null.
+  if (hidden) {
+    if (variant === "compact") {
+      return <div>{children}</div>;
+    }
+    return null;
+  }
 
   if (variant === "compact") {
     const counts =
