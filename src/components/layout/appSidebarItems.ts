@@ -63,13 +63,6 @@ export const APP_SIDEBAR_ITEMS: AppSidebarItem[] = [
     icon: "shopping_cart",
     href: "/store",
   },
-  {
-    label: "Upload Question Paper",
-    icon: "upload_file",
-    href: "/upload",
-    // Team-only while public uploads are closed (see /upload).
-    roles: ["moderator", "founder"],
-  },
   // ── Info ──────────────────────────────────────────────
   {
     label: "About",
@@ -100,28 +93,10 @@ export const APP_SIDEBAR_ITEMS: AppSidebarItem[] = [
     roles: ["moderator", "founder"],
   },
   {
-    label: "AI Controls",
-    icon: "monitoring",
-    href: "/admin/ai-stats",
-    roles: ["moderator", "founder"],
-  },
-  {
-    label: "MD Ingestion",
-    icon: "upload_file",
-    href: "/admin/ingest-md",
-    roles: ["moderator", "founder"],
-  },
-  {
     label: "Stats",
     icon: "monitoring",
     href: "/stats",
     roles: ALL_AUTHENTICATED_ROLES,
-  },
-  {
-    label: "Syllabus Verification",
-    icon: "fact_check",
-    href: "/admin/syllabus-verification",
-    roles: ["moderator", "founder"],
   },
   {
     label: "Manage Users",

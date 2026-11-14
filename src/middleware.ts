@@ -27,7 +27,6 @@ function isTemporarilyClosed(now: Date): boolean {
 /** Routes that require an authenticated session. */
 const PROTECTED_PATHS = [
   // App routes
-  "/upload",
   "/dashboard",
   "/admin",
   "/profile",

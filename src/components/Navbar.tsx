@@ -21,7 +21,6 @@ import { IconSparkles } from "@/components/Icons";
 const navLinks: { href: string; label: ReactNode }[] = [
   { href: "/", label: "Home" },
   { href: "/browse", label: "Browse" },
-  { href: "/upload", label: "Upload" },
   { href: "/syllabus", label: "Syllabus" },
   { href: "/notes", label: "Notes" },
   { href: "/ai-content", label: <span className="inline-flex items-center gap-1"><IconSparkles size={14} /> AI</span> },
@@ -39,9 +38,6 @@ export default function Navbar({ user }: NavbarProps) {
   const [profilePanelOpen, setProfilePanelOpen] = useState(false);
   const [dark, setDark] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  // Upload is team-only while public uploads are closed (see /upload).
-  const isTeam = user?.role === "moderator" || user?.role === "founder";
-  const visibleLinks = navLinks.filter((l) => l.href !== "/upload" || isTeam);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
@@ -185,7 +181,7 @@ export default function Navbar({ user }: NavbarProps) {
 
           {/* Desktop nav */}
           <div className="hidden md:flex items-center gap-6 text-sm font-medium">
-            {visibleLinks.map((l) => (
+            {navLinks.map((l) => (
               <Link
                 key={l.href}
                 href={l.href}
@@ -385,7 +381,7 @@ export default function Navbar({ user }: NavbarProps) {
           </button>
         </div>
         <hr style={{ borderColor: "var(--color-border)" }} />
-        {visibleLinks.map((l) => (
+        {navLinks.map((l) => (
           <Link
             key={l.href}
             href={l.href}

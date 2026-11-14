@@ -19,7 +19,6 @@ const NEW_LAYOUT_PREFIXES = [
   "/browse",
   "/settings",
   "/profile",
-  "/upload",
   "/papers",
   "/syllabus",
   "/ai-content",

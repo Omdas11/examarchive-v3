@@ -147,11 +147,6 @@ export default function RightSidebar({
       <div className="card p-4">
         <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary">Quick Access</p>
         <div className="mt-3 space-y-2 text-sm">
-          {["moderator", "founder"].includes(profile?.role ?? "") && (
-            <Link href="/upload" className="block rounded-lg px-3 py-2 hover:bg-surface-container-low transition-colors">
-              Upload Question Paper
-            </Link>
-          )}
           <Link href="/browse" className="block rounded-lg px-3 py-2 hover:bg-surface-container-low transition-colors">
             Browse
           </Link>

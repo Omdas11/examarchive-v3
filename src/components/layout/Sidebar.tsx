@@ -193,31 +193,6 @@ export default function Sidebar({
 
       {/* Bottom Actions */}
       <div className="p-4 space-y-2.5 border-t border-outline-variant/10 bg-surface shrink-0">
-        {/* Team-only while public uploads are closed (see /upload). */}
-        {["moderator", "founder"].includes(userRole) && (
-        <Link
-          href="/upload"
-          onClick={() => onNavigate?.('/upload')}
-          className={cn(
-            'w-full gradient-primary text-on-primary py-3 px-4 rounded-full',
-            'font-bold text-sm transition-all duration-200 shadow-lift',
-            'hover:shadow-floating active:scale-95',
-            'flex items-center justify-center',
-            isCollapsed && 'p-2.5'
-          )}
-          title={isCollapsed ? 'Upload' : undefined}
-        >
-          {isCollapsed ? (
-            <span className="material-symbols-outlined font-bold">upload</span>
-          ) : (
-              <>
-                <span className="material-symbols-outlined text-lg mr-2 inline-block font-bold">upload</span>
-                Upload Paper
-              </>
-            )}
-        </Link>
-        )}
-
         {isLoggedIn && (
           <form action={signOut}>
             <button

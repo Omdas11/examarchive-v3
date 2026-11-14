@@ -268,26 +268,6 @@ export default function DigitalCuratorDashboard({
             <div>
               <h3 className="text-lg font-bold text-on-surface mb-4">Quick Actions</h3>
               <div className="space-y-2">
-                {/* Team-only while public uploads are closed (see /upload). */}
-                {["moderator", "founder"].includes(userRole) && (
-                <a
-                  href="/upload"
-                  className={cn(
-                    'w-full flex items-center gap-4 p-4',
-                    'bg-surface-container-highest rounded-xl',
-                    'hover:bg-primary hover:text-on-primary',
-                    'transition-all duration-200 group'
-                  )}
-                >
-                  <div className="w-10 h-10 rounded-lg bg-primary/10 group-hover:bg-white/20 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-primary group-hover:text-white">
-                      upload_file
-                    </span>
-                  </div>
-                  <span className="font-bold text-sm">Upload New Paper</span>
-                </a>
-                )}
-
                 <a
                   href="/browse"
                   className={cn(
