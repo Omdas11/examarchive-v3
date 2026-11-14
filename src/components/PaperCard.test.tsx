@@ -50,8 +50,10 @@ describe("PaperCard", () => {
 
     it("handles missing url gracefully", () => {
       render(<PaperCard paper={basePaper} />);
-      const downloadLink = screen.getByTitle("Download PDF");
-      expect(downloadLink).toHaveAttribute("href", "#");
+      // No file: the Download action renders disabled ("PDF unavailable")
+      // instead of a dead href="#" link.
+      expect(screen.getByText("PDF unavailable")).toBeInTheDocument();
+      expect(screen.queryByTitle("Download PDF")).not.toBeInTheDocument();
     });
 
     it("does not incorrectly process relative URLs that start with http string without protocol", () => {

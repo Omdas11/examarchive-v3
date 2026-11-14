@@ -185,15 +185,16 @@ export default function LoginForm({
         </button>
       </div>
 
-      {/* Error / rate-limit banner */}
+      {/* Error / rate-limit banner — red, not emerald: a failed login must
+          never look like a success notice. */}
       {errorText && (
         <div
           role="alert"
           className="rounded-lg px-4 py-3 text-sm"
           style={{
-            background: "var(--color-accent-soft)",
-            color: "var(--color-primary)",
-            border: "1px solid var(--color-primary)",
+            background: "#fef2f2",
+            color: "#b91c1c",
+            border: "1px solid #fecaca",
           }}
         >
           {errorText}

@@ -26,7 +26,7 @@ describe("HomeSearch", () => {
     fireEvent.submit(screen.getByRole("button", { name: /Search/i }));
     
     await waitFor(() => {
-      expect(mockPush).toHaveBeenCalledWith("/browse?search=maths");
+      expect(mockPush).toHaveBeenCalledWith("/browse?q=maths");
     });
   });
 

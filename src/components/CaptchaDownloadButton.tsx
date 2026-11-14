@@ -145,6 +145,14 @@ export default function CaptchaDownloadButton({
   }, [showChallenge, siteKey, handleVerified]);
 
   if (isLoggedIn) {
+    // No file at all: a dead href="" link helps nobody — say so plainly.
+    if (!fileId && !fileUrl) {
+      return (
+        <span className={className} aria-disabled="true" style={{ opacity: 0.55 }}>
+          PDF not yet uploaded
+        </span>
+      );
+    }
     return (
       <a href={fileUrl} target="_blank" rel="noopener noreferrer" className={className}>
         {children}

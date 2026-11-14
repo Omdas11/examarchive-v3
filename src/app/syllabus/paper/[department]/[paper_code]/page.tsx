@@ -34,8 +34,6 @@ interface PageProps {
   params: Promise<{ department: string; paper_code: string }>;
 }
 
-const UNKNOWN_YEAR_LABEL = "Unknown year";
-const UNKNOWN_UNIVERSITY_LABEL = "Unknown university";
 const MAX_QUESTIONS_PER_PAPER = 500;
 
 /** Tags that are internal pipeline metadata, not meant for display. */
@@ -49,19 +47,28 @@ function isDisplayTag(tag: string): boolean {
 
 /**
  * Splits a unit's prose content into bullet points on sentence boundaries.
+ * Bengali sentences end with the danda । (U+0964) / double danda ॥ and
+ * start with a Bengali letter, so both are terminators and lookahead
+ * targets — otherwise Bengali content never splits and renders as one
+ * wall of text while English gets bullets.
  * Falls back to a single bullet when no clean split is found.
  */
 function splitIntoBullets(content: string): string[] {
   const text = content.replace(/\s+/g, " ").trim();
   if (!text) return [];
-  // Split on ". " / "! " / "? " followed by a capital letter or digit,
-  // keeping common abbreviations intact.
+  // Split on ". " / "! " / "? " / "। " followed by a capital letter, digit
+  // or Bengali letter, keeping common abbreviations intact.
   const parts = text
-    .split(/(?<=[.!?])\s+(?=[A-Z0-9])/)
+    .split(/(?<=[.!?।॥])\s+(?=[A-Z0-9\u0980-\u09FF])/)
     .map((s) => s.trim())
     .filter((s) => s.length > 1);
   if (parts.length <= 1) return [text];
   return parts;
+}
+
+/** True when the text contains Bengali script — used for lang="bn". */
+function isBengali(text: string): boolean {
+  return /[\u0980-\u09FF]/.test(text);
 }
 
 type LinkedQuestionRow = {
@@ -303,75 +310,144 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
       userName={userName}
       userInitials={userInitials}
     >
-      <section className="mx-auto w-full max-w-5xl px-4 pb-16 pt-8">
-        <div className="rounded-3xl border border-outline-variant/40 bg-surface p-6 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
-            Syllabus_Table Source
+      <section className="mx-auto w-full max-w-5xl px-4 pb-16 pt-4 sm:pt-8">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">
+            Assam University · {info.name}
           </p>
-          <h1 className="mt-2 text-3xl font-black text-on-surface break-words">{paperName}</h1>
-          <p className="mt-1 font-mono text-sm text-on-surface-variant break-words">{code}</p>
-          <p className="mt-2 text-sm text-on-surface-variant">
-            {first.university} · {first.course} · {first.stream} · {first.type}
+          <h1 className="mt-2 text-2xl font-black text-on-surface break-words sm:text-3xl" lang={isBengali(paperName) ? "bn" : undefined}>{paperName}</h1>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <span className="rounded-full bg-surface-container px-2.5 py-1 font-mono text-xs font-semibold text-on-surface-variant">{code}</span>
+            {semester > 0 && (
+              <span className="rounded-full bg-surface-container px-2.5 py-1 text-xs font-semibold text-on-surface-variant">Semester {semester}</span>
+            )}
+            {first.type && (
+              <span className="rounded-full bg-surface-container px-2.5 py-1 text-xs font-semibold text-on-surface-variant">{first.type}</span>
+            )}
+          </div>
+          <p className="mt-2 text-xs text-on-surface-variant">
+            {[first.university, first.course].filter(Boolean).join(" · ")}
           </p>
 
-          <div className="mt-5 flex flex-wrap gap-2">
+          <div className="mt-4">
             <a
               href={`/api/syllabus/table?paperCode=${encodeURIComponent(code)}&mode=pdf`}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-2xl bg-primary px-4 py-2 text-sm font-semibold text-on-primary"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-2.5 text-sm font-semibold text-on-primary sm:w-auto"
             >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
               Download Syllabus PDF
             </a>
           </div>
         </div>
 
+        {uploadedPdfs.filter((pdf) => pdf.file_url).length > 0 && (
+          <div className="mt-5 lg:hidden">
+            <p className="text-xs font-semibold text-on-surface-variant">Uploaded PDFs</p>
+            <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+              {uploadedPdfs.filter((pdf) => pdf.file_url).map((pdf) => (
+                <a
+                  key={pdf.id}
+                  href={pdf.file_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="shrink-0 rounded-full border border-outline-variant/40 bg-surface px-3 py-1.5 text-xs font-semibold text-on-surface"
+                >
+                  {[pdf.year, pdf.university].filter(Boolean).join(" · ") || "Syllabus PDF"}
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {(() => {
+          const maxUnit = rows.length > 0 ? Math.max(...rows.map((r) => r.unit_number)) : 0;
+          const missingUnits = Array.from({ length: maxUnit }, (_, i) => i + 1).filter(
+            (n) => !rows.some((r) => r.unit_number === n),
+          );
+          if (missingUnits.length === 0) return null;
+          return (
+            <p className="mt-5 rounded-xl bg-surface-container px-3 py-2 text-xs text-on-surface-variant">
+              Showing {rows.length} of {maxUnit} units — Units {missingUnits.join(", ")} are not published yet.
+            </p>
+          );
+        })()}
+
         <div className="mt-6 grid gap-6 lg:grid-cols-3">
           <div className="space-y-4 lg:col-span-2">
-            {rows.map((row) => {
-              const bullets = splitIntoBullets(row.syllabus_content);
-              const displayTags = row.tags.filter(isDisplayTag);
-              return (
-              <article
-                key={row.id}
-                className="rounded-2xl border border-outline-variant/40 bg-surface p-4 overflow-hidden"
-              >
-                <h2 className="text-lg font-semibold text-on-surface break-words">Unit {row.unit_number}</h2>
-                {typeof row.lectures === "number" && (
-                  <p className="mt-1 text-xs text-on-surface-variant">Lectures: {row.lectures}</p>
-                )}
-                {bullets.length > 1 ? (
-                  <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm text-on-surface-variant">
-                    {bullets.map((b, i) => (
-                      <li key={i} className="break-words leading-relaxed">{b}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="mt-3 text-sm text-on-surface-variant break-words leading-relaxed">
-                    {row.syllabus_content}
-                  </p>
-                )}
-                {displayTags.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {displayTags.map((tag) => (
-                      <span
-                        key={`${row.id}-${tag}`}
-                        className="rounded-full bg-surface-container px-2.5 py-1 text-[11px] font-semibold text-on-surface-variant"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                )}
-                <VerifyStrip
-                  contentType="syllabus"
-                  contentId={`syllabus:${paper_code}:unit:${row.unit_number}`}
-                />
-              </article>
-              );
-            })}
+            <nav aria-label="Units" className="flex gap-1.5 overflow-x-auto pb-1">
+              {rows.map((row) => (
+                <a
+                  key={row.id}
+                  href={`#unit-${row.unit_number}`}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-container text-xs font-bold text-on-surface"
+                >
+                  {row.unit_number}
+                </a>
+              ))}
+            </nav>
 
-            <article className="rounded-2xl border border-outline-variant/40 bg-surface p-4">
+            <div className="rounded-2xl border border-outline-variant/40 bg-surface divide-y divide-outline-variant/30 overflow-hidden">
+              {rows.map((row) => {
+                const bullets = splitIntoBullets(row.syllabus_content);
+                const displayTags = row.tags.filter(isDisplayTag);
+                const hasContent = row.syllabus_content.trim().length > 0;
+                const bengali = isBengali(row.syllabus_content);
+                return (
+                <section
+                  key={row.id}
+                  id={`unit-${row.unit_number}`}
+                  className="scroll-mt-24 px-4 py-4"
+                  lang={bengali ? "bn" : undefined}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-on-primary">
+                      {row.unit_number}
+                    </span>
+                    <h2 className="text-base font-semibold text-on-surface break-words">Unit {row.unit_number}</h2>
+                    {typeof row.lectures === "number" && (
+                      <span className="ml-auto shrink-0 text-xs text-on-surface-variant">Lectures: {row.lectures}</span>
+                    )}
+                  </div>
+                  {!hasContent ? (
+                    <p className="mt-3 text-sm text-on-surface-variant leading-relaxed">
+                      No content published for Unit {row.unit_number} yet.
+                    </p>
+                  ) : bullets.length > 1 ? (
+                    <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm text-on-surface-variant">
+                      {bullets.map((b, i) => (
+                        <li key={i} className="break-words leading-relaxed">{b}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-3 text-sm text-on-surface-variant break-words leading-relaxed">
+                      {row.syllabus_content}
+                    </p>
+                  )}
+                  {displayTags.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {displayTags.map((tag) => (
+                        <span
+                          key={`${row.id}-${tag}`}
+                          className="rounded-full bg-surface-container px-2.5 py-1 text-[11px] font-semibold text-on-surface-variant"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <VerifyStrip
+                    variant="compact"
+                    contentType="syllabus"
+                    contentId={`syllabus:${canonicalCode}:unit:${row.unit_number}`}
+                  />
+                </section>
+                );
+              })}
+            </div>
+
+            <article className="rounded-2xl border border-outline-variant/40 bg-surface p-4 overflow-hidden">
               <h2 className="text-lg font-semibold text-on-surface">Linked Questions</h2>
               {linkedQuestions.length === 0 ? (
                 <p className="mt-2 text-sm text-on-surface-variant">No questions linked to this syllabus yet.</p>
@@ -388,7 +464,7 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
                     </p>
                   )}
                   <div className="mt-3 space-y-3">
-                    {linkedQuestions.map((question) => (
+                    {linkedQuestions.slice(0, 8).map((question) => (
                       <div key={question.id} className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-3">
                         <p className="text-xs font-semibold text-on-surface-variant">
                           Q{question.question_no}
@@ -396,14 +472,9 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
                           {typeof question.year === "number" ? ` · ${question.year}` : ""}
                           {typeof question.marks === "number" ? ` · ${question.marks} marks` : ""}
                         </p>
-                        <p className="mt-1 text-sm text-on-surface">{question.question_content}</p>
-                        {(question.tags.length > 0 || question.link_status) && (
+                        <p className="mt-1 text-sm text-on-surface break-words">{question.question_content}</p>
+                        {question.tags.length > 0 && (
                           <div className="mt-2 flex flex-wrap items-center gap-2">
-                            {question.link_status && (
-                              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
-                                {question.link_status}
-                              </span>
-                            )}
                             {question.tags.map((tag) => (
                               <span
                                 key={`${question.id}-${tag}`}
@@ -417,19 +488,51 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
                       </div>
                     ))}
                   </div>
+                  {linkedQuestions.length > 8 && (
+                    <details className="mt-3">
+                      <summary className="cursor-pointer rounded-xl bg-surface-container px-3 py-2.5 text-center text-sm font-semibold text-on-surface">
+                        Show all {linkedQuestions.length} questions
+                      </summary>
+                      <div className="mt-3 space-y-3">
+                        {linkedQuestions.slice(8).map((question) => (
+                          <div key={question.id} className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-3">
+                            <p className="text-xs font-semibold text-on-surface-variant">
+                              Q{question.question_no}
+                              {question.question_subpart ? `(${question.question_subpart})` : ""}
+                              {typeof question.year === "number" ? ` · ${question.year}` : ""}
+                              {typeof question.marks === "number" ? ` · ${question.marks} marks` : ""}
+                            </p>
+                            <p className="mt-1 text-sm text-on-surface break-words">{question.question_content}</p>
+                            {question.tags.length > 0 && (
+                              <div className="mt-2 flex flex-wrap items-center gap-2">
+                                {question.tags.map((tag) => (
+                                  <span
+                                    key={`${question.id}-${tag}`}
+                                    className="rounded-full bg-surface px-2 py-0.5 text-[11px] font-semibold text-on-surface-variant"
+                                  >
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  )}
                 </>
               )}
             </article>
           </div>
 
-          <aside className="space-y-4">
+          <aside className="hidden space-y-4 lg:block">
             <div className="rounded-2xl border border-outline-variant/40 bg-surface p-4">
               <h3 className="text-sm font-semibold text-on-surface">Uploaded Syllabus PDFs</h3>
-              {uploadedPdfs.length === 0 ? (
+              {uploadedPdfs.filter((pdf) => pdf.file_url).length === 0 ? (
                 <p className="mt-2 text-xs text-on-surface-variant">No approved uploads yet.</p>
               ) : (
                 <div className="mt-3 space-y-2">
-                  {uploadedPdfs.map((pdf) => (
+                  {uploadedPdfs.filter((pdf) => pdf.file_url).map((pdf) => (
                     <a
                       key={pdf.id}
                       href={pdf.file_url}
@@ -437,11 +540,28 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
                       rel="noopener noreferrer"
                       className="block rounded-xl bg-surface-container px-3 py-2 text-xs font-semibold text-on-surface"
                     >
-                      {pdf.year ?? UNKNOWN_YEAR_LABEL} · {pdf.university ?? UNKNOWN_UNIVERSITY_LABEL} PDF
+                      {[pdf.year, pdf.university].filter(Boolean).join(" · ") || "Syllabus PDF"}
                     </a>
                   ))}
                 </div>
               )}
+            </div>
+            <div className="rounded-2xl border border-outline-variant/40 bg-surface p-4">
+              <h3 className="text-sm font-semibold text-on-surface">About this paper</h3>
+              <dl className="mt-2 space-y-1.5 text-xs text-on-surface-variant">
+                {[
+                  ["University", first.university],
+                  ["Course", first.course],
+                  ["Stream", first.stream],
+                  ["Type", first.type],
+                  ["Semester", semester > 0 ? String(semester) : ""],
+                ].filter(([, v]) => v).map(([k, v]) => (
+                  <div key={k} className="flex justify-between gap-2">
+                    <dt className="shrink-0">{k}</dt>
+                    <dd className="text-right font-medium text-on-surface break-words">{v}</dd>
+                  </div>
+                ))}
+              </dl>
             </div>
             <Link
               href={`/syllabus/${department}`}

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { dispatchProfileRefreshEvent } from "@/lib/profile-events";
 import type { VerifyContentType } from "@/lib/verify";
+import { IconCheck, IconWarning } from "@/components/Icons";
 
 interface VerifyState {
   mine: {
@@ -24,9 +25,14 @@ interface VerifyState {
 export default function VerifyStrip({
   contentType,
   contentId,
+  variant = "full",
 }: {
   contentType: VerifyContentType;
   contentId: string;
+  /** "compact" renders a one-row footer (~40px) instead of the full box —
+   * same API, same XP/credit rewards. Used on syllabus units, where the
+   * full box repeated per unit is ~3x taller than the content it verifies. */
+  variant?: "full" | "compact";
 }) {
   const [hidden, setHidden] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -119,6 +125,84 @@ export default function VerifyStrip({
   }
 
   if (hidden) return null;
+
+  if (variant === "compact") {
+    const counts =
+      loading
+        ? "Checking…"
+        : state && state.total > 0
+          ? `${state.correct} verified · ${state.flagged} flagged${state.mine ? ` · You: ${state.mine.verdict}` : ""}`
+          : "Not verified yet · +10 XP for verifying";
+    return (
+      <div
+        className="mt-3 border-t pt-2.5"
+        style={{ borderColor: "var(--color-border)" }}
+      >
+        <div className="flex items-center gap-2">
+          <p
+            className="min-w-0 flex-1 truncate text-xs"
+            style={{ color: "var(--color-text-muted)" }}
+          >
+            {counts}
+          </p>
+          <button
+            type="button"
+            disabled={submitting}
+            onClick={() => void submit("correct")}
+            className="inline-flex shrink-0 items-center gap-1 rounded-full bg-surface-container px-2.5 py-1.5 text-xs font-semibold hover:bg-surface-container-high transition-colors disabled:opacity-50"
+          >
+            <IconCheck size={14} /> Correct
+          </button>
+          <button
+            type="button"
+            disabled={submitting}
+            onClick={() => setShowForm((v) => !v)}
+            className="inline-flex shrink-0 items-center gap-1 rounded-full bg-surface-container px-2.5 py-1.5 text-xs font-semibold hover:bg-surface-container-high transition-colors disabled:opacity-50"
+          >
+            <IconWarning size={14} /> Report
+          </button>
+        </div>
+        {showForm && (
+          <div className="mt-2.5 space-y-2">
+            <textarea
+              value={correction}
+              onChange={(e) => setCorrection(e.target.value)}
+              rows={3}
+              maxLength={2000}
+              placeholder="What is wrong, and what should it say?"
+              className="w-full rounded-lg border px-3 py-2 text-sm"
+              style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={() => void submit("flagged")}
+                className="rounded-lg bg-surface-container px-3 py-2 text-sm hover:bg-surface-container-high transition-colors disabled:opacity-50"
+              >
+                Submit correction
+              </button>
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={() => setShowForm(false)}
+                className="rounded-lg px-3 py-2 text-sm"
+                style={{ color: "var(--color-text-muted)" }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+        {notice && (
+          <p className="mt-2 text-xs" style={{ color: "var(--color-text-muted)" }}>
+            {notice}
+          </p>
+        )}
+        {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
+      </div>
+    );
+  }
 
   return (
     <div

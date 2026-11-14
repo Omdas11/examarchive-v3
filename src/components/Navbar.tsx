@@ -168,7 +168,7 @@ export default function Navbar({ user }: NavbarProps) {
         <div className="mx-auto flex h-14 items-center justify-between px-4" style={{ maxWidth: "var(--max-w)" }}>
           {/* Mobile hamburger */}
           <button
-            className="mr-2 md:hidden"
+            className="mr-2 p-3 md:hidden"
             onClick={() => setDrawerOpen(true)}
             aria-label="Open menu"
           >
@@ -200,7 +200,7 @@ export default function Navbar({ user }: NavbarProps) {
 
           {/* Theme toggle + Auth */}
           <div className="flex items-center gap-2">
-            <button onClick={toggleTheme} aria-label={dark ? "Switch to light theme" : "Switch to dark theme"} className="p-1.5 rounded-md transition-colors hover:opacity-70">
+            <button onClick={toggleTheme} aria-label={dark ? "Switch to light theme" : "Switch to dark theme"} className="p-3 rounded-md transition-colors hover:opacity-70">
               {dark ? (
                 <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0V4a1 1 0 0 1 1-1Zm0 15a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0v-1a1 1 0 0 1 1-1Zm9-9a1 1 0 0 1 0 2h-1a1 1 0 1 1 0-2h1ZM5 11a1 1 0 0 1 0 2H4a1 1 0 1 1 0-2h1Zm14.07-5.66a1 1 0 0 1 0 1.41l-.71.71a1 1 0 1 1-1.41-1.41l.7-.71a1 1 0 0 1 1.42 0ZM7.05 17.66a1 1 0 0 1 0 1.41l-.7.71a1 1 0 0 1-1.42-1.41l.71-.71a1 1 0 0 1 1.41 0Zm12.02 2.12a1 1 0 0 1-1.41 0l-.71-.71a1 1 0 0 1 1.41-1.41l.71.7a1 1 0 0 1 0 1.42ZM7.05 6.34a1 1 0 0 1-1.41 0l-.71-.7a1 1 0 0 1 1.41-1.42l.71.71a1 1 0 0 1 0 1.41ZM12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10Z"/></svg>
               ) : (
@@ -380,7 +380,7 @@ export default function Navbar({ user }: NavbarProps) {
               EA
             </span>
           </Link>
-          <button onClick={() => setDrawerOpen(false)} aria-label="Close menu">
+          <button onClick={() => setDrawerOpen(false)} aria-label="Close menu" className="p-3 -m-3">
             <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
           </button>
         </div>

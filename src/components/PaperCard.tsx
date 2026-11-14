@@ -240,25 +240,43 @@ export default function PaperCard({ paper }: PaperCardProps) {
           {/* Right: Open + Download buttons */}
           <div className="flex items-center gap-2 relative z-20">
             {/* Download button — prominent primary action: the card's main job
-                is getting the PDF onto the student's device. */}
-            <a
-              href={downloadUrl}
-              download
-              title="Download PDF"
-              className="inline-flex items-center justify-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold text-white shadow-sm transition-all active:scale-95 hover:opacity-90"
-              style={{
-                background: "var(--color-primary)",
-              }}
-              aria-label="Download PDF"
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M12 3v12" /><path d="M7 10l5 5 5-5" /><path d="M5 21h14" />
-              </svg>
-              Download PDF
-            </a>
+                is getting the PDF onto the student's device. When the paper
+                has no file at all, render it disabled instead of a dead
+                href="#" link. */}
+            {downloadUrl === "#" ? (
+              <span
+                className="inline-flex items-center justify-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold text-white opacity-50"
+                style={{ background: "var(--color-primary)" }}
+                aria-disabled="true"
+                title="PDF not yet uploaded"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M12 3v12" /><path d="M7 10l5 5 5-5" /><path d="M5 21h14" />
+                </svg>
+                PDF unavailable
+              </span>
+            ) : (
+              <a
+                href={downloadUrl}
+                download
+                title="Download PDF"
+                className="inline-flex items-center justify-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold text-white shadow-sm transition-all active:scale-95 hover:opacity-90"
+                style={{
+                  background: "var(--color-primary)",
+                }}
+                aria-label="Download PDF"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M12 3v12" /><path d="M7 10l5 5 5-5" /><path d="M5 21h14" />
+                </svg>
+                Download PDF
+              </a>
+            )}
 
-            {/* Open PDF button */}
-            <span
+            {/* Open PDF button — a real link to the paper page (the whole
+                card is also a link, but a visible affordance must be one). */}
+            <a
+              href={`/paper/${paper.id}`}
               className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[11px] font-bold transition-all group-hover:translate-x-0.5"
               style={{
                 background: "var(--brand-emerald-soft)",
@@ -269,7 +287,7 @@ export default function PaperCard({ paper }: PaperCardProps) {
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M5 12h14M12 5l7 7-7 7" />
               </svg>
-            </span>
+            </a>
           </div>
         </div>
       </div>

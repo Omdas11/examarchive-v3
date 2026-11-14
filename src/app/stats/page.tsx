@@ -229,7 +229,7 @@ export default async function StatsPage() {
       accent: true,
     },
     {
-      label: "Visitors (24h)",
+      label: "Page views (24h)",
       value: stats.visitors24h,
       sub: "Page views, last 24 hours",
       accent: true,
@@ -352,7 +352,7 @@ export default async function StatsPage() {
 
       {/* Footer note */}
       <p className="mt-10 text-xs text-center" style={{ color: "var(--color-text-muted)" }}>
-        Stats refresh on each page load. Only visible to logged-in users.
+        Stats update once a day. Only visible to logged-in users.
       </p>
     </section>
     </MainLayout>

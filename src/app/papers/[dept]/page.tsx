@@ -231,7 +231,7 @@ export default async function DepartmentPage({ params }: { params: Promise<{ dep
       <Breadcrumb items={[{ label: "Home", href: "/" }, { label: "Browse", href: "/browse" }, { label: info.name }]} />
 
       <header className="mt-6 mb-8">
-        <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">
+        <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
           Assam University {info.name} Question Papers
         </h1>
         <p className="mt-3 text-neutral-600 dark:text-neutral-400 max-w-3xl leading-relaxed">{info.blurb}</p>

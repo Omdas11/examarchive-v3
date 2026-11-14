@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Sidebar from './Sidebar';
 import Header, { type HeaderProps } from './Header';
 import Footer from '@/components/Footer';
+import BottomNav from '@/components/BottomNav';
 import RightSidebar, { type SidebarProfileResponse } from './RightSidebar';
 import { cn } from '@/lib/utils';
 import { xpTier } from '@/lib/roles';
@@ -171,7 +172,7 @@ export default function MainLayout({
         )}
 
         {/* Page Content */}
-        <div className="flex-1 overflow-auto flex flex-col bg-surface">
+        <div className="flex-1 overflow-auto flex flex-col bg-surface has-bottom-nav">
           <div className="flex-1">{children}</div>
           {/* Footer on every new-layout page */}
           <div className="no-print">
@@ -179,6 +180,10 @@ export default function MainLayout({
           </div>
         </div>
       </main>
+
+      {/* Mobile bottom navigation — MainLayout pages never reach AppShell's
+          BottomNav (it only renders on legacy routes), so it lives here. */}
+      <BottomNav />
 
       {/* Desktop Right Sidebar */}
       {showRightColumn && (

@@ -180,7 +180,7 @@ export default async function SyllabusDepartmentPage({
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
             Syllabus Library
           </p>
-          <h1 className="mt-2 text-3xl font-black text-on-surface">
+          <h1 className="mt-2 text-2xl font-black text-on-surface sm:text-3xl">
             Assam University {info.name} Syllabus
           </h1>
           <p className="mt-2 max-w-3xl text-sm leading-relaxed text-on-surface-variant">{info.blurb}</p>
@@ -215,18 +215,24 @@ export default async function SyllabusDepartmentPage({
           <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-outline-variant/40 bg-surface p-4 shadow-sm">
             <div>
               <p className="text-sm font-bold text-on-surface">Official departmental syllabus (PDF)</p>
-              <p className="text-xs text-on-surface-variant">
-                {deptPdf.subject || deptPdf.course_name || info.name} · {deptPdf.programme || "FYUG"}
+              <p className="text-sm text-on-surface-variant">
+                {[deptPdf.subject || deptPdf.course_name || info.name, deptPdf.programme].filter(Boolean).join(" · ")}
               </p>
             </div>
-            <a
-              href={deptPdf.file_url || "#"}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-2xl bg-primary px-4 py-2 text-sm font-semibold text-on-primary"
-            >
-              View PDF
-            </a>
+            {deptPdf.file_url ? (
+              <a
+                href={deptPdf.file_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-2xl bg-primary px-4 py-2 text-sm font-semibold text-on-primary"
+              >
+                View PDF
+              </a>
+            ) : (
+              <span className="inline-flex items-center gap-2 rounded-2xl bg-surface-container px-4 py-2 text-sm font-semibold text-on-surface-variant">
+                Departmental PDF not uploaded yet
+              </span>
+            )}
           </div>
         )}
 

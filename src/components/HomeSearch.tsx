@@ -51,7 +51,7 @@ export default function HomeSearch() {
               type: "browse",
               label: `Search papers for "${trimmed}"`,
               sublabel: "Browse all papers",
-              href: `/browse?${new URLSearchParams({ search: trimmed }).toString()}`,
+              href: `/browse?${new URLSearchParams({ q: trimmed }).toString()}`,
             },
           ]);
         }
@@ -62,7 +62,7 @@ export default function HomeSearch() {
               type: "browse",
               label: `Search papers for "${trimmed}"`,
               sublabel: "Browse all papers",
-              href: `/browse?${new URLSearchParams({ search: trimmed }).toString()}`,
+              href: `/browse?${new URLSearchParams({ q: trimmed }).toString()}`,
             },
           ]);
         }
@@ -79,7 +79,7 @@ export default function HomeSearch() {
     if (!trimmed) {
       router.push("/browse");
     } else {
-      router.push(`/browse?${new URLSearchParams({ search: trimmed }).toString()}`);
+      router.push(`/browse?${new URLSearchParams({ q: trimmed }).toString()}`);
     }
   }
 

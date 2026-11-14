@@ -258,7 +258,7 @@ export default function Header({
           {showNotifications && (
             <div
               className={cn(
-                'absolute right-0 mt-3 w-80 bg-surface rounded-2xl',
+                'absolute right-0 mt-3 w-[calc(100vw-2rem)] max-w-80 bg-surface rounded-2xl',
                 'shadow-lift border border-outline-variant/20',
                 'overflow-hidden z-50'
               )}

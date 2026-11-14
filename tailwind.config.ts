@@ -11,7 +11,7 @@ const config: Config = {
     extend: {
       fontFamily: {
         // Stitch design spec: Plus Jakarta Sans throughout the UI
-        sans: ["var(--font-jakarta)", "Inter", "ui-sans-serif", "system-ui", "sans-serif"],
+        sans: ["var(--font-jakarta)", "var(--font-bengali)", "Inter", "ui-sans-serif", "system-ui", "sans-serif"],
       },
       colors: {
         // Legacy support

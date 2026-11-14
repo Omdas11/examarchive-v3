@@ -34,7 +34,7 @@ export interface SyllabusTablePaperSummary {
   }>;
 }
 
-export const PAPER_NAME_SPLIT_RE = /[.;\n]/;
+export const PAPER_NAME_SPLIT_RE = /[.;\n।]/;
 
 /**
  * Semester (1-8) for an FYUG paper code, from its 3-digit number:
@@ -120,7 +120,10 @@ export function buildPaperMarkdown(args: {
 
 export function derivePaperNameFromContent(content: string, fallback: string): string {
   const firstLine = content.split(PAPER_NAME_SPLIT_RE)[0]?.trim();
-  return firstLine && firstLine.length > 0 ? firstLine : fallback;
+  if (!firstLine || firstLine.length === 0) return fallback;
+  // A derived name is the first line/sentence of unit prose — cap it so a
+  // Bengali paragraph never becomes a paragraph-sized H1 (~120 chars).
+  return firstLine.length > 120 ? `${firstLine.slice(0, 117).trimEnd()}…` : firstLine;
 }
 
 /**
@@ -138,11 +141,14 @@ export function normalizePaperCode(paperCode: string): string {
  * One representative row per unit, for a paper whose rows arrived under
  * several raw code spellings. Prefers the row with the longest stored
  * paper_name (the most complete spelling); ties keep the first row seen.
+ * Rows with no real unit number (unit_number <= 0) are dropped — they
+ * would otherwise render as "Unit 0" and inflate unit counts.
  * Rows are returned sorted by unit number.
  */
 export function dedupeSyllabusRowsByUnit(rows: SyllabusTableRow[]): SyllabusTableRow[] {
   const byUnit = new Map<number, SyllabusTableRow>();
   for (const row of rows) {
+    if (!Number.isFinite(row.unit_number) || row.unit_number <= 0) continue;
     const prev = byUnit.get(row.unit_number);
     if (!prev || row.paper_name.trim().length > prev.paper_name.trim().length) {
       byUnit.set(row.unit_number, row);

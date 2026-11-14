@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { Plus_Jakarta_Sans } from "next/font/google";
+import { Plus_Jakarta_Sans, Noto_Sans_Bengali } from "next/font/google";
 import "./globals.css";
 import AppShell from "@/components/AppShell";
 import SupportBanner from "@/components/SupportBanner";
@@ -33,6 +33,15 @@ const plusJakartaSans = Plus_Jakarta_Sans({
   style: ["normal", "italic"],
   display: "swap",
   variable: "--font-jakarta",
+});
+
+// Bengali/Assamese content (syllabus units, paper titles) falls back to
+// device fonts without this — tofu on devices with no Bengali face.
+const notoSansBengali = Noto_Sans_Bengali({
+  subsets: ["bengali", "latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+  variable: "--font-bengali",
 });
 
 export const metadata: Metadata = {
@@ -119,7 +128,7 @@ const jsonLd = {
     "@type": "SearchAction",
     target: {
       "@type": "EntryPoint",
-      urlTemplate: `${SITE_URL}/browse?search={search_term_string}`,
+      urlTemplate: `${SITE_URL}/browse?q={search_term_string}`,
     },
     "query-input": "required name=search_term_string",
   },
@@ -133,14 +142,14 @@ export default async function RootLayout({
   const user = await getServerUser();
 
   return (
-    <html lang="en" suppressHydrationWarning className={plusJakartaSans.variable}>
+    <html lang="en" suppressHydrationWarning className={`${plusJakartaSans.variable} ${notoSansBengali.variable}`}>
       <head>
         <meta name="application-name" content="ExamArchive" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="ExamArchive" />
         <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="theme-color" content="#10b981" />
+        <meta name="theme-color" content="#047857" />
         <link rel="manifest" href="/manifest.json" />
         <link rel="apple-touch-icon" href="/branding/logo.png" />
         {/* Material Symbols Outlined – used by Stitch/Indigo dashboard components.

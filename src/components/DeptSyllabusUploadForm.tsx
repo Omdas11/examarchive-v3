@@ -267,8 +267,9 @@ export default function DeptSyllabusUploadForm() {
 
       {message && (
         <p
+          role={message.type === "error" ? "alert" : "status"}
           className="text-sm text-center font-medium"
-          style={{ color: message.type === "success" ? "#16a34a" : "var(--color-primary)" }}
+          style={{ color: message.type === "success" ? "#16a34a" : "#dc2626" }}
         >
           {message.text}
         </p>
