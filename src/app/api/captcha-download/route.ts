@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   createCaptchaDownloadToken,
   isValidFileId,
-  verifyHCaptchaToken,
+  verifyHCaptchaTokenDetailed,
 } from "@/lib/captcha-download";
 
 /**
@@ -25,9 +25,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Missing fileId or captchaToken." }, { status: 400 });
   }
 
-  const human = await verifyHCaptchaToken(captchaToken);
-  if (!human) {
-    return NextResponse.json({ error: "CAPTCHA verification failed." }, { status: 403 });
+  const result = await verifyHCaptchaTokenDetailed(captchaToken);
+  if (!result.ok) {
+    return NextResponse.json(
+      { error: `CAPTCHA verification failed (${result.reason}).` },
+      { status: 403 },
+    );
   }
 
   const token = createCaptchaDownloadToken(fileId);

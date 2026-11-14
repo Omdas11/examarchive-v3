@@ -20,13 +20,26 @@ export function isValidFileId(fileId: string): boolean {
  * Returns true only when hCaptcha confirms the token is valid.
  */
 export async function verifyHCaptchaToken(token: string): Promise<boolean> {
+  const result = await verifyHCaptchaTokenDetailed(token);
+  return result.ok;
+}
+
+/**
+ * Same as verifyHCaptchaToken, but also returns the failure reason so the
+ * caller can surface it (diagnostic). reason is "ok" on success, otherwise
+ * one of: secret-not-set, bad-token, siteverify-http-<status>,
+ * the hCaptcha error-codes (e.g. invalid-input-secret), or fetch-failed:<msg>.
+ */
+export async function verifyHCaptchaTokenDetailed(
+  token: string,
+): Promise<{ ok: boolean; reason: string }> {
   const secret = getHCaptchaSecret();
   const clean = String(token || "").trim();
   if (!secret) {
     console.error("[hcaptcha] verify failed: HCAPTCHA_SECRET_KEY is not set");
-    return false;
+    return { ok: false, reason: "secret-not-set" };
   }
-  if (!clean || clean.length > 2048) return false;
+  if (!clean || clean.length > 2048) return { ok: false, reason: "bad-token" };
   try {
     const res = await fetch(HCAPTCHA_SITEVERIFY_URL, {
       method: "POST",
@@ -35,16 +48,17 @@ export async function verifyHCaptchaToken(token: string): Promise<boolean> {
     });
     if (!res.ok) {
       console.error("[hcaptcha] siteverify HTTP error:", res.status);
-      return false;
+      return { ok: false, reason: `siteverify-http-${res.status}` };
     }
     const data = (await res.json()) as { success?: boolean; "error-codes"?: string[] };
-    if (data.success !== true) {
-      console.error("[hcaptcha] siteverify rejected token:", (data["error-codes"] || []).join(",") || "unknown");
-    }
-    return data.success === true;
+    if (data.success === true) return { ok: true, reason: "ok" };
+    const codes = (data["error-codes"] || []).join(",") || "unknown";
+    console.error("[hcaptcha] siteverify rejected token:", codes);
+    return { ok: false, reason: codes };
   } catch (err) {
-    console.error("[hcaptcha] siteverify fetch failed:", err instanceof Error ? err.message : String(err));
-    return false;
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[hcaptcha] siteverify fetch failed:", msg);
+    return { ok: false, reason: `fetch-failed:${msg}` };
   }
 }
 
