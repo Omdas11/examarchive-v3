@@ -13,6 +13,7 @@ import { getAllSyllabusRows } from "@/lib/syllabus-cache";
 import { toSyllabus, type Syllabus } from "@/types";
 import { getServerUser } from "@/lib/auth";
 import { isAdmin } from "@/lib/roles";
+import { getSyllabusStats } from "@/lib/counts";
 import MainLayout from "@/components/layout/MainLayout";
 import CaptchaDownloadButton from "@/components/CaptchaDownloadButton";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
@@ -126,6 +127,10 @@ export default async function SyllabusDepartmentPage({
   }
 
   const totalUnits = papers.reduce((sum, p) => sum + p.units, 0);
+
+  // View/download totals for the listed papers (one Appwrite query for
+  // the whole page). Missing entries mean never viewed/downloaded.
+  const syllabusStats = await getSyllabusStats(papers.map((p) => p.code));
 
   // Papers grouped by semester (1-8); codes with no semester number last.
   const bySemester = new Map<number, PaperSummary[]>();
@@ -263,7 +268,11 @@ export default async function SyllabusDepartmentPage({
                     </span>
                   </h3>
                   <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {bySemester.get(sem)!.map((p) => (
+                    {bySemester.get(sem)!.map((p) => {
+                      const stat = syllabusStats.get(p.code);
+                      const views = stat?.view_count ?? 0;
+                      const downloads = stat?.download_count ?? 0;
+                      return (
                       <Link
                         key={p.code}
                         href={`/syllabus/paper/${department}/${p.code}`}
@@ -282,9 +291,12 @@ export default async function SyllabusDepartmentPage({
                         <p className="mt-auto text-xs text-on-surface-variant">
                           {p.units} unit{p.units !== 1 ? "s" : ""}
                           {p.lectures > 0 ? ` · ${p.lectures} lectures` : ""}
+                          {views > 0 ? ` · ${views} views` : ""}
+                          {downloads > 0 ? ` · ${downloads} downloads` : ""}
                         </p>
                       </Link>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               ))}

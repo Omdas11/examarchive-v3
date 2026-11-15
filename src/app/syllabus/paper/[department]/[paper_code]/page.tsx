@@ -3,6 +3,7 @@ import { unstable_cache } from "next/cache";
 import { notFound, permanentRedirect } from "next/navigation";
 import Link from "next/link";
 import { getServerUser } from "@/lib/auth";
+import { getSyllabusStat, recordSyllabusViewIfHuman } from "@/lib/counts";
 import {
   adminDatabases,
   DATABASE_ID,
@@ -280,6 +281,20 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
 
   const first = rows[0];
   const paperName = first.paper_name?.trim() || derivePaperNameFromContent(first.syllabus_content, code);
+
+  // Count the view in the background (bots excluded). Fire-and-forget:
+  // the write starts immediately and the counter is best-effort, so the
+  // page never waits on it. Logged-in users also get a history row for
+  // /profile. Stats shown below are read before this view lands, so the
+  // count lags by one page load.
+  const syllabusTitle = `${code} — ${paperName}`;
+  const syllabusHref = `/syllabus/paper/${department}/${canonicalCode}`;
+  void recordSyllabusViewIfHuman(canonicalCode, {
+    userId: user?.id ?? null,
+    title: syllabusTitle,
+    href: syllabusHref,
+  });
+  const syllabusStats = await getSyllabusStat(canonicalCode);
   // Entry IDs and raw code spellings from ALL matched rows (both variants),
   // so questions linked to either spelling are found.
   const linkedSyllabusIds = new Set(
@@ -330,6 +345,22 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
           <p className="mt-2 text-xs text-on-surface-variant">
             {[first.university, first.course].filter(Boolean).join(" · ")}
           </p>
+          {(syllabusStats.view_count > 0 || syllabusStats.download_count > 0) && (
+            <p className="mt-2 flex items-center gap-3 text-xs text-on-surface-variant">
+              {syllabusStats.view_count > 0 && (
+                <span className="inline-flex items-center gap-1">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                  {syllabusStats.view_count} views
+                </span>
+              )}
+              {syllabusStats.download_count > 0 && (
+                <span className="inline-flex items-center gap-1">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3v12" /><path d="M7 10l5 5 5-5" /><path d="M5 21h14" /></svg>
+                  {syllabusStats.download_count} downloads
+                </span>
+              )}
+            </p>
+          )}
 
           <div className="mt-4">
             <CaptchaSyllabusDownloadButton

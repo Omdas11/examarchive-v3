@@ -13,6 +13,7 @@ import {
 import { AppwriteException } from "node-appwrite";
 import { isValidSignedPdfDownloadToken } from "@/lib/pdf-download-link";
 import { verifyTurnstileDownloadToken } from "@/lib/turnstile";
+import { recordPaperDownloadByFileId } from "@/lib/counts";
 import { renderMarkdownToPdfBuffer } from "@/lib/ai-pdf-pipeline";
 import { applyDownloadWatermark } from "@/lib/pdf-watermark";
 
@@ -22,64 +23,7 @@ export const dynamic = "force-dynamic";
 // 30 s on Pro) is too short for a full PDF render pass.
 export const maxDuration = 120;
 
-/**
- * Bots allowed to crawl the site (Google, Gemini, Claude, ChatGPT). They may
- * read pages, but they may NOT download PDFs — they get a friendly message
- * telling the person to visit the link instead.
- */
-const ALLOWED_BOT_SUBSTRINGS = [
-  "Googlebot",
-  "Google-Extended",
-  "Gemini",
-  "ClaudeBot",
-  "Claude-Web",
-  "anthropic-ai",
-  "GPTBot",
-  "OAI-SearchBot",
-  "ChatGPT-User",
-];
-
-/** Common bot / automation markers in a User-Agent. */
-const BOT_SUBSTRINGS = [
-  "bot",
-  "crawler",
-  "spider",
-  "scraper",
-  "HeadlessChrome",
-  "curl",
-  "python",
-  "Go-http-client",
-  "scrapy",
-  "PostmanRuntime",
-  "facebookexternalhit",
-  "Twitterbot",
-  "Slackbot",
-  "LinkedInBot",
-  "WhatsApp",
-  "TelegramBot",
-  "AhrefsBot",
-  "SemrushBot",
-  "MJ12bot",
-  "DotBot",
-  "PetalBot",
-  "Bytespider",
-  "YandexBot",
-  "Bingbot",
-  "DuckDuckBot",
-  "Baiduspider",
-  "Sogou",
-  "Exabot",
-];
-
-function isAllowedChatbot(userAgent: string): boolean {
-  const ua = userAgent.toLowerCase();
-  return ALLOWED_BOT_SUBSTRINGS.some((s) => ua.includes(s.toLowerCase()));
-}
-
-function isBot(userAgent: string): boolean {
-  const ua = userAgent.toLowerCase();
-  return BOT_SUBSTRINGS.some((s) => ua.includes(s.toLowerCase()));
-}
+import { isAllowedChatbot, isBot } from "@/lib/bot-check";
 
 /**
  * Friendly page for the allowed chatbots (Google, Gemini, Claude, ChatGPT)
@@ -275,6 +219,10 @@ export async function GET(
           // applying the download watermark again causes a visible double watermark.
           body = rawFileBuffer as ArrayBuffer;
         }
+        // Count the download (paper totals + the user's own history).
+        // Awaited: a download is infrequent, and the write must land before
+        // the function returns. Never fails the download.
+        await recordPaperDownloadByFileId(fileId, user?.id);
         return new NextResponse(body, {
           headers: {
             "Content-Type": "application/pdf",

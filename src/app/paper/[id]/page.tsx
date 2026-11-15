@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { unstable_cache } from "next/cache";
 import Link from "next/link";
 import { getServerUser } from "@/lib/auth";
+import { recordPaperViewIfHuman } from "@/lib/counts";
 import {
   adminDatabases,
   DATABASE_ID,
@@ -133,6 +134,17 @@ export default async function PaperPage({ params }: PaperPageProps) {
 
   const semRoman = paper.semester ? toRoman(parseInt(paper.semester, 10)) : paper.semester;
   const paperJsonLd = buildPaperJsonLd(paper);
+
+  // Count the view in the background (bots excluded, so crawlers don't
+  // inflate it). Fire-and-forget: the write starts immediately and the
+  // counter is best-effort, so the page never waits on it. Logged-in
+  // users also get a history row for /profile.
+  const viewTitle = [paper.course_code, paper.title].filter(Boolean).join(" — ") || "Question paper";
+  void recordPaperViewIfHuman(paper.id, {
+    userId: user?.id ?? null,
+    title: viewTitle,
+    href: `/paper/${paper.id}`,
+  });
 
   const metaBadges = [
     paper.institute,

@@ -78,6 +78,23 @@ export const COLLECTION = {
   ai_cache_index: "ai_cache_index",
   ai_generation_jobs: "ai_generation_jobs",
   /**
+   * Per-paper view/download totals for syllabus papers. One document per
+   * paper, ID = normalized paper code (alphanumeric, from
+   * normalizePaperCode). Fields: paper_code (string), view_count,
+   * download_count (integers). Syllabus_Table has one row per unit, so
+   * counts cannot live there.
+   */
+  syllabus_stats: "syllabus_stats",
+  /**
+   * Per-user view/download history, shown on /profile as Recently viewed
+   * and Downloads. Fields: user_id, action ("view" | "download"),
+   * scope ("paper" | "syllabus"), title, href, paper_ref (paper doc id
+   * or normalized syllabus code, used to dedupe). Only written for
+   * logged-in users; anonymous views/downloads still count toward the
+   * paper totals but leave no history row.
+   */
+  user_activity: "user_activity",
+  /**
    * Raw visit log for the site's own analytics (IPs, bots, own-visit detection).
    * Written server-side by /api/log-visit from a fire-and-forget beacon.
    * Fields: ip (string), path (string), user_agent (string),

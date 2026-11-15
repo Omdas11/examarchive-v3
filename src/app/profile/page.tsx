@@ -14,6 +14,8 @@ import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import ProfileRightSidebar from "./ProfileRightSidebar";
 import { normalizeRole, roleLabel, tierLabel, xpTier, XP_TIERS } from "@/lib/roles";
+import { getRecentUserActivity, type ActivityEntry } from "@/lib/counts";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Profile",
@@ -147,6 +149,12 @@ export default async function ProfilePage({
   } catch {
     // ignore
   }
+
+  // Recently viewed papers/syllabi + downloads (own history only).
+  const [recentlyViewed, recentDownloads] = await Promise.all([
+    getRecentUserActivity(user.id, "view", 10),
+    getRecentUserActivity(user.id, "download", 10),
+  ]);
 
   // Date format: "Jan 2026" matches v2 screenshot "Member since Feb 2026".
   // Using en-US with { month: 'short', year: 'numeric' } gives the same output
@@ -460,6 +468,52 @@ export default async function ProfilePage({
             </div>
             <a href="/api/auth/discord/link" className="btn text-sm px-3 py-1.5 shrink-0">Connect</a>
           </div>
+        )}
+      </div>
+
+      {/* ── Recently viewed ── */}
+      <div className="card p-6">
+        <h2 className="text-base font-semibold mb-3">Recently viewed</h2>
+        {recentlyViewed.length === 0 ? (
+          <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
+            Nothing yet — papers and syllabi you open will show up here.
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {recentlyViewed.map((entry: ActivityEntry) => (
+              <li key={`${entry.scope}:${entry.paper_ref}`}>
+                <Link href={entry.href} className="flex items-center justify-between gap-3 text-sm hover:underline">
+                  <span className="min-w-0 truncate font-medium">{entry.title}</span>
+                  <span className="shrink-0 text-xs" style={{ color: "var(--color-text-muted)" }}>
+                    {entry.scope === "syllabus" ? "Syllabus" : "Paper"}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* ── Downloads ── */}
+      <div className="card p-6">
+        <h2 className="text-base font-semibold mb-3">Downloads</h2>
+        {recentDownloads.length === 0 ? (
+          <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
+            Nothing yet — PDFs you download will show up here.
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {recentDownloads.map((entry: ActivityEntry) => (
+              <li key={`${entry.scope}:${entry.paper_ref}`}>
+                <Link href={entry.href} className="flex items-center justify-between gap-3 text-sm hover:underline">
+                  <span className="min-w-0 truncate font-medium">{entry.title}</span>
+                  <span className="shrink-0 text-xs" style={{ color: "var(--color-text-muted)" }}>
+                    {entry.scope === "syllabus" ? "Syllabus" : "Paper"}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
 

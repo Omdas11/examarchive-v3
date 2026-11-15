@@ -16,6 +16,8 @@ import {
 } from "@/lib/syllabus-table";
 import { generatePDF, markdownToHTML } from "@/lib/pdf-generator";
 import { findByPaperCode } from "@/data/syllabus-registry";
+import { recordSyllabusDownload } from "@/lib/counts";
+import { syllabusDeptSlugForPaperCode } from "@/lib/syllabus-departments";
 
 const MAX_PAGES_SINGLE_PAPER = 20;
 const MAX_PAGES_DEPARTMENTAL = 40;
@@ -204,20 +206,36 @@ export async function GET(request: NextRequest) {
           "Content-Type": "application/pdf",
           "Content-Disposition": `attachment; filename="${downloadToken}_syllabus.pdf"`,
         };
+        // Count the download (syllabus totals + the user's own history).
+        // The Turnstile gate above already kept bots out, so this is a
+        // real download. Awaited but never fails the download.
+        const deptSlug = syllabusDeptSlugForPaperCode(normalizedPaperCode);
+        const countDownload = () =>
+          recordSyllabusDownload(normalizedPaperCode, {
+            userId: user?.id ?? null,
+            title: `${normalizedPaperCode} — ${paperName}`,
+            href: deptSlug
+              ? `/syllabus/paper/${deptSlug}/${normalizedPaperCode}`
+              : `/syllabus`,
+          });
 
         // ── Bucket cache: serve a previously generated PDF when the syllabus
         // content hasn't changed, instead of hitting Gotenberg every time. ──
         const contentHash = createHash("sha256").update(markdown).digest("hex").slice(0, 16);
         const cacheFileId = `syllabus-pdf-${downloadToken.toLowerCase()}-${contentHash}`;
+        let cachedBuffer: Buffer | null = null;
         try {
           const cached = await adminStorage().getFileDownload(SYLLABUS_BUCKET_ID, cacheFileId);
-          const cachedBuffer = Buffer.from(cached);
+          cachedBuffer = Buffer.from(cached);
+        } catch {
+          // Cache miss — generate below.
+        }
+        if (cachedBuffer) {
+          await countDownload();
           return new NextResponse(cachedBuffer as unknown as BodyInit, {
             status: 200,
             headers: { ...pdfHeaders, "Content-Length": cachedBuffer.length.toString() },
           });
-        } catch {
-          // Cache miss — generate below.
         }
 
         const html = markdownToHTML(markdown);
@@ -243,6 +261,7 @@ export async function GET(request: NextRequest) {
           // Cache write failure is non-fatal.
         }
 
+        await countDownload();
         return new NextResponse(buffer as unknown as BodyInit, {
           status: 200,
           headers: {
