@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { unstable_cache } from "next/cache";
 import Link from "next/link";
 import { getServerUser } from "@/lib/auth";
-import { recordPaperViewIfHuman } from "@/lib/counts";
+import { recordPaperViewIfHuman, getPaperCounts } from "@/lib/counts";
 import {
   adminDatabases,
   DATABASE_ID,
@@ -146,6 +146,12 @@ export default async function PaperPage({ params }: PaperPageProps) {
     href: `/paper/${paper.id}`,
   });
 
+  // Live totals, read fresh: the paper itself comes from a 24h cache, so
+  // the cached view_count would hide today's views until tomorrow.
+  const liveCounts = await getPaperCounts(paper.id);
+  const viewCount = liveCounts.view_count;
+  const downloadCount = liveCounts.download_count;
+
   const metaBadges = [
     paper.institute,
     getProgramme(paper),
@@ -250,7 +256,7 @@ export default async function PaperPage({ params }: PaperPageProps) {
           </div>
 
           {/* Uploader + stats */}
-          {(uploaderDisplay || (paper.view_count ?? 0) > 0 || (paper.download_count ?? 0) > 0) && (
+          {(uploaderDisplay || viewCount > 0 || downloadCount > 0) && (
             <div className="mt-8 flex flex-wrap items-center gap-6 text-[10px] font-black uppercase tracking-widest opacity-40">
               {uploaderDisplay && (
                 <span className="flex items-center gap-2">
@@ -258,16 +264,16 @@ export default async function PaperPage({ params }: PaperPageProps) {
                   {uploaderDisplay}
                 </span>
               )}
-              {(paper.view_count ?? 0) > 0 && (
+              {viewCount > 0 && (
                 <span className="flex items-center gap-2">
                   <span className="material-symbols-outlined text-sm font-black">visibility</span>
-                  {paper.view_count} views
+                  {viewCount} views
                 </span>
               )}
-              {(paper.download_count ?? 0) > 0 && (
+              {downloadCount > 0 && (
                 <span className="flex items-center gap-2">
                   <span className="material-symbols-outlined text-sm font-black">download</span>
-                  {paper.download_count} downloads
+                  {downloadCount} downloads
                 </span>
               )}
             </div>

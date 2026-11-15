@@ -98,6 +98,23 @@ export async function recordSyllabusViewIfHuman(
   }
 }
 
+/** Live view/download totals for one paper, read fresh (not from the
+ * 24h paper cache) so the count on the detail page is current. */
+export async function getPaperCounts(
+  paperId: string,
+): Promise<{ view_count: number; download_count: number }> {
+  try {
+    const db = adminDatabases();
+    const doc = await db.getDocument(DATABASE_ID, COLLECTION.papers, paperId);
+    return {
+      view_count: toCount(doc.view_count),
+      download_count: toCount(doc.download_count),
+    };
+  } catch {
+    return { view_count: 0, download_count: 0 };
+  }
+}
+
 /** +1 view on a paper + history row. `title`/`href` are for the history row. */
 export async function recordPaperView(
   paperId: string,
