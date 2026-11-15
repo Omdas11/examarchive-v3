@@ -347,7 +347,6 @@ export default async function HomePage() {
               <strong>{pluralCount(syllabusTotal, "syllabus", "syllabi")}</strong>
               {" "}·{" "}
               <strong>{pluralCount(usersTotal, "student", "students")}</strong>
-              {" "}online.
             </p>
           </div>
         </section>
