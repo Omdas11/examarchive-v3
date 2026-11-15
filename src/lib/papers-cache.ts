@@ -41,6 +41,8 @@ export const getAllApprovedPapers = unstable_cache(
             "paper_type",
             "programme",
             "semester",
+            "source_name",
+            "source_url",
             "status",
             "stream",
             "title",

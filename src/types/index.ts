@@ -44,6 +44,11 @@ export interface Paper {
    * CBCS:  "CC"  | "DSC" | "DSE" | "GEC" | "SEC"
    */
   paper_type?: string;
+  /** Where this paper was originally published (e.g. "LearnFo").
+   * Shown as a visible source link on the paper page and cards. */
+  source_name?: string;
+  /** Original publication URL of this paper, if known. */
+  source_url?: string;
 }
 
 /** Represents a syllabus entry. */
@@ -324,6 +329,8 @@ export function toPaper(doc: any): Paper {
     download_count: toOptionalNumber(doc.download_count) ?? 0,
     uploaded_by_username: doc.uploaded_by_username ?? undefined,
     paper_type: doc.paper_type ?? undefined,
+    source_name: doc.source_name ?? undefined,
+    source_url: doc.source_url ?? undefined,
   };
 }
 

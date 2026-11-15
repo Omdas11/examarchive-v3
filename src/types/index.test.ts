@@ -113,6 +113,22 @@ describe("toPaper", () => {
     const paper = toPaper(doc);
     expect(paper.approved).toBe(false);
   });
+
+  it("maps source attribution fields", () => {
+    const paper = toPaper({
+      $id: "123",
+      source_name: "LearnFo",
+      source_url: "https://www.learn-fo.com/fyug-eco-qp.html",
+    });
+    expect(paper.source_name).toBe("LearnFo");
+    expect(paper.source_url).toBe("https://www.learn-fo.com/fyug-eco-qp.html");
+  });
+
+  it("leaves source attribution undefined when absent", () => {
+    const paper = toPaper({ $id: "123" });
+    expect(paper.source_name).toBeUndefined();
+    expect(paper.source_url).toBeUndefined();
+  });
 });
 
 describe("toActivityLog", () => {

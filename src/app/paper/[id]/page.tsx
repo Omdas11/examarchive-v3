@@ -279,6 +279,22 @@ export default async function PaperPage({ params }: PaperPageProps) {
             </div>
           )}
 
+          {/* ── Source attribution: where this paper was originally published ── */}
+          {paper.source_name && paper.source_url && (
+            <p className="mt-6 text-[11px] font-bold uppercase tracking-widest opacity-60">
+              Source:{" "}
+              <a
+                href={encodeURI(paper.source_url)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline"
+                style={{ color: "var(--color-primary)" }}
+              >
+                {paper.source_name}
+              </a>
+            </p>
+          )}
+
           <CaptchaDownloadButton
             fileId={paper.file_id}
             fileUrl={paper.file_url}

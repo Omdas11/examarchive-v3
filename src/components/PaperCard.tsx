@@ -236,6 +236,11 @@ export default function PaperCard({ paper }: PaperCardProps) {
                 {paper.download_count}
               </span>
             )}
+            {paper.source_name && (
+              <span className="inline-flex items-center gap-1" title={paper.source_url ? `Originally published on ${paper.source_name}` : undefined}>
+                Source: {paper.source_name}
+              </span>
+            )}
           </div>
 
           {/* Right: Open + Download buttons */}
