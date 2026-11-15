@@ -45,7 +45,6 @@ export const getAllApprovedPapers = unstable_cache(
             "source_url",
             "status",
             "stream",
-            "title",
             "uploaded_by",
             "uploaded_by_username",
             "view_count",
@@ -62,6 +61,10 @@ export const getAllApprovedPapers = unstable_cache(
     }
     return papers;
   },
-  ["all-approved-papers"],
+  // v2: dropped "title" from the select — the new project's papers
+  // collection has no "title" attribute (titles come from paper_name via
+  // toPaper), and Appwrite rejects the whole query with a 400 when a
+  // selected field is missing, which made /browse show 0 papers.
+  ["all-approved-papers-v2"],
   { revalidate: 86400 },
 );
