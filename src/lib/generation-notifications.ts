@@ -1,4 +1,4 @@
-import nodemailer from "nodemailer";
+import nodemailer, { type Transporter } from "nodemailer";
 import type SMTPTransport from "nodemailer/lib/smtp-transport";
 import sanitizeHtml from "sanitize-html";
 
@@ -103,8 +103,8 @@ function parseSmtpSecure(value: string | undefined, port: number): boolean {
   return normalized === "true" || normalized === "1" || normalized === "yes";
 }
 
-let cachedTransporter: nodemailer.Transporter<SMTPTransport.SentMessageInfo> | null = null;
-let transporterInitPromise: Promise<nodemailer.Transporter<SMTPTransport.SentMessageInfo>> | null = null;
+let cachedTransporter: Transporter<SMTPTransport.SentMessageInfo> | null = null;
+let transporterInitPromise: Promise<Transporter<SMTPTransport.SentMessageInfo>> | null = null;
 
 async function getTransporter() {
   if (cachedTransporter) return cachedTransporter;
