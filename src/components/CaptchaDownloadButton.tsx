@@ -112,7 +112,17 @@ export default function CaptchaDownloadButton({
           throw new Error(data.error || "Verification failed. Please try again.");
         }
         closeChallenge();
-        window.open(data.url, "_blank", "noopener,noreferrer");
+        // Anchor download, not window.open: window.open runs outside the
+        // user's tap gesture (after the async Turnstile check), so Chrome
+        // blocks it as a pop-up for first-time guests. A same-origin
+        // anchor click is not a pop-up, and the API answers with
+        // Content-Disposition: attachment, so the PDF downloads directly.
+        const a = document.createElement("a");
+        a.href = data.url;
+        a.download = "";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
       } catch (e) {
         setError(
           e instanceof Error ? e.message : "Something went wrong. Please try again.",
@@ -214,7 +224,7 @@ export default function CaptchaDownloadButton({
           >
             <h3 className="text-lg font-extrabold tracking-tight">One quick check</h3>
             <p className="mt-1 text-sm text-neutral-500">
-              {busy ? "Verifying…" : "Running a quick human check — your PDF will open right after."}
+              {busy ? "Verifying…" : "Running a quick human check — your PDF will download right after."}
             </p>
             <div className="mt-4 flex justify-center">
               <div ref={widgetHostRef} />
