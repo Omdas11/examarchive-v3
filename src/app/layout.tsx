@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Plus_Jakarta_Sans, Noto_Sans_Bengali } from "next/font/google";
 import "./globals.css";
-import AppShell from "@/components/AppShell";
 import { getServerUser } from "@/lib/auth";
 import DebugPanel from "@/components/DebugPanel";
 import { ToastProvider } from "@/components/ToastContext";
@@ -189,9 +188,7 @@ export default async function RootLayout({
       <body className="font-sans antialiased">
         <div className="flex min-h-screen flex-col">
           <ToastProvider>
-            <AppShell user={user}>
-              {children}
-            </AppShell>
+            {children}
             <CourseSetupWrapper isLoggedIn={!!user} />
             {process.env.NODE_ENV !== "production" &&
               process.env.NEXT_PUBLIC_ENABLE_DEBUG_PANEL === "true" && (

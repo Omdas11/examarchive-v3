@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getServerUser } from "@/lib/auth";
 import { getAllApprovedPapers } from "@/lib/papers-cache";
 import { toPaper } from "@/types";
 import PaperCard from "@/components/PaperCard";
 import Breadcrumb from "@/components/Breadcrumb";
+import MainLayout from "@/components/layout/MainLayout";
+import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 
 const SITE_URL = "https://www.examarchive.dev";
 
@@ -188,6 +191,10 @@ export default async function DepartmentPage({ params }: { params: Promise<{ dep
   const info = DEPARTMENTS[dept];
   if (!info) notFound();
 
+  const user = await getServerUser();
+  const userName = user ? (user.name || user.username || "Scholar") : "";
+  const userInitials = userName ? userName.slice(0, 2).toUpperCase() : "";
+
 
   const papers: ReturnType<typeof toPaper>[] = [];
   try {
@@ -227,6 +234,16 @@ export default async function DepartmentPage({ params }: { params: Promise<{ dep
   };
 
   return (
+    <MainLayout
+      title={`${info.name} Question Papers`}
+      breadcrumbs={[{ label: "Home", href: "/" }, { label: "Browse", href: "/browse" }, { label: info.name }]}
+      showSearch={false}
+      sidebarItems={APP_SIDEBAR_ITEMS}
+      userRole={user?.role ?? "student"}
+      isLoggedIn={!!user}
+      userName={userName}
+      userInitials={userInitials}
+    >
     <main className="max-w-6xl mx-auto px-4 py-8">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
       <Breadcrumb items={[{ label: "Home", href: "/" }, { label: "Browse", href: "/browse" }, { label: info.name }]} />
@@ -267,5 +284,6 @@ export default async function DepartmentPage({ params }: { params: Promise<{ dep
         <p>Yes. Use the FYUGP/CBCS filter on the browse page to narrow by programme.</p>
       </section>
     </main>
+    </MainLayout>
   );
 }
