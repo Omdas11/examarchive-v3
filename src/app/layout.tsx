@@ -105,6 +105,10 @@ export const metadata: Metadata = {
       "max-video-preview": -1,
     },
   },
+  // Monetag site verification (fallback for the sw_0_g67j.js file method).
+  other: {
+    monetag: "ce6c769abfa1d682f3fde191dc4c2aa3",
+  },
 };
 
 /** JSON-LD structured data (WebSite schema). */
