@@ -54,7 +54,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: SITE_URL, lastModified: new Date(), changeFrequency: "daily", priority: 1.0 },
     { url: `${SITE_URL}/browse`, lastModified: new Date(), changeFrequency: "daily", priority: 0.9 },
     { url: `${SITE_URL}/syllabus`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.85 },
-    { url: `${SITE_URL}/ai-content`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.6 },
+    // NOTE: /ai-content is intentionally NOT listed here. It is a
+    // login-gated page (middleware redirects unauthenticated visitors,
+    // including Googlebot, to /login with a 307), so listing it made
+    // Search Console report "Page with redirect" (Nov 16, 2026) and it
+    // can never be indexed. Do not re-add it unless the page is made
+    // public.
     { url: `${SITE_URL}/about`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.5 },
     { url: `${SITE_URL}/support`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.4 },
     { url: `${SITE_URL}/contact`, lastModified: new Date(), changeFrequency: "yearly", priority: 0.4 },
