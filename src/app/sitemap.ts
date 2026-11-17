@@ -3,7 +3,7 @@ import { getAllApprovedPapers } from "@/lib/papers-cache";
 import { getAllSyllabusRows } from "@/lib/syllabus-cache";
 import {
   SYLLABUS_DEPARTMENT_SLUGS,
-  syllabusDeptBySubjectCode,
+  syllabusDeptForSubjectValue,
 } from "@/lib/syllabus-departments";
 import { normalizePaperCode } from "@/lib/syllabus-table";
 
@@ -98,7 +98,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       // the sitemap lists one URL per paper instead of one per spelling.
       const code = normalizePaperCode(String(row.paper_code ?? ""));
       if (!code || codes.has(code)) continue;
-      const dept = syllabusDeptBySubjectCode(String(row.subject ?? ""));
+      // Match by code first, then by full name: only Mathematics stores
+      // the 3-letter code ("MTM"); the other 12 departments store the
+      // full name ("Physics", ...). The by-code-only lookup dropped all
+      // but Mathematics, shrinking the sitemap from ~1,205 to ~736 URLs.
+      const dept = syllabusDeptForSubjectValue(String(row.subject ?? ""));
       if (dept) codes.set(code, dept.slug);
     }
     for (const [code, slug] of codes) {
