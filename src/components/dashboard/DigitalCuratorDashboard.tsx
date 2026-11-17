@@ -109,7 +109,7 @@ export default function DigitalCuratorDashboard({
 
   useEffect(() => {
     fetch('/api/dashboard/stats')
-      .then((r) => r.json())
+      .then((r) => r.json() as Promise<DashboardStats>)
       .then((data: DashboardStats) => setStats(data))
       .catch((err) => { console.error('[Dashboard] Failed to load stats:', err); })
       .finally(() => setLoading(false));

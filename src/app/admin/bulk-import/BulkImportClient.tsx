@@ -18,7 +18,12 @@ export default function BulkImportClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payloads),
       });
-      const data = await res.json();
+      const data = (await res.json()) as {
+        error?: string;
+        results?: { ok: boolean; paper_code: string; error?: string }[];
+        created?: number;
+        total?: number;
+      };
       if (!res.ok) {
         setStatus(`Failed: ${data.error || res.statusText}`);
       } else {

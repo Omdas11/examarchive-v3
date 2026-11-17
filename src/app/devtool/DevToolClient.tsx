@@ -76,13 +76,26 @@ interface PendingDangerAction {
 
 // ── API helpers ──────────────────────────────────────────────────────────────
 
+// Shape of the JSON returned by the devtool Appwrite proxy.
+type AppwriteProxyResponse = {
+  collections?: AppwriteCollection[];
+  documents?: AppwriteDocument[];
+  buckets?: AppwriteBucket[];
+  files?: AppwriteFile[];
+  users?: AppwriteUser[];
+  functions?: AppwriteFunction[];
+  executions?: AppwriteExecution[];
+  total?: number;
+  error?: string;
+};
+
 async function callAppwriteProxy(body: Record<string, unknown>) {
   const res = await fetch("/api/devtool/appwrite", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  const data = await res.json();
+  const data = (await res.json()) as AppwriteProxyResponse;
   if (!res.ok) throw new Error(data.error ?? "Request failed");
   return data;
 }
@@ -93,7 +106,7 @@ async function callDevtool(body: Record<string, unknown>) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  const data = await res.json();
+  const data = (await res.json()) as { success?: boolean; message?: string; error?: string };
   return { ok: res.ok, data };
 }
 
@@ -718,7 +731,7 @@ function DangerTab({ onOpenModal }: { onOpenModal: (action: PendingDangerAction)
     setHealthState({ status: "loading", message: "Checking…" });
     try {
       const res = await fetch("/api/health");
-      const data = await res.json();
+      const data = (await res.json()) as { db?: string; storage?: string; error?: string };
       if (res.ok) {
         setHealthState({ status: "success", message: `System healthy. DB: ${data.db ?? "ok"}, Storage: ${data.storage ?? "ok"}` });
       } else {

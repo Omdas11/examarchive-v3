@@ -62,9 +62,10 @@ export async function POST(request: NextRequest) {
 
     let payloads: BulkPayload[];
     try {
-      const body = await request.json();
-      payloads = Array.isArray(body) ? body : body.payloads;
-      if (!Array.isArray(payloads)) throw new Error("expected array");
+      const body = (await request.json()) as BulkPayload[] | { payloads?: BulkPayload[] };
+      const parsed = Array.isArray(body) ? body : body.payloads;
+      if (!Array.isArray(parsed)) throw new Error("expected array");
+      payloads = parsed;
     } catch {
       return NextResponse.json(
         { error: "Invalid JSON body: expected an array of paper payloads." },

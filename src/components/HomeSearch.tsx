@@ -42,7 +42,7 @@ export default function HomeSearch() {
         const res = await fetch(`/api/search?${new URLSearchParams({ q: trimmed })}`, {
           signal: controller.signal,
         });
-        const data = await res.json();
+        const data = (await res.json()) as { suggestions?: SearchSuggestion[] };
         if (res.ok && Array.isArray(data.suggestions)) {
           setSuggestions(data.suggestions);
         } else {

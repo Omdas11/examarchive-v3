@@ -1,3 +1,8 @@
+import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
+
+// Enables Cloudflare bindings (D1/R2/KV) during `next dev`.
+initOpenNextCloudflareForDev();
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {

@@ -19,8 +19,8 @@ export default function AiNotConfiguredNotice() {
   useEffect(() => {
     let cancelled = false;
     fetch("/api/ai/status")
-      .then((res) => res.json())
-      .then((data: { configured?: boolean }) => {
+      .then((res) => res.json() as Promise<{ configured?: boolean }>)
+      .then((data) => {
         if (!cancelled && data && data.configured === false) setShow(true);
       })
       .catch(() => {

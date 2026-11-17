@@ -243,7 +243,7 @@ export default function BrowseClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "soft-delete", id: paperId }),
       });
-      const json = await res.json();
+      const json = (await res.json()) as { success?: boolean; error?: string };
       if (json.success) {
         setHiddenIds((prev) => new Set([...prev, paperId]));
       } else {

@@ -18,7 +18,11 @@ export default function ResetGamificationButton() {
     setResult(null);
     try {
       const res = await fetch("/api/admin/reset-gamification", { method: "POST" });
-      const data = await res.json();
+      const data = (await res.json()) as {
+        error?: string;
+        usersReset?: number;
+        achievementsDeleted?: number;
+      };
       if (!res.ok) throw new Error(data.error || "Reset failed");
       setResult(
         `Done — ${data.usersReset} users reset, ${data.achievementsDeleted} achievements deleted.`,

@@ -100,10 +100,13 @@ export async function POST(request: NextRequest) {
     try {
       const contentType = request.headers.get("content-type") ?? "";
       if (contentType.includes("application/json")) {
-        const json = await request.json();
+        const json = (await request.json()) as Record<string, unknown> & {
+          action?: string | null;
+          id?: string | null;
+        };
         parsedJson = json as Record<string, unknown>;
-        action = action ?? json.action;
-        id = id ?? json.id;
+        action = action ?? json.action ?? null;
+        id = id ?? json.id ?? null;
       } else if (contentType.includes("multipart/form-data")) {
         multipart = await request.formData();
         action = action ?? (multipart.get("action") as string | null);

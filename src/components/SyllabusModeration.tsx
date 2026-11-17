@@ -24,7 +24,7 @@ export default function SyllabusModeration({ syllabi }: SyllabusModerationProps)
         body: JSON.stringify({ action, id }),
       });
 
-      const data = await res.json();
+      const data = (await res.json()) as { success?: boolean; error?: string };
       if (!res.ok || !data.success) {
         throw new Error(data.error ?? "Action failed");
       }

@@ -84,7 +84,14 @@ export default function StoreClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ packCode }),
       });
-      const createData = await createRes.json();
+      const createData = (await createRes.json()) as {
+        error?: string;
+        keyId?: string;
+        amount?: number;
+        currency?: string;
+        orderId?: string;
+        pack?: { label?: string };
+      };
       if (!createRes.ok) throw new Error(createData.error ?? "Failed to create order");
       if (!window.Razorpay) throw new Error("Razorpay checkout failed to load.");
 
@@ -107,7 +114,7 @@ export default function StoreClient({
                 razorpay_signature: response.razorpay_signature,
               }),
             });
-            const verifyData = await verifyRes.json();
+            const verifyData = (await verifyRes.json()) as { error?: string; message?: string };
             if (!verifyRes.ok) throw new Error(verifyData.error ?? "Payment verification failed");
             setMessage(verifyData.message ?? "Payment successful.");
             window.location.reload();
@@ -139,7 +146,15 @@ export default function StoreClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ passId, mode }),
       });
-      const createData = await createRes.json();
+      const createData = (await createRes.json()) as {
+        error?: string;
+        keyId?: string;
+        subscriptionId?: string;
+        orderId?: string;
+        amount?: number;
+        currency?: string;
+        pass?: { label?: string; billingPeriod?: string };
+      };
       if (!createRes.ok) throw new Error(createData.error ?? "Failed to create pass order");
       if (!window.Razorpay) throw new Error("Razorpay checkout failed to load.");
 
@@ -176,7 +191,7 @@ export default function StoreClient({
                   razorpay_signature: response.razorpay_signature,
                 }),
               });
-              const verifyData = await verifyRes.json();
+              const verifyData = (await verifyRes.json()) as { error?: string; message?: string };
               if (!verifyRes.ok) throw new Error(verifyData.error ?? "Pass verification failed");
               setMessage(verifyData.message ?? "Pass activated!");
               window.location.reload();

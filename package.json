@@ -22,11 +22,15 @@
     "generate-limits": "node scripts/generate-model-limits.js",
     "soft-reset:data": "tsx scripts/soft-reset-data.ts",
     "soft-reset:data:skip-ingestions": "tsx scripts/soft-reset-data.ts --skip-ingestions",
-    "appwrite:sync": "tsx scripts/v2/sync-appwrite.ts"
+    "appwrite:sync": "tsx scripts/v2/sync-appwrite.ts",
+    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
   },
   "dependencies": {
     "@fontsource/inter": "^5.2.8",
     "@google/generative-ai": "^0.24.1",
+    "@opennextjs/cloudflare": "^1.20.17",
     "@pdf-lib/fontkit": "^1.1.1",
     "@sparticuz/chromium": "^143.0.4",
     "@vercel/analytics": "^2.0.0",
@@ -65,13 +69,14 @@
     "@types/react-dom": "^19.2.3",
     "@types/sanitize-html": "^2.16.1",
     "eslint": "^8",
-    "eslint-config-next": "15.5.19",
+    "eslint-config-next": "^15.5.29",
     "jest": "30.3.0",
     "jest-environment-jsdom": "30.3.0",
-    "next": "15.5.19",
+    "next": "^15.5.29",
     "postcss": "8.5.10",
     "tailwindcss": "3.4.19",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "wrangler": "^4.164.0"
   },
   "overrides": {
     "basic-ftp": "^5.2.5",

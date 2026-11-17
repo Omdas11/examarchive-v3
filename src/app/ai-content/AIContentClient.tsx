@@ -185,7 +185,7 @@ export default function AIContentClient() {
       });
       let data: { ok?: boolean; message?: string; error?: string };
       try {
-        data = await response.json();
+        data = (await response.json()) as typeof data;
       } catch {
         data = {};
       }
@@ -232,7 +232,21 @@ export default function AIContentClient() {
           setNotesUnavailable(true);
           return null;
         }
-        return res.json();
+        return (await res.json()) as {
+          remaining?: number | null;
+          limit?: number | null;
+          notesRemaining?: number;
+          papersRemaining?: number;
+          notesDailyLimit?: number;
+          papersDailyLimit?: number;
+          notesPaperCodes?: unknown;
+          papersPaperCodes?: unknown;
+          unitsByPaperCode?: unknown;
+          yearsByPaperCode?: unknown;
+          semestersByPaperCode?: unknown;
+          availableSemesters?: unknown;
+          papers?: unknown;
+        };
       })
       .then((data) => {
         if (!data) return;

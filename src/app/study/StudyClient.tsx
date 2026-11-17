@@ -69,7 +69,7 @@ export default function StudyClient() {
 
   useEffect(() => {
     fetch("/api/study/flashcards")
-      .then((res) => res.json())
+      .then((res) => res.json() as Promise<{ used?: number; limit?: number }>)
       .then((data) => {
         if (typeof data.used === "number") setLimitUsed(data.used);
         else setLimitUsed(0);
@@ -246,7 +246,12 @@ export default function StudyClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ subject, topic, count }),
       });
-      const data = await res.json();
+      const data = (await res.json()) as {
+        used?: number;
+        limit?: number;
+        error?: string;
+        flashcards?: Flashcard[];
+      };
       if (!res.ok) {
         if (typeof data.used === "number") setLimitUsed(data.used);
         if (typeof data.limit === "number") setLimit(data.limit);

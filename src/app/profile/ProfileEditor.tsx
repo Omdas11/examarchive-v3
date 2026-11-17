@@ -71,7 +71,11 @@ export default function ProfileEditor({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, username }),
       });
-      const data = await res.json().catch(() => ({}));
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        details?: string;
+        username_last_changed?: string;
+      };
       if (!res.ok) {
         const msg = data.error ?? "Failed to save profile";
         const detail = data.details ? ` (${data.details})` : "";
