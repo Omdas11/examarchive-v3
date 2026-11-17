@@ -162,7 +162,16 @@ export async function GET(
   }
 
   const requestedDownload = request.nextUrl.searchParams.get("download") === "1";
-  const shouldDownload = hasValidSignedToken || (!!user && requestedDownload);
+  // A download is: an HMAC-signed link (always a download), or an explicit
+  // download=1 request backed by a valid Turnstile token or a logged-in
+  // session. Without download=1 the file is served inline so the browser
+  // shows it in its PDF viewer (the "View" action). Previously a guest
+  // download=1 request fell through to inline here and only downloaded
+  // because the button set the anchor's download attribute.
+  const shouldDownload =
+    hasValidSignedToken ||
+    (hasValidTurnstileToken && requestedDownload) ||
+    (!!user && requestedDownload);
 
   try {
     const storage = adminStorage();

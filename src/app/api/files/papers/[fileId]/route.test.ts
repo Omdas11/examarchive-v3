@@ -281,6 +281,42 @@ describe("GET /api/files/papers/[fileId]", () => {
     expect(mockStorage.getFileView).toHaveBeenCalledWith("papers", "file-inline");
   });
 
+  it("serves attachment for a guest with a valid Turnstile token who requests download=1", async () => {
+    mockIsValidSignedPdfDownloadToken.mockReturnValue(false);
+    mockVerifyTurnstileDownloadToken.mockReturnValue(true);
+    mockGetServerUser.mockResolvedValue(null);
+    mockStorage.getFile.mockResolvedValue({ name: "guest.pdf" });
+    mockStorage.getFileDownload.mockResolvedValue(Uint8Array.from([1, 2, 3]));
+    mockDb.listDocuments.mockResolvedValueOnce({ total: 0, documents: [] });
+
+    const request = new NextRequest(
+      "http://localhost/api/files/papers/file-guest?ctoken=valid-token&download=1",
+    );
+    const response = await GET(request, { params: Promise.resolve({ fileId: "file-guest" }) });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Content-Disposition")).toContain("attachment;");
+    expect(mockStorage.getFileDownload).toHaveBeenCalledWith("papers", "file-guest");
+  });
+
+  it("serves inline PDF for a guest with a valid Turnstile token who does not request download (View)", async () => {
+    mockIsValidSignedPdfDownloadToken.mockReturnValue(false);
+    mockVerifyTurnstileDownloadToken.mockReturnValue(true);
+    mockGetServerUser.mockResolvedValue(null);
+    mockStorage.getFileView.mockResolvedValue(Uint8Array.from([1, 2, 3]));
+
+    const request = new NextRequest(
+      "http://localhost/api/files/papers/file-view?ctoken=valid-token",
+    );
+    const response = await GET(request, { params: Promise.resolve({ fileId: "file-view" }) });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Content-Type")).toBe("application/pdf");
+    expect(response.headers.get("Content-Disposition")).toBe("inline");
+    expect(mockStorage.getFileDownload).not.toHaveBeenCalled();
+    expect(mockStorage.getFileView).toHaveBeenCalledWith("papers", "file-view");
+  });
+
   it("returns 404 when markdown rendering throws AppwriteException with missing-file code", async () => {
     mockStorage.getFile.mockResolvedValue({ name: "generated.pdf" });
     mockStorage.getFileDownload

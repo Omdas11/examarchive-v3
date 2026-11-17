@@ -53,23 +53,36 @@ interface CaptchaDownloadButtonProps {
   className?: string;
   /** Accessible title / tooltip for the button (e.g. "Download PDF"). */
   title?: string;
+  /**
+   * "download" (default): save the PDF to the device. The file route
+   * answers with Content-Disposition: attachment and the anchor sets the
+   * download attribute.
+   * "view": open the PDF inline in the browser's PDF viewer (new tab).
+   * The file route serves Content-Disposition: inline and the anchor has
+   * no download attribute, so the browser displays instead of saving.
+   */
+  mode?: "download" | "view";
   children: React.ReactNode;
 }
 
 /**
- * Download button with a Cloudflare Turnstile gate for EVERYONE
- * (logged-in or not). Every download runs one Turnstile check, after
- * which a short-lived download URL is issued server-side. The gate
- * applies to logged-in users too, so a bot with an account cannot
- * bulk-download and burn the Appwrite read budget. There is no
- * direct-link path. Turnstile is usually invisible — it runs in the
- * background and only shows a challenge when it looks suspicious.
+ * Button with a Cloudflare Turnstile gate for EVERYONE (logged-in or
+ * not). Every action runs one Turnstile check, after which a short-lived
+ * file URL is issued server-side. The gate applies to logged-in users
+ * too, so a bot with an account cannot bulk-download and burn the
+ * Appwrite read budget. There is no direct-link path. Turnstile is
+ * usually invisible — it runs in the background and only shows a
+ * challenge when it looks suspicious.
+ *
+ * mode="download" (default) saves the PDF; mode="view" opens it inline
+ * in the browser's PDF viewer. Both go through the same Turnstile gate.
  */
 export default function CaptchaDownloadButton({
   fileId,
   fileUrl,
   className,
   title,
+  mode = "download",
   children,
 }: CaptchaDownloadButtonProps) {
   const [showChallenge, setShowChallenge] = useState(false);
@@ -105,21 +118,35 @@ export default function CaptchaDownloadButton({
         const res = await fetch("/api/turnstile-download", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ fileId, turnstileToken }),
+          body: JSON.stringify({
+            fileId,
+            turnstileToken,
+            download: mode === "download",
+          }),
         });
         const data = (await res.json()) as { url?: string; error?: string };
         if (!res.ok || !data.url) {
           throw new Error(data.error || "Verification failed. Please try again.");
         }
         closeChallenge();
-        // Anchor download, not window.open: window.open runs outside the
+        // Anchor click, not window.open: window.open runs outside the
         // user's tap gesture (after the async Turnstile check), so Chrome
         // blocks it as a pop-up for first-time guests. A same-origin
-        // anchor click is not a pop-up, and the API answers with
-        // Content-Disposition: attachment, so the PDF downloads directly.
+        // anchor click is not a pop-up.
         const a = document.createElement("a");
         a.href = data.url;
-        a.download = "";
+        if (mode === "view") {
+          // View: open the PDF inline in a new tab. No download
+          // attribute — the API answers with Content-Disposition:
+          // inline, so the browser shows its PDF viewer instead of
+          // saving the file.
+          a.target = "_blank";
+          a.rel = "noopener noreferrer";
+        } else {
+          // Download: the API answers with Content-Disposition:
+          // attachment, so the PDF downloads directly.
+          a.download = "";
+        }
         document.body.appendChild(a);
         a.click();
         a.remove();
@@ -138,7 +165,7 @@ export default function CaptchaDownloadButton({
         setBusy(false);
       }
     },
-    [fileId, closeChallenge],
+    [fileId, mode, closeChallenge],
   );
 
   useEffect(() => {
@@ -216,7 +243,11 @@ export default function CaptchaDownloadButton({
           onClick={closeChallenge}
           role="dialog"
           aria-modal="true"
-          aria-label="Verify you are human to download"
+          aria-label={
+            mode === "view"
+              ? "Verify you are human to view"
+              : "Verify you are human to download"
+          }
         >
           <div
             className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl dark:bg-neutral-900"
@@ -224,7 +255,11 @@ export default function CaptchaDownloadButton({
           >
             <h3 className="text-lg font-extrabold tracking-tight">One quick check</h3>
             <p className="mt-1 text-sm text-neutral-500">
-              {busy ? "Verifying…" : "Running a quick human check — your PDF will download right after."}
+              {busy
+                ? "Verifying…"
+                : mode === "view"
+                  ? "Running a quick human check — your PDF will open right after."
+                  : "Running a quick human check — your PDF will download right after."}
             </p>
             <div className="mt-4 flex justify-center">
               <div ref={widgetHostRef} />

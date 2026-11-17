@@ -362,6 +362,8 @@ export default async function PaperPage({ params }: PaperPageProps) {
               <CaptchaDownloadButton
                 fileId={paper.file_id}
                 fileUrl={paper.file_url}
+                mode="view"
+                title="View PDF in browser"
                 className="bg-primary text-white px-5 py-2 rounded-full text-xs font-bold shadow-md hover:shadow-lg transition-all"
               >
                 View
