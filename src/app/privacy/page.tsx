@@ -148,8 +148,9 @@ export default async function PrivacyPage() {
               cookies. See section 4 for how to opt out of personalised advertising.
             </li>
             <li>
-              <strong>Monetag</strong> — advertising. Its ad tag (quge5.com) runs on every page
-              and may show ads as configured in the Monetag dashboard. If you allow push
+              <strong>Monetag</strong> — advertising. Its banner ads appear only in clearly
+              marked &ldquo;Advertisement&rdquo; sections on some pages, as configured in the
+              Monetag dashboard. If you allow push
               notifications, the network receives your IP address, browser and device details,
               and a subscription identifier, and may send you push notification ads. You can
               turn notifications off at any time in your browser&apos;s site settings.

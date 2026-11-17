@@ -182,15 +182,6 @@ export default async function RootLayout({
           src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2814629639937169"
           crossOrigin="anonymous"
         />
-        {/* Monetag Multitag (zone 311446) — ad tag on every page. Loads
-            from quge5.com; the tag itself decides which ad formats to
-            show per the Monetag dashboard settings. */}
-        <script
-          src="https://quge5.com/88/tag.min.js"
-          data-zone="311446"
-          async
-          data-cfasync="false"
-        />
         <script type="application/ld+json">
           {JSON.stringify(jsonLd).replace(/</g, "\\u003c")}
         </script>

@@ -17,6 +17,7 @@ import { buildPaperJsonLd, serializeJsonLd } from "@/lib/json-ld";
 import { findByPaperCode, type SyllabusRegistryEntry, type SyllabusUnit } from "@/data/syllabus-registry";
 import { syllabusDeptSlugForPaperCode } from "@/lib/syllabus-departments";
 import { PAPER_TYPE_COLORS } from "@/components/PaperCard";
+import BannerAd from "@/components/BannerAd";
 import MainLayout from "@/components/layout/MainLayout";
 import CaptchaDownloadButton from "@/components/CaptchaDownloadButton";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
@@ -477,6 +478,9 @@ export default async function PaperPage({ params }: PaperPageProps) {
           )}
         </div>
       </div>
+
+      {/* ── Banner ad (renders nothing until a Monetag Banner zone is set) ── */}
+      <BannerAd format="leaderboard" />
 
       {/* ── Notes & Resources ── */}
       <div className="bg-surface p-8 rounded-3xl shadow-lift border border-outline-variant/10">

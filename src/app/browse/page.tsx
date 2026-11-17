@@ -4,6 +4,7 @@ import { getAllApprovedPapers } from "@/lib/papers-cache";
 import { getServerUser } from "@/lib/auth";
 import { isModerator } from "@/lib/roles";
 import MainLayout from "@/components/layout/MainLayout";
+import BannerAd from "@/components/BannerAd";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import BrowseClient from "./BrowseClient";
 
@@ -115,6 +116,9 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
             Search and filter our verified collection of past exam papers. Sign in to view the full PDF archive.
           </p>
         </div>
+
+        {/* ── Banner ad (renders nothing until a Monetag Banner zone is set) ── */}
+        <BannerAd format="leaderboard" />
 
         <div className="mt-6 rounded-[2rem] bg-surface p-6 shadow-ambient border border-outline-variant/5">
           <BrowseClient

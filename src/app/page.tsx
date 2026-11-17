@@ -6,6 +6,7 @@ import { getServerUser } from "@/lib/auth";
 import HomeSearch from "@/components/HomeSearch";
 import PaperCard from "@/components/PaperCard";
 import AnimatedCounter from "@/components/AnimatedCounter";
+import BannerAd from "@/components/BannerAd";
 import RotatingExamWord from "@/components/RotatingExamWord";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
@@ -328,6 +329,9 @@ export default async function HomePage() {
             </div>
           </div>
         </section>
+
+        {/* ── Banner ad (renders nothing until a Monetag Banner zone is set) ── */}
+        <BannerAd format="leaderboard" />
 
         {/* ── Transparency Statement ── */}
         <section className="py-8">
