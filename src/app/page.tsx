@@ -17,6 +17,7 @@ import {
 } from "@/lib/appwrite";
 import { toPaper } from "@/types";
 import type { Paper } from "@/types";
+import { getAllSyllabusRows } from "@/lib/syllabus-cache";
 
 export const metadata: Metadata = {
   title: "ExamArchive – Free Question Papers & Syllabus for Haflong Government College",
@@ -129,52 +130,26 @@ const getHomepageData = unstable_cache(
       // collections may not exist yet in dev
     }
 
-    // Syllabi count: the real syllabus catalogue lives in Syllabus_Table
-    // (one row per unit, so dedupe by paper_code). The legacy `syllabus`
-    // collection is for user-uploaded syllabi and is empty in the new
-    // project — counting it showed 0 even though 133 syllabus papers exist.
-    // Resilience: a transient Appwrite failure used to zero the whole count
-    // and the 0 was cached for an hour. Each page fetch is now retried once,
-    // and a page that still fails stops the loop but keeps the codes
-    // collected so far — a partial count beats a cached 0.
-    const codes = new Set<string>();
+    // Syllabi count: distinct paper codes in Syllabus_Table (one row per
+    // unit). Reuse the shared 7-day cached syllabus rows instead of
+    // paginating the whole table here — the old loop read all ~2,789 rows
+    // (~2,789 Appwrite reads) on every homepage-stats refresh, which burned
+    // the monthly read budget (125K+ reads in a few hours on 2026-11-17).
+    // getAllSyllabusRows() costs zero fresh reads when its cache is warm.
+    // The legacy `syllabus` collection is for user-uploaded syllabi and is
+    // empty in the new project, so it is not counted.
     try {
-      const db = adminDatabases();
-      let cursor: string | undefined;
-      // eslint-disable-next-line no-constant-condition
-      while (true) {
-        const queries = [Query.limit(100)];
-        if (cursor) queries.push(Query.cursorAfter(cursor));
-        let page;
-        try {
-          page = await db.listDocuments(
-            DATABASE_ID,
-            COLLECTION.syllabus_table,
-            queries,
-          );
-        } catch {
-          // Retry the same page once before giving up.
-          try {
-            page = await db.listDocuments(
-              DATABASE_ID,
-              COLLECTION.syllabus_table,
-              queries,
-            );
-          } catch {
-            break;
-          }
-        }
-        for (const doc of page.documents) {
-          const code = (doc.paper_code as string | undefined)?.trim();
-          if (code) codes.add(code);
-        }
-        if (page.documents.length < 100) break;
-        cursor = page.documents[page.documents.length - 1].$id;
+      const rows = await getAllSyllabusRows();
+      const codes = new Set<string>();
+      for (const row of rows) {
+        const code = (row.paper_code ?? "").trim();
+        if (code) codes.add(code);
       }
+      syllabusTotal = codes.size;
     } catch {
-      // adminDatabases() or an unexpected error: keep whatever was collected.
+      // A transient failure leaves syllabusTotal at 0; the previously
+      // cached homepage data is kept by unstable_cache instead.
     }
-    syllabusTotal = codes.size;
 
     // Fetch approved feedback entries (max 3 for homepage)
     try {
