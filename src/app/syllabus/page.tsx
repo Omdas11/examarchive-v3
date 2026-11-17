@@ -6,6 +6,8 @@ import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import { SYLLABUS_DEPARTMENTS, SYLLABUS_DEPARTMENT_SLUGS, syllabusDeptForSubjectValue } from "@/lib/syllabus-departments";
 import { normalizePaperCode } from "@/lib/syllabus-table";
 import { getAllSyllabusRows } from "@/lib/syllabus-cache";
+import { SYLLABUS_DISABLED } from "@/lib/site-flags";
+import SyllabusUnavailable from "@/components/SyllabusUnavailable";
 
 export const metadata: Metadata = {
   title: "Syllabus Library by Department | ExamArchive",
@@ -34,6 +36,11 @@ interface DeptCounts {
 }
 
 export default async function SyllabusPage() {
+  // Temporary: syllabus disabled while all 517 papers are being verified.
+  // Checked before any user lookup or data fetch so a hit costs zero reads.
+  if (SYLLABUS_DISABLED) {
+    return <SyllabusUnavailable />;
+  }
   const user = await getServerUser();
   const userName = user ? (user.name || user.username || "Scholar") : "";
   const userInitials = userName ? userName.slice(0, 2).toUpperCase() : "";

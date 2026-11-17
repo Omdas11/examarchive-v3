@@ -5,6 +5,7 @@ import {
   verifyTurnstileToken,
 } from "@/lib/turnstile";
 import { normalizePaperCode } from "@/lib/syllabus-table";
+import { SYLLABUS_DISABLED } from "@/lib/site-flags";
 
 /**
  * POST /api/turnstile-syllabus
@@ -16,6 +17,14 @@ import { normalizePaperCode } from "@/lib/syllabus-table";
  * Body: { paperCode?: string, subjectCode?: string, turnstileToken: string }
  */
 export async function POST(request: NextRequest) {
+  // Temporary: syllabus disabled while all 517 papers are being verified.
+  // Checked before parsing the body or verifying Turnstile.
+  if (SYLLABUS_DISABLED) {
+    return NextResponse.json(
+      { error: "Syllabus is temporarily unavailable while content is being verified. Please check back later." },
+      { status: 503 },
+    );
+  }
   let body: { paperCode?: string; subjectCode?: string; turnstileToken?: string };
   try {
     body = await request.json();

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { syllabusDeptSlugForPaperCode } from "@/lib/syllabus-departments";
+import { SYLLABUS_DISABLED } from "@/lib/site-flags";
 import paperIdRedirects from "@/data/paper-id-redirects.json";
 
 /** Name of the cookie that stores the Appwrite session secret. */
@@ -30,6 +31,24 @@ const PROTECTED_PATHS = [
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // Syllabus temporarily disabled (SYLLABUS_DISABLED in
+  // src/lib/site-flags.ts): not all 517 syllabus papers are verified
+  // yet. Let the /syllabus* page render (it shows the "temporarily
+  // unavailable" message inside the normal site layout) but answer with
+  // HTTP 503 so search engines retry later instead of deindexing the
+  // pages. TEMPORARY: set the flag to false to re-enable the syllabus.
+  // Checked first, before the legacy syllabus redirects below, so even
+  // old /syllabus/paper/<CODE> URLs get a 503 instead of a 308.
+  if (SYLLABUS_DISABLED && (pathname === "/syllabus" || pathname.startsWith("/syllabus/"))) {
+    // next() lets the page render (it shows the "temporarily
+    // unavailable" message inside the normal site layout); the status
+    // init carries through to the final response.
+    return NextResponse.next({
+      status: 503,
+      headers: { "Retry-After": "86400" },
+    });
+  }
 
   // /api/generate-notes was deleted (2026-11-17) to stop its uncached
   // full-collection scans burning the Appwrite read budget. Block the

@@ -17,6 +17,8 @@ import MainLayout from "@/components/layout/MainLayout";
 import CaptchaDownloadButton from "@/components/CaptchaDownloadButton";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import { SYLLABUS_DEPARTMENTS, syllabusDeptForSubjectValue } from "@/lib/syllabus-departments";
+import { SYLLABUS_DISABLED } from "@/lib/site-flags";
+import SyllabusUnavailable from "@/components/SyllabusUnavailable";
 
 const SITE_URL = "https://www.examarchive.dev";
 
@@ -61,6 +63,11 @@ export default async function SyllabusDepartmentPage({
 }: {
   params: Promise<{ department: string }>;
 }) {
+  // Temporary: syllabus disabled while all 517 papers are being verified.
+  // Checked before any user lookup or data fetch so a hit costs zero reads.
+  if (SYLLABUS_DISABLED) {
+    return <SyllabusUnavailable />;
+  }
   const { department } = await params;
   const info = SYLLABUS_DEPARTMENTS[department];
   if (!info) notFound();

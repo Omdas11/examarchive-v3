@@ -1,5 +1,7 @@
 import { notFound, permanentRedirect } from "next/navigation";
 import { syllabusDeptSlugForPaperCode } from "@/lib/syllabus-departments";
+import { SYLLABUS_DISABLED } from "@/lib/site-flags";
+import SyllabusUnavailable from "@/components/SyllabusUnavailable";
 
 /**
  * Legacy syllabus paper URL (/syllabus/paper/<CODE>). Papers now live at
@@ -18,6 +20,12 @@ export default async function LegacySyllabusPaperRedirect({
 }: {
   params: Promise<{ department: string }>;
 }) {
+  // Temporary: syllabus disabled while all 517 papers are being verified.
+  // Show the unavailable page instead of redirecting to the (disabled)
+  // nested paper page. Middleware already answers 503 for this path.
+  if (SYLLABUS_DISABLED) {
+    return <SyllabusUnavailable />;
+  }
   const { department: paper_code } = await params;
   const code = decodeURIComponent(paper_code).toUpperCase();
 

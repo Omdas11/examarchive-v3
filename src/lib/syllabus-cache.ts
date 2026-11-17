@@ -5,6 +5,12 @@ import {
   type SyllabusTableRow,
 } from "@/lib/syllabus-table";
 
+// Re-exported so the syllabus kill-switch is discoverable from the
+// syllabus module too. Defined in site-flags.ts (Edge-safe) because
+// src/middleware.ts also imports it. Temporary — set to false to
+// re-enable the syllabus once all 517 papers are verified.
+export { SYLLABUS_DISABLED } from "./site-flags";
+
 /**
  * Every published syllabus-table row (2,789 rows), fetched once and shared
  * by /syllabus, /syllabus/[department] and /syllabus/paper/[dept]/[code].

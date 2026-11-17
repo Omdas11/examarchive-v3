@@ -6,6 +6,7 @@ import {
 } from "@/lib/appwrite";
 import { AppwriteException } from "node-appwrite";
 import { isAllowedChatbot, isBot } from "@/lib/bot-check";
+import { SYLLABUS_DISABLED } from "@/lib/site-flags";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +39,15 @@ export async function GET(
   { params }: { params: Promise<{ fileId: string }> },
 ) {
   const { fileId } = await params;
+
+  // Temporary: syllabus disabled while all 517 papers are being verified.
+  // Checked before any auth or storage work so a hit costs zero reads.
+  if (SYLLABUS_DISABLED) {
+    return NextResponse.json(
+      { error: "Syllabus is temporarily unavailable while content is being verified. Please check back later." },
+      { status: 503 },
+    );
+  }
 
   if (!fileId) {
     return new NextResponse("Missing file ID", { status: 400 });

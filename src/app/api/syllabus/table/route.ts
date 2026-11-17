@@ -22,6 +22,14 @@ import { syllabusDeptSlugForPaperCode } from "@/lib/syllabus-departments";
 // The cached helpers serve the same data with zero fresh reads.
 import { getAllSyllabusRows } from "@/lib/syllabus-cache";
 import { getAllApprovedPapers } from "@/lib/papers-cache";
+import { SYLLABUS_DISABLED } from "@/lib/site-flags";
+
+// Temporary — the syllabus is disabled while all 517 papers are being
+// verified. Re-enable by setting SYLLABUS_DISABLED = false in
+// src/lib/site-flags.ts.
+const SYLLABUS_UNAVAILABLE = {
+  error: "Syllabus is temporarily unavailable while content is being verified. Please check back later.",
+};
 
 const MAX_PAGES_SINGLE_PAPER = 20;
 const MAX_PAGES_DEPARTMENTAL = 40;
@@ -69,6 +77,11 @@ async function recordPdfGeneration(userId: string, todayStr: string): Promise<vo
 }
 
 export async function GET(request: NextRequest) {
+  // Temporary: syllabus disabled while all 517 papers are being verified.
+  // Checked before any auth or DB work so a hit costs zero reads.
+  if (SYLLABUS_DISABLED) {
+    return NextResponse.json(SYLLABUS_UNAVAILABLE, { status: 503 });
+  }
   const { searchParams } = new URL(request.url);
   const paperCode = (searchParams.get("paperCode") || "").trim();
   const subjectCode = (searchParams.get("subjectCode") || "").trim().toUpperCase();

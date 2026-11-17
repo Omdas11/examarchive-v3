@@ -25,6 +25,8 @@ import {
   toSyllabusTableRow,
 } from "@/lib/syllabus-table";
 import { getAllSyllabusRows } from "@/lib/syllabus-cache";
+import { SYLLABUS_DISABLED } from "@/lib/site-flags";
+import SyllabusUnavailable from "@/components/SyllabusUnavailable";
 import {
   SYLLABUS_DEPARTMENTS,
   syllabusDeptBySubjectCode,
@@ -237,6 +239,12 @@ const getLinkedQuestionRows = unstable_cache(
 );
 
 export default async function SyllabusPaperPage({ params }: PageProps) {
+  // Temporary: syllabus disabled while all 517 papers are being verified.
+  // Checked before any user lookup or data fetch so a hit costs zero reads.
+  // Middleware already answers 503 for this path.
+  if (SYLLABUS_DISABLED) {
+    return <SyllabusUnavailable />;
+  }
   const { department, paper_code } = await params;
   const info = SYLLABUS_DEPARTMENTS[department];
   if (!info) notFound();
