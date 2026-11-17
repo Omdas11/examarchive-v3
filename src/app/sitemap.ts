@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
-import { adminDatabases, DATABASE_ID, COLLECTION } from "@/lib/appwrite";
-import { Query } from "node-appwrite";
+import { getAllApprovedPapers } from "@/lib/papers-cache";
+import { getAllSyllabusRows } from "@/lib/syllabus-cache";
 import {
   SYLLABUS_DEPARTMENT_SLUGS,
   syllabusDeptBySubjectCode,
@@ -8,6 +8,13 @@ import {
 import { normalizePaperCode } from "@/lib/syllabus-table";
 
 const SITE_URL = "https://www.examarchive.dev";
+
+// The sitemap itself is cached for a day: it only changes when papers are
+// added, which is rare. (It used to run two uncached full-table scans —
+// ~3,200 Appwrite reads — on EVERY hit, which burned most of the monthly
+// database-read budget. It now reuses the cached paper + syllabus lists,
+// so a sitemap hit costs zero fresh reads.)
+export const revalidate = 86400;
 
 // Department landing pages for regional SEO (all departments with papers)
 const DEPARTMENTS = [
@@ -37,9 +44,10 @@ const DEPARTMENTS = [
 /**
  * Generates /sitemap.xml via Next.js Metadata API.
  * Includes static pages, department landing pages (/papers + /syllabus),
- * ALL approved papers (paginated — the collection exceeds a single query
- * page), and ALL syllabus papers from the syllabus table (506 canonical
- * paper codes; variant spellings of one paper share a single URL).
+ * ALL approved papers, and ALL syllabus papers from the syllabus table
+ * (517 canonical paper codes; variant spellings of one paper share a
+ * single URL). Paper + syllabus data come from the shared caches
+ * (papers-cache, 24h; syllabus-cache, 7d), so this costs no fresh reads.
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticRoutes: MetadataRoute.Sitemap = [
@@ -83,26 +91,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // grouped under their department: /syllabus/paper/<dept>/<code>)
   const syllabusPaperRoutes: MetadataRoute.Sitemap = [];
   try {
-    const db = adminDatabases();
+    const rows = await getAllSyllabusRows();
     const codes = new Map<string, string>();
-    let offset = 0;
-    for (;;) {
-      const res = await db.listDocuments(DATABASE_ID, COLLECTION.syllabus_table, [
-        Query.equal("status", "published"),
-        Query.limit(500),
-        Query.offset(offset),
-        Query.select(["paper_code", "subject"]),
-      ]);
-      for (const doc of res.documents) {
-        // Canonical code: "PHYSEC-101" and "PHYSEC101" are one paper, so
-        // the sitemap lists one URL per paper instead of one per spelling.
-        const code = normalizePaperCode(String(doc.paper_code ?? ""));
-        if (!code || codes.has(code)) continue;
-        const dept = syllabusDeptBySubjectCode(String(doc.subject ?? ""));
-        if (dept) codes.set(code, dept.slug);
-      }
-      if (res.documents.length < 500) break;
-      offset += 500;
+    for (const row of rows) {
+      // Canonical code: "PHYSEC-101" and "PHYSEC101" are one paper, so
+      // the sitemap lists one URL per paper instead of one per spelling.
+      const code = normalizePaperCode(String(row.paper_code ?? ""));
+      if (!code || codes.has(code)) continue;
+      const dept = syllabusDeptBySubjectCode(String(row.subject ?? ""));
+      if (dept) codes.set(code, dept.slug);
     }
     for (const [code, slug] of codes) {
       syllabusPaperRoutes.push({
@@ -113,34 +110,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       });
     }
   } catch {
-    // If DB is unreachable at build time, skip syllabus paper URLs
+    // If the cache is unreachable, skip syllabus paper URLs
   }
 
-  // All approved papers — paginated so none are dropped as the archive grows
+  // All approved papers
   const paperRoutes: MetadataRoute.Sitemap = [];
   try {
-    const db = adminDatabases();
-    let offset = 0;
-    for (;;) {
-      const res = await db.listDocuments(DATABASE_ID, COLLECTION.papers, [
-        Query.equal("approved", true),
-        Query.limit(500),
-        Query.offset(offset),
-        Query.select(["$id", "$updatedAt"]),
-      ]);
-      for (const doc of res.documents) {
-        paperRoutes.push({
-          url: `${SITE_URL}/paper/${doc.$id}`,
-          lastModified: new Date(doc.$updatedAt),
-          changeFrequency: "monthly" as const,
-          priority: 0.7,
-        });
-      }
-      if (res.documents.length < 500) break;
-      offset += 500;
+    const papers = await getAllApprovedPapers();
+    for (const paper of papers) {
+      paperRoutes.push({
+        url: `${SITE_URL}/paper/${paper.id}`,
+        lastModified: paper.created_at ? new Date(paper.created_at) : new Date(),
+        changeFrequency: "monthly" as const,
+        priority: 0.7,
+      });
     }
   } catch {
-    // If DB is unreachable at build time, skip paper URLs
+    // If the cache is unreachable, skip paper URLs
   }
 
   return [...staticRoutes, ...deptRoutes, ...syllabusDeptRoutes, ...paperRoutes, ...syllabusPaperRoutes];
