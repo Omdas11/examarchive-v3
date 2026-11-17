@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
+import { getServerUser } from "@/lib/auth";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
-
-export const dynamic = "force-static";
 
 export const metadata: Metadata = {
   title: "About",
@@ -201,10 +200,13 @@ const CREDIT_POLICY = [
   { event: "Experimental Feature", rule: "AI features are experimental and may vary in cost or availability." },
 ];
 
-/** Platform stats, hardcoded — verified live 2026-11-17. This page makes zero DB reads. */
+/** Platform stats, hardcoded — verified live 2026-11-17. No DB reads for stats; the page costs at most 1 auth read (logged-in users only) via getServerUser(). */
 const STATS = { papers: 636, syllabi: 517, users: 3 };
 
-export default function AboutPage() {
+export default async function AboutPage() {
+  const user = await getServerUser();
+  const userName = user ? (user.name || user.username || "Scholar") : "";
+  const userInitials = userName ? userName.slice(0, 2).toUpperCase() : "";
   const stats = [
     { label: "Published Papers", value: `${STATS.papers}+` },
     { label: "Contributors", value: `${STATS.users}+` },
@@ -218,10 +220,10 @@ export default function AboutPage() {
       breadcrumbs={[{ label: "Home", href: "/" }, { label: "About" }]}
       showSearch={false}
       sidebarItems={APP_SIDEBAR_ITEMS}
-      userRole="student"
-      isLoggedIn={false}
-      userName=""
-      userInitials=""
+      userRole={user?.role ?? "student"}
+      isLoggedIn={!!user}
+      userName={userName}
+      userInitials={userInitials}
     >
     <section className="mx-auto px-4 py-10" style={{ maxWidth: "var(--max-w)" }}>
       {/* Intro */}
