@@ -10,7 +10,6 @@ import {
   derivePaperNameFromRows,
   extractSubjectCode,
   normalizePaperCode,
-  toSyllabusTableRow,
   type SyllabusTablePaperSummary,
   type SyllabusTableRow,
 } from "@/lib/syllabus-table";
@@ -18,13 +17,14 @@ import { generatePDF, markdownToHTML } from "@/lib/pdf-generator";
 import { findByPaperCode } from "@/data/syllabus-registry";
 import { recordSyllabusDownload } from "@/lib/counts";
 import { syllabusDeptSlugForPaperCode } from "@/lib/syllabus-departments";
+// Cached reads: a guest/bot hit used to scan the whole Syllabus_Table
+// (2,585 rows) plus all approved papers (636) — ~3,221 reads per hit.
+// The cached helpers serve the same data with zero fresh reads.
+import { getAllSyllabusRows } from "@/lib/syllabus-cache";
+import { getAllApprovedPapers } from "@/lib/papers-cache";
 
 const MAX_PAGES_SINGLE_PAPER = 20;
 const MAX_PAGES_DEPARTMENTAL = 40;
-const SYLLABUS_TABLE_PAGE_SIZE = 500;
-const SYLLABUS_TABLE_MAX_PAGES = 20;
-const QUESTIONS_TABLE_PAGE_SIZE = 500;
-const QUESTIONS_TABLE_MAX_PAGES = 20;
 const SYLLABUS_PDF_DAILY_LIMIT = 5;
 
 function isAdminPlus(role: string): boolean {
@@ -81,6 +81,15 @@ export async function GET(request: NextRequest) {
 
   try {
     const user = await getServerUser();
+    // Login-only (2026-11-17): the table was open to anyone, so any bot
+    // could burn ~3,221 reads per hit. Check the session BEFORE any DB
+    // work — a guest costs 0 reads. Both JSON and PDF modes need a login.
+    if (!user) {
+      return NextResponse.json(
+        { error: "Please log in to view or download the syllabus table." },
+        { status: 401 },
+      );
+    }
     const isPdfMode = mode === "pdf";
     // PDF downloads need a Turnstile token (`ctoken`, issued after passing
     // the Turnstile check) — for EVERYONE, logged-in or not. A bare session
@@ -106,7 +115,7 @@ export async function GET(request: NextRequest) {
     }
     const todayStr = new Date().toISOString().slice(0, 10);
     let usedBefore = 0;
-    if (isPdfMode && user && !isAdminPlus(user.role)) {
+    if (isPdfMode && !isAdminPlus(user.role)) {
       usedBefore = await getDailyPdfCount(user.id, todayStr);
       if (usedBefore >= SYLLABUS_PDF_DAILY_LIMIT) {
         return NextResponse.json(
@@ -121,70 +130,28 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const db = adminDatabases();
     const normalizedPaperCode = normalizePaperCode(paperCode);
-    // Single-paper mode: fetch the whole subject and match by canonical code
-    // below — the table stores the same paper under several spellings
-    // ("PHYSEC-101" vs "PHYSEC101"), so an exact paper_code query would
-    // miss half the rows. Falls back to the exact query when the code
-    // carries no recognisable subject prefix.
-    const subjectForPaper = normalizedPaperCode
-      ? extractSubjectCode(normalizedPaperCode)
-      : "";
-    const filterQueries = [
-      Query.equal("status", "published"),
-      university ? Query.equal("university", university) : null,
-      course ? Query.equal("course", course) : null,
-      stream ? Query.equal("stream", stream) : null,
-      type ? Query.equal("type", type) : null,
-      normalizedPaperCode && subjectForPaper
-        ? Query.equal("subject", subjectForPaper)
-        : normalizedPaperCode
-          ? Query.equal("paper_code", normalizedPaperCode)
-          : null,
-    ].filter(Boolean) as string[];
-    const rows: SyllabusTableRow[] = [];
-    let cursorAfter: string | null = null;
-    let pageCount = 0;
-    while (pageCount < SYLLABUS_TABLE_MAX_PAGES) {
-      const pageQueries = [
-        ...filterQueries,
-        Query.orderAsc("$id"),
-        Query.limit(SYLLABUS_TABLE_PAGE_SIZE),
-        cursorAfter ? Query.cursorAfter(cursorAfter) : null,
-      ].filter(Boolean) as string[];
-      const page = await db.listDocuments(DATABASE_ID, COLLECTION.syllabus_table, pageQueries);
-      rows.push(
-        ...page.documents.map((doc) => {
-          const row = toSyllabusTableRow(doc as Record<string, unknown>);
-          return { ...row, paper_code: row.paper_code.toUpperCase() };
-        }),
-      );
-      if (page.documents.length < SYLLABUS_TABLE_PAGE_SIZE) break;
-      cursorAfter = page.documents[page.documents.length - 1]?.$id ?? null;
-      if (!cursorAfter) break;
-      pageCount += 1;
-    }
-    if (pageCount >= SYLLABUS_TABLE_MAX_PAGES) {
-      console.warn("[syllabus-table] Hit pagination cap while listing Syllabus_Table rows.");
-    }
+    // Cached rows (7d) instead of a full-table scan: the same filters the
+    // old listDocuments queries applied, done in memory. A hit costs zero
+    // fresh reads for the table data (only the 1 auth read above).
+    // The old code upper-cased paper_code after mapping; keep that here.
+    const rows: SyllabusTableRow[] = (await getAllSyllabusRows())
+      .map((row) => ({ ...row, paper_code: row.paper_code.toUpperCase() }))
+      .filter((row) => {
+        if (university && row.university !== university) return false;
+        if (course && row.course !== course) return false;
+        if (stream && row.stream !== stream) return false;
+        if (type && row.type !== type) return false;
+        return true;
+      });
 
     if (normalizedPaperCode) {
-      let paperRows = dedupeSyllabusRowsByUnit(
+      // The cached set holds every published row, so matching by canonical
+      // code here also covers the rows the old subject-scoped fetch missed
+      // (subject field disagreeing with the code prefix) — no retry needed.
+      const paperRows = dedupeSyllabusRowsByUnit(
         rows.filter((row) => normalizePaperCode(row.paper_code) === normalizedPaperCode),
       ).sort((a, b) => a.unit_number - b.unit_number);
-      if (paperRows.length === 0) {
-        // Defensive fallback: rows whose subject field disagrees with the
-        // code prefix are invisible to the subject-scoped fetch above.
-        const retry = await db.listDocuments(DATABASE_ID, COLLECTION.syllabus_table, [
-          Query.equal("status", "published"),
-          Query.equal("paper_code", paperCode.toUpperCase()),
-          Query.limit(SYLLABUS_TABLE_PAGE_SIZE),
-        ]);
-        paperRows = dedupeSyllabusRowsByUnit(
-          retry.documents.map((doc) => toSyllabusTableRow(doc as Record<string, unknown>)),
-        ).sort((a, b) => a.unit_number - b.unit_number);
-      }
       if (paperRows.length === 0) {
         return NextResponse.json({ error: "No syllabus rows found for this paper." }, { status: 404 });
       }
@@ -212,7 +179,7 @@ export async function GET(request: NextRequest) {
         const deptSlug = syllabusDeptSlugForPaperCode(normalizedPaperCode);
         const countDownload = () =>
           recordSyllabusDownload(normalizedPaperCode, {
-            userId: user?.id ?? null,
+            userId: user.id,
             title: `${normalizedPaperCode} — ${paperName}`,
             href: deptSlug
               ? `/syllabus/paper/${deptSlug}/${normalizedPaperCode}`
@@ -245,7 +212,7 @@ export async function GET(request: NextRequest) {
           title: `${normalizedPaperCode} Syllabus`,
           meta: { topic: `${normalizedPaperCode} Syllabus` },
         });
-        if (user && !isAdminPlus(user.role)) {
+        if (!isAdminPlus(user.role)) {
           await recordPdfGeneration(user.id, todayStr);
         }
 
@@ -336,7 +303,7 @@ export async function GET(request: NextRequest) {
         title: `${heading} Departmental Syllabus`,
         meta: { topic: `${heading} Departmental Syllabus` },
       });
-      if (user && !isAdminPlus(user.role)) {
+      if (!isAdminPlus(user.role)) {
         await recordPdfGeneration(user.id, todayStr);
       }
       const downloadToken = safeFilenameToken(heading, "DEPARTMENT");
@@ -360,44 +327,27 @@ export async function GET(request: NextRequest) {
       grouped.get(key)!.push(row);
     }
 
-    // Build question-paper year map from approved papers collection.
-    const questionDocs: Array<Record<string, unknown>> = [];
-    let papersCursorAfter: string | null = null;
-    let papersPageCount = 0;
-    while (papersPageCount < QUESTIONS_TABLE_MAX_PAGES) {
-      const questionQueries = [
-        Query.equal("approved", true),
-        Query.orderAsc("$id"),
-        Query.limit(QUESTIONS_TABLE_PAGE_SIZE),
-        papersCursorAfter ? Query.cursorAfter(papersCursorAfter) : null,
-      ].filter(Boolean) as string[];
-      const page = await db.listDocuments(DATABASE_ID, COLLECTION.papers, questionQueries);
-      questionDocs.push(...(page.documents as Array<Record<string, unknown>>));
-      if (page.documents.length < QUESTIONS_TABLE_PAGE_SIZE) break;
-      papersCursorAfter = page.documents[page.documents.length - 1]?.$id ?? null;
-      if (!papersCursorAfter) break;
-      papersPageCount += 1;
-    }
-    if (papersPageCount >= QUESTIONS_TABLE_MAX_PAGES) {
-      console.warn("[syllabus-table] Hit pagination cap while listing approved papers.");
-    }
-
-    const questionYearsByCode = questionDocs.reduce<Map<string, Map<string, { paperId: string; year: number; examType?: string }>>>((acc, doc) => {
-      // Canonical key: the papers collection stores hyphenated codes
-      // ("COMGE-601T") that must match the normalised syllabus code.
-      const code = normalizePaperCode(String(doc.course_code ?? ""));
-      const yearRaw = Number(doc.year ?? 0);
-      if (!code || !Number.isInteger(yearRaw) || yearRaw < 1900 || yearRaw > 2100) return acc;
-      const paperId = String(doc.$id ?? doc.id ?? "");
-      const examType = String(doc.exam_type ?? "").trim();
-      const byYear = acc.get(code) ?? new Map<string, { paperId: string; year: number; examType?: string }>();
-      const yearKey = `${yearRaw}:${examType.toLowerCase()}`;
-      if (!byYear.has(yearKey) && paperId) {
-        byYear.set(yearKey, { paperId, year: yearRaw, examType: examType || undefined });
-      }
-      acc.set(code, byYear);
-      return acc;
-    }, new Map());
+    // Build question-paper year map from the cached approved papers (24h)
+    // instead of scanning the papers collection. Sorted by id so the first
+    // paper kept per year matches the old $id-ordered scan.
+    const questionYearsByCode = [...(await getAllApprovedPapers())]
+      .sort((a, b) => a.id.localeCompare(b.id))
+      .reduce<Map<string, Map<string, { paperId: string; year: number; examType?: string }>>>((acc, paper) => {
+        // Canonical key: the papers collection stores hyphenated codes
+        // ("COMGE-601T") that must match the normalised syllabus code.
+        const code = normalizePaperCode(String(paper.course_code ?? ""));
+        const yearRaw = Number(paper.year ?? 0);
+        if (!code || !Number.isInteger(yearRaw) || yearRaw < 1900 || yearRaw > 2100) return acc;
+        const paperId = String(paper.id ?? "");
+        const examType = String(paper.exam_type ?? "").trim();
+        const byYear = acc.get(code) ?? new Map<string, { paperId: string; year: number; examType?: string }>();
+        const yearKey = `${yearRaw}:${examType.toLowerCase()}`;
+        if (!byYear.has(yearKey) && paperId) {
+          byYear.set(yearKey, { paperId, year: yearRaw, examType: examType || undefined });
+        }
+        acc.set(code, byYear);
+        return acc;
+      }, new Map());
 
     const papers: SyllabusTablePaperSummary[] = Array.from(grouped.entries())
       .map(([code, rawPaperRows]) => {

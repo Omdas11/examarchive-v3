@@ -55,6 +55,9 @@ export default function AIContentClient() {
   const [availableSemesters, setAvailableSemesters] = useState<number[]>([]);
   const [namesByPaperCode, setNamesByPaperCode] = useState<Record<string, string>>({});
   const [paperCodeLoading, setPaperCodeLoading] = useState(false);
+  // The options endpoint (/api/generate-notes) is temporarily disabled:
+  // when its fetch fails, show a notice instead of empty dropdowns.
+  const [notesUnavailable, setNotesUnavailable] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [remaining, setRemaining] = useState<number | null>(null);
   const [limit, setLimit] = useState<number | null>(null);
@@ -222,8 +225,17 @@ export default function AIContentClient() {
       type,
     });
     fetch(`/api/generate-notes?${params.toString()}`)
-      .then((res) => res.json())
+      .then(async (res) => {
+        // 410 while the endpoint is temporarily disabled: flag it and
+        // leave the option lists empty (generation stays disabled).
+        if (!res.ok) {
+          setNotesUnavailable(true);
+          return null;
+        }
+        return res.json();
+      })
       .then((data) => {
+        if (!data) return;
         if (typeof data.remaining === "number" || data.remaining === null) setRemaining(data.remaining);
         if (typeof data.limit === "number" || data.limit === null) setLimit(data.limit);
         if (typeof data.notesRemaining === "number") setNotesRemaining(data.notesRemaining);
@@ -306,6 +318,7 @@ export default function AIContentClient() {
         }
       })
       .catch(() => {
+        setNotesUnavailable(true);
         setNotesPaperCodes([]);
         setPapersPaperCodes([]);
         setUnitsByPaperCode({});
@@ -439,6 +452,14 @@ export default function AIContentClient() {
           </div>
         </header>
         <AiNotConfiguredNotice />
+        {notesUnavailable ? (
+          <div
+            className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800"
+            role="status"
+          >
+            AI note generation is temporarily unavailable. Please try again later.
+          </div>
+        ) : null}
 
         <section className="card border border-outline-variant/30 p-5">
           <div className="grid gap-4 md:grid-cols-2">

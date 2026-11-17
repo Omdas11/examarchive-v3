@@ -73,6 +73,9 @@ export default function CaptchaSyllabusDownloadButton({
   const [showChallenge, setShowChallenge] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // True when the download needs a login (no session, or the session
+  // expired): the modal shows a login link instead of the Turnstile widget.
+  const [loginRequired, setLoginRequired] = useState(false);
   const widgetHostRef = useRef<HTMLDivElement | null>(null);
   const widgetIdRef = useRef<string | null>(null);
 
@@ -81,6 +84,7 @@ export default function CaptchaSyllabusDownloadButton({
   const closeChallenge = useCallback(() => {
     setShowChallenge(false);
     setError(null);
+    setLoginRequired(false);
     if (widgetIdRef.current && window.turnstile) {
       try {
         window.turnstile.reset(widgetIdRef.current);
@@ -110,17 +114,34 @@ export default function CaptchaSyllabusDownloadButton({
           throw new Error(data.error || "Verification failed. Please try again.");
         }
         closeChallenge();
-        // Anchor download, not window.open: window.open runs outside the
-        // user's tap gesture (after the async Turnstile check), so Chrome
-        // blocks it as a pop-up for first-time guests. A same-origin
-        // anchor click is not a pop-up, and the API answers with
-        // Content-Disposition: attachment, so the PDF downloads directly.
+        // The table route now requires a login, so fetch the signed URL
+        // first: a guest (or an expired session) gets a 401, which shows
+        // a login prompt here. A blind anchor click would instead land
+        // the browser on a raw 401 JSON page. On success, download the
+        // bytes we already fetched instead of requesting the PDF twice.
+        const pdfRes = await fetch(data.url);
+        if (pdfRes.status === 401) {
+          setLoginRequired(true);
+          setError("Please log in to download the syllabus PDF.");
+          setShowChallenge(true);
+          return;
+        }
+        if (!pdfRes.ok) {
+          throw new Error("Download failed. Please try again.");
+        }
+        const blob = await pdfRes.blob();
+        const disposition = pdfRes.headers.get("content-disposition") || "";
+        const nameMatch = disposition.match(/filename="([^"]+)"/);
+        const filename =
+          nameMatch?.[1] || `${paperCode || subjectCode || "syllabus"}_syllabus.pdf`;
+        const blobUrl = URL.createObjectURL(blob);
         const a = document.createElement("a");
-        a.href = data.url;
-        a.download = "";
+        a.href = blobUrl;
+        a.download = filename;
         document.body.appendChild(a);
         a.click();
         a.remove();
+        window.setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
       } catch (e) {
         setError(
           e instanceof Error ? e.message : "Something went wrong. Please try again.",
@@ -140,7 +161,7 @@ export default function CaptchaSyllabusDownloadButton({
   );
 
   useEffect(() => {
-    if (!showChallenge || !widgetHostRef.current) return;
+    if (!showChallenge || loginRequired || !widgetHostRef.current) return;
     let cancelled = false;
     loadTurnstileScript()
       .then(() => {
@@ -172,7 +193,7 @@ export default function CaptchaSyllabusDownloadButton({
     return () => {
       cancelled = true;
     };
-  }, [showChallenge, siteKey, handleVerified]);
+  }, [showChallenge, siteKey, handleVerified, loginRequired]);
 
   if (!paperCode && !subjectCode) {
     // Misconfigured: fall back to prompting sign-in rather than a dead button.
@@ -194,7 +215,22 @@ export default function CaptchaSyllabusDownloadButton({
 
   return (
     <>
-      <button type="button" onClick={() => setShowChallenge(true)} className={className} disabled={busy}>
+      <button
+        type="button"
+        onClick={() => {
+          // Syllabus downloads now need a login: prompt for it before
+          // the Turnstile check, so guests don't do a pointless check.
+          if (!document.cookie.includes("ea_session")) {
+            setLoginRequired(true);
+            setError("Please log in to download the syllabus PDF.");
+            setShowChallenge(true);
+            return;
+          }
+          setShowChallenge(true);
+        }}
+        className={className}
+        disabled={busy}
+      >
         {children}
       </button>
       {showChallenge && (
@@ -211,11 +247,24 @@ export default function CaptchaSyllabusDownloadButton({
           >
             <h3 className="text-lg font-extrabold tracking-tight">One quick check</h3>
             <p className="mt-1 text-sm text-neutral-500">
-              {busy ? "Verifying…" : "Running a quick human check — your PDF will download right after."}
+              {loginRequired
+                ? "Syllabus PDF downloads need a login."
+                : busy
+                  ? "Verifying…"
+                  : "Running a quick human check — your PDF will download right after."}
             </p>
-            <div className="mt-4 flex justify-center">
-              <div ref={widgetHostRef} />
-            </div>
+            {loginRequired ? (
+              <a
+                href="/login"
+                className="mt-4 block w-full rounded-full bg-primary py-2 text-center text-sm font-bold text-white"
+              >
+                Log in to download
+              </a>
+            ) : (
+              <div className="mt-4 flex justify-center">
+                <div ref={widgetHostRef} />
+              </div>
+            )}
             {error && <p className="mt-3 text-sm font-semibold text-red-600">{error}</p>}
             <button
               type="button"

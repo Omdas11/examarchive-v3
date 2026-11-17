@@ -26,11 +26,22 @@ const PROTECTED_PATHS = [
   "/api/admin",
   "/api/devtool",
   "/api/ai",
-  "/api/generate-notes",
 ];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // /api/generate-notes was deleted (2026-11-17) to stop its uncached
+  // full-collection scans burning the Appwrite read budget. Block the
+  // path explicitly with 410 Gone so callers fail fast with a clear
+  // error instead of a bare 404. TEMPORARY: restore the route from git
+  // to re-enable it.
+  if (pathname === "/api/generate-notes" || pathname.startsWith("/api/generate-notes/")) {
+    return NextResponse.json(
+      { error: "Note generation is temporarily unavailable." },
+      { status: 410 },
+    );
+  }
 
   // Legacy syllabus paper URLs moved to /syllabus/paper/<department>/<CODE>.
   // Redirected HERE, not in the page: a redirect thrown from the page
