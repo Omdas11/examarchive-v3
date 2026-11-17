@@ -7,13 +7,21 @@ import FooterContactModal from "@/components/FooterContactModal";
 import { openCookieSettings } from "@/lib/consent";
 
 /** Partner/platform logos uploaded to /public/branding/footer/.
- * Google has no link: it is only a platform logo, not a partnership. */
+ * Google has no link: it is only a platform logo, not a partnership.
+ * Every logo is shown in its official brand colour — no grayscale. */
 const PLATFORM_LOGOS = [
   { href: "https://github.com/Omdas11/examarchive-v3", title: "GitHub",  src: "/branding/footer/partner-github.png" },
   { href: undefined as string | undefined, title: "Google",  src: "/branding/footer/partner-google.png" },
   { href: "https://appwrite.io",                       title: "Appwrite", src: "/branding/footer/partner-appwrite.png" },
   // Note: filename was uploaded as "partner-netxjs.png" (typo for "nextjs") — kept as-is to match the actual file.
   { href: "https://nextjs.org",                        title: "Next.js", src: "/branding/footer/partner-netxjs.png" },
+  { href: "https://vercel.com",                        title: "Vercel", src: "/branding/footer/partner-vercel.svg" },
+  { href: "https://www.cloudflare.com",                title: "Cloudflare", src: "/branding/footer/partner-cloudflare.svg" },
+  { href: "https://razorpay.com",                      title: "Razorpay", src: "/branding/footer/partner-razorpay.svg" },
+  { href: "https://monetag.com",                       title: "Monetag", src: "/branding/footer/partner-monetag.png" },
+  { href: "https://discord.com",                       title: "Discord", src: "/branding/footer/partner-discord.svg" },
+  { href: "https://gemini.google.com",                 title: "Google Gemini", src: "/branding/footer/partner-googlegemini.svg" },
+  { href: "https://muse.ai",                           title: "Muse", src: "/branding/footer/partner-muse.svg" },
 ];
 
 export default function Footer() {
@@ -96,7 +104,7 @@ export default function Footer() {
                 />
               );
               const className =
-                "opacity-60 hover:opacity-100 transition-all hover:scale-110 grayscale hover:grayscale-0";
+                "transition-all hover:scale-110";
               const style: CSSProperties = { display: "inline-flex", alignItems: "center" };
               // Logos without a link (Google) render unlinked — no implied partnership.
               if (!logo.href) {

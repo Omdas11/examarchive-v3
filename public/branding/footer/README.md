@@ -9,7 +9,7 @@ partner-<slug>.png    ← e.g. partner-au.png for Assam University
 partner-<slug>.svg
 ```
 
-> Note: university logos were deliberately removed from the footer during the Early Access phase; the footer currently renders only platform logos (GitHub / Google / Appwrite / Next.js). Re-adding a university logo is a deliberate decision, not just dropping a file in here.
+> Note: university logos were deliberately removed from the footer during the Early Access phase; the footer currently renders only platform logos (GitHub / Google / Appwrite / Next.js / Vercel / Cloudflare / Razorpay / Monetag / Discord / Google Gemini / Muse). Re-adding a university logo is a deliberate decision, not just dropping a file in here.
 
 ## Recommended sizes
 
