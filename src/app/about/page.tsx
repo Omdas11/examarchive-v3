@@ -1,13 +1,8 @@
 import type { Metadata } from "next";
-import { getServerUser } from "@/lib/auth";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
-import {
-  adminDatabases,
-  DATABASE_ID,
-  COLLECTION,
-  Query,
-} from "@/lib/appwrite";
+
+export const dynamic = "force-static";
 
 export const metadata: Metadata = {
   title: "About",
@@ -42,18 +37,18 @@ const STEP_ICONS = [
 ];
 
 const steps = [
-  { icon: STEP_ICONS[0], title: "Upload", desc: "Students upload past question papers and notes." },
-  { icon: STEP_ICONS[1], title: "Review", desc: "Moderators review and verify each submission." },
+  { icon: STEP_ICONS[0], title: "Curate", desc: "The ExamArchive team curates and adds past question papers and notes." },
+  { icon: STEP_ICONS[1], title: "Review", desc: "The team reviews and verifies each paper before it is added." },
   { icon: STEP_ICONS[2], title: "Publish", desc: "Approved papers are published to the archive." },
   { icon: STEP_ICONS[3], title: "Discover & Earn", desc: "Approved activity earns XP, cosmetic unlocks, and credits." },
 ];
 
 const contributions = [
-  "Upload question papers you have access to.",
+  "Verify content — mark AI-generated notes, papers and syllabi as correct, or report errors, to earn XP and credits.",
   "Report incorrect or duplicate papers.",
+  "Suggest papers or syllabi the team should add next.",
   "Share the platform with fellow students.",
   "Provide feedback to help us improve.",
-  "Apply to become a moderator.",
 ];
 
 /** Single XP tier ladder — matches roles.ts XP_TIERS exactly. */
@@ -86,7 +81,7 @@ const SYSTEM_ROLES = [
       </svg>
     ),
     color: "#2563eb",
-    desc: "Trusted uploader with a track record of approved contributions.",
+    desc: "Trusted verifier with a track record of approved verifications.",
   },
   {
     name: "Specialist",
@@ -197,7 +192,6 @@ const ROLE_ASSIGNMENT_RULES = [
 ];
 
 const CREDIT_REWARD_EVENTS = [
-  { event: "Razorpay top-up (store)", reward: "Pack amount credited as credits" },
   { event: "Verify AI content as correct", reward: "1 credit per check (up to 10/day)" },
   { event: "Correction accepted by moderator", reward: "+5 credits" },
 ];
@@ -207,45 +201,14 @@ const CREDIT_POLICY = [
   { event: "Experimental Feature", rule: "AI features are experimental and may vary in cost or availability." },
 ];
 
-/** Fetch live platform statistics from Appwrite. Falls back to 0 on error. */
-async function fetchStats() {
-  try {
-    const db = adminDatabases();
-    const [papersRes, syllabusRes, usersRes] = await Promise.allSettled([
-      db.listDocuments(DATABASE_ID, COLLECTION.papers, [
-        Query.equal("approved", true),
-        Query.limit(1),
-      ]),
-      db.listDocuments(DATABASE_ID, COLLECTION.syllabus, [
-        Query.equal("approval_status", "approved"),
-        Query.limit(1),
-      ]),
-      db.listDocuments(DATABASE_ID, COLLECTION.users, [Query.limit(1)]),
-    ]);
+/** Platform stats, hardcoded — verified live 2026-11-17. This page makes zero DB reads. */
+const STATS = { papers: 636, syllabi: 517, users: 3 };
 
-    const papers =
-      papersRes.status === "fulfilled" ? Number(papersRes.value.total) : 0;
-    const syllabi =
-      syllabusRes.status === "fulfilled" ? Number(syllabusRes.value.total) : 0;
-    const users =
-      usersRes.status === "fulfilled" ? Number(usersRes.value.total) : 0;
-
-    return { papers, syllabi, users };
-  } catch {
-    return { papers: 0, syllabi: 0, users: 0 };
-  }
-}
-
-export default async function AboutPage() {
-  const user = await getServerUser();
-  const userName = user ? (user.name || user.username || "Scholar") : "";
-  const userInitials = userName ? userName.slice(0, 2).toUpperCase() : "";
-  const { papers, syllabi, users } = await fetchStats();
-
+export default function AboutPage() {
   const stats = [
-    { label: "Published Papers", value: papers > 0 ? `${papers}+` : "0+" },
-    { label: "Contributors", value: users > 0 ? `${users}+` : "0+" },
-    { label: "Syllabi Available", value: syllabi > 0 ? `${syllabi}+` : "0+" },
+    { label: "Published Papers", value: `${STATS.papers}+` },
+    { label: "Contributors", value: `${STATS.users}+` },
+    { label: "Syllabi Available", value: `${STATS.syllabi}+` },
     { label: "Free & Open", value: "100%" },
   ];
 
@@ -255,18 +218,19 @@ export default async function AboutPage() {
       breadcrumbs={[{ label: "Home", href: "/" }, { label: "About" }]}
       showSearch={false}
       sidebarItems={APP_SIDEBAR_ITEMS}
-      userRole={user?.role ?? "student"}
-      isLoggedIn={!!user}
-      userName={userName}
-      userInitials={userInitials}
+      userRole="student"
+      isLoggedIn={false}
+      userName=""
+      userInitials=""
     >
     <section className="mx-auto px-4 py-10" style={{ maxWidth: "var(--max-w)" }}>
       {/* Intro */}
       <h1 className="text-2xl font-bold">About ExamArchive</h1>
       <div className="mt-4 space-y-3 text-sm" style={{ color: "var(--color-text-muted)" }}>
         <p>
-          ExamArchive is a community-driven platform that collects and organizes past exam question
-          papers, syllabi, and academic resources for students.
+          ExamArchive is a community-driven platform that curates and organizes past exam question
+          papers, syllabi, and academic resources for students. Papers are added by the
+          ExamArchive team — students no longer upload papers directly.
         </p>
         <p>
           Our goal is to make exam preparation easier by providing free and open access to question
@@ -476,6 +440,10 @@ export default async function AboutPage() {
       </p>
 
       <h3 className="mt-6 text-base font-semibold">How to Get Credits</h3>
+      <p className="mt-1 text-xs" style={{ color: "var(--color-text-muted)" }}>
+        Credit top-ups are not available right now — the store is closed (Coming Soon).
+        Credits can only be earned by verifying content.
+      </p>
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
         {CREDIT_REWARD_EVENTS.map((e) => (
           <div key={e.event} className="card flex items-center justify-between gap-3 px-4 py-3">

@@ -68,8 +68,13 @@ export default function HomeSearch() {
         }
       }
     }
-    load();
-    return () => controller.abort();
+    // Debounced: one typed word is one /api/search request, not one per
+    // keystroke. The timer is cleared on the next keystroke / unmount.
+    const timer = setTimeout(load, 300);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [query]);
 
   function handleSearch(e: React.FormEvent) {

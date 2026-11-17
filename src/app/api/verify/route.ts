@@ -22,6 +22,32 @@ import {
 export const dynamic = "force-dynamic";
 
 /**
+ * In-memory per-user rate limit for POST /api/verify: max 10 verify actions
+ * per user per rolling 60 s window; excess calls get 429. Zero DB cost (the
+ * existing AI rate-limit pattern is DB-backed via the ai_usage collection,
+ * which would spend reads/writes on every check). Best-effort burst guard
+ * only — the per-day XP/credit caps in the DB remain the real enforcement,
+ * and the map resets when the serverless instance recycles. Entries are
+ * pruned on each access so the map cannot grow unboundedly.
+ */
+const VERIFY_RATE_LIMIT_WINDOW_MS = 60_000;
+const VERIFY_RATE_LIMIT_MAX = 10;
+const verifyAttemptsByUser = new Map<string, number[]>();
+
+function isVerifyRateLimited(userId: string): boolean {
+  const now = Date.now();
+  const cutoff = now - VERIFY_RATE_LIMIT_WINDOW_MS;
+  const attempts = (verifyAttemptsByUser.get(userId) ?? []).filter((t) => t > cutoff);
+  if (attempts.length >= VERIFY_RATE_LIMIT_MAX) {
+    verifyAttemptsByUser.set(userId, attempts);
+    return true;
+  }
+  attempts.push(now);
+  verifyAttemptsByUser.set(userId, attempts);
+  return false;
+}
+
+/**
  * GET /api/verify?content_type=&content_id=
  * The caller's verification row for one content item, plus item totals.
  * Logged-in users only; logged-out callers get 401 and the strip hides.
@@ -85,6 +111,13 @@ export async function POST(req: NextRequest) {
   const user = await getServerUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (isVerifyRateLimited(user.id)) {
+    return NextResponse.json(
+      { error: "Too many verification attempts. Please wait a minute and try again." },
+      { status: 429 },
+    );
   }
 
   let body: Record<string, unknown>;

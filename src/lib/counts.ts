@@ -325,7 +325,10 @@ export async function getRecentUserActivity(
       Query.equal("user_id", userId),
       Query.equal("action", action),
       Query.orderDesc("$createdAt"),
-      Query.limit(50),
+      // Fetch only what the caller will show: /profile passes limit 10 and
+      // renders every returned entry, so fetching 50 burned up to 40 extra
+      // reads per call (80 per profile load) for rows that were discarded.
+      Query.limit(limit),
     ]);
     const seen = new Set<string>();
     const out: ActivityEntry[] = [];

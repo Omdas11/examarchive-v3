@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { cookies } from "next/headers";
 import {
   createSessionClient,
@@ -180,8 +181,17 @@ export async function getUser() {
 /**
  * Return the currently authenticated user's profile (including role) or `null`
  * if the request is unauthenticated.
+ *
+ * Wrapped in React `cache()` so the profile document (1 read) is fetched at
+ * most once per request, even when several server components / route-handler
+ * steps call it in the same request (e.g. /api/files/papers calls it twice
+ * in one GET). `cache()` is per-request only, so behaviour is unchanged:
+ * every new request re-reads the profile. All callers are server components,
+ * route handlers or server actions — i.e. request scope — never background
+ * jobs or module scope.
  */
-export async function getServerUser(): Promise<UserProfile | null> {
+export const getServerUser: () => Promise<UserProfile | null> = cache(
+  async function getServerUser(): Promise<UserProfile | null> {
   try {
     const session = await getSessionSecret();
     if (!session) {
@@ -307,7 +317,8 @@ export async function getServerUser(): Promise<UserProfile | null> {
     console.error("[auth] getServerUser: Unhandled error", outerErr);
     return null;
   }
-}
+  },
+);
 
 /**
  * Return the extended user profile including v2-style role columns,
