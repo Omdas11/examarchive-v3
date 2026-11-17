@@ -1,0 +1,4011 @@
+{
+  "bucket": "examarchive-papers",
+  "key_prefix": "papers/",
+  "generated": "2026-11-17T19:28:14.004Z",
+  "file_count": 667,
+  "total_bytes": 827574528,
+  "files": [
+    {
+      "key": "papers/1687772351_History-General_Early-Assam-upto-1228AD_2019.pdf",
+      "name": "1687772351_History-General_Early-Assam-upto-1228AD_2019.pdf",
+      "size": 258862,
+      "sha256": "70bf3bd05097d02380cad7433649a8072f0b17742a5f159f289e84a8bcb33df6"
+    },
+    {
+      "key": "papers/1687772351_History-General_Early-Assam-upto-1228AD_2019_6af6c28c33790c997464.pdf",
+      "name": "1687772351_History-General_Early-Assam-upto-1228AD_2019_6af6c28c33790c997464.pdf",
+      "size": 258862,
+      "sha256": "70bf3bd05097d02380cad7433649a8072f0b17742a5f159f289e84a8bcb33df6"
+    },
+    {
+      "key": "papers/1709227115_CHMDSE-501T-295_Analytic-Methods-in-Chemistry_5thSem-2020.pdf",
+      "name": "1709227115_CHMDSE-501T-295_Analytic-Methods-in-Chemistry_5thSem-2020.pdf",
+      "size": 639253,
+      "sha256": "e1b836d3850adb6407e19a3d8ea04b1476d458cd9b0d37e2f8eb5ea9e8f65d68"
+    },
+    {
+      "key": "papers/1710134877_CHMHCC-502T-294_Physical-Chemistry-V_OddSem-2020-held2021.pdf",
+      "name": "1710134877_CHMHCC-502T-294_Physical-Chemistry-V_OddSem-2020-held2021.pdf",
+      "size": 1481272,
+      "sha256": "03eea6e6d57de5a9a1c0ba56150036816c2dbf3a93a970b70a464ecdd242d9da"
+    },
+    {
+      "key": "papers/1710135033_CHMHCC-502T-294_Physical-Chemistry-V_OddSem-2021-held2022.pdf",
+      "name": "1710135033_CHMHCC-502T-294_Physical-Chemistry-V_OddSem-2021-held2022.pdf",
+      "size": 1077469,
+      "sha256": "7d9673d4a2586ff0b6daa116086df093f53756e23bd6db65efd6159afb531aac"
+    },
+    {
+      "key": "papers/1710135617_CHMHCC-501T-266_Biomolecules_OddSem-2023.pdf",
+      "name": "1710135617_CHMHCC-501T-266_Biomolecules_OddSem-2023.pdf",
+      "size": 1362797,
+      "sha256": "7db35106efd768a305559167cd0eae12b018888dfec6b3197feffda18a6eef76"
+    },
+    {
+      "key": "papers/1710135727_CHMHCC-502T-267_Physical-Chemistry-V_OddSem-2023.pdf",
+      "name": "1710135727_CHMHCC-502T-267_Physical-Chemistry-V_OddSem-2023.pdf",
+      "size": 1342251,
+      "sha256": "0ec0f87fbf9219a9ca371562724de2ef75f8cac0825420a3056c7ff0f54886af"
+    },
+    {
+      "key": "papers/1711735601_CHMHCC-202T-070_Physical-Chemistry-II_EvenSem-2019.pdf",
+      "name": "1711735601_CHMHCC-202T-070_Physical-Chemistry-II_EvenSem-2019.pdf",
+      "size": 1360256,
+      "sha256": "eb7fa9395c221b036cdbb798a3bf91ecf86803ec5330a6e71c6f229dc5bf62d3"
+    },
+    {
+      "key": "papers/1718958973_4th-sem-2024-honours-401-and-402.pdf",
+      "name": "1718958973_4th-sem-2024-honours-401-and-402.pdf",
+      "size": 293481,
+      "sha256": "cc9ebfa8a04fbf91984cbd601a0b6ae4faf88bafc9beb8d90dd2377db9f0836e"
+    },
+    {
+      "key": "papers/1718958973_4th-sem-2024-honours-401-and-402_6af6c28f39d029658231.pdf",
+      "name": "1718958973_4th-sem-2024-honours-401-and-402_6af6c28f39d029658231.pdf",
+      "size": 293481,
+      "sha256": "cc9ebfa8a04fbf91984cbd601a0b6ae4faf88bafc9beb8d90dd2377db9f0836e"
+    },
+    {
+      "key": "papers/1718959083_4th-sem-2024-hcc-403-and-englan-401.pdf",
+      "name": "1718959083_4th-sem-2024-hcc-403-and-englan-401.pdf",
+      "size": 487531,
+      "sha256": "b07b3e3a02a31707a3e4891d91077897518a4a59a072ea63f6075d1f8754cb52"
+    },
+    {
+      "key": "papers/1718959283_6th-sem-2024-enghcc-601-enghcc-602-eng-h-601-and-dse-h-602.pdf",
+      "name": "1718959283_6th-sem-2024-enghcc-601-enghcc-602-eng-h-601-and-dse-h-602.pdf",
+      "size": 373851,
+      "sha256": "65fab0597c092ea142c9891e6b1e7df401d88969b6c1c7ca975831805f839240"
+    },
+    {
+      "key": "papers/1718959503_4th-sem-2024-hcc401-hcc402-403-englan401-and-dsc401.pdf",
+      "name": "1718959503_4th-sem-2024-hcc401-hcc402-403-englan401-and-dsc401.pdf",
+      "size": 344108,
+      "sha256": "4695a67315f6ce43d02af3dd20c7ccf1e6d59d59c88458a8c5fc9ec0cc426a26"
+    },
+    {
+      "key": "papers/1718959624_6th-sem-2024-enghcc601-and-enghcc602.pdf",
+      "name": "1718959624_6th-sem-2024-enghcc601-and-enghcc602.pdf",
+      "size": 361065,
+      "sha256": "01c6fe42a933cc39bbc085ffaac8efba5d416fcc582f476733ab5f859d397ca8"
+    },
+    {
+      "key": "papers/1718959885_2nd-sem-2024-eng-dse-h-601-and-dse-h-602.pdf",
+      "name": "1718959885_2nd-sem-2024-eng-dse-h-601-and-dse-h-602.pdf",
+      "size": 444305,
+      "sha256": "65b1685514caaff5737e18e9cf11fa0250257d1aa7741ddf1aef51628fe0460a"
+    },
+    {
+      "key": "papers/1718959885_2nd-sem-2024-eng-dse-h-601-and-dse-h-602_6af6c28f97a7ca80b447.pdf",
+      "name": "1718959885_2nd-sem-2024-eng-dse-h-601-and-dse-h-602_6af6c28f97a7ca80b447.pdf",
+      "size": 444305,
+      "sha256": "65b1685514caaff5737e18e9cf11fa0250257d1aa7741ddf1aef51628fe0460a"
+    },
+    {
+      "key": "papers/1718960139_6th-sem-2024-dse-g-601-and-engge-601.pdf",
+      "name": "1718960139_6th-sem-2024-dse-g-601-and-engge-601.pdf",
+      "size": 428394,
+      "sha256": "528bd102cafffd2b565317ec40d3d08572fdc8dd72b83120fd8955a81c944363"
+    },
+    {
+      "key": "papers/1718960591_1st-sem-2024-unit-test-1-and-2-engsec-151-engdsc-152-engdsm-151-engidc-151.pdf",
+      "name": "1718960591_1st-sem-2024-unit-test-1-and-2-engsec-151-engdsc-152-engdsm-151-engidc-151.pdf",
+      "size": 404472,
+      "sha256": "58242bbb143652fe518483c67c98da7ef74682186a4c67fbe365ea2ad604cb85"
+    },
+    {
+      "key": "papers/1718977017_1st-sem-2021-bng-hcc-101.pdf",
+      "name": "1718977017_1st-sem-2021-bng-hcc-101.pdf",
+      "size": 746631,
+      "sha256": "6332056e5dd67223df3d717d3cc481f0fd9876a1a07d8a156b00b464316d11b8"
+    },
+    {
+      "key": "papers/1718977051_1st-sem-2021-bng-hcc-102.pdf",
+      "name": "1718977051_1st-sem-2021-bng-hcc-102.pdf",
+      "size": 927016,
+      "sha256": "c2ebc779445094100da5887e6748836d3eb1b41bf84f14159cf540d36e9a2ba8"
+    },
+    {
+      "key": "papers/1718977083_1st-sem-2021-bng-aec-101.pdf",
+      "name": "1718977083_1st-sem-2021-bng-aec-101.pdf",
+      "size": 937297,
+      "sha256": "6a7b690f8b6b57198fa7e09181714bcba6b9fecdc68d09dc0f442a4dd1055c05"
+    },
+    {
+      "key": "papers/1718977083_1st-sem-2021-bng-aec-101_6af6c29899ee4196ff97.pdf",
+      "name": "1718977083_1st-sem-2021-bng-aec-101_6af6c29899ee4196ff97.pdf",
+      "size": 510738,
+      "sha256": "67afee05349b5030e30f5f25d4ff79cd81453d5aa4b4bbec0ef33ed165b9b6a8"
+    },
+    {
+      "key": "papers/1718977129_1st-sem-2021-bng-dsc-ge-101.pdf",
+      "name": "1718977129_1st-sem-2021-bng-dsc-ge-101.pdf",
+      "size": 877905,
+      "sha256": "0e7fbe6afce52f6c8f6559252ea00613e749fdd81570fdfdfbbc05b5781b88f7"
+    },
+    {
+      "key": "papers/1718977129_1st-sem-2021-bng-dsc-ge-101_6af6c29b5d7096f72956.pdf",
+      "name": "1718977129_1st-sem-2021-bng-dsc-ge-101_6af6c29b5d7096f72956.pdf",
+      "size": 451347,
+      "sha256": "083f77e91c6d6905744a63aaadafeacb665019e88ff3840102194d37b7d7524f"
+    },
+    {
+      "key": "papers/1718978325_3rd-sem-2019-bng-hcc-301.pdf",
+      "name": "1718978325_3rd-sem-2019-bng-hcc-301.pdf",
+      "size": 1255018,
+      "sha256": "6909e4fd485660c1cb7f375be8cfbc2518e6d465c0018d040f8dcfe0a934a8f0"
+    },
+    {
+      "key": "papers/1718978358_3rd-sem-2019-bng-hcc-302.pdf",
+      "name": "1718978358_3rd-sem-2019-bng-hcc-302.pdf",
+      "size": 759148,
+      "sha256": "32e8b0be5867edb6824db38dcfd4ea287cf95be6f819ca9b6496d069a052f1f6"
+    },
+    {
+      "key": "papers/1718978386_3rd-sem-2019-bng-hcc-303.pdf",
+      "name": "1718978386_3rd-sem-2019-bng-hcc-303.pdf",
+      "size": 168960,
+      "sha256": "3184a8df0ee901b534f6cbbdfb94f0713fabf4879b48260a1fe8a15c8fbc20a2"
+    },
+    {
+      "key": "papers/1718978430_3rd-sem-2019-bng-sec-301.pdf",
+      "name": "1718978430_3rd-sem-2019-bng-sec-301.pdf",
+      "size": 1197052,
+      "sha256": "5bcb2cff3d74b19fa3a85e901cef57fe1e92f2c524f3b18f6e51963d597f6efb"
+    },
+    {
+      "key": "papers/1718978482_3rd-sem-2019-bng-dsc-301.pdf",
+      "name": "1718978482_3rd-sem-2019-bng-dsc-301.pdf",
+      "size": 1258939,
+      "sha256": "ecbff5058cc4020ecf8cef664825130ddd2e6e1f851f0872c79c62c9f0239fa1"
+    },
+    {
+      "key": "papers/1718978517_3rd-sem-2019-bng-lan-301.pdf",
+      "name": "1718978517_3rd-sem-2019-bng-lan-301.pdf",
+      "size": 1147177,
+      "sha256": "467fd57dc2f09280ee59bb6225f2c4067a63b9a7a8c259cf2c1d51a03b3b0ec6"
+    },
+    {
+      "key": "papers/1718979058_3rd-sem-2020-bng-hcc-301.pdf",
+      "name": "1718979058_3rd-sem-2020-bng-hcc-301.pdf",
+      "size": 102213,
+      "sha256": "2ece0e401086af1851583fc6f40b318197940436db5288123a98c66588f845ea"
+    },
+    {
+      "key": "papers/1718979094_3rd-sem-2020-bng-hcc-302.pdf",
+      "name": "1718979094_3rd-sem-2020-bng-hcc-302.pdf",
+      "size": 98897,
+      "sha256": "9cc664537f8a9b71b684181d5360cd8745ccccc012589e455099e21b93614ee6"
+    },
+    {
+      "key": "papers/1718979120_3rd-sem-2020-bng-hcc-303.pdf",
+      "name": "1718979120_3rd-sem-2020-bng-hcc-303.pdf",
+      "size": 103759,
+      "sha256": "d8555b84ae8f8e4f4e3b64a71791d11914549a534ebc6682c580cea3c290f6c4"
+    },
+    {
+      "key": "papers/1718979178_3rd-sem-2021-bng-hcc-301.pdf",
+      "name": "1718979178_3rd-sem-2021-bng-hcc-301.pdf",
+      "size": 980670,
+      "sha256": "bdb86ac9a125b02c5507595120de4c25e9ebfd35a8ac3a8480701e5dff0d67df"
+    },
+    {
+      "key": "papers/1718979211_3rd-sem-2021-bng-hcc-302.pdf",
+      "name": "1718979211_3rd-sem-2021-bng-hcc-302.pdf",
+      "size": 996256,
+      "sha256": "311ff2d9330016c44b7e57f5e46eae0ecb78ffbc63844100e4e414b96f9d773d"
+    },
+    {
+      "key": "papers/1718979243_3rd-sem-2021-bng-hcc-303.pdf",
+      "name": "1718979243_3rd-sem-2021-bng-hcc-303.pdf",
+      "size": 1388265,
+      "sha256": "642d995b8bb0b95e5c7d76d56802ac157039ee9b56b62bb61173fcd3222eb48f"
+    },
+    {
+      "key": "papers/1718979284_3rd-sem-2021-bng-dsc-301.pdf",
+      "name": "1718979284_3rd-sem-2021-bng-dsc-301.pdf",
+      "size": 1033932,
+      "sha256": "3123265f19ddc66899cef81f2c90321a49fa4621793ed57a023c95c35a968e70"
+    },
+    {
+      "key": "papers/1718979322_3rd-sem-2021-bng-lan-301.pdf",
+      "name": "1718979322_3rd-sem-2021-bng-lan-301.pdf",
+      "size": 1301472,
+      "sha256": "42c167adb1f78d05fa874b8e66e29092415b91a5839b5319e5a2a97b957a86c6"
+    },
+    {
+      "key": "papers/1718979356_3rd-sem-2021-bng-sec-301.pdf",
+      "name": "1718979356_3rd-sem-2021-bng-sec-301.pdf",
+      "size": 1132576,
+      "sha256": "7a23329239b59b9aca10a90412f68347723d9d71e0f8483132ceefd70bbfbc58"
+    },
+    {
+      "key": "papers/1718979420_3rd-sem-2022-bng-hcc-301.pdf",
+      "name": "1718979420_3rd-sem-2022-bng-hcc-301.pdf",
+      "size": 154129,
+      "sha256": "846261f2147a2a24020f3179a2d57c7c7aa39fefe54e9372dedf87e05861f938"
+    },
+    {
+      "key": "papers/1718979452_3rd-sem-2022-bng-hcc-302.pdf",
+      "name": "1718979452_3rd-sem-2022-bng-hcc-302.pdf",
+      "size": 155997,
+      "sha256": "3079460271e43e4828fe17a69360f7046536e696e93b67d63e73bddae8778131"
+    },
+    {
+      "key": "papers/1718979495_3rd-sem-2022-bng-hcc-303.pdf",
+      "name": "1718979495_3rd-sem-2022-bng-hcc-303.pdf",
+      "size": 188965,
+      "sha256": "6fefe5344179ad3e48f5cab30d23f5a4b827a2710360e4404e0228194204ddb1"
+    },
+    {
+      "key": "papers/1718979543_3rd-sem-2022-bng-lan-301.pdf",
+      "name": "1718979543_3rd-sem-2022-bng-lan-301.pdf",
+      "size": 241242,
+      "sha256": "a2c3ba334505ae3bf03d9d1ee7c9556962abed11657c4938aa8c4e6e1f9ddb67"
+    },
+    {
+      "key": "papers/1718979576_3rd-sem-2022-bng-sec-301.pdf",
+      "name": "1718979576_3rd-sem-2022-bng-sec-301.pdf",
+      "size": 191348,
+      "sha256": "06c8982e69133b81a68cf72eb9df098acc6e6b437afc7e3368c7fd4717949672"
+    },
+    {
+      "key": "papers/1718979619_3rd-sem-2022-bng-dscge-301.pdf",
+      "name": "1718979619_3rd-sem-2022-bng-dscge-301.pdf",
+      "size": 611322,
+      "sha256": "f7a6a869809744f42a3ba0ce6a0be38a0d93b6ea8457aeb7d3e55b5b9a9ab04d"
+    },
+    {
+      "key": "papers/1718979619_3rd-sem-2022-bng-dscge-301_6af6c2a9ea6f9d2a40bb.pdf",
+      "name": "1718979619_3rd-sem-2022-bng-dscge-301_6af6c2a9ea6f9d2a40bb.pdf",
+      "size": 183602,
+      "sha256": "65aca2c8d35639735d7267e6cf024e7e8b949617011d925c20e3c71790b2f5d3"
+    },
+    {
+      "key": "papers/1718980164_4th-sem-2022.pdf",
+      "name": "1718980164_4th-sem-2022.pdf",
+      "size": 1281827,
+      "sha256": "edb8f3466b99363d70c4f08afb3973b874bfd2c5b8a94168918f592bf8ac62db"
+    },
+    {
+      "key": "papers/1718980164_4th-sem-2022_6af6c2aad172d02eb6a7.pdf",
+      "name": "1718980164_4th-sem-2022_6af6c2aad172d02eb6a7.pdf",
+      "size": 961520,
+      "sha256": "88010435477c63e533b649c87c556572bbd35aca185d2a195c55cbf269f79696"
+    },
+    {
+      "key": "papers/1718980189_4th-sem-2022.pdf",
+      "name": "1718980189_4th-sem-2022.pdf",
+      "size": 1839689,
+      "sha256": "c729e9c1f36432690ff0a9e61484cbb9a0ecc320d3b80bbc85b4af4707836b4c"
+    },
+    {
+      "key": "papers/1718980189_4th-sem-2022_6af6c2abbc305acad7ba.pdf",
+      "name": "1718980189_4th-sem-2022_6af6c2abbc305acad7ba.pdf",
+      "size": 984596,
+      "sha256": "ba0d0338d6151381d36d6cc9231cfd5fb03c7a2f696f46bde4b8147db0c0068b"
+    },
+    {
+      "key": "papers/1718980213_4th-sem-2022.pdf",
+      "name": "1718980213_4th-sem-2022.pdf",
+      "size": 2079767,
+      "sha256": "6371d233ba36428f05c50efdcae74d9f2f5e8e93ffea630af2d1015d2738adc4"
+    },
+    {
+      "key": "papers/1718980213_4th-sem-2022_6af6c2ad7d428820861c.pdf",
+      "name": "1718980213_4th-sem-2022_6af6c2ad7d428820861c.pdf",
+      "size": 1224688,
+      "sha256": "78d97127576b267ee6aa766200bbbd2f0d825a07a87089d65a77065944f27cc7"
+    },
+    {
+      "key": "papers/1718980238_4th-sem-2022.pdf",
+      "name": "1718980238_4th-sem-2022.pdf",
+      "size": 1527353,
+      "sha256": "0f637751c64b5ecaf40a3b306ef7114cd8aa229c975cdb03c54b56c5d6408c3a"
+    },
+    {
+      "key": "papers/1718980238_4th-sem-2022_6af6c2af2719db91c71c.pdf",
+      "name": "1718980238_4th-sem-2022_6af6c2af2719db91c71c.pdf",
+      "size": 1164113,
+      "sha256": "7a6d3832fcb6691656d249ae92571fe9ce3af24b4650a45daf877919cda8e660"
+    },
+    {
+      "key": "papers/1718980262_4th-sem-2022.pdf",
+      "name": "1718980262_4th-sem-2022.pdf",
+      "size": 1328912,
+      "sha256": "5949f6b0778c22215edd80376dccb88544069a04bcd415909e2e38440c74d359"
+    },
+    {
+      "key": "papers/1718980262_4th-sem-2022_6af6c2ae882c5a658af4.pdf",
+      "name": "1718980262_4th-sem-2022_6af6c2ae882c5a658af4.pdf",
+      "size": 1011442,
+      "sha256": "504209e5c7b712ab3e51000a6efdc155f01b5e55ad26adbcfb1dbf1a63b8b422"
+    },
+    {
+      "key": "papers/1718980294_4th-sem-2023.pdf",
+      "name": "1718980294_4th-sem-2023.pdf",
+      "size": 1201727,
+      "sha256": "35f138f03d792ea0552e4b8539a75ea42a66c2c04819420be433e1daa4d7d621"
+    },
+    {
+      "key": "papers/1718980294_4th-sem-2023_6af6c2aee0a578e9c276.pdf",
+      "name": "1718980294_4th-sem-2023_6af6c2aee0a578e9c276.pdf",
+      "size": 775211,
+      "sha256": "9b1dab43276bad8eade23aa56e802b6ed5d335950ec8b9dd40ff6a82ce925c18"
+    },
+    {
+      "key": "papers/1718980314_4th-sem-2023.pdf",
+      "name": "1718980314_4th-sem-2023.pdf",
+      "size": 677557,
+      "sha256": "f3c9228b60d161cadbf517d5d90962db87fe6a7bb8a730e7458df8030a61d31c"
+    },
+    {
+      "key": "papers/1718980314_4th-sem-2023_6af6c2af3e7b998a662e.pdf",
+      "name": "1718980314_4th-sem-2023_6af6c2af3e7b998a662e.pdf",
+      "size": 251042,
+      "sha256": "7a0c7344c37696015d96a2dc09790f9f30f698f1dd49f44aaa62b701367f677c"
+    },
+    {
+      "key": "papers/1718980340_4th-sem-2023.pdf",
+      "name": "1718980340_4th-sem-2023.pdf",
+      "size": 652634,
+      "sha256": "25fab853d1da38bccb073744a41d59ee418ca7ae39ba4884428e1f2f8538781e"
+    },
+    {
+      "key": "papers/1718980378_4th-sem-2023.pdf",
+      "name": "1718980378_4th-sem-2023.pdf",
+      "size": 652634,
+      "sha256": "25fab853d1da38bccb073744a41d59ee418ca7ae39ba4884428e1f2f8538781e"
+    },
+    {
+      "key": "papers/1718980378_4th-sem-2023_6af6c2903eeba223b8f7.pdf",
+      "name": "1718980378_4th-sem-2023_6af6c2903eeba223b8f7.pdf",
+      "size": 652634,
+      "sha256": "25fab853d1da38bccb073744a41d59ee418ca7ae39ba4884428e1f2f8538781e"
+    },
+    {
+      "key": "papers/1718980399_4th-sem-2023.pdf",
+      "name": "1718980399_4th-sem-2023.pdf",
+      "size": 852612,
+      "sha256": "1aaca4f30b0102f783c90e360da12a3156ef1a9d6019f6a25cdf6e2b7b69dbc1"
+    },
+    {
+      "key": "papers/1718980399_4th-sem-2023_6af6c2b08ab4d43c5e8c.pdf",
+      "name": "1718980399_4th-sem-2023_6af6c2b08ab4d43c5e8c.pdf",
+      "size": 426098,
+      "sha256": "55b1a428d5b6342ff48c28387e05496db0632569796c2fddfff4fa6ed8624242"
+    },
+    {
+      "key": "papers/1718980428_4th-sem-2023.pdf",
+      "name": "1718980428_4th-sem-2023.pdf",
+      "size": 1494886,
+      "sha256": "9c7bc0fe31d3e4353ccdfe6233ec25b029eb99fd6acdb7a6471e77ed03c2ddca"
+    },
+    {
+      "key": "papers/1718980428_4th-sem-2023_6af6c2afa83bc171201b.pdf",
+      "name": "1718980428_4th-sem-2023_6af6c2afa83bc171201b.pdf",
+      "size": 215769,
+      "sha256": "2d1fe46b17ed600cd91b7316b2b1a9a68c45bbda3017fdc1a30cafc2aabe923a"
+    },
+    {
+      "key": "papers/1718981750_4th-sem-2024.pdf",
+      "name": "1718981750_4th-sem-2024.pdf",
+      "size": 2891048,
+      "sha256": "26419137076be61f04dd6ccf39cd1dd8119b3b7f28bf7cda5a4d9ce163542804"
+    },
+    {
+      "key": "papers/1718981750_4th-sem-2024_6af6c2902ed8906629fe.pdf",
+      "name": "1718981750_4th-sem-2024_6af6c2902ed8906629fe.pdf",
+      "size": 2891048,
+      "sha256": "26419137076be61f04dd6ccf39cd1dd8119b3b7f28bf7cda5a4d9ce163542804"
+    },
+    {
+      "key": "papers/1718983590_1st-sem-2023.pdf",
+      "name": "1718983590_1st-sem-2023.pdf",
+      "size": 1902603,
+      "sha256": "fa841962fa95e0f4d9f7f48683c553a3af0c59c03ee68872458cee7eb0bcee0e"
+    },
+    {
+      "key": "papers/1718983590_1st-sem-2023_6af6c28e59c2c80c56a5.pdf",
+      "name": "1718983590_1st-sem-2023_6af6c28e59c2c80c56a5.pdf",
+      "size": 1902603,
+      "sha256": "fa841962fa95e0f4d9f7f48683c553a3af0c59c03ee68872458cee7eb0bcee0e"
+    },
+    {
+      "key": "papers/1718984718_6th-sem-2024.pdf",
+      "name": "1718984718_6th-sem-2024.pdf",
+      "size": 3051727,
+      "sha256": "0d47be9f89ee0eb87df3e464004de7c5389bf6b1a03ac2d6457f06049add3227"
+    },
+    {
+      "key": "papers/1718985207_6th-sem-2022.pdf",
+      "name": "1718985207_6th-sem-2022.pdf",
+      "size": 2430932,
+      "sha256": "ed59b627adb1710bb529d745b9ca0b8c35003075f98812d7bbf0f477d1483c37"
+    },
+    {
+      "key": "papers/1718985741_5th-sem-2021.pdf",
+      "name": "1718985741_5th-sem-2021.pdf",
+      "size": 2972750,
+      "sha256": "8dde942dfd4a7cb90877639150da265ab750b58e156c175421f3b7506bb33862"
+    },
+    {
+      "key": "papers/1718985769_5th-sem-2022.pdf",
+      "name": "1718985769_5th-sem-2022.pdf",
+      "size": 2128525,
+      "sha256": "b5535afd965e29e40c9f382afe25a1ed51a09848149bcce1edd06cfdc8601003"
+    },
+    {
+      "key": "papers/1719391781_hs-2nd-year-2024-bengali-mil.pdf",
+      "name": "1719391781_hs-2nd-year-2024-bengali-mil.pdf",
+      "size": 1113947,
+      "sha256": "07d1b46d56c5e1157220f2be20153d013582cf64b5fcca663d05187630facc43"
+    },
+    {
+      "key": "papers/1719391781_hs-2nd-year-2024-bengali-mil_6af6c28cb34f12da2d02.pdf",
+      "name": "1719391781_hs-2nd-year-2024-bengali-mil_6af6c28cb34f12da2d02.pdf",
+      "size": 1113947,
+      "sha256": "07d1b46d56c5e1157220f2be20153d013582cf64b5fcca663d05187630facc43"
+    },
+    {
+      "key": "papers/1725544409_2nd-sem-2024-fyug.pdf",
+      "name": "1725544409_2nd-sem-2024-fyug.pdf",
+      "size": 6505566,
+      "sha256": "59ab5003daaced9a4c41f8bf705e2451a3193dcb308f88c04504a8a90ed9ddb2"
+    },
+    {
+      "key": "papers/1726904906_1st-sem-2024.pdf",
+      "name": "1726904906_1st-sem-2024.pdf",
+      "size": 1724465,
+      "sha256": "e2cfb9bd16221c97dfdf005db507a6275aa09b00e2abee859086830e6d45c915"
+    },
+    {
+      "key": "papers/1726908171_1st-sem-2024-engdsc-151-152-engidc-151t-engsec-151t-engaec-101t-engdsc-102t-engd.pdf",
+      "name": "1726908171_1st-sem-2024-engdsc-151-152-engidc-151t-engsec-151t-engaec-101t-engdsc-102t-engd.pdf",
+      "size": 13568232,
+      "sha256": "e6d3371a6934d68820800dbb4256d61eb788ee622f8b40034825496ca0623227"
+    },
+    {
+      "key": "papers/1727081283_2nd-sem-2024-engaec-151t.pdf",
+      "name": "1727081283_2nd-sem-2024-engaec-151t.pdf",
+      "size": 1705701,
+      "sha256": "fe3ea6aa1bca3df88bb5ab1f006ba705cb68ae9f5f2d155e79bdaed2c4bf15f8"
+    },
+    {
+      "key": "papers/1730877057_1st-sem-2022-engl101t.pdf",
+      "name": "1730877057_1st-sem-2022-engl101t.pdf",
+      "size": 3428635,
+      "sha256": "214e8ce3f6610be0e7fd2b365f34878280d7328acaeaf953b98d63bb3eae56e1"
+    },
+    {
+      "key": "papers/1730877635_5th-sem-2023-engsec-501t-257_business-communication.pdf",
+      "name": "1730877635_5th-sem-2023-engsec-501t-257_business-communication.pdf",
+      "size": 2242107,
+      "sha256": "26f99fb863f569bfc5741d519cff5f6bcd5784b62e9d86b4dd181066601f197e"
+    },
+    {
+      "key": "papers/1730877699_5th-sem-2022-engsec-501t.pdf",
+      "name": "1730877699_5th-sem-2022-engsec-501t.pdf",
+      "size": 2242107,
+      "sha256": "6906d2de8f501534b11df2355d3939b393fce3c4f8c237aab17c91d554169328"
+    },
+    {
+      "key": "papers/1730878448_2nd-sem-2023-enghcc-201t-enghcc-202-engdsc-ge-201t-englan2-01t.pdf",
+      "name": "1730878448_2nd-sem-2023-enghcc-201t-enghcc-202-engdsc-ge-201t-englan2-01t.pdf",
+      "size": 6996976,
+      "sha256": "03f519dd9fe8d407a0416a1cb6c962f6a58755b40c789b0dc90d83108a00099c"
+    },
+    {
+      "key": "papers/1735480172_24J-1113_chemistry-bonding-MO-theory.pdf",
+      "name": "1735480172_24J-1113_chemistry-bonding-MO-theory.pdf",
+      "size": 2384983,
+      "sha256": "c11889bea5ea7c9c3b314ac92b4c04f4a95f77d2f8cedf8147d3f88b7089fe31"
+    },
+    {
+      "key": "papers/1735480273_CHMHCC-402T-303_Organic-Chemistry_TDC-EvenSem-2024.pdf",
+      "name": "1735480273_CHMHCC-402T-303_Organic-Chemistry_TDC-EvenSem-2024.pdf",
+      "size": 1799475,
+      "sha256": "df311dccdf865a128898a5ed4fb5b28a4dc753cc525fc8818872239779ada340"
+    },
+    {
+      "key": "papers/1735480311_CHMHCC-403T-304_Physical-Chemistry-IV_EvenSem-2024.pdf",
+      "name": "1735480311_CHMHCC-403T-304_Physical-Chemistry-IV_EvenSem-2024.pdf",
+      "size": 1796693,
+      "sha256": "bd33ed7fe96bfda0991e4edd4040204e3408fdf0c0925ad9f318f22bab70b864"
+    },
+    {
+      "key": "papers/1735480444_CHMSEC-401T-306_Fuel-Chemistry_TDC-EvenSem-2024.pdf",
+      "name": "1735480444_CHMSEC-401T-306_Fuel-Chemistry_TDC-EvenSem-2024.pdf",
+      "size": 1702637,
+      "sha256": "9e0b9f520ed0a69a346f15b41da195ad553df89886a4afae5e663fca8e764111"
+    },
+    {
+      "key": "papers/1735622747_MATDSC-152T-127_Integral-Calculus-and-Vectors-2ndSem_FYUG-2024.pdf",
+      "name": "1735622747_MATDSC-152T-127_Integral-Calculus-and-Vectors-2ndSem_FYUG-2024.pdf",
+      "size": 900644,
+      "sha256": "8b643975cea69320fb7975407481615dd07137d3427f2419fe339a477eb2fe5f"
+    },
+    {
+      "key": "papers/1735709623_MATDSM-101T-142_Calculus-1stSem_FYUG-held2024.pdf",
+      "name": "1735709623_MATDSM-101T-142_Calculus-1stSem_FYUG-held2024.pdf",
+      "size": 784552,
+      "sha256": "a8b100bcfcc8880ff243932202b72d287a51474d14aff3a7e2fdb15978f086c1"
+    },
+    {
+      "key": "papers/1735709677_MATDSC-101T-140_Higher-Algebra-and-Trigonometry-1stSem_FYUG-held2024.pdf",
+      "name": "1735709677_MATDSC-101T-140_Higher-Algebra-and-Trigonometry-1stSem_FYUG-held2024.pdf",
+      "size": 920582,
+      "sha256": "95816cc65a53c16019c10b87d76a78ea9e51f3b1e91842e01441a76dc31642c2"
+    },
+    {
+      "key": "papers/1739252281_SEC0301003_Data-Analysis-in-Social-Sciences_SEC_FYUG-2024.pdf",
+      "name": "1739252281_SEC0301003_Data-Analysis-in-Social-Sciences_SEC_FYUG-2024.pdf",
+      "size": 1544245,
+      "sha256": "ce05f8f9b9bf385cc6ba395f5334f43227e6401d20dd4e20eb1c63e51cec34f7"
+    },
+    {
+      "key": "papers/1739252382_ECO0300104_Intermediate-Economics-I_FYUG-Sem3-2024.pdf",
+      "name": "1739252382_ECO0300104_Intermediate-Economics-I_FYUG-Sem3-2024.pdf",
+      "size": 1710283,
+      "sha256": "bfc972070674cbd1384ffe47ab40ffc47675ac9e6ca39a9957a4b67a28333a30"
+    },
+    {
+      "key": "papers/1739253814_SEC0302603_Reasoning-and-Logic_SEC_FYUG-Sem3-2024.pdf",
+      "name": "1739253814_SEC0302603_Reasoning-and-Logic_SEC_FYUG-Sem3-2024.pdf",
+      "size": 1300660,
+      "sha256": "03ca173a05f6c5dee6716a0e058ff51798353ec7d34769c96916de421b707e31"
+    },
+    {
+      "key": "papers/1739253891_PHI0300104_Introduction-to-Systems-of-Indian-Philosophy_FYUG-Sem3-2024.pdf",
+      "name": "1739253891_PHI0300104_Introduction-to-Systems-of-Indian-Philosophy_FYUG-Sem3-2024.pdf",
+      "size": 1044289,
+      "sha256": "990d97415a350a77c615e3b334a6e0557fb4ccd8349e0ccda6c7c271f05b1b74"
+    },
+    {
+      "key": "papers/1739257092_HIS-HE-S016_Assam-upto-c1228AD_Honours-Elective_CBCS-Sem5-2024.pdf",
+      "name": "1739257092_HIS-HE-S016_Assam-upto-c1228AD_Honours-Elective_CBCS-Sem5-2024.pdf",
+      "size": 1281023,
+      "sha256": "0e79b3b5d083df0fe52c5697535b1520308d67fa67ddb0c4aad5d06bb84abf6f"
+    },
+    {
+      "key": "papers/1739338314_SEC0107203_Panchayati-Raj-in-Practice_SEC_FYUG-Sem1-2024.pdf",
+      "name": "1739338314_SEC0107203_Panchayati-Raj-in-Practice_SEC_FYUG-Sem1-2024.pdf",
+      "size": 1133766,
+      "sha256": "e00e9059f45f64b6c4d2b52bf08500bcf5754235e66ecab929f29d37ab626ce5"
+    },
+    {
+      "key": "papers/1739338645_HIS0100104_History-of-India-upto-1206CE_FYUG-Sem1-2024.pdf",
+      "name": "1739338645_HIS0100104_History-of-India-upto-1206CE_FYUG-Sem1-2024.pdf",
+      "size": 1694830,
+      "sha256": "39c61e441d5511b3bb3a04e3de41eac42fa4ceab8364f79fbc4ac953c7637894"
+    },
+    {
+      "key": "papers/1743142917_1st-sem-2024-fyug.pdf",
+      "name": "1743142917_1st-sem-2024-fyug.pdf",
+      "size": 9321377,
+      "sha256": "9293d8522c981e91aae59f4e09b32d846bec3a3c509e4b720264eb344674c1da"
+    },
+    {
+      "key": "papers/1743143152_3rd-sem-2024-fyug.pdf",
+      "name": "1743143152_3rd-sem-2024-fyug.pdf",
+      "size": 9579190,
+      "sha256": "1bc19ee42df30e68ede9f3cc675ef5567a14b38c4c948e0bb93efd736b334032"
+    },
+    {
+      "key": "papers/1745821669_PHI0200104_Greek-Philosophy_FYUG-Sem2-2024.pdf",
+      "name": "1745821669_PHI0200104_Greek-Philosophy_FYUG-Sem2-2024.pdf",
+      "size": 6021279,
+      "sha256": "5e14722707788a4eecc3b38d1b418150e3dd6319f7499902c1bfdee7769ca9f0"
+    },
+    {
+      "key": "papers/1752039022_PHI0400404_Theory-of-Knowledge-Indian_FYUG-Sem4-2025.pdf",
+      "name": "1752039022_PHI0400404_Theory-of-Knowledge-Indian_FYUG-Sem4-2025.pdf",
+      "size": 857309,
+      "sha256": "030ba8a73aa49b4949db90231e726a6a4446a2a7d280c7415c49040646cfac58"
+    },
+    {
+      "key": "papers/1752039276_ECO0400204_Advanced-Macroeconomics_FYUG-Sem4-2025.pdf",
+      "name": "1752039276_ECO0400204_Advanced-Macroeconomics_FYUG-Sem4-2025.pdf",
+      "size": 1591508,
+      "sha256": "695b1eea3bd6d5fe5a37a365bcdc0909ea2d468e8047d3e3ea0a6e7ef32e6db3"
+    },
+    {
+      "key": "papers/1752039683_POL0400404_Public-Policy-and-Administration-in-India_FYUG-Sem4-2025.pdf",
+      "name": "1752039683_POL0400404_Public-Policy-and-Administration-in-India_FYUG-Sem4-2025.pdf",
+      "size": 3156299,
+      "sha256": "23f7a477c54daed1a6fe2a64c816e2e8a4e94b337cc35e6203910d823ed100f1"
+    },
+    {
+      "key": "papers/1754586336_CHMHCC-202-241_Physical-Chemistry_TDC-EvenSem-2025.pdf",
+      "name": "1754586336_CHMHCC-202-241_Physical-Chemistry_TDC-EvenSem-2025.pdf",
+      "size": 3873634,
+      "sha256": "3e5218055b5d3bb5ff46e5aaab1b9f5e77a171f5f8189182cf80e48d24dcaee7"
+    },
+    {
+      "key": "papers/1754586403_CHMDSC-GE-201-242_Organic-Chemistry_2025.pdf",
+      "name": "1754586403_CHMDSC-GE-201-242_Organic-Chemistry_2025.pdf",
+      "size": 4931619,
+      "sha256": "8158e65bb7b582f6f0a167969a82a9254524f0a0bbcfc3e1c013d55e91fda772"
+    },
+    {
+      "key": "papers/1754586573_CHMHCC-403-245_Physical-Chemistry-IV_EvenSem-2025.pdf",
+      "name": "1754586573_CHMHCC-403-245_Physical-Chemistry-IV_EvenSem-2025.pdf",
+      "size": 1813555,
+      "sha256": "48caab888a7018b651a26049a00c2bfc405f97944b5afee23c5340dad293b895"
+    },
+    {
+      "key": "papers/1754586648_CHMDSC-GE_J25-1027_TDC-EvenSem-2025.pdf",
+      "name": "1754586648_CHMDSC-GE_J25-1027_TDC-EvenSem-2025.pdf",
+      "size": 1622249,
+      "sha256": "3da11d05ed4e630a61f27453cf4c42e7aab088575e32457b5598cfe6261ad650"
+    },
+    {
+      "key": "papers/1754586909_CHMDSM-252-142_Fundamentals-of-Chemistry-II_FYUG-EvenSem-2025.pdf",
+      "name": "1754586909_CHMDSM-252-142_Fundamentals-of-Chemistry-II_FYUG-EvenSem-2025.pdf",
+      "size": 2592115,
+      "sha256": "b409adae1e63af454c02b2c1ddf141db2126ea0b2943488c296e6b4d08ea8b19"
+    },
+    {
+      "key": "papers/1754586953_CHMDSM-151-137_Fundamentals-of-Chemistry-I_FYUG-minor-2025.pdf",
+      "name": "1754586953_CHMDSM-151-137_Fundamentals-of-Chemistry-I_FYUG-minor-2025.pdf",
+      "size": 2389424,
+      "sha256": "2a1c41ee876d0316eacf8f73c2aac94183810353ef7b629df6ec2ded6acf953e"
+    },
+    {
+      "key": "papers/1754587101_CHMDSC-252-141_Organometallic-and-Analytical-Chemistry_FYUG-EvenSem-2025.pdf",
+      "name": "1754587101_CHMDSC-252-141_Organometallic-and-Analytical-Chemistry_FYUG-EvenSem-2025.pdf",
+      "size": 1633997,
+      "sha256": "e93033fe5174cba395f0766a704ef183ba6cae894ea4bd16f43297743b206887"
+    },
+    {
+      "key": "papers/BOTDSM252T_Unit_1_Notes.pdf",
+      "name": "BOTDSM252T_Unit_1_Notes.pdf",
+      "size": 1531920,
+      "sha256": "c3e57e25e9230f7fb37a36af1d93cb0b5f7d4f4963aed28db882c68ea9761079"
+    },
+    {
+      "key": "papers/COMDSC351T_Unit_3_Notes.pdf",
+      "name": "COMDSC351T_Unit_3_Notes.pdf",
+      "size": 976409,
+      "sha256": "28c92e567f3e0f51a8edc45940df4ec312e50f3b71c07f81e4833c4c33cc79ed"
+    },
+    {
+      "key": "papers/COMDSC351T_Unit_3_Notes_6af6c2450ee79f1bb440.pdf",
+      "name": "COMDSC351T_Unit_3_Notes_6af6c2450ee79f1bb440.pdf",
+      "size": 976808,
+      "sha256": "f103d4ef03921c2ecf47fd0530efbf4080835367813814f72d0e47416a7c351f"
+    },
+    {
+      "key": "papers/PHYDSC101T-2023.pdf",
+      "name": "PHYDSC101T-2023.pdf",
+      "size": 993898,
+      "sha256": "0529b3c71e938399b103ef2a9e3ecd02e8800627088f0c5b33d71a65e0d016ac"
+    },
+    {
+      "key": "papers/PHYDSC351T_Unit_1_Notes.pdf",
+      "name": "PHYDSC351T_Unit_1_Notes.pdf",
+      "size": 759699,
+      "sha256": "a7b7fa12d188b442713c91f33ac724cbffaf9fcb888bbe5a50f57e29de938c88"
+    },
+    {
+      "key": "papers/PHYDSC351T_Unit_1_Notes_6af6c246e8f0f89d2ad1.pdf",
+      "name": "PHYDSC351T_Unit_1_Notes_6af6c246e8f0f89d2ad1.pdf",
+      "size": 738928,
+      "sha256": "1ecf4186cecb8cbfca853d131a70162b4bea684ce5c016de54a02545a0a3422d"
+    },
+    {
+      "key": "papers/PHYDSC351T_Unit_1_Notes_6af6c247ad2072426971.pdf",
+      "name": "PHYDSC351T_Unit_1_Notes_6af6c247ad2072426971.pdf",
+      "size": 854833,
+      "sha256": "47ab563be7608ca50745cb129786b72c39405fa7f59fc48a11e0dc6ae1fcd63f"
+    },
+    {
+      "key": "papers/PHYDSC351T_Unit_1_Notes_6af6c2485d7077233250.pdf",
+      "name": "PHYDSC351T_Unit_1_Notes_6af6c2485d7077233250.pdf",
+      "size": 854833,
+      "sha256": "f3fd914e4dacd50e31e5ddededbc26128e6540bff6471de1ef3a9223a55de137"
+    },
+    {
+      "key": "papers/PHYDSC351T_Unit_1_Notes_6af6c24a16faeb3ec386.pdf",
+      "name": "PHYDSC351T_Unit_1_Notes_6af6c24a16faeb3ec386.pdf",
+      "size": 821873,
+      "sha256": "7e16737c04610dae8543475c09c16f4b21e190ee9875e3b2dc23964dcbcfddf2"
+    },
+    {
+      "key": "papers/PHYDSC351T_Unit_1_Notes_6af6c24a21e1eb16a192.pdf",
+      "name": "PHYDSC351T_Unit_1_Notes_6af6c24a21e1eb16a192.pdf",
+      "size": 821873,
+      "sha256": "09fcc065f6a6e1afed8de808bfb06055d2bbabcf1fa3419da2ab7b9e1c663aee"
+    },
+    {
+      "key": "papers/PHYDSC351T_Unit_1_Notes_6af6c24a3e6b94bb0402.pdf",
+      "name": "PHYDSC351T_Unit_1_Notes_6af6c24a3e6b94bb0402.pdf",
+      "size": 833148,
+      "sha256": "8758dbfaa544cde9df1f07e36d9b7c75b903ecc334db8f95ac6645f51029dac6"
+    },
+    {
+      "key": "papers/PHYDSC351T_Unit_1_Notes_6af6c24ad93f4bb025ff.pdf",
+      "name": "PHYDSC351T_Unit_1_Notes_6af6c24ad93f4bb025ff.pdf",
+      "size": 808258,
+      "sha256": "2b0ad68caf043031e24326aee2b91327a55132a997f2538d1d6b49906e4b0d8e"
+    },
+    {
+      "key": "papers/PHYDSC351T_Unit_1_Notes_6af6c24b1b9d41835748.pdf",
+      "name": "PHYDSC351T_Unit_1_Notes_6af6c24b1b9d41835748.pdf",
+      "size": 794762,
+      "sha256": "774fa13d0351b7e27dbf10d32f10b81cc9c89fcf08bb5abad5632e7514065c90"
+    },
+    {
+      "key": "papers/PHYDSC351T_Unit_1_Notes_6af6c24d104aab9817af.pdf",
+      "name": "PHYDSC351T_Unit_1_Notes_6af6c24d104aab9817af.pdf",
+      "size": 692689,
+      "sha256": "b325f7d80eaa006e161c14b9530c45f728ca468aa7134b8c57dfb61eea979959"
+    },
+    {
+      "key": "papers/PHYDSC351T_Unit_1_Notes_6af6c24d567041fb04f0.pdf",
+      "name": "PHYDSC351T_Unit_1_Notes_6af6c24d567041fb04f0.pdf",
+      "size": 723052,
+      "sha256": "4d2b1636b2796178d55c7d9cbdb4238dc16d8fdfe27c60e67adc9a9b45035998"
+    },
+    {
+      "key": "papers/PHYDSC352T_2024_solved_paper.pdf",
+      "name": "PHYDSC352T_2024_solved_paper.pdf",
+      "size": 277216,
+      "sha256": "6b8cdf03f07cc3ec93409f449ea0219b74fa55d98103a066c437df9bfcbf6589"
+    },
+    {
+      "key": "papers/PHYDSC352T_Unit_1_Notes.pdf",
+      "name": "PHYDSC352T_Unit_1_Notes.pdf",
+      "size": 1093488,
+      "sha256": "c59e0057c7997e8ad2f5cd633ba9c7f502ce3e7871eaf848b44ff1c53833567c"
+    },
+    {
+      "key": "papers/PHYDSC352T_Unit_2_Notes.pdf",
+      "name": "PHYDSC352T_Unit_2_Notes.pdf",
+      "size": 1720278,
+      "sha256": "30497e769519ae69f9877b7a11261722d6d6ec0dc8a3396c8fdfb82db09c0cb2"
+    },
+    {
+      "key": "papers/PHYDSC352T_Unit_2_Notes_6af6c243921f57d93c59.pdf",
+      "name": "PHYDSC352T_Unit_2_Notes_6af6c243921f57d93c59.pdf",
+      "size": 1836234,
+      "sha256": "13fc30b916b9b40c4dfabafee54d0f3e6d3dc8b285fe3abee9cef5f0adf0a79d"
+    },
+    {
+      "key": "papers/PHYDSC352T_Unit_2_Notes_6af6c243977b13041e96.pdf",
+      "name": "PHYDSC352T_Unit_2_Notes_6af6c243977b13041e96.pdf",
+      "size": 1720278,
+      "sha256": "a3247638de1bbf8b7fef81f17dcab9438e12caa70aba4ad081512933519bbddc"
+    },
+    {
+      "key": "papers/PHYDSC352T_Unit_2_Notes_6af6c243a77c805e3287.pdf",
+      "name": "PHYDSC352T_Unit_2_Notes_6af6c243a77c805e3287.pdf",
+      "size": 1660228,
+      "sha256": "274a86ee9543b2714c28f168b88b66901676c7060c6a6ee774907fcd8d08f036"
+    },
+    {
+      "key": "papers/PHYDSC352T_Unit_2_Notes_6af6c243eeec81d1626a.pdf",
+      "name": "PHYDSC352T_Unit_2_Notes_6af6c243eeec81d1626a.pdf",
+      "size": 1720571,
+      "sha256": "4c8dbeee6a87f4f1fd384c65d366a0107e4de9104ad65fb5f43dc0edd3ce915d"
+    },
+    {
+      "key": "papers/PHYDSC352T_Unit_2_Notes_6af6c24edd9cdb52e7a8.pdf",
+      "name": "PHYDSC352T_Unit_2_Notes_6af6c24edd9cdb52e7a8.pdf",
+      "size": 1744946,
+      "sha256": "f93c89ee7905fbfb0bb9cd7dbfc8c4f1e0b38495a9584cda74d6321429846b3f"
+    },
+    {
+      "key": "papers/PHYDSC352T_Unit_5_Notes.pdf",
+      "name": "PHYDSC352T_Unit_5_Notes.pdf",
+      "size": 1179263,
+      "sha256": "12d7c4018e2c741e01ba3d2e993867f2356170c3cd244bb489ec58c094e0e987"
+    },
+    {
+      "key": "papers/PHYDSC352T_Unit_5_Notes_6af6c24ea5a055ec1108.pdf",
+      "name": "PHYDSC352T_Unit_5_Notes_6af6c24ea5a055ec1108.pdf",
+      "size": 1493046,
+      "sha256": "8fd7a6885fb10bef2a9abd1d2c99f3efbfe3dc9927323f8ad73436b441d05dff"
+    },
+    {
+      "key": "papers/PHYDSC353T_Unit_1_Notes.pdf",
+      "name": "PHYDSC353T_Unit_1_Notes.pdf",
+      "size": 1324907,
+      "sha256": "4a8cd3e89a490e2add5b802753f96ee3df52a6cf0f1e6e75b3748ba64a11ca04"
+    },
+    {
+      "key": "papers/PHYDSC353T_Unit_2_Notes.pdf",
+      "name": "PHYDSC353T_Unit_2_Notes.pdf",
+      "size": 1683162,
+      "sha256": "5b0a1b298168c047a570f04a28dfe286a8ef1271f91646da9309eb73f220e9b5"
+    },
+    {
+      "key": "papers/PHYDSC353T_Unit_5_Notes.pdf",
+      "name": "PHYDSC353T_Unit_5_Notes.pdf",
+      "size": 1176145,
+      "sha256": "ee86a046cf7b2ab4a3ecaab1969201cac1798a87cd7b176e92b23d26f88c7239"
+    },
+    {
+      "key": "papers/PHYDSC353T_Unit_5_Notes_6af6c23faa80eeddcc7a.pdf",
+      "name": "PHYDSC353T_Unit_5_Notes_6af6c23faa80eeddcc7a.pdf",
+      "size": 1068811,
+      "sha256": "9c14d62d81fdf14b6cca2d31540535f15d9be0b6b3095385c0e60a85e84174f2"
+    },
+    {
+      "key": "papers/PHYDSC353T_Unit_5_Notes_6af6c23fc2fbfb2f7c2a.pdf",
+      "name": "PHYDSC353T_Unit_5_Notes_6af6c23fc2fbfb2f7c2a.pdf",
+      "size": 1166812,
+      "sha256": "df19263354c9cf11daa75dc481f0115e100bb69bcb231a1e93e052cdbf1716fd"
+    },
+    {
+      "key": "papers/PHYDSC353T_Unit_5_Notes_6af6c23fc9ec0a0c0394.pdf",
+      "name": "PHYDSC353T_Unit_5_Notes_6af6c23fc9ec0a0c0394.pdf",
+      "size": 1300150,
+      "sha256": "94ba67acc2d34f462bf39ce53fddd7c5eef7d770286e869bb11b4c8c26f6f6ae"
+    },
+    {
+      "key": "papers/PHYDSC353T_Unit_5_Notes_6af6c2429aa1800440c9.pdf",
+      "name": "PHYDSC353T_Unit_5_Notes_6af6c2429aa1800440c9.pdf",
+      "size": 1340902,
+      "sha256": "9bc9cab64e08557ecfc01e1031ab4d5e9823fca45271dffe837ff82502ca9bf4"
+    },
+    {
+      "key": "papers/PHYDSC402T_Unit_2_Notes.pdf",
+      "name": "PHYDSC402T_Unit_2_Notes.pdf",
+      "size": 1544819,
+      "sha256": "603e89cf46c8cce1649494c0abee03b7d34eaadf2c0f3ef4b91b725c4d39bb38"
+    },
+    {
+      "key": "papers/assamese_assam-university-assamese-dsc-ge-301t-2021.pdf",
+      "name": "assamese_assam-university-assamese-dsc-ge-301t-2021.pdf",
+      "size": 70822,
+      "sha256": "84bd92b280eef19d4dd318657999ee50449ca748b74d2e663bf65fe47e43e50e"
+    },
+    {
+      "key": "papers/assamese_assam-university-assamese-dsc-gec-201t-2022.pdf",
+      "name": "assamese_assam-university-assamese-dsc-gec-201t-2022.pdf",
+      "size": 69426,
+      "sha256": "81ee9b8166b52dde21c93871b0bd3bc860240c29924c4dcd7223158f2d448381"
+    },
+    {
+      "key": "papers/assamese_assam-university-assamese-dsc-gec-401t-2022.pdf",
+      "name": "assamese_assam-university-assamese-dsc-gec-401t-2022.pdf",
+      "size": 62686,
+      "sha256": "db7de080d45abc6a0a27644b7eebbe19a55b37f449444620d773d4033c67cc1e"
+    },
+    {
+      "key": "papers/botany_assam-university-botany-dsc-gec-401t-plant-physiology-metabolism-2022.pdf",
+      "name": "botany_assam-university-botany-dsc-gec-401t-plant-physiology-metabolism-2022.pdf",
+      "size": 69143,
+      "sha256": "6406655190a7a82802d40c9210ee20b5833cc8573ab31761baf16e5c16e06895"
+    },
+    {
+      "key": "papers/botany_assam-university-botany-dse-601t-industrial-environmental-microbiology-2022.pdf",
+      "name": "botany_assam-university-botany-dse-601t-industrial-environmental-microbiology-2022.pdf",
+      "size": 66213,
+      "sha256": "a3fe539ae65e6bb39d860259eb4bf995e68f079717ed3fb06ac437b099336086"
+    },
+    {
+      "key": "papers/botany_assam-university-botany-dse-603t-biostatistics-2022.pdf",
+      "name": "botany_assam-university-botany-dse-603t-biostatistics-2022.pdf",
+      "size": 117073,
+      "sha256": "4e5ce5b42891e2f8208c7c472ca92d9de123049c555878d1d0f65545f12966d7"
+    },
+    {
+      "key": "papers/botany_assam-university-botany-hcc-201t-mycology-phytopathology-2022.pdf",
+      "name": "botany_assam-university-botany-hcc-201t-mycology-phytopathology-2022.pdf",
+      "size": 45537,
+      "sha256": "3342e1c00c3626356e7143c3fd8abde6d49439e53013a90133f35f0b9e566ef3"
+    },
+    {
+      "key": "papers/botany_assam-university-botany-hcc-202t-archegoniate-2022.pdf",
+      "name": "botany_assam-university-botany-hcc-202t-archegoniate-2022.pdf",
+      "size": 45365,
+      "sha256": "f213546643cb44cc89c5d934e0ac9d07050946d39c2b306b8237a0fe6880dfaf"
+    },
+    {
+      "key": "papers/botany_assam-university-botany-hcc-401t-molecular-biology-2022.pdf",
+      "name": "botany_assam-university-botany-hcc-401t-molecular-biology-2022.pdf",
+      "size": 54322,
+      "sha256": "4107d1279f7a17f1f3fe04d7c8ce34ad2921e884157f90c3295005abd788031f"
+    },
+    {
+      "key": "papers/botany_assam-university-botany-hcc-402t-plant-ecology-phytogeography-2022.pdf",
+      "name": "botany_assam-university-botany-hcc-402t-plant-ecology-phytogeography-2022.pdf",
+      "size": 44045,
+      "sha256": "4f8e015fdfd70688e46ff1d41146f1e40b6fd25fa5a074030f50effd42d01680"
+    },
+    {
+      "key": "papers/botany_assam-university-botany-hcc-403t-plant-systematics-2022.pdf",
+      "name": "botany_assam-university-botany-hcc-403t-plant-systematics-2022.pdf",
+      "size": 42503,
+      "sha256": "a30770ab290abf5a49665994a60f2e921e6b72671fb92a28fae410cc68629de2"
+    },
+    {
+      "key": "papers/botany_assam-university-botany-sec-601t-nursery-gardening-2022.pdf",
+      "name": "botany_assam-university-botany-sec-601t-nursery-gardening-2022.pdf",
+      "size": 54868,
+      "sha256": "b31661f32e80008d52b32f443cb6f2b91bad3ee4ba055e7f4af74a24816e10ac"
+    },
+    {
+      "key": "papers/chemistry_tdc-4-sem-chemistry-341-2022.pdf",
+      "name": "chemistry_tdc-4-sem-chemistry-341-2022.pdf",
+      "size": 63585,
+      "sha256": "4eff63d107d7deb0b4e0aa0d689b0ebdd6885811dca74decf608d0191e75411e"
+    },
+    {
+      "key": "papers/chemistry_tdc-4-sem-chemistry-fuel-chemistry-343-2022.pdf",
+      "name": "chemistry_tdc-4-sem-chemistry-fuel-chemistry-343-2022.pdf",
+      "size": 79991,
+      "sha256": "b4d328d9dc9145a004c8419525c4e19f974d6e07b94a341dd1f06ffa3e4048de"
+    },
+    {
+      "key": "papers/commerce_assam-university-bcom-advertising-dse-5sem-2023.pdf",
+      "name": "commerce_assam-university-bcom-advertising-dse-5sem-2023.pdf",
+      "size": 843130,
+      "sha256": "6f6879613dd36d1b01feea54e01b84da63edee37a81322a54382e640a110be17"
+    },
+    {
+      "key": "papers/commerce_assam-university-bcom-auditing-corporate-governance-6sem-2023.pdf",
+      "name": "commerce_assam-university-bcom-auditing-corporate-governance-6sem-2023.pdf",
+      "size": 331675,
+      "sha256": "47db6f2122da2d58daed6f4d0ab229019be169584e1aa22b92bf997085b5f5ec"
+    },
+    {
+      "key": "papers/commerce_assam-university-bcom-banking-insurance-6sem-2023.pdf",
+      "name": "commerce_assam-university-bcom-banking-insurance-6sem-2023.pdf",
+      "size": 1573203,
+      "sha256": "1ae8000ccdadba5d066099b38c893eaa8a2aadfeceaf1a6f432393458306821a"
+    },
+    {
+      "key": "papers/commerce_assam-university-bcom-banking-insurance-dse-5sem-2023.pdf",
+      "name": "commerce_assam-university-bcom-banking-insurance-dse-5sem-2023.pdf",
+      "size": 948461,
+      "sha256": "e2773cb9aa7ec4eedf590249c93fea494ca1c742447558473cb768e992946968"
+    },
+    {
+      "key": "papers/commerce_assam-university-bcom-business-communication-1sem-2023.pdf",
+      "name": "commerce_assam-university-bcom-business-communication-1sem-2023.pdf",
+      "size": 1000173,
+      "sha256": "192c31f2b43cf8c71d9f4054863b81e5ed126b61d6e7a12a5fdb4549e4d6e909"
+    },
+    {
+      "key": "papers/commerce_assam-university-bcom-business-law-1sem-2023.pdf",
+      "name": "commerce_assam-university-bcom-business-law-1sem-2023.pdf",
+      "size": 712614,
+      "sha256": "94f5735689d536a8894fc5ca8742bf92964f69ec02bf99f2eaf7b948e0b376a3"
+    },
+    {
+      "key": "papers/commerce_assam-university-bcom-business-mathematics-4sem-2023.pdf",
+      "name": "commerce_assam-university-bcom-business-mathematics-4sem-2023.pdf",
+      "size": 917717,
+      "sha256": "dbc9ea77fb7f30ca43346209522d2bc39b2b55845b24cb94a4cd7636b3d0ec61"
+    },
+    {
+      "key": "papers/commerce_assam-university-bcom-business-organisation-management-1sem-2023.pdf",
+      "name": "commerce_assam-university-bcom-business-organisation-management-1sem-2023.pdf",
+      "size": 1029600,
+      "sha256": "1c526265f251ea375218778c1690d8c4986215298c554b2fc91cb496527bfc50"
+    },
+    {
+      "key": "papers/commerce_assam-university-bcom-business-statistics-3sem-2023.pdf",
+      "name": "commerce_assam-university-bcom-business-statistics-3sem-2023.pdf",
+      "size": 990553,
+      "sha256": "d39120496481ca64a66e2a4b70b8bf23986672adba5e43da5f37d3c67049724a"
+    },
+    {
+      "key": "papers/commerce_assam-university-bcom-comdsc103t-1sem-2023.pdf",
+      "name": "commerce_assam-university-bcom-comdsc103t-1sem-2023.pdf",
+      "size": 774747,
+      "sha256": "c1227a695f108006e7bde007161ecbe9ebff4f2a902f462aea2a0aaa5bd2a5fa"
+    },
+    {
+      "key": "papers/commerce_assam-university-bcom-comdsc202t-2sem-2023.pdf",
+      "name": "commerce_assam-university-bcom-comdsc202t-2sem-2023.pdf",
+      "size": 999442,
+      "sha256": "34aace346871e7c28ee797b6ad5b8570b756e873b36e48c0b322b439e00177e0"
+    },
+    {
+      "key": "papers/commerce_assam-university-bcom-company-law-3sem-2023.pdf",
+      "name": "commerce_assam-university-bcom-company-law-3sem-2023.pdf",
+      "size": 1054892,
+      "sha256": "dec1c68e6c1a574674a01d0a49ef957e758e06606975d0a69e6ec7147dd76b9b"
+    },
+    {
+      "key": "papers/commerce_assam-university-bcom-computer-applications-business-4sem-2023.pdf",
+      "name": "commerce_assam-university-bcom-computer-applications-business-4sem-2023.pdf",
+      "size": 697965,
+      "sha256": "6730b6800655c7976fee15d2a0a064e2e5af465df301485863a436a9bc097a8a"
+    },
+    {
+      "key": "papers/commerce_assam-university-bcom-computer-applications-sec-5sem-2023.pdf",
+      "name": "commerce_assam-university-bcom-computer-applications-sec-5sem-2023.pdf",
+      "size": 728717,
+      "sha256": "63c9488b5b3ccb72fc8c1fad13f1dcff4f64e157e7260856e1445f426285c8f9"
+    },
+    {
+      "key": "papers/commerce_assam-university-bcom-corporate-accounting-2sem-2023.pdf",
+      "name": "commerce_assam-university-bcom-corporate-accounting-2sem-2023.pdf",
+      "size": 1946538,
+      "sha256": "f80e33b70d4dd9970a94cfe8c2429670c42ac8f22c491317a6bcd5a2e6488907"
+    },
+    {
+      "key": "papers/commerce_assam-university-bcom-corporate-accounting-dse-4sem-2023.pdf",
+      "name": "commerce_assam-university-bcom-corporate-accounting-dse-4sem-2023.pdf",
+      "size": 1929611,
+      "sha256": "7a3702db25e6f99258b9e0696f473ae098f728868b815ba995f13533c01c3295"
+    },
+    {
+      "key": "papers/commerce_assam-university-bcom-corporate-law-2sem-2023.pdf",
+      "name": "commerce_assam-university-bcom-corporate-law-2sem-2023.pdf",
+      "size": 678134,
+      "sha256": "1e2fa03c526c46e36c1591ee66804ed2d8eae43bd4dd68f266f5d325f3d33f73"
+    },
+    {
+      "key": "papers/commerce_assam-university-bcom-corporate-tax-planning-5sem-2023.pdf",
+      "name": "commerce_assam-university-bcom-corporate-tax-planning-5sem-2023.pdf",
+      "size": 653092,
+      "sha256": "86b456847ceb75fba659174cb3b3a5b400fa30feb75b184b86dbb78424f7ba49"
+    },
+    {
+      "key": "papers/commerce_assam-university-bcom-cost-accounting-4sem-2023.pdf",
+      "name": "commerce_assam-university-bcom-cost-accounting-4sem-2023.pdf",
+      "size": 1330423,
+      "sha256": "3402fb10284542b1498357fbe1573ae2b4dccab1ab0e24c9fc56a6a813390d71"
+    },
+    {
+      "key": "papers/commerce_assam-university-bcom-cost-accounting-dsc-4sem-2023.pdf",
+      "name": "commerce_assam-university-bcom-cost-accounting-dsc-4sem-2023.pdf",
+      "size": 1789377,
+      "sha256": "ee100f453f642a95e9973701d015df45299b7a358fa77e4e6d1584253696a9ee"
+    },
+    {
+      "key": "papers/commerce_assam-university-bcom-dse501t-combined-abc-5sem-2023.pdf",
+      "name": "commerce_assam-university-bcom-dse501t-combined-abc-5sem-2023.pdf",
+      "size": 2578236,
+      "sha256": "ce423e461efc786934c8579530a6c9aa46d32f6fc2709d4e80ecb5a434b50893"
+    },
+    {
+      "key": "papers/commerce_assam-university-bcom-dse502t-combined-ab-5sem-2023.pdf",
+      "name": "commerce_assam-university-bcom-dse502t-combined-ab-5sem-2023.pdf",
+      "size": 2507356,
+      "sha256": "9e1b8e88d9c409ef0c1250883c5f26f95a2ae897b5d55fc1369861c939e78de4"
+    },
+    {
+      "key": "papers/commerce_assam-university-bcom-e-commerce-3sem-2023.pdf",
+      "name": "commerce_assam-university-bcom-e-commerce-3sem-2023.pdf",
+      "size": 687268,
+      "sha256": "f6e0e752f112f4f7b98c39d70e0298df82628dab1bc7eb8f798ea45ef8d6e83c"
+    },
+    {
+      "key": "papers/commerce_assam-university-bcom-entrepreneurship-4sem-2023.pdf",
+      "name": "commerce_assam-university-bcom-entrepreneurship-4sem-2023.pdf",
+      "size": 881139,
+      "sha256": "61d65aad8e51fa15b5a65bd02df1dd134a5ac9e1ef9b61e7d5091cdff0974a09"
+    },
+    {
+      "key": "papers/commerce_assam-university-bcom-financial-accounting-1sem-2023.pdf",
+      "name": "commerce_assam-university-bcom-financial-accounting-1sem-2023.pdf",
+      "size": 1334183,
+      "sha256": "a556f23a37bd038463de0c3d95bbda1513a4c7251466dc66a84ea78736d1572c"
+    },
+    {
+      "key": "papers/commerce_assam-university-bcom-financial-management-5sem-2023.pdf",
+      "name": "commerce_assam-university-bcom-financial-management-5sem-2023.pdf",
+      "size": 1110549,
+      "sha256": "c1a7049e644f73b560d1a264f893894076726a536cb4b6c70266864294aa8762"
+    },
+    {
+      "key": "papers/commerce_assam-university-bcom-financial-markets-services-5sem-2023.pdf",
+      "name": "commerce_assam-university-bcom-financial-markets-services-5sem-2023.pdf",
+      "size": 936519,
+      "sha256": "3ccf267ab4472d6b4129102c19e745452cd2be6ecf340faf39e2870996dd1a48"
+    },
+    {
+      "key": "papers/commerce_assam-university-bcom-fundamentals-of-investment-6sem-2023.pdf",
+      "name": "commerce_assam-university-bcom-fundamentals-of-investment-6sem-2023.pdf",
+      "size": 514058,
+      "sha256": "ef73e9cf976087a44e32f7f28a37cd0e84a0646ba9f01cb1ac4bb6a18299d686"
+    },
+    {
+      "key": "papers/commerce_assam-university-bcom-human-resource-management-3sem-2023.pdf",
+      "name": "commerce_assam-university-bcom-human-resource-management-3sem-2023.pdf",
+      "size": 598939,
+      "sha256": "1e3c87d692ff26abdd1e5e4bf31b3e06f308d374fc37ce36e0e174df82719071"
+    },
+    {
+      "key": "papers/commerce_assam-university-bcom-income-tax-law-practice-3sem-2023.pdf",
+      "name": "commerce_assam-university-bcom-income-tax-law-practice-3sem-2023.pdf",
+      "size": 1845294,
+      "sha256": "9e64542c1ad16f180653a25b9be8d78482597f4ef57664505c6d24082c8c1432"
+    },
+    {
+      "key": "papers/commerce_assam-university-bcom-income-tax-law-practice-hcc-3sem-2023.pdf",
+      "name": "commerce_assam-university-bcom-income-tax-law-practice-hcc-3sem-2023.pdf",
+      "size": 1545712,
+      "sha256": "5e774f9f07ed2c2d83bccc910249a7d957bfd5fb976e99708675755f3a4c568a"
+    },
+    {
+      "key": "papers/commerce_assam-university-bcom-indian-economy-4sem-2023.pdf",
+      "name": "commerce_assam-university-bcom-indian-economy-4sem-2023.pdf",
+      "size": 853546,
+      "sha256": "0870824b8adfa3edc8d443eb2e23d78d1cb3f455308d8dc99abb3bef22ba3db9"
+    },
+    {
+      "key": "papers/commerce_assam-university-bcom-indian-economy-6sem-2023.pdf",
+      "name": "commerce_assam-university-bcom-indian-economy-6sem-2023.pdf",
+      "size": 476479,
+      "sha256": "5d5209a4ef8b3af4b62e6fec94fdc62686206d9822c07d44fdd52de502d53f0f"
+    },
+    {
+      "key": "papers/commerce_assam-university-bcom-indirect-tax-laws-6sem-2023.pdf",
+      "name": "commerce_assam-university-bcom-indirect-tax-laws-6sem-2023.pdf",
+      "size": 358325,
+      "sha256": "822c788dcb5d16cca46af5267d57d953e68de8dbd0f746c837967d79652d8401"
+    },
+    {
+      "key": "papers/commerce_assam-university-bcom-international-business-6sem-2023.pdf",
+      "name": "commerce_assam-university-bcom-international-business-6sem-2023.pdf",
+      "size": 415380,
+      "sha256": "91b01449de7547b286bf073bb3692ccb17cfee20401b15595d07dfafcd31fc81"
+    },
+    {
+      "key": "papers/commerce_assam-university-bcom-macroeconomics-2sem-2023.pdf",
+      "name": "commerce_assam-university-bcom-macroeconomics-2sem-2023.pdf",
+      "size": 594051,
+      "sha256": "c2f6121ad2a90d7d15b390fe2303b6e038e049fca75cf97d5660aa4fc46988d6"
+    },
+    {
+      "key": "papers/commerce_assam-university-bcom-management-accounting-dse-5sem-2023.pdf",
+      "name": "commerce_assam-university-bcom-management-accounting-dse-5sem-2023.pdf",
+      "size": 1323498,
+      "sha256": "c72570fc79332dc492d0805c7a47e8c2240d1a7e1b89389ae399881bfb8defdd"
+    },
+    {
+      "key": "papers/commerce_assam-university-bcom-management-practice-application-3sem-2023.pdf",
+      "name": "commerce_assam-university-bcom-management-practice-application-3sem-2023.pdf",
+      "size": 704784,
+      "sha256": "5c41674fcbdf80f1661b390ce740bc9c6797db51ac1fc66f85507d4fc008010e"
+    },
+    {
+      "key": "papers/commerce_assam-university-bcom-microeconomics-1sem-2023.pdf",
+      "name": "commerce_assam-university-bcom-microeconomics-1sem-2023.pdf",
+      "size": 874422,
+      "sha256": "d883b181d9f085e371afee3746ba8fd1febade640a7206a664bfeb5259350ab8"
+    },
+    {
+      "key": "papers/commerce_assam-university-bcom-personal-selling-salesmanship-6sem-2023.pdf",
+      "name": "commerce_assam-university-bcom-personal-selling-salesmanship-6sem-2023.pdf",
+      "size": 424594,
+      "sha256": "1262be91f055c00b2245b07ffdff7dd45003dbf7e83c38a36c116f6e61d669e7"
+    },
+    {
+      "key": "papers/commerce_assam-university-bcom-principles-of-marketing-5sem-2023.pdf",
+      "name": "commerce_assam-university-bcom-principles-of-marketing-5sem-2023.pdf",
+      "size": 713097,
+      "sha256": "dd4d23ed9c069ed282ae87b7dc53f3f6eecad79837cd06a104ba42bae716c9ee"
+    },
+    {
+      "key": "papers/commerce_assam-university-bcom-principles-of-microeconomics-5sem-2023.pdf",
+      "name": "commerce_assam-university-bcom-principles-of-microeconomics-5sem-2023.pdf",
+      "size": 1004627,
+      "sha256": "e66246ebc26c9dc757510b7bad5068ed7b69474194d66a6d1746e69403bab5b0"
+    },
+    {
+      "key": "papers/commerce_assam-university-commerce-macroeconomics-2sem-2022.pdf",
+      "name": "commerce_assam-university-commerce-macroeconomics-2sem-2022.pdf",
+      "size": 42913,
+      "sha256": "549945a23f5d6319d18d0bf580df180dbc04daffe25286904bbede7bc654abcb"
+    },
+    {
+      "key": "papers/learnfo_benaec101_2024.pdf",
+      "name": "learnfo_benaec101_2024.pdf",
+      "size": 829496,
+      "sha256": "251a47ed27930a035f9d96333c52a7a31e198ba35afc3e766b2f6b7dd9c93c15"
+    },
+    {
+      "key": "papers/learnfo_benaec101t_2023.pdf",
+      "name": "learnfo_benaec101t_2023.pdf",
+      "size": 2176212,
+      "sha256": "e578562bf6c72cb07fff8b49fbd72069708560041a826f2629712b3d23aee31a"
+    },
+    {
+      "key": "papers/learnfo_benaec101t_2025.pdf",
+      "name": "learnfo_benaec101t_2025.pdf",
+      "size": 970759,
+      "sha256": "e519aaa7bdd5dccb5afef0b2014c72d839369afceb1ae2386cb0ed2a690149f7"
+    },
+    {
+      "key": "papers/learnfo_benaec201_2024.pdf",
+      "name": "learnfo_benaec201_2024.pdf",
+      "size": 798187,
+      "sha256": "6c5c28a47ff91c8f91f6ab9fae1a936b3f87e853494e84d5a0f645d13d2d865d"
+    },
+    {
+      "key": "papers/learnfo_benaec201t_2025.pdf",
+      "name": "learnfo_benaec201t_2025.pdf",
+      "size": 783217,
+      "sha256": "f98e21a28d61db7886d2dcd2b6b7c9ea6606517c4d24f269af762a3177ecaff7"
+    },
+    {
+      "key": "papers/learnfo_bendsc101t_2025.pdf",
+      "name": "learnfo_bendsc101t_2025.pdf",
+      "size": 799630,
+      "sha256": "60f9de8c0a240ea48cb74ec500b2f2989a1606c20f8c5177a7cbe93abd65b896"
+    },
+    {
+      "key": "papers/learnfo_bendsc102_2024.pdf",
+      "name": "learnfo_bendsc102_2024.pdf",
+      "size": 690858,
+      "sha256": "425b0c6239c7de776412858ffbab3c742fb8a649a27db35e7ef04908ebcfdae5"
+    },
+    {
+      "key": "papers/learnfo_bendsc102t_2023.pdf",
+      "name": "learnfo_bendsc102t_2023.pdf",
+      "size": 2133174,
+      "sha256": "9ccd84a7fa453b7bca4da0ee769ae11174afce834180b592f0eaf5ff9c98eec5"
+    },
+    {
+      "key": "papers/learnfo_bendsc102t_2025.pdf",
+      "name": "learnfo_bendsc102t_2025.pdf",
+      "size": 759320,
+      "sha256": "f3a3bfc48f15aac747a43ced8642e6cbee35518461745e05248f112157371f64"
+    },
+    {
+      "key": "papers/learnfo_bendsc152_2024.pdf",
+      "name": "learnfo_bendsc152_2024.pdf",
+      "size": 1121990,
+      "sha256": "4043533b8fe86b876e48c059a695aa2c1cecfaf66a3e3a87149e8cdab6238a13"
+    },
+    {
+      "key": "papers/learnfo_bendsc201t_2025.pdf",
+      "name": "learnfo_bendsc201t_2025.pdf",
+      "size": 746118,
+      "sha256": "618be3c116aac8c2bff5d2255f386aee4843f39ec02ba80df36ec8c3b1fd75a8"
+    },
+    {
+      "key": "papers/learnfo_bendsc202_2024.pdf",
+      "name": "learnfo_bendsc202_2024.pdf",
+      "size": 808299,
+      "sha256": "03c920829874beb3b9f1c91674f032efca168d0387c575a49fecc6ffc99a90d1"
+    },
+    {
+      "key": "papers/learnfo_bendsc202t_2025.pdf",
+      "name": "learnfo_bendsc202t_2025.pdf",
+      "size": 658007,
+      "sha256": "1e2a83b62322c75985d4d9266480609a7c40c7c03095f7f0eb0076fd38fbda48"
+    },
+    {
+      "key": "papers/learnfo_bendsc252_2025.pdf",
+      "name": "learnfo_bendsc252_2025.pdf",
+      "size": 1167979,
+      "sha256": "83864ca45d672c541d19cd3b78157d7ab6b93dbd1929b229d05ad3d7dd467790"
+    },
+    {
+      "key": "papers/learnfo_bendsc253_2025.pdf",
+      "name": "learnfo_bendsc253_2025.pdf",
+      "size": 868274,
+      "sha256": "d6930a2777d92464848f144f3b67e29b9cb0965800f1573e397103c4de884c63"
+    },
+    {
+      "key": "papers/learnfo_bendsc301t_2025.pdf",
+      "name": "learnfo_bendsc301t_2025.pdf",
+      "size": 900892,
+      "sha256": "ea912574ee8fddf9cd2e93e4b966f0d421a20089fffdf768fdfe48765b77c59b"
+    },
+    {
+      "key": "papers/learnfo_bendsc302t_2025.pdf",
+      "name": "learnfo_bendsc302t_2025.pdf",
+      "size": 686222,
+      "sha256": "745885a51a9b9c875a93b673f1ff4668d127ca7977d9a1a46a263768d9f7f18c"
+    },
+    {
+      "key": "papers/learnfo_bendsc303t_2025.pdf",
+      "name": "learnfo_bendsc303t_2025.pdf",
+      "size": 701040,
+      "sha256": "bf2016fe52e91c28f402f78544e21f9ae2d5a5cb364753249121a54925aa3903"
+    },
+    {
+      "key": "papers/learnfo_bendsm101_2024.pdf",
+      "name": "learnfo_bendsm101_2024.pdf",
+      "size": 192069,
+      "sha256": "bc6f6cef7f3272ed8232f4df6cdc8f4011b37a0fdace392c7379ffcd4641446b"
+    },
+    {
+      "key": "papers/learnfo_bendsm101t_2023.pdf",
+      "name": "learnfo_bendsm101t_2023.pdf",
+      "size": 2238643,
+      "sha256": "d0788317fb0f5bf42681a7bbc1bc4391e9893d3b2981eb0ba07a7acd9d214562"
+    },
+    {
+      "key": "papers/learnfo_bendsm101t_2025.pdf",
+      "name": "learnfo_bendsm101t_2025.pdf",
+      "size": 783768,
+      "sha256": "4d75083da98c2241a8e6c478f213dac67f2a77bed5b057d80508a0b145d4a281"
+    },
+    {
+      "key": "papers/learnfo_bendsm151_2024.pdf",
+      "name": "learnfo_bendsm151_2024.pdf",
+      "size": 973799,
+      "sha256": "c810fe31f94c6b5b83f15eb088170a2cb4f8ceae6053e2bd71efc6bcfc6437c1"
+    },
+    {
+      "key": "papers/learnfo_bendsm201_2024.pdf",
+      "name": "learnfo_bendsm201_2024.pdf",
+      "size": 622988,
+      "sha256": "adef86a8d452ec77c1c4e9b918c8b2ac5d78c3148eb5ef2af1a0d402dee96c1b"
+    },
+    {
+      "key": "papers/learnfo_bendsm201t_2025.pdf",
+      "name": "learnfo_bendsm201t_2025.pdf",
+      "size": 710693,
+      "sha256": "0f9a86e832c016a4f833268a53cd143919b19081097f17e2ec064f8bd9d44f5b"
+    },
+    {
+      "key": "papers/learnfo_bendsm251252_2025.pdf",
+      "name": "learnfo_bendsm251252_2025.pdf",
+      "size": 2024909,
+      "sha256": "829a9f9d81225c5b28b38a36fd60cf16ac37f342dfe029bfed7acb154caa578d"
+    },
+    {
+      "key": "papers/learnfo_benidc101_2024.pdf",
+      "name": "learnfo_benidc101_2024.pdf",
+      "size": 651367,
+      "sha256": "9d20ed82df8a2990ffd75370a89f9aee2231516d9559f8555d7f8f38a31de195"
+    },
+    {
+      "key": "papers/learnfo_benidc101t_2023.pdf",
+      "name": "learnfo_benidc101t_2023.pdf",
+      "size": 2173528,
+      "sha256": "c6ed3c89e0ac71f4c32a91d0980deef5d9736e7da62d1983c5b1193d7a42b283"
+    },
+    {
+      "key": "papers/learnfo_benidc151_2024.pdf",
+      "name": "learnfo_benidc151_2024.pdf",
+      "size": 1098268,
+      "sha256": "ab982df45d481e49aba1bc4c08e77076817d3f94eedffab99e65c7550e6798eb"
+    },
+    {
+      "key": "papers/learnfo_benidc201_2024.pdf",
+      "name": "learnfo_benidc201_2024.pdf",
+      "size": 792344,
+      "sha256": "662fbe74dc5977c4741fc67d3748afede9868be47cd066ac60bc2c802dcbda0c"
+    },
+    {
+      "key": "papers/learnfo_benidc201t_2025.pdf",
+      "name": "learnfo_benidc201t_2025.pdf",
+      "size": 844594,
+      "sha256": "ebabecec77b6b911865bfbbf95f7aa2109fb5210533165c88d60688893e10ea8"
+    },
+    {
+      "key": "papers/learnfo_bensec101_2024.pdf",
+      "name": "learnfo_bensec101_2024.pdf",
+      "size": 762831,
+      "sha256": "ae3117c0b2b22eea0d280242b968a25a1d8baf3041d60fcb0aa6b1431bfb8e51"
+    },
+    {
+      "key": "papers/learnfo_bensec101t_2025.pdf",
+      "name": "learnfo_bensec101t_2025.pdf",
+      "size": 865417,
+      "sha256": "f722851eb0d3341d9f1ee83baf7ee62c589d293b04bef453a14e7ab6f93c2b02"
+    },
+    {
+      "key": "papers/learnfo_bensec151_2024.pdf",
+      "name": "learnfo_bensec151_2024.pdf",
+      "size": 1246133,
+      "sha256": "411d8efba659aefabca5b6cef277ae054804b279e6a76ae2f52bdb3c5ad33086"
+    },
+    {
+      "key": "papers/learnfo_bensec201_2024.pdf",
+      "name": "learnfo_bensec201_2024.pdf",
+      "size": 676837,
+      "sha256": "47acc7a10333d0f6f058bbeab9ab2a28a01c13bd2f76bdc81a6ced325066a20d"
+    },
+    {
+      "key": "papers/learnfo_bensec201t_2025.pdf",
+      "name": "learnfo_bensec201t_2025.pdf",
+      "size": 698584,
+      "sha256": "51db918afebee8a21df8cff3f91250cf97ec8305b2aea491cdfadf1150d6a191"
+    },
+    {
+      "key": "papers/learnfo_bngdsm301-302t_2025.pdf",
+      "name": "learnfo_bngdsm301-302t_2025.pdf",
+      "size": 1251953,
+      "sha256": "fe00576521c4e90a82ecbaf9f00e7c13ad5a9c1931b784147959fc6d12a1774a"
+    },
+    {
+      "key": "papers/learnfo_botdsc101_2024.pdf",
+      "name": "learnfo_botdsc101_2024.pdf",
+      "size": 667101,
+      "sha256": "ae51010ab2ef09a6e3b475af79bc40eff92706747b67dfecd79c852965eabd3b"
+    },
+    {
+      "key": "papers/learnfo_botdsc101t_2023.pdf",
+      "name": "learnfo_botdsc101t_2023.pdf",
+      "size": 2085428,
+      "sha256": "674b6ec15e2753d0bfc4cfa3549819ad9180bafcc63a17d8806a60545596a3ab"
+    },
+    {
+      "key": "papers/learnfo_botdsc101t_2025.pdf",
+      "name": "learnfo_botdsc101t_2025.pdf",
+      "size": 699828,
+      "sha256": "bf7e9c743924f3a674a6f46ed4d7f39481b9d68a2e27a11b2756c54cbd9285fb"
+    },
+    {
+      "key": "papers/learnfo_botdsc102_2024.pdf",
+      "name": "learnfo_botdsc102_2024.pdf",
+      "size": 660087,
+      "sha256": "7f6abd627ec360d0397f0eeab2a06617232f7d9e876ef1c49d657395bcd6c6c4"
+    },
+    {
+      "key": "papers/learnfo_botdsc102t_2023.pdf",
+      "name": "learnfo_botdsc102t_2023.pdf",
+      "size": 2506920,
+      "sha256": "a5aad960c512ca685252f3a070fc1cc8ba17db69dbfdeeb4d58ab3f228a90cd9"
+    },
+    {
+      "key": "papers/learnfo_botdsc102t_2025.pdf",
+      "name": "learnfo_botdsc102t_2025.pdf",
+      "size": 799414,
+      "sha256": "68c1e967f2c47bf2ec743cdfa9378bfbac197c28a9441b61f4f771549f53eb11"
+    },
+    {
+      "key": "papers/learnfo_botdsc151_2024.pdf",
+      "name": "learnfo_botdsc151_2024.pdf",
+      "size": 1057704,
+      "sha256": "5ba7d2c37b1bb08522ad1f65b72d3c859a312ece2eb93447608444db3222aecb"
+    },
+    {
+      "key": "papers/learnfo_botdsc201_2024.pdf",
+      "name": "learnfo_botdsc201_2024.pdf",
+      "size": 619474,
+      "sha256": "65d4db77118a9a7c4636f8776a11f11c7b9146939a733d380aa70373ad0d2a70"
+    },
+    {
+      "key": "papers/learnfo_botdsc201t_2025.pdf",
+      "name": "learnfo_botdsc201t_2025.pdf",
+      "size": 958333,
+      "sha256": "d9ea148600382881c20b045683671327882afce565b6abecbf0b006fdc9aef8b"
+    },
+    {
+      "key": "papers/learnfo_botdsc202_2024.pdf",
+      "name": "learnfo_botdsc202_2024.pdf",
+      "size": 621699,
+      "sha256": "00b8821e40f2545ba8538337429d4dc6004a9a66be466354f8d12736b1d805cc"
+    },
+    {
+      "key": "papers/learnfo_botdsc202t_2025.pdf",
+      "name": "learnfo_botdsc202t_2025.pdf",
+      "size": 715814,
+      "sha256": "8d4147cf5253761122a54df95aa6eb84b42a94dbf9b33c73bbc9f4789eec53e0"
+    },
+    {
+      "key": "papers/learnfo_botdsc251_2025.pdf",
+      "name": "learnfo_botdsc251_2025.pdf",
+      "size": 1142460,
+      "sha256": "a5e30c2d56ac293d8abccc35750d9076371a421dbfe42bc21628860462c7b0d1"
+    },
+    {
+      "key": "papers/learnfo_botdsc252_2025.pdf",
+      "name": "learnfo_botdsc252_2025.pdf",
+      "size": 1110478,
+      "sha256": "aec3ccd1b17f8704295ef8469dd0e152b7df44f1809966b46e8d6f5b8b5bf1ec"
+    },
+    {
+      "key": "papers/learnfo_botdsc301t_2025.pdf",
+      "name": "learnfo_botdsc301t_2025.pdf",
+      "size": 903151,
+      "sha256": "7047821029b0ab15f0269a44cb1583a10dad58243740b878acb96fec0cd2384e"
+    },
+    {
+      "key": "papers/learnfo_botdsc302t_2025.pdf",
+      "name": "learnfo_botdsc302t_2025.pdf",
+      "size": 965664,
+      "sha256": "85090332ffbb1168b7867864ffb82326a9c9495b767b16e7f0bafe7f170d7404"
+    },
+    {
+      "key": "papers/learnfo_botdsm101_2024.pdf",
+      "name": "learnfo_botdsm101_2024.pdf",
+      "size": 576934,
+      "sha256": "7d1ecf57b1b89b508b852b18bcb972a581ec6da55ccfc3675395799c1224ec8c"
+    },
+    {
+      "key": "papers/learnfo_botdsm101t_2023.pdf",
+      "name": "learnfo_botdsm101t_2023.pdf",
+      "size": 2012072,
+      "sha256": "000f23bccf415cbad10ffc620f07e78f96f8e406ceacf5596cf49863d4a89e2c"
+    },
+    {
+      "key": "papers/learnfo_botdsm101t_2025.pdf",
+      "name": "learnfo_botdsm101t_2025.pdf",
+      "size": 969324,
+      "sha256": "641a244f967c1f03c0c2e6271e7bacac5c2c8c35acb9bc03f1fb8ea26344af2e"
+    },
+    {
+      "key": "papers/learnfo_botdsm151_2024.pdf",
+      "name": "learnfo_botdsm151_2024.pdf",
+      "size": 911586,
+      "sha256": "87c73911434a869406b56c9c834108aa9bd680e4b4edea99de009b3bcbc2ac67"
+    },
+    {
+      "key": "papers/learnfo_botdsm201_2024.pdf",
+      "name": "learnfo_botdsm201_2024.pdf",
+      "size": 687669,
+      "sha256": "c2685da9e1578bc8fd18b12ccf95873322f1ade56bb7f556c318366f7ef10f07"
+    },
+    {
+      "key": "papers/learnfo_botdsm201t_2025.pdf",
+      "name": "learnfo_botdsm201t_2025.pdf",
+      "size": 892076,
+      "sha256": "01d79311d5403619348305733db74471ad58846c6dfe582da338a0d77b1f4785"
+    },
+    {
+      "key": "papers/learnfo_botdsm252_2025.pdf",
+      "name": "learnfo_botdsm252_2025.pdf",
+      "size": 1118330,
+      "sha256": "10617533d124da57f50a5a982146c9d735e032f219bcccfcd1016c334646ebe7"
+    },
+    {
+      "key": "papers/learnfo_botdsm3012t_2025.pdf",
+      "name": "learnfo_botdsm3012t_2025.pdf",
+      "size": 1566555,
+      "sha256": "30ef9124c0d3723258a88d44ac5e0f57f9717618927bb4caccd4c1c402c20d75"
+    },
+    {
+      "key": "papers/learnfo_botidc101_2024.pdf",
+      "name": "learnfo_botidc101_2024.pdf",
+      "size": 712761,
+      "sha256": "f5e6bf5faf7d9d4991f602341a2404449ea6601fa8aaf2e5ea26d7509eb2a527"
+    },
+    {
+      "key": "papers/learnfo_botidc101t_2023.pdf",
+      "name": "learnfo_botidc101t_2023.pdf",
+      "size": 2798215,
+      "sha256": "53e5ef7704427a1cb5388eb15734b16eb77a90335d7a893740955a75fa71ae5b"
+    },
+    {
+      "key": "papers/learnfo_botidc101t_2025.pdf",
+      "name": "learnfo_botidc101t_2025.pdf",
+      "size": 1172272,
+      "sha256": "86ce3e6aa7a58c5599f0fc2dfd0b01ac319fe1556c14e51065b137aa7fc08ad4"
+    },
+    {
+      "key": "papers/learnfo_botidc151_2024.pdf",
+      "name": "learnfo_botidc151_2024.pdf",
+      "size": 1177684,
+      "sha256": "5ed50caf3efa72f1aee2d1ba8d78ecf31f6b193d52f05e5ba78b8277eb3b4094"
+    },
+    {
+      "key": "papers/learnfo_botidc201_2024.pdf",
+      "name": "learnfo_botidc201_2024.pdf",
+      "size": 763812,
+      "sha256": "18e7da61743f8b2efd20cebba12e9fa988caac2001b34fcd4a242057484939dd"
+    },
+    {
+      "key": "papers/learnfo_botidc201t_2025.pdf",
+      "name": "learnfo_botidc201t_2025.pdf",
+      "size": 1148971,
+      "sha256": "83722e4d9c97babc93a3bc1510bcb43db460cff809ac65de3166770392916c7b"
+    },
+    {
+      "key": "papers/learnfo_botsec101_2024.pdf",
+      "name": "learnfo_botsec101_2024.pdf",
+      "size": 757297,
+      "sha256": "be5d42e5255c735858dae90d0d8ead0f8f6eb7d4fe16bb70674784afbc39f5e2"
+    },
+    {
+      "key": "papers/learnfo_botsec101t_2023.pdf",
+      "name": "learnfo_botsec101t_2023.pdf",
+      "size": 2732039,
+      "sha256": "1a8a6c2b7edbe599fbda69198f4416477871a9de22ccdc557ced9796414fe9c3"
+    },
+    {
+      "key": "papers/learnfo_botsec101t_2025.pdf",
+      "name": "learnfo_botsec101t_2025.pdf",
+      "size": 844060,
+      "sha256": "b227fb51f40d3e43baf7ef873fec258230eaa4eb9eac28210f6ee82587fae6ea"
+    },
+    {
+      "key": "papers/learnfo_botsec151_2024.pdf",
+      "name": "learnfo_botsec151_2024.pdf",
+      "size": 1089829,
+      "sha256": "902e3b43804204316e5ca171684433951a894880cdd13d42b064768fe3340ac2"
+    },
+    {
+      "key": "papers/learnfo_botsec201_2024.pdf",
+      "name": "learnfo_botsec201_2024.pdf",
+      "size": 696398,
+      "sha256": "5f385c91caa94a4301592dd33e0998c0247d6c0f63ab61a35c0e8ff6b11ea5a0"
+    },
+    {
+      "key": "papers/learnfo_botsec201t_2025.pdf",
+      "name": "learnfo_botsec201t_2025.pdf",
+      "size": 991505,
+      "sha256": "89680d2de35e7137c2a1cd2f5c13ef72319cb5f9de4fc39517ce339ad005a9e3"
+    },
+    {
+      "key": "papers/learnfo_btcdsc101_2024.pdf",
+      "name": "learnfo_btcdsc101_2024.pdf",
+      "size": 722796,
+      "sha256": "2852bff38200e7bf2d83921fed1713ce4e8fb05387dc5d8d19fc348b2c680ba7"
+    },
+    {
+      "key": "papers/learnfo_btcdsc102_2024.pdf",
+      "name": "learnfo_btcdsc102_2024.pdf",
+      "size": 588595,
+      "sha256": "2dceb33204c1c225bb6988864a208e6f8def574643a40269750afd6ef3a63534"
+    },
+    {
+      "key": "papers/learnfo_btcdsc201_2024.pdf",
+      "name": "learnfo_btcdsc201_2024.pdf",
+      "size": 625811,
+      "sha256": "e8ac95e7c1f32f2dd175707753158fea73558de0c9d3b9de3b198a8a671cef3c"
+    },
+    {
+      "key": "papers/learnfo_btcdsc202_2024.pdf",
+      "name": "learnfo_btcdsc202_2024.pdf",
+      "size": 683492,
+      "sha256": "058473e328d61bc8d4ba4bf208862b905c70edc3c648f5b23ed98e91a6688319"
+    },
+    {
+      "key": "papers/learnfo_btcdsc251_2025.pdf",
+      "name": "learnfo_btcdsc251_2025.pdf",
+      "size": 1817574,
+      "sha256": "059cbf9644cdb7a374900f41f680488e957b1d23b88d52deeccc01cb837fef5a"
+    },
+    {
+      "key": "papers/learnfo_btcdsc252_2025.pdf",
+      "name": "learnfo_btcdsc252_2025.pdf",
+      "size": 1693934,
+      "sha256": "5eb2994696f198f14d4a79e73df64db03141f6afd23c3b3ca178faebbb3ce5f1"
+    },
+    {
+      "key": "papers/learnfo_btcdsm151_2024.pdf",
+      "name": "learnfo_btcdsm151_2024.pdf",
+      "size": 911717,
+      "sha256": "6f031fca5fcffa85a924f6f948b5ce5413542ac21f697824afb4484fc1117f69"
+    },
+    {
+      "key": "papers/learnfo_btcdsm201_2024.pdf",
+      "name": "learnfo_btcdsm201_2024.pdf",
+      "size": 644554,
+      "sha256": "05297fb2235f30416665b12e3d10cb874740cdff469804dd7f668956242597b6"
+    },
+    {
+      "key": "papers/learnfo_btcdsm252_2025.pdf",
+      "name": "learnfo_btcdsm252_2025.pdf",
+      "size": 1751790,
+      "sha256": "4cfdaac22853ebf686517787d2f04ebf012408cee53520bd2ab7da6371c7fa3e"
+    },
+    {
+      "key": "papers/learnfo_btcidc151_2024.pdf",
+      "name": "learnfo_btcidc151_2024.pdf",
+      "size": 1195031,
+      "sha256": "47a5eef0f7a3a40529cf03430c8bcbc822df78e5be714d4bbb33f1071fe9e993"
+    },
+    {
+      "key": "papers/learnfo_btcsec101_2024.pdf",
+      "name": "learnfo_btcsec101_2024.pdf",
+      "size": 715728,
+      "sha256": "672d35f890a630c55afeb98e7348a4dde3c38147d04a182044e3dea696a5c66a"
+    },
+    {
+      "key": "papers/learnfo_btcsec201_2024.pdf",
+      "name": "learnfo_btcsec201_2024.pdf",
+      "size": 508194,
+      "sha256": "9f7eff3c3af24ae828e8128ae83abd2477906da615c805964a67842f1c4dc53d"
+    },
+    {
+      "key": "papers/learnfo_ecodsc101_2024.pdf",
+      "name": "learnfo_ecodsc101_2024.pdf",
+      "size": 820625,
+      "sha256": "1ca456948b7529961108bbd21ddec2eebc165386a8e424772a79635a80f7ed0a"
+    },
+    {
+      "key": "papers/learnfo_ecodsc101t_2023.pdf",
+      "name": "learnfo_ecodsc101t_2023.pdf",
+      "size": 2347687,
+      "sha256": "ee90ae46f9780d1f1af0633a7270f3f2d3f8851767721e4ac407fa463c6a36e5"
+    },
+    {
+      "key": "papers/learnfo_ecodsc101t_2025.pdf",
+      "name": "learnfo_ecodsc101t_2025.pdf",
+      "size": 1069539,
+      "sha256": "1d852e583fcff7e4d319ca98cf3263034c799e9fb836fe31458f6d854c174ebd"
+    },
+    {
+      "key": "papers/learnfo_ecodsc102_2024.pdf",
+      "name": "learnfo_ecodsc102_2024.pdf",
+      "size": 883395,
+      "sha256": "0f89f1b3eb23430eeca936357b76c9691774d06da024d3840f4affcf225af8e9"
+    },
+    {
+      "key": "papers/learnfo_ecodsc102t_2023.pdf",
+      "name": "learnfo_ecodsc102t_2023.pdf",
+      "size": 2125018,
+      "sha256": "ae87a8018b0d0c176ef20477a9f7bfa9ec79b447669236e44ea5456b09572adf"
+    },
+    {
+      "key": "papers/learnfo_ecodsc102t_2025.pdf",
+      "name": "learnfo_ecodsc102t_2025.pdf",
+      "size": 1277560,
+      "sha256": "436e941a7b522904d87d663770007f76e0dfdac915d2a6bcea31f3b9b2f2d0e2"
+    },
+    {
+      "key": "papers/learnfo_ecodsc151_2024.pdf",
+      "name": "learnfo_ecodsc151_2024.pdf",
+      "size": 1172215,
+      "sha256": "cec12292e9fc69e283fb1dcb5b5348ce2f46027ab4a23674ef286992a3dd94e4"
+    },
+    {
+      "key": "papers/learnfo_ecodsc201_2024.pdf",
+      "name": "learnfo_ecodsc201_2024.pdf",
+      "size": 710345,
+      "sha256": "22bd90480a8959cd452f8f8aab431eb1fb7bc6d68ecb2e1bbf324c165425d2a3"
+    },
+    {
+      "key": "papers/learnfo_ecodsc201t_2025.pdf",
+      "name": "learnfo_ecodsc201t_2025.pdf",
+      "size": 878882,
+      "sha256": "d0f297122daf2d2d9e11651e09260693b43f3e3e3995ac960f18d9cb6acbc49c"
+    },
+    {
+      "key": "papers/learnfo_ecodsc202_2024.pdf",
+      "name": "learnfo_ecodsc202_2024.pdf",
+      "size": 802399,
+      "sha256": "b6770faa06871168c19146d1e2ceec75f383132eb7ccc94f16981a98188a02cd"
+    },
+    {
+      "key": "papers/learnfo_ecodsc202t_2025.pdf",
+      "name": "learnfo_ecodsc202t_2025.pdf",
+      "size": 1219824,
+      "sha256": "fa88523984fd1a5b6fedbc4ff55d6a88e5a23b90c94dadfa52b8f5a04752dc37"
+    },
+    {
+      "key": "papers/learnfo_ecodsc251_2025.pdf",
+      "name": "learnfo_ecodsc251_2025.pdf",
+      "size": 948839,
+      "sha256": "408bcdf5b4d095eb3ead6f4b20c596c2073ddb85ec142812e4c14898e6cf81e5"
+    },
+    {
+      "key": "papers/learnfo_ecodsc252_2025.pdf",
+      "name": "learnfo_ecodsc252_2025.pdf",
+      "size": 900055,
+      "sha256": "24b800a5dcb0164e1ed04cbf8f803dc02894e6e6e8aed4694d86ca88cec2137b"
+    },
+    {
+      "key": "papers/learnfo_ecodsc253_2025.pdf",
+      "name": "learnfo_ecodsc253_2025.pdf",
+      "size": 944847,
+      "sha256": "dc3426145fe7982e8520456d96a6135f4ef2981f056a8e696f656c71c8aeb15b"
+    },
+    {
+      "key": "papers/learnfo_ecodsc301t_2025.pdf",
+      "name": "learnfo_ecodsc301t_2025.pdf",
+      "size": 1096546,
+      "sha256": "0cf1d9592fb7de6c00411886bf7a95db2adeca604d3d00c56a9ca72e8590c717"
+    },
+    {
+      "key": "papers/learnfo_ecodsc302t_2025.pdf",
+      "name": "learnfo_ecodsc302t_2025.pdf",
+      "size": 1030369,
+      "sha256": "faa4f56750bd83cecfa6b3186530406b0740cb024781a7cb332a96dcbf3d2942"
+    },
+    {
+      "key": "papers/learnfo_ecodsc303t_2025.pdf",
+      "name": "learnfo_ecodsc303t_2025.pdf",
+      "size": 1329900,
+      "sha256": "1303f56f5804a1f6d2d3b762f96111e0cdf519932521dc9cc6c29cd9f03dfe67"
+    },
+    {
+      "key": "papers/learnfo_ecodsm101_2024.pdf",
+      "name": "learnfo_ecodsm101_2024.pdf",
+      "size": 803008,
+      "sha256": "5a6ff3bbd451c83a7d56d83df7cef1df1607c82ac6801913102b8c1e76bdfa0f"
+    },
+    {
+      "key": "papers/learnfo_ecodsm101t_2023.pdf",
+      "name": "learnfo_ecodsm101t_2023.pdf",
+      "size": 2280726,
+      "sha256": "f9c572f5e51f4e83a1a8e3883b81acc44464abd794de7ae853b444753d0c91a8"
+    },
+    {
+      "key": "papers/learnfo_ecodsm101t_2025.pdf",
+      "name": "learnfo_ecodsm101t_2025.pdf",
+      "size": 1158477,
+      "sha256": "d0b0b55683fb43f5f0b03c8296ca6d158d06b1c271a9c038b174ff2ca798cbc7"
+    },
+    {
+      "key": "papers/learnfo_ecodsm201_2024.pdf",
+      "name": "learnfo_ecodsm201_2024.pdf",
+      "size": 790290,
+      "sha256": "a4092553b41266f8950f10fb9c41ed2fac16e952a3032eddd9400bd69de713af"
+    },
+    {
+      "key": "papers/learnfo_ecodsm201t_2025.pdf",
+      "name": "learnfo_ecodsm201t_2025.pdf",
+      "size": 1223732,
+      "sha256": "b87d93c774300391051df63ea7111098e8575cd7d64fc802d9c59e729c50ef78"
+    },
+    {
+      "key": "papers/learnfo_ecodsm251252_2025.pdf",
+      "name": "learnfo_ecodsm251252_2025.pdf",
+      "size": 772412,
+      "sha256": "accf81b87b3cdd3da78643ee1e6783dd0b956c12020bd11f4b2f3a8e7c9c2bcd"
+    },
+    {
+      "key": "papers/learnfo_ecodsm3012t_2025.pdf",
+      "name": "learnfo_ecodsm3012t_2025.pdf",
+      "size": 1207077,
+      "sha256": "c84471ef3963da0cad44d9e39c9b25b30158f81c881769229c5166141d4a1aed"
+    },
+    {
+      "key": "papers/learnfo_ecoidc101_2024.pdf",
+      "name": "learnfo_ecoidc101_2024.pdf",
+      "size": 833465,
+      "sha256": "6ccc12008a99a01b42674de2cf7366249eb966f394b5c81af7fea518ac0c639e"
+    },
+    {
+      "key": "papers/learnfo_ecoidc101t_2023.pdf",
+      "name": "learnfo_ecoidc101t_2023.pdf",
+      "size": 2974147,
+      "sha256": "dd1ce4570d91a37b98b1af937bedb28516cc0e5043664707b90f223c63177424"
+    },
+    {
+      "key": "papers/learnfo_ecoidc101t_2025.pdf",
+      "name": "learnfo_ecoidc101t_2025.pdf",
+      "size": 1121029,
+      "sha256": "f82c07966f7f0e2fde663c2bfc2641f2e42222d0e4a1762ea1dfc959af335f6b"
+    },
+    {
+      "key": "papers/learnfo_ecoidc201_2024.pdf",
+      "name": "learnfo_ecoidc201_2024.pdf",
+      "size": 975974,
+      "sha256": "ff5548c338dcccdef051cea28763ee512234ebc1fb220a882ad57c25c11bb4f8"
+    },
+    {
+      "key": "papers/learnfo_ecoidc201t_2025.pdf",
+      "name": "learnfo_ecoidc201t_2025.pdf",
+      "size": 1499600,
+      "sha256": "2ec452a71efc9b8ec0d79227b2a7f32257c7e70a475156c881b8571274ce02b5"
+    },
+    {
+      "key": "papers/learnfo_ecosec101t_2023.pdf",
+      "name": "learnfo_ecosec101t_2023.pdf",
+      "size": 2798487,
+      "sha256": "a93229b32332b92e18aa611cd462d6bf2bbaf286722298442b05d8bf98f8696a"
+    },
+    {
+      "key": "papers/learnfo_ecosec101t_2024.pdf",
+      "name": "learnfo_ecosec101t_2024.pdf",
+      "size": 1123743,
+      "sha256": "919f03e18943408406253a20de0457f14e040e815d0205cfc4a3ec0bd70fc35f"
+    },
+    {
+      "key": "papers/learnfo_ecosec151_2024.pdf",
+      "name": "learnfo_ecosec151_2024.pdf",
+      "size": 1168097,
+      "sha256": "04f7e006316e387826a89b8eccfb76ee3d28c7232dc87400efdbcd7f7fef14eb"
+    },
+    {
+      "key": "papers/learnfo_ecosec201_2024.pdf",
+      "name": "learnfo_ecosec201_2024.pdf",
+      "size": 778410,
+      "sha256": "6d8b4a9a7cf3e3fbbd19b8b2df93c0bafe7f94eef67e5c2eff7a7dda65e26346"
+    },
+    {
+      "key": "papers/learnfo_ecosec201t_2025.pdf",
+      "name": "learnfo_ecosec201t_2025.pdf",
+      "size": 1506346,
+      "sha256": "a8c7fca04022b0c37da8c640a2cc313fde6cd3f5e64d582569195b0c18425c79"
+    },
+    {
+      "key": "papers/learnfo_engaec101t_2023.pdf",
+      "name": "learnfo_engaec101t_2023.pdf",
+      "size": 3439879,
+      "sha256": "68eb84ba1566de722d315235f00b1dccfab8b342797dafef271373f9b848b3b0"
+    },
+    {
+      "key": "papers/learnfo_engaec101t_2025.pdf",
+      "name": "learnfo_engaec101t_2025.pdf",
+      "size": 1818800,
+      "sha256": "f775d298e230e1fad94086483049f2bcd3fe5b184490f9ff8fccdc6388e0ec9e"
+    },
+    {
+      "key": "papers/learnfo_engaec151_2024.pdf",
+      "name": "learnfo_engaec151_2024.pdf",
+      "size": 970233,
+      "sha256": "560853378e7d350a516ec2caa6d3c9885fd41f5b6cb578f12eedd163c12c613e"
+    },
+    {
+      "key": "papers/learnfo_engaec201_2024.pdf",
+      "name": "learnfo_engaec201_2024.pdf",
+      "size": 986611,
+      "sha256": "3ce1a42e9f362f29b26af0789d25bcb6e1f55acd041571f72d7cd95e8bb70676"
+    },
+    {
+      "key": "papers/learnfo_engaec201t_2025.pdf",
+      "name": "learnfo_engaec201t_2025.pdf",
+      "size": 824689,
+      "sha256": "a27c3da8f26e1ddfcbd3af1400b8fe58a88314c7cc878b11a221440464c46887"
+    },
+    {
+      "key": "papers/learnfo_engaec251_2025.pdf",
+      "name": "learnfo_engaec251_2025.pdf",
+      "size": 2260764,
+      "sha256": "26b71ae35d870e42640d2f7c0b7c1e7bdac1a2244c02eac409e227e620b65d07"
+    },
+    {
+      "key": "papers/learnfo_engaec251arts_2025.pdf",
+      "name": "learnfo_engaec251arts_2025.pdf",
+      "size": 1542628,
+      "sha256": "cbfba5700e0def6eed3d3287d40fc8b5d44b0670d15661ce68aea3c931004a20"
+    },
+    {
+      "key": "papers/learnfo_engdsc101_2024.pdf",
+      "name": "learnfo_engdsc101_2024.pdf",
+      "size": 645602,
+      "sha256": "e15ce798a850e80bc7a13f50e855b13799a71792c6e9d8440f9ba3bf5964045c"
+    },
+    {
+      "key": "papers/learnfo_engdsc101t_2023.pdf",
+      "name": "learnfo_engdsc101t_2023.pdf",
+      "size": 2369540,
+      "sha256": "9580bb53ff1f083109b89885d6d958c6da82f7f1dc461c17c033e34c6e8daae9"
+    },
+    {
+      "key": "papers/learnfo_engdsc101t_2025.pdf",
+      "name": "learnfo_engdsc101t_2025.pdf",
+      "size": 833146,
+      "sha256": "02cb3bb9bf75a4890a2a273ea45d1caf38eddd5ecb3ac3c2eb0bfbef19ae7a55"
+    },
+    {
+      "key": "papers/learnfo_engdsc102_2024.pdf",
+      "name": "learnfo_engdsc102_2024.pdf",
+      "size": 623368,
+      "sha256": "375a7bfe7c70f2836bc7b274b390170b392ab2c1b41575ac3fac42df80ab9d70"
+    },
+    {
+      "key": "papers/learnfo_engdsc102t_2023.pdf",
+      "name": "learnfo_engdsc102t_2023.pdf",
+      "size": 2209768,
+      "sha256": "9299995dc2fddbd83c6b69f657604dd3d954047d8eed3545f46d2c876d617a79"
+    },
+    {
+      "key": "papers/learnfo_engdsc151_2024.pdf",
+      "name": "learnfo_engdsc151_2024.pdf",
+      "size": 764093,
+      "sha256": "e51fd9dd48df62090ac876f98a39397fab6b714e0c71dec37652715f936d8e31"
+    },
+    {
+      "key": "papers/learnfo_engdsc152_2024.pdf",
+      "name": "learnfo_engdsc152_2024.pdf",
+      "size": 897466,
+      "sha256": "24e35e1704f442cd16ffa513a6c100b9e1422b19493072ca10c885182817348d"
+    },
+    {
+      "key": "papers/learnfo_engdsc201_2024.pdf",
+      "name": "learnfo_engdsc201_2024.pdf",
+      "size": 699599,
+      "sha256": "d7c5e8b06596e88a4d19fc22ddc0a091ad7d497dfae7d4a5c6ef6c76dada0e79"
+    },
+    {
+      "key": "papers/learnfo_engdsc201t_2025.pdf",
+      "name": "learnfo_engdsc201t_2025.pdf",
+      "size": 785723,
+      "sha256": "d08a74fc71af442d1b94a1a220ebc18565377faeec2aab7d570171d65af37a7d"
+    },
+    {
+      "key": "papers/learnfo_engdsc202_2024.pdf",
+      "name": "learnfo_engdsc202_2024.pdf",
+      "size": 819865,
+      "sha256": "7ee3ff9d0a3e4ad5c249c31649ddbfca7fff9eb22fd5e0d0eebd3958ae6d9902"
+    },
+    {
+      "key": "papers/learnfo_engdsc202t_2025.pdf",
+      "name": "learnfo_engdsc202t_2025.pdf",
+      "size": 1216838,
+      "sha256": "7ba4578fb4f42ab95e3354143352682ced1a9b2fc7a351fe5456a4bfb354ae34"
+    },
+    {
+      "key": "papers/learnfo_engdsc251_2025.pdf",
+      "name": "learnfo_engdsc251_2025.pdf",
+      "size": 831043,
+      "sha256": "46816124569b24376e900c38cec658781b846477de9ba5bc26d4f348e2406e8d"
+    },
+    {
+      "key": "papers/learnfo_engdsc252_2025.pdf",
+      "name": "learnfo_engdsc252_2025.pdf",
+      "size": 744262,
+      "sha256": "bfd87f92f97e45a9ea20efc28d25bc792a054fad3487e339a7b1bb63ea382ff6"
+    },
+    {
+      "key": "papers/learnfo_engdsc253_2025.pdf",
+      "name": "learnfo_engdsc253_2025.pdf",
+      "size": 733079,
+      "sha256": "641ed29a011c9e77072bdb1cfc0d7c875b9a8ea0b0b9e2de6035be5d6c5d56da"
+    },
+    {
+      "key": "papers/learnfo_engdsc301t_2025.pdf",
+      "name": "learnfo_engdsc301t_2025.pdf",
+      "size": 716741,
+      "sha256": "1d21ed2a2f8948a7655d410ceec78e015024eb9f784bafd743ba7b70e655a984"
+    },
+    {
+      "key": "papers/learnfo_engdsc302t_2025.pdf",
+      "name": "learnfo_engdsc302t_2025.pdf",
+      "size": 756724,
+      "sha256": "3c2d32c6c8660f0698542676ff7367439a972a390f2f34850b39befe7a83ff89"
+    },
+    {
+      "key": "papers/learnfo_engdsc303t_2025.pdf",
+      "name": "learnfo_engdsc303t_2025.pdf",
+      "size": 750699,
+      "sha256": "3a13ee38c5b7fc75abc65d3d9b4b007ac4abfdd0066460802ee8dc60e19c5225"
+    },
+    {
+      "key": "papers/learnfo_engdsm101_2024.pdf",
+      "name": "learnfo_engdsm101_2024.pdf",
+      "size": 671245,
+      "sha256": "d1715a4400b484b40fe7b4795f91db5782cc958236e1d2b59ca28a28a5d3b8ae"
+    },
+    {
+      "key": "papers/learnfo_engdsm101t_2023.pdf",
+      "name": "learnfo_engdsm101t_2023.pdf",
+      "size": 1899701,
+      "sha256": "f3f69bdff4d1f9668d6a20dbaa1500afffe9da45fe73d503ef9e24dbbccb280b"
+    },
+    {
+      "key": "papers/learnfo_engdsm101t_2025.pdf",
+      "name": "learnfo_engdsm101t_2025.pdf",
+      "size": 1166487,
+      "sha256": "7c64a6a6379fc24e86df36ae8befa86e41ae8a2898cd9bd9e62919c7e3ff6690"
+    },
+    {
+      "key": "papers/learnfo_engdsm151_2024.pdf",
+      "name": "learnfo_engdsm151_2024.pdf",
+      "size": 815326,
+      "sha256": "9fe93bf26b975d27c902ae089c75e494d07b515302d6a9d6af55b9a880908c69"
+    },
+    {
+      "key": "papers/learnfo_engdsm201_2024.pdf",
+      "name": "learnfo_engdsm201_2024.pdf",
+      "size": 720821,
+      "sha256": "775a190646dbadf35f903a58d9638e201458fb3dc685caff399b0d14e8592b23"
+    },
+    {
+      "key": "papers/learnfo_engdsm201t_2025.pdf",
+      "name": "learnfo_engdsm201t_2025.pdf",
+      "size": 750098,
+      "sha256": "d3d03b664cf27cda30f111c98fc17f4f2d89af21013be170b3d69d215bfc05fc"
+    },
+    {
+      "key": "papers/learnfo_engdsm251252_2025.pdf",
+      "name": "learnfo_engdsm251252_2025.pdf",
+      "size": 781543,
+      "sha256": "fe245ea2f24d9cbf4a5f41c719e43af8b79f02ce96d903b9032c93a3924342b6"
+    },
+    {
+      "key": "papers/learnfo_engdsm3012t_2025.pdf",
+      "name": "learnfo_engdsm3012t_2025.pdf",
+      "size": 791970,
+      "sha256": "97350e5051f3a043234eb2d73e16ccc6f721bef03d512738a3889b67fe3f79ea"
+    },
+    {
+      "key": "papers/learnfo_engidc101t_2023.pdf",
+      "name": "learnfo_engidc101t_2023.pdf",
+      "size": 2928664,
+      "sha256": "ff978bf1d35f4d7a6ee700d75d27f211447104ac52e9889341f1bab24b426fd8"
+    },
+    {
+      "key": "papers/learnfo_engidc151_2024.pdf",
+      "name": "learnfo_engidc151_2024.pdf",
+      "size": 1606352,
+      "sha256": "1c3664c94926568850258018bc672546d144fba1b3bed4a39ae759d4885659e3"
+    },
+    {
+      "key": "papers/learnfo_engidc201t_2025.pdf",
+      "name": "learnfo_engidc201t_2025.pdf",
+      "size": 726692,
+      "sha256": "a4462ea5629c63c126011366004d61bd09b7d2c8ce4781c892526d91d95b06cf"
+    },
+    {
+      "key": "papers/learnfo_engsec101_2024.pdf",
+      "name": "learnfo_engsec101_2024.pdf",
+      "size": 805577,
+      "sha256": "e5530f3d23b7919d2ae19e6385d72ec761f85ea83911c588d56985106e216fc3"
+    },
+    {
+      "key": "papers/learnfo_engsec101t_2025.pdf",
+      "name": "learnfo_engsec101t_2025.pdf",
+      "size": 840125,
+      "sha256": "af93a8d9241455ab232c9792441e0d1bef842d3274e0a69197b12e584374901f"
+    },
+    {
+      "key": "papers/learnfo_engsec151_2024.pdf",
+      "name": "learnfo_engsec151_2024.pdf",
+      "size": 906442,
+      "sha256": "0b52c84b45f5e23edcc39a8b056b1a6f53c8d441b40528a01c8afee7a695194f"
+    },
+    {
+      "key": "papers/learnfo_engsec201_2024.pdf",
+      "name": "learnfo_engsec201_2024.pdf",
+      "size": 787561,
+      "sha256": "be331d705dbd54d3e0ab0b685a897ce2d7f9b04c57da607080341dc07fd971b7"
+    },
+    {
+      "key": "papers/learnfo_engsec201t_2025.pdf",
+      "name": "learnfo_engsec201t_2025.pdf",
+      "size": 708784,
+      "sha256": "4ddc40340e18ec9cd41d1aa92574ce9e65d8065f3b80a1a103131c0835050ebc"
+    },
+    {
+      "key": "papers/learnfo_hisdsc101_2024.pdf",
+      "name": "learnfo_hisdsc101_2024.pdf",
+      "size": 735403,
+      "sha256": "6b4d2ffafdb6ace1bee7823e63a74e88f67c739f7766156e41b2efeec0c9a978"
+    },
+    {
+      "key": "papers/learnfo_hisdsc101t_2023.pdf",
+      "name": "learnfo_hisdsc101t_2023.pdf",
+      "size": 2367130,
+      "sha256": "207d5749252dd86ea664bc24229d42c2d77cb9a7c60e25ac484c3a794b4fc544"
+    },
+    {
+      "key": "papers/learnfo_hisdsc101t_2025.pdf",
+      "name": "learnfo_hisdsc101t_2025.pdf",
+      "size": 1105892,
+      "sha256": "470e77e890071dd53d4b359ecd8c7640819e07692018585c3f5865f104ff9cdc"
+    },
+    {
+      "key": "papers/learnfo_hisdsc102_2024.pdf",
+      "name": "learnfo_hisdsc102_2024.pdf",
+      "size": 788062,
+      "sha256": "0e99a4f0b1c9aa4ce82d89138f3496c8e7432390e801c70f947f0626fcb95461"
+    },
+    {
+      "key": "papers/learnfo_hisdsc102t_2023.pdf",
+      "name": "learnfo_hisdsc102t_2023.pdf",
+      "size": 2222004,
+      "sha256": "5eb422c734a13bd0d2eeb474b475c5f17670a07f6c9a82961bab0fbc0d7232da"
+    },
+    {
+      "key": "papers/learnfo_hisdsc102t_2025.pdf",
+      "name": "learnfo_hisdsc102t_2025.pdf",
+      "size": 1178949,
+      "sha256": "972bb466bacf095811c73faee5abc173fad25ab20869e962b94366c3e26d9675"
+    },
+    {
+      "key": "papers/learnfo_hisdsc151_2024.pdf",
+      "name": "learnfo_hisdsc151_2024.pdf",
+      "size": 918651,
+      "sha256": "b88fb356b356913ace3291d860222a7a7b8c5a2d71734c1b5ace4852d658e4c3"
+    },
+    {
+      "key": "papers/learnfo_hisdsc152_2024.pdf",
+      "name": "learnfo_hisdsc152_2024.pdf",
+      "size": 820252,
+      "sha256": "8f1022ee8b475b653a4412150583ca2f284e851bbe2434fba6b144d8c56bcfb6"
+    },
+    {
+      "key": "papers/learnfo_hisdsc201_2024.pdf",
+      "name": "learnfo_hisdsc201_2024.pdf",
+      "size": 785034,
+      "sha256": "2d3b888df2bfff6a4d0f218841d4857170592f1d15fc20752d2316fdb7768bf9"
+    },
+    {
+      "key": "papers/learnfo_hisdsc201t_2025.pdf",
+      "name": "learnfo_hisdsc201t_2025.pdf",
+      "size": 802825,
+      "sha256": "be478bb6a496200f7becf091cbfd4fb8764484274144b0a27e8fa88d54d4f776"
+    },
+    {
+      "key": "papers/learnfo_hisdsc202_2024.pdf",
+      "name": "learnfo_hisdsc202_2024.pdf",
+      "size": 620673,
+      "sha256": "db20d98ab60abdff112b356d6c44b66ceb45705cc765074178a992686e97fb01"
+    },
+    {
+      "key": "papers/learnfo_hisdsc202t_2025.pdf",
+      "name": "learnfo_hisdsc202t_2025.pdf",
+      "size": 721731,
+      "sha256": "400ef18acf26297736d5a4f7ac7a6d8379807666ee83bd8ccccba5679ecb79b6"
+    },
+    {
+      "key": "papers/learnfo_hisdsc251_2025.pdf",
+      "name": "learnfo_hisdsc251_2025.pdf",
+      "size": 1429320,
+      "sha256": "27f758d633d716658966fbf02898977832d112974870a81e71f587e00f9dc755"
+    },
+    {
+      "key": "papers/learnfo_hisdsc301t_2025.pdf",
+      "name": "learnfo_hisdsc301t_2025.pdf",
+      "size": 818925,
+      "sha256": "320d89b411d4aa9a917649dc33027ace42355f38c64256be2b82ff2381a3efdf"
+    },
+    {
+      "key": "papers/learnfo_hisdsc302t_2025.pdf",
+      "name": "learnfo_hisdsc302t_2025.pdf",
+      "size": 865141,
+      "sha256": "50efdfb516867273540706a5df446f9d0f081d2eda39714ba9541f6bc7ee8f6b"
+    },
+    {
+      "key": "papers/learnfo_hisdsc303t_2025.pdf",
+      "name": "learnfo_hisdsc303t_2025.pdf",
+      "size": 781568,
+      "sha256": "3132bd0f46b42a1b3397adba533786b9b6e6cda8aa824ae629482431f7166258"
+    },
+    {
+      "key": "papers/learnfo_hisdsm101_2024.pdf",
+      "name": "learnfo_hisdsm101_2024.pdf",
+      "size": 789146,
+      "sha256": "c83f206c2897aa533ad8c4b6f0266b151f5a431a0ea376396b72e421e40ef982"
+    },
+    {
+      "key": "papers/learnfo_hisdsm101t_2023.pdf",
+      "name": "learnfo_hisdsm101t_2023.pdf",
+      "size": 1850785,
+      "sha256": "c7c72686a79be5ca0c517716a89fcae4636da97018dd378073147d4ac870e549"
+    },
+    {
+      "key": "papers/learnfo_hisdsm101t_2025.pdf",
+      "name": "learnfo_hisdsm101t_2025.pdf",
+      "size": 1209276,
+      "sha256": "f8b98c60820028108a329b8a62a0dff0de90ec842b313bd20218bec39f3ddfa7"
+    },
+    {
+      "key": "papers/learnfo_hisdsm151_2024.pdf",
+      "name": "learnfo_hisdsm151_2024.pdf",
+      "size": 1111245,
+      "sha256": "6ae6a4a38afc3112d143a5c0d300c02556220f07cb440554d7f6172faf50fd12"
+    },
+    {
+      "key": "papers/learnfo_hisdsm201_2024.pdf",
+      "name": "learnfo_hisdsm201_2024.pdf",
+      "size": 803740,
+      "sha256": "1c08ad25560710c0ab7dac48bf720832e18a736fb69885e20f0c563534c1f72e"
+    },
+    {
+      "key": "papers/learnfo_hisdsm201t_2025.pdf",
+      "name": "learnfo_hisdsm201t_2025.pdf",
+      "size": 775328,
+      "sha256": "0e6d4bd84f3c1991717b811662ec1de87cf9e91f8ceaa587ac2fa444bbae7f12"
+    },
+    {
+      "key": "papers/learnfo_hisidc101_2024.pdf",
+      "name": "learnfo_hisidc101_2024.pdf",
+      "size": 1019919,
+      "sha256": "05ae17840bd738eaa8685abcaf396e11d09a6c2f3f544438417eaeed02d5a7db"
+    },
+    {
+      "key": "papers/learnfo_hisidc101t_2025.pdf",
+      "name": "learnfo_hisidc101t_2025.pdf",
+      "size": 1042878,
+      "sha256": "c83fbe2ec032a9aaec9517d984258b7b83a5c35a9a06528bdb7ca9cf2471fd2c"
+    },
+    {
+      "key": "papers/learnfo_hisidc151_2024.pdf",
+      "name": "learnfo_hisidc151_2024.pdf",
+      "size": 1517818,
+      "sha256": "3b7ea1c7372c4ae9aa5ed5d516e1852b542a5d300ece8624bf7bd54558131402"
+    },
+    {
+      "key": "papers/learnfo_hisidc201_2024.pdf",
+      "name": "learnfo_hisidc201_2024.pdf",
+      "size": 992502,
+      "sha256": "1758e297c8c838e5f734289aac3e1ddbd5b11cda83a35b0d5f9626b161b04277"
+    },
+    {
+      "key": "papers/learnfo_hisidc201t_2025.pdf",
+      "name": "learnfo_hisidc201t_2025.pdf",
+      "size": 809169,
+      "sha256": "a3703323bfe63a758c357d82e5607ce88ecb7e07fe6b3b7f2602ff1e0c748a81"
+    },
+    {
+      "key": "papers/learnfo_hissec101_2024.pdf",
+      "name": "learnfo_hissec101_2024.pdf",
+      "size": 1018716,
+      "sha256": "075e06bb4ad6aa116077f70d2a903145e452e22e5365e5f17057409012a831ce"
+    },
+    {
+      "key": "papers/learnfo_hissec101t_2023.pdf",
+      "name": "learnfo_hissec101t_2023.pdf",
+      "size": 3017282,
+      "sha256": "b192cbddc97688bf8ce1c247d1f78f119d80e0cc4c178cacb9da34a88a9b73f6"
+    },
+    {
+      "key": "papers/learnfo_hissec101t_2025.pdf",
+      "name": "learnfo_hissec101t_2025.pdf",
+      "size": 889370,
+      "sha256": "c44d393796430de1ac3f8909a2fe657c51355575c9964fac9557815b87fadcb4"
+    },
+    {
+      "key": "papers/learnfo_hissec151_2024.pdf",
+      "name": "learnfo_hissec151_2024.pdf",
+      "size": 1194280,
+      "sha256": "7a563743b7d49279717c653936878d3ca87acc4d2f2420e0afb2f43a4c09b72b"
+    },
+    {
+      "key": "papers/learnfo_hissec201_2024.pdf",
+      "name": "learnfo_hissec201_2024.pdf",
+      "size": 930237,
+      "sha256": "e5cbd513eb80bbca851b735f10fe8e74050467a808b16df30d8a9f00faf62a1f"
+    },
+    {
+      "key": "papers/learnfo_hissec201t_2025.pdf",
+      "name": "learnfo_hissec201t_2025.pdf",
+      "size": 746382,
+      "sha256": "263eeae72804cf738f14dbeaa10e3d5d56cee17aa1893be2fb47f44ce4f1adc4"
+    },
+    {
+      "key": "papers/learnfo_iffdsm101t_2025.pdf",
+      "name": "learnfo_iffdsm101t_2025.pdf",
+      "size": 927203,
+      "sha256": "6d622783a77072f20addd5cf50e48877a1a4f03b7f1b6abcbeb721f047b78182"
+    },
+    {
+      "key": "papers/learnfo_iffdsm151_2024.pdf",
+      "name": "learnfo_iffdsm151_2024.pdf",
+      "size": 1082776,
+      "sha256": "aaee1de78787b8758a2f7544c6387d53afc54c644887fa9e309e3549fe4f0667"
+    },
+    {
+      "key": "papers/learnfo_iffdsm201t_2025.pdf",
+      "name": "learnfo_iffdsm201t_2025.pdf",
+      "size": 888371,
+      "sha256": "5e800444cc3527ed5e5326378fdca6439779d6a473ad05d431f4553e84738d39"
+    },
+    {
+      "key": "papers/learnfo_iffdsm301t_2024.pdf",
+      "name": "learnfo_iffdsm301t_2024.pdf",
+      "size": 703162,
+      "sha256": "5329ea13b354e7d40f1f8d65cba6361ae3157c8cc621ce357d9c57e97d5b0468"
+    },
+    {
+      "key": "papers/learnfo_iffidc151_2024.pdf",
+      "name": "learnfo_iffidc151_2024.pdf",
+      "size": 1124091,
+      "sha256": "c653a8502cd205767c7ba9f4719ff53761e9d623737552544035d508ba03644b"
+    },
+    {
+      "key": "papers/learnfo_iffsec151_2024.pdf",
+      "name": "learnfo_iffsec151_2024.pdf",
+      "size": 1039433,
+      "sha256": "c0e1c8c41f6abe75e4216d8f9dc7191ac9b1a128e3addfd6de40d78ef78ebfca"
+    },
+    {
+      "key": "papers/learnfo_lisidc101t_2023.pdf",
+      "name": "learnfo_lisidc101t_2023.pdf",
+      "size": 2519979,
+      "sha256": "6932761aff28b5c8b9767db0b7396eb8e2153a2e4fdac1e2ce4adc3b28a779a0"
+    },
+    {
+      "key": "papers/learnfo_lisidc101t_2025.pdf",
+      "name": "learnfo_lisidc101t_2025.pdf",
+      "size": 1593280,
+      "sha256": "181f54a4900d1ecc3fbd76207904e2eb7823af80aa9d02eb13c8502a02ffec3c"
+    },
+    {
+      "key": "papers/learnfo_lisidc151_2024.pdf",
+      "name": "learnfo_lisidc151_2024.pdf",
+      "size": 1137411,
+      "sha256": "ad4df9a8ffbc53defa77961a0010375b9af6d2042a1fc3a7dd4f89c9d6c99fc2"
+    },
+    {
+      "key": "papers/learnfo_lisidc201t_2025.pdf",
+      "name": "learnfo_lisidc201t_2025.pdf",
+      "size": 1233233,
+      "sha256": "53ffc132ce43a67a713cd261d2055792952fac849fa4ebdf261bd3a31325cbc8"
+    },
+    {
+      "key": "papers/learnfo_manaec101t_2023.pdf",
+      "name": "learnfo_manaec101t_2023.pdf",
+      "size": 2850935,
+      "sha256": "d69a9f72f2995ce29aa9ec5a76b58cf518b712cc61f0e4262188914a1d24c058"
+    },
+    {
+      "key": "papers/learnfo_manaec101t_2025.pdf",
+      "name": "learnfo_manaec101t_2025.pdf",
+      "size": 1440615,
+      "sha256": "a8ac87e0d4b8920839d3cc8b72599fedb7d535fb79f89d4f4d01c3edb9dcc8d0"
+    },
+    {
+      "key": "papers/learnfo_manaec201t_2025.pdf",
+      "name": "learnfo_manaec201t_2025.pdf",
+      "size": 1079582,
+      "sha256": "d59e1d4a32980c6fe089cb0f6c93605b2e4e16754cddcd0d2c20fbd1209af88c"
+    },
+    {
+      "key": "papers/learnfo_mandsc102t_2023.pdf",
+      "name": "learnfo_mandsc102t_2023.pdf",
+      "size": 2556345,
+      "sha256": "0a9cd8a363e92fed62949709c68dbbd6148a234a8a723deac112dde2e0a2f43c"
+    },
+    {
+      "key": "papers/learnfo_mandsc102t_2025.pdf",
+      "name": "learnfo_mandsc102t_2025.pdf",
+      "size": 911795,
+      "sha256": "8d3a9076b5ecd7c8de14901c3d043bfbd2e288336f8377c2cf4092089f3bfb98"
+    },
+    {
+      "key": "papers/learnfo_mandsc151_2024.pdf",
+      "name": "learnfo_mandsc151_2024.pdf",
+      "size": 1181002,
+      "sha256": "d91cad0629875f85420831b49db33917eb625190a8ad50d5c2154200a552cb9d"
+    },
+    {
+      "key": "papers/learnfo_mandsc152_2024.pdf",
+      "name": "learnfo_mandsc152_2024.pdf",
+      "size": 1297375,
+      "sha256": "066bfd616c0f9c2b51e322eb0f6016324f4c1e8c82212cd9251f3d0dc793646b"
+    },
+    {
+      "key": "papers/learnfo_mandsc201t_2025.pdf",
+      "name": "learnfo_mandsc201t_2025.pdf",
+      "size": 1110399,
+      "sha256": "ac5cd59e4de179891591f090bc0349ad6e9e1afda2dba849b074514ae0a52e69"
+    },
+    {
+      "key": "papers/learnfo_mandsc202t_2025.pdf",
+      "name": "learnfo_mandsc202t_2025.pdf",
+      "size": 748125,
+      "sha256": "3466231a09a3f0bdc2c33c2afa26975c3a8e20eed71837fde0479020c745dd8b"
+    },
+    {
+      "key": "papers/learnfo_manidc101t_2023.pdf",
+      "name": "learnfo_manidc101t_2023.pdf",
+      "size": 3081027,
+      "sha256": "4ff6c3206e61bd3cc8e87dedad0d828e9ce2708d6ba88b96c74c47de2cee8cfc"
+    },
+    {
+      "key": "papers/learnfo_manidc101t_2025.pdf",
+      "name": "learnfo_manidc101t_2025.pdf",
+      "size": 1362019,
+      "sha256": "26f44cdbaca5cdfee403da8818e3d2235b35a94b840cab49535ecc2602abbcfe"
+    },
+    {
+      "key": "papers/learnfo_mansec101t_2023.pdf",
+      "name": "learnfo_mansec101t_2023.pdf",
+      "size": 2435855,
+      "sha256": "34d1123970f05ab51de6de700c81c5b1662f6f87961502eee054c20c2f87a6c2"
+    },
+    {
+      "key": "papers/learnfo_mansec101t_2025.pdf",
+      "name": "learnfo_mansec101t_2025.pdf",
+      "size": 1225872,
+      "sha256": "e7f228c43aa764a22005c623a5a4874ac29ced081a672f2275d5a5753006a967"
+    },
+    {
+      "key": "papers/learnfo_mansec151_2024.pdf",
+      "name": "learnfo_mansec151_2024.pdf",
+      "size": 1120555,
+      "sha256": "15ac1306b89d93a7323c45a30b68b5e90c042770c49c0d8ba5d03f5ab88f0a9e"
+    },
+    {
+      "key": "papers/learnfo_mansec201t_2025.pdf",
+      "name": "learnfo_mansec201t_2025.pdf",
+      "size": 1493299,
+      "sha256": "a522ad526c45e5d2a05e1ec71348afe2fe7dc7369b00bd612c7ad99aa8cfd588"
+    },
+    {
+      "key": "papers/learnfo_matdsc101_2024.pdf",
+      "name": "learnfo_matdsc101_2024.pdf",
+      "size": 1220824,
+      "sha256": "ad2ed0ec7c901e917958eec995849c38ff1dccbeef1acea4fecb51bd278d2cf8"
+    },
+    {
+      "key": "papers/learnfo_matdsc101t_2025.pdf",
+      "name": "learnfo_matdsc101t_2025.pdf",
+      "size": 1603318,
+      "sha256": "a9f8a58e8a04af4096daf22351a9f822ff84a439f104f5315eca7cebaec0d71e"
+    },
+    {
+      "key": "papers/learnfo_matdsc102_2024.pdf",
+      "name": "learnfo_matdsc102_2024.pdf",
+      "size": 1141362,
+      "sha256": "1e2ea3526a7c4628948d099a04f07b0d8d2b4403a7c7555f0cff577c6e792af0"
+    },
+    {
+      "key": "papers/learnfo_matdsc102t_2023.pdf",
+      "name": "learnfo_matdsc102t_2023.pdf",
+      "size": 2837839,
+      "sha256": "baa140e0765acea36981980dcae3c196219e2d5f505c07425623c98d4920ba19"
+    },
+    {
+      "key": "papers/learnfo_matdsc102t_2025.pdf",
+      "name": "learnfo_matdsc102t_2025.pdf",
+      "size": 1361352,
+      "sha256": "bb6641245e6a2ca25f97bc077f9cfca5f827f86d0d68adfe8ca15808ff021f84"
+    },
+    {
+      "key": "papers/learnfo_matdsc151_2024.pdf",
+      "name": "learnfo_matdsc151_2024.pdf",
+      "size": 1867161,
+      "sha256": "6ae64118752a14592959cec7c6a74e711689be0b27d822d5ecac7e47c52da48b"
+    },
+    {
+      "key": "papers/learnfo_matdsc201_2024.pdf",
+      "name": "learnfo_matdsc201_2024.pdf",
+      "size": 1116530,
+      "sha256": "857cac50787b7ac59387e28547621a91a8d3b6cc1f5f8446c4185da2091c501d"
+    },
+    {
+      "key": "papers/learnfo_matdsc201t_2025.pdf",
+      "name": "learnfo_matdsc201t_2025.pdf",
+      "size": 1728689,
+      "sha256": "44f931da91ad8da4da79b5d1d6cc312d23c64cea696efb1b87b55d32f80dca7c"
+    },
+    {
+      "key": "papers/learnfo_matdsc202_2024.pdf",
+      "name": "learnfo_matdsc202_2024.pdf",
+      "size": 1631210,
+      "sha256": "747b8aaf2e6ede51b8d3681f3ad452d6981d402ceb9d42ea6441742c2ac8a5c6"
+    },
+    {
+      "key": "papers/learnfo_matdsc202t_2025.pdf",
+      "name": "learnfo_matdsc202t_2025.pdf",
+      "size": 1412258,
+      "sha256": "ad91f3f8b411680e1c1dcb3883d700bffb51249c8804cd6efb3b0f37cfafeec1"
+    },
+    {
+      "key": "papers/learnfo_matdsc251_2025.pdf",
+      "name": "learnfo_matdsc251_2025.pdf",
+      "size": 1792798,
+      "sha256": "63e091a3c4db0c824971075eda8798acedb2f6fdd4afd2e99eabe24fa2c0bc7e"
+    },
+    {
+      "key": "papers/learnfo_matdsc252_2025.pdf",
+      "name": "learnfo_matdsc252_2025.pdf",
+      "size": 2224149,
+      "sha256": "c77ef96cc27bc6b394d9dda1de2bd11bb3ea46f40fd6bbeb1af0344ed270634d"
+    },
+    {
+      "key": "papers/learnfo_matdsc253_2025.pdf",
+      "name": "learnfo_matdsc253_2025.pdf",
+      "size": 1376037,
+      "sha256": "9de3ba8f2458b9f0f9ac2f56704828f12bf6c453231e48d4a71f51b09a811bf9"
+    },
+    {
+      "key": "papers/learnfo_matdsc301t_2025.pdf",
+      "name": "learnfo_matdsc301t_2025.pdf",
+      "size": 1162353,
+      "sha256": "bd06d1d0f18cc0c995a4d9f9d52906d9c9ed6b20ccd0fb03f81122a4849d3f16"
+    },
+    {
+      "key": "papers/learnfo_matdsc302t_2025.pdf",
+      "name": "learnfo_matdsc302t_2025.pdf",
+      "size": 1431729,
+      "sha256": "be06496f4e84fcfb6140f5a01bb9ec164d759d89bbd8628a876d9d2e3fb5e381"
+    },
+    {
+      "key": "papers/learnfo_matdsc303t_2025.pdf",
+      "name": "learnfo_matdsc303t_2025.pdf",
+      "size": 1268683,
+      "sha256": "b1e01d516df7520dc25163bf2dc90b5dfe090a1ff94c5a61a3f7b7af806099fd"
+    },
+    {
+      "key": "papers/learnfo_matdsm101_2024.pdf",
+      "name": "learnfo_matdsm101_2024.pdf",
+      "size": 1149484,
+      "sha256": "05d2999f05b1e795355d814570991d126da046256c678af89fc425f1874de7f6"
+    },
+    {
+      "key": "papers/learnfo_matdsm101t_2025.pdf",
+      "name": "learnfo_matdsm101t_2025.pdf",
+      "size": 1267479,
+      "sha256": "fc9ff6fc83ae2fa476bdc53ec85a9008395a0a9e2ac9e7e07cd7515f65ac4bab"
+    },
+    {
+      "key": "papers/learnfo_matdsm151_2024.pdf",
+      "name": "learnfo_matdsm151_2024.pdf",
+      "size": 1149418,
+      "sha256": "a53b41c5233c2a7d698ec3c12d88c6e38596b85d2c94d719b6be8ce26407433d"
+    },
+    {
+      "key": "papers/learnfo_matdsm201_2024.pdf",
+      "name": "learnfo_matdsm201_2024.pdf",
+      "size": 981363,
+      "sha256": "859ea60c8db0d836fd990c10c9bc7b41ce197a267445763286fd187aba13fefc"
+    },
+    {
+      "key": "papers/learnfo_matdsm201t_2025.pdf",
+      "name": "learnfo_matdsm201t_2025.pdf",
+      "size": 1067787,
+      "sha256": "01bada25785b4f74a7207eb85d85e83001c6a0a4817dec18615b17c7a2e5bfd3"
+    },
+    {
+      "key": "papers/learnfo_matdsm251252_2025.pdf",
+      "name": "learnfo_matdsm251252_2025.pdf",
+      "size": 1310461,
+      "sha256": "6337f2f6d7bba40c9affcab5cc9c6914a5add7945233273cb5d7d00a29e0e4b0"
+    },
+    {
+      "key": "papers/learnfo_matdsm3012t_2025.pdf",
+      "name": "learnfo_matdsm3012t_2025.pdf",
+      "size": 1152014,
+      "sha256": "dabce7acfe6fd00bb1d77f795ee1ae94c80fd16834b55801f5db61fc1c803dcc"
+    },
+    {
+      "key": "papers/learnfo_matidc101_2024.pdf",
+      "name": "learnfo_matidc101_2024.pdf",
+      "size": 1291945,
+      "sha256": "990ba2b1ad4bf775999be2dbd4d5c2793105a3a06a195168e2cc94f0d197a4ea"
+    },
+    {
+      "key": "papers/learnfo_matidc101t_2023.pdf",
+      "name": "learnfo_matidc101t_2023.pdf",
+      "size": 4173861,
+      "sha256": "32b6cadfd1173ade30fd5f873450e9db55093455a2810835ddadcb53e32c738f"
+    },
+    {
+      "key": "papers/learnfo_matidc101t_2025.pdf",
+      "name": "learnfo_matidc101t_2025.pdf",
+      "size": 1145057,
+      "sha256": "5e04921bf5c8908a31e8bda0cfb953e56393b247a88b404152b9062071672125"
+    },
+    {
+      "key": "papers/learnfo_matidc151_2024.pdf",
+      "name": "learnfo_matidc151_2024.pdf",
+      "size": 1875760,
+      "sha256": "66229a58e1e1d98391f290fc6c030582ad79947d7bd5fee58dd666577d3597e4"
+    },
+    {
+      "key": "papers/learnfo_matidc201_2024.pdf",
+      "name": "learnfo_matidc201_2024.pdf",
+      "size": 1158972,
+      "sha256": "e8dee48a950b6074027a43710ac415048f66c34672a64b5e35225010ac92aa7e"
+    },
+    {
+      "key": "papers/learnfo_matidc201t_2025.pdf",
+      "name": "learnfo_matidc201t_2025.pdf",
+      "size": 1329269,
+      "sha256": "7877a82a6f05962cc344bb69fa1ee77fb2526ae5406f9a1f266f843469a12c62"
+    },
+    {
+      "key": "papers/learnfo_matsec101_2024.pdf",
+      "name": "learnfo_matsec101_2024.pdf",
+      "size": 1088993,
+      "sha256": "9acd405fadbfa1b2bfce7ec6041ce055a33b0d360951c19c590acda162d974ac"
+    },
+    {
+      "key": "papers/learnfo_matsec101t_2023.pdf",
+      "name": "learnfo_matsec101t_2023.pdf",
+      "size": 3060243,
+      "sha256": "9b4cfd0b2291bef4058ac18d77b82629387a7881169dcf6d3288d552d369ae27"
+    },
+    {
+      "key": "papers/learnfo_matsec101t_2025.pdf",
+      "name": "learnfo_matsec101t_2025.pdf",
+      "size": 1241175,
+      "sha256": "dc4b9579c06dfe5303988ed56fb00287fa1ad9383662a127da9cd4b68b1a4638"
+    },
+    {
+      "key": "papers/learnfo_matsec151_2024.pdf",
+      "name": "learnfo_matsec151_2024.pdf",
+      "size": 1340638,
+      "sha256": "97f2aa8bba323780fe1d4bbad4e26a2ab7eca5c34006cbb762abce616aa1465b"
+    },
+    {
+      "key": "papers/learnfo_matsec201_2024.pdf",
+      "name": "learnfo_matsec201_2024.pdf",
+      "size": 1140477,
+      "sha256": "cec4d41558f0c4260b2f97f80f68250f00b6630a13df57f025b25b03fa984a10"
+    },
+    {
+      "key": "papers/learnfo_matsec201t_2025.pdf",
+      "name": "learnfo_matsec201t_2025.pdf",
+      "size": 1559680,
+      "sha256": "e023437834bf8a82320f1ea4ae650296a4df342e9e0b8b64679711558b24f7e6"
+    },
+    {
+      "key": "papers/learnfo_nssvac101t_2023.pdf",
+      "name": "learnfo_nssvac101t_2023.pdf",
+      "size": 1940290,
+      "sha256": "3743a543a2d591fdbba2763b4ee28c977c816899747138190a8b7c339617b2c8"
+    },
+    {
+      "key": "papers/learnfo_perdsc101t_2023.pdf",
+      "name": "learnfo_perdsc101t_2023.pdf",
+      "size": 2542499,
+      "sha256": "c1910d9a65635f79099e2afad6b1d58ce241877a1cb127fd453a5b7da987adef"
+    },
+    {
+      "key": "papers/learnfo_perdsc101t_2025.pdf",
+      "name": "learnfo_perdsc101t_2025.pdf",
+      "size": 1141129,
+      "sha256": "f408363c8d27f75b4642eaa19fe510e69ab5b6b6cd79c7f7efab00f890bf7c68"
+    },
+    {
+      "key": "papers/learnfo_perdsc102t_2023.pdf",
+      "name": "learnfo_perdsc102t_2023.pdf",
+      "size": 2746875,
+      "sha256": "bb0e0d57c2bbd0f1ccf2de15da4521800f3d498c331289e682f5d84d423e0553"
+    },
+    {
+      "key": "papers/learnfo_perdsc151_2024.pdf",
+      "name": "learnfo_perdsc151_2024.pdf",
+      "size": 697618,
+      "sha256": "e3a3b9785985d0663b1d0d7eb6b645841c9b5b3836c7c1e6db5f292becdcf866"
+    },
+    {
+      "key": "papers/learnfo_perdsc152_2024.pdf",
+      "name": "learnfo_perdsc152_2024.pdf",
+      "size": 585376,
+      "sha256": "db556fa06b69b84ac18427cf8afde491054e2080ef05c2460170f94122e5c9fc"
+    },
+    {
+      "key": "papers/learnfo_perdsc201t_2025.pdf",
+      "name": "learnfo_perdsc201t_2025.pdf",
+      "size": 1598489,
+      "sha256": "d385b3df92d16cf1fc0a8d79b93a3df61c94e01542f7fae35f58f1f2d0c9d8bd"
+    },
+    {
+      "key": "papers/learnfo_perdsc202t_2025.pdf",
+      "name": "learnfo_perdsc202t_2025.pdf",
+      "size": 1419859,
+      "sha256": "d0164202d01f7b18b1e68db5ca0047f8f3957b7ccb6db5e0da4e309c13178355"
+    },
+    {
+      "key": "papers/learnfo_perdsc301t_2025.pdf",
+      "name": "learnfo_perdsc301t_2025.pdf",
+      "size": 1539817,
+      "sha256": "1e6d82ce44a5960d86fe576c9ee3d2422101052a0041582568934baa94d99776"
+    },
+    {
+      "key": "papers/learnfo_perdsc302t_2025.pdf",
+      "name": "learnfo_perdsc302t_2025.pdf",
+      "size": 1275410,
+      "sha256": "50e3848fba5705490dd913714d106ca9bb25fa1759bb944eea75140ef17ffe87"
+    },
+    {
+      "key": "papers/learnfo_perdsc303t_2025.pdf",
+      "name": "learnfo_perdsc303t_2025.pdf",
+      "size": 852697,
+      "sha256": "03f47503ce62aaeb44422523729a36322a8e83cd355dc7e9a1fbfc6d1c94dd91"
+    },
+    {
+      "key": "papers/learnfo_perdsm101t_2023.pdf",
+      "name": "learnfo_perdsm101t_2023.pdf",
+      "size": 2221376,
+      "sha256": "46d180e8a328a452673eb219f7a9134f7aed10a1a1dea71edcc53e6021ed68b0"
+    },
+    {
+      "key": "papers/learnfo_perdsm101t_2025.pdf",
+      "name": "learnfo_perdsm101t_2025.pdf",
+      "size": 1205609,
+      "sha256": "03df7531812af32faa1ba39b43f10c0ef623a22b950de625a10d20a57187b9fc"
+    },
+    {
+      "key": "papers/learnfo_perdsm201t_2025.pdf",
+      "name": "learnfo_perdsm201t_2025.pdf",
+      "size": 1688421,
+      "sha256": "24ea45014fe7fbd5f99394fe5181fae5412c63068613d03f400477dae9c2317d"
+    },
+    {
+      "key": "papers/learnfo_perdsm3012t_2025.pdf",
+      "name": "learnfo_perdsm3012t_2025.pdf",
+      "size": 889292,
+      "sha256": "096760de08d866a3471ec4dd7f6dfa068cff637aa605f44533965e9f5b54d190"
+    },
+    {
+      "key": "papers/learnfo_peridc101t_2023.pdf",
+      "name": "learnfo_peridc101t_2023.pdf",
+      "size": 3459360,
+      "sha256": "1bf57873c9ac3f2797138528e0e3aaea26fbc5c9c72ca7fab9a626521c62cbe7"
+    },
+    {
+      "key": "papers/learnfo_peridc101t_2025.pdf",
+      "name": "learnfo_peridc101t_2025.pdf",
+      "size": 1306083,
+      "sha256": "fce8c5b60fc3482fb3388de4d4c3681ea9b29dd62aab905b14a318c89486db75"
+    },
+    {
+      "key": "papers/learnfo_peridc151_2024.pdf",
+      "name": "learnfo_peridc151_2024.pdf",
+      "size": 704083,
+      "sha256": "289b44677f7761328b9bdd167bc8bc78812ea4e3348af687af2c2fefd99c7199"
+    },
+    {
+      "key": "papers/learnfo_persec101t_2023.pdf",
+      "name": "learnfo_persec101t_2023.pdf",
+      "size": 2998414,
+      "sha256": "e59e77fe3245d3e26dcc8bebf4906f72e8ea638d9b634af37047d72302b70a73"
+    },
+    {
+      "key": "papers/learnfo_persec151_2024.pdf",
+      "name": "learnfo_persec151_2024.pdf",
+      "size": 503731,
+      "sha256": "2d167f45bd2700feafa8745e316b5252376385c54e9696dc97c2d6119090c59b"
+    },
+    {
+      "key": "papers/learnfo_persec201t_2025.pdf",
+      "name": "learnfo_persec201t_2025.pdf",
+      "size": 1165427,
+      "sha256": "6cb646073db3942ad09e818f6684d722e0fdf04dbe317d8a34caa70a494287c0"
+    },
+    {
+      "key": "papers/learnfo_phidsc101t_2023.pdf",
+      "name": "learnfo_phidsc101t_2023.pdf",
+      "size": 1869420,
+      "sha256": "b6f55629dc2b0901c3f5e1a99590c2508e1fc5dd321a0f2fc865ae08cdd4aa6f"
+    },
+    {
+      "key": "papers/learnfo_phidsc101t_2025.pdf",
+      "name": "learnfo_phidsc101t_2025.pdf",
+      "size": 723232,
+      "sha256": "716569f78139659e9372b3d4f43349ce1d96955a74e3000d5f72fac1c24c1fa7"
+    },
+    {
+      "key": "papers/learnfo_phidsc102t_2023.pdf",
+      "name": "learnfo_phidsc102t_2023.pdf",
+      "size": 2439581,
+      "sha256": "ff249ad3e6c5931e4e26c2088e742163b5ec4641466e77617e47c84843caf8c8"
+    },
+    {
+      "key": "papers/learnfo_phidsc102t_2025.pdf",
+      "name": "learnfo_phidsc102t_2025.pdf",
+      "size": 849399,
+      "sha256": "13f999aa3efbf76b46a91cc6ae0aa8cb72483f857ce7a517ecfb4c0f4f14401a"
+    },
+    {
+      "key": "papers/learnfo_phidsc151_2024.pdf",
+      "name": "learnfo_phidsc151_2024.pdf",
+      "size": 1002905,
+      "sha256": "edbf512ed7533f93fc402332ad3d558b05122e73525ac45c2a6f08ceeb6f46e9"
+    },
+    {
+      "key": "papers/learnfo_phidsc152_2024.pdf",
+      "name": "learnfo_phidsc152_2024.pdf",
+      "size": 1105984,
+      "sha256": "b2fb409b0e0338ff9437e8f34d799fc30255b456045ba3decb7710754f5596ea"
+    },
+    {
+      "key": "papers/learnfo_phidsc201_2024.pdf",
+      "name": "learnfo_phidsc201_2024.pdf",
+      "size": 1004680,
+      "sha256": "5df60321fe9cbee4fca1c0e1ce419d80cfa2e61daea2982eda0c26d70d772af2"
+    },
+    {
+      "key": "papers/learnfo_phidsc201t_2024.pdf",
+      "name": "learnfo_phidsc201t_2024.pdf",
+      "size": 1020479,
+      "sha256": "cc0ef7304c4e0eff0ded990ac29d88bedc7b5d238270f63ae839d812effc23b0"
+    },
+    {
+      "key": "papers/learnfo_phidsc201t_2025.pdf",
+      "name": "learnfo_phidsc201t_2025.pdf",
+      "size": 783537,
+      "sha256": "ca6b3a1fc3168b788e3072fd215fd7c03dd4e183e67f7076493ec51cdd019164"
+    },
+    {
+      "key": "papers/learnfo_phidsc202_2024.pdf",
+      "name": "learnfo_phidsc202_2024.pdf",
+      "size": 1085840,
+      "sha256": "0d7afe7ca0fe8350cffd08ad18794fc9009c9311482aa2f5f9071464011b22a3"
+    },
+    {
+      "key": "papers/learnfo_phidsc202t_2024.pdf",
+      "name": "learnfo_phidsc202t_2024.pdf",
+      "size": 1108174,
+      "sha256": "7650743162137ecc931a94167fdd874aa19554fceaa0d2cc2c18b1a3eaa86bec"
+    },
+    {
+      "key": "papers/learnfo_phidsc202t_2025.pdf",
+      "name": "learnfo_phidsc202t_2025.pdf",
+      "size": 616539,
+      "sha256": "0868870eace736206f32d101f6a14b2f93eab521ca8acc6a281d0cbfe6bf97f7"
+    },
+    {
+      "key": "papers/learnfo_phidsc251_2025.pdf",
+      "name": "learnfo_phidsc251_2025.pdf",
+      "size": 1232538,
+      "sha256": "bc16a923faf95fd8cf285a2bbe8ea26455417d3dadfb46f842b47349729f83b1"
+    },
+    {
+      "key": "papers/learnfo_phidsc252_2025.pdf",
+      "name": "learnfo_phidsc252_2025.pdf",
+      "size": 1269429,
+      "sha256": "d8e325bfd0661dc79976443e68f87a645f00ce294c96f339af6d0ec865ab5bad"
+    },
+    {
+      "key": "papers/learnfo_phidsc253_2025.pdf",
+      "name": "learnfo_phidsc253_2025.pdf",
+      "size": 1030185,
+      "sha256": "1544badfbe74e795d712007dad02aa3d62e705fb54a13203e58c8f777b448414"
+    },
+    {
+      "key": "papers/learnfo_phidsc301t_2025.pdf",
+      "name": "learnfo_phidsc301t_2025.pdf",
+      "size": 692538,
+      "sha256": "1185039b6b23855fb76bf40be2b49b8f5fae271ef6488901238a0c03dfba5d6c"
+    },
+    {
+      "key": "papers/learnfo_phidsc302t_2025.pdf",
+      "name": "learnfo_phidsc302t_2025.pdf",
+      "size": 711425,
+      "sha256": "cecafda0eceea6c6d0405133c0ae8df51e8f8e99bc01ccb43088d305a6d6a67b"
+    },
+    {
+      "key": "papers/learnfo_phidsc303t_2025.pdf",
+      "name": "learnfo_phidsc303t_2025.pdf",
+      "size": 750474,
+      "sha256": "880ea6518ae3706b71b0ac4ea07433c8ae4fcf4de5790c9bfee047f2437700b1"
+    },
+    {
+      "key": "papers/learnfo_phidsm101t_2023.pdf",
+      "name": "learnfo_phidsm101t_2023.pdf",
+      "size": 2480578,
+      "sha256": "d66d0541e9f37248e21ae61a25d9cdd0c014ac25241d558966869e48beab0300"
+    },
+    {
+      "key": "papers/learnfo_phidsm101t_2025.pdf",
+      "name": "learnfo_phidsm101t_2025.pdf",
+      "size": 836025,
+      "sha256": "ae5d8aff00574d86f3f963ce24d8e1aeb4fafab71e4fbc1f3f4a84733ddb2696"
+    },
+    {
+      "key": "papers/learnfo_phidsm151_2024.pdf",
+      "name": "learnfo_phidsm151_2024.pdf",
+      "size": 967627,
+      "sha256": "8672592ceb1207ef210ff1e5a7c5c0ce2c0c631225c49a3d60fba97055960d53"
+    },
+    {
+      "key": "papers/learnfo_phidsm201_2024.pdf",
+      "name": "learnfo_phidsm201_2024.pdf",
+      "size": 629172,
+      "sha256": "af01cdd4b5d50ebea3cf00452a83f8d7d221bfa846473fa4bee1e61e0ceada15"
+    },
+    {
+      "key": "papers/learnfo_phidsm201t_2024.pdf",
+      "name": "learnfo_phidsm201t_2024.pdf",
+      "size": 629298,
+      "sha256": "96a7d5543d1c0c0d7f9f4aebc5f98e0f6f86aad2084c3a60d3a2f4d1552b3d4a"
+    },
+    {
+      "key": "papers/learnfo_phidsm201t_2025.pdf",
+      "name": "learnfo_phidsm201t_2025.pdf",
+      "size": 738281,
+      "sha256": "45aea0954838e90c10d17839d75f7c43172ac13bee5577ec961940a9753126ca"
+    },
+    {
+      "key": "papers/learnfo_phidsm251252_2025.pdf",
+      "name": "learnfo_phidsm251252_2025.pdf",
+      "size": 1283332,
+      "sha256": "7b7eedd302c8819be9d661cb379ccfecdc49bab01ab60e2808767752e4f5fa90"
+    },
+    {
+      "key": "papers/learnfo_phidsm3012t_2025.pdf",
+      "name": "learnfo_phidsm3012t_2025.pdf",
+      "size": 656235,
+      "sha256": "d551008015d2b6601cc0390796e82f4a4239abcf4228e6afa1f64b1e645ccf9f"
+    },
+    {
+      "key": "papers/learnfo_phiidc101t_2023.pdf",
+      "name": "learnfo_phiidc101t_2023.pdf",
+      "size": 2761141,
+      "sha256": "c95bfb2961dcf1275ca6ff206a385b1b6246c27d6573f4953c018b76e335409c"
+    },
+    {
+      "key": "papers/learnfo_phiidc101t_2025.pdf",
+      "name": "learnfo_phiidc101t_2025.pdf",
+      "size": 1038086,
+      "sha256": "91a116d61037dbb426059354c353ab8e0eb3c806fe677be4f24b69968d118588"
+    },
+    {
+      "key": "papers/learnfo_phiidc151_2024.pdf",
+      "name": "learnfo_phiidc151_2024.pdf",
+      "size": 1270246,
+      "sha256": "d3afe02b60d7781b9ebd38b1d5c54c158e8c71cefc18a5981d3000d549a761c3"
+    },
+    {
+      "key": "papers/learnfo_phiidc201_2024.pdf",
+      "name": "learnfo_phiidc201_2024.pdf",
+      "size": 925446,
+      "sha256": "8a9435cce13e32bee1891c0ba899baf53754bd078f468750f1a4a4fefc7b4fe1"
+    },
+    {
+      "key": "papers/learnfo_phiidc201t_2024.pdf",
+      "name": "learnfo_phiidc201t_2024.pdf",
+      "size": 923760,
+      "sha256": "677ecdcd729081c6beabd5a8a2ccf0b0dac717ddea418227b1f6e9adb311fb01"
+    },
+    {
+      "key": "papers/learnfo_phiidc201t_2025.pdf",
+      "name": "learnfo_phiidc201t_2025.pdf",
+      "size": 814112,
+      "sha256": "201d662f79cd943b51698c3103e558bcb3bf3e169e967de6fe712bd443b7f6a5"
+    },
+    {
+      "key": "papers/learnfo_phisec101t_2023.pdf",
+      "name": "learnfo_phisec101t_2023.pdf",
+      "size": 3137844,
+      "sha256": "95013544b785f4a311513eff34efda64fc436aa6870fde0de609402c5a58d84a"
+    },
+    {
+      "key": "papers/learnfo_phisec101t_2025.pdf",
+      "name": "learnfo_phisec101t_2025.pdf",
+      "size": 760025,
+      "sha256": "c730b1ec6b7e174aa9063920d040c6f346b4964d3aeee27d0bec4b34cf32fae5"
+    },
+    {
+      "key": "papers/learnfo_phisec151_2024.pdf",
+      "name": "learnfo_phisec151_2024.pdf",
+      "size": 1354371,
+      "sha256": "e11f51c59f97cae635e6c7b9decf569d21152ad6e4f816d08f1b88a4fa11039c"
+    },
+    {
+      "key": "papers/learnfo_phisec201_2024.pdf",
+      "name": "learnfo_phisec201_2024.pdf",
+      "size": 1071648,
+      "sha256": "dc04ea7aac9c5eab8f1c9d82d74d48c968f66c25501e8936bc6a97cadf4a7f39"
+    },
+    {
+      "key": "papers/learnfo_phisec201t_2024.pdf",
+      "name": "learnfo_phisec201t_2024.pdf",
+      "size": 1076862,
+      "sha256": "7daa6daca5325d9bcd8ac6c614804e98c48e805c982c38e09bc453c961f0b33a"
+    },
+    {
+      "key": "papers/learnfo_phisec201t_2025.pdf",
+      "name": "learnfo_phisec201t_2025.pdf",
+      "size": 872114,
+      "sha256": "f56aad2d3f292ea6b39a87464adbadaecad8766d5b2383e1119ad1ceee4d8f22"
+    },
+    {
+      "key": "papers/learnfo_phydsc101_2024.pdf",
+      "name": "learnfo_phydsc101_2024.pdf",
+      "size": 872635,
+      "sha256": "580984c878d2fe036f74398010103e302807384cab82a98fa20354e360f7617f"
+    },
+    {
+      "key": "papers/learnfo_phydsc101t_2025.pdf",
+      "name": "learnfo_phydsc101t_2025.pdf",
+      "size": 1490409,
+      "sha256": "9ef44a5445332614c9c0c87a91c8f266456699ab135718abbdf35357c34c8818"
+    },
+    {
+      "key": "papers/learnfo_phydsc102_2024.pdf",
+      "name": "learnfo_phydsc102_2024.pdf",
+      "size": 935773,
+      "sha256": "d4c054dfd99ca1b68d83f88c87ccb40e4e1ac09041d2905fcae11990a5dcfc85"
+    },
+    {
+      "key": "papers/learnfo_phydsc102t_2023.pdf",
+      "name": "learnfo_phydsc102t_2023.pdf",
+      "size": 2925198,
+      "sha256": "b61e28da36754d39b0bf4cb03dd30556f77ae5b14b1efbf27a3da61e794120d5"
+    },
+    {
+      "key": "papers/learnfo_phydsc102t_2025.pdf",
+      "name": "learnfo_phydsc102t_2025.pdf",
+      "size": 1803701,
+      "sha256": "b5330d9257b00f7ff9839c8de1b2e52f987302861531f11f56f31d545325cf6d"
+    },
+    {
+      "key": "papers/learnfo_phydsc151_2024.pdf",
+      "name": "learnfo_phydsc151_2024.pdf",
+      "size": 1314935,
+      "sha256": "1123b5813e60e44f5f5b1681c88acf2b3c8231de17bfd8ca58226c7350b605b1"
+    },
+    {
+      "key": "papers/learnfo_phydsc201_2024.pdf",
+      "name": "learnfo_phydsc201_2024.pdf",
+      "size": 907073,
+      "sha256": "eea8b2a6316b16842a9c3565f812f9b92ca8e075d96527e0226c9653148d92c3"
+    },
+    {
+      "key": "papers/learnfo_phydsc201t_2025.pdf",
+      "name": "learnfo_phydsc201t_2025.pdf",
+      "size": 1701751,
+      "sha256": "89077041dc45fdf1cea3c4697d4f067b74fd14a065ab3d9616e1bf443aedf3e4"
+    },
+    {
+      "key": "papers/learnfo_phydsc202_2024.pdf",
+      "name": "learnfo_phydsc202_2024.pdf",
+      "size": 987081,
+      "sha256": "95d6b58b47943ac02069257f815b67315fe0e8b984ba60b2cc3efcc3fa3590ab"
+    },
+    {
+      "key": "papers/learnfo_phydsc202t_2025.pdf",
+      "name": "learnfo_phydsc202t_2025.pdf",
+      "size": 1738762,
+      "sha256": "b4b94c227eef1ea4d984dac773662d16e49cd5c6c8209f1273a72308c717b40d"
+    },
+    {
+      "key": "papers/learnfo_phydsc251_2025.pdf",
+      "name": "learnfo_phydsc251_2025.pdf",
+      "size": 1174062,
+      "sha256": "abc31cc92f20a871455d3b3e4b948ebc15f23689da318c00c72edc4eece72c00"
+    },
+    {
+      "key": "papers/learnfo_phydsc252_2025.pdf",
+      "name": "learnfo_phydsc252_2025.pdf",
+      "size": 1491588,
+      "sha256": "99a5803cd7e5ec875935143bc30e22592bd595477370d9ed72b5367090d8a82e"
+    },
+    {
+      "key": "papers/learnfo_phydsc301t_2025.pdf",
+      "name": "learnfo_phydsc301t_2025.pdf",
+      "size": 955551,
+      "sha256": "90c3a82401e60e2e50e764e14e0fba26791f440fe22e78fb9da997a6f68f6e78"
+    },
+    {
+      "key": "papers/learnfo_phydsc302t_2025.pdf",
+      "name": "learnfo_phydsc302t_2025.pdf",
+      "size": 1433280,
+      "sha256": "989e33bec5c6ca6071adcc218cd5fe6a44aa0822b81b84a4ac9c98feca1b8b0e"
+    },
+    {
+      "key": "papers/learnfo_phydsm101_2024.pdf",
+      "name": "learnfo_phydsm101_2024.pdf",
+      "size": 1021725,
+      "sha256": "2b9e909fd2ebfc9050e79175928c660f4cc3d9717275b1f3d355d2e19026da6e"
+    },
+    {
+      "key": "papers/learnfo_phydsm101t_2023.pdf",
+      "name": "learnfo_phydsm101t_2023.pdf",
+      "size": 3255462,
+      "sha256": "b502045105f63b26291b37c1e1be4da380707006e37977a943963fc771c63dc2"
+    },
+    {
+      "key": "papers/learnfo_phydsm101t_2025.pdf",
+      "name": "learnfo_phydsm101t_2025.pdf",
+      "size": 1432754,
+      "sha256": "4810d23cf9ae5a2b5a0a32097aaacb154d7b3ea93bcf57201b650af484a5b1fa"
+    },
+    {
+      "key": "papers/learnfo_phydsm201_2024.pdf",
+      "name": "learnfo_phydsm201_2024.pdf",
+      "size": 1073424,
+      "sha256": "94679b2d946295225ebee9c9dca3d04e8cf8cd02a5942f040415455a7b4c86d0"
+    },
+    {
+      "key": "papers/learnfo_phydsm201t_2025.pdf",
+      "name": "learnfo_phydsm201t_2025.pdf",
+      "size": 1630116,
+      "sha256": "41e7a2f631a6e8528b57a092b2befbeeaa63a94fd6e103704068fad1fd40e8be"
+    },
+    {
+      "key": "papers/learnfo_phydsm252_2025.pdf",
+      "name": "learnfo_phydsm252_2025.pdf",
+      "size": 1229479,
+      "sha256": "d92fdb6215344d6e0fd9a2001cb9f686ac6393373a085418b6e2e6c355304180"
+    },
+    {
+      "key": "papers/learnfo_phyidc101_2024.pdf",
+      "name": "learnfo_phyidc101_2024.pdf",
+      "size": 974331,
+      "sha256": "54a30cff55595501298469319766c5fce3472b93703906401d7d0827bb3ff645"
+    },
+    {
+      "key": "papers/learnfo_phyidc101t_2023.pdf",
+      "name": "learnfo_phyidc101t_2023.pdf",
+      "size": 2993904,
+      "sha256": "be36e9cf176883ec75130bccfa0a16cb09761dc354a2d74dcd919a65c886fe54"
+    },
+    {
+      "key": "papers/learnfo_phyidc101t_2025.pdf",
+      "name": "learnfo_phyidc101t_2025.pdf",
+      "size": 1845236,
+      "sha256": "c064867b535cbc2ca5f46b4990b26fb39f4431888e98afb8b75e700ea855b8e5"
+    },
+    {
+      "key": "papers/learnfo_phyidc151_2024.pdf",
+      "name": "learnfo_phyidc151_2024.pdf",
+      "size": 1330144,
+      "sha256": "ae9a0239abaccd4e815b526a6fb411677c9f1373bf1a0b59d84d47e957c5f9bc"
+    },
+    {
+      "key": "papers/learnfo_phyidc201_2024.pdf",
+      "name": "learnfo_phyidc201_2024.pdf",
+      "size": 1013885,
+      "sha256": "3f8aa65f9a1cd56656d6d5c0c8f8d822bca97a78c8691a7512d546784b53a618"
+    },
+    {
+      "key": "papers/learnfo_phyidc201t_2025.pdf",
+      "name": "learnfo_phyidc201t_2025.pdf",
+      "size": 1388536,
+      "sha256": "719199b5fb9200198759f6ba92bc15f7e5f89a2db391d427362a17643d34e555"
+    },
+    {
+      "key": "papers/learnfo_physec101_2024.pdf",
+      "name": "learnfo_physec101_2024.pdf",
+      "size": 759591,
+      "sha256": "876dd353f758631245ca67326e065d384250144b4376a9c175f3640efe0cee0c"
+    },
+    {
+      "key": "papers/learnfo_physec101t_2023.pdf",
+      "name": "learnfo_physec101t_2023.pdf",
+      "size": 3026010,
+      "sha256": "dc12f9ace0f4d6cd873bb80431b7d5fa16567008d3b6dda4eb01b6d446ac2016"
+    },
+    {
+      "key": "papers/learnfo_physec101t_2025.pdf",
+      "name": "learnfo_physec101t_2025.pdf",
+      "size": 1244529,
+      "sha256": "379b265b910746d8c0f850ef04973dc621a2cac3075c63c3f58b1bab39546228"
+    },
+    {
+      "key": "papers/learnfo_physec151_2024.pdf",
+      "name": "learnfo_physec151_2024.pdf",
+      "size": 1084549,
+      "sha256": "754bb0c4c9f24d2f8cbec1c63da9ae425595e82acda692835b47a8139bd375d9"
+    },
+    {
+      "key": "papers/learnfo_physec201_2024.pdf",
+      "name": "learnfo_physec201_2024.pdf",
+      "size": 726996,
+      "sha256": "3607a0fc4462addaf1b51d30329725d76dc1fc40fce03bcde1de06f5df823c5a"
+    },
+    {
+      "key": "papers/learnfo_physec201t_2025.pdf",
+      "name": "learnfo_physec201t_2025.pdf",
+      "size": 1440668,
+      "sha256": "5b394f08b94dc092d5728d65b154a9474e3d673d2994a104baa49af771d0e333"
+    },
+    {
+      "key": "papers/learnfo_plsdsc101_2024.pdf",
+      "name": "learnfo_plsdsc101_2024.pdf",
+      "size": 663162,
+      "sha256": "4e106538f04cb8007c3eb2246fa2182cbe110c49eb94f70f5ef342eaec595e51"
+    },
+    {
+      "key": "papers/learnfo_plsdsc101t_2023.pdf",
+      "name": "learnfo_plsdsc101t_2023.pdf",
+      "size": 2064592,
+      "sha256": "02e6343f555ed7ce6061bfac1b9469e7d99540e9f34daf6c82678dc31cf6603a"
+    },
+    {
+      "key": "papers/learnfo_plsdsc101t_2025.pdf",
+      "name": "learnfo_plsdsc101t_2025.pdf",
+      "size": 834502,
+      "sha256": "4cc754b492415ef8e2b04d597e90931fa761ab14c711c1087ccbecd48b905769"
+    },
+    {
+      "key": "papers/learnfo_plsdsc102_2024.pdf",
+      "name": "learnfo_plsdsc102_2024.pdf",
+      "size": 849501,
+      "sha256": "9aee893141b2e75c8f6a85de61cfe5286a9c3eea24b0d0b79442e66a2437acfa"
+    },
+    {
+      "key": "papers/learnfo_plsdsc102t_2023.pdf",
+      "name": "learnfo_plsdsc102t_2023.pdf",
+      "size": 2014745,
+      "sha256": "e2f7cf379d56ffd59472f40a4b442b190d0e9f4ece6f90969747af19c5624016"
+    },
+    {
+      "key": "papers/learnfo_plsdsc102t_2025.pdf",
+      "name": "learnfo_plsdsc102t_2025.pdf",
+      "size": 988274,
+      "sha256": "7887cfc4d628b9b77346334e0d5b84853345aefd78fc97bff4ce2d7f06ac636c"
+    },
+    {
+      "key": "papers/learnfo_plsdsc151_2024.pdf",
+      "name": "learnfo_plsdsc151_2024.pdf",
+      "size": 859381,
+      "sha256": "1082d42e4a12c3b01f8ad24ea4c5e0a3ac0761bc309318182475c48d02dbab7e"
+    },
+    {
+      "key": "papers/learnfo_plsdsc152_2024.pdf",
+      "name": "learnfo_plsdsc152_2024.pdf",
+      "size": 927028,
+      "sha256": "abc8df6fa5e8f289cf897b388c013f9f5c858698aeb32c992d6d7eff3cf15c26"
+    },
+    {
+      "key": "papers/learnfo_plsdsc201_2024.pdf",
+      "name": "learnfo_plsdsc201_2024.pdf",
+      "size": 810227,
+      "sha256": "571b4883b718f28f8ce724bed14932b8bbd623eba919881b0515dbc65aac6693"
+    },
+    {
+      "key": "papers/learnfo_plsdsc201t_2025.pdf",
+      "name": "learnfo_plsdsc201t_2025.pdf",
+      "size": 792618,
+      "sha256": "ef9738b070b5680d8c6eca99c914308ee7ade4efa00123dd6b11348e579d0e12"
+    },
+    {
+      "key": "papers/learnfo_plsdsc202_2024.pdf",
+      "name": "learnfo_plsdsc202_2024.pdf",
+      "size": 737545,
+      "sha256": "572f93d814d65c569243eed15d6ae0700934a31887d85e481d92471d5db759ec"
+    },
+    {
+      "key": "papers/learnfo_plsdsc202t_2025.pdf",
+      "name": "learnfo_plsdsc202t_2025.pdf",
+      "size": 793565,
+      "sha256": "56a1405959e0e5919f2e2407e37de4f1f65bf0c2250619a9748a5dba47da7cfa"
+    },
+    {
+      "key": "papers/learnfo_plsdsc251_2025.pdf",
+      "name": "learnfo_plsdsc251_2025.pdf",
+      "size": 1525395,
+      "sha256": "00fde2dd61f92edf8214c729856289e8c37029fd08638d31aff22c5fd54f4945"
+    },
+    {
+      "key": "papers/learnfo_plsdsc252_2025.pdf",
+      "name": "learnfo_plsdsc252_2025.pdf",
+      "size": 1337861,
+      "sha256": "f2752207ce9064aa7f5f60409cb6e048631b2f82d074410ba08a28b0124f485a"
+    },
+    {
+      "key": "papers/learnfo_plsdsc253_2025.pdf",
+      "name": "learnfo_plsdsc253_2025.pdf",
+      "size": 1190300,
+      "sha256": "464694fdcc25e90bdc442504989e2e8e2c972f0406d470a9a341d961f2f0a4d3"
+    },
+    {
+      "key": "papers/learnfo_plsdsc301t_2025.pdf",
+      "name": "learnfo_plsdsc301t_2025.pdf",
+      "size": 728516,
+      "sha256": "68c843e4e8275f75254153caff4f21f1423d7972f5a1520ab71837e6e89c36f1"
+    },
+    {
+      "key": "papers/learnfo_plsdsm101_2024.pdf",
+      "name": "learnfo_plsdsm101_2024.pdf",
+      "size": 730379,
+      "sha256": "52c76bb61a8f72a4ba790a3f36e0d45159b00afb1b3680ed40eeeac1b4dd1f5d"
+    },
+    {
+      "key": "papers/learnfo_plsdsm101t_2023.pdf",
+      "name": "learnfo_plsdsm101t_2023.pdf",
+      "size": 2230192,
+      "sha256": "3b3b29b7a024da8fadc6c5a48c019d4a67f5a0d3daebb1584aa6a462a688cab5"
+    },
+    {
+      "key": "papers/learnfo_plsdsm101t_2025.pdf",
+      "name": "learnfo_plsdsm101t_2025.pdf",
+      "size": 676072,
+      "sha256": "649d7ee83160b88d8f4c7483cbd2a7c104bac3e918c929a54cb7f5ea3c1abdb7"
+    },
+    {
+      "key": "papers/learnfo_plsdsm151_2024.pdf",
+      "name": "learnfo_plsdsm151_2024.pdf",
+      "size": 822221,
+      "sha256": "fa142ba4c3037f226ecd8aec6039a8239e012fe0babbe0589373d9af1861d7c2"
+    },
+    {
+      "key": "papers/learnfo_plsdsm201_2024.pdf",
+      "name": "learnfo_plsdsm201_2024.pdf",
+      "size": 674859,
+      "sha256": "f5f13aea6a6f888c09dee07ac75786a90e112248f5ed439436744c27ccbc599f"
+    },
+    {
+      "key": "papers/learnfo_plsdsm201t_2025.pdf",
+      "name": "learnfo_plsdsm201t_2025.pdf",
+      "size": 812839,
+      "sha256": "954ebe012108d281c35db99eb97fad90286bcc4326cbe2431a186a03d93a6b9c"
+    },
+    {
+      "key": "papers/learnfo_plsdsm251252_2025.pdf",
+      "name": "learnfo_plsdsm251252_2025.pdf",
+      "size": 1422014,
+      "sha256": "d766fbd888432fed4ba57fc10659abd9d4ce03c4fca4291b7e621336b4bafca4"
+    },
+    {
+      "key": "papers/learnfo_plsdsm3012t_2025.pdf",
+      "name": "learnfo_plsdsm3012t_2025.pdf",
+      "size": 815661,
+      "sha256": "f1083117b989ee351f2cf78797a7231d8ae26fe9fd9c8a9a01a15b779131a2af"
+    },
+    {
+      "key": "papers/learnfo_plsidc101_2024.pdf",
+      "name": "learnfo_plsidc101_2024.pdf",
+      "size": 932717,
+      "sha256": "0cee50d9da52d3245cd95a822662cd9b7c4f83297e927fbaa4306980af974d07"
+    },
+    {
+      "key": "papers/learnfo_plsidc101t_2023.pdf",
+      "name": "learnfo_plsidc101t_2023.pdf",
+      "size": 2869585,
+      "sha256": "d6a6bf3eb13ec54707751d5719c8ffcc22211d116404ca400d8e7d8370754bce"
+    },
+    {
+      "key": "papers/learnfo_plsidc101t_2025.pdf",
+      "name": "learnfo_plsidc101t_2025.pdf",
+      "size": 756819,
+      "sha256": "b3d1f6e1f091c31a9eebf94ef87e90f3415f7e86cfeccb7fedf9222e441e4565"
+    },
+    {
+      "key": "papers/learnfo_plsidc151_2024.pdf",
+      "name": "learnfo_plsidc151_2024.pdf",
+      "size": 1395327,
+      "sha256": "cf84bfa059d6fc21f703113d2e8521365083cc7316fee435c500f3085634372b"
+    },
+    {
+      "key": "papers/learnfo_plsidc201_2024.pdf",
+      "name": "learnfo_plsidc201_2024.pdf",
+      "size": 830402,
+      "sha256": "97c029ea220a708261c66ac64ed751efdde431c3a5e6365b895d1cc8ecc303b3"
+    },
+    {
+      "key": "papers/learnfo_plsidc201t_2025.pdf",
+      "name": "learnfo_plsidc201t_2025.pdf",
+      "size": 807911,
+      "sha256": "3ca1b63e542a4106f6f505348cea7c56b7509548ddefbddf2db615e6dd83e651"
+    },
+    {
+      "key": "papers/learnfo_plssec101t_2023.pdf",
+      "name": "learnfo_plssec101t_2023.pdf",
+      "size": 2474305,
+      "sha256": "ef49827764ed9135b1854dd2eab3240bdec75e9cad2d438603ec40a8256ea6c1"
+    },
+    {
+      "key": "papers/learnfo_plssec101t_2024.pdf",
+      "name": "learnfo_plssec101t_2024.pdf",
+      "size": 784636,
+      "sha256": "49e31f338f7e5a15b4f218a5e79c2f8d86f69998c8015ca40428534ee53e94ef"
+    },
+    {
+      "key": "papers/learnfo_plssec151_2024.pdf",
+      "name": "learnfo_plssec151_2024.pdf",
+      "size": 883230,
+      "sha256": "a6a15a4606fc19663ca3d9171e668361d862d1bc30d5c591e1525789aaf341f0"
+    },
+    {
+      "key": "papers/learnfo_plssec201_2024.pdf",
+      "name": "learnfo_plssec201_2024.pdf",
+      "size": 840994,
+      "sha256": "25984dc827ca426a8f044381b996f78617e48f4152db7187dee44af21a3db1bd"
+    },
+    {
+      "key": "papers/learnfo_plssec201t_2025.pdf",
+      "name": "learnfo_plssec201t_2025.pdf",
+      "size": 831045,
+      "sha256": "f1f5a15465f9859ee6385d538adf71d0ea34a93a24d1911f2b7da242275c3d6c"
+    },
+    {
+      "key": "papers/learnfo_sandsc101t_2023.pdf",
+      "name": "learnfo_sandsc101t_2023.pdf",
+      "size": 1770137,
+      "sha256": "9ce8882ff714178764316b634f1d55aa87468165629b75f4b9a1dcf1812ef044"
+    },
+    {
+      "key": "papers/learnfo_sandsc101t_2025.pdf",
+      "name": "learnfo_sandsc101t_2025.pdf",
+      "size": 704839,
+      "sha256": "16b1eedcc279d68ec3c1a6a724e7311cca112d8af280a1177310c8290c627cdd"
+    },
+    {
+      "key": "papers/learnfo_sandsc102t_2023.pdf",
+      "name": "learnfo_sandsc102t_2023.pdf",
+      "size": 3619489,
+      "sha256": "62eb5be45e01044fbf2cc2f6b26354eca57b34366366f6c93d2dbef9a940c7c1"
+    },
+    {
+      "key": "papers/learnfo_sandsc102t_2025.pdf",
+      "name": "learnfo_sandsc102t_2025.pdf",
+      "size": 1244009,
+      "sha256": "5d1bcd82f0698f66b520a54543cbe93053d8f861f02641b942f7f1563ce3bf54"
+    },
+    {
+      "key": "papers/learnfo_sandsc151_2024.pdf",
+      "name": "learnfo_sandsc151_2024.pdf",
+      "size": 1069047,
+      "sha256": "f0b3d9026bb4bf8348be4a97ee2de10a83cba2ad55af2ae53095105a11660f6f"
+    },
+    {
+      "key": "papers/learnfo_sandsc152_2024.pdf",
+      "name": "learnfo_sandsc152_2024.pdf",
+      "size": 891434,
+      "sha256": "d6bfa98f332e829e858b7f4048c1ce05ec0b5528b26563c71404eeaab64ce835"
+    },
+    {
+      "key": "papers/learnfo_sandsc201t_2025.pdf",
+      "name": "learnfo_sandsc201t_2025.pdf",
+      "size": 929972,
+      "sha256": "c62c679838daedda18cf4723ea34d50aa95926330044e9be78acc2d2bb891d1a"
+    },
+    {
+      "key": "papers/learnfo_sandsc202t_2025.pdf",
+      "name": "learnfo_sandsc202t_2025.pdf",
+      "size": 563879,
+      "sha256": "13b81da005b55f0f4cd47a04806717b623b88adeecc070521ac3d1195d9d171e"
+    },
+    {
+      "key": "papers/learnfo_sandsc251_2025.pdf",
+      "name": "learnfo_sandsc251_2025.pdf",
+      "size": 985794,
+      "sha256": "6c4970981c05b2b1fcba7c371d3167442961c454428822edf3a5d062ffa991d2"
+    },
+    {
+      "key": "papers/learnfo_sandsc252_2025.pdf",
+      "name": "learnfo_sandsc252_2025.pdf",
+      "size": 1143928,
+      "sha256": "c92414833973faeb8f1fb32426710cee690852df1b61342c52fe4618fef392b7"
+    },
+    {
+      "key": "papers/learnfo_sandsc253_2025.pdf",
+      "name": "learnfo_sandsc253_2025.pdf",
+      "size": 1001849,
+      "sha256": "bd0d16fc97d587e2a4a63ec025eb4be0548b81f6c0f9065fc2101d4702d1f1d0"
+    },
+    {
+      "key": "papers/learnfo_sandsc301t_2025.pdf",
+      "name": "learnfo_sandsc301t_2025.pdf",
+      "size": 952771,
+      "sha256": "dcd4bd6e1e189750f3063574e40f0d95f0cfec71bedb0bc433aaaef4f70265a4"
+    },
+    {
+      "key": "papers/learnfo_sandsc302t_2025.pdf",
+      "name": "learnfo_sandsc302t_2025.pdf",
+      "size": 726031,
+      "sha256": "ac371736c4383ae7d2f897f6a070cfb1a8ffe98211a4338a6a26ad9d2d18e56d"
+    },
+    {
+      "key": "papers/learnfo_sandsc303t_2025.pdf",
+      "name": "learnfo_sandsc303t_2025.pdf",
+      "size": 906383,
+      "sha256": "a156d17f5205c8bdac57f0dbea0f43ddf5ead6cd1b760cbf5c6acd8e7669c12b"
+    },
+    {
+      "key": "papers/learnfo_sandsm101t_2023.pdf",
+      "name": "learnfo_sandsm101t_2023.pdf",
+      "size": 2922475,
+      "sha256": "c5a2ab0e2485eb908f2c4d741fd987f9d23ca72b9e02b73aeec8660f312e257d"
+    },
+    {
+      "key": "papers/learnfo_sandsm201t_2025.pdf",
+      "name": "learnfo_sandsm201t_2025.pdf",
+      "size": 826256,
+      "sha256": "c74c6a87f62ce51b5400d2434a7c7e0f334743b3dddaec29870dba2f9ba6c96b"
+    },
+    {
+      "key": "papers/learnfo_sandsm251252_2025.pdf",
+      "name": "learnfo_sandsm251252_2025.pdf",
+      "size": 982281,
+      "sha256": "e78b37b0c68b37f9cc531249807e68f5fd35662c150f457d97b70dd99d119ee4"
+    },
+    {
+      "key": "papers/learnfo_sandsm3012t_2025.pdf",
+      "name": "learnfo_sandsm3012t_2025.pdf",
+      "size": 876340,
+      "sha256": "4b51f58bb209beb6edd8b4fa01788d2decf22a94e85e9b7dbcb2ed780bf3ae24"
+    },
+    {
+      "key": "papers/learnfo_sanidc101t_2023.pdf",
+      "name": "learnfo_sanidc101t_2023.pdf",
+      "size": 3033957,
+      "sha256": "c442069459ee5813841770b6b986605a89406f0170a07cd31b3926d80242f22f"
+    },
+    {
+      "key": "papers/learnfo_sanidc101t_2025.pdf",
+      "name": "learnfo_sanidc101t_2025.pdf",
+      "size": 1188093,
+      "sha256": "b483577d89935df60f0c540fdef849ff87557b4b5c1b58c337f9f87fb2abe5ff"
+    },
+    {
+      "key": "papers/learnfo_sanidc151_2024.pdf",
+      "name": "learnfo_sanidc151_2024.pdf",
+      "size": 1264302,
+      "sha256": "e2f7d6298a479fd177805cad37a07e80354ebe7cef9da2d364f314d8a71b0eb2"
+    },
+    {
+      "key": "papers/learnfo_sanidc201t_2025.pdf",
+      "name": "learnfo_sanidc201t_2025.pdf",
+      "size": 1234215,
+      "sha256": "481a9d3d17f9c64414017e274e0563b8214cf012e52fac7f89a712a5da6311a0"
+    },
+    {
+      "key": "papers/learnfo_sansec101t_2023.pdf",
+      "name": "learnfo_sansec101t_2023.pdf",
+      "size": 2842098,
+      "sha256": "cda635404f239191c370670029286a89f3e889266f48d140659dd8479964a8f1"
+    },
+    {
+      "key": "papers/learnfo_sansec101t_2025.pdf",
+      "name": "learnfo_sansec101t_2025.pdf",
+      "size": 844507,
+      "sha256": "f29f10fb5dfc50c01891c072348d8ae05f52bf2f8a0749dbb2942480fa1c50d6"
+    },
+    {
+      "key": "papers/learnfo_sansec151_2024.pdf",
+      "name": "learnfo_sansec151_2024.pdf",
+      "size": 1583432,
+      "sha256": "cdd72546cb6bdba4143136a0ad571936ff0ba0ae7f2515c86a4b5c7129c0d3f7"
+    },
+    {
+      "key": "papers/learnfo_sansec201t_2025.pdf",
+      "name": "learnfo_sansec201t_2025.pdf",
+      "size": 894404,
+      "sha256": "b5ef9c81f54251edd58b76c1f14170ed0494732c268738b2506321c2dbe665ca"
+    },
+    {
+      "key": "papers/learnfo_vacevs151a_2024.pdf",
+      "name": "learnfo_vacevs151a_2024.pdf",
+      "size": 1394745,
+      "sha256": "9881e8d819e70b47c6bacd33d65f822ccbbe641cd1f456187b2e9569bf32daf1"
+    },
+    {
+      "key": "papers/learnfo_vacevs151a_2025.pdf",
+      "name": "learnfo_vacevs151a_2025.pdf",
+      "size": 3352197,
+      "sha256": "ed5d971630774a7aa6c56eb29dd96fa22f6b8737bd798ab82fd44f2db4f72e89"
+    },
+    {
+      "key": "papers/learnfo_vacevs151s_2024.pdf",
+      "name": "learnfo_vacevs151s_2024.pdf",
+      "size": 1307077,
+      "sha256": "6652c04ffd9bb2ad03cdda6a3bcb2a5afb4d0b6dbd68349d21d488ef34a95472"
+    },
+    {
+      "key": "papers/learnfo_vacevs151s_2025.pdf",
+      "name": "learnfo_vacevs151s_2025.pdf",
+      "size": 3222911,
+      "sha256": "d05d5cb38af5b5c942a78f9481f579ea73c5c7b1d1250ca8b4ef5190f4fbd506"
+    },
+    {
+      "key": "papers/learnfo_vacncc101_2024.pdf",
+      "name": "learnfo_vacncc101_2024.pdf",
+      "size": 679940,
+      "sha256": "0d4e85ecaa994caf187831e90df4f0dbd79ff0b0bdcc110abf20a7991f8fe2cf"
+    },
+    {
+      "key": "papers/learnfo_vacncc101t_2025.pdf",
+      "name": "learnfo_vacncc101t_2025.pdf",
+      "size": 1101167,
+      "sha256": "90de293e7256bfb05d2d97a642842c686e37f8e3cbfa7b3aa8775c79d75a88fc"
+    },
+    {
+      "key": "papers/learnfo_vacnss101t_2025.pdf",
+      "name": "learnfo_vacnss101t_2025.pdf",
+      "size": 1238091,
+      "sha256": "723598cd022f3a47177e73900fbf09bb9a4a2d5425bbf16101bfa9c1e9f052ae"
+    },
+    {
+      "key": "papers/learnfo_vacspt101t_2023.pdf",
+      "name": "learnfo_vacspt101t_2023.pdf",
+      "size": 2636229,
+      "sha256": "201167440d47447817993cfc59c516b551eaebf75974ad792d4a63f2f127d6ed"
+    },
+    {
+      "key": "papers/learnfo_vacspt101t_2025.pdf",
+      "name": "learnfo_vacspt101t_2025.pdf",
+      "size": 1475478,
+      "sha256": "639924694b67f0051216e69631cbb769780ba3d29ba6236b422591aaedc60575"
+    },
+    {
+      "key": "papers/learnfo_vacui101_2024.pdf",
+      "name": "learnfo_vacui101_2024.pdf",
+      "size": 800716,
+      "sha256": "186e7d122418d3a5cf00cd78469c7169e9a8651e21653943fb4b50b1397aa453"
+    },
+    {
+      "key": "papers/learnfo_vacui101t_2023.pdf",
+      "name": "learnfo_vacui101t_2023.pdf",
+      "size": 2766558,
+      "sha256": "110f02443efe2d99d5bcffde80a1203e866e30082252944351f5fa1196e83cb5"
+    },
+    {
+      "key": "papers/learnfo_vacui101t_2025.pdf",
+      "name": "learnfo_vacui101t_2025.pdf",
+      "size": 1485614,
+      "sha256": "664289a4766af2484a605e4fb909723f0c8fac906dddd9977ab27cf85686b1c3"
+    },
+    {
+      "key": "papers/learnfo_zoodsc101_2024.pdf",
+      "name": "learnfo_zoodsc101_2024.pdf",
+      "size": 822603,
+      "sha256": "2bc18876c64417fa96b27fc77adc5ba8049981d2393ec1d16ac84d893544d887"
+    },
+    {
+      "key": "papers/learnfo_zoodsc101t_2023.pdf",
+      "name": "learnfo_zoodsc101t_2023.pdf",
+      "size": 2234603,
+      "sha256": "6277356f5bbd2442cc8b72e9dfac335fa42dd5515ffd8358887efd187aac05cf"
+    },
+    {
+      "key": "papers/learnfo_zoodsc101t_2025.pdf",
+      "name": "learnfo_zoodsc101t_2025.pdf",
+      "size": 1222050,
+      "sha256": "c4cbd4645f3a2281ba000a01d53a3ebf00a64bf5e1e0adea16b137608f5a6332"
+    },
+    {
+      "key": "papers/learnfo_zoodsc102_2024.pdf",
+      "name": "learnfo_zoodsc102_2024.pdf",
+      "size": 747112,
+      "sha256": "7d703cab1b6d7aa1d9b5e8673c0ea363f2cc8b3ccd44c3333325598a80c78f07"
+    },
+    {
+      "key": "papers/learnfo_zoodsc102t_2023.pdf",
+      "name": "learnfo_zoodsc102t_2023.pdf",
+      "size": 2096491,
+      "sha256": "ed69e0f7dfc1ccf9dee2f40b00cd1f4fd1e124a650a10074a408d3f4b02f2fef"
+    },
+    {
+      "key": "papers/learnfo_zoodsc102t_2025.pdf",
+      "name": "learnfo_zoodsc102t_2025.pdf",
+      "size": 1240327,
+      "sha256": "beecf6d50dd76bfaf0458c9300a3467844b9138b4f20e2791c31c4453bf11acb"
+    },
+    {
+      "key": "papers/learnfo_zoodsc151_2024.pdf",
+      "name": "learnfo_zoodsc151_2024.pdf",
+      "size": 1063073,
+      "sha256": "ccdc1793c31268ae877972afb32b654a5b3f5451dd04d0d1895e62ceef866010"
+    },
+    {
+      "key": "papers/learnfo_zoodsc201_2024.pdf",
+      "name": "learnfo_zoodsc201_2024.pdf",
+      "size": 811292,
+      "sha256": "a49fb30d4606078cf46c8d0d4d3a6adff47a112ef1d22268f40c7f62fa1d77f3"
+    },
+    {
+      "key": "papers/learnfo_zoodsc201t_2025.pdf",
+      "name": "learnfo_zoodsc201t_2025.pdf",
+      "size": 1238302,
+      "sha256": "821f0c96cae49256a68ad42fe28833c0c7c5cd677747168011b6a67e3c4d3db6"
+    },
+    {
+      "key": "papers/learnfo_zoodsc202_2024.pdf",
+      "name": "learnfo_zoodsc202_2024.pdf",
+      "size": 727401,
+      "sha256": "bf1c7577d2d57a40c74120522b09f6495c515a0c11c99f4befa1c13cdc97c7a7"
+    },
+    {
+      "key": "papers/learnfo_zoodsc202t_2025.pdf",
+      "name": "learnfo_zoodsc202t_2025.pdf",
+      "size": 904399,
+      "sha256": "33a35adc0c0a35eb6480644f9a11715430abfba87714a0b52fcd2cfaa1e34628"
+    },
+    {
+      "key": "papers/learnfo_zoodsc251_2025.pdf",
+      "name": "learnfo_zoodsc251_2025.pdf",
+      "size": 1062535,
+      "sha256": "5608ee19c5c5d06ebf39a7324282cd3a32d6d8e35d6a8141d82024f360118a8e"
+    },
+    {
+      "key": "papers/learnfo_zoodsc252_2025.pdf",
+      "name": "learnfo_zoodsc252_2025.pdf",
+      "size": 1267686,
+      "sha256": "f1e0ab31243d6c5e37621e22b88a204b15441dfa4bea361246390a8e2dd600aa"
+    },
+    {
+      "key": "papers/learnfo_zoodsc301t_2025.pdf",
+      "name": "learnfo_zoodsc301t_2025.pdf",
+      "size": 1056054,
+      "sha256": "eea12ea5c4db9a354aa0a53312bb699da77e47c35a88d0536dd11f4927ef4714"
+    },
+    {
+      "key": "papers/learnfo_zoodsc302t_2025.pdf",
+      "name": "learnfo_zoodsc302t_2025.pdf",
+      "size": 749391,
+      "sha256": "3d55d35b26cc50460c46efb117f10e87e899783ebdff03c59cc12d332c575e10"
+    },
+    {
+      "key": "papers/learnfo_zoodsm101_2024.pdf",
+      "name": "learnfo_zoodsm101_2024.pdf",
+      "size": 670205,
+      "sha256": "add6452b7332068402573816506ce0a69a2959db3a597151760eaa12a5a4479a"
+    },
+    {
+      "key": "papers/learnfo_zoodsm101t_2023.pdf",
+      "name": "learnfo_zoodsm101t_2023.pdf",
+      "size": 2360466,
+      "sha256": "3762f4d909743d02a615e0e2c2c5b4f38e23428ff4ed47115e1ad18ecf1287e5"
+    },
+    {
+      "key": "papers/learnfo_zoodsm101t_2025.pdf",
+      "name": "learnfo_zoodsm101t_2025.pdf",
+      "size": 924658,
+      "sha256": "c7d2e0c474b83970b5a0a0b6e2d3358b86e3cbf85440c85c1c5027231c77efeb"
+    },
+    {
+      "key": "papers/learnfo_zoodsm201_2024.pdf",
+      "name": "learnfo_zoodsm201_2024.pdf",
+      "size": 641592,
+      "sha256": "b5788061f645cfdeffb664501b88077fb1b2595de0fb7571e3e1666e2ec38753"
+    },
+    {
+      "key": "papers/learnfo_zoodsm201t_2025.pdf",
+      "name": "learnfo_zoodsm201t_2025.pdf",
+      "size": 1115351,
+      "sha256": "d66e172beb582686a79a1ca7a72e0776b6f9409ca78bd00cf209071ae3f2e6dd"
+    },
+    {
+      "key": "papers/learnfo_zoodsm252_2025.pdf",
+      "name": "learnfo_zoodsm252_2025.pdf",
+      "size": 1023590,
+      "sha256": "9cf3f263f6070c4da241c59e1f65e030011e9ecfbe9851bac7d5ca72d4695afb"
+    },
+    {
+      "key": "papers/learnfo_zoodsm3012t_2025.pdf",
+      "name": "learnfo_zoodsm3012t_2025.pdf",
+      "size": 1642516,
+      "sha256": "9deee74a83464f38c1184da7cea5d9e254b532d4ebcd37a0f89c74c374f622c6"
+    },
+    {
+      "key": "papers/learnfo_zooidc101_2024.pdf",
+      "name": "learnfo_zooidc101_2024.pdf",
+      "size": 855423,
+      "sha256": "1642f62bc87da026a4910ebea8e769414cb08c4abd8cc076ddf0f4b5fac2ec00"
+    },
+    {
+      "key": "papers/learnfo_zooidc101t_2023.pdf",
+      "name": "learnfo_zooidc101t_2023.pdf",
+      "size": 2803923,
+      "sha256": "51f2ff2a40a744d914a0e6634a3973dd9f302d27fde769191fcd544c6daf4cdd"
+    },
+    {
+      "key": "papers/learnfo_zooidc101t_2025.pdf",
+      "name": "learnfo_zooidc101t_2025.pdf",
+      "size": 1197605,
+      "sha256": "e7820137302dc9e0e17bf0c8db96eccae2108344074f179d9228aec17247dbea"
+    },
+    {
+      "key": "papers/learnfo_zooidc151_2024.pdf",
+      "name": "learnfo_zooidc151_2024.pdf",
+      "size": 1193381,
+      "sha256": "0f478e81a8300abdb1b9edede87c8ea767333719e2db67bba0d338cd67ac07c3"
+    },
+    {
+      "key": "papers/learnfo_zooidc201_2024.pdf",
+      "name": "learnfo_zooidc201_2024.pdf",
+      "size": 727008,
+      "sha256": "9f5bf4c0c71be06a5625269090670f9de112db1cc47bcc21b44ae9042b8bb5f9"
+    },
+    {
+      "key": "papers/learnfo_zooidc201t_2025.pdf",
+      "name": "learnfo_zooidc201t_2025.pdf",
+      "size": 1389280,
+      "sha256": "ec3d32e8b30492ed4d3e19e54e0180b42ac69cad80360e914aeae5622fd2e882"
+    },
+    {
+      "key": "papers/learnfo_zoosec101t_2023.pdf",
+      "name": "learnfo_zoosec101t_2023.pdf",
+      "size": 2957974,
+      "sha256": "6d197d982cca0ba430580270b3f68f17d0af9e412a19a4a482002460e1266a4e"
+    },
+    {
+      "key": "papers/learnfo_zoosec101t_2025.pdf",
+      "name": "learnfo_zoosec101t_2025.pdf",
+      "size": 1168784,
+      "sha256": "9f13b9934651cc8c89f1e763b8d32b18665ce0b85dde18fe90b84982c9d99ca0"
+    },
+    {
+      "key": "papers/learnfo_zoosec201_2024.pdf",
+      "name": "learnfo_zoosec201_2024.pdf",
+      "size": 714244,
+      "sha256": "f305763f3f8f44134ce82f8ad38a1d2e33ef0c99b63378bd601dafacce008d4c"
+    },
+    {
+      "key": "papers/learnfo_zoosec201t_2025.pdf",
+      "name": "learnfo_zoosec201t_2025.pdf",
+      "size": 1096806,
+      "sha256": "1bb3024e2793daa6efd1f22bef300923d646071bad1770fb9ff935ad7a6df67f"
+    },
+    {
+      "key": "papers/mathematics_tdc-2-sem-mathematics-real-analysis-256-2022.pdf",
+      "name": "mathematics_tdc-2-sem-mathematics-real-analysis-256-2022.pdf",
+      "size": 97087,
+      "sha256": "bd6caaff4f8aa2a99867771a7a7b69a173b866790c5aa68897f224c493c1cf1e"
+    },
+    {
+      "key": "papers/mathematics_tdc-6-sem-mathematics-linear-algebra-265-2022.pdf",
+      "name": "mathematics_tdc-6-sem-mathematics-linear-algebra-265-2022.pdf",
+      "size": 110325,
+      "sha256": "d17aa920a9c79b1dca57786cf0981f0afb8c71b771e33e604b24be6474a296a2"
+    },
+    {
+      "key": "papers/misc_bngsec101t_2023.pdf",
+      "name": "misc_bngsec101t_2023.pdf",
+      "size": 470377,
+      "sha256": "eb8ad4ce3e5b47eba1795ed1abfc39536cfa5d3974619d8615be6aee80dc7a24"
+    },
+    {
+      "key": "papers/misc_chmidc101t_2023.pdf",
+      "name": "misc_chmidc101t_2023.pdf",
+      "size": 621133,
+      "sha256": "be285a6dea98504059a2db58f8bbc960ebede8812ca2a55902cf63d57b4ce63d"
+    },
+    {
+      "key": "papers/misc_edudsc102t_2023.pdf",
+      "name": "misc_edudsc102t_2023.pdf",
+      "size": 394510,
+      "sha256": "ce13d75f508526c0c8ea452cfbaf919f23d7f544ba7500b8b9fdb1f8a1d837de"
+    },
+    {
+      "key": "papers/misc_edusec101t_2023.pdf",
+      "name": "misc_edusec101t_2023.pdf",
+      "size": 485341,
+      "sha256": "63ae10588664ea6d9c1fb9ccb15949c27f043ac2f20200775da3052f135c75af"
+    },
+    {
+      "key": "papers/physics_tdc-2-sem-physics-electricity-and-magnetism-110-2022.pdf",
+      "name": "physics_tdc-2-sem-physics-electricity-and-magnetism-110-2022.pdf",
+      "size": 65356,
+      "sha256": "ab43fd5a5c436c0dc2cbb45ba40f2efe98b7b8adac5bf963af7e6eaeca45d0b6"
+    },
+    {
+      "key": "papers/physics_tdc-2-sem-physics-waves-and-optics-111-2022.pdf",
+      "name": "physics_tdc-2-sem-physics-waves-and-optics-111-2022.pdf",
+      "size": 80713,
+      "sha256": "7b7117aec27b4e01214eeb694cb3f9ee01e9406b34f54d10fd209ed37811fe03"
+    },
+    {
+      "key": "papers/physics_tdc-4-sem-physics-electrical-circuits-and-network-117-2022.pdf",
+      "name": "physics_tdc-4-sem-physics-electrical-circuits-and-network-117-2022.pdf",
+      "size": 79980,
+      "sha256": "2a21fa9afc00f74d80b26c67863250e7422bec4daa8bac2d19e428c292afa688"
+    },
+    {
+      "key": "papers/physics_tdc-4-sem-physics-mathematical-physics-3-113-2022.pdf",
+      "name": "physics_tdc-4-sem-physics-mathematical-physics-3-113-2022.pdf",
+      "size": 75844,
+      "sha256": "04ce88f86473d858370d59c0e550d7d25478379f64bdc2005c86588c944186d5"
+    },
+    {
+      "key": "papers/physics_tdc-5-sem-physics-solid-state-physics-156-2021.pdf",
+      "name": "physics_tdc-5-sem-physics-solid-state-physics-156-2021.pdf",
+      "size": 91044,
+      "sha256": "d2e7689656e9d72b02545ce387ac98e75136fcc1bb903adaa37e9b5bbbeded3e"
+    },
+    {
+      "key": "papers/physics_tdc-6-sem-physics-electromagnetic-theory-118-2022.pdf",
+      "name": "physics_tdc-6-sem-physics-electromagnetic-theory-118-2022.pdf",
+      "size": 79865,
+      "sha256": "ee208526222fda42c64fdb44b93e2d6a5c08c9ebd4b8f3bd8e5eda09f821335c"
+    },
+    {
+      "key": "papers/physics_tdc-6-sem-physics-renewable-energy-and-energy-harvesting-122-2022.pdf",
+      "name": "physics_tdc-6-sem-physics-renewable-energy-and-energy-harvesting-122-2022.pdf",
+      "size": 73047,
+      "sha256": "0ce19486a1a8fc80b49c9b2143b634a3ccb4613e884aada1affed2b2223ce859"
+    },
+    {
+      "key": "papers/zoology_gsc-2024-nep-zoo101-non-chordate-biology.pdf",
+      "name": "zoology_gsc-2024-nep-zoo101-non-chordate-biology.pdf",
+      "size": 443238,
+      "sha256": "fde24fd5d7c4da136396d45665270ee0dcd5b1fd5dc380b3bbc3aad712f49267"
+    },
+    {
+      "key": "papers/zoology_hgc-2021-zoo-hcc502-5thsem.pdf",
+      "name": "zoology_hgc-2021-zoo-hcc502-5thsem.pdf",
+      "size": 62671,
+      "sha256": "1f281a80204003eb98eda0feeecb2548b95e958d37b4ab339b91e07de2ac54a5"
+    },
+    {
+      "key": "papers/zoology_hgc-2022-zoo-dse601-6thsem.pdf",
+      "name": "zoology_hgc-2022-zoo-dse601-6thsem.pdf",
+      "size": 80080,
+      "sha256": "0bda17f03a4fcac14b618a855f434b961d48a949d1ef56a92f83fb9f36f3f7bb"
+    },
+    {
+      "key": "papers/zoology_hgc-2022-zoo-hcc402-4thsem.pdf",
+      "name": "zoology_hgc-2022-zoo-hcc402-4thsem.pdf",
+      "size": 62126,
+      "sha256": "0ac05a41928c43642d699227a80657a5e712e4ca196fb805c2ef55887cca25cb"
+    },
+    {
+      "key": "papers/zoology_hgc-2022-zoo-hcc403-4thsem.pdf",
+      "name": "zoology_hgc-2022-zoo-hcc403-4thsem.pdf",
+      "size": 46052,
+      "sha256": "9be3440f0f8a1755d5af8e6c8c2bb6c4ce70e38fb56cb52338880924ae4ec6bc"
+    },
+    {
+      "key": "papers/zoology_hgc-2022-zoo-hcc602-6thsem.pdf",
+      "name": "zoology_hgc-2022-zoo-hcc602-6thsem.pdf",
+      "size": 60496,
+      "sha256": "e6b0b12888ccfd92abc2225b0dc3923e6ce691b7519e156bc5f7a686de2f13aa"
+    }
+  ]
+}
