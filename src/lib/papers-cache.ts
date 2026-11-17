@@ -1,70 +1,20 @@
-import { unstable_cache } from "next/cache";
-import { adminDatabases, DATABASE_ID, COLLECTION, Query } from "@/lib/appwrite";
-import { toPaper, type Paper } from "@/types";
+import { getAllApprovedPapersD1 } from "@/lib/d1";
+import type { Paper } from "@/types";
 
 /**
  * All approved papers, fetched once and shared by /browse, /papers/[dept],
  * /fyug-question-papers, /assam-university-question-papers and
  * /cbcs-question-papers.
  *
- * The fetch reads every approved paper document (615 reads) — without the
- * cache each of those pages paid a full collection scan on every visit.
- * Cached for 24h: new papers appear in the lists within a day. The slim
- * select keeps the payload to the fields the paper cards render.
+ * Cloudflare migration (Phase 6): reads from D1 via `src/lib/d1.ts`
+ * instead of Appwrite. Cached for 24h: new papers appear in the lists
+ * within a day. The D1 query selects explicit columns only (no SELECT *)
+ * and reads at most 1,000 rows per refresh.
+ *
+ * There is deliberately no Appwrite fallback here: on the
+ * migrate/cloudflare branch a missing D1 binding fails loudly in
+ * `getD1()` instead of silently serving data from the old backend.
  */
-export const getAllApprovedPapers = unstable_cache(
-  async (): Promise<Paper[]> => {
-    const papers: Paper[] = [];
-    let offset = 0;
-    for (;;) {
-      const db = adminDatabases();
-      const { documents } = await db.listDocuments(
-        DATABASE_ID,
-        COLLECTION.papers,
-        [
-          Query.equal("approved", true),
-          Query.select([
-            "$id",
-            "$createdAt",
-            "approved",
-            "course_code",
-            "department",
-            "download_count",
-            "duration",
-            "exam_type",
-            "file_id",
-            "file_url",
-            "institute",
-            "institution",
-            "marks",
-            "paper_name",
-            "paper_type",
-            "programme",
-            "semester",
-            "source_name",
-            "source_url",
-            "status",
-            "stream",
-            "uploaded_by",
-            "uploaded_by_username",
-            "view_count",
-            "year",
-          ]),
-          Query.orderDesc("$createdAt"),
-          Query.limit(500),
-          Query.offset(offset),
-        ],
-      );
-      papers.push(...documents.map(toPaper));
-      if (documents.length < 500) break;
-      offset += 500;
-    }
-    return papers;
-  },
-  // v2: dropped "title" from the select — the new project's papers
-  // collection has no "title" attribute (titles come from paper_name via
-  // toPaper), and Appwrite rejects the whole query with a 400 when a
-  // selected field is missing, which made /browse show 0 papers.
-  ["all-approved-papers-v2"],
-  { revalidate: 86400 },
-);
+export const getAllApprovedPapers = getAllApprovedPapersD1;
+
+export type { Paper };

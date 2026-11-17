@@ -1,16 +1,12 @@
 import type { Metadata } from "next";
-import { unstable_cache } from "next/cache";
 import Link from "next/link";
 import { getServerUser } from "@/lib/auth";
-import { recordPaperViewIfHuman, getPaperCounts } from "@/lib/counts";
 import {
-  adminDatabases,
-  DATABASE_ID,
-  COLLECTION,
-  Query,
-} from "@/lib/appwrite";
+  getPaperD1,
+  getRelatedPapersD1,
+  getPaperCountsD1,
+} from "@/lib/d1";
 import type { Paper } from "@/types";
-import { toPaper } from "@/types";
 import { toRoman } from "@/lib/utils";
 import { getProgramme } from "@/lib/programme";
 import { buildPaperJsonLd, serializeJsonLd } from "@/lib/json-ld";
@@ -32,37 +28,15 @@ interface PaperPageProps {
 /** One paper by id — cached 24h: the page fetched it fresh twice per visit
  * (once for metadata, once for content), so every bot crawl of the 615
  * paper pages burned 2 reads per page. Now at most one read per paper
- * per day. Same 1-day staleness trade-off as the papers list cache. */
-const getPaperById = unstable_cache(
-  async (id: string): Promise<Paper | null> => {
-    try {
-      const db = adminDatabases();
-      const doc = await db.getDocument(DATABASE_ID, COLLECTION.papers, id);
-      return toPaper(doc);
-    } catch {
-      return null;
-    }
-  },
-  ["paper-by-id"],
-  { revalidate: 86400 },
-);
+ * per day. Same 1-day staleness trade-off as the papers list cache.
+ * Cloudflare migration (Phase 6): reads from D1 via `src/lib/d1.ts`.
+ * The id may be a D1 id or a legacy Appwrite id (old links keep working). */
+const getPaperById = getPaperD1;
 
 /** Papers sharing a course code (multi-year view) — cached 24h per code:
- * the live query read up to 20 documents on every paper-page visit. */
-const getRelatedPapers = unstable_cache(
-  async (courseCode: string, excludeId: string): Promise<Paper[]> => {
-    const db = adminDatabases();
-    const { documents } = await db.listDocuments(DATABASE_ID, COLLECTION.papers, [
-      Query.equal("approved", true),
-      Query.equal("course_code", courseCode),
-      Query.orderDesc("$createdAt"),
-      Query.limit(20),
-    ]);
-    return documents.map(toPaper).filter((p) => p.id !== excludeId);
-  },
-  ["related-papers"],
-  { revalidate: 86400 },
-);
+ * the live query read up to 20 documents on every paper-page visit.
+ * Cloudflare migration (Phase 6): reads from D1 via `src/lib/d1.ts`. */
+const getRelatedPapers = getRelatedPapersD1;
 
 export async function generateMetadata({ params }: PaperPageProps): Promise<Metadata> {
   const { id } = await params;
@@ -136,20 +110,16 @@ export default async function PaperPage({ params }: PaperPageProps) {
   const semRoman = paper.semester ? toRoman(parseInt(paper.semester, 10)) : paper.semester;
   const paperJsonLd = buildPaperJsonLd(paper);
 
-  // Count the view in the background (bots excluded, so crawlers don't
-  // inflate it). Fire-and-forget: the write starts immediately and the
-  // counter is best-effort, so the page never waits on it. Logged-in
-  // users also get a history row for /profile.
-  const viewTitle = [paper.course_code, paper.title].filter(Boolean).join(" — ") || "Question paper";
-  void recordPaperViewIfHuman(paper.id, {
-    userId: user?.id ?? null,
-    title: viewTitle,
-    href: `/paper/${paper.id}`,
-  });
+  // View counting is DISABLED on the Cloudflare branch: the migration
+  // forbids writing to D1 on every page view, and the old Appwrite
+  // counter is not available here. Counts shown below are the stored
+  // totals, read fresh from the paper row. A batched/aggregated counter
+  // design is still to come — see the migration doc, Section 2.
+  // (Previously: recordPaperViewIfHuman(...) fired here.)
 
   // Live totals, read fresh: the paper itself comes from a 24h cache, so
   // the cached view_count would hide today's views until tomorrow.
-  const liveCounts = await getPaperCounts(paper.id);
+  const liveCounts = await getPaperCountsD1(paper.id);
   const viewCount = liveCounts.view_count;
   const downloadCount = liveCounts.download_count;
 

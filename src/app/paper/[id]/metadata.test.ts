@@ -1,24 +1,14 @@
-import type { Models } from "node-appwrite";
-
 jest.mock("next/cache", () => ({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   unstable_cache: (fn: any) => fn,
 }));
 
-jest.mock("@/lib/appwrite", () => ({
-  adminDatabases: jest.fn(),
-  DATABASE_ID: "db",
-  COLLECTION: { papers: "papers" },
-  Query: {
-    equal: jest.fn(),
-    orderDesc: jest.fn(),
-    limit: jest.fn(),
-  },
+jest.mock("@/lib/d1", () => ({
+  getPaperD1: jest.fn(),
+  getRelatedPapersD1: jest.fn(),
+  getPaperCountsD1: jest.fn(),
 }));
 
-jest.mock("@/types", () => ({
-  toPaper: jest.fn(),
-}));
 jest.mock("@/lib/auth", () => ({
   getServerUser: jest.fn(),
 }));
@@ -36,19 +26,17 @@ jest.mock("@/lib/syllabus-registry", () => ({
   findRegistryEntry: jest.fn().mockResolvedValue(undefined),
 }));
 
-import { adminDatabases } from "@/lib/appwrite";
-import { toPaper } from "@/types";
+import { getPaperD1 } from "@/lib/d1";
 import { generateMetadata } from "./page";
 
 describe("paper route generateMetadata", () => {
   it("returns OG/Twitter metadata when paper lookup succeeds", async () => {
-    const getDocument = jest.fn().mockResolvedValue({} as Models.Document);
-    (adminDatabases as jest.Mock).mockReturnValue({ getDocument });
-    (toPaper as jest.Mock).mockReturnValue({
+    (getPaperD1 as jest.Mock).mockResolvedValue({
       id: "paper-1",
       title: "Data Structures",
       course_code: "CSC-201",
       course_name: "Computer Science",
+      year: 2024,
     });
 
     const metadata = await generateMetadata({
@@ -64,8 +52,7 @@ describe("paper route generateMetadata", () => {
   });
 
   it("returns Paper Not Found title when lookup throws", async () => {
-    const getDocument = jest.fn().mockRejectedValue(new Error("not found"));
-    (adminDatabases as jest.Mock).mockReturnValue({ getDocument });
+    (getPaperD1 as jest.Mock).mockResolvedValueOnce(null);
 
     const metadata = await generateMetadata({
       params: Promise.resolve({ id: "missing-paper" }),

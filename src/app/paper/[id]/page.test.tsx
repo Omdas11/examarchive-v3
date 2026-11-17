@@ -11,28 +11,23 @@ jest.mock("@/lib/auth", () => ({
   getServerUser: jest.fn().mockResolvedValue(null),
 }));
 
-jest.mock("@/lib/appwrite", () => ({
-  adminDatabases: jest.fn().mockReturnValue({
-    getDocument: jest.fn().mockResolvedValue({
-      $id: "p1",
-      title: "Algorithms",
-      course_code: "CS101",
-      course_name: "Computer Science",
-      $createdAt: "2024-01-01T00:00:00Z",
-      approved: true,
-      file_url: "https://example.com/p1.pdf",
-    }),
-    listDocuments: jest.fn().mockResolvedValue({ total: 0, documents: [] }),
+jest.mock("@/lib/d1", () => ({
+  getPaperD1: jest.fn().mockResolvedValue({
+    id: "p1",
+    title: "Algorithms",
+    course_code: "CS101",
+    course_name: "Computer Science",
+    year: 2024,
+    semester: "",
+    exam_type: "",
+    department: "",
+    file_url: "https://example.com/p1.pdf",
+    uploaded_by: "",
+    approved: true,
+    created_at: "2024-01-01T00:00:00Z",
   }),
-  DATABASE_ID: "db",
-  COLLECTION: {
-    papers: "papers",
-  },
-  Query: {
-    equal: jest.fn(),
-    orderDesc: jest.fn(),
-    limit: jest.fn(),
-  },
+  getRelatedPapersD1: jest.fn().mockResolvedValue([]),
+  getPaperCountsD1: jest.fn().mockResolvedValue({ view_count: 0, download_count: 0 }),
 }));
 
 jest.mock("@/components/layout/MainLayout", () => {
@@ -76,8 +71,8 @@ describe("PaperPage Component", () => {
   });
 
   it("renders 404 when paper is missing", async () => {
-    const { adminDatabases } = jest.requireMock("@/lib/appwrite");
-    adminDatabases().getDocument.mockRejectedValueOnce(new Error("not found"));
+    const { getPaperD1 } = jest.requireMock("@/lib/d1");
+    getPaperD1.mockResolvedValueOnce(null);
 
     const jsx = await PaperPage({ params: Promise.resolve({ id: "missing" }) });
     render(jsx);

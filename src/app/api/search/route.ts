@@ -1,13 +1,15 @@
 import { NextResponse, type NextRequest } from "next/server";
-import {
-  adminDatabases,
-  COLLECTION,
-  DATABASE_ID,
-  Query,
-} from "@/lib/appwrite";
-import type { Models } from "node-appwrite";
+import { searchPapers, searchSyllabus } from "@/lib/d1";
 import { syllabusDeptSlugForPaperCode } from "@/lib/syllabus-departments";
 
+/**
+ * Search suggestions for the header search box.
+ * Cloudflare migration (Phase 6): reads from D1 via `src/lib/d1.ts`
+ * instead of Appwrite. Papers match on course code, paper name, or
+ * department (indexed LIKE, capped at 5); syllabi come from the `syllabus`
+ * table, which is empty in the current data, so that half normally
+ * returns nothing — same as before the port.
+ */
 export async function GET(request: NextRequest) {
   const q = request.nextUrl.searchParams.get("q")?.trim();
   if (!q) {
@@ -15,48 +17,21 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const db = adminDatabases();
     const [papers, syllabi] = await Promise.all([
-      db.listDocuments(DATABASE_ID, COLLECTION.papers, [
-        Query.equal("approved", true),
-        Query.search("course_name", q),
-        Query.limit(5),
-      ]),
-      db.listDocuments(DATABASE_ID, COLLECTION.syllabus, [
-        Query.equal("approval_status", "approved"),
-        Query.search("subject", q),
-        Query.limit(5),
-      ]),
+      searchPapers(q, 5),
+      searchSyllabus(q, 5),
     ]);
 
-    type PaperDoc = Models.Document & {
-      course_name?: string;
-      title?: string;
-      course_code?: string;
-      subject?: string;
-      year?: number;
-    };
-    type SyllabusDoc = Models.Document & {
-      subject?: string;
-      course_name?: string;
-      course_code?: string;
-      semester?: string | number;
-      university?: string;
-    };
-
-    const paperDocs = papers.documents as PaperDoc[];
-    const syllabusDocs = syllabi.documents as SyllabusDoc[];
-
     const suggestions = [
-      ...paperDocs.map((doc) => ({
+      ...papers.map((paper) => ({
         type: "paper" as const,
-        label: (doc.course_name as string) ?? (doc.title as string) ?? "Paper",
-        sublabel: `${doc.course_code ?? doc.subject ?? "Paper code"}${doc.year ? ` · ${doc.year}` : ""}`,
-        href: `/paper/${doc.$id}`,
+        label: paper.course_name ?? paper.title ?? "Paper",
+        sublabel: `${paper.course_code ?? "Paper code"}${paper.year ? ` · ${paper.year}` : ""}`,
+        href: `/paper/${paper.id}`,
       })),
-      ...syllabusDocs.map((doc) => ({
+      ...syllabi.map((doc) => ({
         type: "syllabus" as const,
-        label: (doc.subject as string) ?? (doc.course_name as string) ?? "Syllabus",
+        label: doc.subject ?? doc.course_code ?? "Syllabus",
         sublabel: doc.course_code
           ? `${doc.course_code}${doc.semester ? ` · Sem ${doc.semester}` : ""}`
           : doc.university ?? "",
