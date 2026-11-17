@@ -1,14 +1,16 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import Link from "next/link";
 import VisitorTracker from "@/components/VisitorTracker";
 import FooterContactModal from "@/components/FooterContactModal";
 import { openCookieSettings } from "@/lib/consent";
 
-/** Partner/platform logos uploaded to /public/branding/footer/. */
+/** Partner/platform logos uploaded to /public/branding/footer/.
+ * Google has no link: it is only a platform logo, not a partnership. */
 const PLATFORM_LOGOS = [
   { href: "https://github.com/Omdas11/examarchive-v3", title: "GitHub",  src: "/branding/footer/partner-github.png" },
-  { href: "https://www.google.com",                    title: "Google",  src: "/branding/footer/partner-google.png" },
+  { href: undefined as string | undefined, title: "Google",  src: "/branding/footer/partner-google.png" },
   { href: "https://appwrite.io",                       title: "Appwrite", src: "/branding/footer/partner-appwrite.png" },
   // Note: filename was uploaded as "partner-netxjs.png" (typo for "nextjs") — kept as-is to match the actual file.
   { href: "https://nextjs.org",                        title: "Next.js", src: "/branding/footer/partner-netxjs.png" },
@@ -65,6 +67,7 @@ export default function Footer() {
             <Link href="/contact" className="hover:text-primary transition-colors text-sm font-medium">Contact Us</Link>
             <Link href="/terms" className="hover:text-primary transition-colors text-sm font-medium">Terms &amp; Conditions</Link>
             <Link href="/privacy" className="hover:text-primary transition-colors text-sm font-medium">Privacy Policy</Link>
+            <Link href="/disclaimer" className="hover:text-primary transition-colors text-sm font-medium">Disclaimer</Link>
             <button
               type="button"
               onClick={openCookieSettings}
@@ -81,17 +84,9 @@ export default function Footer() {
         >
           <p className="mb-6 text-[10px] font-black tracking-[0.2em] uppercase opacity-60">Powered By</p>
           <div className="flex flex-wrap justify-center items-center gap-8 md:gap-12">
-            {PLATFORM_LOGOS.map((logo) => (
-              <a
-                key={logo.href}
-                href={logo.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                title={logo.title}
-                className="opacity-60 hover:opacity-100 transition-all hover:scale-110 grayscale hover:grayscale-0"
-                style={{ display: "inline-flex", alignItems: "center" }}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
+            {PLATFORM_LOGOS.map((logo) => {
+              const img = (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={logo.src}
                   alt={logo.title}
@@ -99,8 +94,32 @@ export default function Footer() {
                   height={32}
                   style={{ objectFit: "contain", maxHeight: 32 }}
                 />
-              </a>
-            ))}
+              );
+              const className =
+                "opacity-60 hover:opacity-100 transition-all hover:scale-110 grayscale hover:grayscale-0";
+              const style: CSSProperties = { display: "inline-flex", alignItems: "center" };
+              // Logos without a link (Google) render unlinked — no implied partnership.
+              if (!logo.href) {
+                return (
+                  <span key={logo.title} title={logo.title} className={className} style={style}>
+                    {img}
+                  </span>
+                );
+              }
+              return (
+                <a
+                  key={logo.href}
+                  href={logo.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={logo.title}
+                  className={className}
+                  style={style}
+                >
+                  {img}
+                </a>
+              );
+            })}
           </div>
         </div>
 

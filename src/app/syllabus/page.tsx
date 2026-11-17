@@ -105,7 +105,7 @@ export default async function SyllabusPage() {
           {userIsAdmin && (
             <div className="mt-5">
               <Link
-                href="/upload?type=dept_syllabus"
+                href="/admin/bulk-import"
                 className="inline-flex items-center gap-2 rounded-2xl bg-primary px-4 py-2 text-sm font-semibold text-on-primary"
               >
                 Upload Syllabus

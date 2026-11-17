@@ -27,7 +27,7 @@ export default async function TermsPage() {
     <section className="mx-auto px-4 py-10" style={{ maxWidth: "var(--max-w)" }}>
       <h1 className="text-2xl font-bold">Terms of Use</h1>
       <p className="mt-1 text-sm" style={{ color: "var(--color-text-muted)" }}>
-        Last updated: October 2026
+        Last updated: November 2026
       </p>
 
       <div className="mt-6 space-y-6 text-sm leading-relaxed" style={{ color: "var(--color-text-muted)" }}>
@@ -77,6 +77,15 @@ export default async function TermsPage() {
             Study guides, explanations, and other articles written for ExamArchive are original
             content of ExamArchive and may not be copied or republished without permission.
           </p>
+          <p className="mt-2">
+            Many papers in the archive come from different sources — including Assam
+            University, LearnFo, E-learning Info, and student contributions — and are
+            credited on the paper pages where the source is known. See our{" "}
+            <Link href="/disclaimer" style={{ color: "var(--color-primary)" }} className="underline">
+              Disclaimer
+            </Link>{" "}
+            for details.
+          </p>
         </div>
 
         <div>
@@ -102,10 +111,15 @@ export default async function TermsPage() {
         <div>
           <h2 className="text-base font-semibold" style={{ color: "var(--color-text)" }}>7. Advertising</h2>
           <p className="mt-2">
-            ExamArchive may show advertising, including Google AdSense, only after you accept
-            cookies in the cookie banner. Advertising does not mean ExamArchive endorses the
-            advertised products or services. You can change your cookie choice at any time from
-            the Cookie Settings link in the footer. See our{" "}
+            ExamArchive shows advertising to help keep the archive free. Google AdSense ads
+            appear only after advertising is approved and you accept cookies in the cookie
+            banner. We also use Monetag: its ad tag runs on every page and may show ads as
+            configured in the Monetag dashboard. Monetag push notifications are sent only if
+            you allow notifications in your browser, and you can turn them off at any time in
+            your browser&apos;s site settings. The ads shown — including push notifications —
+            are chosen by the advertising networks, not by ExamArchive, and ExamArchive does
+            not endorse the advertised products or services. You can change your cookie choice
+            at any time from the Cookie Settings link in the footer. See our{" "}
             <Link href="/privacy" style={{ color: "var(--color-primary)" }} className="underline">
               Privacy Policy
             </Link>{" "}

@@ -16,7 +16,7 @@ const ROLES = [
     level: "Level 0",
     color: "#64748b",
     how: "Default for every new account.",
-    can: "Browse, download, upload papers for review, use AI tools.",
+    can: "Browse, download, use AI tools.",
   },
   {
     name: "Contributor",
@@ -92,7 +92,7 @@ export default async function RolesPage() {
           Roles, XP &amp; Streaks
         </h1>
         <p className="mt-2 max-w-2xl text-sm text-on-surface-variant leading-relaxed">
-          Upload papers, keep a daily streak, and climb from Student to Specialist
+          Verify content, keep a daily streak, and climb from Student to Specialist
           automatically. Moderation roles are granted by humans, never by bots.
         </p>
 

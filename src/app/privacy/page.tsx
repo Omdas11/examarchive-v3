@@ -27,7 +27,7 @@ export default async function PrivacyPage() {
     <section className="mx-auto px-4 py-10" style={{ maxWidth: "var(--max-w)" }}>
       <h1 className="text-2xl font-bold">Privacy Policy</h1>
       <p className="mt-1 text-sm" style={{ color: "var(--color-text-muted)" }}>
-        Last updated: October 2026
+        Last updated: November 2026
       </p>
 
       <div className="mt-6 space-y-6 text-sm leading-relaxed" style={{ color: "var(--color-text-muted)" }}>
@@ -111,6 +111,11 @@ export default async function PrivacyPage() {
             </a>
             .
           </p>
+          <p className="mt-2">
+            The Monetag ad tag is not gated by the cookie banner: it runs on every page, and
+            Monetag push notifications are sent only if you allow notifications in your browser.
+            See section 5 for what Monetag receives.
+          </p>
         </div>
 
         <div>
@@ -141,6 +146,13 @@ export default async function PrivacyPage() {
               Google can verify the site; it shows no ads on its own. Ads are served, and advertising
               cookies may be set, only once advertising is approved and enabled and you have accepted
               cookies. See section 4 for how to opt out of personalised advertising.
+            </li>
+            <li>
+              <strong>Monetag</strong> — advertising. Its ad tag (quge5.com) runs on every page
+              and may show ads as configured in the Monetag dashboard. If you allow push
+              notifications, the network receives your IP address, browser and device details,
+              and a subscription identifier, and may send you push notification ads. You can
+              turn notifications off at any time in your browser&apos;s site settings.
             </li>
           </ul>
           <p className="mt-2">

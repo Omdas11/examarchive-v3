@@ -85,11 +85,16 @@ const HOW_IT_WORKS = [
 ];
 
 /** Cached homepage data — revalidates every hour to avoid hitting Appwrite on every request.
- * Cache key is v3: v1 was poisoned with 0s on 2026-11-13 when the site was
+ * Cache key is v5: v1 was poisoned with 0s on 2026-11-13 when the site was
  * repointed to the new Appwrite project while the API key was still the old
  * one, so every query failed and the 0s were cached for an hour. v2 counted
  * syllabi from the legacy `syllabus` collection (empty in the new project,
- * so it read 0); v3 counts distinct syllabus papers from Syllabus_Table. */
+ * so it read 0); v3 counts distinct syllabus papers from Syllabus_Table.
+ * v4 was poisoned again on 2026-11-17: a transient Appwrite failure during
+ * a revalidation zeroed the syllabi count and the 0 was cached for an hour,
+ * so the homepage showed "0 syllabi" live while /syllabus showed 517.
+ * v5 forces a fresh recompute; the count below is now also resilient to a
+ * transient failure (see the retry + keep-partial logic). */
 const getHomepageData = unstable_cache(
   async () => {
     let papersTotal = 0;
@@ -128,19 +133,37 @@ const getHomepageData = unstable_cache(
     // (one row per unit, so dedupe by paper_code). The legacy `syllabus`
     // collection is for user-uploaded syllabi and is empty in the new
     // project — counting it showed 0 even though 133 syllabus papers exist.
+    // Resilience: a transient Appwrite failure used to zero the whole count
+    // and the 0 was cached for an hour. Each page fetch is now retried once,
+    // and a page that still fails stops the loop but keeps the codes
+    // collected so far — a partial count beats a cached 0.
+    const codes = new Set<string>();
     try {
       const db = adminDatabases();
-      const codes = new Set<string>();
       let cursor: string | undefined;
       // eslint-disable-next-line no-constant-condition
       while (true) {
         const queries = [Query.limit(100)];
         if (cursor) queries.push(Query.cursorAfter(cursor));
-        const page = await db.listDocuments(
-          DATABASE_ID,
-          COLLECTION.syllabus_table,
-          queries,
-        );
+        let page;
+        try {
+          page = await db.listDocuments(
+            DATABASE_ID,
+            COLLECTION.syllabus_table,
+            queries,
+          );
+        } catch {
+          // Retry the same page once before giving up.
+          try {
+            page = await db.listDocuments(
+              DATABASE_ID,
+              COLLECTION.syllabus_table,
+              queries,
+            );
+          } catch {
+            break;
+          }
+        }
         for (const doc of page.documents) {
           const code = (doc.paper_code as string | undefined)?.trim();
           if (code) codes.add(code);
@@ -148,10 +171,10 @@ const getHomepageData = unstable_cache(
         if (page.documents.length < 100) break;
         cursor = page.documents[page.documents.length - 1].$id;
       }
-      syllabusTotal = codes.size;
     } catch {
-      syllabusTotal = 0;
+      // adminDatabases() or an unexpected error: keep whatever was collected.
     }
+    syllabusTotal = codes.size;
 
     // Fetch approved feedback entries (max 3 for homepage)
     try {
@@ -178,7 +201,7 @@ const getHomepageData = unstable_cache(
       feedbackEntries,
     };
   },
-  ["homepage-data-v4"],
+  ["homepage-data-v5"],
   { revalidate: 3600 },
 );
 

@@ -211,7 +211,7 @@ export default async function SyllabusDepartmentPage({
             </Link>
             {userIsAdmin && (
               <Link
-                href="/upload?type=dept_syllabus"
+                href="/admin/bulk-import"
                 className="inline-flex items-center gap-2 rounded-2xl border border-outline-variant/40 px-4 py-2 text-sm font-semibold text-on-surface"
               >
                 Upload Syllabus
