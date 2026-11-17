@@ -67,11 +67,11 @@ export default function MainLayout({
     localStorage.setItem('ea_right_sidebar_collapsed', String(next));
   };
 
+  // Always attempt /api/profile: the header needs the profile even on static
+  // pages (e.g. /about) whose server props are logged-out defaults. For guests
+  // the route 401s before any DB work (getServerUser returns null), so this
+  // costs 0 reads. The profile also feeds the header avatar/tier/role.
   useEffect(() => {
-    if (!isLoggedIn || !showRightColumn) {
-      setSidebarProfile(null);
-      return;
-    }
     let cancelled = false;
     async function loadSidebarProfile() {
       try {
@@ -92,7 +92,17 @@ export default function MainLayout({
       cancelled = true;
       window.removeEventListener(PROFILE_REFRESH_EVENT, onProfileRefresh);
     };
-  }, [isLoggedIn, showRightColumn]);
+  }, []);
+
+  // Effective login identity: server-provided page props are the source of
+  // truth when present (dynamic pages — no change, no flash). On static pages
+  // the props are logged-out defaults, so fall back to the fetched profile.
+  const profileName = sidebarProfile?.name || sidebarProfile?.username || '';
+  const profileInitials = profileName ? profileName.slice(0, 2).toUpperCase() : '';
+  const effectiveIsLoggedIn = isLoggedIn || sidebarProfile != null;
+  const effectiveUserName = headerProps.userName || profileName;
+  const effectiveUserInitials = headerProps.userInitials || profileInitials;
+  const effectiveUserRole = sidebarProfile?.role || userRole;
 
   const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
     setTouchStartX(event.touches[0]?.clientX ?? null);
@@ -131,7 +141,7 @@ export default function MainLayout({
         <div className="no-print">
           <Sidebar
             items={sidebarItems}
-            userRole={userRole}
+            userRole={effectiveUserRole}
             onNavigate={() => {
               setIsMobileOpen(false);
             }}
@@ -139,8 +149,8 @@ export default function MainLayout({
             onCollapseToggle={setIsCollapsed}
             isMobileOpen={isMobileOpen}
             onMobileClose={() => setIsMobileOpen(false)}
-            isLoggedIn={isLoggedIn}
-            userName={headerProps.userName}
+            isLoggedIn={effectiveIsLoggedIn}
+            userName={effectiveUserName}
           />
         </div>
       )}
@@ -162,6 +172,8 @@ export default function MainLayout({
           <Header
             className="no-print"
             {...headerProps}
+            userName={effectiveUserName}
+            userInitials={effectiveUserInitials}
             avatarUrl={headerProps.avatarUrl || sidebarProfile?.avatar_url || undefined}
             userTier={sidebarProfile ? xpTier(sidebarProfile.xp ?? 0) : undefined}
             userRoleLabel={sidebarProfile ? roleLabel(sidebarProfile.role) : undefined}
@@ -223,9 +235,9 @@ export default function MainLayout({
           ) : (
             <div className="flex-1 min-h-0 overflow-y-auto p-4">
               <RightSidebar
-                userName={headerProps.userName || 'Guest'}
-                userInitials={headerProps.userInitials || 'GU'}
-                isLoggedIn={isLoggedIn}
+                userName={effectiveUserName || 'Guest'}
+                userInitials={effectiveUserInitials || 'GU'}
+                isLoggedIn={effectiveIsLoggedIn}
                 profileData={sidebarProfile}
               />
             </div>
@@ -254,9 +266,9 @@ export default function MainLayout({
                 </button>
               </div>
               <RightSidebar
-                userName={headerProps.userName || 'Guest'}
-                userInitials={headerProps.userInitials || 'GU'}
-                isLoggedIn={isLoggedIn}
+                userName={effectiveUserName || 'Guest'}
+                userInitials={effectiveUserInitials || 'GU'}
+                isLoggedIn={effectiveIsLoggedIn}
                 profileData={sidebarProfile}
               />
             </div>

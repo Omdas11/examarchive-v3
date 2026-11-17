@@ -241,9 +241,9 @@ export default function AboutPage() {
         </p>
       </div>
 
-      {/* How It Works */}
+      {/* How It Works — compact 2x2 grid on mobile, horizontal row with arrows on sm+ */}
       <h2 className="mt-10 text-xl font-semibold">How It Works</h2>
-      <div className="mt-4 flex flex-col sm:flex-row items-center sm:items-start gap-0 sm:gap-0">
+      <div className="mt-4 grid grid-cols-2 gap-3 sm:flex sm:flex-row sm:items-start sm:gap-0">
         {steps.map((s, idx) => (
           <div key={s.title} className="flex flex-col sm:flex-row items-center flex-1 min-w-0">
             {/* Step card */}
@@ -272,9 +272,9 @@ export default function AboutPage() {
                   <line x1="5" y1="12" x2="19" y2="12"/>
                   <polyline points="12 5 19 12 12 19"/>
                 </svg>
-                {/* Vertical arrow on mobile */}
+                {/* Vertical arrow on mobile — hidden: arrows only make sense in the horizontal row */}
                 <svg
-                  className="block sm:hidden my-1"
+                  className="hidden"
                   width="24" height="24" viewBox="0 0 24 24"
                   fill="none" stroke="currentColor" strokeWidth="2"
                   strokeLinecap="round" strokeLinejoin="round"
