@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getServerUser } from "@/lib/auth";
-import { isAdmin } from "@/lib/roles";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import { SYLLABUS_DEPARTMENTS, SYLLABUS_DEPARTMENT_SLUGS, syllabusDeptForSubjectValue } from "@/lib/syllabus-departments";
@@ -38,7 +37,6 @@ export default async function SyllabusPage() {
   const user = await getServerUser();
   const userName = user ? (user.name || user.username || "Scholar") : "";
   const userInitials = userName ? userName.slice(0, 2).toUpperCase() : "";
-  const userIsAdmin = !!user && isAdmin(user.role);
 
   // ── Per-department counts from the syllabus table. The `subject` field
   // is inconsistent in the data (Mathematics stores the code "MTM", the
@@ -102,16 +100,6 @@ export default async function SyllabusPage() {
           <p className="mt-2 text-sm text-on-surface-variant">
             13 departments · {totalPapers} papers · Assam University · FYUGP
           </p>
-          {userIsAdmin && (
-            <div className="mt-5">
-              <Link
-                href="/admin/bulk-import"
-                className="inline-flex items-center gap-2 rounded-2xl bg-primary px-4 py-2 text-sm font-semibold text-on-primary"
-              >
-                Upload Syllabus
-              </Link>
-            </div>
-          )}
         </div>
 
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

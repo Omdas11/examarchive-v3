@@ -12,7 +12,6 @@ import {
 import { getAllSyllabusRows } from "@/lib/syllabus-cache";
 import { toSyllabus, type Syllabus } from "@/types";
 import { getServerUser } from "@/lib/auth";
-import { isAdmin } from "@/lib/roles";
 import { getSyllabusStats } from "@/lib/counts";
 import MainLayout from "@/components/layout/MainLayout";
 import CaptchaDownloadButton from "@/components/CaptchaDownloadButton";
@@ -69,7 +68,6 @@ export default async function SyllabusDepartmentPage({
   const user = await getServerUser();
   const userName = user ? user.name || user.username || "Scholar" : "";
   const userInitials = userName ? userName.slice(0, 2).toUpperCase() : "";
-  const userIsAdmin = !!user && isAdmin(user.role);
 
   // ── Departmental syllabus PDF (one per department in the syllabus collection)
   let deptPdf: Syllabus | null = null;
@@ -209,14 +207,6 @@ export default async function SyllabusDepartmentPage({
             >
               All Departments
             </Link>
-            {userIsAdmin && (
-              <Link
-                href="/admin/bulk-import"
-                className="inline-flex items-center gap-2 rounded-2xl border border-outline-variant/40 px-4 py-2 text-sm font-semibold text-on-surface"
-              >
-                Upload Syllabus
-              </Link>
-            )}
           </div>
         </div>
 

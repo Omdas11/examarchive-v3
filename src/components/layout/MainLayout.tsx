@@ -16,8 +16,6 @@ const RIGHT_SIDEBAR_COLLAPSED_WIDTH = '84px';
 /** Minimized-rail shortcuts (single-column icon rail, one icon per row). */
 const RAIL_LINKS: Array<{ href: string; icon: string; label: string; roles?: string[] }> = [
   { href: '/profile', icon: 'person', label: 'Profile' },
-  // Team-only while public uploads are closed (see /admin/bulk-import).
-  { href: '/admin/bulk-import', icon: 'upload', label: 'Upload', roles: ['moderator', 'founder'] },
   { href: '/browse', icon: 'search', label: 'Browse' },
   { href: '/syllabus', icon: 'menu_book', label: 'Syllabus' },
 ];
