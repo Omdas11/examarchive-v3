@@ -47,12 +47,8 @@ export default function Header({
   ...rest
 }: HeaderProps & React.HTMLAttributes<HTMLElement>) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [showNotifications, setShowNotifications] = useState(false);
   const [avatarError, setAvatarError] = useState(false);
   const [creditBalance, setCreditBalance] = useState<number | null>(null);
-  const [notificationsList, setNotificationsList] = useState<
-    { id: string; title: string; body: string; href: string; time: string }[]
-  >([]);
   const { isDark, toggle: toggleTheme } = useTheme();
 
   // Reset the broken-image fallback when the avatar URL changes.
@@ -81,19 +77,6 @@ export default function Header({
       {userInitials}
     </div>
   );
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch('/api/notifications')
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (!cancelled && data && Array.isArray(data.notifications)) {
-          setNotificationsList(data.notifications);
-        }
-      })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, []);
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const query = e.target.value;
@@ -188,7 +171,7 @@ export default function Header({
         )}
       </div>
 
-      {/* Right: Search, Notifications, Profile */}
+      {/* Right: Search, Profile */}
       <div className="flex items-center gap-3 ml-2 md:ml-0">
         {/* Search Bar */}
         {showSearch && (
@@ -237,65 +220,6 @@ export default function Header({
             {isDark ? 'light_mode' : 'dark_mode'}
           </span>
         </button>
-
-        {/* Notifications */}
-        <div className="relative">
-          <button
-            onClick={() => setShowNotifications(!showNotifications)}
-            className={cn(
-              'p-2.5 rounded-full transition-all duration-200',
-              'hover:bg-surface-container-low',
-              'relative group'
-            )}
-            aria-label="Notifications"
-          >
-            <span className="material-symbols-outlined text-on-surface-variant">
-              notifications
-            </span>
-            {notificationsList.length > 0 && (
-              <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full ring-2 ring-surface" />
-            )}
-          </button>
-
-          {/* Notification Dropdown */}
-          {showNotifications && (
-            <div
-              className={cn(
-                'absolute right-0 mt-3 w-[calc(100vw-2rem)] max-w-80 bg-surface rounded-2xl',
-                'shadow-lift border border-outline-variant/20',
-                'overflow-hidden z-50'
-              )}
-            >
-              <div className="p-4 bg-surface-container-low border-b border-outline-variant/10">
-                <h3 className="font-bold text-on-surface text-sm">Notifications</h3>
-              </div>
-              <div className="max-h-96 overflow-y-auto">
-            {notificationsList.length > 0 ? (
-                  <div className="p-3 space-y-2">
-                    {notificationsList.slice(0, 5).map((n) => (
-                      <Link
-                        key={n.id}
-                        href={n.href}
-                        onClick={() => setShowNotifications(false)}
-                        className="block p-3 bg-surface hover:bg-surface-container-low rounded-xl transition-colors border border-outline-variant/5"
-                      >
-                        <p className="text-sm font-semibold text-on-surface">{n.title}</p>
-                        <p className="text-xs text-on-surface-variant mt-1">{n.body}</p>
-                      </Link>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="p-8 text-center">
-                    <p className="text-sm text-on-surface-variant">You&rsquo;re all caught up</p>
-                    <p className="mt-1 text-xs text-on-surface-variant opacity-70">
-                      New papers and upload updates will appear here.
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
 
         {!STORE_COMING_SOON && creditBalance !== null && (
           <div
