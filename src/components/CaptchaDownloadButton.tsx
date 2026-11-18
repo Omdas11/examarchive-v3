@@ -224,11 +224,21 @@ export default function CaptchaDownloadButton({
   }
 
   if (!siteKey) {
-    // Misconfigured: fall back to prompting sign-in rather than a dead button.
+    // Misconfigured (no Turnstile site key inlined at build time): do NOT
+    // send guests to /login — signing in cannot fix a missing site key,
+    // and the button is a dead end for everyone. Render a disabled
+    // button instead so the breakage is visible, not a silent redirect.
     return (
-      <a href="/login" className={className} title={title}>
+      <button
+        type="button"
+        disabled
+        className={className}
+        title="Verification is unavailable right now — please try again later."
+        aria-disabled="true"
+        style={{ opacity: 0.55 }}
+      >
         {children}
-      </a>
+      </button>
     );
   }
 
