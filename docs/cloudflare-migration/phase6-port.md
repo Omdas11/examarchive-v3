@@ -2,8 +2,10 @@
 
 - **Date:** 2026-11-18
 - **Branch:** `migrate/cloudflare`
-- **Status:** partial — read-only public paths ported; auth, uploads,
-  Turnstile, AI routes, and the syllabus are NOT ported (see below).
+**Status:** exam-critical path DONE 2026-11-18 (cutover push) — homepage,
+  browse/paper/search, and R2 PDF downloads (Turnstile-gated, guest) all
+  ported and verified on local preview. Auth, uploads, AI routes, and the
+  syllabus are NOT ported (see below).
 
 ## What was ported
 
@@ -40,6 +42,25 @@ generation via wrangler's platform proxy).
 | `src/app/api/search/route.ts` | Suggestions now come from D1 (`searchPapers` + `searchSyllabus`). Note: the old query searched Appwrite `course_name`, which does not exist as an attribute in the new project; the D1 version searches paper name / course code / department. Response shape unchanged. |
 | `src/app/paper/[id]/page.test.tsx`, `metadata.test.ts` | Mocks updated from `@/lib/appwrite` to `@/lib/d1`. Both pass. |
 
+## Verification (cutover push, 2026-11-18, local preview :8787)
+
+- Homepage 200 — "636 papers · 30 syllabi · 3 students" (30 = local D1
+  seed; remote D1 has the full 2,585 syllabus rows = 517).
+- Browse 200 ("636 papers"), paper page 200 (PHYDSC352T),
+  /api/search?q=PHYDSC 200 with real suggestions.
+- PDF view with valid ctoken: 200, `application/pdf`, 258,862 bytes,
+  `Content-Disposition: inline`, bytes identical to source PDF.
+- PDF download (`download=1`): 200, `attachment` with correct filename,
+  258,862 bytes. No-ctoken guest: 307 -> /login (gate holds).
+  Unknown fileId + valid ctoken: 404. Bot UA: 403.
+- `npm run build` passes. Jest: 9 failed / 403 passed / 412 total —
+  the 9 are the same pre-existing failures (CreditIcon, Header,
+  PaperCard, roles, pdf-generator x2); the 7 fewer tests vs the 419
+  baseline are Appwrite-specific tests removed from the homepage and
+  file-route suites, not regressions.
+- Paper-to-file mapping: 636/636 in remote D1 (commit b6e5c91; the
+  Appwrite Storage file-list worked despite 100% DB reads).
+
 ## NOT ported (and why)
 
 **Homepage (`src/app/page.tsx`)** — PORTED 2026-11-18 (today, cutover push):
@@ -55,10 +76,14 @@ generation via wrangler's platform proxy).
   — not touched.
 - **Syllabus** — disabled (503) by design; not ported. `syllabus-cache.ts`
   still reads Appwrite but nothing calls it from a live page.
-- **`/api/files/papers/[fileId]`** — still serves from Appwrite Storage.
-  R2 serving is a separate step (needs the R2 key mapping from Phase 4
-  plus a decision on public vs signed URLs). The paper page's Download
-  button therefore still hits Appwrite on this branch.
+**`/api/files/papers/[fileId]`** — PORTED to R2 2026-11-18 (commit
+  ef8f915): D1 lookup by `file_id` -> R2 `PAPERS` get by `file_key`;
+  Turnstile `ctoken`/signed-token gate and bot block kept; guests with a
+  valid `ctoken` get the PDF with no login; `inline` for View,
+  `attachment` for `download=1`. Watermark skipped (`lib/pdf-watermark`
+  reads a font via `node:fs`, unavailable on Workers); counters read-only;
+  AI/Gotenberg path returns 404. `getPaperByFileId` added to `src/lib/d1.ts`
+  (deliberately uncached). `/api/turnstile-download` needed no changes.
 - **View/download counters** — read-only on this branch (see above); no
   increment path exists yet for D1.
 
@@ -85,8 +110,21 @@ generation via wrangler's platform proxy).
 ## Follow-ups
 
 1. ~~Swap the homepage's `getHomepageData` for `getHomepageStatsD1()`~~ — DONE 2026-11-18.
-2. Decide + implement R2 file serving for `/api/files/papers/[fileId]`
-   (public R2 custom domain vs signed URLs).
+2. ~~R2 file serving for `/api/files/papers/[fileId]`~~ — DONE 2026-11-18 (commit ef8f915).
 3. Design the batched view/download counter (no per-view D1 writes).
 4. Phase 5 auth, then the remaining Appwrite-backed pages
    (/profile, /dashboard, admin, /api/visitor, payments).
+
+## Still needs the owner (cutover blockers)
+
+- `wrangler login` (owner browser step), then:
+  `npm run deploy` (preview deploy to Workers) and
+  `node scripts/upload-r2.mjs` (upload the 667 PDFs to R2 — remote R2
+  is still empty; the `file_key` values in D1 are exactly the keys the
+  upload script produces).
+- Real `TURNSTILE_SECRET_KEY` as a Worker secret
+  (`wrangler secret put`) — local testing used a dummy secret in
+  `.dev.vars`; live siteverify could not be proven in this sandbox
+  (workerd outbound fetch to challenges.cloudflare.com fails here).
+- DNS cutover approval (Phase 7) — needs the owner's explicit go-ahead.
+  Do NOT cut over until the preview deploy + R2 upload are verified.
