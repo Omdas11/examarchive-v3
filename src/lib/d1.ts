@@ -154,6 +154,35 @@ export async function getPapers(
   const whereSql = `WHERE ${where.join(" AND ")}`;
   const columns = PAPER_COLUMNS.join(", ");
 
+  // The COUNT(*) scans every matching paper row (636 unfiltered) on every
+  // list-page load — the biggest remaining per-request D1 read burner
+  // (found 2026-11-18: ~178 rows read per request site-wide, mostly this
+  // count running on /browse, /papers/[dept], /fyug-*, /assam-* and
+  // /cbcs-*). Cached in KV for 1h per filter combination; the 20-row
+  // list itself is cheap and stays fresh.
+  const countKey = `papers-count-v1:${whereSql}:${JSON.stringify(params)}`;
+  let total: number | null = null;
+  try {
+    const { env } = await getCloudflareContext({ async: true });
+    const kv = (env as { CACHE?: KVNamespace }).CACHE;
+    if (kv) {
+      const cached = await kv.get(countKey);
+      if (cached !== null) total = parseInt(cached, 10);
+    }
+    if (total === null) {
+      const countRes = await db
+        .prepare(`SELECT COUNT(*) AS total FROM papers ${whereSql}`)
+        .bind(...params)
+        .first<{ total: number }>();
+      total = countRes?.total ?? 0;
+      if (kv) {
+        await kv.put(countKey, String(total), { expirationTtl: 3600 });
+      }
+    }
+  } catch {
+    total = null;
+  }
+
   const [listRes, countRes] = await Promise.all([
     db
       .prepare(
@@ -161,10 +190,12 @@ export async function getPapers(
       )
       .bind(...params, limit, offset)
       .all<PaperRow>(),
-    db
-      .prepare(`SELECT COUNT(*) AS total FROM papers ${whereSql}`)
-      .bind(...params)
-      .first<{ total: number }>(),
+    total !== null
+      ? Promise.resolve({ total })
+      : db
+          .prepare(`SELECT COUNT(*) AS total FROM papers ${whereSql}`)
+          .bind(...params)
+          .first<{ total: number }>(),
   ]);
 
   return {

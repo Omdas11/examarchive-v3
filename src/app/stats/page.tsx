@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { getD1 } from "@/lib/d1";
 import { getServerUser } from "@/lib/auth-cf";
 import { isModerator } from "@/lib/roles";
@@ -20,8 +21,38 @@ interface StatCard {
 }
 
 /** Fetch all platform stats from D1. The syllabus aggregates are single
- * COUNT(DISTINCT ...) queries — no row pagination walks. */
+ * COUNT(DISTINCT ...) queries — no row pagination walks.
+ *
+ * Cached in KV (shared across Worker isolates) for 1h. Uncached, every
+ * /stats visit re-ran two full scans of syllabus_table (2,585 rows each)
+ * plus several COUNT(*) scans — ~7,000 rows per visit. That was the
+ * biggest per-visit D1 read burner left on the site (found 2026-11-18,
+ * when D1 rows read crossed 2.6M/day). Stats go up to 1h stale, which
+ * is fine for a stats page.
+ */
 async function fetchPlatformStats() {
+  const KV_KEY = "platform-stats-v1";
+  const KV_TTL_SECONDS = 3600;
+  try {
+    const { env } = await getCloudflareContext({ async: true });
+    const kv = (env as { CACHE?: KVNamespace }).CACHE;
+    if (kv) {
+      const cached = await kv.get(KV_KEY, "json");
+      if (cached) return cached as Awaited<ReturnType<typeof fetchPlatformStatsUncached>>;
+    }
+    const stats = await fetchPlatformStatsUncached();
+    if (kv) {
+      await kv.put(KV_KEY, JSON.stringify(stats), {
+        expirationTtl: KV_TTL_SECONDS,
+      });
+    }
+    return stats;
+  } catch {
+    return fetchPlatformStatsUncached();
+  }
+}
+
+async function fetchPlatformStatsUncached() {
   const db = await getD1();
 
   const [
