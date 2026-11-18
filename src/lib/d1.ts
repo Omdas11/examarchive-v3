@@ -280,6 +280,59 @@ export async function getPaperCountsD1(
   }
 }
 
+/** Live view/download totals for one syllabus paper. D1 port of
+ * getSyllabusStat (counts.ts, Appwrite). */
+export async function getSyllabusStatD1(
+  paperCode: string,
+): Promise<{ view_count: number; download_count: number }> {
+  try {
+    const db = await getD1();
+    const row = await db
+      .prepare(
+        "SELECT view_count, download_count FROM syllabus_stats WHERE paper_code = ? LIMIT 1",
+      )
+      .bind(paperCode)
+      .first<{ view_count: number; download_count: number }>();
+    return {
+      view_count: Number(row?.view_count ?? 0),
+      download_count: Number(row?.download_count ?? 0),
+    };
+  } catch {
+    return { view_count: 0, download_count: 0 };
+  }
+}
+
+/** Stats for many syllabus papers at once, keyed by normalized code. D1 port
+ * of getSyllabusStats (counts.ts, Appwrite). */
+export async function getSyllabusStatsD1(
+  paperCodes: string[],
+): Promise<Map<string, { view_count: number; download_count: number }>> {
+  const out = new Map<string, { view_count: number; download_count: number }>();
+  const codes = [...new Set(paperCodes.filter(Boolean))];
+  if (codes.length === 0) return out;
+  try {
+    const db = await getD1();
+    const placeholders = codes.map(() => "?").join(",");
+    const { results } = await db
+      .prepare(
+        `SELECT paper_code, view_count, download_count FROM syllabus_stats WHERE paper_code IN (${placeholders}) LIMIT 100`,
+      )
+      .bind(...codes)
+      .all<{ paper_code: string; view_count: number; download_count: number }>();
+    for (const row of results ?? []) {
+      const code = String(row.paper_code ?? "");
+      if (!code) continue;
+      out.set(code, {
+        view_count: Number(row.view_count ?? 0),
+        download_count: Number(row.download_count ?? 0),
+      });
+    }
+  } catch {
+    // Stats are optional decoration; an empty map renders no counts.
+  }
+  return out;
+}
+
 // ── Per-user activity (profile: Recently viewed / Downloads) ─────────────
 
 export interface UserActivityEntry {

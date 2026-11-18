@@ -1,13 +1,7 @@
 import type { Metadata } from "next";
-import { unstable_cache } from "next/cache";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import {
-  adminDatabases,
-  DATABASE_ID,
-  COLLECTION,
-  Query,
-} from "@/lib/appwrite";
+import { getD1 } from "@/lib/d1";
 import { getServerUser } from "@/lib/auth-cf";
 import { isModerator } from "@/lib/roles";
 import MainLayout from "@/components/layout/MainLayout";
@@ -25,11 +19,10 @@ interface StatCard {
   accent?: boolean;
 }
 
-/** Fetch all platform stats from Appwrite — cached for 24h: the syllabus
- * walk below reads all 506 syllabus documents on every call. */
-const fetchPlatformStats = unstable_cache(
-  async () => {
-  const db = adminDatabases();
+/** Fetch all platform stats from D1. The syllabus aggregates are single
+ * COUNT(DISTINCT ...) queries — no row pagination walks. */
+async function fetchPlatformStats() {
+  const db = await getD1();
 
   const [
     papersApproved,
@@ -38,155 +31,83 @@ const fetchPlatformStats = unstable_cache(
     syllabusApproved,
     syllabusTotal,
     usersTotal,
-  ] = await Promise.allSettled([
-    db.listDocuments(DATABASE_ID, COLLECTION.papers, [
-      Query.equal("approved", true),
-      Query.limit(1),
-    ]),
-    db.listDocuments(DATABASE_ID, COLLECTION.papers, [
-      Query.equal("approved", false),
-      Query.limit(1),
-    ]),
-    db.listDocuments(DATABASE_ID, COLLECTION.papers, [Query.limit(1)]),
-    db.listDocuments(DATABASE_ID, COLLECTION.syllabus, [
-      Query.equal("approval_status", "approved"),
-      Query.limit(1),
-    ]),
-    db.listDocuments(DATABASE_ID, COLLECTION.syllabus, [Query.limit(1)]),
-    db.listDocuments(DATABASE_ID, COLLECTION.users, [Query.limit(1)]),
+    syllabusAgg,
+    syllabusTablePapers,
+  ] = await Promise.all([
+    db
+      .prepare("SELECT COUNT(*) AS n FROM papers WHERE approved = 1")
+      .first<{ n: number }>(),
+    db
+      .prepare("SELECT COUNT(*) AS n FROM papers WHERE approved = 0")
+      .first<{ n: number }>(),
+    db.prepare("SELECT COUNT(*) AS n FROM papers").first<{ n: number }>(),
+    db
+      .prepare("SELECT COUNT(*) AS n FROM syllabus WHERE approval_status = 'approved'")
+      .first<{ n: number }>(),
+    db.prepare("SELECT COUNT(*) AS n FROM syllabus").first<{ n: number }>(),
+    db.prepare("SELECT COUNT(*) AS n FROM users").first<{ n: number }>(),
+    db
+      .prepare(
+        "SELECT COUNT(DISTINCT subject) AS subjects, COUNT(DISTINCT paper_code) AS codes FROM syllabus_table",
+      )
+      .first<{ subjects: number; codes: number }>(),
+    db
+      .prepare("SELECT COUNT(DISTINCT paper_code) AS n FROM syllabus_table")
+      .first<{ n: number }>(),
   ]);
 
-  // Walk all approved syllabi to compute subject/code coverage without a hard cap.
-  // The catalogue lives in Syllabus_Table (one row per unit), so dedupe by
-  // subject and paper_code. The legacy `syllabus` collection is empty in the
-  // new project.
-  let syllabusSubjects = 0;
-  let syllabusCodes = 0;
-  try {
-    const subjects = new Set<string>();
-    const codes = new Set<string>();
-    let cursor: string | undefined;
-    // eslint-disable-next-line no-constant-condition
-    while (true) {
-      const queries = [Query.limit(100)];
-      if (cursor) queries.push(Query.cursorAfter(cursor));
-      const page = await db.listDocuments(DATABASE_ID, COLLECTION.syllabus_table, queries);
-      for (const doc of page.documents) {
-        const subj = (doc.subject as string | undefined)?.trim();
-        const code = (doc.paper_code as string | undefined)?.trim();
-        if (subj) subjects.add(subj);
-        if (code) codes.add(code);
-      }
-      if (page.documents.length < 100) break;
-      cursor = page.documents[page.documents.length - 1].$id;
-    }
-    syllabusSubjects = subjects.size;
-    syllabusCodes = codes.size;
-  } catch {
-    syllabusSubjects = 0;
-    syllabusCodes = 0;
-  }
-
-  // Distinct syllabus papers in Syllabus_Table (one row per unit, so dedupe
-  // by paper_code). This is the real syllabus catalogue the site serves.
-  let syllabusTablePapers = 0;
-  try {
-    const codes = new Set<string>();
-    let cursor: string | undefined;
-    // eslint-disable-next-line no-constant-condition
-    while (true) {
-      const queries = [Query.limit(100)];
-      if (cursor) queries.push(Query.cursorAfter(cursor));
-      const page = await db.listDocuments(
-        DATABASE_ID,
-        COLLECTION.syllabus_table,
-        queries,
-      );
-      for (const doc of page.documents) {
-        const code = (doc.paper_code as string | undefined)?.trim();
-        if (code) codes.add(code);
-      }
-      if (page.documents.length < 100) break;
-      cursor = page.documents[page.documents.length - 1].$id;
-    }
-    syllabusTablePapers = codes.size;
-  } catch {
-    syllabusTablePapers = 0;
-  }
+  const syllabusSubjects = Number(syllabusAgg?.subjects ?? 0);
+  const syllabusCodes = Number(syllabusAgg?.codes ?? 0);
+  const syllabusTablePapersCount = Number(syllabusTablePapers?.n ?? 0);
 
   // Visitor counts for the last 24 hours, bucketed by hour (IST).
-  // visit_logs stores one row per page view with $createdAt.
+  // visit_logs stores one row per page view with created_at (epoch ms).
   const now = new Date();
-  const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const dayAgoMs = now.getTime() - 24 * 60 * 60 * 1000;
   const hourlyVisitors: number[] = Array.from({ length: 24 }, () => 0);
   let visitors24h = 0;
   try {
-    let cursor: string | undefined;
-    let fetched = 0;
-    // eslint-disable-next-line no-constant-condition
-    while (fetched < 1000) {
-      const queries = [
-        Query.greaterThan("$createdAt", dayAgo.toISOString()),
-        Query.orderAsc("$createdAt"),
-        Query.limit(100),
-      ];
-      if (cursor) queries.push(Query.cursorAfter(cursor));
-      const page = await db.listDocuments(
-        DATABASE_ID,
-        COLLECTION.visit_logs,
-        queries,
-      );
-      for (const doc of page.documents) {
-        visitors24h += 1;
-        const created = new Date(doc.$createdAt as string).getTime();
-        const hourIndex = Math.floor((created - dayAgo.getTime()) / (60 * 60 * 1000));
-        if (hourIndex >= 0 && hourIndex < 24) {
-          hourlyVisitors[hourIndex] += 1;
-        }
+    const { results } = await db
+      .prepare(
+        "SELECT created_at FROM visit_logs WHERE created_at >= ? ORDER BY created_at ASC LIMIT 1000",
+      )
+      .bind(dayAgoMs)
+      .all<{ created_at: number }>();
+    for (const row of results ?? []) {
+      visitors24h += 1;
+      const hourIndex = Math.floor((row.created_at - dayAgoMs) / (60 * 60 * 1000));
+      if (hourIndex >= 0 && hourIndex < 24) {
+        hourlyVisitors[hourIndex] += 1;
       }
-      fetched += page.documents.length;
-      if (page.documents.length < 100) break;
-      cursor = page.documents[page.documents.length - 1].$id;
     }
   } catch {
     visitors24h = 0;
   }
 
-  const papersApprovedCount =
-    papersApproved.status === "fulfilled" ? Number(papersApproved.value.total) : 0;
-  const usersCount =
-    usersTotal.status === "fulfilled" ? Number(usersTotal.value.total) : 0;
+  const papersApprovedCount = Number(papersApproved?.n ?? 0);
+  const usersCount = Number(usersTotal?.n ?? 0);
   // Total pages on the site: approved papers + distinct syllabus papers +
   // study-notes units (20). Static routes (home, browse, about, ...) are
   // not counted — this is the content-page total.
   const NOTES_UNITS = 20;
-  const totalPages = papersApprovedCount + syllabusTablePapers + NOTES_UNITS;
+  const totalPages = papersApprovedCount + syllabusTablePapersCount + NOTES_UNITS;
 
   return {
     papersApproved: papersApprovedCount,
-    papersPending:
-      papersPending.status === "fulfilled" ? Number(papersPending.value.total) : 0,
-    papersTotal:
-      papersTotal.status === "fulfilled" ? Number(papersTotal.value.total) : 0,
-    syllabusApproved:
-      syllabusApproved.status === "fulfilled"
-        ? Number(syllabusApproved.value.total)
-        : 0,
-    syllabusTotal:
-      syllabusTotal.status === "fulfilled" ? Number(syllabusTotal.value.total) : 0,
+    papersPending: Number(papersPending?.n ?? 0),
+    papersTotal: Number(papersTotal?.n ?? 0),
+    syllabusApproved: Number(syllabusApproved?.n ?? 0),
+    syllabusTotal: Number(syllabusTotal?.n ?? 0),
     usersTotal: usersCount,
     syllabusSubjects,
     syllabusCodes,
-    syllabusTablePapers,
+    syllabusTablePapers: syllabusTablePapersCount,
     totalPages,
     visitors24h,
     hourlyVisitors,
     notesUnits: NOTES_UNITS,
   };
-  },
-  ["platform-stats-v4"],
-  { revalidate: 86400 },
-);
+}
 
 export default async function StatsPage() {
   const user = await getServerUser();

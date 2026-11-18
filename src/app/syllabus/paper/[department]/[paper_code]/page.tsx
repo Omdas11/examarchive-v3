@@ -1,15 +1,8 @@
 import type { Metadata } from "next";
-import { unstable_cache } from "next/cache";
 import { notFound, permanentRedirect } from "next/navigation";
 import Link from "next/link";
 import { getServerUser } from "@/lib/auth-cf";
-import { getSyllabusStat, recordSyllabusViewIfHuman } from "@/lib/counts";
-import {
-  adminDatabases,
-  DATABASE_ID,
-  COLLECTION,
-  Query,
-} from "@/lib/appwrite";
+import { getD1, getSyllabusStatD1 } from "@/lib/d1";
 import type { Syllabus } from "@/types";
 import { toSyllabus } from "@/types";
 import MainLayout from "@/components/layout/MainLayout";
@@ -130,62 +123,58 @@ async function getPaperRows(paperCode: string) {
   }
   // Fallback: exact-code query for rows whose subject field disagrees with
   // the URL department (defensive: the cache covers published rows only).
-  const db = adminDatabases();
-  const { documents } = await db.listDocuments(
-    DATABASE_ID,
-    COLLECTION.syllabus_table,
-    [Query.equal("paper_code", paperCode), Query.limit(200)],
-  );
-  return documents
-    .map((doc) => toSyllabusTableRow(doc as Record<string, unknown>))
+  const db = await getD1();
+  const { results } = await db
+    .prepare("SELECT * FROM syllabus_table WHERE paper_code = ? LIMIT 200")
+    .bind(paperCode)
+    .all<Record<string, unknown>>();
+  return (results ?? [])
+    .map((doc) => toSyllabusTableRow(doc))
     .sort((a, b) => a.unit_number - b.unit_number);
 }
 
-// Cached per paper for 7 days: the lookups below cost up to ~100 reads
-// per visit when run live (two limit(50) syllabus queries plus seeds).
-const getUploadedSyllabusPdfs = unstable_cache(
-  async (paperCode: string): Promise<Syllabus[]> => {
-  const db = adminDatabases();
-  const byCourseCode = await db.listDocuments(
-    DATABASE_ID,
-    COLLECTION.syllabus,
-    [Query.equal("approval_status", "approved"), Query.equal("course_code", paperCode), Query.limit(50)],
-  );
-  if (byCourseCode.documents.length > 0) {
-    return byCourseCode.documents.map(toSyllabus).filter((s) => !s.is_hidden);
+// Uploaded syllabus PDFs for one paper (D1). Previously cached per paper
+// for 7 days via unstable_cache; the syllabus table is small and the page
+// is disabled, so a live D1 read is fine.
+async function getUploadedSyllabusPdfs(paperCode: string): Promise<Syllabus[]> {
+  const db = await getD1();
+  const { results: byCourseCode } = await db
+    .prepare(
+      "SELECT * FROM syllabus WHERE approval_status = 'approved' AND course_code = ? LIMIT 50",
+    )
+    .bind(paperCode)
+    .all<Record<string, unknown>>();
+  if ((byCourseCode ?? []).length > 0) {
+    return (byCourseCode ?? []).map(toSyllabus).filter((s) => !s.is_hidden);
   }
 
-  const syllabusSeed = await db.listDocuments(
-    DATABASE_ID,
-    COLLECTION.syllabus_table,
-    [Query.equal("paper_code", paperCode), Query.limit(1)],
-  );
+  const syllabusSeed = await db
+    .prepare("SELECT syllabus_content FROM syllabus_table WHERE paper_code = ? LIMIT 1")
+    .bind(paperCode)
+    .first<{ syllabus_content: string }>();
   const derivedPaperName =
-    typeof syllabusSeed.documents[0]?.syllabus_content === "string"
-      ? derivePaperNameFromContent(syllabusSeed.documents[0].syllabus_content, "")
+    typeof syllabusSeed?.syllabus_content === "string"
+      ? derivePaperNameFromContent(syllabusSeed.syllabus_content, "")
       : "";
 
-  const questionSeed = await db.listDocuments(
-    DATABASE_ID,
-    COLLECTION.questions_table,
-    [Query.equal("paper_code", paperCode), Query.limit(1)],
-  );
+  const questionSeed = await db
+    .prepare("SELECT paper_name FROM questions_table WHERE paper_code = ? LIMIT 1")
+    .bind(paperCode)
+    .first<{ paper_name: string }>();
   const questionPaperName =
-    typeof questionSeed.documents[0]?.paper_name === "string"
-      ? questionSeed.documents[0].paper_name.trim()
+    typeof questionSeed?.paper_name === "string"
+      ? questionSeed.paper_name.trim()
       : "";
   const paperName = questionPaperName || derivedPaperName || paperCode;
 
-  const bySubject = await db.listDocuments(
-    DATABASE_ID,
-    COLLECTION.syllabus,
-    [Query.equal("approval_status", "approved"), Query.equal("subject", paperName), Query.limit(50)],
-  );
-  return bySubject.documents.map(toSyllabus).filter((s) => !s.is_hidden);
-  },
-  ["syllabus-pdfs"],
-  { revalidate: 604800 },
-);
+  const { results: bySubject } = await db
+    .prepare(
+      "SELECT * FROM syllabus WHERE approval_status = 'approved' AND subject = ? LIMIT 50",
+    )
+    .bind(paperName)
+    .all<Record<string, unknown>>();
+  return (bySubject ?? []).map(toSyllabus).filter((s) => !s.is_hidden);
+}
 
 function sortLinkedQuestions(a: LinkedQuestionRow, b: LinkedQuestionRow): number {
   const aNo = Number(a.question_no);
@@ -196,29 +185,44 @@ function sortLinkedQuestions(a: LinkedQuestionRow, b: LinkedQuestionRow): number
   return (b.year ?? 0) - (a.year ?? 0);
 }
 
-// Cached per paper for 7 days: the questions query reads up to 500 rows
-// per visit when run live. The linked-IDs arrive as a sorted string array
-// (a Set is not a serializable cache key), rebuilt into a Set inside.
-const getLinkedQuestionRows = unstable_cache(
-  async (paperCodes: string[], linkedSyllabusIdList: string[]) => {
+// Linked questions for one paper (D1). Previously cached per paper for 7
+// days via unstable_cache; the page is disabled, so a live D1 read is fine.
+async function getLinkedQuestionRows(paperCodes: string[], linkedSyllabusIdList: string[]) {
   const linkedSyllabusIds = new Set(linkedSyllabusIdList);
-  const db = adminDatabases();
-  const { documents } = await db.listDocuments(
-    DATABASE_ID,
-    COLLECTION.questions_table,
-    // One query for every raw spelling of the code: questions may be stored
-    // under "PHYDSC453(A)T" while the page URL is the canonical "PHYDSC453AT".
-    [Query.equal("paper_code", paperCodes), Query.limit(MAX_QUESTIONS_PER_PAPER)],
-  );
+  const db = await getD1();
+  const placeholders = paperCodes.map(() => "?").join(",");
+  const { results } = await db
+    .prepare(
+      `SELECT id, question_no, question_subpart, year, marks, question_content, tags, linked_syllabus_entry_id, link_status FROM questions_table WHERE paper_code IN (${placeholders}) LIMIT ?`,
+    )
+    .bind(...paperCodes, MAX_QUESTIONS_PER_PAPER)
+    .all<{
+      id: string;
+      question_no: string;
+      question_subpart: string;
+      year: number | null;
+      marks: number | null;
+      question_content: string;
+      tags: string | null;
+      linked_syllabus_entry_id: string | null;
+      link_status: string | null;
+    }>();
 
-  const allRows: LinkedQuestionRow[] = documents.map((doc) => ({
-    id: String(doc.$id ?? ""),
+  const allRows: LinkedQuestionRow[] = (results ?? []).map((doc) => ({
+    id: String(doc.id ?? ""),
     question_no: String(doc.question_no ?? ""),
     question_subpart: String(doc.question_subpart ?? ""),
     year: typeof doc.year === "number" ? doc.year : undefined,
     marks: typeof doc.marks === "number" ? doc.marks : undefined,
     question_content: String(doc.question_content ?? ""),
-    tags: Array.isArray(doc.tags) ? doc.tags.filter((tag): tag is string => typeof tag === "string") : [],
+    tags: (() => {
+      try {
+        const parsed: unknown = typeof doc.tags === "string" && doc.tags.length > 0 ? JSON.parse(doc.tags) : [];
+        return Array.isArray(parsed) ? parsed.filter((t): t is string => typeof t === "string") : [];
+      } catch {
+        return [];
+      }
+    })(),
     linked_syllabus_entry_id:
       typeof doc.linked_syllabus_entry_id === "string" && doc.linked_syllabus_entry_id.trim().length > 0
         ? doc.linked_syllabus_entry_id.trim()
@@ -233,10 +237,7 @@ const getLinkedQuestionRows = unstable_cache(
   const rowsToShow = (usedFallbackToAll ? allRows : linkedRows).sort(sortLinkedQuestions);
   const filteredOutCount = linkedRows.length > 0 ? allRows.length - linkedRows.length : 0;
   return { rowsToShow, filteredOutCount, usedFallbackToAll };
-  },
-  ["linked-questions"],
-  { revalidate: 604800 },
-);
+}
 
 export default async function SyllabusPaperPage({ params }: PageProps) {
   // Temporary: syllabus disabled while all 517 papers are being verified.
@@ -290,19 +291,9 @@ export default async function SyllabusPaperPage({ params }: PageProps) {
   const first = rows[0];
   const paperName = first.paper_name?.trim() || derivePaperNameFromContent(first.syllabus_content, code);
 
-  // Count the view in the background (bots excluded). Fire-and-forget:
-  // the write starts immediately and the counter is best-effort, so the
-  // page never waits on it. Logged-in users also get a history row for
-  // /profile. Stats shown below are read before this view lands, so the
-  // count lags by one page load.
-  const syllabusTitle = `${code} — ${paperName}`;
-  const syllabusHref = `/syllabus/paper/${department}/${canonicalCode}`;
-  void recordSyllabusViewIfHuman(canonicalCode, {
-    userId: user?.id ?? null,
-    title: syllabusTitle,
-    href: syllabusHref,
-  });
-  const syllabusStats = await getSyllabusStat(canonicalCode);
+  // View counting is not ported to D1 (no writes on read paths by design),
+  // so the view is not recorded here. Stats shown below are read live.
+  const syllabusStats = await getSyllabusStatD1(canonicalCode);
   // Entry IDs and raw code spellings from ALL matched rows (both variants),
   // so questions linked to either spelling are found.
   const linkedSyllabusIds = new Set(

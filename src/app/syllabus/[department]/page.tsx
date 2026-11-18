@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { adminDatabases, DATABASE_ID, COLLECTION, Query } from "@/lib/appwrite";
+import { getD1, getSyllabusStatsD1 } from "@/lib/d1";
 import {
   derivePaperNameFromRows,
   dedupeSyllabusRowsByUnit,
@@ -12,7 +12,6 @@ import {
 import { getAllSyllabusRows } from "@/lib/syllabus-cache";
 import { toSyllabus, type Syllabus } from "@/types";
 import { getServerUser } from "@/lib/auth-cf";
-import { getSyllabusStats } from "@/lib/counts";
 import MainLayout from "@/components/layout/MainLayout";
 import CaptchaDownloadButton from "@/components/CaptchaDownloadButton";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
@@ -76,18 +75,19 @@ export default async function SyllabusDepartmentPage({
   const userName = user ? user.name || user.username || "Scholar" : "";
   const userInitials = userName ? userName.slice(0, 2).toUpperCase() : "";
 
-  // ── Departmental syllabus PDF (one per department in the syllabus collection)
+  // ── Departmental syllabus PDF (one per department in the syllabus table)
   let deptPdf: Syllabus | null = null;
   try {
-    const db = adminDatabases();
-    const { documents } = await db.listDocuments(DATABASE_ID, COLLECTION.syllabus, [
-      Query.equal("approval_status", "approved"),
-      Query.equal("department", info.name),
-      Query.limit(1),
-    ]);
-    if (documents.length > 0) deptPdf = toSyllabus(documents[0] as Record<string, unknown>);
+    const db = await getD1();
+    const row = await db
+      .prepare(
+        "SELECT * FROM syllabus WHERE approval_status = 'approved' AND department = ? LIMIT 1",
+      )
+      .bind(info.name)
+      .first<Record<string, unknown>>();
+    if (row) deptPdf = toSyllabus(row);
   } catch {
-    // collection may not exist yet
+    // table may not exist yet
   }
 
   // ── Syllabus-table papers for this department. The `subject` field is
@@ -135,7 +135,7 @@ export default async function SyllabusDepartmentPage({
 
   // View/download totals for the listed papers (one Appwrite query for
   // the whole page). Missing entries mean never viewed/downloaded.
-  const syllabusStats = await getSyllabusStats(papers.map((p) => p.code));
+  const syllabusStats = await getSyllabusStatsD1(papers.map((p) => p.code));
 
   // Papers grouped by semester (1-8); codes with no semester number last.
   const bySemester = new Map<number, PaperSummary[]>();

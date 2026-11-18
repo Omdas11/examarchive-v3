@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import { getServerUser } from "@/lib/auth-cf";
-import { adminDatabases, DATABASE_ID, COLLECTION, Query } from "@/lib/appwrite";
+import { getD1 } from "@/lib/d1";
 import { STORE_COMING_SOON } from "@/lib/economy";
 import { CREDIT_PACKS, PASSES } from "@/lib/payments";
 import Link from "next/link";
@@ -68,15 +68,16 @@ export default async function StorePage() {
   const userName = user.name || user.username || "User";
 
   // ── Determine first-time buyer status ───────────────────────────────────
+  // D1 purchases has no credits_applied column (not migrated); any prior
+  // purchase counts as a returning buyer. Only runs when the store reopens.
   let isFirstTimeBuyer = false;
   try {
-    const db = adminDatabases();
-    const { total } = await db.listDocuments(DATABASE_ID, COLLECTION.purchases, [
-      Query.equal("user_id", user.id),
-      Query.equal("credits_applied", true),
-      Query.limit(1),
-    ]);
-    isFirstTimeBuyer = total === 0;
+    const db = await getD1();
+    const row = await db
+      .prepare("SELECT COUNT(*) AS n FROM purchases WHERE user_id = ?")
+      .bind(user.id)
+      .first<{ n: number }>();
+    isFirstTimeBuyer = Number(row?.n ?? 0) === 0;
   } catch {
     isFirstTimeBuyer = false;
   }
