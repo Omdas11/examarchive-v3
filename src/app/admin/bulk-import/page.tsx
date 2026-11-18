@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getServerUser } from "@/lib/auth";
+import { getServerUser } from "@/lib/auth-cf";
 import { isAdmin } from "@/lib/roles";
 import BulkImportClient from "./BulkImportClient";
 import MainLayout from "@/components/layout/MainLayout";

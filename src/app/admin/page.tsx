@@ -1,13 +1,8 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { getServerUser } from "@/lib/auth";
+import { getServerUser } from "@/lib/auth-cf";
 import { isAdmin, isModerator } from "@/lib/roles";
-import {
-  adminDatabases,
-  DATABASE_ID,
-  COLLECTION,
-  Query,
-} from "@/lib/appwrite";
+import { getD1 } from "@/lib/d1";
 import type { Paper, AdminUser, ActivityLogEntry, Syllabus } from "@/types";
 import { toPaper, toAdminUser, toActivityLog, toSyllabus } from "@/types";
 import AdminDashboard from "@/components/AdminDashboard";
@@ -26,85 +21,75 @@ export default async function AdminPage() {
     redirect("/");
   }
 
-  const db = adminDatabases();
+  const db = await getD1();
 
   let pending: Paper[] = [];
   let approvedCount = 0;
 
   try {
-    const { documents } = await db.listDocuments(
-      DATABASE_ID,
-      COLLECTION.papers,
-      [Query.equal("approved", false), Query.orderDesc("$createdAt")],
-    );
-    pending = documents.map(toPaper);
+    const { results } = await db
+      .prepare("SELECT * FROM papers WHERE approved = 0 ORDER BY created_at DESC")
+      .all();
+    pending = (results as Record<string, unknown>[]).map(toPaper);
   } catch {
-    // collection may not exist yet
+    // table may not exist yet
   }
 
   try {
-    const approvedResult = await db.listDocuments(
-      DATABASE_ID,
-      COLLECTION.papers,
-      [Query.equal("approved", true), Query.limit(1)],
-    );
-    approvedCount = Number(approvedResult.total);
+    const row = await db
+      .prepare("SELECT COUNT(*) AS n FROM papers WHERE approved = 1")
+      .first<{ n: number }>();
+    approvedCount = Number(row?.n ?? 0);
   } catch {
-    // collection may not exist yet
+    // table may not exist yet
   }
 
   // Fetch pending PDF syllabi for moderation
   let pendingSyllabi: Syllabus[] = [];
   try {
-    const { documents } = await db.listDocuments(
-      DATABASE_ID,
-      COLLECTION.syllabus,
-      [Query.equal("approval_status", "pending"), Query.orderDesc("$createdAt")],
-    );
-    pendingSyllabi = documents.map((d) => toSyllabus(d));
+    const { results } = await db
+      .prepare(
+        "SELECT * FROM syllabus WHERE approval_status = 'pending' ORDER BY created_at DESC",
+      )
+      .all();
+    pendingSyllabi = (results as Record<string, unknown>[]).map(toSyllabus);
   } catch {
-    // collection may not exist yet
+    // table may not exist yet
   }
 
   // Fetch pending Vault (MDX) syllabi from Syllabus_Table
   let pendingVaultCount = 0;
   try {
-    const vaultRes = await db.listDocuments(
-      DATABASE_ID,
-      COLLECTION.syllabus_table,
-      [Query.equal("status", "pending"), Query.limit(1)],
-    );
-    pendingVaultCount = Number(vaultRes.total);
+    const row = await db
+      .prepare("SELECT COUNT(*) AS n FROM syllabus_table WHERE status = 'pending'")
+      .first<{ n: number }>();
+    pendingVaultCount = Number(row?.n ?? 0);
   } catch {
-    // collection may not exist yet
+    // table may not exist yet
   }
 
   // Fetch all users (admin only)
   let users: AdminUser[] = [];
   if (isAdmin(user.role)) {
     try {
-      const { documents } = await db.listDocuments(
-        DATABASE_ID,
-        COLLECTION.users,
-        [Query.orderDesc("$createdAt"), Query.limit(100)],
-      );
-      users = documents.map((d) => toAdminUser(d as unknown as Record<string, unknown>));
+      const { results } = await db
+        .prepare("SELECT * FROM users ORDER BY created_at DESC LIMIT 100")
+        .all();
+      users = (results as Record<string, unknown>[]).map(toAdminUser);
     } catch {
-      // collection may not exist yet
+      // table may not exist yet
     }
   }
 
   // Fetch activity logs
   let activityLogs: ActivityLogEntry[] = [];
   try {
-    const { documents } = await db.listDocuments(
-      DATABASE_ID,
-      COLLECTION.activity_logs,
-      [Query.orderDesc("$createdAt"), Query.limit(100)],
-    );
-    activityLogs = documents.map((d) => toActivityLog(d as unknown as Record<string, unknown>));
+    const { results } = await db
+      .prepare("SELECT * FROM activity_logs ORDER BY created_at DESC LIMIT 100")
+      .all();
+    activityLogs = (results as Record<string, unknown>[]).map(toActivityLog);
   } catch {
-    // collection may not exist yet
+    // table may not exist yet
   }
 
   const stats = [

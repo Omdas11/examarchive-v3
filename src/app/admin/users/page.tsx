@@ -1,13 +1,8 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { getServerUser } from "@/lib/auth";
+import { getServerUser } from "@/lib/auth-cf";
 import { isModerator } from "@/lib/roles";
-import {
-  adminDatabases,
-  DATABASE_ID,
-  COLLECTION,
-  Query,
-} from "@/lib/appwrite";
+import { getD1 } from "@/lib/d1";
 import type { AdminUser } from "@/types";
 import { toAdminUser } from "@/types";
 import UsersTable from "./UsersTable";
@@ -26,33 +21,32 @@ export default async function AdminUsersPage() {
     redirect("/");
   }
 
-  const db = adminDatabases();
+  const db = await getD1();
 
   let users: AdminUser[] = [];
   try {
-    const { documents } = await db.listDocuments(
-      DATABASE_ID,
-      COLLECTION.users,
-      [Query.orderDesc("$createdAt"), Query.limit(100)],
-    );
-    const mapped = documents.map((d) => toAdminUser(d as unknown as Record<string, unknown>));
+    const { results } = await db
+      .prepare("SELECT * FROM users ORDER BY created_at DESC LIMIT 100")
+      .all();
+    const mapped = (results as Record<string, unknown>[]).map(toAdminUser);
     // Verified counts (verify-to-earn ledger), one count query per user.
     users = await Promise.all(
       mapped.map(async (u) => {
         try {
-          const { total } = await db.listDocuments(
-            DATABASE_ID,
-            COLLECTION.content_verifications,
-            [Query.equal("user_id", u.id), Query.limit(1)],
-          );
-          return { ...u, verified_count: Number(total ?? 0) };
+          const row = await db
+            .prepare(
+              "SELECT COUNT(*) AS n FROM content_verifications WHERE user_id = ?",
+            )
+            .bind(u.id)
+            .first<{ n: number }>();
+          return { ...u, verified_count: Number(row?.n ?? 0) };
         } catch {
           return { ...u, verified_count: 0 };
         }
       }),
     );
   } catch {
-    // collection may not exist yet
+    // table may not exist yet
   }
   const userName = user.name || user.username || "Scholar";
   const userInitials = userName.slice(0, 2).toUpperCase();
