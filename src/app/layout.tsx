@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { Plus_Jakarta_Sans, Noto_Sans_Bengali } from "next/font/google";
 import "./globals.css";
 import { getServerUser } from "@/lib/auth-cf";
+import { ADS_ENABLED } from "@/lib/site-flags";
 import DebugPanel from "@/components/DebugPanel";
 import { ToastProvider } from "@/components/ToastContext";
 import CourseSetupWrapper from "@/components/CourseSetupWrapper";
@@ -105,9 +106,14 @@ export const metadata: Metadata = {
     },
   },
   // Monetag site verification (fallback for the sw_0_g67j.js file method).
-  other: {
-    monetag: "ce6c769abfa1d682f3fde191dc4c2aa3",
-  },
+  // Only emitted while ADS_ENABLED — no ad output at all when ads are off.
+  ...(ADS_ENABLED
+    ? {
+        other: {
+          monetag: "ce6c769abfa1d682f3fde191dc4c2aa3",
+        },
+      }
+    : {}),
 };
 
 /** JSON-LD structured data (WebSite schema). */
@@ -169,18 +175,20 @@ export default async function RootLayout({
         <script>{THEME_INIT_SCRIPT}</script>
         <script>{SERVICE_WORKER_SCRIPT}</script>
         {/* AdSense site-connection script, exactly as Google gives it.
-            It is in the HTML head on every page so Google can detect it
-            without needing a cookie choice first. The script alone shows
-            no ads and creates no ad units: ads only appear after AdSense
-            approval, and personalised ads only after the visitor accepts
-            cookies. Google Analytics, by contrast, stays fully gated by
-            the cookie banner. */}
-        <script
-          async
-          fetchPriority="low"
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2814629639937169"
-          crossOrigin="anonymous"
-        />
+            Only emitted while ADS_ENABLED. It is in the HTML head on every
+            page so Google can detect it without needing a cookie choice
+            first. The script alone shows no ads and creates no ad units:
+            ads only appear after AdSense approval, and personalised ads
+            only after the visitor accepts cookies. Google Analytics, by
+            contrast, stays fully gated by the cookie banner. */}
+        {ADS_ENABLED && (
+          <script
+            async
+            fetchPriority="low"
+            src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2814629639937169"
+            crossOrigin="anonymous"
+          />
+        )}
         <script type="application/ld+json">
           {JSON.stringify(jsonLd).replace(/</g, "\\u003c")}
         </script>

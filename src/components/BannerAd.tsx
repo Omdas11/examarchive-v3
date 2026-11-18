@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { MONETAG_BANNER_ZONE_ID } from "@/lib/site-flags";
+import { ADS_ENABLED, MONETAG_BANNER_ZONE_ID } from "@/lib/site-flags";
 
 /**
  * Banner ad section. Renders nothing while no Monetag Banner zone is
@@ -33,7 +33,7 @@ export default function BannerAd({ format = "leaderboard" }: { format?: BannerAd
   const slotRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!MONETAG_BANNER_ZONE_ID || !slotRef.current) return;
+    if (!ADS_ENABLED || !MONETAG_BANNER_ZONE_ID || !slotRef.current) return;
     const slot = slotRef.current;
     // Monetag Banner tag. Same tag loader the site already uses for
     // Monetag (quge5.com/88/tag.min.js — the host from the removed
@@ -51,7 +51,7 @@ export default function BannerAd({ format = "leaderboard" }: { format?: BannerAd
     };
   }, []);
 
-  if (!MONETAG_BANNER_ZONE_ID) return null;
+  if (!ADS_ENABLED || !MONETAG_BANNER_ZONE_ID) return null;
 
   const { minHeight, maxWidth } = FORMAT_STYLE[format];
 

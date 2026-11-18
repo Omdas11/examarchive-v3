@@ -7,6 +7,12 @@
 // Temporary — set to false to re-enable the syllabus once all 517 papers are verified.
 export const SYLLABUS_DISABLED = true;
 
+// Ads master switch — set to false to hide all ads (Monetag banners,
+// Monetag verification meta, AdSense script) while keeping the code so
+// ads can be turned back on by flipping this one flag. Owner asked
+// 2026-11-18: ads are annoying for an early website.
+export const ADS_ENABLED = false;
+
 // Monetag Banner zone ID. "ExamArchive banner" (In-Page Push banner),
 // zone 12285430, created 2026-11-17. Leave empty to hide all banner
 // sections (BannerAd renders nothing while this is empty).
