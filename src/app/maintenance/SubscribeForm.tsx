@@ -71,10 +71,7 @@ export default function SubscribeForm() {
 
   return (
     <form onSubmit={onSubmit} className="mt-8" noValidate>
-      <div
-        className="flex flex-col gap-3 sm:flex-row"
-        style={{ maxWidth: 420, margin: "0 auto" }}
-      >
+      <div className="flex flex-col gap-3">
         <label htmlFor="maintenance-email" className="sr-only">
           Your email address
         </label>
@@ -86,7 +83,7 @@ export default function SubscribeForm() {
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           disabled={state === "saving"}
-          className="h-12 flex-1 rounded-xl border px-4 text-base outline-none"
+          className="h-12 w-full rounded-xl border px-4 text-base outline-none"
           style={{
             borderColor: "var(--color-border)",
             backgroundColor: "var(--color-surface)",
@@ -97,7 +94,7 @@ export default function SubscribeForm() {
         <button
           type="submit"
           disabled={state === "saving"}
-          className="h-12 shrink-0 rounded-xl px-6 text-base font-bold text-white transition-opacity disabled:opacity-60"
+          className="h-12 w-full rounded-xl px-6 text-base font-bold text-white transition-opacity disabled:opacity-60"
           style={{ backgroundColor: "#047857" }}
         >
           {state === "saving" ? "Saving…" : "Notify me"}
