@@ -34,6 +34,11 @@ export const APP_SIDEBAR_ITEMS: AppSidebarItem[] = [
     href: "/browse",
   },
   {
+    label: "Submit a Paper",
+    icon: "upload",
+    href: "/submit-paper",
+  },
+  {
     label: "Syllabus Library",
     icon: "menu_book",
     href: "/syllabus",
