@@ -149,6 +149,7 @@ interface GoogleUserinfoResponse {
   sub?: unknown;
   email?: unknown;
   verified_email?: unknown;
+  email_verified?: unknown;
   name?: unknown;
   picture?: unknown;
 }
@@ -184,7 +185,7 @@ export async function fetchGoogleUserinfo(
     email,
     name: typeof data.name === "string" ? data.name : "",
     picture: typeof data.picture === "string" ? data.picture : "",
-    verifiedEmail: data.verified_email === true,
+    verifiedEmail: data.verified_email === true || data.email_verified === true,
   };
 }
 
