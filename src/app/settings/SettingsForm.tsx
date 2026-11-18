@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { signOut } from "@/app/auth/actions";
 import type { UserProfile } from "@/types";
 import dynamic from "next/dynamic";
 import MfaSettingsSection from "@/components/MfaSettingsSection";
@@ -240,7 +239,7 @@ export default function SettingsForm({ user }: SettingsFormProps) {
           Manage your session and account.
         </p>
         <div className="mt-4 space-y-3">
-          <form action={signOut}>
+          <form action="/api/auth/signout" method="post">
             <button type="submit" className="btn text-sm px-5 py-2">
               Sign out
             </button>

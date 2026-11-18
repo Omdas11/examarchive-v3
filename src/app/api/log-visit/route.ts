@@ -1,11 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import {
-  adminDatabases,
-  DATABASE_ID,
-  COLLECTION,
-  ID,
-} from "@/lib/appwrite";
-import { getUser } from "@/lib/auth";
+import { getServerUser } from "@/lib/auth-cf";
+import { getD1 } from "@/lib/d1";
 
 /**
  * POST /api/log-visit — record one page view in the visit_logs collection.
@@ -157,44 +152,41 @@ export async function POST(request: NextRequest) {
     const userAgent = headers.get("user-agent") || "";
     const referrer = headers.get("referer") || "";
 
-    // Logged-in identity WITHOUT getServerUser's side effects (it updates
-    // streaks and evaluates promotions — wrong for a per-page-view log).
-    // getUser() only validates the session cookie; one extra profile read
-    // resolves the role for founder/moderator flagging.
+    // Logged-in identity: auth-cf's getServerUser only validates the
+    // session cookie and reads the user row (no streak/promotion side
+    // effects), so it is safe for a per-page-view log.
     let userId: string | null = null;
     let userRole: string | null = null;
     try {
-      const sessionUser = await getUser();
+      const sessionUser = await getServerUser();
       if (sessionUser) {
-        userId = sessionUser.$id;
-        try {
-          const db = adminDatabases();
-          const profile = await db.getDocument(
-            DATABASE_ID,
-            COLLECTION.users,
-            userId,
-          );
-          const rec = profile as unknown as Record<string, unknown>;
-          if (typeof rec.role === "string") userRole = rec.role;
-        } catch {
-          // Profile doc missing (legacy account): keep user_id, no role.
-        }
+        userId = sessionUser.id;
+        userRole = sessionUser.role ?? null;
       }
     } catch {
       // Session invalid: treat as anonymous.
     }
 
-    const db = adminDatabases();
-    await db.createDocument(DATABASE_ID, COLLECTION.visit_logs, ID.unique(), {
-      ip: truncate(ip, 64),
-      path: truncate(path, 500),
-      user_agent: truncate(userAgent, 500),
-      referrer: truncate(referrer, 500),
-      country: truncate(country, 8),
-      city: truncate(city, 100),
-      user_id: userId ?? "",
-      user_role: userRole ?? "",
-    });
+    const db = await getD1();
+    const now = Date.now();
+    await db
+      .prepare(
+        "INSERT INTO visit_logs (id, ip, path, user_agent, referrer, country, city, user_id, user_role, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      )
+      .bind(
+        crypto.randomUUID(),
+        truncate(ip, 64),
+        truncate(path, 500),
+        truncate(userAgent, 500),
+        truncate(referrer, 500),
+        truncate(country, 8),
+        truncate(city, 100),
+        userId ?? "",
+        userRole ?? "",
+        now,
+        now,
+      )
+      .run();
   } catch (err) {
     // Never break the page over analytics.
     console.error("[log-visit] failed:", err);

@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { getServerUser } from "@/lib/auth";
+import { getServerUser } from "@/lib/auth-cf";
 import { isValidSignedPdfDownloadToken } from "@/lib/pdf-download-link";
 import { verifyTurnstileDownloadToken } from "@/lib/turnstile";
 import { getPaperByFileId, getPapersBucket } from "@/lib/d1";

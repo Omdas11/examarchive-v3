@@ -1,21 +1,20 @@
 import { NextResponse } from "next/server";
-import {
-  adminDatabases,
-  DATABASE_ID,
-  COLLECTION,
-  Query,
-} from "@/lib/appwrite";
-import { getServerUser } from "@/lib/auth";
+import { getServerUser } from "@/lib/auth-cf";
+import { getD1 } from "@/lib/d1";
 
 /**
  * GET /api/dashboard/stats
- * Returns stats for the currently authenticated user sourced from AppWrite:
+ * Returns stats for the currently authenticated user, sourced from D1:
  * - upload_count  : from users.upload_count (backend-maintained counter)
- * - pending_count : live count of papers with approved=false
- * - xp            : from UserProfile (already fetched by getServerUser)
- * - streak_days   : from UserProfile
- * - tier          : from UserProfile
+ * - pending_count : live count of papers with approved=false uploaded by the user
+ * - xp            : from users.xp
+ * - streak_days   : from users.streak_days
+ * - tier          : from users.tier
  * - recent_papers : last 5 approved papers this user uploaded
+ *
+ * NOTE: papers.uploaded_by is empty on all 636 migrated rows, so the
+ * paper queries return 0/empty until new uploads record an uploader.
+ * upload_count from the users row is the source of truth.
  */
 export async function GET() {
   try {
@@ -24,50 +23,49 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const db = adminDatabases();
+    const db = await getD1();
 
-    // Fetch approved papers + pending count in parallel
-    const [approvedResult, pendingResult, userDoc] = await Promise.all([
-      db.listDocuments(DATABASE_ID, COLLECTION.papers, [
-        Query.equal("uploaded_by", user.id),
-        Query.equal("approved", true),
-        Query.orderDesc("$createdAt"),
-        Query.limit(5),
-      ]),
-      db.listDocuments(DATABASE_ID, COLLECTION.papers, [
-        Query.equal("uploaded_by", user.id),
-        Query.equal("approved", false),
-        Query.limit(1),
-      ]),
-      // Fetch upload_count from users collection (backend-maintained counter)
-      db.getDocument(DATABASE_ID, COLLECTION.users, user.id).catch(() => null),
+    const [approved, pending, userRow] = await Promise.all([
+      db
+        .prepare(
+          "SELECT id, paper_name, course_code, year, semester, department, created_at FROM papers WHERE uploaded_by = ? AND approved = 1 ORDER BY created_at DESC LIMIT 5",
+        )
+        .bind(user.id)
+        .all<{
+          id: string;
+          paper_name: string | null;
+          course_code: string | null;
+          year: number | null;
+          semester: string | null;
+          department: string | null;
+          created_at: string | null;
+        }>(),
+      db
+        .prepare("SELECT COUNT(*) AS n FROM papers WHERE uploaded_by = ? AND approved = 0")
+        .bind(user.id)
+        .first<{ n: number }>(),
+      db
+        .prepare("SELECT upload_count, xp, streak_days, tier FROM users WHERE id = ?")
+        .bind(user.id)
+        .first<{ upload_count: number; xp: number; streak_days: number; tier: string | null }>(),
     ]);
 
-    // Prefer the backend-maintained upload_count; fall back to live papers total
-    const uploadCount: number =
-      userDoc && typeof userDoc.upload_count === "number" && userDoc.upload_count >= 0
-        ? Number(userDoc.upload_count ?? 0)
-        : approvedResult.total;
-
-    const recentPapers = approvedResult.documents.map((doc) => ({
-      id: doc.$id,
-      title:
-        (doc.paper_name as string) ||
-        (doc.course_code as string) ||
-        "Untitled Paper",
-      course_code: (doc.course_code as string) || "",
-      year: Number(doc.year ?? 0) || 0,
-      semester: (doc.semester as string) || "",
-      department: (doc.department as string) || "",
-      created_at: doc.$createdAt,
+    const recentPapers = (approved.results ?? []).map((row) => ({
+      id: row.id,
+      title: row.paper_name || row.course_code || "Untitled Paper",
+      course_code: row.course_code || "",
+      year: Number(row.year ?? 0) || 0,
+      semester: row.semester || "",
+      department: row.department || "",
+      created_at: row.created_at,
     }));
 
     return NextResponse.json({
-      upload_count: uploadCount,
-      pending_count: pendingResult.total,
-      xp: user.xp,
-      streak_days: user.streak_days,
-      tier: user.tier ?? "bronze",
+      upload_count: userRow?.upload_count ?? 0,
+      pending_count: pending?.n ?? 0,
+      xp: userRow?.xp ?? 0,
+      streak_days: userRow?.streak_days ?? 0,
+      tier: userRow?.tier ?? "bronze",
       recent_papers: recentPapers,
     });
   } catch (err) {
