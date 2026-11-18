@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import MainLayout from "@/components/layout/MainLayout";
@@ -53,12 +54,14 @@ export default async function LoginPage({ searchParams }: Props) {
         <div className="card p-8">
           {/* Header */}
           <div className="mb-6 text-center">
-            <span
-              className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-base font-black text-white"
-              style={{ background: "var(--color-primary)" }}
-            >
-              EA
-            </span>
+            <Image
+              src="/branding/logo.png"
+              alt="ExamArchive logo"
+              width={64}
+              height={64}
+              className="mx-auto h-16 w-16 rounded-2xl shadow"
+              priority
+            />
             <h1 className="mt-3 text-xl font-bold">Welcome to ExamArchive</h1>
           </div>
 
