@@ -100,6 +100,11 @@ those 19, `papers.file_key` is set in D1 (verified: 19 set, 617 NULL).
 The other 617 papers keep `file_id` (legacy Appwrite reference) and
 `file_key = NULL` until the mapping is recovered.
 
+**UPDATE 2026-11-18 — mapping recovered, see
+`phase4-mapping.md`: 636/636 papers mapped, D1 `file_key` set for all 636,
+0 unmapped, 0 mismatches. Correction: the backup holds 40 fileId-suffixed
+files, not 5 (19 papers + 21 orphan notes files).**
+
 **What was ruled out before deciding this:**
 
 - Content matching: only 8 of a 40-file sample have an extractable text
