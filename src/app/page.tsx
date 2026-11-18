@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import type React from "react";
 import Link from "next/link";
-import { getServerUser } from "@/lib/auth";
+import { getServerUser } from "@/lib/auth-cf";
 import HomeSearch from "@/components/HomeSearch";
 import PaperCard from "@/components/PaperCard";
 import AnimatedCounter from "@/components/AnimatedCounter";

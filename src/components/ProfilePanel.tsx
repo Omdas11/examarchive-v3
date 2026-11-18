@@ -3,7 +3,6 @@
 import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { signOut } from "@/app/auth/actions";
 import type { UserProfile } from "@/types";
 import { XP_TIERS, tierLabel, xpTier } from "@/lib/roles";
 import AvatarRing from "./AvatarRing";
@@ -385,7 +384,7 @@ export default function ProfilePanel({ user, open, onClose }: ProfilePanelProps)
           className="px-5 py-4"
           style={{ borderTop: "1px solid var(--color-border)" }}
         >
-          <form action={signOut}>
+          <form action="/api/auth/signout" method="post">
             <button
               type="submit"
               className="w-full btn text-sm"

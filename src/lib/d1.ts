@@ -24,8 +24,9 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { unstable_cache } from "next/cache";
 import { toPaper, type Paper } from "@/types";
 
-/** The D1 database binding (wrangler.jsonc: `DB` -> examarchive-db). */
-async function getD1(): Promise<D1Database> {
+/** The D1 database binding (wrangler.jsonc: `DB` -> examarchive-db). Exported
+ * for the auth layer (src/lib/auth-cf.ts), which needs the same binding. */
+export async function getD1(): Promise<D1Database> {
   const { env } = await getCloudflareContext({ async: true });
   if (!env.DB) {
     throw new Error(

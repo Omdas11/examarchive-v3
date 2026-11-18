@@ -13,7 +13,6 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { signOut } from '@/app/auth/actions';
 
 interface SidebarItem {
   label: string;
@@ -194,7 +193,7 @@ export default function Sidebar({
       {/* Bottom Actions */}
       <div className="p-4 space-y-2.5 border-t border-outline-variant/10 bg-surface shrink-0">
         {isLoggedIn && (
-          <form action={signOut}>
+          <form action="/api/auth/signout" method="post">
             <button
               type="submit"
               className="w-full p-2.5 text-on-surface-variant hover:text-danger-red text-xs font-bold transition-colors flex items-center justify-center gap-2 rounded-full hover:bg-danger-red/5"

@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
+import { getServerUser } from "@/lib/auth-cf";
 import LoginForm from "./LoginForm";
 
 export const metadata: Metadata = {
@@ -10,38 +12,29 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-type Mode = "magic" | "signin" | "signup";
-
 interface Props {
   searchParams: Promise<{ error?: string; message?: string; mode?: string; ref?: string; redirect?: string }>;
 }
 
 const ERROR_MESSAGES: Record<string, string> = {
-  email_required: "Please enter your email address.",
-  fields_required: "Please enter your email and password.",
-  auth_callback_error: "The sign-in link has expired or is invalid. Please try again.",
-  auth_callback_expired: "Your sign-in link has expired. Please request a new one.",
-  rate_limit: "Too many attempts. Please wait before trying again.",
-  captcha_required: "Please complete the human check above and try again.",
-  invalid_credentials: "Invalid email or password. Please try again.",
   oauth_failed: "Google sign-in failed. Please try again.",
+  oauth_state: "The sign-in request expired. Please try again.",
+  oauth_config: "Google sign-in is not set up yet. Please try again later.",
+  oauth_unverified:
+    "Your Google email is not verified. Please verify it with Google and try again.",
+  rate_limit: "Too many attempts. Please wait before trying again.",
 };
 
-const VALID_MODES: Mode[] = ["magic", "signin", "signup"];
-
-function resolveInitialMode(mode: string | undefined): Mode {
-  if (VALID_MODES.includes(mode as Mode)) return mode as Mode;
-  return "magic";
-}
-
 export default async function LoginPage({ searchParams }: Props) {
-  const { error, message, mode, redirect: redirectParam } = await searchParams;
+  // Already signed in? Go home — there is nothing to do here.
+  const user = await getServerUser();
+  if (user) redirect("/");
+
+  const { error, redirect: redirectParam } = await searchParams;
 
   const errorText = error
     ? (ERROR_MESSAGES[error] ?? decodeURIComponent(error))
     : null;
-  const isRateLimit = error === "rate_limit";
-  const initialMode = resolveInitialMode(mode);
 
   return (
     <MainLayout
@@ -71,9 +64,6 @@ export default async function LoginPage({ searchParams }: Props) {
 
           <LoginForm
             errorText={errorText}
-            isRateLimit={isRateLimit}
-            message={message ?? null}
-            initialMode={initialMode}
             redirectUrl={redirectParam ?? null}
           />
         </div>

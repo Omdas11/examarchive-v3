@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getServerUser } from "@/lib/auth";
 import { adminDatabases, DATABASE_ID, COLLECTION, Query } from "@/lib/appwrite";
-import { signOut } from "@/app/auth/actions";
 import ProfileEditor from "./ProfileEditor";
 import { TierBadge } from "@/components/RoleBadge";
 import { Icon, type IconName } from "@/components/Icons";
@@ -521,7 +520,7 @@ export default async function ProfilePage({
       <ProfileCoursePrefs />
 
       {/* Sign out */}
-      <form action={signOut}>
+      <form action="/api/auth/signout" method="post">
         <button type="submit" className="btn text-sm px-4 py-2">Sign out</button>
       </form>
     </section>
