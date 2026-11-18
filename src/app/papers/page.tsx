@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default async function PapersPage() {
   const user = await getServerUser();
   if (!user) {
-    redirect("/login?next=/browse");
+    redirect("/login?redirect=/browse");
   }
   redirect("/browse");
 }

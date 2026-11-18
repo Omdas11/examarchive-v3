@@ -16,7 +16,7 @@ export default async function SettingsPage() {
   const userName = user?.name || "User";
 
   if (!user) {
-    redirect("/login?next=/settings");
+    redirect("/login?redirect=/settings");
   }
 
   return (

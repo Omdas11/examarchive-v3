@@ -29,7 +29,7 @@ export const metadata: Metadata = {
 export default async function AIContentPage() {
   const user = await getServerUser();
   if (!user) {
-    redirect("/login?next=/ai-content");
+    redirect("/login?redirect=/ai-content");
   }
 
   const userName = user.name || user.username || "Scholar";

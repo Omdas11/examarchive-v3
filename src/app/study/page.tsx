@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 export default async function StudyPage() {
   const user = await getServerUser();
   if (!user) {
-    redirect("/login?next=/ai-content");
+    redirect("/login?redirect=/ai-content");
   }
   redirect("/ai-content");
 }

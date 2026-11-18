@@ -64,7 +64,7 @@ export default async function StorePage() {
     );
   }
 
-  if (!user) redirect("/login?next=/store");
+  if (!user) redirect("/login?redirect=/store");
   const userName = user.name || user.username || "User";
 
   // ── Determine first-time buyer status ───────────────────────────────────

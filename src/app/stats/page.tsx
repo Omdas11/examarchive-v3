@@ -112,7 +112,7 @@ async function fetchPlatformStats() {
 export default async function StatsPage() {
   const user = await getServerUser();
   if (!user) {
-    redirect("/login?next=/stats");
+    redirect("/login?redirect=/stats");
   }
   const userName = user.name || user.username || "Scholar";
   const userInitials = userName.slice(0, 2).toUpperCase();

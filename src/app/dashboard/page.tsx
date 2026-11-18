@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 
 export default async function DashboardPage() {
   const user = await getServerUser();
-  if (!user) redirect("/login?next=/dashboard");
+  if (!user) redirect("/login?redirect=/dashboard");
 
   const userName = user.name || user.username || "Scholar";
   const userInitials = userName.slice(0, 2).toUpperCase();

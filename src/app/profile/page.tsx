@@ -95,7 +95,7 @@ export default async function ProfilePage({
   searchParams?: Promise<{ discord?: string }>;
 }) {
   const user = await getServerUser();
-  if (!user) redirect("/login?next=/profile");
+  if (!user) redirect("/login?redirect=/profile");
   const userName = user.name || "User";
   const discordStatus = (await searchParams)?.discord ?? null;
 
