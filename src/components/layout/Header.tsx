@@ -34,8 +34,8 @@ export interface HeaderProps {
 export default function Header({
   title,
   showSearch = true,
-  userInitials = 'JD',
-  userName = 'John Doe',
+  userInitials = '',
+  userName = '',
   avatarUrl,
   userTier,
   userRoleLabel,

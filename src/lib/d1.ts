@@ -280,6 +280,64 @@ export async function getPaperCountsD1(
   }
 }
 
+// ── Per-user activity (profile: Recently viewed / Downloads) ─────────────
+
+export interface UserActivityEntry {
+  action: "view" | "download";
+  scope: "paper" | "syllabus";
+  title: string;
+  href: string;
+  paper_ref: string;
+  createdAt: string;
+}
+
+/**
+ * The user's recent views/downloads from user_activity, newest first,
+ * deduped by scope+paper_ref. D1 port of getRecentUserActivity (counts.ts,
+ * Appwrite) — the profile page's history sections.
+ */
+export async function getRecentUserActivityD1(
+  userId: string,
+  action: "view" | "download",
+  limit = 10,
+): Promise<UserActivityEntry[]> {
+  try {
+    const db = await getD1();
+    const { results } = await db
+      .prepare(
+        "SELECT action, scope, title, href, paper_ref, created_at FROM user_activity WHERE user_id = ? AND action = ? ORDER BY created_at DESC LIMIT ?",
+      )
+      .bind(userId, action, limit * 2)
+      .all<{
+        action: string;
+        scope: string;
+        title: string;
+        href: string;
+        paper_ref: string;
+        created_at: number;
+      }>();
+    const seen = new Set<string>();
+    const out: UserActivityEntry[] = [];
+    for (const row of results ?? []) {
+      const key = `${row.scope}:${row.paper_ref}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({
+        action: row.action as "view" | "download",
+        scope: row.scope as "paper" | "syllabus",
+        title: row.title ?? "",
+        href: row.href ?? "",
+        paper_ref: row.paper_ref ?? "",
+        createdAt: new Date(row.created_at).toISOString(),
+      });
+      if (out.length >= limit) break;
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
 // ── File serving (R2) ────────────────────────────────────────────────────
 
 /** The R2 bucket binding (wrangler.jsonc: `PAPERS` -> examarchive-papers). */

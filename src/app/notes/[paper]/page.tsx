@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import Link from "next/link";
+import { getServerUser } from "@/lib/auth-cf";
 import {
   AU_GAP_TEXT,
   notesPaperBySlug,
@@ -40,6 +41,10 @@ export default async function NotesPaperPage({
   const paper = notesPaperBySlug(slug);
   if (!paper) notFound();
 
+  const user = await getServerUser();
+  const userName = user ? (user.name || user.username || "Scholar") : "";
+  const userInitials = userName ? userName.slice(0, 2).toUpperCase() : "";
+
   return (
     <MainLayout
       title={`${paper.code} Notes`}
@@ -50,8 +55,10 @@ export default async function NotesPaperPage({
       ]}
       showSearch={false}
       sidebarItems={APP_SIDEBAR_ITEMS}
-      userRole="student"
-      isLoggedIn={false}
+      userRole={user?.role ?? "student"}
+      isLoggedIn={!!user}
+      userName={userName}
+      userInitials={userInitials}
     >
       <section className="mx-auto px-4 py-10" style={{ maxWidth: "var(--max-w)" }}>
         <p

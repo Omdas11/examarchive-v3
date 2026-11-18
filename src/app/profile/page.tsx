@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { getServerUser } from "@/lib/auth";
-import { adminDatabases, DATABASE_ID, COLLECTION, Query } from "@/lib/appwrite";
+import { getServerUser } from "@/lib/auth-cf";
+import { getD1, getRecentUserActivityD1, type UserActivityEntry } from "@/lib/d1";
 import ProfileEditor from "./ProfileEditor";
 import { TierBadge } from "@/components/RoleBadge";
 import { Icon, type IconName } from "@/components/Icons";
@@ -13,7 +13,6 @@ import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import ProfileRightSidebar from "./ProfileRightSidebar";
 import { normalizeRole, roleLabel, tierLabel, xpTier, XP_TIERS } from "@/lib/roles";
-import { getRecentUserActivity, type ActivityEntry } from "@/lib/counts";
 import Link from "next/link";
 
 export const metadata: Metadata = {
@@ -100,11 +99,11 @@ export default async function ProfilePage({
   const userName = user.name || "User";
   const discordStatus = (await searchParams)?.discord ?? null;
 
-  const db = adminDatabases();
+  const db = await getD1();
 
-  // `upload_count` in the users collection tracks approved uploads (incremented on
+  // `upload_count` in the users table tracks approved uploads (incremented on
   // approval in moderation/gamification logic). Total submissions (all statuses)
-  // are queried from the uploads collection.
+  // are queried from the uploads table.
   let usernameLastChanged: string | null = null;
   let approvedCount = 0;
   let discordId: string | null = null;
@@ -112,13 +111,27 @@ export default async function ProfilePage({
   let discordAvatar: string | null = null;
   let discordInServer = false;
   try {
-    const profileDoc = await db.getDocument(DATABASE_ID, COLLECTION.users, user.id);
-    usernameLastChanged = (profileDoc.username_last_changed as string) ?? null;
-    approvedCount = (profileDoc.upload_count as number) ?? 0;
-    discordId = (profileDoc.discord_id as string) ?? null;
-    discordUsername = (profileDoc.discord_username as string) ?? null;
-    discordAvatar = (profileDoc.discord_avatar as string) ?? null;
-    discordInServer = (profileDoc.discord_in_server as boolean) ?? false;
+    const profileRow = await db
+      .prepare(
+        "SELECT username_last_changed, upload_count, discord_id, discord_username, discord_avatar, discord_in_server FROM users WHERE id = ? LIMIT 1",
+      )
+      .bind(user.id)
+      .first<{
+        username_last_changed: string | null;
+        upload_count: number;
+        discord_id: string | null;
+        discord_username: string | null;
+        discord_avatar: string | null;
+        discord_in_server: number;
+      }>();
+    if (profileRow) {
+      usernameLastChanged = profileRow.username_last_changed ?? null;
+      approvedCount = profileRow.upload_count ?? 0;
+      discordId = profileRow.discord_id ?? null;
+      discordUsername = profileRow.discord_username ?? null;
+      discordAvatar = profileRow.discord_avatar ?? null;
+      discordInServer = (profileRow.discord_in_server ?? 0) === 1;
+    }
   } catch {
     // ignore – not found or env missing
   }
@@ -126,11 +139,11 @@ export default async function ProfilePage({
   // Total uploads submitted by this user (all statuses across upload types)
   let totalUploads = 0;
   try {
-    const { total } = await db.listDocuments(DATABASE_ID, COLLECTION.uploads, [
-      Query.equal("user_id", user.id),
-      Query.limit(1),
-    ]);
-    totalUploads = total;
+    const row = await db
+      .prepare("SELECT COUNT(*) AS n FROM uploads WHERE user_id = ?")
+      .bind(user.id)
+      .first<{ n: number }>();
+    totalUploads = Number(row?.n ?? 0);
   } catch {
     // ignore
   }
@@ -140,19 +153,19 @@ export default async function ProfilePage({
   // Verifications submitted (verify-to-earn ledger).
   let verifiedCount = 0;
   try {
-    const { total } = await db.listDocuments(DATABASE_ID, COLLECTION.content_verifications, [
-      Query.equal("user_id", user.id),
-      Query.limit(1),
-    ]);
-    verifiedCount = Number(total ?? 0);
+    const row = await db
+      .prepare("SELECT COUNT(*) AS n FROM content_verifications WHERE user_id = ?")
+      .bind(user.id)
+      .first<{ n: number }>();
+    verifiedCount = Number(row?.n ?? 0);
   } catch {
     // ignore
   }
 
   // Recently viewed papers/syllabi + downloads (own history only).
   const [recentlyViewed, recentDownloads] = await Promise.all([
-    getRecentUserActivity(user.id, "view", 10),
-    getRecentUserActivity(user.id, "download", 10),
+    getRecentUserActivityD1(user.id, "view", 10),
+    getRecentUserActivityD1(user.id, "download", 10),
   ]);
 
   // Date format: "Jan 2026" matches v2 screenshot "Member since Feb 2026".
@@ -479,7 +492,7 @@ export default async function ProfilePage({
           </p>
         ) : (
           <ul className="space-y-2">
-            {recentlyViewed.map((entry: ActivityEntry) => (
+            {recentlyViewed.map((entry: UserActivityEntry) => (
               <li key={`${entry.scope}:${entry.paper_ref}`}>
                 <Link href={entry.href} className="flex items-center justify-between gap-3 text-sm hover:underline">
                   <span className="min-w-0 truncate font-medium">{entry.title}</span>
@@ -502,7 +515,7 @@ export default async function ProfilePage({
           </p>
         ) : (
           <ul className="space-y-2">
-            {recentDownloads.map((entry: ActivityEntry) => (
+            {recentDownloads.map((entry: UserActivityEntry) => (
               <li key={`${entry.scope}:${entry.paper_ref}`}>
                 <Link href={entry.href} className="flex items-center justify-between gap-3 text-sm hover:underline">
                   <span className="min-w-0 truncate font-medium">{entry.title}</span>

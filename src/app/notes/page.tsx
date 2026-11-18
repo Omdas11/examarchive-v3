@@ -3,6 +3,7 @@ import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import Link from "next/link";
 import { NOTES_PAPERS, totalPages, totalNotesPages } from "@/lib/notes";
+import { getServerUser } from "@/lib/auth-cf";
 
 export const metadata: Metadata = {
   title: "7th Semester Notes",
@@ -13,16 +14,21 @@ export const metadata: Metadata = {
 const DISCLAIMER =
   "These are student study notes written for the 7th semester (FYUGP, Assam University, Haflong Government College). They are not official university material. Use them with your syllabus and textbooks, and check the Assam University questions listed on each paper page against the original papers.";
 
-export default function NotesPage() {
+export default async function NotesPage() {
   const total = totalNotesPages();
+  const user = await getServerUser();
+  const userName = user ? (user.name || user.username || "Scholar") : "";
+  const userInitials = userName ? userName.slice(0, 2).toUpperCase() : "";
   return (
     <MainLayout
       title="7th Semester Notes"
       breadcrumbs={[{ label: "Home", href: "/" }, { label: "7th Semester Notes" }]}
       showSearch={false}
       sidebarItems={APP_SIDEBAR_ITEMS}
-      userRole="student"
-      isLoggedIn={false}
+      userRole={user?.role ?? "student"}
+      isLoggedIn={!!user}
+      userName={userName}
+      userInitials={userInitials}
     >
       <section className="mx-auto px-4 py-10" style={{ maxWidth: "var(--max-w)" }}>
         <h1 className="text-2xl font-bold">7th Semester Notes</h1>

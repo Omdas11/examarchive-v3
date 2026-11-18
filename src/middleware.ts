@@ -3,8 +3,8 @@ import { syllabusDeptSlugForPaperCode } from "@/lib/syllabus-departments";
 import { SYLLABUS_DISABLED } from "@/lib/site-flags";
 import paperIdRedirects from "@/data/paper-id-redirects.json";
 
-/** Name of the cookie that stores the Appwrite session secret. */
-const SESSION_COOKIE = "ea_session";
+/** Name of the cookie that stores the Cloudflare session token (auth-cf). */
+const SESSION_COOKIE = "ea_cf_session";
 
 /** Routes that require an authenticated session. */
 const PROTECTED_PATHS = [
@@ -135,7 +135,7 @@ export async function middleware(request: NextRequest) {
 
     const url = request.nextUrl.clone();
     url.pathname = "/login";
-    url.searchParams.set("next", pathname);
+    url.searchParams.set("redirect", pathname);
     return NextResponse.redirect(url);
   }
 

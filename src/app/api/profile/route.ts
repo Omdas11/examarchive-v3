@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getServerUser } from "@/lib/auth";
-import { adminDatabases, DATABASE_ID, COLLECTION, Query } from "@/lib/appwrite";
+import { getServerUser } from "@/lib/auth-cf";
+import { getD1 } from "@/lib/d1";
 
 const USERNAME_COOLDOWN_DAYS = 7;
 
@@ -47,6 +47,8 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
+  const db = await getD1();
+
   // Validate username
   if (update.username !== undefined && update.username !== "") {
     if (!/^[a-zA-Z0-9_]{1,30}$/.test(update.username)) {
@@ -58,12 +60,16 @@ export async function PATCH(request: NextRequest) {
 
     // Enforce 7-day cooldown on username changes
     try {
-      const db = adminDatabases();
-      const profile = await db.getDocument(DATABASE_ID, COLLECTION.users, user.id);
-      const lastChanged = profile.username_last_changed as string | null;
+      const profile = await db
+        .prepare(
+          "SELECT username, username_last_changed FROM users WHERE id = ? LIMIT 1",
+        )
+        .bind(user.id)
+        .first<{ username: string | null; username_last_changed: string | null }>();
+      const lastChanged = profile?.username_last_changed ?? null;
       if (lastChanged) {
         const daysSince = (Date.now() - new Date(lastChanged).getTime()) / (1000 * 60 * 60 * 24);
-        const currentUsername = (profile.username as string | null | undefined) ?? "";
+        const currentUsername = profile?.username ?? "";
         if (daysSince < USERNAME_COOLDOWN_DAYS && currentUsername !== update.username) {
           const daysLeft = Math.max(1, Math.ceil(USERNAME_COOLDOWN_DAYS - daysSince));
           return NextResponse.json(
@@ -73,18 +79,16 @@ export async function PATCH(request: NextRequest) {
         }
       }
     } catch {
-      // If document lookup fails, allow the change (graceful degradation)
+      // If lookup fails, allow the change (graceful degradation)
     }
 
     // Validate username uniqueness
     try {
-      const db = adminDatabases();
-      const { documents } = await db.listDocuments(
-        DATABASE_ID,
-        COLLECTION.users,
-        [Query.equal("username", update.username), Query.limit(2)],
-      );
-      const takenByOther = documents.some((doc) => doc.$id !== user.id);
+      const row = await db
+        .prepare("SELECT id FROM users WHERE username = ? LIMIT 2")
+        .bind(update.username)
+        .all<{ id: string }>();
+      const takenByOther = (row.results ?? []).some((r) => r.id !== user.id);
       if (takenByOther) {
         return NextResponse.json(
           { error: "Username is already taken" },
@@ -105,27 +109,40 @@ export async function PATCH(request: NextRequest) {
   }
 
   try {
-    const db = adminDatabases();
-
-    const dbUpdate: Record<string, string> = {};
-    if (update.name !== undefined) dbUpdate.display_name = update.name;
-    if (update.username !== undefined) {
-      dbUpdate.username = update.username;
-      dbUpdate.username_last_changed = new Date().toISOString();
+    const sets: string[] = [];
+    const params: unknown[] = [];
+    if (update.name !== undefined) {
+      sets.push("display_name = ?");
+      params.push(update.name);
     }
+    if (update.username !== undefined) {
+      sets.push("username = ?");
+      params.push(update.username);
+      sets.push("username_last_changed = ?");
+      params.push(new Date().toISOString());
+    }
+    await db
+      .prepare(`UPDATE users SET ${sets.join(", ")} WHERE id = ?`)
+      .bind(...params, user.id)
+      .run();
 
-    const updated = await db.updateDocument(
-      DATABASE_ID,
-      COLLECTION.users,
-      user.id,
-      dbUpdate,
-    );
+    const updated = await db
+      .prepare(
+        "SELECT id, display_name, username, username_last_changed FROM users WHERE id = ? LIMIT 1",
+      )
+      .bind(user.id)
+      .first<{
+        id: string;
+        display_name: string | null;
+        username: string | null;
+        username_last_changed: string | null;
+      }>();
 
     return NextResponse.json({
-      id: updated.$id,
-      name: (updated.display_name as string) ?? "",
-      username: (updated.username as string) ?? "",
-      username_last_changed: (updated.username_last_changed as string) ?? null,
+      id: updated?.id ?? user.id,
+      name: updated?.display_name ?? "",
+      username: updated?.username ?? "",
+      username_last_changed: updated?.username_last_changed ?? null,
     });
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : String(err);
@@ -153,34 +170,35 @@ export async function GET() {
   let total_uploads = 0;
   let dbXp = user.xp;
   try {
-    const db = adminDatabases();
-    const profile = await db.getDocument(DATABASE_ID, COLLECTION.users, user.id);
-    username_last_changed = (profile.username_last_changed as string) ?? null;
-    approved_upload_count = (profile.upload_count as number) ?? 0;
-    dbXp = (profile.xp as number) ?? user.xp;
-    
+    const db = await getD1();
+    const profile = await db
+      .prepare(
+        "SELECT username_last_changed, upload_count, xp FROM users WHERE id = ? LIMIT 1",
+      )
+      .bind(user.id)
+      .first<{
+        username_last_changed: string | null;
+        upload_count: number;
+        xp: number;
+      }>();
+    username_last_changed = profile?.username_last_changed ?? null;
+    approved_upload_count = profile?.upload_count ?? 0;
+    dbXp = profile?.xp ?? user.xp;
+
     // Count only moderated uploads (papers + syllabus) to match upload_count logic.
-    // Notes are tracked in uploads but don't increment upload_count, so we count
-    // only approved papers and approved syllabus to get the true moderated upload count.
-    const papersResult = await db.listDocuments(
-      DATABASE_ID,
-      COLLECTION.papers,
-      [
-        Query.equal("uploaded_by", user.id),
-        Query.equal("approved", true),
-        Query.limit(1),
-      ],
-    );
-    const syllabusResult = await db.listDocuments(
-      DATABASE_ID,
-      COLLECTION.syllabus,
-      [
-        Query.equal("uploaded_by", user.id),
-        Query.equal("approved", true),
-        Query.limit(1),
-      ],
-    );
-    total_uploads = (papersResult.total ?? 0) + (syllabusResult.total ?? 0);
+    const papersRow = await db
+      .prepare(
+        "SELECT COUNT(*) AS n FROM papers WHERE uploaded_by = ? AND approved = 1",
+      )
+      .bind(user.id)
+      .first<{ n: number }>();
+    const syllabusRow = await db
+      .prepare(
+        "SELECT COUNT(*) AS n FROM syllabus WHERE uploader_id = ? AND approval_status = 'approved'",
+      )
+      .bind(user.id)
+      .first<{ n: number }>();
+    total_uploads = Number(papersRow?.n ?? 0) + Number(syllabusRow?.n ?? 0);
   } catch {
     // ignore
   }
@@ -189,13 +207,12 @@ export async function GET() {
   // Verifications submitted (verify-to-earn ledger).
   let verified_count = 0;
   try {
-    const db = adminDatabases();
-    const verifiedRes = await db.listDocuments(
-      DATABASE_ID,
-      COLLECTION.content_verifications,
-      [Query.equal("user_id", user.id), Query.limit(1)],
-    );
-    verified_count = Number(verifiedRes.total ?? 0);
+    const db = await getD1();
+    const verifiedRow = await db
+      .prepare("SELECT COUNT(*) AS n FROM content_verifications WHERE user_id = ?")
+      .bind(user.id)
+      .first<{ n: number }>();
+    verified_count = Number(verifiedRow?.n ?? 0);
   } catch {
     // ignore
   }
