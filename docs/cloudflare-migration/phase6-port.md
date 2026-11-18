@@ -42,11 +42,12 @@ generation via wrangler's platform proxy).
 
 ## NOT ported (and why)
 
-- **Homepage (`src/app/page.tsx`)** — left untouched on purpose: the file
-  has uncommitted changes that are not part of this phase (a "Submit a
-  paper" link). The D1 function it needs already exists
-  (`getHomepageStatsD1()`); swapping `getHomepageData` for it is a
-  small follow-up once those changes are committed.
+**Homepage (`src/app/page.tsx`)** — PORTED 2026-11-18 (today, cutover push):
+  `getHomepageData` (Appwrite) replaced with `getHomepageStatsD1()` from
+  `src/lib/d1.ts`; Appwrite imports removed. The other agent's uncommitted
+  "Submit a paper" link was preserved. `getServerUser()` still called —
+  returns null for guests (auth deferred, Phase 5), so the page renders
+  logged-out. Tests rewritten to mock `@/lib/d1` (3/3 pass).
 - **Auth / login** — Phase 5 (needs the owner's Google Cloud Console
   steps). `getServerUser()` still reads Appwrite; pages render logged-out
   on this branch until Phase 5 lands.
@@ -83,8 +84,7 @@ generation via wrangler's platform proxy).
 
 ## Follow-ups
 
-1. Swap the homepage's `getHomepageData` for `getHomepageStatsD1()`
-   once the uncommitted `page.tsx` changes land.
+1. ~~Swap the homepage's `getHomepageData` for `getHomepageStatsD1()`~~ — DONE 2026-11-18.
 2. Decide + implement R2 file serving for `/api/files/papers/[fileId]`
    (public R2 custom domain vs signed URLs).
 3. Design the batched view/download counter (no per-view D1 writes).

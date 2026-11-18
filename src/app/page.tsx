@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import type React from "react";
 import Link from "next/link";
-import { unstable_cache } from "next/cache";
 import { getServerUser } from "@/lib/auth";
 import HomeSearch from "@/components/HomeSearch";
 import PaperCard from "@/components/PaperCard";
@@ -10,15 +9,7 @@ import BannerAd from "@/components/BannerAd";
 import RotatingExamWord from "@/components/RotatingExamWord";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
-import {
-  adminDatabases,
-  DATABASE_ID,
-  COLLECTION,
-  Query,
-} from "@/lib/appwrite";
-import { toPaper } from "@/types";
-import type { Paper } from "@/types";
-import { getAllSyllabusRows } from "@/lib/syllabus-cache";
+import { getHomepageStatsD1 } from "@/lib/d1";
 
 export const metadata: Metadata = {
   title: "ExamArchive – Free Question Papers & Syllabus for Haflong Government College",
@@ -52,14 +43,6 @@ export const metadata: Metadata = {
   },
 };
 
-/** Shape of a single user-submitted feedback entry from the `feedback` collection. */
-interface FeedbackEntry {
-  id: string;
-  name: string;
-  university: string;
-  text: string;
-}
-
 /** Returns `count unit` with a simple plural suffix (papers/syllabi/students). */
 function pluralCount(count: number, singular: string, plural: string): string {
   return `${count > 0 ? count.toLocaleString() : "0"} ${count === 1 ? singular : plural}`;
@@ -86,100 +69,15 @@ const HOW_IT_WORKS = [
   },
 ];
 
-/** Cached homepage data — revalidates every hour to avoid hitting Appwrite on every request.
- * Cache key is v5: v1 was poisoned with 0s on 2026-11-13 when the site was
- * repointed to the new Appwrite project while the API key was still the old
- * one, so every query failed and the 0s were cached for an hour. v2 counted
- * syllabi from the legacy `syllabus` collection (empty in the new project,
- * so it read 0); v3 counts distinct syllabus papers from Syllabus_Table.
- * v4 was poisoned again on 2026-11-17: a transient Appwrite failure during
- * a revalidation zeroed the syllabi count and the 0 was cached for an hour,
- * so the homepage showed "0 syllabi" live while /syllabus showed 517.
- * v5 forces a fresh recompute; the count below is now also resilient to a
- * transient failure (see the retry + keep-partial logic). */
-const getHomepageData = unstable_cache(
-  async () => {
-    let papersTotal = 0;
-    let syllabusTotal = 0;
-    let usersTotal = 0;
-    let recentPapers: Paper[] = [];
-    let feedbackEntries: FeedbackEntry[] = [];
-
-    try {
-      const db = adminDatabases();
-      // Counts come from limit(1) queries: `total` is metadata, so each
-      // costs 1 read. The 8 newest papers come from a single limit(8)
-      // query — the old code fetched all 615 papers and sorted them in
-      // memory (620 reads per refresh) just to show 8 cards.
-      const [papersRes, usersRes, recentRes] = await Promise.all([
-        db.listDocuments(DATABASE_ID, COLLECTION.papers, [
-          Query.equal("approved", true),
-          Query.limit(1),
-        ]),
-        db.listDocuments(DATABASE_ID, COLLECTION.users, [Query.limit(1)]),
-        db.listDocuments(DATABASE_ID, COLLECTION.papers, [
-          Query.equal("approved", true),
-          Query.orderDesc("$createdAt"),
-          Query.limit(8),
-        ]),
-      ]);
-
-      papersTotal = Number(papersRes.total);
-      usersTotal = Number(usersRes.total);
-      recentPapers = recentRes.documents.map(toPaper);
-    } catch {
-      // collections may not exist yet in dev
-    }
-
-    // Syllabi count: distinct paper codes in Syllabus_Table (one row per
-    // unit). Reuse the shared 7-day cached syllabus rows instead of
-    // paginating the whole table here — the old loop read all ~2,789 rows
-    // (~2,789 Appwrite reads) on every homepage-stats refresh, which burned
-    // the monthly read budget (125K+ reads in a few hours on 2026-11-17).
-    // getAllSyllabusRows() costs zero fresh reads when its cache is warm.
-    // The legacy `syllabus` collection is for user-uploaded syllabi and is
-    // empty in the new project, so it is not counted.
-    try {
-      const rows = await getAllSyllabusRows();
-      const codes = new Set<string>();
-      for (const row of rows) {
-        const code = (row.paper_code ?? "").trim();
-        if (code) codes.add(code);
-      }
-      syllabusTotal = codes.size;
-    } catch {
-      // A transient failure leaves syllabusTotal at 0; the previously
-      // cached homepage data is kept by unstable_cache instead.
-    }
-
-    // Fetch approved feedback entries (max 3 for homepage)
-    try {
-      const db = adminDatabases();
-      const feedbackRes = await db.listDocuments(DATABASE_ID, COLLECTION.feedback, [
-        Query.equal("approved", true),
-        Query.limit(3),
-      ]);
-      feedbackEntries = feedbackRes.documents.map((doc) => ({
-        id: doc.$id as string,
-        name: (doc.name as string) ?? "Anonymous",
-        university: (doc.university as string) ?? "",
-        text: (doc.text as string) ?? "",
-      }));
-    } catch {
-      // feedback collection may not exist yet
-    }
-
-    return {
-      papersTotal,
-      syllabusTotal,
-      usersTotal,
-      recentPapers,
-      feedbackEntries,
-    };
-  },
-  ["homepage-data-v5"],
-  { revalidate: 3600 },
-);
+/**
+ * Homepage numbers come from D1 via getHomepageStatsD1() (src/lib/d1.ts):
+ * approved paper count, distinct syllabus paper count, user count, 8
+ * newest papers, 3 approved feedback entries — cached 1h. The old
+ * Appwrite getHomepageData was removed on the migrate/cloudflare branch
+ * (Appwrite reads are exhausted; the live site is down). Auth is deferred
+ * (Phase 5) — getServerUser() below returns null for guests, so the page
+ * renders logged-out until login lands.
+ */
 
 export default async function HomePage() {
   const user = await getServerUser();
@@ -190,7 +88,7 @@ export default async function HomePage() {
     usersTotal,
     recentPapers,
     feedbackEntries,
-  } = await getHomepageData();
+  } = await getHomepageStatsD1();
 
   const stats: { label: string; value: number; icon: React.ReactNode }[] = [
     {
@@ -325,6 +223,9 @@ export default async function HomePage() {
             <div className="mt-12 flex flex-wrap justify-center gap-4">
               <Link href="/browse" className="btn-primary text-base px-10 py-4 rounded-full shadow-lg hover:shadow-floating transition-all active:scale-95">
                 Search papers
+              </Link>
+              <Link href="/submit-paper" className="text-base px-10 py-4 rounded-full border border-outline-variant/20 bg-surface font-semibold shadow-lift hover:shadow-floating transition-all active:scale-95">
+                Submit a paper
               </Link>
             </div>
           </div>
