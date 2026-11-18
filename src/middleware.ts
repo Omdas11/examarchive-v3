@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { syllabusDeptSlugForPaperCode } from "@/lib/syllabus-departments";
-import { SYLLABUS_DISABLED } from "@/lib/site-flags";
+import { SYLLABUS_DISABLED, MAINTENANCE_MODE } from "@/lib/site-flags";
 import paperIdRedirects from "@/data/paper-id-redirects.json";
 
 /** Name of the cookie that stores the Appwrite session secret. */
@@ -31,6 +31,23 @@ const PROTECTED_PATHS = [
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // Maintenance mode (MAINTENANCE_MODE in src/lib/site-flags.ts): the site
+  // is down while we move to Cloudflare (Appwrite reads exhausted
+  // 2026-11-18). Rewrite every page to /maintenance so visitors see the
+  // notice and the email signup instead of errors. HTTP 503 + Retry-After
+  // so search engines retry later instead of deindexing. /maintenance
+  // itself is excluded (it must render), and static assets are already
+  // excluded by the matcher. TEMPORARY: set the flag to false to bring
+  // the site back.
+  if (MAINTENANCE_MODE && pathname !== "/maintenance") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/maintenance";
+    return NextResponse.rewrite(url, {
+      status: 503,
+      headers: { "Retry-After": "86400" },
+    });
+  }
 
   // Syllabus temporarily disabled (SYLLABUS_DISABLED in
   // src/lib/site-flags.ts): not all 517 syllabus papers are verified
