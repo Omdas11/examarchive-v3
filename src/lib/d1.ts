@@ -176,11 +176,38 @@ export async function getPapers(
 /**
  * All approved papers, newest first — the shared list behind /browse,
  * /papers/[dept], /fyug-question-papers, /assam-university-question-papers
- * and /cbcs-question-papers. Cached 24h (same staleness trade-off as the
- * old Appwrite cache: new papers appear in the lists within a day).
+ * and /cbcs-question-papers.
+ *
+ * Cached in KV (shared across Worker isolates) for 24h. The old
+ * unstable_cache was per-isolate, so every new isolate re-read all 636
+ * papers — same D1 read burn as the homepage stats. New papers appear in
+ * the lists within a day.
  */
-export const getAllApprovedPapersD1 = unstable_cache(
-  async (): Promise<Paper[]> => {
+export async function getAllApprovedPapersD1(): Promise<Paper[]> {
+  const KV_KEY = "all-approved-papers-v1";
+  const KV_TTL_SECONDS = 86400;
+  try {
+    const { env } = await getCloudflareContext({ async: true });
+    const kv = (env as { CACHE?: KVNamespace }).CACHE;
+    if (kv) {
+      const cached = await kv.get(KV_KEY, "json");
+      if (cached) return cached as Paper[];
+    }
+    const db = await getD1();
+    const columns = PAPER_COLUMNS.join(", ");
+    const res = await db
+      .prepare(
+        `SELECT ${columns} FROM papers WHERE approved = 1 ORDER BY created_at DESC LIMIT 1000`,
+      )
+      .all<PaperRow>();
+    const papers = (res.results ?? []).map(toPaperFromRow);
+    if (kv) {
+      await kv.put(KV_KEY, JSON.stringify(papers), {
+        expirationTtl: KV_TTL_SECONDS,
+      });
+    }
+    return papers;
+  } catch {
     const db = await getD1();
     const columns = PAPER_COLUMNS.join(", ");
     const res = await db
@@ -189,10 +216,8 @@ export const getAllApprovedPapersD1 = unstable_cache(
       )
       .all<PaperRow>();
     return (res.results ?? []).map(toPaperFromRow);
-  },
-  ["all-approved-papers-d1"],
-  { revalidate: 86400 },
-);
+  }
+}
 
 // ── Single paper ─────────────────────────────────────────────────────────
 
@@ -388,53 +413,72 @@ export interface HomepageStats {
 
 /**
  * Homepage numbers: approved paper count, distinct syllabus paper count,
- * user count, 8 newest papers, 3 approved feedback entries. Cached 1h
- * (same as the old homepage cache). The syllabus count is a single
- * COUNT(DISTINCT paper_code) aggregate over syllabus_table — one query,
- * no row pagination.
+ * user count, 8 newest papers, 3 approved feedback entries.
+ *
+ * Cached in KV (shared across Worker isolates) for 1h. The old
+ * unstable_cache was per-isolate, so every new isolate re-ran the
+ * COUNT(DISTINCT paper_code) scan over all 2,585 syllabus_table rows —
+ * that scan alone was burning ~2M rows read/day on the D1 free tier
+ * (5M/day limit). KV caching makes the scan run once per hour total.
  */
-export const getHomepageStatsD1 = unstable_cache(
-  async (): Promise<HomepageStats> => {
-    const db = await getD1();
-    const columns = PAPER_COLUMNS.join(", ");
-    const [papersCount, usersCount, syllabusCount, recentRes, feedbackRes] =
-      await Promise.all([
-        db
-          .prepare("SELECT COUNT(*) AS total FROM papers WHERE approved = 1")
-          .first<{ total: number }>(),
-        db
-          .prepare("SELECT COUNT(*) AS total FROM users")
-          .first<{ total: number }>(),
-        db
-          .prepare(
-            "SELECT COUNT(DISTINCT paper_code) AS total FROM syllabus_table",
-          )
-          .first<{ total: number }>(),
-        db
-          .prepare(
-            `SELECT ${columns} FROM papers WHERE approved = 1 ORDER BY created_at DESC LIMIT 8`,
-          )
-          .all<PaperRow>(),
-        db
-          .prepare(
-            "SELECT id, name, university, text FROM feedback WHERE approved = 1 ORDER BY created_at DESC LIMIT 3",
-          )
-          .all<FeedbackEntry>(),
-      ]);
+export async function getHomepageStatsD1(): Promise<HomepageStats> {
+  const KV_KEY = "homepage-stats-v1";
+  const KV_TTL_SECONDS = 3600;
+  try {
+    const { env } = await getCloudflareContext({ async: true });
+    const kv = (env as { CACHE?: KVNamespace }).CACHE;
+    if (kv) {
+      const cached = await kv.get(KV_KEY, "json");
+      if (cached) return cached as HomepageStats;
+    }
+    const stats = await fetchHomepageStatsD1();
+    if (kv) {
+      await kv.put(KV_KEY, JSON.stringify(stats), {
+        expirationTtl: KV_TTL_SECONDS,
+      });
+    }
+    return stats;
+  } catch {
+    return fetchHomepageStatsD1();
+  }
+}
 
-    return {
-      papersTotal: papersCount?.total ?? 0,
-      syllabusTotal: syllabusCount?.total ?? 0,
-      usersTotal: usersCount?.total ?? 0,
-      recentPapers: (recentRes.results ?? []).map(toPaperFromRow),
-      feedbackEntries: (feedbackRes.results ?? []).map((f) => ({
-        id: f.id,
-        name: f.name ?? "Anonymous",
-        university: f.university ?? "",
-        text: f.text ?? "",
-      })),
-    };
-  },
-  ["homepage-stats-d1"],
-  { revalidate: 3600 },
-);
+async function fetchHomepageStatsD1(): Promise<HomepageStats> {
+  const db = await getD1();
+  const columns = PAPER_COLUMNS.join(", ");
+  const [papersCount, usersCount, syllabusCount, recentRes, feedbackRes] =
+    await Promise.all([
+      db
+        .prepare("SELECT COUNT(*) AS total FROM papers WHERE approved = 1")
+        .first<{ total: number }>(),
+      db.prepare("SELECT COUNT(*) AS total FROM users").first<{ total: number }>(),
+      db
+        .prepare(
+          "SELECT COUNT(DISTINCT paper_code) AS total FROM syllabus_table",
+        )
+        .first<{ total: number }>(),
+      db
+        .prepare(
+          `SELECT ${columns} FROM papers WHERE approved = 1 ORDER BY created_at DESC LIMIT 8`,
+        )
+        .all<PaperRow>(),
+      db
+        .prepare(
+          "SELECT id, name, university, text FROM feedback WHERE approved = 1 ORDER BY created_at DESC LIMIT 3",
+        )
+        .all<FeedbackEntry>(),
+    ]);
+
+  return {
+    papersTotal: papersCount?.total ?? 0,
+    syllabusTotal: syllabusCount?.total ?? 0,
+    usersTotal: usersCount?.total ?? 0,
+    recentPapers: (recentRes.results ?? []).map(toPaperFromRow),
+    feedbackEntries: (feedbackRes.results ?? []).map((f) => ({
+      id: f.id,
+      name: f.name ?? "Anonymous",
+      university: f.university ?? "",
+      text: f.text ?? "",
+    })),
+  };
+}
