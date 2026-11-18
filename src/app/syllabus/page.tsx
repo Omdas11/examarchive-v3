@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getServerUser } from "@/lib/auth";
+import { getServerUser } from "@/lib/auth-cf";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 import { SYLLABUS_DEPARTMENTS, SYLLABUS_DEPARTMENT_SLUGS, syllabusDeptForSubjectValue } from "@/lib/syllabus-departments";

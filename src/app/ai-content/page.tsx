@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getServerUser } from "@/lib/auth";
+import { getServerUser } from "@/lib/auth-cf";
 import type { Metadata } from "next";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";

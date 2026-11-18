@@ -3,7 +3,7 @@ import Script from "next/script";
 import { redirect } from "next/navigation";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
-import { getServerUser } from "@/lib/auth";
+import { getServerUser } from "@/lib/auth-cf";
 import { adminDatabases, DATABASE_ID, COLLECTION, Query } from "@/lib/appwrite";
 import { STORE_COMING_SOON } from "@/lib/economy";
 import { CREDIT_PACKS, PASSES } from "@/lib/payments";

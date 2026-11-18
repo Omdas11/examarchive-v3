@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { getServerUser } from "@/lib/auth";
+import { getServerUser } from "@/lib/auth-cf";
 import { isFounder } from "@/lib/roles";
 import DevToolClient from "./DevToolClient";
 import MainLayout from "@/components/layout/MainLayout";

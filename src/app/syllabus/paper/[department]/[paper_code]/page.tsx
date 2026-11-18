@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { unstable_cache } from "next/cache";
 import { notFound, permanentRedirect } from "next/navigation";
 import Link from "next/link";
-import { getServerUser } from "@/lib/auth";
+import { getServerUser } from "@/lib/auth-cf";
 import { getSyllabusStat, recordSyllabusViewIfHuman } from "@/lib/counts";
 import {
   adminDatabases,

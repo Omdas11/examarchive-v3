@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import type { Paper } from "@/types";
 import { getAllApprovedPapers } from "@/lib/papers-cache";
-import { getServerUser } from "@/lib/auth";
+import { getServerUser } from "@/lib/auth-cf";
 import { isModerator } from "@/lib/roles";
 import MainLayout from "@/components/layout/MainLayout";
 import BannerAd from "@/components/BannerAd";

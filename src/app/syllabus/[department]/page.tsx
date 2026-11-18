@@ -11,7 +11,7 @@ import {
 } from "@/lib/syllabus-table";
 import { getAllSyllabusRows } from "@/lib/syllabus-cache";
 import { toSyllabus, type Syllabus } from "@/types";
-import { getServerUser } from "@/lib/auth";
+import { getServerUser } from "@/lib/auth-cf";
 import { getSyllabusStats } from "@/lib/counts";
 import MainLayout from "@/components/layout/MainLayout";
 import CaptchaDownloadButton from "@/components/CaptchaDownloadButton";

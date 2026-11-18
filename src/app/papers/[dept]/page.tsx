@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getServerUser } from "@/lib/auth";
+import { getServerUser } from "@/lib/auth-cf";
 import { getAllApprovedPapers } from "@/lib/papers-cache";
 import { toPaper } from "@/types";
 import PaperCard from "@/components/PaperCard";
