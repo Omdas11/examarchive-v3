@@ -1,29 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getServerUser } from "@/lib/auth";
-import {
-  adminStorage,
-  adminDatabases,
-  BUCKET_ID,
-  CACHED_UNIT_NOTES_BUCKET_ID,
-  CACHED_SOLVED_PAPERS_BUCKET_ID,
-  DATABASE_ID,
-  COLLECTION,
-  Query,
-} from "@/lib/appwrite";
-import { AppwriteException } from "node-appwrite";
 import { isValidSignedPdfDownloadToken } from "@/lib/pdf-download-link";
 import { verifyTurnstileDownloadToken } from "@/lib/turnstile";
-import { recordPaperDownloadByFileId } from "@/lib/counts";
-import { renderMarkdownToPdfBuffer } from "@/lib/ai-pdf-pipeline";
-import { applyDownloadWatermark } from "@/lib/pdf-watermark";
+import { getPaperByFileId, getPapersBucket } from "@/lib/d1";
+import { isAllowedChatbot, isBot } from "@/lib/bot-check";
 
 export const dynamic = "force-dynamic";
-// Allow up to 120 s for Gotenberg to render the PDF before Vercel kills the
-// function.  This must be set explicitly because the default (10 s on Hobby,
-// 30 s on Pro) is too short for a full PDF render pass.
-export const maxDuration = 120;
-
-import { isAllowedChatbot, isBot } from "@/lib/bot-check";
 
 /**
  * Friendly page for the allowed chatbots (Google, Gemini, Claude, ChatGPT)
@@ -44,50 +26,20 @@ function sanitizeDownloadFilename(name: string): string {
   return safe.length > 0 ? safe : "examarchive.pdf";
 }
 
-function buildPdfFileNameFromPayload(payload: Record<string, unknown>): string {
-  const paperCode =
-    typeof payload.paperCode === "string" ? payload.paperCode.trim() : "document";
-  const jobType = typeof payload.jobType === "string" ? payload.jobType : "";
-  if (jobType === "solved-paper") {
-    const year = typeof payload.year === "number" ? `_${payload.year}` : "";
-    return `${paperCode}${year}_solved_paper.pdf`;
-  }
-  const unitNumber =
-    typeof payload.unitNumber === "number" ? payload.unitNumber : "";
-  return unitNumber
-    ? `${paperCode}_Unit_${unitNumber}_Notes.pdf`
-    : `${paperCode}_Notes.pdf`;
-}
-
-function getAppwriteErrorCode(error: unknown): number | undefined {
-  if (!error || typeof error !== "object") return undefined;
-  const withCode = error as { code?: unknown };
-  if (typeof withCode.code === "number") return withCode.code;
-  if (typeof withCode.code === "string") {
-    const parsed = Number(withCode.code);
-    return Number.isFinite(parsed) ? parsed : undefined;
-  }
-  return undefined;
-}
-
-function isMissingOrInvalidAppwriteFileError(error: unknown): boolean {
-  const code = getAppwriteErrorCode(error);
-  return code === 404 || code === 400;
+/** File name for the download: the base name of the R2 object key. */
+function fileNameFromKey(fileKey: string): string {
+  const base = fileKey.split("/").pop() || "";
+  return sanitizeDownloadFilename(base || "examarchive.pdf");
 }
 
 /**
  * GET /api/files/papers/[fileId]
  *
- * Dynamic Markdown-to-PDF delivery route.
+ * Serves a paper PDF from Cloudflare R2 (no Appwrite on this path).
  *
- * When the `fileId` belongs to an AI generation job (stored as a markdown
- * cache file in the `cached-unit-notes/` or `cached-solved-papers/` folders
- * of the `paper-markdown` bucket), this route
- * fetches the `.md` file, converts it to PDF on-the-fly via Gotenberg, and
- * streams the result back to the user as `application/pdf`.
- *
- * Legacy paper files that live directly in the `papers` bucket are served as
- * before (pass-through proxy).
+ * Flow: D1 `papers` lookup by `file_id` -> R2 object by `file_key`
+ * (`papers/<filename>`) -> PDF bytes, inline for View, attachment for
+ * `download=1`.
  *
  * Requires either:
  * - a valid Turnstile download token (`ctoken`, issued after passing the
@@ -96,8 +48,18 @@ function isMissingOrInvalidAppwriteFileError(error: unknown): boolean {
  *
  * NOTE: a bare logged-in session is NOT enough — the Turnstile gate
  * applies to logged-in users too, so a bot with an account cannot
- * bulk-download and burn the Appwrite read budget. The download buttons
- * always supply a `ctoken`.
+ * bulk-download. The download buttons always supply a `ctoken`. Guests
+ * with a valid `ctoken` get the PDF with no login required (auth is
+ * deferred). `getServerUser` is only consulted on the failure path, to
+ * decide between redirect-to-login (guest) and 403 (logged-in) — it is
+ * never called on the serving path, so a guest download costs no
+ * Appwrite calls at all.
+ *
+ * Deliberately NOT ported (Cloudflare phase): the download watermark
+ * (lib/pdf-watermark reads a font file from disk with node:fs — not
+ * available on Workers), download counters (read-only for now), and the
+ * AI markdown / Gotenberg render path (those fileIds are not in the
+ * papers table, so they 404 here).
  */
 export async function GET(
   request: NextRequest,
@@ -112,7 +74,7 @@ export async function GET(
   // Bots are blocked from downloading PDFs. The allowed chatbots (Google,
   // Gemini, Claude, ChatGPT) get a friendly message telling the person to
   // visit the link instead; every other bot gets a plain 403. This runs
-  // before any auth/Appwrite work so bot hits cost no database reads.
+  // before any auth/database work so bot hits cost no database reads.
   const userAgent = request.headers.get("user-agent") || "";
   if (isBot(userAgent)) {
     if (isAllowedChatbot(userAgent)) {
@@ -133,19 +95,17 @@ export async function GET(
     token: signedToken,
   });
 
-  let user = null;
   // A download needs a Turnstile token (`ctoken`, issued after passing
   // the Turnstile check) or a signed token (AI-generated PDF links). A
   // bare session is NOT enough — the Turnstile gate applies to logged-in
-  // users too, so a bot with an account cannot bulk-download and burn
-  // the Appwrite read budget. The download buttons always supply a `ctoken`.
+  // users too. The download buttons always supply a `ctoken`.
   const turnstileToken = request.nextUrl.searchParams.get("ctoken") || "";
   const hasValidTurnstileToken = verifyTurnstileDownloadToken({
     fileId,
     token: turnstileToken,
   });
   if (!hasValidSignedToken && !hasValidTurnstileToken) {
-    user = await getServerUser();
+    const user = await getServerUser();
     if (!user) {
       // Redirect unauthenticated visitors to the login page instead of
       // returning a raw 401 so the browser navigates to sign-in when the
@@ -157,250 +117,52 @@ export async function GET(
       { status: 403 },
     );
   }
-  if (!user) {
-    user = await getServerUser();
-  }
 
   const requestedDownload = request.nextUrl.searchParams.get("download") === "1";
   // A download is: an HMAC-signed link (always a download), or an explicit
-  // download=1 request backed by a valid Turnstile token or a logged-in
-  // session. Without download=1 the file is served inline so the browser
-  // shows it in its PDF viewer (the "View" action). Previously a guest
-  // download=1 request fell through to inline here and only downloaded
-  // because the button set the anchor's download attribute.
+  // download=1 request backed by a valid Turnstile token. Without
+  // download=1 the file is served inline so the browser shows it in its
+  // PDF viewer (the "View" action).
   const shouldDownload =
-    hasValidSignedToken ||
-    (hasValidTurnstileToken && requestedDownload) ||
-    (!!user && requestedDownload);
+    hasValidSignedToken || (hasValidTurnstileToken && requestedDownload);
 
   try {
-    const storage = adminStorage();
-    const db = adminDatabases();
-
-    // ── Step 1: Prefer concrete PDF files from papers bucket ──────────────
-    try {
-      const fileMeta = shouldDownload
-        ? await storage.getFile(BUCKET_ID, fileId)
-        : null;
-      const resolvedFileName = shouldDownload
-        ? sanitizeDownloadFilename(fileMeta?.name || "examarchive.pdf")
-        : null;
-      const fallbackHeaderFileName = resolvedFileName
-        ? resolvedFileName.replace(/\\/g, "\\\\").replace(/"/g, '\\"')
-        : null;
-      const encodedLegacyFileName = resolvedFileName
-        ? encodeURIComponent(resolvedFileName)
-        : null;
-      const rawFileBuffer = shouldDownload
-        ? await storage.getFileDownload(BUCKET_ID, fileId)
-        : await storage.getFileView(BUCKET_ID, fileId);
-
-      // Apply watermark only on downloads so inline previews are unaffected.
-      if (shouldDownload) {
-        let isAiGeneratedPdf = false;
-        try {
-          const matchedJobs = await db.listDocuments(
-            DATABASE_ID,
-            COLLECTION.ai_generation_jobs,
-            [
-              Query.equal("result_file_id", fileId),
-              Query.limit(1),
-            ],
-          );
-          isAiGeneratedPdf = matchedJobs.total > 0 || matchedJobs.documents.length > 0;
-        } catch (lookupErr) {
-          console.warn(
-            "[api/files/papers] Could not determine whether file already has generation watermark; applying download watermark as fallback.",
-            { fileId, error: lookupErr },
-          );
-        }
-
-        let body: ArrayBuffer;
-        if (!isAiGeneratedPdf) {
-          try {
-            body = await applyDownloadWatermark(rawFileBuffer as ArrayBuffer);
-          } catch (wmErr) {
-            console.warn("[api/files/papers] Watermark failed; serving original:", wmErr);
-            body = rawFileBuffer as ArrayBuffer;
-          }
-        } else {
-          // AI-generated PDFs already include an embedded watermark from the generator;
-          // applying the download watermark again causes a visible double watermark.
-          body = rawFileBuffer as ArrayBuffer;
-        }
-        // Count the download (paper totals + the user's own history).
-        // Awaited: a download is infrequent, and the write must land before
-        // the function returns. Never fails the download.
-        await recordPaperDownloadByFileId(fileId, user?.id);
-        return new NextResponse(body, {
-          headers: {
-            "Content-Type": "application/pdf",
-            "Cache-Control": "private, max-age=3600",
-            "Content-Disposition": `attachment; filename="${fallbackHeaderFileName}"; filename*=UTF-8''${encodedLegacyFileName}`,
-          },
-        });
-      }
-
-      return new NextResponse(rawFileBuffer, {
-        headers: {
-          "Content-Type": "application/pdf",
-          "Cache-Control": "private, max-age=3600",
-          "Content-Disposition": "inline",
-        },
-      });
-    } catch (papersErr) {
-      if (!isMissingOrInvalidAppwriteFileError(papersErr)) {
-        throw papersErr;
-      }
-    }
-
-    // ── Step 2: Fallback dynamic markdown-to-PDF path ────────────────────
-    // For older jobs where result_file_id may point to a markdown cache file,
-    // look up ai_generation_jobs and render markdown on-demand.
-    let jobPayload: Record<string, unknown> = {};
-    let resolvedJob: Record<string, unknown> | null = null;
-    let markdown: string | null = null;
-
-    try {
-      const jobsResult = await db.listDocuments(
-        DATABASE_ID,
-        COLLECTION.ai_generation_jobs,
-        [
-          Query.equal("result_file_id", fileId),
-          Query.orderDesc("$createdAt"),
-          Query.limit(1),
-        ],
-      );
-      const jobDocument = jobsResult.documents[0];
-      if (jobDocument) {
-        resolvedJob = jobDocument as Record<string, unknown>;
-        const rawPayload =
-          typeof jobDocument.input_payload_json === "string"
-            ? jobDocument.input_payload_json
-            : "{}";
-        jobPayload = JSON.parse(rawPayload) as Record<string, unknown>;
-        const jobType =
-          typeof jobPayload.jobType === "string" ? jobPayload.jobType : "";
-        const cacheBucketId =
-          jobType === "solved-paper"
-            ? CACHED_SOLVED_PAPERS_BUCKET_ID
-            : CACHED_UNIT_NOTES_BUCKET_ID;
-
-        const markdownBuffer = await storage.getFileDownload(
-          cacheBucketId,
-          fileId,
-        );
-        markdown = Buffer.from(markdownBuffer).toString("utf-8");
-      }
-    } catch (lookupErr) {
-      console.warn(
-        "[api/files/papers] Job/cache lookup failed; falling back to papers bucket.",
-        {
-          fileId,
-          error:
-            lookupErr instanceof Error
-              ? lookupErr.message
-              : String(lookupErr),
-        },
-      );
-    }
-
-    // ── Step 2a: Dynamic PDF rendering (markdown found) ──────────────────
-    if (markdown !== null && markdown.trim()) {
-      const gotenbergUrl = (process.env.GOTENBERG_URL || "").trim();
-      if (!gotenbergUrl) {
-        console.error(
-          "[api/files/papers] GOTENBERG_URL is not configured; cannot render PDF on-demand.",
-        );
-        return new NextResponse(
-          "PDF rendering service is not configured",
-          { status: 503 },
-        );
-      }
-
-      const gotenbergAuthToken = (process.env.GOTENBERG_AUTH_TOKEN || "").trim();
-      if (!gotenbergAuthToken) {
-        console.error(
-          "[api/files/papers] GOTENBERG_AUTH_TOKEN is not configured; cannot render PDF on-demand.",
-        );
-        return new NextResponse(
-          "PDF rendering service is not configured",
-          { status: 503 },
-        );
-      }
-
-      // Fully await the Gotenberg render before sending a response so that
-      // Vercel does not terminate the function mid-stream (no fire-and-forget).
-      const pdfBuffer = await renderMarkdownToPdfBuffer({
-        markdown,
-        gotenbergUrl,
-        gotenbergAuthToken,
-        paperCode:
-          typeof jobPayload.paperCode === "string"
-            ? jobPayload.paperCode
-            : undefined,
-        paperName:
-          typeof jobPayload.paperName === "string"
-            ? jobPayload.paperName
-            : undefined,
-        unitNumber:
-          typeof jobPayload.unitNumber === "number"
-            ? jobPayload.unitNumber
-            : undefined,
-        unitName:
-          typeof jobPayload.unitName === "string"
-            ? jobPayload.unitName
-            : undefined,
-        syllabusContent:
-          typeof jobPayload.syllabusContent === "string"
-            ? jobPayload.syllabusContent
-            : undefined,
-        modelName:
-          typeof jobPayload.modelName === "string"
-            ? jobPayload.modelName
-            : undefined,
-        generatedAtIso:
-          typeof resolvedJob?.completed_at === "string"
-            ? resolvedJob.completed_at
-            : typeof resolvedJob?.$createdAt === "string"
-              ? resolvedJob.$createdAt
-              : undefined,
-        year:
-          typeof jobPayload.year === "number" ? jobPayload.year : undefined,
-        userEmail:
-          typeof jobPayload.userEmail === "string"
-            ? jobPayload.userEmail
-            : undefined,
-      });
-
-      const fileName = sanitizeDownloadFilename(
-        buildPdfFileNameFromPayload(jobPayload),
-      );
-      const encodedFileName = encodeURIComponent(fileName);
-
-      return new NextResponse(Uint8Array.from(pdfBuffer), {
-        headers: {
-          "Content-Type": "application/pdf",
-          "Cache-Control": "private, max-age=3600",
-          "Content-Disposition": shouldDownload
-            ? `attachment; filename="${fileName}"; filename*=UTF-8''${encodedFileName}`
-            : "inline",
-        },
-      });
-    }
-
-    return new NextResponse("Paper not found", { status: 404 });
-  } catch (err: unknown) {
-    if (err instanceof AppwriteException) {
-      // 404 = file not found; 400 = invalid/missing fileId — both mean nothing to serve
-      if (err.code === 404 || err.code === 400) {
-        return new NextResponse("Paper not found", { status: 404 });
-      }
-    }
-    if (isMissingOrInvalidAppwriteFileError(err)) {
+    // Direct (uncached) D1 lookup: the file_id -> file_key mapping is
+    // being populated right now, so a cached read could serve a stale miss.
+    const paper = await getPaperByFileId(fileId);
+    if (!paper || !paper.fileKey) {
       return new NextResponse("Paper not found", { status: 404 });
     }
-    console.error("[api/files/papers] Error fetching/rendering paper:", err);
+
+    const bucket = await getPapersBucket();
+    const object = await bucket.get(paper.fileKey);
+    if (!object) {
+      return new NextResponse("Paper not found", { status: 404 });
+    }
+
+    const pdfBytes = await object.arrayBuffer();
+
+    if (shouldDownload) {
+      const fileName = fileNameFromKey(paper.fileKey);
+      const encodedFileName = encodeURIComponent(fileName);
+      return new NextResponse(pdfBytes, {
+        headers: {
+          "Content-Type": "application/pdf",
+          "Cache-Control": "private, max-age=3600",
+          "Content-Disposition": `attachment; filename="${fileName}"; filename*=UTF-8''${encodedFileName}`,
+        },
+      });
+    }
+
+    return new NextResponse(pdfBytes, {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Cache-Control": "private, max-age=3600",
+        "Content-Disposition": "inline",
+      },
+    });
+  } catch (err: unknown) {
+    console.error("[api/files/papers] Error fetching paper from R2:", err);
     return new NextResponse("Failed to fetch paper", { status: 500 });
   }
 }

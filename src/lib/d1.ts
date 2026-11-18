@@ -254,6 +254,59 @@ export async function getPaperCountsD1(
   }
 }
 
+// ── File serving (R2) ────────────────────────────────────────────────────
+
+/** The R2 bucket binding (wrangler.jsonc: `PAPERS` -> examarchive-papers). */
+export async function getPapersBucket(): Promise<R2Bucket> {
+  const { env } = await getCloudflareContext({ async: true });
+  if (!env.PAPERS) {
+    throw new Error(
+      "[d1] R2 binding `PAPERS` is not available. Run under " +
+        "`wrangler dev` / `opennextjs-cloudflare preview`, or `next dev` " +
+        "with the Cloudflare adapter initialised (see next.config.mjs).",
+    );
+  }
+  return env.PAPERS;
+}
+
+/** Minimal paper reference for the file-serving route: D1 row + R2 key. */
+export interface PaperFileRef {
+  fileId: string;
+  /** R2 object key (`papers/<filename>`), or null until the file is uploaded. */
+  fileKey: string | null;
+  paperName: string;
+  courseCode: string;
+}
+
+/**
+ * One paper by its Appwrite file id — the id the download URLs carry.
+ * Read fresh on every call (NO unstable_cache): the file_id -> file_key
+ * mapping is being populated right now, so a cached miss would go stale.
+ */
+export async function getPaperByFileId(
+  fileId: string,
+): Promise<PaperFileRef | null> {
+  const db = await getD1();
+  const row = await db
+    .prepare(
+      "SELECT file_id, file_key, paper_name, course_code FROM papers WHERE file_id = ? LIMIT 1",
+    )
+    .bind(fileId)
+    .first<{
+      file_id: string;
+      file_key: string | null;
+      paper_name: string | null;
+      course_code: string | null;
+    }>();
+  if (!row) return null;
+  return {
+    fileId: row.file_id,
+    fileKey: row.file_key,
+    paperName: row.paper_name ?? "",
+    courseCode: row.course_code ?? "",
+  };
+}
+
 // ── Search ───────────────────────────────────────────────────────────────
 
 /**

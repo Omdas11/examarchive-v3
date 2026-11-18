@@ -2,22 +2,12 @@
  * @jest-environment node
  */
 import { NextRequest } from "next/server";
-import { AppwriteException } from "node-appwrite";
 
 const mockGetServerUser = jest.fn();
 const mockIsValidSignedPdfDownloadToken = jest.fn();
 const mockVerifyTurnstileDownloadToken = jest.fn();
-const mockRenderMarkdownToPdfBuffer = jest.fn();
-const mockApplyDownloadWatermark = jest.fn(async (buf: ArrayBuffer) => buf);
-
-const mockStorage = {
-  getFile: jest.fn(),
-  getFileDownload: jest.fn(),
-  getFileView: jest.fn(),
-};
-const mockDb = {
-  listDocuments: jest.fn(),
-};
+const mockGetPaperByFileId = jest.fn();
+const mockBucketGet = jest.fn();
 
 jest.mock("@/lib/auth", () => ({
   getServerUser: () => mockGetServerUser(),
@@ -31,146 +21,126 @@ jest.mock("@/lib/turnstile", () => ({
   verifyTurnstileDownloadToken: (...args: unknown[]) => mockVerifyTurnstileDownloadToken(...args),
 }));
 
-jest.mock("@/lib/ai-pdf-pipeline", () => ({
-  renderMarkdownToPdfBuffer: (...args: unknown[]) => mockRenderMarkdownToPdfBuffer(...args),
-}));
-
-jest.mock("@/lib/pdf-watermark", () => ({
-  applyDownloadWatermark: (...args: unknown[]) => mockApplyDownloadWatermark(...(args as [ArrayBuffer])),
-}));
-
-jest.mock("@/lib/appwrite", () => ({
-  adminStorage: () => mockStorage,
-  adminDatabases: () => mockDb,
-  BUCKET_ID: "papers",
-  CACHED_UNIT_NOTES_BUCKET_ID: "paper-markdown",
-  CACHED_SOLVED_PAPERS_BUCKET_ID: "paper-markdown",
-  DATABASE_ID: "examarchive",
-  COLLECTION: { ai_generation_jobs: "ai_generation_jobs" },
-  Query: {
-    equal: jest.fn((field: string, value: unknown) => ({ method: "equal", field, value })),
-    orderDesc: jest.fn((field: string) => ({ method: "orderDesc", field })),
-    limit: jest.fn((value: number) => ({ method: "limit", value })),
-  },
+jest.mock("@/lib/d1", () => ({
+  getPaperByFileId: (...args: unknown[]) => mockGetPaperByFileId(...args),
+  getPapersBucket: async () => ({ get: (...args: unknown[]) => mockBucketGet(...args) }),
 }));
 
 import { GET } from "./route";
 
-describe("GET /api/files/papers/[fileId]", () => {
-  const originalEnv = process.env;
+describe("GET /api/files/papers/[fileId] (R2)", () => {
+  const PDF_BYTES = new Uint8Array([37, 80, 68, 70, 45, 49, 46, 52]); // "%PDF-1.4"
+  const FILE_ID = "6af6c28c33790c997464";
+  const FILE_KEY = "papers/1687772351_History-General_Early-Assam-upto-1228AD_2019_6af6c28c33790c997464.pdf";
 
   beforeEach(() => {
     jest.resetAllMocks();
-    process.env = {
-      ...originalEnv,
-      GOTENBERG_URL: "http://gotenberg.local",
-      GOTENBERG_AUTH_TOKEN: "test-token",
-    };
-    mockIsValidSignedPdfDownloadToken.mockReturnValue(true);
-    // Most tests exercise the file-serving paths with a valid token.
-    // Tests for the auth gate set this to false explicitly.
+    mockIsValidSignedPdfDownloadToken.mockReturnValue(false);
+    mockVerifyTurnstileDownloadToken.mockReturnValue(true);
+    mockGetServerUser.mockResolvedValue(null);
+    mockGetPaperByFileId.mockResolvedValue({
+      fileId: FILE_ID,
+      fileKey: FILE_KEY,
+      paperName: "History General",
+      courseCode: "HIS",
+    });
+    mockBucketGet.mockResolvedValue({
+      arrayBuffer: async () => PDF_BYTES.buffer.slice(0) as ArrayBuffer,
+    });
   });
 
-  afterEach(() => {
-    process.env = originalEnv;
-  });
-
-  it("serves stored PDF directly from papers bucket", async () => {
-    mockStorage.getFile.mockResolvedValue({ name: "stored.pdf" });
-    mockStorage.getFileDownload.mockResolvedValue(Uint8Array.from([1, 2, 3]));
-    mockDb.listDocuments.mockResolvedValueOnce({ total: 0, documents: [] });
-
-    const request = new NextRequest("http://localhost/api/files/papers/file-123?uid=u1&exp=1&token=t1");
-    const response = await GET(request, { params: Promise.resolve({ fileId: "file-123" }) });
+  it("serves inline PDF from R2 for a guest with a valid Turnstile token (View)", async () => {
+    const request = new NextRequest(
+      `http://localhost/api/files/papers/${FILE_ID}?ctoken=valid-token`,
+    );
+    const response = await GET(request, { params: Promise.resolve({ fileId: FILE_ID }) });
 
     expect(response.status).toBe(200);
     expect(response.headers.get("Content-Type")).toBe("application/pdf");
-    expect(response.headers.get("Content-Disposition")).toContain("attachment;");
-    expect(mockApplyDownloadWatermark).toHaveBeenCalledTimes(1);
-    expect(mockRenderMarkdownToPdfBuffer).not.toHaveBeenCalled();
+    expect(response.headers.get("Content-Disposition")).toBe("inline");
+    expect(mockGetPaperByFileId).toHaveBeenCalledWith(FILE_ID);
+    expect(mockBucketGet).toHaveBeenCalledWith(FILE_KEY);
+    const body = new Uint8Array(await response.arrayBuffer());
+    expect(body).toEqual(PDF_BYTES);
   });
 
-  it("does not apply download watermark again for AI-generated PDFs in papers bucket", async () => {
-    mockStorage.getFile.mockResolvedValue({ name: "generated.pdf" });
-    mockStorage.getFileDownload.mockResolvedValue(Uint8Array.from([1, 2, 3]));
-    mockDb.listDocuments.mockResolvedValueOnce({
-      total: 1,
-      documents: [{ $id: "job-1", result_file_id: "file-123" }],
-    });
-
-    const request = new NextRequest("http://localhost/api/files/papers/file-123?uid=u1&exp=1&token=t1");
-    const response = await GET(request, { params: Promise.resolve({ fileId: "file-123" }) });
+  it("serves attachment for a guest with a valid Turnstile token who requests download=1", async () => {
+    const request = new NextRequest(
+      `http://localhost/api/files/papers/${FILE_ID}?ctoken=valid-token&download=1`,
+    );
+    const response = await GET(request, { params: Promise.resolve({ fileId: FILE_ID }) });
 
     expect(response.status).toBe(200);
     expect(response.headers.get("Content-Disposition")).toContain("attachment;");
-    expect(mockApplyDownloadWatermark).not.toHaveBeenCalled();
+    expect(response.headers.get("Content-Disposition")).toContain(
+      'filename="1687772351_History-General_Early-Assam-upto-1228AD_2019_6af6c28c33790c997464.pdf"',
+    );
   });
 
-  it("falls back to markdown rendering when papers file is missing", async () => {
-    mockStorage.getFile.mockResolvedValue({ name: "generated.pdf" });
-    mockStorage.getFileDownload
-      .mockRejectedValueOnce(Object.assign(new Error("not found"), { code: 404 }))
-      .mockResolvedValueOnce(Uint8Array.from(Buffer.from("# Unit 1 notes", "utf8")));
-    mockDb.listDocuments.mockResolvedValue({
-      documents: [
-        {
-          input_payload_json: JSON.stringify({
-            jobType: "notes",
-            paperCode: "CS101",
-            unitNumber: 1,
-            userEmail: "user@example.com",
-          }),
-          completed_at: "2026-04-19T00:00:00.000Z",
-        },
-      ],
-    });
-    mockRenderMarkdownToPdfBuffer.mockResolvedValue(Buffer.from([37, 80, 68, 70]));
+  it("serves attachment for a valid signed token even without download=1", async () => {
+    mockIsValidSignedPdfDownloadToken.mockReturnValue(true);
+    mockVerifyTurnstileDownloadToken.mockReturnValue(false);
 
-    const request = new NextRequest("http://localhost/api/files/papers/file-legacy?uid=u1&exp=1&token=t1");
-    const response = await GET(request, { params: Promise.resolve({ fileId: "file-legacy" }) });
+    const request = new NextRequest(
+      `http://localhost/api/files/papers/${FILE_ID}?uid=u1&exp=9999999999&token=t1&download=1`,
+    );
+    const response = await GET(request, { params: Promise.resolve({ fileId: FILE_ID }) });
 
     expect(response.status).toBe(200);
-    expect(mockDb.listDocuments).toHaveBeenCalledTimes(1);
-    expect(mockRenderMarkdownToPdfBuffer).toHaveBeenCalledTimes(1);
-    expect(mockStorage.getFileDownload).toHaveBeenNthCalledWith(2, "paper-markdown", "file-legacy");
+    expect(response.headers.get("Content-Disposition")).toContain("attachment;");
   });
 
-  it("returns 404 when file is missing in papers and cache fallback cannot resolve markdown", async () => {
-    mockStorage.getFile.mockResolvedValue({ name: "missing.pdf" });
-    mockStorage.getFileDownload.mockRejectedValue(Object.assign(new Error("not found"), { code: 404 }));
-    mockDb.listDocuments.mockResolvedValue({ documents: [] });
+  it("returns 404 when the paper is not in D1 (AI markdown fileIds land here)", async () => {
+    mockGetPaperByFileId.mockResolvedValue(null);
 
-    const request = new NextRequest("http://localhost/api/files/papers/file-missing?uid=u1&exp=1&token=t1");
-    const response = await GET(request, { params: Promise.resolve({ fileId: "file-missing" }) });
+    const request = new NextRequest(
+      `http://localhost/api/files/papers/ai-job-file?ctoken=valid-token`,
+    );
+    const response = await GET(request, { params: Promise.resolve({ fileId: "ai-job-file" }) });
 
     expect(response.status).toBe(404);
-    expect(mockRenderMarkdownToPdfBuffer).not.toHaveBeenCalled();
+    expect(mockBucketGet).not.toHaveBeenCalled();
   });
 
-  it("falls back from papers view path when user is authenticated without download mode", async () => {
-    mockIsValidSignedPdfDownloadToken.mockReturnValue(false);
-    mockVerifyTurnstileDownloadToken.mockReturnValue(true);
-    mockGetServerUser.mockResolvedValue({ $id: "user-1" });
-    mockStorage.getFileView.mockRejectedValue(Object.assign(new Error("not found"), { code: 404 }));
-    mockDb.listDocuments.mockResolvedValue({ documents: [] });
+  it("returns 404 when the paper has no file_key yet", async () => {
+    mockGetPaperByFileId.mockResolvedValue({
+      fileId: FILE_ID,
+      fileKey: null,
+      paperName: "",
+      courseCode: "",
+    });
 
-    const request = new NextRequest("http://localhost/api/files/papers/file-view");
-    const response = await GET(request, { params: Promise.resolve({ fileId: "file-view" }) });
+    const request = new NextRequest(
+      `http://localhost/api/files/papers/${FILE_ID}?ctoken=valid-token`,
+    );
+    const response = await GET(request, { params: Promise.resolve({ fileId: FILE_ID }) });
 
     expect(response.status).toBe(404);
-    expect(mockStorage.getFile).not.toHaveBeenCalled();
-    expect(mockStorage.getFileView).toHaveBeenCalledWith("papers", "file-view");
+    expect(mockBucketGet).not.toHaveBeenCalled();
   });
 
-  it("redirects to login when signed token is invalid and no session user exists", async () => {
+  it("returns 404 when the R2 object is missing", async () => {
+    mockBucketGet.mockResolvedValue(null);
+
+    const request = new NextRequest(
+      `http://localhost/api/files/papers/${FILE_ID}?ctoken=valid-token`,
+    );
+    const response = await GET(request, { params: Promise.resolve({ fileId: FILE_ID }) });
+
+    expect(response.status).toBe(404);
+  });
+
+  it("redirects to login when no valid token and no session user exists", async () => {
     mockIsValidSignedPdfDownloadToken.mockReturnValue(false);
+    mockVerifyTurnstileDownloadToken.mockReturnValue(false);
     mockGetServerUser.mockResolvedValue(null);
 
-    const request = new NextRequest("http://localhost/api/files/papers/file-auth");
-    const response = await GET(request, { params: Promise.resolve({ fileId: "file-auth" }) });
+    const request = new NextRequest(`http://localhost/api/files/papers/${FILE_ID}`);
+    const response = await GET(request, { params: Promise.resolve({ fileId: FILE_ID }) });
 
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe("http://localhost/login");
+    expect(mockGetPaperByFileId).not.toHaveBeenCalled();
   });
 
   it("returns 403 for a logged-in user without a Turnstile token", async () => {
@@ -178,24 +148,11 @@ describe("GET /api/files/papers/[fileId]", () => {
     mockVerifyTurnstileDownloadToken.mockReturnValue(false);
     mockGetServerUser.mockResolvedValue({ $id: "user-1" });
 
-    const request = new NextRequest("http://localhost/api/files/papers/file-1");
-    const response = await GET(request, { params: Promise.resolve({ fileId: "file-1" }) });
+    const request = new NextRequest(`http://localhost/api/files/papers/${FILE_ID}`);
+    const response = await GET(request, { params: Promise.resolve({ fileId: FILE_ID }) });
 
     expect(response.status).toBe(403);
-    expect(mockStorage.getFileView).not.toHaveBeenCalled();
-  });
-
-  it("serves the file to a logged-in user with a valid Turnstile token", async () => {
-    mockIsValidSignedPdfDownloadToken.mockReturnValue(false);
-    mockVerifyTurnstileDownloadToken.mockReturnValue(true);
-    mockGetServerUser.mockResolvedValue({ $id: "user-1" });
-    mockStorage.getFileView.mockResolvedValue(new Uint8Array([37, 80, 68, 70]));
-
-    const request = new NextRequest("http://localhost/api/files/papers/file-1?ctoken=valid.token");
-    const response = await GET(request, { params: Promise.resolve({ fileId: "file-1" }) });
-
-    expect(response.status).toBe(200);
-    expect(mockStorage.getFileView).toHaveBeenCalledWith("papers", "file-1");
+    expect(mockGetPaperByFileId).not.toHaveBeenCalled();
   });
 
   it("returns 400 when fileId is missing", async () => {
@@ -205,133 +162,24 @@ describe("GET /api/files/papers/[fileId]", () => {
     expect(response.status).toBe(400);
   });
 
-  it("returns 503 when markdown fallback is available but GOTENBERG_URL is not configured", async () => {
-    process.env = { ...originalEnv, GOTENBERG_URL: "" };
-    mockStorage.getFile.mockResolvedValue({ name: "generated.pdf" });
-    mockStorage.getFileDownload
-      .mockRejectedValueOnce(Object.assign(new Error("not found"), { code: 404 }))
-      .mockResolvedValueOnce(Uint8Array.from(Buffer.from("# Unit 1 notes", "utf8")));
-    mockDb.listDocuments.mockResolvedValue({
-      documents: [{ input_payload_json: JSON.stringify({ jobType: "notes" }) }],
+  it("blocks bots with 403", async () => {
+    const request = new NextRequest(`http://localhost/api/files/papers/${FILE_ID}?ctoken=valid-token`, {
+      headers: { "user-agent": "curl/8.0" },
     });
+    const response = await GET(request, { params: Promise.resolve({ fileId: FILE_ID }) });
 
-    const request = new NextRequest("http://localhost/api/files/papers/file-legacy?uid=u1&exp=1&token=t1");
-    const response = await GET(request, { params: Promise.resolve({ fileId: "file-legacy" }) });
-
-    expect(response.status).toBe(503);
-    expect(mockRenderMarkdownToPdfBuffer).not.toHaveBeenCalled();
+    expect(response.status).toBe(403);
+    expect(mockGetPaperByFileId).not.toHaveBeenCalled();
   });
 
-  it("uses solved-papers cache bucket for solved-paper markdown fallback", async () => {
-    mockStorage.getFile.mockResolvedValue({ name: "generated.pdf" });
-    mockStorage.getFileDownload
-      .mockRejectedValueOnce(Object.assign(new Error("not found"), { code: 404 }))
-      .mockResolvedValueOnce(Uint8Array.from(Buffer.from("# Solved paper", "utf8")));
-    mockDb.listDocuments.mockResolvedValue({
-      documents: [
-        {
-          input_payload_json: JSON.stringify({ jobType: "solved-paper", paperCode: "CS101", year: 2025 }),
-          completed_at: "2026-04-19T00:00:00.000Z",
-        },
-      ],
-    });
-    mockRenderMarkdownToPdfBuffer.mockResolvedValue(Buffer.from([37, 80, 68, 70]));
+  it("returns 500 when the R2 read throws", async () => {
+    mockBucketGet.mockRejectedValue(new Error("R2 down"));
 
-    const request = new NextRequest("http://localhost/api/files/papers/file-solved?uid=u1&exp=1&token=t1");
-    const response = await GET(request, { params: Promise.resolve({ fileId: "file-solved" }) });
-
-    expect(response.status).toBe(200);
-    expect(mockStorage.getFileDownload).toHaveBeenNthCalledWith(2, "paper-markdown", "file-solved");
-  });
-
-  it("returns 500 when papers bucket lookup throws non-file-missing errors", async () => {
-    mockStorage.getFile.mockRejectedValue(Object.assign(new Error("forbidden"), { code: 403 }));
-
-    const request = new NextRequest("http://localhost/api/files/papers/file-err?uid=u1&exp=1&token=t1");
-    const response = await GET(request, { params: Promise.resolve({ fileId: "file-err" }) });
+    const request = new NextRequest(
+      `http://localhost/api/files/papers/${FILE_ID}?ctoken=valid-token`,
+    );
+    const response = await GET(request, { params: Promise.resolve({ fileId: FILE_ID }) });
 
     expect(response.status).toBe(500);
-  });
-
-  it("returns 404 when downstream error exposes code as a numeric string", async () => {
-    mockStorage.getFile.mockResolvedValue({ name: "generated.pdf" });
-    mockStorage.getFileDownload.mockRejectedValueOnce(Object.assign(new Error("not found"), { code: 404 }));
-    mockDb.listDocuments.mockImplementation(() => {
-      throw Object.assign(new Error("invalid file id"), { code: "400" });
-    });
-
-    const request = new NextRequest("http://localhost/api/files/papers/file-code-string?uid=u1&exp=1&token=t1");
-    const response = await GET(request, { params: Promise.resolve({ fileId: "file-code-string" }) });
-
-    expect(response.status).toBe(404);
-  });
-
-  it("serves inline PDF from papers bucket when authenticated user does not request download", async () => {
-    mockIsValidSignedPdfDownloadToken.mockReturnValue(false);
-    mockVerifyTurnstileDownloadToken.mockReturnValue(true);
-    mockGetServerUser.mockResolvedValue({ $id: "user-1" });
-    mockStorage.getFileView.mockResolvedValue(Uint8Array.from([1, 2, 3]));
-
-    const request = new NextRequest("http://localhost/api/files/papers/file-inline");
-    const response = await GET(request, { params: Promise.resolve({ fileId: "file-inline" }) });
-
-    expect(response.status).toBe(200);
-    expect(response.headers.get("Content-Disposition")).toBe("inline");
-    expect(mockStorage.getFile).not.toHaveBeenCalled();
-    expect(mockStorage.getFileView).toHaveBeenCalledWith("papers", "file-inline");
-  });
-
-  it("serves attachment for a guest with a valid Turnstile token who requests download=1", async () => {
-    mockIsValidSignedPdfDownloadToken.mockReturnValue(false);
-    mockVerifyTurnstileDownloadToken.mockReturnValue(true);
-    mockGetServerUser.mockResolvedValue(null);
-    mockStorage.getFile.mockResolvedValue({ name: "guest.pdf" });
-    mockStorage.getFileDownload.mockResolvedValue(Uint8Array.from([1, 2, 3]));
-    mockDb.listDocuments.mockResolvedValueOnce({ total: 0, documents: [] });
-
-    const request = new NextRequest(
-      "http://localhost/api/files/papers/file-guest?ctoken=valid-token&download=1",
-    );
-    const response = await GET(request, { params: Promise.resolve({ fileId: "file-guest" }) });
-
-    expect(response.status).toBe(200);
-    expect(response.headers.get("Content-Disposition")).toContain("attachment;");
-    expect(mockStorage.getFileDownload).toHaveBeenCalledWith("papers", "file-guest");
-  });
-
-  it("serves inline PDF for a guest with a valid Turnstile token who does not request download (View)", async () => {
-    mockIsValidSignedPdfDownloadToken.mockReturnValue(false);
-    mockVerifyTurnstileDownloadToken.mockReturnValue(true);
-    mockGetServerUser.mockResolvedValue(null);
-    mockStorage.getFileView.mockResolvedValue(Uint8Array.from([1, 2, 3]));
-
-    const request = new NextRequest(
-      "http://localhost/api/files/papers/file-view?ctoken=valid-token",
-    );
-    const response = await GET(request, { params: Promise.resolve({ fileId: "file-view" }) });
-
-    expect(response.status).toBe(200);
-    expect(response.headers.get("Content-Type")).toBe("application/pdf");
-    expect(response.headers.get("Content-Disposition")).toBe("inline");
-    expect(mockStorage.getFileDownload).not.toHaveBeenCalled();
-    expect(mockStorage.getFileView).toHaveBeenCalledWith("papers", "file-view");
-  });
-
-  it("returns 404 when markdown rendering throws AppwriteException with missing-file code", async () => {
-    mockStorage.getFile.mockResolvedValue({ name: "generated.pdf" });
-    mockStorage.getFileDownload
-      .mockRejectedValueOnce(Object.assign(new Error("not found"), { code: 404 }))
-      .mockResolvedValueOnce(Uint8Array.from(Buffer.from("# Unit 1 notes", "utf8")));
-    mockDb.listDocuments.mockResolvedValue({
-      documents: [{ input_payload_json: JSON.stringify({ jobType: "notes" }) }],
-    });
-    mockRenderMarkdownToPdfBuffer.mockImplementation(() => {
-      throw new AppwriteException("missing", 404);
-    });
-
-    const request = new NextRequest("http://localhost/api/files/papers/file-render-404?uid=u1&exp=1&token=t1");
-    const response = await GET(request, { params: Promise.resolve({ fileId: "file-render-404" }) });
-
-    expect(response.status).toBe(404);
   });
 });
