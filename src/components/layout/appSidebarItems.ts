@@ -79,6 +79,11 @@ export const APP_SIDEBAR_ITEMS: AppSidebarItem[] = [
     icon: "help",
     href: "/support",
   },
+  {
+    label: "Maintenance Costs",
+    icon: "volunteer_activism",
+    href: "/maintenance-cost",
+  },
   // ── Account ───────────────────────────────────────────
   {
     label: "My Profile",

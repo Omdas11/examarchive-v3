@@ -115,7 +115,7 @@ export async function GET(request: Request) {
   response.cookies.set(
     CF_SESSION_COOKIE,
     token,
-    sessionCookieOptions(isHttpsRequest(request)),
+    sessionCookieOptions(isHttpsRequest(request), url.hostname),
   );
   return clearState(response);
 }

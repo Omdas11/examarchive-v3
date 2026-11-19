@@ -80,14 +80,34 @@ export async function hashToken(token: string): Promise<string> {
 }
 
 /** Cookie options shared by the session cookie. */
-export function sessionCookieOptions(secure: boolean) {
-  return {
+/**
+ * Cookie options for the CF session. The cookie is shared across
+ * examarchive.dev and www.examarchive.dev (domain .examarchive.dev), so
+ * one sign-in works on both hosts — it used to be host-only, so a user
+ * signed in on www looked logged out on the apex (and vice versa), which
+ * showed a missing login state on direct visits. On localhost and the
+ * workers.dev preview the cookie stays host-only (a domain cookie cannot
+ * be set from those hosts).
+ */
+export function sessionCookieOptions(secure: boolean, host?: string) {
+  const options: {
+    httpOnly: true;
+    secure: boolean;
+    sameSite: "lax";
+    path: "/";
+    maxAge: number;
+    domain?: string;
+  } = {
     httpOnly: true,
     secure,
     sameSite: "lax" as const,
     path: "/",
     maxAge: SESSION_TTL_MS / 1000,
   };
+  if (host && (host === "examarchive.dev" || host.endsWith(".examarchive.dev"))) {
+    options.domain = ".examarchive.dev";
+  }
+  return options;
 }
 
 /** Map a D1 users row to the app's `UserProfile` shape. */

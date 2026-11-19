@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { CF_SESSION_COOKIE, deleteSessionByToken } from "@/lib/auth-cf";
+import {
+  CF_SESSION_COOKIE,
+  deleteSessionByToken,
+  sessionCookieOptions,
+} from "@/lib/auth-cf";
 import { isHttpsRequest } from "@/lib/google-oauth";
 
 /**
@@ -20,11 +24,10 @@ export async function POST(request: Request) {
 
   const response = NextResponse.redirect(new URL("/", url.origin));
   const secure = isHttpsRequest(request);
+  // Clear with the same domain the cookie was set with, or the shared
+  // .examarchive.dev cookie survives sign-out on the other host.
   response.cookies.set(CF_SESSION_COOKIE, "", {
-    httpOnly: true,
-    secure,
-    sameSite: "lax",
-    path: "/",
+    ...sessionCookieOptions(secure, url.hostname),
     maxAge: 0,
   });
   // Legacy Appwrite cookie (src/lib/auth.ts SESSION_COOKIE = "ea_session").
