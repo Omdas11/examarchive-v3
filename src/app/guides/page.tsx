@@ -9,6 +9,7 @@ export const metadata: Metadata = {
   title: "Study Guides",
   description:
     "Original study guides for Assam University FYUG students: how to use previous year papers, and subject-wise preparation for Physics, Chemistry, Mathematics, English, History, Political Science, Economics, and Bengali.",
+  alternates: { canonical: "/guides" },
 };
 
 const ALL = [...GUIDES, ...MORE_GUIDES];

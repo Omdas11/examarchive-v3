@@ -17,6 +17,7 @@ export const metadata: Metadata = {
   title: "Maintenance Costs — Keep ExamArchive Alive",
   description:
     "ExamArchive runs on free infrastructure — the only bill is the domain. Support the domain renewal and keep the archive free for every student.",
+  alternates: { canonical: "/maintenance-cost" },
 };
 
 /**

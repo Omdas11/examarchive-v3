@@ -11,6 +11,7 @@ import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 export const metadata: Metadata = {
   title: "Platform Stats",
   description: "Live ExamArchive platform statistics.",
+  alternates: { canonical: "/stats" },
 };
 
 interface StatCard {

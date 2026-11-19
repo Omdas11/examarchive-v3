@@ -7,6 +7,7 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "Privacy Policy",
   description: "Privacy Policy for ExamArchive — how we collect, use, and protect your data.",
+  alternates: { canonical: "/privacy" },
 };
 
 export default async function PrivacyPage() {

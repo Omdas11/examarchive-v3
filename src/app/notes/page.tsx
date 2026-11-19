@@ -9,6 +9,7 @@ export const metadata: Metadata = {
   title: "7th Semester Notes",
   description:
     "Free written notes for the 7th semester (FYUGP, Assam University, Haflong Government College): all 20 units across PHYDSC401T, PHYDSC402T, PHYDSC403T and CHM-DSM-401, with top high-mark topics and Assam University questions.",
+  alternates: { canonical: "/notes" },
 };
 
 const DISCLAIMER =

@@ -6,6 +6,7 @@ import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
 export const metadata: Metadata = {
   title: "About",
   description: "Learn about ExamArchive and how it works.",
+  alternates: { canonical: "/about" },
 };
 
 /** SVG icons for each workflow step */

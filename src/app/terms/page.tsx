@@ -7,6 +7,7 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "Terms of Use",
   description: "Terms and conditions for using ExamArchive.",
+  alternates: { canonical: "/terms" },
 };
 
 export default async function TermsPage() {

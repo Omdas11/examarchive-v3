@@ -29,6 +29,7 @@ export async function generateMetadata({
   return {
     title: `${paper.code} Notes — ${paper.name}`,
     description: `Written notes for ${paper.code} ${paper.name} (7th semester, FYUGP, Assam University): all 5 units, ${totalPages(paper)} pages, with top high-mark topics and Assam University questions.`,
+    alternates: { canonical: `/notes/${slug}` },
   };
 }
 

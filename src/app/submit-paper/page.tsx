@@ -7,6 +7,7 @@ export const metadata: Metadata = {
   title: "Submit a Question Paper",
   description:
     "Send us a missing Assam University question paper — fill in the paper details and upload the PDF. One paper per submission.",
+  alternates: { canonical: "/submit-paper" },
 };
 
 /** Short share link for the paper-collection Google Form. */

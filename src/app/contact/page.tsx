@@ -8,6 +8,7 @@ export const metadata: Metadata = {
   title: "Contact Us",
   description:
     "Contact ExamArchive: general questions, paper corrections, and copyright takedown requests.",
+  alternates: { canonical: "/contact" },
 };
 
 const CONTACTS = [

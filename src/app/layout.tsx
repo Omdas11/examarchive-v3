@@ -69,9 +69,6 @@ export const metadata: Metadata = {
     "free exam papers",
     "study materials",
   ],
-  alternates: {
-    canonical: "/",
-  },
   openGraph: {
     type: "website",
     url: SITE_URL,

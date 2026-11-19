@@ -7,6 +7,7 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "Disclaimer",
   description: "Disclaimer for ExamArchive — where the papers come from and what the site does and does not promise.",
+  alternates: { canonical: "/disclaimer" },
 };
 
 export default async function DisclaimerPage() {
