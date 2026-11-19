@@ -1,20 +1,23 @@
 import { NextResponse } from "next/server";
 import { getServerUser } from "@/lib/auth-cf";
-import { getD1 } from "@/lib/d1";
+import { getD1, getHomepageStatsD1, getRecentUserActivityD1 } from "@/lib/d1";
+import { xpTier, tierLabel, XP_TIERS } from "@/lib/roles";
 
 /**
  * GET /api/dashboard/stats
- * Returns stats for the currently authenticated user, sourced from D1:
- * - upload_count  : from users.upload_count (backend-maintained counter)
- * - pending_count : live count of papers with approved=false uploaded by the user
- * - xp            : from users.xp
- * - streak_days   : from users.streak_days
- * - tier          : from users.tier
- * - recent_papers : last 5 approved papers this user uploaded
+ * Everything the dashboard shows, sourced from D1 — no mock data:
+ * - xp / tier: users.xp; tier is DERIVED via xpTier(), never the stored
+ *   users.tier column (that column is stale/NULL for every user).
+ * - ai_credits: users.ai_credits (100 on signup; 10 = 1 AI notes set).
+ * - verifications_count: rows in content_verifications by this user.
+ * - papers_total / syllabi_total / new_papers: KV-cached homepage stats
+ *   (1h TTL, ~0 D1 reads on a hit).
+ * - recent_activity: the user's own views + downloads from user_activity,
+ *   merged newest-first (same source as /profile).
  *
- * NOTE: papers.uploaded_by is empty on all 636 migrated rows, so the
- * paper queries return 0/empty until new uploads record an uploader.
- * upload_count from the users row is the source of truth.
+ * Deliberately NOT here: streak_days (nothing updates it — showing it
+ * would be a stale number) and the user's own uploads (uploaded_by is
+ * empty on all migrated rows, and uploads are team-only now).
  */
 export async function GET() {
   try {
@@ -24,49 +27,58 @@ export async function GET() {
     }
 
     const db = await getD1();
-
-    const [approved, pending, userRow] = await Promise.all([
+    const [userRow, verifications, views, downloads, home] = await Promise.all([
       db
-        .prepare(
-          "SELECT id, paper_name, course_code, year, semester, department, created_at FROM papers WHERE uploaded_by = ? AND approved = 1 ORDER BY created_at DESC LIMIT 5",
-        )
+        .prepare("SELECT xp, ai_credits FROM users WHERE id = ?")
         .bind(user.id)
-        .all<{
-          id: string;
-          paper_name: string | null;
-          course_code: string | null;
-          year: number | null;
-          semester: string | null;
-          department: string | null;
-          created_at: string | null;
-        }>(),
+        .first<{ xp: number; ai_credits: number }>(),
       db
-        .prepare("SELECT COUNT(*) AS n FROM papers WHERE uploaded_by = ? AND approved = 0")
+        .prepare("SELECT COUNT(*) AS n FROM content_verifications WHERE user_id = ?")
         .bind(user.id)
         .first<{ n: number }>(),
-      db
-        .prepare("SELECT upload_count, xp, streak_days, tier FROM users WHERE id = ?")
-        .bind(user.id)
-        .first<{ upload_count: number; xp: number; streak_days: number; tier: string | null }>(),
+      getRecentUserActivityD1(user.id, "view", 5),
+      getRecentUserActivityD1(user.id, "download", 5),
+      // Homepage stats are KV-cached; if the cache read fails the dashboard
+      // still loads with zeros for the archive numbers.
+      getHomepageStatsD1().catch(() => null),
     ]);
 
-    const recentPapers = (approved.results ?? []).map((row) => ({
-      id: row.id,
-      title: row.paper_name || row.course_code || "Untitled Paper",
-      course_code: row.course_code || "",
-      year: Number(row.year ?? 0) || 0,
-      semester: row.semester || "",
-      department: row.department || "",
-      created_at: row.created_at,
-    }));
+    const xp = userRow?.xp ?? 0;
+    const tier = xpTier(xp);
+    const idx = XP_TIERS.reduce((acc, t, i) => (xp >= t.xp ? i : acc), 0);
+    const next = XP_TIERS[idx + 1] ?? null;
+
+    const activity = [...views, ...downloads]
+      .sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0))
+      .slice(0, 5)
+      .map((a) => ({
+        action: a.action,
+        title: a.title,
+        href: a.href,
+        paper_ref: a.paper_ref,
+        created_at: a.created_at,
+      }));
 
     return NextResponse.json({
-      upload_count: userRow?.upload_count ?? 0,
-      pending_count: pending?.n ?? 0,
-      xp: userRow?.xp ?? 0,
-      streak_days: userRow?.streak_days ?? 0,
-      tier: userRow?.tier ?? "bronze",
-      recent_papers: recentPapers,
+      xp,
+      tier,
+      tier_label: tierLabel(tier),
+      next_tier_xp: next?.xp ?? null,
+      next_tier_label: next ? tierLabel(next.tier) : null,
+      ai_credits: userRow?.ai_credits ?? 0,
+      verifications_count: verifications?.n ?? 0,
+      papers_total: home?.papersTotal ?? 0,
+      syllabi_total: home?.syllabusTotal ?? 0,
+      new_papers: (home?.recentPapers ?? []).map((p) => ({
+        id: p.id,
+        title: p.course_name || p.course_code || "Untitled Paper",
+        course_code: p.course_code || "",
+        year: p.year,
+        semester: p.semester,
+        department: p.department,
+        views: p.view_count ?? 0,
+      })),
+      recent_activity: activity,
     });
   } catch (err) {
     // Log only the error type/message, not the full stack, to avoid leaking sensitive paths

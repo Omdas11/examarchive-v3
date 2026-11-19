@@ -1,37 +1,47 @@
 /**
- * Updated Dashboard Page Component
- * Demonstrates the integration of all new dashboard components
- * Based on Digital Curator Stitch design system
- *
- * Usage in app/dashboard/page.tsx:
- * import DigitalCuratorDashboard from '@/components/dashboard/DigitalCuratorDashboard';
- * export default DigitalCuratorDashboard;
+ * Dashboard — shows only real data from /api/dashboard/stats (D1).
+ * No mock recommendations, no streak (nothing updates it), and no upload
+ * prompts (uploads are team-only now). Header search goes to real search
+ * on /browse instead of filtering a fake list.
  */
 
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import MainLayout from '@/components/layout/MainLayout';
 import DashboardCard from '@/components/dashboard/DashboardCard';
 import ActivityLog, { type ActivityItem } from '@/components/dashboard/ActivityLog';
 import RecommendationGrid from '@/components/dashboard/RecommendationGrid';
 import { cn } from '@/lib/utils';
 import { APP_SIDEBAR_ITEMS } from '@/components/layout/appSidebarItems';
+import { XP_TIERS } from '@/lib/roles';
 
 interface DashboardStats {
-  upload_count: number;
-  pending_count: number;
   xp: number;
-  streak_days: number;
   tier: string;
-  recent_papers: Array<{
+  tier_label: string;
+  next_tier_xp: number | null;
+  next_tier_label: string | null;
+  ai_credits: number;
+  verifications_count: number;
+  papers_total: number;
+  syllabi_total: number;
+  new_papers: Array<{
     id: string;
     title: string;
     course_code: string;
     year: number;
     semester: string;
     department: string;
-    created_at: string;
+    views: number;
+  }>;
+  recent_activity: Array<{
+    action: string;
+    title: string;
+    href: string;
+    paper_ref: string;
+    created_at: number;
   }>;
 }
 
@@ -43,39 +53,6 @@ interface DigitalCuratorDashboardProps {
   /** User role for sidebar filtering */
   userRole?: string;
 }
-
-const RECOMMENDATIONS = [
-  {
-    id: '1',
-    title: 'Natural Language Processing',
-    subtitle: 'Previous Year Question Paper (University of Oxford Archive)',
-    tags: ['FE COMP', '2024 PREP'],
-    views: 1200,
-    priority: 'featured' as const,
-  },
-  {
-    id: '2',
-    title: 'Compiler Design Cheat Sheet',
-    subtitle: 'Concise summary of Syntax Analysis & Code Optimization',
-    tags: ['FE COMP', 'HANDWRITTEN'],
-    views: 890,
-  },
-  {
-    id: '3',
-    title: 'Distributed Systems Guide',
-    subtitle: 'Complete roadmap for system design interviews',
-    tags: ['SYSTEM DESIGN', 'INTERVIEW'],
-    views: 2100,
-    isPremium: true,
-  },
-  {
-    id: '4',
-    title: 'Database Normalization Forms',
-    subtitle: 'Detailed explanation of 1NF to BCNF',
-    tags: ['DATABASE', '2024'],
-    views: 567,
-  },
-];
 
 /** Format a relative timestamp from an ISO date string */
 function relativeTime(isoDate: string): string {
@@ -93,12 +70,19 @@ function relativeTime(isoDate: string): string {
   }
 }
 
+const QUICK_ACTIONS = [
+  { href: '/browse', icon: 'library_books', label: 'Browse Library', chip: 'bg-secondary/10', iconColor: 'text-secondary' },
+  { href: '/profile', icon: 'person', label: 'Your Profile', chip: 'bg-primary/10', iconColor: 'text-primary' },
+  { href: '/maintenance-cost', icon: 'volunteer_activism', label: 'Maintenance Costs', chip: 'bg-tertiary/10', iconColor: 'text-tertiary' },
+  { href: '/submit-paper', icon: 'upload_file', label: 'Submit a Paper', chip: 'bg-secondary/10', iconColor: 'text-secondary' },
+];
+
 export default function DigitalCuratorDashboard({
   userName = 'Scholar',
   userInitials,
   userRole = 'user',
 }: DigitalCuratorDashboardProps) {
-  const [searchQuery, setSearchQuery] = useState('');
+  const router = useRouter();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -115,58 +99,88 @@ export default function DigitalCuratorDashboard({
       .finally(() => setLoading(false));
   }, []);
 
-  // Build activity items from real recent papers
-  const activityItems: ActivityItem[] = stats?.recent_papers?.length
-    ? stats.recent_papers.map((paper) => ({
-        id: paper.id,
-        icon: 'upload_file',
-        title: paper.title,
-        description: `Approved and published to the archive.${paper.department ? ` Department: ${paper.department}` : ''}`,
-        status: 'success',
-        timestamp: `${relativeTime(paper.created_at)}${paper.semester ? ` • Semester ${paper.semester}` : ''}`,
-        tags: [paper.course_code, paper.year ? String(paper.year) : ''].filter(Boolean),
+  const xp = stats?.xp ?? 0;
+  const tierLabel = stats?.tier_label ?? 'Bronze';
+  const nextTierXp = stats?.next_tier_xp ?? null;
+  const nextTierLabel = stats?.next_tier_label ?? null;
+  const credits = stats?.ai_credits ?? 0;
+  const verifications = stats?.verifications_count ?? 0;
+  const papersTotal = stats?.papers_total ?? 0;
+  const syllabiTotal = stats?.syllabi_total ?? 0;
+
+  // XP progress toward the next tier (same ladder as /profile).
+  const tierIdx = XP_TIERS.reduce((acc, t, i) => (xp >= t.xp ? i : acc), 0);
+  const prevTierXp = XP_TIERS[tierIdx].xp;
+  const xpProgress = nextTierXp
+    ? Math.min(((xp - prevTierXp) / (nextTierXp - prevTierXp)) * 100, 100)
+    : 100;
+
+  // Real activity: the user's own views + downloads, newest first.
+  const activityItems: ActivityItem[] = stats?.recent_activity?.length
+    ? stats.recent_activity.map((a) => ({
+        id: `${a.action}-${a.paper_ref}-${a.created_at}`,
+        icon: a.action === 'download' ? 'download' : 'visibility',
+        title: a.title,
+        description: a.action === 'download' ? 'Downloaded from the archive.' : 'Viewed in the archive.',
+        status: 'info',
+        timestamp: relativeTime(new Date(a.created_at).toISOString()),
+        tags: [a.paper_ref].filter(Boolean),
+        actionUrl: a.href,
       }))
     : [
         {
           id: 'placeholder',
-          icon: 'upload_file',
-          title: 'No uploads yet',
-          description: 'Start contributing by uploading your first question paper.',
+          icon: 'history',
+          title: 'No activity yet',
+          description: 'Papers you view or download will show up here.',
           status: 'info',
           timestamp: '',
           tags: [],
         },
       ];
 
-  const uploadCount = stats?.upload_count ?? 0;
-  const xp = stats?.xp ?? 0;
-  const streakDays = stats?.streak_days ?? 0;
-  const tier = stats?.tier ?? 'bronze';
+  // Real suggestions: the newest papers in the archive.
+  const suggestions = (stats?.new_papers ?? []).slice(0, 4).map((paper) => ({
+    id: paper.id,
+    title: paper.title,
+    subtitle: `${paper.course_code}${paper.year ? ` · ${paper.year}` : ''}${paper.department ? ` · ${paper.department}` : ''}`,
+    tags: [paper.course_code, paper.semester ? `Sem ${paper.semester}` : ''].filter(Boolean),
+    views: paper.views,
+    href: `/paper/${paper.id}`,
+  }));
 
   const STATS = [
     {
-      label: 'Papers Uploaded',
-      value: loading ? '–' : String(uploadCount),
-      icon: 'upload_file',
-      trend: stats?.pending_count ? `+${stats.pending_count} pending review` : 'Contribute more!',
-    },
-    {
-      label: 'Scholar Points',
+      label: 'Scholar XP',
       value: loading ? '–' : xp.toLocaleString(),
       icon: 'star',
-      trend: streakDays > 0 ? `${streakDays}-day streak` : 'Start your streak!',
+      trend: nextTierXp
+        ? `${tierLabel} · ${nextTierXp - xp} XP to ${nextTierLabel}`
+        : `${tierLabel} · top tier reached`,
     },
     {
-      label: 'Activity Tier',
-      value: loading ? '–' : tier.charAt(0).toUpperCase() + tier.slice(1),
-      icon: 'verified',
-      trend: 'Keep verifying to level up',
+      label: 'AI Credits',
+      value: loading ? '–' : credits.toLocaleString(),
+      icon: 'token',
+      trend: '10 credits = 1 AI notes set',
     },
-
+    {
+      label: 'Papers in Archive',
+      value: loading ? '–' : papersTotal.toLocaleString(),
+      icon: 'library_books',
+      trend: `${syllabiTotal} syllabi`,
+    },
+    {
+      label: 'Papers Verified',
+      value: loading ? '–' : verifications.toLocaleString(),
+      icon: 'verified',
+      trend: verifications > 0 ? 'Content checks you have done' : 'No verifications yet',
+    },
   ];
 
   const handleSearch = (query: string) => {
-    setSearchQuery(query);
+    const q = query.trim();
+    if (q) router.push(`/browse?search=${encodeURIComponent(q)}`);
   };
 
   return (
@@ -189,9 +203,9 @@ export default function DigitalCuratorDashboard({
             Welcome back, {firstName}!
           </h1>
           <p className="text-on-surface-variant">
-            {uploadCount > 0
-              ? `You have contributed ${uploadCount} paper${uploadCount === 1 ? '' : 's'} to the archive.`
-              : 'Start contributing by uploading your first question paper.'}
+            {loading
+              ? 'Loading your stats…'
+              : `${tierLabel} tier · ${credits} AI credits · ${papersTotal} papers in the archive.`}
           </p>
         </section>
 
@@ -213,45 +227,31 @@ export default function DigitalCuratorDashboard({
 
         {/* Main Content Grid */}
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column: Activity Log */}
+          {/* Left Column: XP progress + Activity Log */}
           <div className="lg:col-span-2 space-y-8">
-            {/* Upload Stats Summary */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="p-4 bg-gradient-to-br from-primary/5 to-primary-container/5 rounded-xl border border-primary/20">
-                <p className="text-xs text-on-surface-variant font-bold uppercase mb-2">
-                  Approved Papers
+            {/* XP progress toward next tier */}
+            <div className="p-4 bg-gradient-to-br from-primary/5 to-primary-container/5 rounded-xl border border-primary/20">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-on-surface-variant font-bold uppercase">
+                  {tierLabel} Tier
                 </p>
-                <p className="text-2xl font-bold text-primary">
-                  {loading ? '–' : `${uploadCount} Paper${uploadCount === 1 ? '' : 's'}`}
-                </p>
-                <p className="text-xs text-on-surface-variant mt-1">
-                  Verified by moderators
+                <p className="text-xs text-on-surface-variant font-bold">
+                  {loading ? '–' : nextTierXp ? `${xp} / ${nextTierXp} XP` : `${xp} XP · top tier`}
                 </p>
               </div>
-
-              <div className="p-4 bg-gradient-to-br from-secondary/5 to-secondary-container/5 rounded-xl border border-secondary/20">
-                <p className="text-xs text-on-surface-variant font-bold uppercase mb-2">
-                  Daily Streak
-                </p>
-                <p className="text-2xl font-bold text-secondary">
-                  {loading ? '–' : `${streakDays} Day${streakDays === 1 ? '' : 's'}`}
-                </p>
-                <p className="text-xs text-on-surface-variant mt-1">
-                  {streakDays > 0 ? 'Keep it going!' : 'Log in daily to build a streak'}
-                </p>
+              <div className="h-2 rounded-full bg-surface-container-highest overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-primary transition-all"
+                  style={{ width: `${loading ? 0 : xpProgress}%` }}
+                />
               </div>
-
-              <div className="p-4 bg-gradient-to-br from-tertiary/5 to-tertiary-container/5 rounded-xl border border-tertiary/20">
-                <p className="text-xs text-on-surface-variant font-bold uppercase mb-2">
-                  Scholar XP
-                </p>
-                <p className="text-2xl font-bold text-tertiary">
-                  {loading ? '–' : xp.toLocaleString()}
-                </p>
-                <p className="text-xs text-on-surface-variant mt-1">
-                  Upload more to earn XP
-                </p>
-              </div>
+              <p className="text-xs text-on-surface-variant mt-2">
+                {loading
+                  ? ''
+                  : nextTierXp
+                    ? `${nextTierXp - xp} XP to ${nextTierLabel} — verify papers to earn XP.`
+                    : 'You reached the top tier.'}
+              </p>
             </div>
 
             {/* Activity Log */}
@@ -262,47 +262,42 @@ export default function DigitalCuratorDashboard({
             />
           </div>
 
-          {/* Right Column: Quick Actions & Recommendations */}
+          {/* Right Column: Quick Actions, New Papers & Support CTA */}
           <div className="space-y-6">
             {/* Quick Actions */}
             <div>
               <h3 className="text-lg font-bold text-on-surface mb-4">Quick Actions</h3>
               <div className="space-y-2">
-                <a
-                  href="/browse"
-                  className={cn(
-                    'w-full flex items-center gap-4 p-4',
-                    'bg-surface-container-highest rounded-xl',
-                    'hover:bg-surface-container transition-all duration-200'
-                  )}
-                >
-                  <div className="w-10 h-10 rounded-lg bg-secondary/10 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-secondary">
-                      library_books
-                    </span>
-                  </div>
-                  <span className="font-bold text-sm">Browse Library</span>
-                </a>
+                {QUICK_ACTIONS.map((action) => (
+                  <a
+                    key={action.href}
+                    href={action.href}
+                    className={cn(
+                      'w-full flex items-center gap-4 p-4',
+                      'bg-surface-container-highest rounded-xl',
+                      'hover:bg-surface-container transition-all duration-200'
+                    )}
+                  >
+                    <div className={cn('w-10 h-10 rounded-lg flex items-center justify-center', action.chip)}>
+                      <span className={cn('material-symbols-outlined', action.iconColor)}>
+                        {action.icon}
+                      </span>
+                    </div>
+                    <span className="font-bold text-sm">{action.label}</span>
+                  </a>
+                ))}
               </div>
             </div>
 
-            {/* Recommendations */}
+            {/* Newest papers in the archive */}
             <RecommendationGrid
-              items={RECOMMENDATIONS
-                .filter(
-                  (item) =>
-                    !searchQuery ||
-                    item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    item.subtitle.toLowerCase().includes(searchQuery.toLowerCase()),
-                )
-                .slice(0, 2)}
-              title="Suggested for You"
-              isPro={true}
+              items={suggestions}
+              title="New in the archive"
+              subtitle="The latest papers added to ExamArchive"
               columns={1}
             />
 
-
-            {/* CTA Card */}
+            {/* CTA Card — keep the site alive */}
             <div
               className={cn(
                 'p-8 rounded-[2rem] gradient-primary',
@@ -310,15 +305,15 @@ export default function DigitalCuratorDashboard({
               )}
             >
               <div className="relative z-10">
-                <h4 className="font-black text-xl mb-2 tracking-tight">Collaborate with Curators</h4>
+                <h4 className="font-black text-xl mb-2 tracking-tight">Keep ExamArchive alive</h4>
                 <p className="text-sm text-white/80 mb-6 leading-relaxed font-medium">
-                  Join our elite moderation team and verify papers to earn exclusive badges.
+                  The domain costs ₹2,254.75 a year, due 27 Jan 2027. Support from ₹20 keeps the archive running for every student.
                 </p>
                 <a
-                  href="/profile"
+                  href="/maintenance-cost"
                   className="inline-block px-6 py-2.5 bg-white text-primary rounded-full text-[10px] font-black uppercase tracking-widest hover:shadow-lg transition-all active:scale-95"
                 >
-                  VIEW YOUR PROFILE
+                  SUPPORT THE SITE
                 </a>
               </div>
 
@@ -328,7 +323,7 @@ export default function DigitalCuratorDashboard({
                   className="material-symbols-outlined text-[140px]"
                   style={{ fontVariationSettings: "'FILL' 1" }}
                 >
-                  auto_stories
+                  volunteer_activism
                 </span>
               </div>
             </div>
