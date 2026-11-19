@@ -4,6 +4,14 @@ import { getD1 } from "@/lib/d1";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/** Spam guard for the public form: max requests per email per day. The
+    /api/* WAF rule (10 req/10s per IP) covers bursts; this cap stops one
+    address flooding the queue. Turnstile reuse is the follow-up if spam
+    appears anyway — the form is not auto-notifying, requests are fulfilled
+    manually by the founder. */
+const MAX_REQUESTS_PER_EMAIL_PER_DAY = 5;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 /**
  * POST /api/request-paper — public paper-request form (browse empty state).
  * Guests included: the whole point is reaching students who cannot find a
@@ -46,6 +54,18 @@ export async function POST(req: NextRequest) {
 
     const db = await getD1();
     const now = Date.now();
+    const recent = await db
+      .prepare(
+        "SELECT COUNT(*) AS n FROM paper_requests WHERE email = ? AND created_at > ?",
+      )
+      .bind(email, now - DAY_MS)
+      .first<{ n: number }>();
+    if (Number(recent?.n ?? 0) >= MAX_REQUESTS_PER_EMAIL_PER_DAY) {
+      return NextResponse.json(
+        { ok: false, error: "Too many requests from this email. Please try again tomorrow." },
+        { status: 429 },
+      );
+    }
     await db
       .prepare(
         "INSERT INTO paper_requests (id, course_code, paper_name, semester, year, department, email, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'requested', ?, ?)",

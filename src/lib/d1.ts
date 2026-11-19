@@ -96,6 +96,15 @@ function escapeLike(value: string): string {
   return value.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
 }
 
+/**
+ * Normalize a search term the way the browse page does: lowercase and strip
+ * every non-alphanumeric, so "COMDSC" also matches "COM-DSC-401T".
+ * The SQL side uses REPLACE() on course_code so both sides compare compact.
+ */
+function normalizeSearchTerm(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
 /** Clamp a caller-supplied limit into a safe range for D1. */
 function clampLimit(limit: number, max = 100): number {
   if (!Number.isFinite(limit) || limit < 1) return 20;
@@ -491,13 +500,16 @@ export async function searchPapers(
   const db = await getD1();
   const columns = PAPER_COLUMNS.join(", ");
   const like = `%${escapeLike(query)}%`;
+  // Course codes are stored hyphenated ("COM-DSC-401T"); compare the compact
+  // form so "COMDSC" matches too. Names/departments keep the plain LIKE.
+  const codeLike = `%${escapeLike(normalizeSearchTerm(query))}%`;
   const res = await db
     .prepare(
       `SELECT ${columns} FROM papers WHERE approved = 1 AND ` +
-        `(course_code LIKE ? ESCAPE '\\' OR paper_name LIKE ? ESCAPE '\\' OR department LIKE ? ESCAPE '\\') ` +
+        `(REPLACE(REPLACE(REPLACE(course_code, '-', ''), ' ', ''), '.', '') LIKE ? ESCAPE '\\' OR paper_name LIKE ? ESCAPE '\\' OR department LIKE ? ESCAPE '\\') ` +
         `ORDER BY created_at DESC LIMIT ?`,
     )
-    .bind(like, like, like, clampLimit(limit, 20))
+    .bind(codeLike, like, like, clampLimit(limit, 20))
     .all<PaperRow>();
   return (res.results ?? []).map(toPaperFromRow);
 }
@@ -523,14 +535,15 @@ export async function searchSyllabus(
   if (!query) return [];
   const db = await getD1();
   const like = `%${escapeLike(query)}%`;
+  const codeLike = `%${escapeLike(normalizeSearchTerm(query))}%`;
   const res = await db
     .prepare(
       `SELECT id, subject, course_code, semester, university FROM syllabus ` +
         `WHERE approval_status = 'approved' AND ` +
-        `(subject LIKE ? ESCAPE '\\' OR course_code LIKE ? ESCAPE '\\') ` +
+        `(subject LIKE ? ESCAPE '\\' OR REPLACE(REPLACE(REPLACE(course_code, '-', ''), ' ', ''), '.', '') LIKE ? ESCAPE '\\') ` +
         `ORDER BY created_at DESC LIMIT ?`,
     )
-    .bind(like, like, clampLimit(limit, 20))
+    .bind(like, codeLike, clampLimit(limit, 20))
     .all<SyllabusSuggestion>();
   return res.results ?? [];
 }
