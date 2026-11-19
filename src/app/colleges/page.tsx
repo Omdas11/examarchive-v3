@@ -62,7 +62,7 @@ export default async function CollegesPage() {
         </div>
 
         <div
-          className="mt-6 flex items-start gap-3 rounded-2xl border p-4"
+          className="mt-6 flex items-start gap-3 rounded-lg border p-4"
           style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}
         >
           <span className="material-symbols-outlined shrink-0" style={{ color: "#b45309" }} aria-hidden="true">
@@ -84,7 +84,7 @@ export default async function CollegesPage() {
           {COLLEGES.map((college) => (
             <article
               key={college.name}
-              className="flex flex-col gap-2 rounded-2xl border p-4"
+              className="flex flex-col gap-2 rounded-lg border p-4"
               style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}
             >
               <div className="flex items-start justify-between gap-2">
