@@ -50,6 +50,7 @@ export default function Footer() {
             <Link href="/guides" className="hover:text-primary transition-colors text-sm font-medium">Study Guides</Link>
             <Link href="/notes" className="hover:text-primary transition-colors text-sm font-medium">7th Semester Notes</Link>
             <Link href="/about" className="hover:text-primary transition-colors text-sm font-medium">About ExamArchive</Link>
+            <Link href="/maintenance-cost" className="hover:text-primary transition-colors text-sm font-medium">Maintenance Costs — Support Us</Link>
           </div>
 
           {/* Platform info */}
