@@ -66,12 +66,12 @@ export default function Header({
       alt={userName}
       width={36}
       height={36}
-      className="w-9 h-9 rounded-full object-cover flex-shrink-0 shadow-sm"
+      className="w-9 h-9 rounded-full object-cover flex-shrink-0 shadow-sm ring-2 ring-[#047857]"
       onError={() => setAvatarError(true)}
     />
   ) : (
     <div
-      className="w-9 h-9 rounded-full flex items-center justify-center text-on-primary text-sm font-bold flex-shrink-0 shadow-sm"
+      className="w-9 h-9 rounded-full flex items-center justify-center text-on-primary text-sm font-bold flex-shrink-0 shadow-sm ring-2 ring-[#047857]"
       style={{ background: "var(--color-primary)" }}
     >
       {userInitials}
@@ -243,7 +243,7 @@ export default function Header({
             <button
               type="button"
               className={cn(
-                'flex items-center gap-3 px-1.5 py-1.5 pr-4 rounded-full',
+                'flex items-center gap-0 sm:gap-3 p-1.5 sm:pr-4 rounded-full',
                 'bg-surface-container-low hover:bg-surface-container transition-all duration-200',
                 'group border border-outline-variant/10'
               )}
@@ -262,7 +262,7 @@ export default function Header({
             <Link
               href="/profile"
               className={cn(
-                'flex items-center gap-3 px-1.5 py-1.5 pr-4 rounded-full',
+                'flex items-center gap-0 sm:gap-3 p-1.5 sm:pr-4 rounded-full',
                 'bg-surface-container-low hover:bg-surface-container transition-all duration-200',
                 'group border border-outline-variant/10'
               )}
