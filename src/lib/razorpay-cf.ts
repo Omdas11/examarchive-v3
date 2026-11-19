@@ -15,8 +15,9 @@ export async function getRazorpayKeysAsync(): Promise<{
 } | null> {
   try {
     const { env } = await getCloudflareContext({ async: true });
-    const keyId = (env as Record<string, string | undefined>).RAZORPAY_KEY_ID;
-    const keySecret = (env as Record<string, string | undefined>).RAZORPAY_KEY_SECRET;
+    const e = env as unknown as Record<string, string | undefined>;
+    const keyId = e.RAZORPAY_KEY_ID;
+    const keySecret = e.RAZORPAY_KEY_SECRET;
     if (!keyId || !keySecret) return null;
     return { keyId, keySecret };
   } catch {
