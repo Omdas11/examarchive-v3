@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import Script from "next/script";
 import { getServerUser } from "@/lib/auth-cf";
 import { getD1 } from "@/lib/d1";
@@ -18,13 +19,80 @@ export const metadata: Metadata = {
     "ExamArchive runs on free infrastructure — the only bill is the domain. Support the domain renewal and keep the archive free for every student.",
 };
 
+/**
+ * Inline SVG icons for the cost cards. The Material Symbols font renders
+ * these 6 glyphs visibly off-centre in their circles (measured on a phone
+ * screenshot: domain/cloud/papers ~12px left and ~10px high, the
+ * volunteer icon ~15px low) because each glyph's ink sits off-centre in
+ * its em square. Stroke SVGs in a 24x24 viewBox centre exactly.
+ */
+function CostIcon({ children }: { children: ReactNode }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="26"
+      height="26"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {children}
+    </svg>
+  );
+}
+
+const COST_ICONS = {
+  building: (
+    <CostIcon>
+      <path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z" />
+      <path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2" />
+      <path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2" />
+      <path d="M10 6h4M10 10h4M10 14h4M10 18h4" />
+    </CostIcon>
+  ),
+  cloud: (
+    <CostIcon>
+      <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />
+    </CostIcon>
+  ),
+  database: (
+    <CostIcon>
+      <ellipse cx="12" cy="5" rx="8" ry="3" />
+      <path d="M4 5v14c0 1.66 3.58 3 8 3s8-1.34 8-3V5" />
+      <path d="M4 12c0 1.66 3.58 3 8 3s8-1.34 8-3" />
+    </CostIcon>
+  ),
+  server: (
+    <CostIcon>
+      <rect x="2" y="3" width="20" height="7" rx="2" />
+      <rect x="2" y="14" width="20" height="7" rx="2" />
+      <path d="M6 6.5h.01M6 17.5h.01" />
+    </CostIcon>
+  ),
+  document: (
+    <CostIcon>
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+      <path d="M14 2v6h6" />
+      <path d="M9 13h6M9 17h6" />
+    </CostIcon>
+  ),
+  heart: (
+    <CostIcon>
+      <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+    </CostIcon>
+  ),
+};
+
 /** Costs, exactly as they stand. No padding, no rounding games. */
 const COSTS = [
   {
     item: "Domain — examarchive.dev",
     detail: `Renews ${DOMAIN_RENEWAL_DATE}`,
     amountPaise: DOMAIN_COST_PAISE,
-    icon: "domain",
+    icon: COST_ICONS.building,
     color: "#b45309",
     tint: "#f59e0b",
   },
@@ -32,7 +100,7 @@ const COSTS = [
     item: "Hosting — Cloudflare Workers",
     detail: "Free tier",
     amountPaise: 0,
-    icon: "cloud",
+    icon: COST_ICONS.cloud,
     color: "#0369a1",
     tint: "#0284c7",
   },
@@ -40,7 +108,7 @@ const COSTS = [
     item: "Database — Cloudflare D1",
     detail: "Free tier",
     amountPaise: 0,
-    icon: "database",
+    icon: COST_ICONS.database,
     color: "#047857",
     tint: "#059669",
   },
@@ -48,7 +116,7 @@ const COSTS = [
     item: "Storage — Cloudflare R2",
     detail: "Free tier",
     amountPaise: 0,
-    icon: "storage",
+    icon: COST_ICONS.server,
     color: "#6d28d9",
     tint: "#7c3aed",
   },
@@ -56,7 +124,7 @@ const COSTS = [
     item: "Question papers & syllabus",
     detail: "Free forever, by design",
     amountPaise: 0,
-    icon: "description",
+    icon: COST_ICONS.document,
     color: "#be123c",
     tint: "#e11d48",
   },
@@ -220,7 +288,7 @@ export default async function MaintenanceCostPage() {
               }}
             >
               <span
-                className="material-symbols-outlined flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-2xl"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
                 style={{
                   color: c.color,
                   background: `color-mix(in srgb, ${c.tint} 14%, var(--color-surface))`,
@@ -252,11 +320,11 @@ export default async function MaintenanceCostPage() {
             style={{ borderColor: "var(--color-border)", animationDelay: "0.5s" }}
           >
             <span
-              className="material-symbols-outlined flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-2xl"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
               style={{ color: "#047857", background: "var(--color-accent-soft)" }}
               aria-hidden="true"
             >
-              volunteer_activism
+              {COST_ICONS.heart}
             </span>
             <span className="text-sm leading-snug" style={{ color: "var(--color-text-muted)" }}>
               <span className="block font-bold" style={{ color: "var(--color-text)" }}>
