@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, type FormEvent } from "react";
 import PaperCard from "@/components/PaperCard";
 import CustomSelect from "@/components/CustomSelect";
 import Breadcrumb from "@/components/Breadcrumb";
@@ -53,8 +53,194 @@ function useDebounce(value: string, delay: number) {
   return debounced;
 }
 
+/** Search that ignores hyphens, spaces, dots and case, so "COMDSC" also
+    finds "COM-DSC" and "com dsc 152" finds "COMDSC-152T". */
+function normalizeSearch(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
 /** Papers shown per page in the browse grid. */
 const PAGE_SIZE = 24;
+
+/** Request-a-paper form shown when no paper matches the current filters.
+    Email is required — it is the only way to send the student the paper
+    once it is added. Prefilled from the active search/filters. */
+function RequestPaperForm({
+  streams,
+  semesters,
+  years,
+  initialCode,
+  initialSemester,
+  initialYear,
+  initialDepartment,
+}: {
+  streams: string[];
+  semesters: string[];
+  years: number[];
+  initialCode: string;
+  initialSemester: string | null;
+  initialYear: number | null;
+  initialDepartment: string | null;
+}) {
+  const [code, setCode] = useState(initialCode);
+  const [name, setName] = useState("");
+  const [semester, setSemester] = useState<string>(initialSemester ?? "");
+  const [year, setYear] = useState<string>(initialYear ? String(initialYear) : "");
+  const [department, setDepartment] = useState<string>(initialDepartment ?? "");
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [error, setError] = useState("");
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+    if (!code.trim() && !name.trim()) {
+      setError("Please enter the course code or the paper name.");
+      return;
+    }
+    setError("");
+    setStatus("sending");
+    try {
+      const res = await fetch("/api/request-paper", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          course_code: code.trim() || null,
+          paper_name: name.trim() || null,
+          semester: semester || null,
+          year: year ? Number(year) : null,
+          department: department || null,
+          email: email.trim(),
+        }),
+      });
+      const json = (await res.json()) as { ok?: boolean; error?: string };
+      if (res.ok && json.ok) {
+        setStatus("sent");
+      } else {
+        setStatus("error");
+        setError(json.error ?? "Could not send the request. Please try again.");
+      }
+    } catch {
+      setStatus("error");
+      setError("Network error. Please try again.");
+    }
+  }
+
+  if (status === "sent") {
+    return (
+      <div className="mt-6 rounded-3xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/50 px-5 py-6 text-center">
+        <div className="w-12 h-12 rounded-full bg-emerald-600 text-white mx-auto flex items-center justify-center mb-3 shadow-lg shadow-emerald-600/30">
+          <span className="material-symbols-outlined font-black text-2xl">check</span>
+        </div>
+        <h4 className="text-base font-extrabold tracking-tight">Request received</h4>
+        <p className="mt-1 text-sm font-medium text-on-surface-variant">
+          We will email you at <span className="font-bold text-on-surface">{email}</span> when this paper is added.
+        </p>
+      </div>
+    );
+  }
+
+  const inputCls =
+    "w-full rounded-full border border-outline-variant/10 bg-surface px-4 py-3 text-sm font-medium outline-none placeholder:text-on-surface-variant/60 focus:ring-2 focus:ring-primary/20";
+  const labelCls = "block text-xs font-bold uppercase tracking-wider opacity-60 mb-1.5";
+
+  return (
+    <form onSubmit={submit} className="mt-6 text-left">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label htmlFor="req-code" className={labelCls}>Course code</label>
+          <input
+            id="req-code"
+            type="text"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            placeholder="e.g. COMDSC-301T"
+            className={inputCls}
+          />
+        </div>
+        <div>
+          <label htmlFor="req-name" className={labelCls}>Paper name</label>
+          <input
+            id="req-name"
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. Financial Management"
+            className={inputCls}
+          />
+        </div>
+        <div>
+          <label htmlFor="req-semester" className={labelCls}>Semester</label>
+          <select
+            id="req-semester"
+            value={semester}
+            onChange={(e) => setSemester(e.target.value)}
+            className={inputCls}
+          >
+            <option value="">Select semester</option>
+            {semesters.map((s) => (
+              <option key={s} value={s}>Sem {s}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="req-year" className={labelCls}>Year</label>
+          <select
+            id="req-year"
+            value={year}
+            onChange={(e) => setYear(e.target.value)}
+            className={inputCls}
+          >
+            <option value="">Select year</option>
+            {years.map((y) => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="req-department" className={labelCls}>Department</label>
+          <select
+            id="req-department"
+            value={department}
+            onChange={(e) => setDepartment(e.target.value)}
+            className={inputCls}
+          >
+            <option value="">Select department</option>
+            {streams.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="req-email" className={labelCls}>Your email *</label>
+          <input
+            id="req-email"
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.com"
+            className={inputCls}
+          />
+        </div>
+      </div>
+      {error && <p className="mt-3 text-sm font-semibold text-red-600">{error}</p>}
+      <button
+        type="submit"
+        disabled={status === "sending"}
+        className="mt-5 w-full rounded-full bg-primary py-3.5 text-sm font-bold text-white shadow-lg shadow-primary/20 transition-all hover:brightness-110 active:scale-[0.99] disabled:opacity-60"
+      >
+        {status === "sending" ? "Sending request…" : "Request this paper"}
+      </button>
+      <p className="mt-2 text-center text-xs font-medium opacity-50">
+        Your email is only used to send you this paper. We never share it.
+      </p>
+    </form>
+  );
+}
 
 export default function BrowseClient({
   initialPapers,
@@ -155,12 +341,12 @@ export default function BrowseClient({
     }
 
     if (debouncedSearch.trim()) {
-      const q = debouncedSearch.toLowerCase();
+      const q = normalizeSearch(debouncedSearch);
       list = list.filter(
         (p) =>
-          (p.title ?? "").toLowerCase().includes(q) ||
-          (p.course_code ?? "").toLowerCase().includes(q) ||
-          p.course_name.toLowerCase().includes(q),
+          normalizeSearch(p.title ?? "").includes(q) ||
+          normalizeSearch(p.course_code ?? "").includes(q) ||
+          normalizeSearch(p.course_name).includes(q),
       );
     }
 
@@ -260,6 +446,29 @@ export default function BrowseClient({
   const years = availableYears.length > 0 ? availableYears : [];
   const universities = availableUniversities.length > 0 ? availableUniversities : [];
   const semesters = availableSemesters.length > 0 ? availableSemesters : [];
+
+  /** Any search or filter active — controls the "Clear filters" button. */
+  const hasActiveFilters =
+    debouncedSearch.trim() !== "" ||
+    activeProgramme !== "ALL" ||
+    activePaperType !== null ||
+    activeStream !== null ||
+    activeYear !== null ||
+    activeSemester !== null ||
+    activeUniversity !== defaultUniversity ||
+    myCoursesActive;
+
+  /** Reset every filter and the search box back to the page defaults. */
+  const clearFilters = useCallback(() => {
+    setSearch("");
+    setActiveProgramme("ALL");
+    setActivePaperType(null);
+    setActiveStream(null);
+    setActiveYear(null);
+    setActiveSemester(null);
+    setActiveUniversity(defaultUniversity);
+    setMyCoursesActive(false);
+  }, [defaultUniversity]);
 
   // Build breadcrumb items based on active filters
   const breadcrumbItems = [
@@ -365,16 +574,19 @@ export default function BrowseClient({
       {!myCoursesActive && (
         <div className="mt-6 space-y-4">
           {/* College label — hardcoded to Haflong Government College */}
-          <div className="flex flex-wrap gap-2 items-center">
-            <span className="text-[10px] uppercase tracking-[0.15em] font-black opacity-40 mr-2">College</span>
-            <span className="rounded-full px-5 py-2 text-xs font-bold border bg-primary text-white border-primary shadow-lg shadow-primary/20">
-              Haflong Government College
-            </span>
+          <div className="flex gap-2 items-center">
+            <span className="shrink-0 text-[10px] uppercase tracking-[0.15em] font-black opacity-40 mr-2">College</span>
+            <div className="flex gap-2 overflow-x-auto flex-nowrap no-scrollbar py-0.5">
+              <span className="shrink-0 rounded-full px-5 py-2 text-xs font-bold border bg-primary text-white border-primary shadow-lg shadow-primary/20">
+                Haflong Government College
+              </span>
+            </div>
           </div>
 
           {/* Programme filter */}
-          <div className="flex flex-wrap gap-2 items-center">
-            <span className="text-[10px] uppercase tracking-[0.15em] font-black opacity-40 mr-2">Programme</span>
+          <div className="flex gap-2 items-center">
+            <span className="shrink-0 text-[10px] uppercase tracking-[0.15em] font-black opacity-40 mr-2">Programme</span>
+            <div className="flex gap-2 overflow-x-auto flex-nowrap no-scrollbar py-0.5">
             {PROGRAMMES.map((p) => (
               <button
                 key={p}
@@ -385,12 +597,14 @@ export default function BrowseClient({
                 {p}
               </button>
             ))}
+            </div>
           </div>
 
           {/* Paper type filter chips */}
           {availablePaperTypes.length > 0 && (
-            <div className="flex flex-wrap gap-2 items-center">
-              <span className="text-[10px] uppercase tracking-[0.15em] font-black opacity-40 mr-2">Category</span>
+            <div className="flex gap-2 items-center">
+              <span className="shrink-0 text-[10px] uppercase tracking-[0.15em] font-black opacity-40 mr-2">Category</span>
+              <div className="flex gap-2 overflow-x-auto flex-nowrap no-scrollbar py-0.5">
               {availablePaperTypes.map((pt) => {
                 const isActive = activePaperType === pt;
                 return (
@@ -404,13 +618,15 @@ export default function BrowseClient({
                   </button>
                 );
               })}
+              </div>
             </div>
           )}
 
           {/* Stream filter */}
           {streams.length > 0 && (
-            <div className="flex flex-wrap gap-2 items-center">
-              <span className="text-[10px] uppercase tracking-[0.15em] font-black opacity-40 mr-2">Department</span>
+            <div className="flex gap-2 items-center">
+              <span className="shrink-0 text-[10px] uppercase tracking-[0.15em] font-black opacity-40 mr-2">Department</span>
+              <div className="flex gap-2 overflow-x-auto flex-nowrap no-scrollbar py-0.5">
               {streams.map((s) => (
                 <button
                   key={s}
@@ -421,13 +637,15 @@ export default function BrowseClient({
                   {s}
                 </button>
               ))}
+              </div>
             </div>
           )}
 
           {/* Year filter */}
           {years.length > 0 && (
-            <div className="flex flex-wrap gap-2 items-center">
-              <span className="text-[10px] uppercase tracking-[0.15em] font-black opacity-40 mr-2">Year</span>
+            <div className="flex gap-2 items-center">
+              <span className="shrink-0 text-[10px] uppercase tracking-[0.15em] font-black opacity-40 mr-2">Year</span>
+              <div className="flex gap-2 overflow-x-auto flex-nowrap no-scrollbar py-0.5">
               {years.map((y) => (
                 <button
                   key={y}
@@ -438,13 +656,15 @@ export default function BrowseClient({
                   {y}
                 </button>
               ))}
+              </div>
             </div>
           )}
 
           {/* Semester filter — completes the University > Department > Semester > Paper-code drilldown */}
           {semesters.length > 0 && (
-            <div className="flex flex-wrap gap-2 items-center">
-              <span className="text-[10px] uppercase tracking-[0.15em] font-black opacity-40 mr-2">Semester</span>
+            <div className="flex gap-2 items-center">
+              <span className="shrink-0 text-[10px] uppercase tracking-[0.15em] font-black opacity-40 mr-2">Semester</span>
+              <div className="flex gap-2 overflow-x-auto flex-nowrap no-scrollbar py-0.5">
               {semesters.map((s) => (
                 <button
                   key={s}
@@ -455,18 +675,31 @@ export default function BrowseClient({
                   Sem {s}
                 </button>
               ))}
+              </div>
             </div>
           )}
         </div>
       )}
 
-      {/* Live result count — sits right above the list so a student sees the
-          filters worked without scrolling. */}
-      <p className="mt-6 text-sm font-bold text-on-surface">
-        {filtered.length === 0
-          ? "Showing 0 papers"
-          : `Showing ${pageStart}–${pageEnd} of ${filtered.length} paper${filtered.length !== 1 ? "s" : ""}`}
-      </p>
+      {/* Live result count + clear-filters button — sits right above the list
+          so a student sees the filters worked without scrolling. */}
+      <div className="mt-6 flex items-center justify-between gap-3">
+        <p className="text-sm font-bold text-on-surface">
+          {filtered.length === 0
+            ? "Showing 0 papers"
+            : `Showing ${pageStart}–${pageEnd} of ${filtered.length} paper${filtered.length !== 1 ? "s" : ""}`}
+        </p>
+        {hasActiveFilters && (
+          <button
+            type="button"
+            onClick={clearFilters}
+            className="shrink-0 inline-flex items-center gap-1 rounded-full px-4 py-2 text-xs font-bold border border-outline-variant/20 bg-surface text-on-surface-variant hover:border-primary/40 hover:text-primary transition-all active:scale-95"
+          >
+            <span className="material-symbols-outlined text-base leading-none">filter_alt_off</span>
+            Clear filters
+          </button>
+        )}
+      </div>
 
       {/* Papers grid with skeleton loading */}
       {showSkeleton ? (
@@ -495,12 +728,30 @@ export default function BrowseClient({
           ))}
         </div>
       ) : (
-        <div className="mt-20 text-center py-20 bg-surface-container-low rounded-[3rem] border border-dashed border-outline-variant/30">
-          <div className="w-16 h-16 rounded-full bg-surface mx-auto flex items-center justify-center text-on-surface-variant/20 mb-4 shadow-inner">
-            <span className="material-symbols-outlined font-black text-3xl">sentiment_dissatisfied</span>
+        <div className="mt-6 rounded-[2rem] border border-dashed border-outline-variant/30 bg-surface-container-low px-5 py-8 sm:px-8">
+          <div className="text-center">
+            <div className="w-16 h-16 rounded-full bg-surface mx-auto flex items-center justify-center text-on-surface-variant/20 mb-4 shadow-inner">
+              <span className="material-symbols-outlined font-black text-3xl">sentiment_dissatisfied</span>
+            </div>
+            <h3 className="text-lg font-extrabold tracking-tight">No Resources Found</h3>
+            <p className="mt-2 text-sm font-medium text-on-surface-variant opacity-70">
+              Nothing matches these filters. Request the paper below and we will email you a copy when it is added.
+            </p>
           </div>
-          <h3 className="text-lg font-extrabold tracking-tight">No Resources Found</h3>
-          <p className="mt-2 text-sm font-medium text-on-surface-variant opacity-60">Try adjusting your filters or search query</p>
+          <RequestPaperForm
+            streams={streams}
+            semesters={semesters}
+            years={years}
+            initialCode={
+              /\d/.test(debouncedSearch) ||
+              /^[A-Za-z]{3}(DSC|DSM|SEC|IDC|AEC|VAC|DSE|GEC|HCC|CC)/i.test(debouncedSearch)
+                ? debouncedSearch.trim().toUpperCase()
+                : ""
+            }
+            initialSemester={activeSemester}
+            initialYear={activeYear}
+            initialDepartment={activeStream}
+          />
         </div>
       )}
 
