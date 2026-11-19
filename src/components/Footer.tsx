@@ -45,6 +45,7 @@ export default function Footer() {
             <h3 className="mb-2 text-xs font-black uppercase tracking-[0.15em] text-primary">Resources</h3>
             <Link href="/" className="hover:text-primary transition-colors text-sm font-medium">Home</Link>
             <Link href="/browse" className="hover:text-primary transition-colors text-sm font-medium">Browse Archive</Link>
+            <Link href="/colleges" className="hover:text-primary transition-colors text-sm font-medium">Colleges under Assam University</Link>
             <Link href="/contact" className="hover:text-primary transition-colors text-sm font-medium">Contact Us</Link>
             <Link href="/syllabus" className="hover:text-primary transition-colors text-sm font-medium">Syllabus Registry</Link>
             <Link href="/guides" className="hover:text-primary transition-colors text-sm font-medium">Study Guides</Link>

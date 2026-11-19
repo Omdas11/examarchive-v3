@@ -74,6 +74,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE_URL}/fyug-question-papers`, lastModified: new Date(), changeFrequency: "daily", priority: 0.9 },
     { url: `${SITE_URL}/assam-university-question-papers`, lastModified: new Date(), changeFrequency: "daily", priority: 0.9 },
     { url: `${SITE_URL}/cbcs-question-papers`, lastModified: new Date(), changeFrequency: "daily", priority: 0.85 },
+    { url: `${SITE_URL}/colleges`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.8 },
   ];
 
   // Department landing pages (regional SEO)
