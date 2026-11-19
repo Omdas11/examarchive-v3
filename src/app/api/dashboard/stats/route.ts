@@ -49,14 +49,14 @@ export async function GET() {
     const next = XP_TIERS[idx + 1] ?? null;
 
     const activity = [...views, ...downloads]
-      .sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0))
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, 5)
       .map((a) => ({
         action: a.action,
         title: a.title,
         href: a.href,
         paper_ref: a.paper_ref,
-        created_at: a.created_at,
+        created_at: a.createdAt,
       }));
 
     return NextResponse.json({
