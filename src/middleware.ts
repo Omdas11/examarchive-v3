@@ -23,9 +23,9 @@ const PROTECTED_PATHS = [
   // closed anyone can see it. When the store reopens, the page
   // itself redirects logged-out users to /login.
   // API routes
+  // NOTE: /api/admin and /api/devtool routes were deleted 2026-11-19
+  // (dead Appwrite code — the admin actions need a D1 rebuild if wanted).
   "/api/upload",
-  "/api/admin",
-  "/api/devtool",
   "/api/ai",
 ];
 
