@@ -29,6 +29,27 @@ function resolveXpTotal(user: AdminUser): number {
   return 0;
 }
 
+/** Relative "last seen" label from an ISO timestamp ("5m ago", "3d ago"). */
+function formatLastSeen(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const seen = new Date(iso).getTime();
+  if (Number.isNaN(seen)) return "—";
+  const diffMs = Date.now() - seen;
+  if (diffMs < 0) return "just now";
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(seen).toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 /**
  * Generate a deterministic neutral background colour for avatar initials
  * based on the user's display name so each user gets a consistent but varied
@@ -90,6 +111,7 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
               <th className="whitespace-nowrap text-right text-xs font-semibold">XP</th>
               <th className="whitespace-nowrap text-left text-xs font-semibold">Achievements</th>
               <th className="whitespace-nowrap text-right text-xs font-semibold">Streak</th>
+              <th className="whitespace-nowrap text-left text-xs font-semibold">Last seen</th>
               <th className="whitespace-nowrap text-center text-xs font-semibold">Actions</th>
             </tr>
           </thead>
@@ -187,6 +209,14 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
                   {/* Streak */}
                   <td className="whitespace-nowrap text-right text-sm">
                     {u.streak_days > 0 ? `${u.streak_days}d` : <span style={{ color: "var(--color-text-muted)" }}>—</span>}
+                  </td>
+
+                  {/* Last seen: latest page visit / paper activity / login */}
+                  <td
+                    className="whitespace-nowrap text-sm"
+                    title={u.last_seen_at ? new Date(u.last_seen_at).toLocaleString("en-IN") : "No recorded activity"}
+                  >
+                    {formatLastSeen(u.last_seen_at)}
                   </td>
 
                   {/* Actions */}

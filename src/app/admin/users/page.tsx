@@ -29,6 +29,41 @@ export default async function AdminUsersPage() {
       .prepare("SELECT * FROM users ORDER BY created_at DESC LIMIT 100")
       .all();
     const mapped = (results as Record<string, unknown>[]).map(toAdminUser);
+    // Last seen per user: latest of any recorded signal — page visit
+    // (visit_logs, user_id set for logged-in visits), paper view/download
+    // (user_activity), login (sessions.created_at). Three GROUP BY queries
+    // instead of one per user. Admin-only page, loaded rarely; the scan is
+    // bounded by the visit_logs table size.
+    const lastSeen = new Map<string, number>();
+    const mergeMax = (rows: { user_id: string; m: number }[]) => {
+      for (const row of rows) {
+        if (!row.user_id) continue;
+        const prev = lastSeen.get(row.user_id) ?? 0;
+        if (row.m > prev) lastSeen.set(row.user_id, row.m);
+      }
+    };
+    try {
+      const visits = await db
+        .prepare(
+          "SELECT user_id, MAX(created_at) AS m FROM visit_logs WHERE user_id != '' GROUP BY user_id",
+        )
+        .all<{ user_id: string; m: number }>();
+      mergeMax(visits.results ?? []);
+      const activity = await db
+        .prepare(
+          "SELECT user_id, MAX(created_at) AS m FROM user_activity GROUP BY user_id",
+        )
+        .all<{ user_id: string; m: number }>();
+      mergeMax(activity.results ?? []);
+      const sessions = await db
+        .prepare(
+          "SELECT user_id, MAX(created_at) AS m FROM sessions GROUP BY user_id",
+        )
+        .all<{ user_id: string; m: number }>();
+      mergeMax(sessions.results ?? []);
+    } catch {
+      // Last-seen stays empty rather than breaking the page.
+    }
     // Verified counts (verify-to-earn ledger), one count query per user.
     users = await Promise.all(
       mapped.map(async (u) => {
@@ -39,9 +74,21 @@ export default async function AdminUsersPage() {
             )
             .bind(u.id)
             .first<{ n: number }>();
-          return { ...u, verified_count: Number(row?.n ?? 0) };
+          return {
+            ...u,
+            verified_count: Number(row?.n ?? 0),
+            last_seen_at: lastSeen.has(u.id)
+              ? new Date(lastSeen.get(u.id) as number).toISOString()
+              : null,
+          };
         } catch {
-          return { ...u, verified_count: 0 };
+          return {
+            ...u,
+            verified_count: 0,
+            last_seen_at: lastSeen.has(u.id)
+              ? new Date(lastSeen.get(u.id) as number).toISOString()
+              : null,
+          };
         }
       }),
     );

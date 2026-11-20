@@ -202,6 +202,10 @@ export interface AdminUser {
   upload_count: number;
   /** Verifications submitted (set by callers that count them; optional). */
   verified_count?: number;
+  /** Last seen across any recorded signal (page visit, paper view/download,
+   * login) as ISO 8601; null when the user has no recorded activity. Set by
+   * the admin users page, not by toAdminUser. */
+  last_seen_at?: string | null;
   xp: number;
   streak_days: number;
   /** Last login / activity timestamp (ISO 8601). */
