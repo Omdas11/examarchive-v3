@@ -1,4 +1,5 @@
 import { getServerUser } from "@/lib/auth-cf";
+import { AI_NOTES_MAINTENANCE } from "@/lib/site-flags";
 import type { Metadata } from "next";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
@@ -29,6 +30,8 @@ export default async function AIContentPage() {
   const user = await getServerUser();
   const userName = user ? user.name || user.username || "Scholar" : "";
   const userInitials = userName ? userName.slice(0, 2).toUpperCase() : "";
+  const isFounder = user?.role === "founder";
+  const underMaintenance = AI_NOTES_MAINTENANCE && !isFounder;
 
   return (
     <MainLayout
@@ -48,7 +51,19 @@ export default async function AIContentPage() {
       userName={userName}
       userInitials={userInitials}
     >
-      <AIContentClient isLoggedIn={!!user} />
+      {underMaintenance ? (
+        <div className="mx-auto max-w-2xl rounded-lg border border-amber-200 bg-amber-50 p-6 text-center dark:border-amber-900/60 dark:bg-amber-950/40">
+          <h2 className="text-xl font-bold text-amber-900 dark:text-amber-200">
+            AI Notes is under maintenance
+          </h2>
+          <p className="mt-2 text-sm text-amber-800 dark:text-amber-300">
+            We are upgrading AI Notes with real question papers and syllabus
+            content, so the notes match your actual exams. Check back soon.
+          </p>
+        </div>
+      ) : (
+        <AIContentClient isLoggedIn={!!user} />
+      )}
     </MainLayout>
   );
 }

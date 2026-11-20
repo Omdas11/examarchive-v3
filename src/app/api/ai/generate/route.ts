@@ -43,6 +43,7 @@ import {
   type AiNotesEnv,
 } from "@/lib/ai-notes";
 import { AiNotesPdfError, buildSafePdfFileName, renderAiNotesPdf } from "@/lib/ai-notes-pdf";
+import { AI_NOTES_MAINTENANCE } from "@/lib/site-flags";
 
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
@@ -82,6 +83,19 @@ export async function POST(request: NextRequest) {
   const user = await getServerUser();
   if (!user) {
     return NextResponse.json({ error: "Login required." }, { status: 401 });
+  }
+
+  // AI Notes maintenance: everyone except the founder is turned away
+  // while the upgrade (real papers + syllabus grounding) is in progress.
+  if (AI_NOTES_MAINTENANCE && user.role !== "founder") {
+    return NextResponse.json(
+      {
+        error:
+          "AI Notes is under maintenance while we upgrade it with real question papers and syllabus content. Please check back soon — nothing was charged.",
+        code: "AI_NOTES_MAINTENANCE",
+      },
+      { status: 503 },
+    );
   }
 
   let body: {
@@ -264,10 +278,16 @@ export async function POST(request: NextRequest) {
       );
     }
     console.error("[AI Notes] PDF render failed:", err);
+    // Diagnostic detail (2026-11-20): the space + token + path are all
+    // verified working from outside the Worker, so the fetch itself is
+    // failing on the Worker. Surface the underlying reason to the user
+    // for one diagnosis round instead of the generic message.
+    const detail =
+      err instanceof Error ? err.message.replace(/\s+/g, " ").slice(0, 300) : "Unknown error";
     return NextResponse.json(
       {
         error:
-          "The notes were generated but the PDF could not be rendered. Please try again — nothing was charged.",
+          `The notes were generated but the PDF could not be rendered (${detail}). Please try again — nothing was charged.`,
         code: "PDF_RENDER_FAILED",
       },
       { status: 503 },

@@ -7,6 +7,12 @@
 // Temporary — set to false to re-enable the syllabus once all 517 papers are verified.
 export const SYLLABUS_DISABLED = true;
 
+// AI Notes maintenance — set to true to hide the generator for everyone
+// except the founder while AI Notes is being upgraded (real papers +
+// syllabus grounding). Founder bypasses it in the page and the API route.
+// Set to false to open AI Notes to everyone again.
+export const AI_NOTES_MAINTENANCE = true;
+
 // Ads master switch — set to false to hide all ads (Monetag banners,
 // Monetag verification meta, AdSense script) while keeping the code so
 // ads can be turned back on by flipping this one flag. Owner asked
