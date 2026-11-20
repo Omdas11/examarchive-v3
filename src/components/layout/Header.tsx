@@ -14,7 +14,8 @@ import { PROFILE_REFRESH_EVENT } from '@/lib/profile-events';
 import { useTheme } from '@/hooks/useTheme';
 
 export interface HeaderProps {
-  title?: string;
+  /** Page title — a plain string, or a title with a badge/tag element. */
+  title?: React.ReactNode;
   showSearch?: boolean;
   userInitials?: string;
   userName?: string;
@@ -45,7 +46,7 @@ export default function Header({
   onMobileMenuToggle,
   className,
   ...rest
-}: HeaderProps & React.HTMLAttributes<HTMLElement>) {
+}: Omit<React.HTMLAttributes<HTMLElement>, "title"> & HeaderProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [avatarError, setAvatarError] = useState(false);
   const [creditBalance, setCreditBalance] = useState<number | null>(null);

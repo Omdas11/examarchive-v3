@@ -4,7 +4,12 @@ export const CREDIT_SYMBOL = "₹";
 /** Display name for the virtual token. UI shows the CreditIcon coin instead of a text symbol. */
 export const TOKEN_NAME = "tokens";
 export const GENERATION_COST_CREDITS = 10;
-export const DEFAULT_CREDITS = 100;
+/**
+ * New signups start at 0 credits (2026-11-20): the AI Notes daily free
+ * PDF (1 free PDF per day per registered account) replaces the old
+ * 100-credit signup grant. Existing users keep their current balance.
+ */
+export const DEFAULT_CREDITS = 0;
 /**
  * Store is closed for now: the store page shows a closed notice and credit
  * balances are hidden (header chip, profile stats). Flip to `false` when

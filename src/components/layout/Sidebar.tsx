@@ -19,6 +19,8 @@ interface SidebarItem {
   icon: string; // Material Symbol name
   href: string;
   badge?: number;
+  /** Short text tag shown as a pill next to the label (e.g. "Experimental"). */
+  tag?: string;
   roles?: string[]; // roles that can see this item
 }
 
@@ -164,6 +166,11 @@ export default function Sidebar({
               {!isCollapsed && (
                 <>
                   <span className="flex-1 text-sm truncate">{item.label}</span>
+                  {item.tag ? (
+                    <span className="shrink-0 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+                      {item.tag}
+                    </span>
+                  ) : null}
                   {item.badge !== undefined && item.badge > 0 && (
                     <span className="bg-secondary text-on-secondary text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
                       {item.badge}
@@ -182,6 +189,7 @@ export default function Sidebar({
                   )}
                 >
                   {item.label}
+                  {item.tag ? ` — ${item.tag}` : ""}
                   {item.badge !== undefined && item.badge > 0 && ` (${item.badge})`}
                 </div>
               )}

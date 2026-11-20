@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import "katex/dist/katex.min.css";
+import { useEffect, useState } from "react";
 import { useToast } from "@/components/ToastContext";
 import AiNotConfiguredNotice from "@/components/AiNotConfiguredNotice";
 import CustomDropdown, { type CustomDropdownOption } from "@/components/CustomDropdown";
@@ -9,21 +8,31 @@ import { GENERATION_COST_CREDITS } from "@/lib/economy";
 import CreditIcon from "@/components/CreditIcon";
 import { dispatchProfileRefreshEvent } from "@/lib/profile-events";
 import { IconWarning } from "@/components/Icons";
+import type { NoteLength } from "@/lib/note-length";
 
-const COURSE_TYPES: Record<string, string[]> = {
-  FYUG: ["DSC", "DSM", "SEC", "AEC", "VAC", "IDC"],
-};
-const STREAM_TYPES: Record<string, string[]> = {
-  Arts: ["DSC", "DSM", "SEC", "AEC", "VAC", "IDC"],
-  Science: ["DSC", "DSM", "SEC", "AEC", "VAC", "IDC"],
-  Commerce: ["DSC", "DSM", "SEC", "AEC", "VAC", "IDC"],
-};
-const UNIT_OPTIONS = [1, 2, 3, 4, 5];
-const GENERATION_REQUEST_TIMEOUT_MS = 60_000;
-const MODEL_OPTIONS: CustomDropdownOption[] = [
-  { label: "Gemini 3.1 Flash Lite", value: "gemini-3.1-flash-lite" },
-  { label: "Gemma 4 31B", value: "gemma-4-31b" },
+const GENERATION_REQUEST_TIMEOUT_MS = 300_000;
+
+const FALLBACK_LENGTH_OPTIONS: Array<{
+  value: NoteLength;
+  label: string;
+  description: string;
+}> = [
+  { value: "concise", label: "Concise", description: "Quick skim, high-yield pointers" },
+  { value: "standard", label: "Standard", description: "Balanced depth for a chapter" },
+  { value: "detailed", label: "Detailed", description: "Extended explanations + examples" },
+  { value: "comprehensive", label: "Comprehensive", description: "Deep dive, approx 8-10 pages" },
+  { value: "exhaustive", label: "Exhaustive", description: "Maximum depth, approx 12-15 pages" },
 ];
+
+interface AiNotesStatus {
+  freeUsedToday: boolean;
+  freeRemainingToday: number | null;
+  credits: number;
+  costPerSet: number;
+  isAdminPlus: boolean;
+  configured: boolean;
+  noteLengthOptions?: Array<{ value: NoteLength; label: string; description: string }>;
+}
 
 function LoadingDots() {
   return (
@@ -37,177 +46,130 @@ function LoadingDots() {
 
 export default function AIContentClient() {
   const { showToast } = useToast();
-  const [activeTab, setActiveTab] = useState<"notes" | "papers">("notes");
-  const [university] = useState("Assam University");
-  const [course, setCourse] = useState("FYUG");
-  const [stream, setStream] = useState("Arts");
-  const [type, setType] = useState("DSC");
-  const [model, setModel] = useState("gemini-3.1-flash-lite");
+  const [topic, setTopic] = useState("");
   const [paperCode, setPaperCode] = useState("");
-  const [semester, setSemester] = useState<number | "">("");
-  const [unitNumber, setUnitNumber] = useState(1);
-  const [selectedYear, setSelectedYear] = useState<number | "">("");
-  const [notesPaperCodes, setNotesPaperCodes] = useState<string[]>([]);
-  const [papersPaperCodes, setPapersPaperCodes] = useState<string[]>([]);
-  const [unitsByPaperCode, setUnitsByPaperCode] = useState<Record<string, number[]>>({});
-  const [yearsByPaperCode, setYearsByPaperCode] = useState<Record<string, number[]>>({});
-  const [semestersByPaperCode, setSemestersByPaperCode] = useState<Record<string, number[]>>({});
-  const [availableSemesters, setAvailableSemesters] = useState<number[]>([]);
-  const [namesByPaperCode, setNamesByPaperCode] = useState<Record<string, string>>({});
-  const [paperCodeLoading, setPaperCodeLoading] = useState(false);
-  // The options endpoint (/api/generate-notes) is temporarily disabled:
-  // when its fetch fails, show a notice instead of empty dropdowns.
-  const [notesUnavailable, setNotesUnavailable] = useState(false);
+  const [noteLength, setNoteLength] = useState<NoteLength>("standard");
+  const [status, setStatus] = useState<AiNotesStatus | null>(null);
   const [generating, setGenerating] = useState(false);
-  const [remaining, setRemaining] = useState<number | null>(null);
-  const [limit, setLimit] = useState<number | null>(null);
-  const [notesRemaining, setNotesRemaining] = useState<number | null>(null);
-  const [papersRemaining, setPapersRemaining] = useState<number | null>(null);
-  const [notesDailyLimit, setNotesDailyLimit] = useState<number | null>(null);
-  const [papersDailyLimit, setPapersDailyLimit] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [generationStatus, setGenerationStatus] = useState<{
     tone: "info" | "success" | "error";
     message: string;
   } | null>(null);
-  const hasPaperCode = paperCode.trim().length > 0;
-  const availableUnits = useMemo(() => {
-    const units = unitsByPaperCode[paperCode];
-    return Array.isArray(units) && units.length > 0 ? units : (hasPaperCode ? [] : UNIT_OPTIONS);
-  }, [unitsByPaperCode, paperCode, hasPaperCode]);
-  const availableYears = useMemo(() => yearsByPaperCode[paperCode] || [], [yearsByPaperCode, paperCode]);
-  const courseOptions: CustomDropdownOption[] = useMemo(
-    () => [{ label: "FYUG", value: "FYUG" }],
-    [],
+  const [lastGenerationId, setLastGenerationId] = useState<string | null>(null);
+  const [lastProvider, setLastProvider] = useState<string | null>(null);
+
+  const lengthOptions = status?.noteLengthOptions?.length
+    ? status.noteLengthOptions
+    : FALLBACK_LENGTH_OPTIONS;
+  const lengthDropdownOptions: CustomDropdownOption[] = lengthOptions.map(
+    (option) => ({ label: option.label, value: option.value }),
   );
-  const streamOptions: CustomDropdownOption[] = useMemo(
-    () => Object.keys(STREAM_TYPES).map((entry) => ({ label: entry, value: entry })),
-    [],
-  );
-  const typeOptions: CustomDropdownOption[] = useMemo(
-    () => {
-      const allowedByCourse = COURSE_TYPES[course] || COURSE_TYPES.FYUG;
-      const allowedByStream = STREAM_TYPES[stream] || STREAM_TYPES.Arts;
-      return allowedByCourse
-        .filter((entry) => allowedByStream.includes(entry))
-        .map((entry) => ({ label: entry, value: entry }));
-    },
-    [course, stream],
-  );
-  const mergedPaperCodesForSolvedTab = useMemo(
-    () => [...new Set([...notesPaperCodes, ...papersPaperCodes])].sort((a, b) => a.localeCompare(b)),
-    [notesPaperCodes, papersPaperCodes],
-  );
-  const visiblePaperCodes = useMemo(() => {
-    const baseCodes = activeTab === "notes" ? notesPaperCodes : mergedPaperCodesForSolvedTab;
-    if (semester === "") return baseCodes;
-    return baseCodes.filter((code) => {
-      const semesters = semestersByPaperCode[code];
-      if (!Array.isArray(semesters) || semesters.length === 0) return true;
-      return semesters.includes(semester);
-    });
-  }, [activeTab, notesPaperCodes, mergedPaperCodesForSolvedTab, semester, semestersByPaperCode]);
-  const paperCodeDropdownOptions: CustomDropdownOption[] = useMemo(
-    () =>
-      visiblePaperCodes.map((code) => {
-        const name = namesByPaperCode[code];
-        const label = name && name !== code ? `${code} — ${name}` : code;
-        return { label, value: code };
-      }),
-    [visiblePaperCodes, namesByPaperCode],
-  );
-  const unitOptions: CustomDropdownOption[] = useMemo(
-    () => availableUnits.map((unit) => ({ label: String(unit), value: String(unit) })),
-    [availableUnits],
-  );
-  const yearOptions: CustomDropdownOption[] = useMemo(
-    () => availableYears.map((year) => ({ label: String(year), value: String(year) })),
-    [availableYears],
-  );
-  // Semester options always use the full global list so the dropdown never
-  // flickers when the selected paper code changes.
-  const semesterOptions: CustomDropdownOption[] = useMemo(
-    () => availableSemesters.map((entry) => ({ label: `Semester ${entry}`, value: String(entry) })),
-    [availableSemesters],
-  );
-  function getQuotaSummaryLabel(): string {
-    // Prefer strict per-feature quotas when available; fallback to legacy aggregate quota response.
-    if (notesDailyLimit !== null && papersDailyLimit !== null) {
-      return `Daily Limit: ${notesUsedToday ?? 0}/${notesDailyLimit} Notes | ${papersUsedToday ?? 0}/${papersDailyLimit} Solved Papers`;
-    }
-    if (remaining === null) return "Quota: Unlimited";
-    return `Remaining generations: ${remaining}${typeof limit === "number" ? ` / ${limit}` : ""}`;
+  const selectedLength =
+    lengthOptions.find((option) => option.value === noteLength) ??
+    FALLBACK_LENGTH_OPTIONS[1];
+  const credits = status?.credits ?? null;
+  const costPerSet = status?.costPerSet ?? GENERATION_COST_CREDITS;
+  const freeRemainingToday = status?.freeRemainingToday ?? null;
+  const freeAvailable =
+    status?.isAdminPlus === true || freeRemainingToday === null
+      ? null
+      : freeRemainingToday > 0;
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/ai/generate")
+      .then(async (res) => {
+        if (!res.ok) return null;
+        return (await res.json()) as AiNotesStatus;
+      })
+      .then((data) => {
+        if (!cancelled && data) setStatus(data);
+      })
+      .catch(() => {
+        // Status is decoration — generation still attempts and reports errors.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  function refreshStatus() {
+    fetch("/api/ai/generate")
+      .then(async (res) => {
+        if (!res.ok) return null;
+        return (await res.json()) as AiNotesStatus;
+      })
+      .then((data) => {
+        if (data) setStatus(data);
+      })
+      .catch(() => {});
   }
 
-  async function generate() {
+  async function runGeneration(body: Record<string, unknown>) {
     if (generating) return;
     setError(null);
+    setGenerating(true);
     setGenerationStatus({
       tone: "info",
-      message: "Submitting your generation request. Please wait…",
+      message: "Generating your notes. This can take a minute — please wait…",
     });
-    setGenerating(true);
-
-    const body =
-      activeTab === "notes"
-        ? {
-            jobType: "notes",
-            university,
-            course,
-            stream,
-            type,
-            paperCode,
-            unitNumber,
-            semester: semester === "" ? null : semester,
-            model,
-          }
-        : {
-            jobType: "solved-paper",
-            university,
-            course,
-            stream,
-            type,
-            paperCode,
-            year: selectedYear === "" ? null : selectedYear,
-            semester: semester === "" ? null : semester,
-            model,
-          };
-
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
     try {
       const controller = new AbortController();
       timeoutId = setTimeout(() => controller.abort(), GENERATION_REQUEST_TIMEOUT_MS);
-      const response = await fetch("/api/ai/generate-pdf", {
+      const response = await fetch("/api/ai/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
         signal: controller.signal,
       });
-      let data: { ok?: boolean; message?: string; error?: string };
-      try {
-        data = (await response.json()) as typeof data;
-      } catch {
-        data = {};
-      }
       if (!response.ok) {
-        const failureMessage = typeof data?.error === "string" ? data.error : "Failed to start generation.";
+        let failureMessage = "Failed to generate notes.";
+        try {
+          const data = (await response.json()) as { error?: string };
+          if (typeof data?.error === "string" && data.error) {
+            failureMessage = data.error;
+          }
+        } catch {
+          // Keep the default message.
+        }
         setError(failureMessage);
         setGenerationStatus({ tone: "error", message: failureMessage });
-      } else {
-        const successMessage = typeof data.message === "string" && data.message
-          ? data.message
-          : "Your PDF is being generated. We'll email it to you when ready.";
-        dispatchProfileRefreshEvent();
-        setGenerationStatus({
-          tone: "success",
-          message: "Generation started successfully. A confirmation email has been sent, and you will receive another email when generation succeeds or fails.",
-        });
-        showToast(successMessage, "success");
+        return;
       }
+      const blob = await response.blob();
+      const generationId = response.headers.get("X-AI-Notes-Generation-Id");
+      const provider = response.headers.get("X-AI-Notes-Provider");
+      const charged = response.headers.get("X-AI-Notes-Credits-Charged");
+      const disposition = response.headers.get("Content-Disposition") ?? "";
+      const fileNameMatch = /filename="([^"]+)"/.exec(disposition);
+      const fileName = fileNameMatch?.[1] ?? "ai-notes.pdf";
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
+      if (generationId) setLastGenerationId(generationId);
+      if (provider) setLastProvider(provider);
+      dispatchProfileRefreshEvent();
+      refreshStatus();
+      const successMessage =
+        charged && charged !== "0"
+          ? `Your AI Notes PDF downloaded (${charged} credits used).`
+          : "Your AI Notes PDF downloaded — today's free PDF.";
+      setGenerationStatus({ tone: "success", message: successMessage });
+      showToast(successMessage, "success");
     } catch (err) {
-      const failureMessage = err instanceof DOMException && err.name === "AbortError"
-        ? "Request timed out while starting generation. Please try again."
-        : (err instanceof Error ? err.message : "Network error. Please try again.");
+      const failureMessage =
+        err instanceof DOMException && err.name === "AbortError"
+          ? "Request timed out while generating. Please try again."
+          : err instanceof Error
+            ? err.message
+            : "Network error. Please try again.";
       setError(failureMessage);
       setGenerationStatus({ tone: "error", message: failureMessage });
     } finally {
@@ -216,376 +178,136 @@ export default function AIContentClient() {
     }
   }
 
-  useEffect(() => {
-    setPaperCodeLoading(true);
-    const params = new URLSearchParams({
-      university,
-      course,
-      stream,
-      type,
-    });
-    fetch(`/api/generate-notes?${params.toString()}`)
-      .then(async (res) => {
-        // 410 while the endpoint is temporarily disabled: flag it and
-        // leave the option lists empty (generation stays disabled).
-        if (!res.ok) {
-          setNotesUnavailable(true);
-          return null;
-        }
-        return (await res.json()) as {
-          remaining?: number | null;
-          limit?: number | null;
-          notesRemaining?: number;
-          papersRemaining?: number;
-          notesDailyLimit?: number;
-          papersDailyLimit?: number;
-          notesPaperCodes?: unknown;
-          papersPaperCodes?: unknown;
-          unitsByPaperCode?: unknown;
-          yearsByPaperCode?: unknown;
-          semestersByPaperCode?: unknown;
-          availableSemesters?: unknown;
-          papers?: unknown;
-        };
-      })
-      .then((data) => {
-        if (!data) return;
-        if (typeof data.remaining === "number" || data.remaining === null) setRemaining(data.remaining);
-        if (typeof data.limit === "number" || data.limit === null) setLimit(data.limit);
-        if (typeof data.notesRemaining === "number") setNotesRemaining(data.notesRemaining);
-        if (typeof data.papersRemaining === "number") setPapersRemaining(data.papersRemaining);
-        if (typeof data.notesDailyLimit === "number") setNotesDailyLimit(data.notesDailyLimit);
-        if (typeof data.papersDailyLimit === "number") setPapersDailyLimit(data.papersDailyLimit);
-        if (Array.isArray(data.notesPaperCodes)) {
-          const options = data.notesPaperCodes.filter((item: unknown): item is string => typeof item === "string" && item.trim().length > 0);
-          setNotesPaperCodes(options);
-        } else {
-          setNotesPaperCodes([]);
-        }
-        if (Array.isArray(data.papersPaperCodes)) {
-          const options = data.papersPaperCodes.filter((item: unknown): item is string => typeof item === "string" && item.trim().length > 0);
-          setPapersPaperCodes(options);
-        } else {
-          setPapersPaperCodes([]);
-        }
-        if (data.unitsByPaperCode && typeof data.unitsByPaperCode === "object") {
-          const map: Record<string, number[]> = {};
-          for (const [code, units] of Object.entries(data.unitsByPaperCode as Record<string, unknown>)) {
-            if (Array.isArray(units)) {
-              map[code] = units
-                .map((unit) => (typeof unit === "number" ? unit : Number(unit)))
-                .filter((unit) => Number.isInteger(unit) && unit > 0);
-            }
-          }
-          setUnitsByPaperCode(map);
-        } else {
-          setUnitsByPaperCode({});
-        }
-        if (data.yearsByPaperCode && typeof data.yearsByPaperCode === "object") {
-          const map: Record<string, number[]> = {};
-          for (const [code, years] of Object.entries(data.yearsByPaperCode as Record<string, unknown>)) {
-            if (Array.isArray(years)) {
-              map[code] = years
-                .map((year) => (typeof year === "number" ? year : Number(year)))
-                .filter((year) => Number.isInteger(year));
-            }
-          }
-          setYearsByPaperCode(map);
-        } else {
-          setYearsByPaperCode({});
-        }
-        if (data.semestersByPaperCode && typeof data.semestersByPaperCode === "object") {
-          const map: Record<string, number[]> = {};
-          for (const [code, semesters] of Object.entries(data.semestersByPaperCode as Record<string, unknown>)) {
-            if (Array.isArray(semesters)) {
-              map[code] = semesters
-                .map((entry) => (typeof entry === "number" ? entry : Number(entry)))
-                .filter((entry) => Number.isInteger(entry) && entry >= 1 && entry <= 8);
-            }
-          }
-          setSemestersByPaperCode(map);
-        } else {
-          setSemestersByPaperCode({});
-        }
-        if (Array.isArray(data.availableSemesters)) {
-          setAvailableSemesters(
-            data.availableSemesters
-              .map((entry: unknown) => (typeof entry === "number" ? entry : Number(entry)))
-              .filter((entry: number) => Number.isInteger(entry) && entry >= 1 && entry <= 8),
-          );
-        } else {
-          setAvailableSemesters([]);
-        }
-        if (Array.isArray(data.papers)) {
-          const map: Record<string, string> = {};
-          for (const item of data.papers as unknown[]) {
-            if (item && typeof item === "object") {
-              const { code, name } = item as { code?: unknown; name?: unknown };
-              if (typeof code === "string" && typeof name === "string" && name && name !== code) {
-                map[code] = name;
-              }
-            }
-          }
-          setNamesByPaperCode(map);
-        } else {
-          setNamesByPaperCode({});
-        }
-      })
-      .catch(() => {
-        setNotesUnavailable(true);
-        setNotesPaperCodes([]);
-        setPapersPaperCodes([]);
-        setUnitsByPaperCode({});
-        setPaperCode("");
-        setYearsByPaperCode({});
-        setSemestersByPaperCode({});
-        setNamesByPaperCode({});
-        setAvailableSemesters([]);
-        setSemester("");
-        setSelectedYear("");
-      })
-      .finally(() => setPaperCodeLoading(false));
-  }, [university, course, stream, type]);
-
-  useEffect(() => {
-    const fallbackCode = visiblePaperCodes[0] || "";
-    setPaperCode((current) => {
-      if (current && visiblePaperCodes.includes(current)) return current;
-      return fallbackCode;
-    });
-  }, [visiblePaperCodes]);
-
-  useEffect(() => {
-    if (availableSemesters.length === 0) {
-      setSemester("");
+  async function generate() {
+    const trimmedTopic = topic.trim();
+    if (!trimmedTopic) {
+      setError("Enter a topic first.");
       return;
     }
-    setSemester((current) => {
-      if (typeof current === "number" && availableSemesters.includes(current)) return current;
-      return availableSemesters[0] ?? "";
+    await runGeneration({
+      topic: trimmedTopic,
+      paperCode: paperCode.trim() || undefined,
+      noteLength,
     });
-  }, [availableSemesters]);
+  }
 
-  useEffect(() => {
-    const defaultUnit = UNIT_OPTIONS[0] ?? 1;
-    if (availableUnits.length === 0) {
-      if (!hasPaperCode) setUnitNumber(defaultUnit);
-      return;
-    }
-    const fallbackUnit = availableUnits[0] ?? defaultUnit;
-    setUnitNumber((current) => (availableUnits.includes(current) ? current : fallbackUnit));
-  }, [availableUnits, hasPaperCode]);
+  async function rerun() {
+    if (!lastGenerationId) return;
+    await runGeneration({ rerunOf: lastGenerationId });
+  }
 
-  useEffect(() => {
-    if (availableYears.length === 0) {
-      setSelectedYear("");
-      return;
-    }
-    setSelectedYear((current) => {
-      if (typeof current === "number" && availableYears.includes(current)) return current;
-      return availableYears[0] ?? "";
-    });
-  }, [paperCode, availableYears]);
-
-  useEffect(() => {
-    const allowedByCourse = COURSE_TYPES[course] || COURSE_TYPES.FYUG;
-    const allowedByStream = STREAM_TYPES[stream] || STREAM_TYPES.Arts;
-    const allowed = allowedByCourse.filter((entry) => allowedByStream.includes(entry));
-    if (!allowed.includes(type)) {
-      setType(allowed[0]);
-    }
-  }, [course, stream, type]);
-
-  const canGenerateByLegacyLimit = generating ? false : remaining === null || remaining > 0;
-  const notesQuotaAllowed = notesRemaining === null || notesRemaining > 0;
-  const papersQuotaAllowed = papersRemaining === null || papersRemaining > 0;
-  const notesUsedToday =
-    notesDailyLimit !== null && notesRemaining !== null
-      ? Math.max(0, notesDailyLimit - notesRemaining)
-      : null;
-  const papersUsedToday =
-    papersDailyLimit !== null && papersRemaining !== null
-      ? Math.max(0, papersDailyLimit - papersRemaining)
-      : null;
-  const canGenerate =
-    activeTab === "notes"
-      ? canGenerateByLegacyLimit && notesQuotaAllowed
-      : canGenerateByLegacyLimit && papersQuotaAllowed;
-  const hasAvailableUnitsForPaper = availableUnits.length > 0;
-  const hasAvailableYearsForPaper = availableYears.length > 0;
-  const hasAvailableSemesters = semesterOptions.length > 0;
-  const isGenerationDisabled =
-    !hasPaperCode ||
-    !hasAvailableSemesters ||
-    !canGenerate ||
-    (activeTab === "papers" && selectedYear === "") ||
-    (activeTab === "notes" && !hasAvailableUnitsForPaper);
+  const canGenerate = !generating && topic.trim().length > 0;
 
   return (
     <div className="relative min-h-screen bg-surface px-4 py-8 text-on-surface">
       <div className="mx-auto flex max-w-5xl flex-col gap-6">
         <header className="rounded-2xl border border-outline-variant/30 bg-surface-container p-6 shadow-lift">
-          <h1 className="text-3xl font-bold">AI Content Generation</h1>
+          <h1 className="flex flex-wrap items-center gap-2 text-3xl font-bold">
+            AI Notes
+            <span className="inline-flex items-center rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+              Experimental
+            </span>
+          </h1>
           <p className="mt-2 text-on-surface-variant">
-            Generate full unit notes or solved papers from database-backed syllabus and question context.
-          </p>
-          <p className="mt-1 text-xs text-on-surface-variant">
-            Each generation costs{" "}
+            Generate exam-ready study notes as a PDF. 1 free PDF per day, then{" "}
             <span className="inline-flex items-center gap-1 font-semibold">
               <CreditIcon size={13} />
-              {GENERATION_COST_CREDITS}
-            </span>
-            .
+              {costPerSet}
+            </span>{" "}
+            per set.
+          </p>
+          <p className="mt-1 text-xs text-on-surface-variant">
+            AI Notes is experimental — generations may fail or change while we
+            improve it.
           </p>
           <div className="mt-3 inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-            {getQuotaSummaryLabel()}
-          </div>
-          <div className="mt-4 inline-flex rounded-xl border border-outline-variant/40 p-1">
-            <button
-              className={`rounded-lg px-3 py-1 text-sm ${activeTab === "notes" ? "bg-primary text-white" : "text-on-surface"}`}
-              onClick={(event) => {
-                event.preventDefault();
-                setActiveTab("notes");
-              }}
-              disabled={generating}
-              type="button"
-            >
-              Unit Notes
-            </button>
-            <button
-              className={`rounded-lg px-3 py-1 text-sm ${activeTab === "papers" ? "bg-primary text-white" : "text-on-surface"}`}
-              onClick={(event) => {
-                event.preventDefault();
-                setActiveTab("papers");
-              }}
-              disabled={generating}
-              type="button"
-            >
-              Solved Papers
-            </button>
+            {freeAvailable === null
+              ? "Daily free PDF: available"
+              : freeAvailable
+                ? "Daily free PDF: available"
+                : "Daily free PDF: used — next PDF costs credits"}
+            {typeof credits === "number" ? ` · ${credits} credits` : ""}
           </div>
         </header>
         <AiNotConfiguredNotice />
-        {notesUnavailable ? (
-          <div
-            className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800"
-            role="status"
-          >
-            AI note generation is temporarily unavailable. Please try again later.
-          </div>
-        ) : null}
 
         <section className="card border border-outline-variant/30 p-5">
           <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-sm font-semibold">University</label>
-              <input className="input-field" value={university} disabled />
+            <div className="md:col-span-2">
+              <label className="mb-1 block text-sm font-semibold" htmlFor="ai-notes-topic">
+                Topic
+              </label>
+              <input
+                id="ai-notes-topic"
+                className="input-field w-full"
+                value={topic}
+                onChange={(event) => setTopic(event.target.value)}
+                placeholder="e.g. Partial Differential Equations, or Photosynthesis"
+                disabled={generating}
+                maxLength={500}
+              />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-semibold">Course</label>
-              <CustomDropdown options={courseOptions} value={course} onChange={setCourse} disabled={generating} />
+              <label className="mb-1 block text-sm font-semibold" htmlFor="ai-notes-paper-code">
+                Paper code (optional)
+              </label>
+              <input
+                id="ai-notes-paper-code"
+                className="input-field w-full"
+                value={paperCode}
+                onChange={(event) => setPaperCode(event.target.value)}
+                placeholder="e.g. MTMDSC301T"
+                disabled={generating}
+                maxLength={40}
+              />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-semibold">Stream</label>
-              <CustomDropdown options={streamOptions} value={stream} onChange={setStream} disabled={generating} />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-semibold">AI Model</label>
-              <CustomDropdown options={MODEL_OPTIONS} value={model} onChange={setModel} disabled={generating} />
+              <label className="mb-1 block text-sm font-semibold">Note length</label>
+              <CustomDropdown
+                options={lengthDropdownOptions}
+                value={noteLength}
+                onChange={(nextValue) => setNoteLength(nextValue as NoteLength)}
+                disabled={generating}
+              />
               <p className="mt-2 text-xs text-on-surface/70">
-                Tip: choose Gemma 4 31B for high-throughput generation.
+                {selectedLength.description}
               </p>
             </div>
-            <div>
-              <label className="mb-1 block text-sm font-semibold">Semester</label>
-              <CustomDropdown
-                options={semesterOptions}
-                value={semester === "" ? "" : String(semester)}
-                onChange={(nextValue) => setSemester(Number(nextValue))}
-                placeholder="Select semester"
-                disabled={generating || semesterOptions.length === 0}
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-semibold">Type</label>
-              <CustomDropdown options={typeOptions} value={type} onChange={setType} disabled={generating} />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-semibold">Paper Code</label>
-              <CustomDropdown
-                options={paperCodeDropdownOptions}
-                value={paperCode}
-                onChange={setPaperCode}
-                placeholder={paperCodeLoading ? "Loading..." : "Select paper code"}
-                disabled={generating || paperCodeLoading || visiblePaperCodes.length === 0}
-              />
-            </div>
-            {activeTab === "notes" ? (
-              <>
-                <div>
-                  <label className="mb-1 block text-sm font-semibold">Unit Number</label>
-                  <CustomDropdown
-                    options={unitOptions}
-                    value={String(unitNumber)}
-                    onChange={(nextValue) => setUnitNumber(Number(nextValue))}
-                    placeholder="Select unit"
-                    disabled={generating || !hasAvailableUnitsForPaper}
-                  />
-                  {paperCode && !hasAvailableUnitsForPaper ? (
-                    <p className="mt-2 text-sm text-red-600">No syllabus units found for this paper code.</p>
-                  ) : null}
-                </div>
-              </>
-            ) : (
-              <>
-                <div>
-                  <label className="mb-1 block text-sm font-semibold">Year</label>
-                  <CustomDropdown
-                    options={yearOptions}
-                    value={selectedYear === "" ? "" : String(selectedYear)}
-                    onChange={(nextValue) => setSelectedYear(Number(nextValue))}
-                    placeholder={availableYears.length > 0 ? "Select year" : "No years available for selected paper"}
-                    disabled={generating || availableYears.length === 0}
-                  />
-                </div>
-              </>
-            )}
           </div>
-          <div className="mt-4">
-            {activeTab === "notes" ? (
-              <div className="space-y-3">
-                <button
-                  onClick={() => void generate()}
-                  disabled={isGenerationDisabled}
-                  aria-busy={generating}
-                  aria-live="polite"
-                  className="btn-primary relative inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl px-5 py-3 text-sm font-semibold transition-all duration-300 before:absolute before:inset-0 before:-translate-x-full before:bg-gradient-to-r before:from-transparent before:via-white/30 before:to-transparent before:content-[''] hover:before:animate-[shimmer_1.4s_ease-in-out_infinite] disabled:cursor-not-allowed disabled:opacity-60"
-                  type="button"
-                >
-                  {generating ? (<>Starting generation...<LoadingDots /></>) : "Generate Unit Notes"}
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-3">
-                {!hasAvailableYearsForPaper && hasPaperCode ? (
-                  <div className="w-full rounded-xl border border-outline-variant/40 bg-surface-container px-4 py-3 text-sm text-on-surface-variant opacity-70">
-                    Solved paper generation is unavailable for this paper code because no questions are ingested yet.
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => void generate()}
-                    disabled={isGenerationDisabled}
-                    aria-busy={generating}
-                    aria-live="polite"
-                     className="btn-primary relative inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl px-5 py-3 text-sm font-semibold transition-all duration-300 before:absolute before:inset-0 before:-translate-x-full before:bg-gradient-to-r before:from-transparent before:via-white/30 before:to-transparent before:content-[''] hover:before:animate-[shimmer_1.4s_ease-in-out_infinite] disabled:cursor-not-allowed disabled:opacity-60"
-                     type="button"
-                   >
-                     {generating ? (<>Starting generation...<LoadingDots /></>) : "Generate Solved Paper"}
-                   </button>
-                 )}
-               </div>
-             )}
-           </div>
+          <div className="mt-4 space-y-3">
+            <button
+              onClick={() => void generate()}
+              disabled={!canGenerate}
+              aria-busy={generating}
+              aria-live="polite"
+              className="btn-primary relative inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl px-5 py-3 text-sm font-semibold transition-all duration-300 before:absolute before:inset-0 before:-translate-x-full before:bg-gradient-to-r before:from-transparent before:via-white/30 before:to-transparent before:content-[''] hover:before:animate-[shimmer_1.4s_ease-in-out_infinite] disabled:cursor-not-allowed disabled:opacity-60"
+              type="button"
+            >
+              {generating ? (
+                <>
+                  Generating…
+                  <LoadingDots />
+                </>
+              ) : (
+                "Generate AI Notes PDF"
+              )}
+            </button>
+            {lastGenerationId ? (
+              <button
+                onClick={() => void rerun()}
+                disabled={generating}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-outline-variant/40 px-5 py-3 text-sm font-semibold text-on-surface transition-colors hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-60"
+                type="button"
+              >
+                Rerun with a different provider
+                {lastProvider ? ` (last: ${lastProvider})` : ""}
+              </button>
+            ) : null}
+            <p className="text-xs text-on-surface-variant">
+              A rerun of a paid PDF is free once; a rerun of today&apos;s free
+              PDF costs {costPerSet} credits.
+            </p>
+          </div>
           {generationStatus ? (
             <p
               role="status"
@@ -602,7 +324,11 @@ export default function AIContentClient() {
               {generationStatus.message}
             </p>
           ) : null}
-          {error && generationStatus?.tone !== "error" ? <p className="mt-3 inline-flex items-center gap-1 text-sm text-error"><IconWarning size={14} /> {error}</p> : null}
+          {error && generationStatus?.tone !== "error" ? (
+            <p className="mt-3 inline-flex items-center gap-1 text-sm text-error">
+              <IconWarning size={14} /> {error}
+            </p>
+          ) : null}
         </section>
       </div>
     </div>

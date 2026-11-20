@@ -15,17 +15,19 @@ describe("economy", () => {
       expect(getInitialCreditBalance("founder")).toBe(1000);
     });
 
-    it("returns DEFAULT_CREDITS for student", () => {
-      expect(getInitialCreditBalance("student")).toBe(100);
+    it("returns DEFAULT_CREDITS (0) for student", () => {
+      // 2026-11-20: new signups start at 0 — the AI Notes daily free PDF
+      // replaces the old 100-credit signup grant.
+      expect(getInitialCreditBalance("student")).toBe(0);
     });
 
     it("returns DEFAULT_CREDITS for unknown role", () => {
-      expect(getInitialCreditBalance("unknown")).toBe(100);
+      expect(getInitialCreditBalance("unknown")).toBe(0);
     });
 
     it("returns DEFAULT_CREDITS for null/undefined role", () => {
-      expect(getInitialCreditBalance(null)).toBe(100);
-      expect(getInitialCreditBalance(undefined)).toBe(100);
+      expect(getInitialCreditBalance(null)).toBe(0);
+      expect(getInitialCreditBalance(undefined)).toBe(0);
     });
   });
 

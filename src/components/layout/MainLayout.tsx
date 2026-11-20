@@ -27,6 +27,7 @@ interface LayoutProps extends HeaderProps {
     icon: string;
     href: string;
     badge?: number;
+    tag?: string;
     roles?: string[];
   }>;
   userRole?: string;

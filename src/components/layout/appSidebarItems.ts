@@ -3,6 +3,8 @@ export interface AppSidebarItem {
   icon: string; // Material Symbols name
   href: string;
   badge?: number;
+  /** Short text tag shown as a pill next to the label (e.g. "Experimental"). */
+  tag?: string;
   /** Roles that may see this item. Omit to show to all roles. */
   roles?: string[];
 }
@@ -54,9 +56,10 @@ export const APP_SIDEBAR_ITEMS: AppSidebarItem[] = [
     href: "https://syllabus.examarchive.dev",
   },
   {
-    label: "AI Content",
+    label: "AI Notes",
     icon: "auto_awesome",
     href: "/ai-content",
+    tag: "Experimental",
   },
   {
     label: "Study Resources",

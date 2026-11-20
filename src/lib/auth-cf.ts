@@ -302,8 +302,8 @@ export interface GoogleIdentity {
  * - Match by `google_sub` first (returning users).
  * - Else match by verified `email` (the 3 migrated users have
  *   `google_sub = NULL`) and attach `google_sub`.
- * - Else create a new `student` user (100 starting credits, like the old
- *   Appwrite auto-create).
+ * - Else create a new `student` user (0 starting credits since 2026-11-20:
+ *   the AI Notes daily free PDF replaces the old 100-credit signup grant).
  * Returns the user id. Name/avatar are refreshed from Google on login.
  */
 export async function upsertGoogleUser(
