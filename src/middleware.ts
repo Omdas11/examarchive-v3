@@ -18,7 +18,9 @@ const PROTECTED_PATHS = [
   // NOTE: /paper/[id] detail pages are intentionally public (SEO + sharing).
   // The PDF itself stays gated: /api/files/papers requires a session or a
   // signed token. (The hCaptcha gate was removed 2026-11-14.)
-  "/ai-content",
+  // NOTE: /ai-content is intentionally NOT protected here — guests can see
+  // the page with a login-required banner; only the /api/ai routes below
+  // stay gated, so guests can never generate.
   // NOTE: /store is intentionally NOT protected here — while the store is
   // closed anyone can see it. When the store reopens, the page
   // itself redirects logged-out users to /login.

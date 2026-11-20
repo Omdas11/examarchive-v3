@@ -44,7 +44,11 @@ function LoadingDots() {
   );
 }
 
-export default function AIContentClient() {
+export default function AIContentClient({
+  isLoggedIn = true,
+}: {
+  isLoggedIn?: boolean;
+}) {
   const { showToast } = useToast();
   const [topic, setTopic] = useState("");
   const [paperCode, setPaperCode] = useState("");
@@ -196,7 +200,7 @@ export default function AIContentClient() {
     await runGeneration({ rerunOf: lastGenerationId });
   }
 
-  const canGenerate = !generating && topic.trim().length > 0;
+  const canGenerate = isLoggedIn && !generating && topic.trim().length > 0;
 
   return (
     <div className="relative min-h-screen bg-surface px-4 py-8 text-on-surface">
@@ -230,6 +234,26 @@ export default function AIContentClient() {
           </div>
         </header>
         <AiNotConfiguredNotice />
+        {!isLoggedIn ? (
+          <div
+            role="status"
+            className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-5"
+          >
+            <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">
+              Sign in to use AI Notes
+            </p>
+            <p className="mt-1 text-sm text-on-surface-variant">
+              You need a free ExamArchive account to generate notes — 1 free
+              PDF per day, then 10 credits per set.
+            </p>
+            <a
+              href="/login?redirect=/ai-content"
+              className="btn-primary mt-3 inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold"
+            >
+              Sign in with Google
+            </a>
+          </div>
+        ) : null}
 
         <section className="card border border-outline-variant/30 p-5">
           <div className="grid gap-4 md:grid-cols-2">
@@ -243,7 +267,7 @@ export default function AIContentClient() {
                 value={topic}
                 onChange={(event) => setTopic(event.target.value)}
                 placeholder="e.g. Partial Differential Equations, or Photosynthesis"
-                disabled={generating}
+                disabled={generating || !isLoggedIn}
                 maxLength={500}
               />
             </div>
@@ -257,7 +281,7 @@ export default function AIContentClient() {
                 value={paperCode}
                 onChange={(event) => setPaperCode(event.target.value)}
                 placeholder="e.g. MTMDSC301T"
-                disabled={generating}
+                disabled={generating || !isLoggedIn}
                 maxLength={40}
               />
             </div>
@@ -267,7 +291,7 @@ export default function AIContentClient() {
                 options={lengthDropdownOptions}
                 value={noteLength}
                 onChange={(nextValue) => setNoteLength(nextValue as NoteLength)}
-                disabled={generating}
+                disabled={generating || !isLoggedIn}
               />
               <p className="mt-2 text-xs text-on-surface/70">
                 {selectedLength.description}

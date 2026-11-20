@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation";
 import { getServerUser } from "@/lib/auth-cf";
 import type { Metadata } from "next";
 import MainLayout from "@/components/layout/MainLayout";
@@ -28,12 +27,8 @@ export const metadata: Metadata = {
 
 export default async function AIContentPage() {
   const user = await getServerUser();
-  if (!user) {
-    redirect("/login?redirect=/ai-content");
-  }
-
-  const userName = user.name || user.username || "Scholar";
-  const userInitials = userName.slice(0, 2).toUpperCase();
+  const userName = user ? user.name || user.username || "Scholar" : "";
+  const userInitials = userName ? userName.slice(0, 2).toUpperCase() : "";
 
   return (
     <MainLayout
@@ -48,12 +43,12 @@ export default async function AIContentPage() {
       breadcrumbs={[{ label: "Home", href: "/" }, { label: "AI Notes" }]}
       showSearch={false}
       sidebarItems={APP_SIDEBAR_ITEMS}
-      userRole={user.role}
-      isLoggedIn={true}
+      userRole={user?.role ?? "student"}
+      isLoggedIn={!!user}
       userName={userName}
       userInitials={userInitials}
     >
-      <AIContentClient />
+      <AIContentClient isLoggedIn={!!user} />
     </MainLayout>
   );
 }
