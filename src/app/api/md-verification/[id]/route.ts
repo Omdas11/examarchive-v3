@@ -1,11 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getServerUser } from "@/lib/auth-cf";
 import { getD1 } from "@/lib/d1";
+import { isFounder } from "@/lib/roles";
 import {
   MD_ITEM_COLUMNS,
   addMdHistory,
   canAccessMdVerification,
   canActOnMdItem,
+  getItemLock,
+  getItemSuggestions,
   rowToMdItem,
   type MdVerificationRow,
 } from "@/lib/md-verification-access";
@@ -21,7 +24,8 @@ export const dynamic = "force-dynamic";
  * the previous md text goes to md_verification_history, so the original
  * is never lost. The PDF is never touched here. A pending item moves to
  * in_review on first save; any other status is kept. Only the assigned
- * verifier (or a moderator / founder) may save.
+ * verifier may save. A save that carries an outdated expected_updated_at
+ * gets 409 with the current item instead of overwriting a newer save.
  */
 export async function GET(
   _request: NextRequest,
@@ -43,7 +47,18 @@ export async function GET(
     if (!row) {
       return NextResponse.json({ error: "Item not found" }, { status: 404 });
     }
-    return NextResponse.json({ item: rowToMdItem(row) });
+    const item = rowToMdItem(row);
+    const [suggestions, lock] = await Promise.all([
+      getItemSuggestions(id),
+      getItemLock(id, user.id),
+    ]);
+    return NextResponse.json({
+      item,
+      suggestions,
+      lock,
+      can_act: canActOnMdItem(user, item),
+      is_founder: isFounder(user.role),
+    });
   } catch {
     return NextResponse.json(
       { error: "Could not load the item" },
@@ -61,9 +76,17 @@ export async function PUT(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const { id } = await params;
-  let body: { md_text?: unknown; note?: unknown };
+  let body: {
+    md_text?: unknown;
+    note?: unknown;
+    expected_updated_at?: unknown;
+  };
   try {
-    body = (await request.json()) as { md_text?: unknown; note?: unknown };
+    body = (await request.json()) as {
+      md_text?: unknown;
+      note?: unknown;
+      expected_updated_at?: unknown;
+    };
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
@@ -98,8 +121,27 @@ export async function PUT(
     const item = rowToMdItem(row);
     if (!canActOnMdItem(user, item)) {
       return NextResponse.json(
-        { error: "This item is assigned to someone else" },
+        {
+          error:
+            "Only the assigned verifier can edit this item. You can suggest an edit instead.",
+        },
         { status: 403 },
+      );
+    }
+    // Optimistic concurrency: the client sends the updated_at it loaded.
+    // A mismatch means someone saved a newer version since — refuse
+    // instead of silently overwriting their work.
+    if (
+      typeof body.expected_updated_at === "number" &&
+      body.expected_updated_at !== item.updated_at
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Someone saved a newer version of this item. Reload to see their changes before saving.",
+          item,
+        },
+        { status: 409 },
       );
     }
     const now = Date.now();

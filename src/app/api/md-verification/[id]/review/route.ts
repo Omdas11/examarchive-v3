@@ -24,7 +24,8 @@ export const dynamic = "force-dynamic";
  *
  * Approve marks verified_by / verified_at — that md becomes the source
  * of truth for AI Notes. Needs fix sends it back with a note. Only the
- * assigned verifier (or a moderator / founder) may review.
+ * assigned verifier may review. An already-approved item gets 409
+ * instead of re-running the approve (the XP award stays guarded too).
  */
 export async function POST(
   request: NextRequest,
@@ -72,8 +73,17 @@ export async function POST(
     const item = rowToMdItem(row);
     if (!canActOnMdItem(user, item)) {
       return NextResponse.json(
-        { error: "This item is assigned to someone else" },
+        {
+          error:
+            "Only the assigned verifier can review this item. You can suggest an edit instead.",
+        },
         { status: 403 },
+      );
+    }
+    if (item.status === "approved") {
+      return NextResponse.json(
+        { error: "This item is already approved.", item },
+        { status: 409 },
       );
     }
     const now = Date.now();

@@ -8,6 +8,11 @@
 import { getD1 } from "./d1";
 import { isFounder, isModerator } from "./roles";
 import type { UserProfile } from "@/types";
+import {
+  canActOnMdItem as canActOnMdItemPure,
+  type MdActItem,
+  type MdActUser,
+} from "./md-verification-permissions";
 import type {
   MdVerificationItem,
   MdVerificationStatus,
@@ -15,6 +20,33 @@ import type {
 } from "./md-verification";
 
 export type { MdVerificationItem };
+
+/** Soft-lock lifetime: 2 minutes without a heartbeat. */
+export const MD_LOCK_TTL_MS = 2 * 60 * 1000;
+
+/** One edit suggestion from a viewer who is not the assignee. */
+export interface MdVerificationSuggestion {
+  id: string;
+  item_id: string;
+  author_id: string | null;
+  author_label: string | null;
+  /** Question key ("q3") or "" for the whole paper. */
+  question_ref: string;
+  proposed_text: string;
+  note: string | null;
+  status: "pending" | "applied" | "dismissed";
+  created_at: number;
+  updated_at: number;
+}
+
+export interface MdVerificationLock {
+  item_id: string;
+  locked_by: string;
+  locked_by_label: string | null;
+  locked_at: number;
+  /** True when the lock belongs to the requesting user. */
+  mine: boolean;
+}
 
 export type MdVerificationRow = Record<string, unknown>;
 
@@ -114,14 +146,101 @@ export async function canAccessMdVerification(
   return isAssignedMdVerifier(user.id);
 }
 
-/** True when the user may edit/review this item: assigned to them, or a
- * moderator/founder (who may act on any item). */
+/** True when the user may edit/review this item: ONLY the verifier it
+ * is assigned to. Moderators and the founder can view, suggest, and
+ * assign / reassign, but cannot act on an item assigned to someone
+ * else (or to nobody). */
 export function canActOnMdItem(
   user: UserProfile,
   item: MdVerificationItem,
 ): boolean {
-  if (isModerator(user.role) || isFounder(user.role)) return true;
-  return item.assigned_to !== null && item.assigned_to === user.id;
+  return canActOnMdItemPure(
+    user as MdActUser,
+    item as MdActItem,
+  );
+}
+
+export type MdSuggestionRow = Record<string, unknown>;
+
+export function rowToSuggestion(
+  row: MdSuggestionRow,
+): MdVerificationSuggestion {
+  return {
+    id: String(row.id ?? ""),
+    item_id: String(row.item_id ?? ""),
+    author_id: (row.author_id as string | null) ?? null,
+    author_label: (row.author_label as string | null) ?? null,
+    question_ref: String(row.question_ref ?? ""),
+    proposed_text: String(row.proposed_text ?? ""),
+    note: (row.note as string | null) ?? null,
+    status:
+      (row.status as MdVerificationSuggestion["status"]) ?? "pending",
+    created_at: Number(row.created_at ?? 0),
+    updated_at: Number(row.updated_at ?? 0),
+  };
+}
+
+/**
+ * Suggestions for one item, newest last. Returns [] when the table
+ * does not exist yet (migration 0013 not applied) — the page then
+ * shows suggestions as unavailable instead of crashing.
+ */
+export async function getItemSuggestions(
+  itemId: string,
+): Promise<MdVerificationSuggestion[]> {
+  try {
+    const db = await getD1();
+    const { results } = await db
+      .prepare(
+        "SELECT id, item_id, author_id, author_label, question_ref, proposed_text, note, status, created_at, updated_at " +
+          "FROM md_verification_suggestions WHERE item_id = ? ORDER BY created_at ASC LIMIT 50",
+      )
+      .bind(itemId)
+      .all<MdSuggestionRow>();
+    return (results ?? []).map(rowToSuggestion);
+  } catch {
+    return [];
+  }
+}
+
+/** True when a lock timestamp is older than the heartbeat window. */
+export function isLockExpired(lockedAt: number, now = Date.now()): boolean {
+  return now - lockedAt > MD_LOCK_TTL_MS;
+}
+
+/**
+ * Current soft lock for an item, or null. The `mine` flag is relative
+ * to the given user id. Returns null when the table does not exist yet.
+ */
+export async function getItemLock(
+  itemId: string,
+  userId: string | null,
+): Promise<MdVerificationLock | null> {
+  try {
+    const db = await getD1();
+    const row = await db
+      .prepare(
+        "SELECT item_id, locked_by, locked_by_label, locked_at FROM md_verification_locks WHERE item_id = ? LIMIT 1",
+      )
+      .bind(itemId)
+      .first<{
+        item_id: string;
+        locked_by: string;
+        locked_by_label: string | null;
+        locked_at: number;
+      }>();
+    if (!row) return null;
+    if (isLockExpired(row.locked_at)) return null;
+    return {
+      item_id: row.item_id,
+      locked_by: row.locked_by,
+      locked_by_label: row.locked_by_label,
+      locked_at: row.locked_at,
+      mine: userId !== null && row.locked_by === userId,
+    };
+  } catch {
+    return null;
+  }
 }
 
 /** Append a history row. The previous md text is kept so an edit can be
