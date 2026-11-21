@@ -179,7 +179,7 @@ const XP_EVENTS = [
 ];
 
 const COSMETIC_UNLOCKS = [
-  "Your tier and profile ring colours follow your XP automatically.",
+  "Your tier follows your XP automatically. Your profile ring shows your role, or your daily streak.",
   "Secondary and tertiary community designations are assigned by contribution quality and trust signals.",
   "Role cosmetics are display-only and never grant moderation or admin permissions.",
 ];
@@ -445,6 +445,7 @@ export default async function AboutPage() {
             { color: "#047857", label: "Founder" },
             { color: "#f97316", label: "Moderator" },
             { color: "#0ea5e9", label: "Subject Admin" },
+            { color: "#7c3aed", label: "Verification Admin" },
             { color: "#6366f1", label: "Specialist" },
             { color: "#3b82f6", label: "Contributor" },
             { color: "#3b82f6", label: "Streak of 1 to 6 days" },

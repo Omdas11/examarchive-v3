@@ -16,15 +16,6 @@ const STATUS_OPTIONS: Array<"" | MdVerificationStatus> = [
   "approved",
 ];
 
-interface TokenRow {
-  id: string;
-  label: string;
-  expires_at: number;
-  daily_cap: number;
-  revoked_at: number | null;
-  created_at: number;
-}
-
 interface VerifierRow {
   user_id: string;
   name: string | null;
@@ -48,7 +39,14 @@ function statusBadge(status: MdVerificationStatus) {
   );
 }
 
-export default function MdVerificationQueue({ isFounder }: { isFounder: boolean }) {
+export default function MdVerificationQueue({
+  isFounder,
+  canSendCodes,
+}: {
+  isFounder: boolean;
+  /** Founder or moderator: may email upload codes to verifiers. */
+  canSendCodes: boolean;
+}) {
   const [items, setItems] = useState<MdVerificationItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -58,11 +56,10 @@ export default function MdVerificationQueue({ isFounder }: { isFounder: boolean 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [tokens, setTokens] = useState<TokenRow[]>([]);
   const [verifiers, setVerifiers] = useState<VerifierRow[]>([]);
-  const [newCode, setNewCode] = useState<string | null>(null);
-  const [tokenLabel, setTokenLabel] = useState("Friend AI upload");
   const [verifierEmail, setVerifierEmail] = useState("");
+  const [codeEmail, setCodeEmail] = useState("");
+  const [codeSentTo, setCodeSentTo] = useState<string | null>(null);
   const [adminBusy, setAdminBusy] = useState(false);
   const [adminError, setAdminError] = useState<string | null>(null);
 
@@ -98,14 +95,9 @@ export default function MdVerificationQueue({ isFounder }: { isFounder: boolean 
   const loadAdmin = useCallback(async () => {
     if (!isFounder) return;
     try {
-      const [tRes, vRes] = await Promise.all([
-        fetch("/api/md-verification/tokens", { credentials: "include" }),
-        fetch("/api/md-verification/verifiers", { credentials: "include" }),
-      ]);
-      if (tRes.ok) {
-        const data = (await tRes.json()) as { tokens: TokenRow[] };
-        setTokens(data.tokens);
-      }
+      const vRes = await fetch("/api/md-verification/verifiers", {
+        credentials: "include",
+      });
       if (vRes.ok) {
         const data = (await vRes.json()) as { verifiers: VerifierRow[] };
         setVerifiers(data.verifiers);
@@ -119,39 +111,25 @@ export default function MdVerificationQueue({ isFounder }: { isFounder: boolean 
     void loadAdmin();
   }, [loadAdmin]);
 
-  async function createToken() {
+  /** Email a 6-char upload code to a verifier (founder / moderator). */
+  async function sendCode() {
+    if (!codeEmail.trim()) return;
     setAdminBusy(true);
     setAdminError(null);
-    setNewCode(null);
+    setCodeSentTo(null);
     try {
-      const res = await fetch("/api/md-verification/tokens", {
+      const res = await fetch("/api/md-verification/upload-codes", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ label: tokenLabel, expires_in_days: 30, daily_cap: 50 }),
+        body: JSON.stringify({ email: codeEmail.trim() }),
       });
-      const data = (await res.json()) as { code?: string; error?: string };
-      if (!res.ok) throw new Error(data.error ?? "Could not create the code");
-      setNewCode(data.code ?? null);
-      await loadAdmin();
+      const data = (await res.json()) as { error?: string };
+      if (!res.ok) throw new Error(data.error ?? "Could not send the code");
+      setCodeSentTo(codeEmail.trim());
+      setCodeEmail("");
     } catch (err) {
-      setAdminError(err instanceof Error ? err.message : "Could not create the code");
-    } finally {
-      setAdminBusy(false);
-    }
-  }
-
-  async function revokeToken(id: string) {
-    setAdminBusy(true);
-    try {
-      const res = await fetch(`/api/md-verification/tokens/${id}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Could not revoke the code");
-      await loadAdmin();
-    } catch (err) {
-      setAdminError(err instanceof Error ? err.message : "Could not revoke the code");
+      setAdminError(err instanceof Error ? err.message : "Could not send the code");
     } finally {
       setAdminBusy(false);
     }
@@ -250,6 +228,12 @@ export default function MdVerificationQueue({ isFounder }: { isFounder: boolean 
           <span className="pb-2 text-sm text-on-surface-variant">
             {total} item{total === 1 ? "" : "s"}
           </span>
+          <Link
+            href="/admin/md-verification/upload"
+            className="mb-1 ml-auto border px-3 py-2 text-sm font-semibold"
+          >
+            Upload a zip
+          </Link>
         </div>
       </div>
 
@@ -317,65 +301,42 @@ export default function MdVerificationQueue({ isFounder }: { isFounder: boolean 
 
       {isFounder && (
         <div className="space-y-6">
-          <div className="card p-4">
-            <h2 className="text-base font-bold">Upload access codes</h2>
-            <p className="mt-1 text-sm text-on-surface-variant">
-              The friend&apos;s AI posts one item per call with the code in the
-              X-Upload-Code header. A code is shown once here and never again.
-              Default: 30 days, 50 uploads a day.
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <input
-                value={tokenLabel}
-                onChange={(e) => setTokenLabel(e.target.value)}
-                className="border bg-white px-3 py-2 text-sm"
-                placeholder="Label, e.g. Friend AI upload"
-                aria-label="Code label"
-              />
-              <button
-                type="button"
-                onClick={() => void createToken()}
-                disabled={adminBusy}
-                className="border px-3 py-2 text-sm font-semibold disabled:opacity-50"
-              >
-                Create code
-              </button>
-            </div>
-            {newCode && (
-              <p className="mt-3 break-all rounded border border-amber-300 bg-amber-50 p-3 text-sm">
-                New code (copy it now, it will not be shown again):{" "}
-                <code className="font-mono">{newCode}</code>
+          {canSendCodes && (
+            <div className="card p-4">
+              <h2 className="text-base font-bold">Send verification code</h2>
+              <p className="mt-1 text-sm text-on-surface-variant">
+                Email a 6-character upload code to a verifier. The code works
+                once, for 24 hours. The verifier enters it on the upload form
+                together with their zip file.
               </p>
-            )}
-            {tokens.length > 0 && (
-              <ul className="mt-3 space-y-2">
-                {tokens.map((t) => (
-                  <li
-                    key={t.id}
-                    className="flex flex-wrap items-center justify-between gap-2 text-sm"
-                  >
-                    <span>
-                      {t.label} — expires{" "}
-                      {new Date(t.expires_at).toLocaleDateString()} — cap{" "}
-                      {t.daily_cap}/day
-                      {t.revoked_at ? " — revoked" : ""}
-                    </span>
-                    {!t.revoked_at && (
-                      <button
-                        type="button"
-                        onClick={() => void revokeToken(t.id)}
-                        disabled={adminBusy}
-                        className="border px-3 py-1 text-xs disabled:opacity-50"
-                      >
-                        Revoke
-                      </button>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-            {adminError && <p className="mt-2 text-sm text-red-600">{adminError}</p>}
-          </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <input
+                  value={codeEmail}
+                  onChange={(e) => setCodeEmail(e.target.value)}
+                  className="border bg-white px-3 py-2 text-sm"
+                  placeholder="verifier@example.com"
+                  aria-label="Verifier email"
+                  type="email"
+                />
+                <button
+                  type="button"
+                  onClick={() => void sendCode()}
+                  disabled={adminBusy || !codeEmail.trim()}
+                  className="border px-3 py-2 text-sm font-semibold disabled:opacity-50"
+                >
+                  Send verification code
+                </button>
+              </div>
+              {codeSentTo && (
+                <p className="mt-3 rounded border border-emerald-300 bg-emerald-50 p-3 text-sm">
+                  Code sent to {codeSentTo}. It works once, for 24 hours. Ask
+                  them to check spam and mark it as not spam if it lands
+                  there.
+                </p>
+              )}
+              {adminError && <p className="mt-2 text-sm text-red-600">{adminError}</p>}
+            </div>
+          )}
 
           <div className="card p-4">
             <h2 className="text-base font-bold">Assigned verifiers</h2>

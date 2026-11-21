@@ -6,6 +6,7 @@ import type { UserRole, CustomRole, UserTier } from "@/types";
 const ROLE_COLORS: Record<string, { bg: string; text: string }> = {
   founder: { bg: "#fee2e2", text: "#991b1b" },
   subject_admin: { bg: "#cffafe", text: "#155e75" },
+  verification_admin: { bg: "#ede9fe", text: "#5b21b6" },
   specialist: { bg: "#e0e7ff", text: "#3730a3" },
   moderator: { bg: "#ffedd5", text: "#9a3412" },
   contributor: { bg: "#dbeafe", text: "#1e40af" },
@@ -35,6 +36,7 @@ export const ROLE_LABELS: Record<string, string> = {
   founder: "Founder",
   moderator: "Moderator",
   subject_admin: "Subject Administrator",
+  verification_admin: "Verification Admin",
   specialist: "Specialist",
   contributor: "Contributor",
   student: "Student",

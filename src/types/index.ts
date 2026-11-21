@@ -123,6 +123,7 @@ export type UserRole =
   | "student"
   | "contributor"
   | "specialist"
+  | "verification_admin"
   | "subject_admin"
   | "moderator"
   | "founder"

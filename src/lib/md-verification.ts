@@ -40,8 +40,109 @@ export const PDF_MAX_BYTES = 25 * 1024 * 1024;
  */
 export const MD_COMPLETION_XP = 25;
 export const MD_COMPLETION_CREDITS = 5;
-export const DEFAULT_TOKEN_TTL_DAYS = 30;
-export const DEFAULT_TOKEN_DAILY_CAP = 50;
+
+/**
+ * Emailed upload codes (replace the revoked X-Upload-Code tokens).
+ * A code is 6 characters from an unambiguous alphabet (no 0/O/1/I/L),
+ * single-use, valid 24 hours, dead after 3 wrong attempts. Only the
+ * SHA-256 hash is stored (see hashUploadCode, shared with the old
+ * tokens). The raw code is never stored and never returned by any API.
+ */
+export const VERIFICATION_CODE_LENGTH = 6;
+export const VERIFICATION_CODE_TTL_MS = 24 * 60 * 60 * 1000;
+export const VERIFICATION_CODE_MAX_ATTEMPTS = 3;
+export const VERIFICATION_CODE_ALPHABET =
+  "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+/** Cryptographically random 6-char upload code (see above). */
+export function generateVerificationCode(): string {
+  const bytes = new Uint8Array(VERIFICATION_CODE_LENGTH);
+  crypto.getRandomValues(bytes);
+  let code = "";
+  for (const b of bytes) {
+    code += VERIFICATION_CODE_ALPHABET[b % VERIFICATION_CODE_ALPHABET.length];
+  }
+  return code;
+}
+
+export interface UploadCodeState {
+  used_at: number | null;
+  revoked_at: number | null;
+  expires_at: number;
+  attempts: number;
+}
+
+/**
+ * Why a stored upload code cannot be used right now, or null when it
+ * can. Pure, so the rule is unit-testable without D1.
+ */
+export function uploadCodeBlockedReason(
+  code: UploadCodeState,
+  now = Date.now(),
+): string | null {
+  if (code.used_at !== null) return "This code was already used";
+  if (code.revoked_at !== null) return "This code was revoked";
+  if (now >= code.expires_at) return "This code has expired";
+  if (code.attempts >= VERIFICATION_CODE_MAX_ATTEMPTS)
+    return "Too many wrong attempts — this code no longer works";
+  return null;
+}
+
+/** One file inside an uploaded zip (name + uncompressed size). */
+export interface ZipEntryInfo {
+  name: string;
+  size: number;
+}
+
+/** True for zip entries that are packaging noise, not content. */
+function isZipNoiseEntry(name: string): boolean {
+  return (
+    name.startsWith("__MACOSX/") ||
+    name.endsWith("/.DS_Store") ||
+    name === ".DS_Store"
+  );
+}
+
+/**
+ * Validate the contents of an upload zip: exactly one PDF and exactly
+ * one md file (ignoring macOS noise entries), within the size limits.
+ * Returns the file names, or an error message.
+ */
+export function validateZipEntries(
+  entries: ZipEntryInfo[],
+): { pdfName: string; mdName: string } | { error: string } {
+  const files = entries.filter(
+    (e) => !e.name.endsWith("/") && !isZipNoiseEntry(e.name),
+  );
+  if (files.length === 0) return { error: "The zip is empty" };
+  const pdfs = files.filter((e) => e.name.toLowerCase().endsWith(".pdf"));
+  const mds = files.filter(
+    (e) =>
+      e.name.toLowerCase().endsWith(".md") ||
+      e.name.toLowerCase().endsWith(".markdown"),
+  );
+  if (pdfs.length === 0) return { error: "The zip must contain one PDF file" };
+  if (pdfs.length > 1)
+    return { error: "The zip must contain exactly one PDF file" };
+  if (mds.length === 0)
+    return { error: "The zip must contain one markdown (.md) file" };
+  if (mds.length > 1)
+    return { error: "The zip must contain exactly one markdown (.md) file" };
+  const pdf = pdfs[0];
+  const md = mds[0];
+  if (pdf.size > PDF_MAX_BYTES) return { error: "PDF exceeds the 25 MB limit" };
+  if (md.size > MD_MAX_BYTES) return { error: "md text exceeds the 2 MB limit" };
+  const extra = files.filter((e) => e !== pdf && e !== md);
+  if (extra.length > 0) {
+    return {
+      error: `The zip must contain only one PDF and one md file (unexpected: ${extra
+        .map((e) => e.name)
+        .slice(0, 3)
+        .join(", ")})`,
+    };
+  }
+  return { pdfName: pdf.name, mdName: md.name };
+}
 
 export const STATUS_LABELS: Record<MdVerificationStatus, string> = {
   pending: "Pending",
@@ -114,15 +215,6 @@ export function clampPage(value: unknown, max = 1000): number {
   return Math.min(Math.floor(n), max);
 }
 
-/** Cryptographically random upload code (32 bytes, base64url). */
-export function generateUploadCode(): string {
-  const bytes = new Uint8Array(32);
-  crypto.getRandomValues(bytes);
-  let s = "";
-  for (const b of bytes) s += String.fromCharCode(b);
-  return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
 /** SHA-256 hex of an upload code — what D1 stores. */
 export async function hashUploadCode(code: string): Promise<string> {
   const digest = await crypto.subtle.digest(
@@ -132,6 +224,20 @@ export async function hashUploadCode(code: string): Promise<string> {
   return Array.from(new Uint8Array(digest))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
+}
+
+/**
+ * Timing-safe compare for two SHA-256 hex strings. Imported from
+ * node:crypto by callers that run on the server; the pure helper itself
+ * takes precomputed hex strings.
+ */
+export function hashesEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
 }
 
 export interface UploadValidationInput {

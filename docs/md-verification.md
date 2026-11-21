@@ -1,7 +1,8 @@
 # MD Verification — spec (branch `migrate/cloudflare`, live)
 
 Side-by-side verification of markdown against the official PDF, so AI
-Notes grounding uses clean md. Built 2026-11-21, v2 same day.
+Notes grounding uses clean md. Built 2026-11-21, v2 same day,
+upload flow + Verification Admin role in the follow-up the same day.
 
 ## The two flows
 
@@ -30,8 +31,15 @@ Notes grounding uses clean md. Built 2026-11-21, v2 same day.
    never modified or deleted by this page.
 
 ## Who can do what
-- Page + APIs: moderator, founder, or a user listed in `md_verifiers`.
-  The friend is an assigned verifier, NOT a moderator — no role change.
+- Page + APIs: moderator, founder, verification admin, or a user
+  listed in `md_verifiers`.
+- **Verification Admin** (role `verification_admin`, violet ring):
+  opens MD Verification only — queue, detail, and the upload form.
+  It cannot open `/admin/users`, `/admin/exam-timetable`, or any other
+  admin page (every admin page gates on moderator), cannot change
+  roles, assign verifiers, or manage upload codes, and gets no
+  Vercel / Appwrite / Cloudflare access. It is a parallel track, not a
+  promotion step: level 3 in `ROLE_LEVELS`, below every moderator gate.
 - The four buttons (Save draft, Submit, Approve, Needs fix) belong to
   ONLY the verifier the item is assigned to. Moderators and the
   founder can view and suggest, but cannot act on an item assigned to
@@ -41,14 +49,15 @@ Notes grounding uses clean md. Built 2026-11-21, v2 same day.
   edit" form instead of the buttons: which question, corrected text,
   note. The assignee sees pending suggestions above the cards and can
   Apply (replaces that question's text) or Dismiss each one.
-- Founder-only, from the queue page: create / revoke upload codes,
-  assign / unassign verifiers (by registered email or user id).
+- Founder or moderator, from the queue page: email a 6-char upload
+  code to a verifier (see Flow 2). Founder-only: assign / unassign
+  verifiers (by registered email or user id).
 - The page is in the sidebar (Admin section, "MD Verification") for
-  moderators and the founder, and for assigned verifiers too: the
-  sidebar entry is flagged `showForMdVerifier`, and `/api/profile`
-  returns `is_md_verifier` from the `md_verifiers` table, so a student
-  verifier sees the link while other students do not. It is also
-  reachable by direct link (`/admin/md-verification`).
+  moderators, the founder, and verification admins, and for assigned
+  verifiers too: the sidebar entry is flagged `showForMdVerifier`,
+  and `/api/profile` returns `is_md_verifier` from the `md_verifiers`
+  table, so a student verifier sees the link while other students do
+  not. It is also reachable by direct link (`/admin/md-verification`).
 
 ## Two admins at once
 - Soft lock: opening the detail page claims a lock (heartbeat every
@@ -87,38 +96,57 @@ fix sends it back with your note.
    previous md text, so the original is never lost. The PDF is never
    modified or deleted by this page.
 
-### Flow 2 — AI upload, batch of 5, then verify
-1. The founder creates an upload access code on the queue page
-   (founder-only panel). The code is shown once.
-2. The friend's IDE AI extracts md from one official PDF at a time and
-   calls `POST /api/md-verification/upload` with the code in the
-   `X-Upload-Code` header, multipart form: `paper_code`, `type`
-   (`question` | `syllabus`), `batch_id`, `md` text (or `md_file`), and
-   the `pdf` file. One item per call; a batch of 5 means 5 calls with
-   the same `batch_id`.
-3. The endpoint validates the code, paper code, sizes (PDF max 25 MB,
-   md max 2 MB), and the token's daily cap, stores the PDF in R2 under
-   `md-verification/<batch>/<item-id>.pdf` (private bucket, served only
-   through the verifier-gated PDF route), stores the md in D1, and
-   creates the item as `pending`. A duplicate paper in the same batch
-   gets 409.
-4. The friend (or a moderator) opens the item in Flow 1, compares it
+### Flow 2 — AI makes one zip, friend uploads it on the site, then verify
+1. The friend's IDE AI extracts md from one official PDF at a time and
+   packs each paper into ONE zip: the official PDF + its md file.
+   (Setup prompt: `~/workspace/your_files/antigravity-verification-setup.md`.)
+2. The founder or a moderator clicks "Send verification code" on the
+   queue page and enters the verifier's email. The site emails them a
+   6-character code (single-use, 24 hours). The email says to check
+   spam and mark it as not spam if it lands there. Only the SHA-256
+   hash is stored (`md_upload_codes`); the code itself is never
+   returned by any API.
+3. The friend signs in and opens `/admin/md-verification/upload`, picks
+   the zip, paper code, type, batch id, and enters the emailed code.
+   The server checks the signed-in account (founder, moderator,
+   verification admin, or assigned verifier) AND the code: it must
+   belong to that account's email, be unused, unexpired, and under 3
+   wrong attempts. A wrong code counts an attempt; after 3 the code
+   stops working and a new one must be sent.
+4. The endpoint unzips in the Worker (fflate), requires exactly one PDF
+   (max 25 MB) and one md file (max 2 MB), validates the paper code,
+   stores the PDF in R2 under `md-verification/<batch>/<item-id>.pdf`
+   (private bucket, served only through the verifier-gated PDF route),
+   stores the md in D1, creates the item as `pending`, and marks the
+   code used — item insert and code burn run in one D1 batch, so a code
+   can never be reused. A duplicate paper in the same batch gets 409.
+5. The friend (or a moderator) opens the item in Flow 1, compares it
    with the PDF, fixes minor mistakes, and submits / approves.
 
+Email needs the `RESEND_API_KEY` Worker secret (Resend HTTP API,
+`noreply@examarchive.dev`). When it is missing, sending fails with a
+plain 503 and NO code is created — the admin sees what is missing
+instead of stranding the verifier with a code that never arrives.
+
+The old X-Upload-Code token system is gone: its only token was revoked
+2026-11-21, `POST /api/md-verification/upload` no longer accepts a
+header code, and the token routes (`/api/md-verification/tokens/*`)
+were deleted. The `md_upload_tokens` table stays for history only.
+
 ## Access
-- Page + APIs: moderator, founder, or a user listed in `md_verifiers`.
-  The friend is an assigned verifier, NOT a moderator — no role change.
+- Page + APIs: moderator, founder, verification admin, or a user
+  listed in `md_verifiers`.
 - The four buttons belong to the assigned verifier only; everyone
   else suggests edits (see "Who can do what" above).
-- Founder-only, from the queue page: create / revoke upload codes,
-  assign / unassign verifiers (by registered email or user id).
-  Per-item assignment is on the detail page (founder only).
+- Founder or moderator, from the queue page: email an upload code.
+  Founder-only: assign / unassign verifiers (by registered email or
+  user id). Per-item assignment is on the detail page (founder only).
 - The page is in the sidebar (Admin section, "MD Verification") for
-  moderators and the founder, and for assigned verifiers too: the
-  sidebar entry is flagged `showForMdVerifier`, and `/api/profile`
-  returns `is_md_verifier` from the `md_verifiers` table, so a student
-  verifier sees the link while other students do not. It is also
-  reachable by direct link (`/admin/md-verification`).
+  moderators, the founder, and verification admins, and for assigned
+  verifiers too: the sidebar entry is flagged `showForMdVerifier`,
+  and `/api/profile` returns `is_md_verifier` from the `md_verifiers`
+  table, so a student verifier sees the link while other students do
+  not. It is also reachable by direct link (`/admin/md-verification`).
 
 ## MD format the cards expect
 - Header lines, then `UNIT—I` … `UNIT—V` headings, then numbered
@@ -132,33 +160,41 @@ fix sends it back with your note.
   unchanged. Md with no numbered questions (e.g. syllabus md) shows
   the raw editor fallback instead of cards.
 
-## Token lifecycle
-- Create (founder): a 32-byte random code, shown once. Only its SHA-256
-  hash is stored in `md_upload_tokens`. Defaults: 30-day expiry, 50
-  uploads per token per UTC day.
-- Use: header `X-Upload-Code`. Bad / expired / revoked code → 401.
-  Over the daily cap → 429.
-- Revoke (founder): sets `revoked_at`; the code stops working
-  immediately and cannot be re-enabled. The hash row stays for audit.
+## Upload code lifecycle
+- Send (founder / moderator): a 6-char code from an unambiguous
+  alphabet (no 0/O/1/I/L), emailed to the verifier. Only its SHA-256
+  hash is stored in `md_upload_codes`. Defaults: 24-hour expiry,
+  single-use. Any previous unused code for that email is revoked
+  first, so one live code exists per person.
+- Use: the signed-in uploader enters the code on the upload form. The
+  code must belong to that account's email. Wrong code → 401 and an
+  attempt is counted; 3 wrong attempts kill the code. Used, expired,
+  or revoked code → 401.
+- No code is ever shown on screen or returned by any API — it travels
+  only by email. If the email cannot be sent (no RESEND_API_KEY), no
+  code is created at all.
 
 ## Files
 - Page: `src/app/admin/md-verification/page.tsx`,
   `MdVerificationQueue.tsx`, `[id]/page.tsx`,
-  `[id]/MdVerificationDetail.tsx`, `[id]/PdfLineViewer.tsx`
-- Logic: `src/lib/md-verification.ts` (pure, tested),
-  `src/lib/md-verification-access.ts` (D1 gate + history),
-  `src/lib/md-verification-parse.ts` (md -> question cards, pure,
-  tested), `src/lib/md-verification-match.ts` (OCR word matcher,
-  pure, tested), `src/lib/md-verification-permissions.ts`
-  (assigned-only rule, pure, tested)
+  `[id]/MdVerificationDetail.tsx`, `[id]/PdfLineViewer.tsx`,
+  `upload/page.tsx`, `upload/MdVerificationUploadForm.tsx`
+- Logic: `src/lib/md-verification.ts` (pure, tested — paper codes,
+  upload codes, zip contents), `src/lib/md-verification-access.ts`
+  (D1 gate + history), `src/lib/md-verification-parse.ts` (md ->
+  question cards, pure, tested), `src/lib/md-verification-match.ts`
+  (OCR word matcher, pure, tested),
+  `src/lib/md-verification-permissions.ts` (assigned-only rule, pure,
+  tested), `src/lib/resend-email.ts` (Resend HTTP API + code email)
 - APIs: `src/app/api/md-verification/` — `route.ts` (list),
   `[id]/route.ts` (get / save, 409 version check),
   `[id]/review/route.ts` (409 when already approved),
   `[id]/pdf/route.ts`, `[id]/suggestions/route.ts` (list / create),
   `[id]/suggestions/[suggestionId]/route.ts` (apply / dismiss),
   `[id]/lock/route.ts` (soft lock), `[id]/assign/route.ts`
-  (founder-only per-item assign), `upload/route.ts`,
-  `tokens/route.ts`, `tokens/[tokenId]/route.ts`, `verifiers/route.ts`
+  (founder-only per-item assign), `upload/route.ts` (signed-in zip
+  upload + emailed code), `upload-codes/route.ts` (founder /
+  moderator: email a code), `verifiers/route.ts`
 - Migration: `migrations/0011_md_verification.sql`
   — `md_verification_items`, `md_verification_history`,
   `md_verifiers`, `md_upload_tokens`; indexes on status, paper_code,
@@ -166,6 +202,8 @@ fix sends it back with your note.
   adds `xp_awarded` / `xp_awarded_to` to `md_verification_items`.
   `migrations/0013_md_verification_suggestions_locks.sql` adds
   `md_verification_suggestions` and `md_verification_locks`.
+  `migrations/0014_md_upload_codes.sql` adds `md_upload_codes`
+  (emailed 6-char codes; `md_upload_tokens` kept for history only).
 - Tests: `src/lib/md-verification.test.ts` (paper-code validation,
   SHA-256 token-hash vector, upload validation, paging, R2 key shape),
   `src/lib/md-verification-parse.test.ts` (round-trip on the real
@@ -185,19 +223,15 @@ fix sends it back with your note.
   is a separate step.
 - No syllabus re-extraction. The 536 syllabus md files already exist;
   this page verifies them, it does not re-extract them.
-- No bulk upload endpoint (one item per call by design).
+- No bulk upload endpoint (one zip = one item, by design).
 - No Bengali OCR for line highlight (tesseract.js English only);
   Bengali / noisy scans fall back to the page note.
-- The friend's upload token was revoked by the user (2026-11-21).
-  The upload flow will be redesigned separately (logged-in frontend
-  upload + emailed 6-char code) — no new upload-code UI was built
-  here, and no token was re-created.
 
-## Applied with the v2 deploy (2026-11-21)
-- `migrations/0013_md_verification_suggestions_locks.sql` applied to
-  production D1 (examarchive-db) with this deploy; both new tables
-  read back and verified in `sqlite_master`.
-- The friend's upload token was revoked by the user (2026-11-21), so
-  no new upload code exists. The upload flow will be redesigned
-  separately (logged-in frontend upload + emailed 6-char code) — no
-  new upload-code UI was built here, and no token was re-created.
+## Applied with the follow-up deploy (2026-11-21)
+- `migrations/0014_md_upload_codes.sql` applied to production D1
+  (examarchive-db); the `md_upload_codes` table read back and verified
+  in `sqlite_master`.
+- Upload flow redesigned: X-Upload-Code tokens removed (routes
+  deleted), replaced by the signed-in zip upload + emailed 6-char
+  code. The friend's role changed from student to verification_admin
+  (keeps his `md_verifiers` row).

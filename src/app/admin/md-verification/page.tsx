@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getServerUser } from "@/lib/auth-cf";
-import { isFounder } from "@/lib/roles";
+import { isFounder, isModerator } from "@/lib/roles";
 import { canAccessMdVerification } from "@/lib/md-verification-access";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
@@ -46,7 +46,10 @@ export default async function AdminMdVerificationPage() {
             source of truth for AI Notes. Work in small batches of 5.
           </p>
         </div>
-        <MdVerificationQueue isFounder={isFounder(user.role)} />
+        <MdVerificationQueue
+          isFounder={isFounder(user.role)}
+          canSendCodes={isFounder(user.role) || isModerator(user.role)}
+        />
       </section>
     </MainLayout>
   );

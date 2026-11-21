@@ -107,6 +107,7 @@ export default function UserManagement({
           <option value="all">All Roles</option>
           <option value="moderator">Moderator</option>
           <option value="subject_admin">Subject Administrator</option>
+          <option value="verification_admin">Verification Admin</option>
           <option value="specialist">Specialist</option>
           <option value="contributor">Contributor</option>
           <option value="student">Student</option>

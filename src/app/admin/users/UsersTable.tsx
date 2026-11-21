@@ -30,31 +30,30 @@ function resolveXpTotal(user: AdminUser): number {
 }
 
 /**
- * Course summary for the admin table. `dept` is the DSC subject — the
- * user's major department, shown in its own Department column. `lines` is
- * all 7 paper slots, one row each — unset slots show "—" so the admin sees
- * at a glance which papers a user has not picked yet. `full` is the set
- * courses only (used for the hover title).
+ * Course prefs for the admin table, one value per paper slot, in
+ * column order: DSC, DSM-1, DSM-2, SEC, IDC, AEC, VAC. Each column
+ * shows the picked course or "—" when the user picked nothing for
+ * that slot. `full` is the set courses only (used for hover titles).
  */
+const COURSE_SLOT_LABELS = ["DSC", "DSM-1", "DSM-2", "SEC", "IDC", "AEC", "VAC"] as const;
+
 function formatCoursePrefs(
   prefs: NonNullable<AdminUser["course_prefs"]>,
-): { dept: string; lines: string[]; full: string } {
-  const slots: Array<[string, string]> = [
-    ["DSC", prefs.dsc],
-    ["DSM", prefs.dsm1],
-    ["DSM", prefs.dsm2],
-    ["SEC", prefs.sec],
-    ["IDC", prefs.idc],
-    ["AEC", prefs.aec],
-    ["VAC", prefs.vac],
+): { slots: string[]; full: string } {
+  const values = [
+    prefs.dsc,
+    prefs.dsm1,
+    prefs.dsm2,
+    prefs.sec,
+    prefs.idc,
+    prefs.aec,
+    prefs.vac,
   ];
-  const lines = slots.map(([label, value]) => (value ? `${label} ${value}` : `${label} —`));
-  const setLines = lines.filter((line) => !line.endsWith(" —"));
-  return {
-    dept: prefs.dsc,
-    lines,
-    full: setLines.join(" · ") || "Set",
-  };
+  const slots = values.map((value) => (value ? value : "—"));
+  const setSlots = COURSE_SLOT_LABELS.map((label, i) =>
+    values[i] ? `${label} ${values[i]}` : "",
+  ).filter(Boolean);
+  return { slots, full: setSlots.join(" · ") || "No courses selected yet" };
 }
 
 /** Relative "last seen" label from an ISO timestamp ("5m ago", "3d ago"). */
@@ -140,8 +139,14 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
               <th className="hidden whitespace-nowrap text-left text-xs font-semibold 2xl:table-cell">Achievements</th>
               <th className="whitespace-nowrap text-right text-xs font-semibold">Streak</th>
               <th className="whitespace-nowrap text-left text-xs font-semibold">Seen</th>
-              <th className="whitespace-nowrap text-left text-xs font-semibold">Dept</th>
-              <th className="whitespace-nowrap text-left text-xs font-semibold">Courses</th>
+              {COURSE_SLOT_LABELS.map((label) => (
+                <th
+                  key={label}
+                  className="hidden whitespace-nowrap text-left text-xs font-semibold 2xl:table-cell"
+                >
+                  {label}
+                </th>
+              ))}
               <th className="whitespace-nowrap text-center text-xs font-semibold">Actions</th>
             </tr>
           </thead>
@@ -252,46 +257,43 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
                     {formatLastSeen(u.last_seen_at)}
                   </td>
 
-                  {/* Department: the DSC subject is the user's major */}
-                  <td className="whitespace-nowrap text-sm">
-                    {courses?.dept ? (
-                      <span
-                        className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold"
-                        style={{
-                          background: "var(--color-accent-soft)",
-                          color: "var(--color-primary)",
-                          border: "1px solid rgba(211,39,62,0.2)",
-                        }}
-                      >
-                        {courses.dept}
-                      </span>
-                    ) : (
-                      <span style={{ color: "var(--color-text-muted)" }}>—</span>
-                    )}
-                  </td>
-
-                  {/* Courses: one selected course per row; "—" when never set */}
-                  <td
-                    className="text-sm"
-                    style={{ maxWidth: 260 }}
-                    title={courses ? courses.full : "No courses selected yet"}
-                  >
-                    {courses && courses.lines.length > 0 ? (
-                      <div className="flex flex-col gap-0.5">
-                        {courses.lines.map((line) => (
+                  {/* Courses: one column per paper slot (DSC, DSM-1,
+                      DSM-2, SEC, IDC, AEC, VAC); "—" when never set.
+                      The old Department column duplicated DSC, so it
+                      is gone. Hidden below 2xl like the other
+                      secondary columns. */}
+                  {COURSE_SLOT_LABELS.map((label, i) => (
+                    <td
+                      key={label}
+                      className="hidden whitespace-nowrap text-sm 2xl:table-cell"
+                      title={
+                        courses
+                          ? `${label}: ${courses.slots[i] === "—" ? "not picked" : courses.slots[i]}`
+                          : "No courses selected yet"
+                      }
+                    >
+                      {courses ? (
+                        courses.slots[i] === "—" ? (
+                          <span style={{ color: "var(--color-text-muted)" }}>—</span>
+                        ) : i === 0 ? (
                           <span
-                            key={line}
-                            className="text-xs"
-                            style={{ color: "var(--color-text-muted)" }}
+                            className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold"
+                            style={{
+                              background: "var(--color-accent-soft)",
+                              color: "var(--color-primary)",
+                              border: "1px solid rgba(211,39,62,0.2)",
+                            }}
                           >
-                            {line}
+                            {courses.slots[i]}
                           </span>
-                        ))}
-                      </div>
-                    ) : (
-                      <span style={{ color: "var(--color-text-muted)" }}>—</span>
-                    )}
-                  </td>
+                        ) : (
+                          courses.slots[i]
+                        )
+                      ) : (
+                        <span style={{ color: "var(--color-text-muted)" }}>—</span>
+                      )}
+                    </td>
+                  ))}
 
                   {/* Actions */}
                   <td className="whitespace-nowrap text-center">

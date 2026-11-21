@@ -11,10 +11,12 @@ import {
   isAdmin,
   isModerator,
   isFounder,
+  isVerificationAdmin,
   hasTier,
   isValidCustomRole,
   isValidTier,
   isValidUserRole,
+  ROLE_RING_COLORS,
   ROLE_XO_THRESHOLDS,
   xpTier,
   tierLabel,
@@ -191,5 +193,37 @@ describe("xpTier (single XP-based tier ladder)", () => {
   it("capitalizes tier labels", () => {
     expect(tierLabel("bronze")).toBe("Bronze");
     expect(tierLabel("diamond")).toBe("Diamond");
+  });
+});
+
+describe("verification_admin (MD verification only)", () => {
+  it("normalizes and labels the role", () => {
+    expect(normalizeRole("verification_admin")).toBe("verification_admin");
+    expect(roleLabel("verification_admin")).toBe("Verification Admin");
+    expect(isValidUserRole("verification_admin")).toBe(true);
+    expect(isVerificationAdmin("verification_admin")).toBe(true);
+    expect(isVerificationAdmin("moderator")).toBe(false);
+  });
+
+  it("has the violet ring colour", () => {
+    expect(ROLE_RING_COLORS.verification_admin).toBe("#7c3aed");
+  });
+
+  it("is below every moderator gate", () => {
+    expect(isAdmin("verification_admin")).toBe(false);
+    expect(isModerator("verification_admin")).toBe(false);
+    expect(isFounder("verification_admin")).toBe(false);
+    expect(hasRole("verification_admin", "moderator")).toBe(false);
+    expect(hasRole("verification_admin", "subject_admin")).toBe(false);
+  });
+
+  it("is above specialist but below subject_admin", () => {
+    expect(hasRole("verification_admin", "specialist")).toBe(true);
+    expect(hasRole("subject_admin", "verification_admin")).toBe(true);
+    expect(hasRole("moderator", "verification_admin")).toBe(true);
+  });
+
+  it("is never auto-assigned (threshold 0)", () => {
+    expect(ROLE_XO_THRESHOLDS.verification_admin).toBe(0);
   });
 });

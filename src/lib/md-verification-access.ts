@@ -2,11 +2,13 @@
  * MD verification — D1 access helpers.
  *
  * Gate rule (decided by the user): the page and the APIs are open to
- * moderators, the founder, and users listed in `md_verifiers`. The
- * friend is an assigned verifier, NOT a moderator — no role change.
+ * moderators, the founder, verification admins, and users listed in
+ * `md_verifiers`. A verification admin opens MD Verification only —
+ * every other admin page still requires moderator (see the page gates
+ * in src/app/admin/*, which check isModerator).
  */
 import { getD1 } from "./d1";
-import { isFounder, isModerator } from "./roles";
+import { isFounder, isModerator, isVerificationAdmin } from "./roles";
 import type { UserProfile } from "@/types";
 import {
   canActOnMdItem as canActOnMdItemPure,
@@ -137,13 +139,30 @@ export async function isAssignedMdVerifier(userId: string): Promise<boolean> {
   }
 }
 
-/** Page/API gate: moderator, founder, or an assigned verifier. */
+/** Page/API gate: moderator, founder, verification admin, or an
+ * assigned verifier. */
 export async function canAccessMdVerification(
   user: UserProfile | null,
 ): Promise<boolean> {
   if (!user) return false;
-  if (isModerator(user.role) || isFounder(user.role)) return true;
+  if (
+    isModerator(user.role) ||
+    isFounder(user.role) ||
+    isVerificationAdmin(user.role)
+  )
+    return true;
   return isAssignedMdVerifier(user.id);
+}
+
+/**
+ * Upload gate: the same people who can open the page may upload a zip
+ * (founder, moderator, verification admin, or assigned verifier).
+ * A bare session is never enough, and guests get 401.
+ */
+export async function canUploadMdVerification(
+  user: UserProfile | null,
+): Promise<boolean> {
+  return canAccessMdVerification(user);
 }
 
 /** True when the user may edit/review this item: ONLY the verifier it

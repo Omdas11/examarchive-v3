@@ -152,7 +152,7 @@ export const APP_SIDEBAR_ITEMS: AppSidebarItem[] = [
     label: "MD Verification",
     icon: "fact_check",
     href: "/admin/md-verification",
-    roles: ["moderator", "founder"],
+    roles: ["moderator", "founder", "verification_admin"],
     showForMdVerifier: true,
   },
   // ── Founder only ──────────────────────────────────────

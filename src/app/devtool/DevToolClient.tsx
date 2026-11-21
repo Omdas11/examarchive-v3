@@ -799,6 +799,7 @@ function DangerTab({ onOpenModal }: { onOpenModal: (action: PendingDangerAction)
               <option value="student">student</option>
               <option value="contributor">contributor</option>
               <option value="specialist">specialist</option>
+              <option value="verification_admin">verification_admin</option>
               <option value="subject_admin">subject_admin</option>
               <option value="moderator">moderator</option>
               <option value="founder">founder</option>

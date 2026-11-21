@@ -11,7 +11,7 @@ import {
   MD_MAX_BYTES,
   PDF_MAX_BYTES,
   clampPage,
-  generateUploadCode,
+  generateVerificationCode,
   hashUploadCode,
   isValidPaperCode,
   normalizePaperCodeInput,
@@ -48,11 +48,11 @@ describe("md-verification helpers", () => {
     await expect(hashUploadCode("code-one")).resolves.toBe(a);
   });
 
-  it("generates URL-safe upload codes", () => {
-    const code = generateUploadCode();
-    expect(code).toHaveLength(43);
-    expect(code).toMatch(/^[A-Za-z0-9_-]+$/);
-    expect(generateUploadCode()).not.toBe(code);
+  it("generates 6-char unambiguous upload codes", () => {
+    const code = generateVerificationCode();
+    expect(code).toHaveLength(6);
+    expect(code).toMatch(/^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$/);
+    expect(generateVerificationCode()).not.toBe(code);
   });
 
   it("validates an upload payload", () => {

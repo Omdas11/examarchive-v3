@@ -233,8 +233,8 @@ export default function MainLayout({
 
           {/* Sidebar content — icon rail when collapsed, full panel otherwise */}
           {isRightCollapsed ? (
-            <div className="flex-1 min-h-0 overflow-y-auto p-2">
-              <nav aria-label="Quick access" className="flex flex-col gap-2">
+            <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden p-2">
+              <nav aria-label="Quick access" className="flex min-w-0 flex-col gap-2">
                 {RAIL_LINKS.filter((link) => !link.roles || link.roles.includes(userRole ?? 'user')).map((link) => (
                   <Link
                     key={link.href}
@@ -257,7 +257,7 @@ export default function MainLayout({
               </nav>
             </div>
           ) : (
-            <div className="flex-1 min-h-0 overflow-y-auto p-4">
+            <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden p-4">
               <RightSidebar
                 userName={effectiveUserName || 'Guest'}
                 userInitials={effectiveUserInitials || 'GU'}
@@ -277,7 +277,7 @@ export default function MainLayout({
             onClick={() => setIsRightSidebarOpen(false)}
             aria-hidden="true"
           />
-          <aside className="fixed inset-y-0 right-0 h-screen w-[88vw] max-w-[360px] z-50 border-l border-outline-variant/20 bg-surface overflow-y-auto lg:hidden">
+          <aside className="fixed inset-y-0 right-0 h-screen w-[88vw] max-w-[360px] z-50 border-l border-outline-variant/20 bg-surface overflow-y-auto overflow-x-hidden lg:hidden">
             <div className="p-4">
               <div className="flex justify-end">
                 <button

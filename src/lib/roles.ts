@@ -6,14 +6,21 @@ import type { CustomRole, UserRole, UserTier } from "@/types";
  * Canonical progression:
  * student → contributor → specialist → subject_admin → moderator
  * founder remains the super-admin override.
+ *
+ * verification_admin is NOT on the privilege ladder: it is a parallel
+ * track for MD verification only (level 3, between specialist and
+ * subject_admin, chosen so it stays below every moderator gate, which
+ * requires level 5). It grants no admin-page access on its own — the
+ * MD verification gate checks the role by name.
  */
 const ROLE_LEVELS: Record<UserRole, number> = {
   student: 0,
   contributor: 1,
   specialist: 2,
-  subject_admin: 3,
-  moderator: 4,
-  founder: 5,
+  verification_admin: 3,
+  subject_admin: 4,
+  moderator: 5,
+  founder: 6,
 };
 
 /**
@@ -24,6 +31,7 @@ export const ROLE_XO_THRESHOLDS: Record<UserRole, number> = {
   student: 0,
   contributor: 100,
   specialist: 800,
+  verification_admin: 0,
   subject_admin: 400,
   moderator: 0,
   founder: 0,
@@ -37,6 +45,7 @@ export const ROLE_RING_COLORS: Record<UserRole, string | null> = {
   student: null,
   contributor: "#3b82f6",
   specialist: "#6366f1",
+  verification_admin: "#7c3aed", // violet-600
   subject_admin: "#0ea5e9",
   moderator: "#f97316",          // orange-500
   founder: "#047857",           // brand emerald (was red-500 #ef4444)
@@ -53,9 +62,15 @@ export function roleLabel(role: string | null | undefined): string {
   if (normalized === "student") return "Student";
   if (normalized === "contributor") return "Contributor";
   if (normalized === "specialist") return "Specialist";
+  if (normalized === "verification_admin") return "Verification Admin";
   if (normalized === "subject_admin") return "Subject Administrator";
   if (normalized === "moderator") return "Moderator";
   return "Founder";
+}
+
+/** True when the role is the verification-only admin role. */
+export function isVerificationAdmin(role: string | null | undefined): boolean {
+  return normalizeRole(role) === "verification_admin";
 }
 
 /** Tier hierarchy – higher number = higher standing. */

@@ -12,12 +12,20 @@
 | 0 | **Student** | Default for every new account |
 | 1 | **Contributor** | Auto: ≥10 verifications + ≥100 XP + account ≥3 days old |
 | 2 | **Specialist** | Auto: ≥50 verifications + ≥800 XP, no abuse flag |
-| 3 | **Subject Administrator** | Assigned by a moderator/founder |
-| 4 | **Moderator** | Assigned by a founder |
-| 5 | **Founder** | Site owner (super-admin override) |
+| 3 | **Verification Admin** | Assigned by a founder/moderator — MD verification only, not on the privilege ladder |
+| 4 | **Subject Administrator** | Assigned by a moderator/founder |
+| 5 | **Moderator** | Assigned by a founder |
+| 6 | **Founder** | Site owner (super-admin override) |
 
-- `subject_admin`, `moderator`, and `founder` are **never** auto-assigned — a human
-  grants them.
+- `verification_admin`, `subject_admin`, `moderator`, and `founder` are
+  **never** auto-assigned — a human grants them.
+- `verification_admin` is a parallel track, not a promotion step: it
+  opens `/admin/md-verification` (queue, detail, upload form) and
+  nothing else in admin. It cannot open `/admin/users`,
+  `/admin/exam-timetable`, or any other admin page, cannot change
+  roles, assign verifiers, or manage upload codes, and gets no
+  Vercel / Appwrite / Cloudflare access. Its level (3) sits below
+  every moderator gate on purpose.
 - There are no other roles. Legacy v1 values (`guest`, `viewer`, `visitor`,
   `explorer`, `curator`, `verified_contributor`, `admin`, `maintainer`) were
   permanently removed on 2026-10-04; any stray record still carrying one is
@@ -35,6 +43,7 @@ Colours live in `src/lib/roles.ts` (`ROLE_RING_COLORS`).
 | Emerald `#047857` | Founder |
 | Orange `#f97316` | Moderator |
 | Sky `#0ea5e9` | Subject Admin |
+| Violet `#7c3aed` | Verification Admin |
 | Indigo `#6366f1` | Specialist |
 | Blue `#3b82f6` | Contributor |
 | Blue `#3b82f6` | Streak of 1–6 days (roles with no ring colour) |

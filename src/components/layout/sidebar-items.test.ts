@@ -8,13 +8,38 @@ describe("sidebar MD Verification entry", () => {
   it("exists in the Admin section with the verifier flag", () => {
     expect(mdItem).toBeDefined();
     expect(mdItem?.label).toBe("MD Verification");
-    expect(mdItem?.roles).toEqual(["moderator", "founder"]);
+    expect(mdItem?.roles).toEqual([
+      "moderator",
+      "founder",
+      "verification_admin",
+    ]);
     expect(mdItem?.showForMdVerifier).toBe(true);
   });
 
   it("shows to founder and moderator by role", () => {
     expect(isSidebarItemVisible(mdItem!, "founder", false)).toBe(true);
     expect(isSidebarItemVisible(mdItem!, "moderator", false)).toBe(true);
+  });
+
+  it("shows to verification admins by role, without the verifier flag", () => {
+    expect(isSidebarItemVisible(mdItem!, "verification_admin", false)).toBe(
+      true,
+    );
+  });
+
+  it("does not leak other admin items to a verification admin", () => {
+    const manageUsers = APP_SIDEBAR_ITEMS.find(
+      (item) => item.href === "/admin/users",
+    );
+    const timetable = APP_SIDEBAR_ITEMS.find(
+      (item) => item.href === "/admin/exam-timetable",
+    );
+    expect(isSidebarItemVisible(manageUsers!, "verification_admin", false)).toBe(
+      false,
+    );
+    expect(isSidebarItemVisible(timetable!, "verification_admin", false)).toBe(
+      false,
+    );
   });
 
   it("shows to an assigned verifier even as a student", () => {

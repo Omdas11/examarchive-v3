@@ -38,6 +38,7 @@
     "appwrite": "^28.1.0",
     "canvas-confetti": "1.9.4",
     "dompurify": "^3.4.17",
+    "fflate": "^0.8.3",
     "gray-matter": "^4.0.3",
     "katex": "^0.16.11",
     "lucide-react": "^1.21.0",

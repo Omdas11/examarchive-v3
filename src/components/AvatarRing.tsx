@@ -6,6 +6,7 @@
  *   founder          → static emerald ring (#047857)
  *   moderator        → static orange ring
  *   subject_admin    → static sky ring
+ *   verification_admin → static violet ring (#7c3aed)
  *   specialist       → static indigo ring
  *   contributor      → static blue ring
  *   student          → no role ring (falls back to streak ring)

@@ -98,7 +98,7 @@ export default function RightSidebar({
   const streakDays = profile?.streak_days ?? 0;
 
   return (
-    <div className="space-y-4 min-h-full">
+    <div className="w-full min-w-0 space-y-4 min-h-full overflow-x-hidden">
       <div className="card p-4">
         <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary">Profile</p>
         <div className="mt-3 flex items-center gap-3">
