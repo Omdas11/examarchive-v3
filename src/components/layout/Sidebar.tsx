@@ -13,6 +13,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { isSidebarItemVisible } from './appSidebarItems';
 
 interface SidebarItem {
   label: string;
@@ -22,6 +23,7 @@ interface SidebarItem {
   /** Short text tag shown as a pill next to the label (e.g. "Experimental"). */
   tag?: string;
   roles?: string[]; // roles that can see this item
+  showForMdVerifier?: boolean; // also show to assigned md verifiers
 }
 
 interface SidebarProps {
@@ -39,6 +41,8 @@ interface SidebarProps {
   onMobileClose?: () => void;
   /** Show logout button only when user is authenticated */
   isLoggedIn?: boolean;
+  /** True when the user is listed in `md_verifiers` (assigned verifier). */
+  isMdVerifier?: boolean;
 }
 
 export default function Sidebar({
@@ -51,6 +55,7 @@ export default function Sidebar({
   isMobileOpen = false,
   onMobileClose,
   isLoggedIn = false,
+  isMdVerifier = false,
 }: SidebarProps) {
   const pathname = usePathname();
   const [localCollapsed, setLocalCollapsed] = useState(false);
@@ -64,9 +69,10 @@ export default function Sidebar({
     onCollapseToggle?.(next);
   };
 
-  // Filter items based on user role
-  const visibleItems = items.filter(
-    (item) => !item.roles || item.roles.includes(userRole)
+  // Filter items based on user role (assigned md verifiers also see
+  // items flagged showForMdVerifier, even as students).
+  const visibleItems = items.filter((item) =>
+    isSidebarItemVisible(item, userRole, isMdVerifier)
   );
 
   // Exact match wins: on /admin/users only "Manage Users" lights up — the
@@ -78,7 +84,16 @@ export default function Sidebar({
     if (href.startsWith('http')) return false;
     if (pathname === href) return true;
     if (hasExactMatch) return false;
-    return pathname.startsWith(href + '/');
+    if (!pathname.startsWith(href + '/')) return false;
+    // Longest prefix wins: on /admin/md-verification/<id> the
+    // MD Verification item wins over Admin Panel (/admin), so only one
+    // item glows on detail pages.
+    return !visibleItems.some(
+      (other) =>
+        other.href !== href &&
+        other.href.length > href.length &&
+        (pathname === other.href || pathname.startsWith(other.href + '/'))
+    );
   };
 
   return (

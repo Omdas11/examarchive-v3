@@ -22,6 +22,9 @@ export interface SidebarProfileResponse {
   total_uploads: number;
   approval_pct: number;
   verified_count?: number;
+  /** True when the user is listed in `md_verifiers` — drives the
+   * MD Verification sidebar entry for student verifiers. */
+  is_md_verifier?: boolean;
   ai_credits: number;
   /** Daily login reward awarded on this call, if this is the user's first
    * authenticated visit of the UTC day; null otherwise. */

@@ -31,6 +31,7 @@ interface LayoutProps extends HeaderProps {
     badge?: number;
     tag?: string;
     roles?: string[];
+    showForMdVerifier?: boolean;
   }>;
   userRole?: string;
   hideSidebar?: boolean;
@@ -158,6 +159,7 @@ export default function MainLayout({
           <Sidebar
             items={sidebarItems}
             userRole={effectiveUserRole}
+            isMdVerifier={sidebarProfile?.is_md_verifier ?? false}
             onNavigate={() => {
               setIsMobileOpen(false);
             }}

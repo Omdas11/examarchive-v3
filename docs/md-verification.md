@@ -63,9 +63,12 @@ below).
   The friend is an assigned verifier, NOT a moderator — no role change.
 - Founder-only, from the queue page: create / revoke upload codes,
   assign / unassign verifiers (by registered email or user id).
-- The page is reached by direct link (`/admin/md-verification`); it is
-  deliberately not in the sidebar, because sidebar entries are
-  role-gated and assigned verifiers are usually students.
+- The page is in the sidebar (Admin section, "MD Verification") for
+  moderators and the founder, and for assigned verifiers too: the
+  sidebar entry is flagged `showForMdVerifier`, and `/api/profile`
+  returns `is_md_verifier` from the `md_verifiers` table, so a student
+  verifier sees the link while other students do not. It is also
+  reachable by direct link (`/admin/md-verification`).
 
 ## Token lifecycle
 - Create (founder): a 32-byte random code, shown once. Only its SHA-256

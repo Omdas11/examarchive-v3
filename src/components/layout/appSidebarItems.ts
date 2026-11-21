@@ -7,6 +7,26 @@ export interface AppSidebarItem {
   tag?: string;
   /** Roles that may see this item. Omit to show to all roles. */
   roles?: string[];
+  /**
+   * Also show to assigned md verifiers (students listed in
+   * `md_verifiers`), even when their role is not in `roles`.
+   */
+  showForMdVerifier?: boolean;
+}
+
+/**
+ * Sidebar visibility rule, shared with the Sidebar component so it can be
+ * unit-tested: a role match wins, and an assigned md verifier also sees
+ * items flagged `showForMdVerifier` (the friend is a student, so a
+ * moderator/founder-only `roles` list alone would hide it from him).
+ */
+export function isSidebarItemVisible(
+  item: Pick<AppSidebarItem, "roles" | "showForMdVerifier">,
+  userRole: string,
+  isMdVerifier: boolean,
+): boolean {
+  if (!item.roles || item.roles.includes(userRole)) return true;
+  return Boolean(item.showForMdVerifier) && isMdVerifier;
 }
 
 const ALL_AUTHENTICATED_ROLES = [
@@ -127,6 +147,13 @@ export const APP_SIDEBAR_ITEMS: AppSidebarItem[] = [
     icon: "calendar_month",
     href: "/admin/exam-timetable",
     roles: ["moderator", "founder"],
+  },
+  {
+    label: "MD Verification",
+    icon: "fact_check",
+    href: "/admin/md-verification",
+    roles: ["moderator", "founder"],
+    showForMdVerifier: true,
   },
   // ── Founder only ──────────────────────────────────────
   {

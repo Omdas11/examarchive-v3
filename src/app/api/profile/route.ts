@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getServerUser } from "@/lib/auth-cf";
 import { getD1 } from "@/lib/d1";
+import { isAssignedMdVerifier } from "@/lib/md-verification-access";
 
 const USERNAME_COOLDOWN_DAYS = 7;
 
@@ -263,6 +264,16 @@ export async function GET() {
     // ignore
   }
 
+  // Assigned md verifier? One indexed lookup; drives the MD Verification
+  // sidebar entry for student verifiers. Failures hide the entry, never
+  // break the profile response.
+  let is_md_verifier = false;
+  try {
+    is_md_verifier = await isAssignedMdVerifier(user.id);
+  } catch {
+    // ignore
+  }
+
   return NextResponse.json({
     id: user.id,
     email: user.email,
@@ -281,6 +292,7 @@ export async function GET() {
     total_uploads,
     approval_pct,
     verified_count,
+    is_md_verifier,
     ai_credits: user.ai_credits ?? 0,
     specialist_subject: user.specialist_subject ?? null,
     subject_admin_subject: user.subject_admin_subject ?? null,
