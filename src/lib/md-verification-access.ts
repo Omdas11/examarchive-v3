@@ -34,6 +34,8 @@ export const MD_ITEM_COLUMNS = [
   "verified_by",
   "verified_at",
   "note",
+  "xp_awarded",
+  "xp_awarded_to",
   "created_at",
   "updated_at",
 ] as const;
@@ -55,6 +57,8 @@ export const MD_ITEM_LIST_COLUMNS = [
   "verified_by",
   "verified_at",
   "note",
+  "xp_awarded",
+  "xp_awarded_to",
   "created_at",
   "updated_at",
 ] as const;
@@ -76,6 +80,8 @@ export function rowToMdItem(row: MdVerificationRow): MdVerificationItem {
     verified_by: (row.verified_by as string | null) ?? null,
     verified_at: (row.verified_at as number | null) ?? null,
     note: (row.note as string | null) ?? null,
+    xp_awarded: Number(row.xp_awarded ?? 0),
+    xp_awarded_to: (row.xp_awarded_to as string | null) ?? null,
     created_at: Number(row.created_at ?? 0),
     updated_at: Number(row.updated_at ?? 0),
     md_chars:

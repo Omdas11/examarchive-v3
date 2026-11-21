@@ -30,6 +30,16 @@ export type MdVerificationType = (typeof MD_VERIFICATION_TYPES)[number];
 export const MD_VERIFICATION_PAGE_SIZE = 20;
 export const MD_MAX_BYTES = 2 * 1024 * 1024;
 export const PDF_MAX_BYTES = 25 * 1024 * 1024;
+
+/**
+ * XP for completing a full md, awarded once when an item is approved.
+ * Same size as the site's moderator-accepted correction bonus
+ * (CORRECTION_BONUS_XP / CORRECTION_BONUS_CREDITS in verify.ts) and,
+ * like that bonus, it bypasses the daily verify caps. No XP for
+ * needs_fix, Save draft, or Submit alone.
+ */
+export const MD_COMPLETION_XP = 25;
+export const MD_COMPLETION_CREDITS = 5;
 export const DEFAULT_TOKEN_TTL_DAYS = 30;
 export const DEFAULT_TOKEN_DAILY_CAP = 50;
 
@@ -57,6 +67,10 @@ export interface MdVerificationItem {
   verified_by: string | null;
   verified_at: number | null;
   note: string | null;
+  /** XP awarded on approval (0 until awarded). */
+  xp_awarded: number;
+  /** User id the completion XP went to, null until awarded. */
+  xp_awarded_to: string | null;
   created_at: number;
   updated_at: number;
   /** Length of md_text in chars (list view only, avoids fetching the text). */
@@ -159,6 +173,49 @@ export function validateUploadInput(input: UploadValidationInput): string | null
     }
     if (input.pdfName && !input.pdfName.toLowerCase().endsWith(".pdf")) {
       return "PDF file must have a .pdf extension";
+    }
+  }
+  return null;
+}
+
+export interface MdCompletionCandidate {
+  status: string;
+  xp_awarded?: number | null;
+  xp_awarded_to?: string | null;
+  edited_by?: string | null;
+  submitted_by?: string | null;
+  assigned_to?: string | null;
+}
+
+/**
+ * True when approving this item should award completion XP: the item
+ * is not already approved and no XP has been awarded for it yet. The
+ * status check is the transition guard (approve is only an award on
+ * the move into approved); xp_awarded is the once-only guard.
+ */
+export function shouldAwardMdXp(item: MdCompletionCandidate): boolean {
+  return item.status !== "approved" && (item.xp_awarded ?? 0) === 0;
+}
+
+/**
+ * Who earns the completion XP: the person who finished the md
+ * (edited_by), else who submitted it, else who it was assigned to,
+ * else the approver. Returns null when nobody is identifiable.
+ * Self-approve earns the XP once — intentional, the founder tries the
+ * first item himself.
+ */
+export function resolveMdCompleter(
+  item: MdCompletionCandidate,
+  approverId: string,
+): string | null {
+  for (const candidate of [
+    item.edited_by,
+    item.submitted_by,
+    item.assigned_to,
+    approverId,
+  ]) {
+    if (typeof candidate === "string" && candidate.trim().length > 0) {
+      return candidate;
     }
   }
   return null;

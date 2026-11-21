@@ -6,6 +6,8 @@
  * Workers runtime, where crypto.subtle exists.
  */
 import {
+  MD_COMPLETION_CREDITS,
+  MD_COMPLETION_XP,
   MD_MAX_BYTES,
   PDF_MAX_BYTES,
   clampPage,
@@ -13,6 +15,8 @@ import {
   hashUploadCode,
   isValidPaperCode,
   normalizePaperCodeInput,
+  resolveMdCompleter,
+  shouldAwardMdXp,
   validateUploadInput,
   verificationPdfKey,
 } from "./md-verification";
@@ -94,5 +98,54 @@ describe("md-verification helpers", () => {
     expect(verificationPdfKey("batch-1", "item-123")).toBe(
       "md-verification/batch-1/item-123.pdf",
     );
+  });
+
+  it("awards completion XP once, to the completer, on approval only", () => {
+    // Same size as the moderator-accepted correction bonus.
+    expect(MD_COMPLETION_XP).toBe(25);
+    expect(MD_COMPLETION_CREDITS).toBe(5);
+
+    const pending = {
+      status: "pending",
+      xp_awarded: 0,
+      edited_by: "editor-1",
+      submitted_by: "submitter-1",
+      assigned_to: "assignee-1",
+    };
+    expect(shouldAwardMdXp(pending)).toBe(true);
+    // Editor wins over submitter, assignee and approver.
+    expect(resolveMdCompleter(pending, "approver-1")).toBe("editor-1");
+    // Falls back down the chain when earlier fields are empty.
+    expect(
+      resolveMdCompleter(
+        { status: "pending", xp_awarded: 0, submitted_by: "submitter-1" },
+        "approver-1",
+      ),
+    ).toBe("submitter-1");
+    expect(
+      resolveMdCompleter(
+        { status: "pending", xp_awarded: 0, assigned_to: "assignee-1" },
+        "approver-1",
+      ),
+    ).toBe("assignee-1");
+    // Approver is the last fallback (self-approve earns it once).
+    expect(
+      resolveMdCompleter({ status: "pending", xp_awarded: 0 }, "approver-1"),
+    ).toBe("approver-1");
+    expect(resolveMdCompleter({ status: "pending", xp_awarded: 0 }, "")).toBe(
+      null,
+    );
+
+    // Once-only guard: already approved, or XP already awarded.
+    expect(
+      shouldAwardMdXp({ ...pending, status: "approved" }),
+    ).toBe(false);
+    expect(shouldAwardMdXp({ ...pending, xp_awarded: 25 })).toBe(false);
+    expect(
+      shouldAwardMdXp({ ...pending, xp_awarded: 25, xp_awarded_to: "editor-1" }),
+    ).toBe(false);
+    // in_review / needs_fix items can still earn it on approval.
+    expect(shouldAwardMdXp({ ...pending, status: "in_review" })).toBe(true);
+    expect(shouldAwardMdXp({ ...pending, status: "needs_fix" })).toBe(true);
   });
 });

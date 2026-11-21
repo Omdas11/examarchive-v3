@@ -2,6 +2,12 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getServerUser } from "@/lib/auth-cf";
 import { getD1 } from "@/lib/d1";
 import {
+  MD_COMPLETION_CREDITS,
+  MD_COMPLETION_XP,
+  resolveMdCompleter,
+  shouldAwardMdXp,
+} from "@/lib/md-verification";
+import {
   MD_ITEM_COLUMNS,
   addMdHistory,
   canAccessMdVerification,
@@ -72,12 +78,70 @@ export async function POST(
     }
     const now = Date.now();
     if (body.action === "approve") {
-      await db
+      // Completion XP: +25 XP and +5 AI credits, once per item, to the
+      // person who finished the md (edited_by, else submitted_by, else
+      // assigned_to, else the approver). Only on the transition into
+      // approved and only if not already awarded. No XP for needs_fix.
+      // If the completer has no users row, skip the award but approve.
+      let awardTo: string | null = null;
+      if (shouldAwardMdXp(item)) {
+        const completer = resolveMdCompleter(item, user.id);
+        if (completer) {
+          const userRow = await db
+            .prepare("SELECT id FROM users WHERE id = ? LIMIT 1")
+            .bind(completer)
+            .first<{ id: string }>();
+          if (userRow) awardTo = completer;
+        }
+      }
+      const awardedXp = awardTo ? MD_COMPLETION_XP : item.xp_awarded;
+      const updateItem = db
         .prepare(
-          "UPDATE md_verification_items SET status = 'approved', verified_by = ?, verified_at = ?, note = COALESCE(?, note), updated_at = ? WHERE id = ?",
+          "UPDATE md_verification_items SET status = 'approved', verified_by = ?, verified_at = ?, note = COALESCE(?, note), xp_awarded = ?, xp_awarded_to = ?, updated_at = ? WHERE id = ?",
         )
-        .bind(user.id, now, note, now, id)
-        .run();
+        .bind(
+          user.id,
+          now,
+          note,
+          awardedXp,
+          awardTo ?? item.xp_awarded_to,
+          now,
+          id,
+        );
+      const statements = [updateItem];
+      if (awardTo) {
+        statements.push(
+          db
+            .prepare(
+              "UPDATE users SET xp = xp + ?, ai_credits = ai_credits + ? WHERE id = ?",
+            )
+            .bind(MD_COMPLETION_XP, MD_COMPLETION_CREDITS, awardTo),
+        );
+      }
+      // One D1 batch: item status + XP update land together.
+      await db.batch(statements);
+      await addMdHistory({
+        itemId: id,
+        actorId: user.id,
+        actorLabel: user.name || user.email || user.id,
+        action: "approved",
+        note,
+      });
+      return NextResponse.json({
+        item: {
+          ...item,
+          status: "approved" as const,
+          verified_by: user.id,
+          verified_at: now,
+          note: note ?? item.note,
+          xp_awarded: awardedXp,
+          xp_awarded_to: awardTo ?? item.xp_awarded_to,
+          updated_at: now,
+        },
+        xp_awarded: awardedXp,
+        xp_awarded_to: awardTo ?? item.xp_awarded_to,
+        credits_awarded: awardTo ? MD_COMPLETION_CREDITS : 0,
+      });
     } else {
       await db
         .prepare(
@@ -86,19 +150,20 @@ export async function POST(
         .bind(note, now, id)
         .run();
     }
+    // Approve returns early above, so this path is needs_fix only.
     await addMdHistory({
       itemId: id,
       actorId: user.id,
       actorLabel: user.name || user.email || user.id,
-      action: body.action === "approve" ? "approved" : "needs_fix",
+      action: "needs_fix",
       note,
     });
     return NextResponse.json({
       item: {
         ...item,
-        status: body.action === "approve" ? "approved" : "needs_fix",
-        verified_by: body.action === "approve" ? user.id : item.verified_by,
-        verified_at: body.action === "approve" ? now : item.verified_at,
+        status: "needs_fix" as const,
+        verified_by: item.verified_by,
+        verified_at: item.verified_at,
         note: note ?? item.note,
         updated_at: now,
       },

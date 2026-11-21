@@ -93,6 +93,8 @@ export default function MdVerificationDetail({ itemId }: { itemId: string }) {
       });
       const data = (await res.json()) as {
         item?: MdVerificationItem;
+        xp_awarded?: number;
+        credits_awarded?: number;
         error?: string;
       };
       if (!res.ok || !data.item) {
@@ -101,7 +103,9 @@ export default function MdVerificationDetail({ itemId }: { itemId: string }) {
       setItem(data.item);
       setSavedAt(
         action === "approve"
-          ? "Approved. This md is now the source of truth for AI Notes."
+          ? data.xp_awarded && data.xp_awarded > 0
+            ? `Approved. +${data.xp_awarded} XP and +${data.credits_awarded ?? 0} AI credits earned. This md is now the source of truth for AI Notes.`
+            : "Approved. This md is now the source of truth for AI Notes."
           : "Sent back for fixes.",
       );
     } catch (err) {

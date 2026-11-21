@@ -19,6 +19,23 @@ below).
 4. Approve marks `verified_by` / `verified_at`. That md becomes the
    source of truth for AI Notes. Needs fix sends it back with a note
    (note required).
+
+## XP for completing a full md
+- On Approve, the completer earns +25 XP and +5 AI credits, once per
+  item — the same size as the moderator-accepted correction bonus, and
+  like that bonus it bypasses the daily verify caps.
+- Completer order: `edited_by`, else `submitted_by`, else `assigned_to`,
+  else the approver. Self-approve earns the XP once (the founder tries
+  the first item himself). If the completer has no users row, the award
+  is skipped but the approval still stands.
+- Guard: only on the transition into approved (status was not already
+  approved) and only if `xp_awarded` is still 0. Re-approving pays
+  nothing. No XP for Needs fix, Save draft, or Submit alone. The item
+  status update and the users xp/ai_credits update run in one D1 batch.
+  The review response returns `xp_awarded` / `xp_awarded_to`, and the
+  detail view shows "+25 XP earned" after approval.
+- Columns: `md_verification_items.xp_awarded` (INTEGER, default 0) and
+  `xp_awarded_to` (TEXT), added by `migrations/0012_md_verification_xp.sql`.
 5. Every save/review writes a row to `md_verification_history` with the
    previous md text, so the original is never lost. The PDF is never
    modified or deleted by this page.
@@ -72,7 +89,8 @@ below).
 - Migration (NOT applied): `migrations/0011_md_verification.sql`
   — `md_verification_items`, `md_verification_history`,
   `md_verifiers`, `md_upload_tokens`; indexes on status, paper_code,
-  assigned_to, batch.
+  assigned_to, batch. `migrations/0012_md_verification_xp.sql`
+  adds `xp_awarded` / `xp_awarded_to` to `md_verification_items`.
 - Tests: `src/lib/md-verification.test.ts` (paper-code validation,
   SHA-256 token-hash vector, upload validation, paging, R2 key shape)
 
