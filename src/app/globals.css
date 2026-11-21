@@ -318,6 +318,20 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
   animation: toast-in 0.2s ease-out forwards;
 }
 
+/* ── Daily reward toast: gold animated gradient ── */
+/* Deliberately unlike anything else on the site (emerald) so the reward
+   toast cannot blend in. The gradient pans slowly across the toast. */
+@keyframes reward-gold-pan {
+  0%, 100% { background-position: 0% 50%; }
+  50%      { background-position: 100% 50%; }
+}
+
+.reward-gold {
+  background: linear-gradient(120deg, #f59e0b, #fbbf24, #fde68a, #f59e0b);
+  background-size: 200% 100%;
+  animation: reward-gold-pan 2.5s ease-in-out infinite;
+}
+
 /* ── Avatar ring animation ── */
 @keyframes ring-pulse {
   0%, 100% { opacity: 1; }

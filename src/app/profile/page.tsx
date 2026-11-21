@@ -136,20 +136,17 @@ export default async function ProfilePage({
     // ignore – not found or env missing
   }
 
-  // Own activity counts (views + downloads) for the "At a glance" stats.
+  // Own view count for the "At a glance" stats (downloads are shown in the
+  // Downloads list below, not as a stat, so only views are counted here).
   let viewedCount = 0;
-  let downloadedCount = 0;
   try {
-    const rows = await db
+    const row = await db
       .prepare(
-        "SELECT action, COUNT(*) AS n FROM user_activity WHERE user_id = ? AND action IN ('view', 'download') GROUP BY action",
+        "SELECT COUNT(*) AS n FROM user_activity WHERE user_id = ? AND action = 'view'",
       )
       .bind(user.id)
-      .all<{ action: string; n: number }>();
-    for (const row of rows.results ?? []) {
-      if (row.action === "view") viewedCount = Number(row.n ?? 0);
-      if (row.action === "download") downloadedCount = Number(row.n ?? 0);
-    }
+      .first<{ n: number }>();
+    viewedCount = Number(row?.n ?? 0);
   } catch {
     // ignore
   }
@@ -235,7 +232,7 @@ export default async function ProfilePage({
       userName={userName}
       userInitials={userName.substring(0, 2).toUpperCase()}
     >
-    <section className="mx-auto px-4 py-8 space-y-4" style={{ maxWidth: "var(--max-w)" }}>
+    <section className="mx-auto px-4 py-5 sm:py-8 space-y-4" style={{ maxWidth: "var(--max-w)" }}>
 
       {/* Confetti on first approval */}
       <ConfettiTrigger approvedCount={approvedCount} />
@@ -257,7 +254,7 @@ export default async function ProfilePage({
       />
 
       {/* ── Main profile card ── */}
-      <div className="card p-6">
+      <div className="card p-4 sm:p-6">
         <div className="flex flex-col items-center">
 
           {/* Avatar + name + username (client component for interactive editing) */}
@@ -335,7 +332,7 @@ export default async function ProfilePage({
               {WEEK_DAYS.map((day, i) => (
                 <div key={day} className="flex flex-col items-center gap-1">
                   <div
-                    className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold"
+                    className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-sm font-semibold"
                     style={
                       weekActive[i]
                         ? { background: "var(--color-primary)", color: "#fff" }
@@ -379,21 +376,21 @@ export default async function ProfilePage({
                uploads are team-only now, so those numbers were 0 for everyone) ── */}
           <div className="w-full mt-5 grid grid-cols-3 gap-y-0">
             <div
-              className="text-center py-4"
+              className="text-center py-3 sm:py-4"
               style={{ borderRight: "1px solid var(--color-border)" }}
             >
-              <p className="text-3xl font-bold" style={{ color: "var(--color-primary)" }}>{user.ai_credits ?? 0}</p>
+              <p className="text-2xl sm:text-3xl font-bold" style={{ color: "var(--color-primary)" }}>{user.ai_credits ?? 0}</p>
               <p className="text-[11px] tracking-wider mt-1 uppercase" style={{ color: "var(--color-text-muted)" }}>AI Credits</p>
             </div>
             <div
-              className="text-center py-4"
+              className="text-center py-3 sm:py-4"
               style={{ borderRight: "1px solid var(--color-border)" }}
             >
-              <p className="text-3xl font-bold" style={{ color: "var(--color-primary)" }}>{streakDays}</p>
+              <p className="text-2xl sm:text-3xl font-bold" style={{ color: "var(--color-primary)" }}>{streakDays}</p>
               <p className="text-[11px] tracking-wider mt-1 uppercase" style={{ color: "var(--color-text-muted)" }}>Day Streak</p>
             </div>
-            <div className="text-center py-4">
-              <p className="text-3xl font-bold" style={{ color: "var(--color-primary)" }}>{viewedCount}</p>
+            <div className="text-center py-3 sm:py-4">
+              <p className="text-2xl sm:text-3xl font-bold" style={{ color: "var(--color-primary)" }}>{viewedCount}</p>
               <p className="text-[11px] tracking-wider mt-1 uppercase" style={{ color: "var(--color-text-muted)" }}>Papers Viewed</p>
             </div>
           </div>
@@ -401,7 +398,7 @@ export default async function ProfilePage({
       </div>
 
       {/* ── Account Info (read-only) ── */}
-      <div className="card p-6">
+      <div className="card p-4 sm:p-6">
         <h2 className="text-base font-semibold mb-3">Account Info</h2>
         <dl className="space-y-3 text-sm">
           <div className="flex justify-between">
@@ -427,7 +424,7 @@ export default async function ProfilePage({
       </div>
 
       {/* ── Connected Accounts ── */}
-      <div className="card p-6">
+      <div className="card p-4 sm:p-6">
         <h2 className="text-base font-semibold mb-3">Connected Accounts</h2>
         {discordStatus === "linked" && (
           <p className="text-sm mb-3" style={{ color: "var(--color-primary)" }}>
@@ -491,7 +488,7 @@ export default async function ProfilePage({
       </div>
 
       {/* ── Recently viewed ── */}
-      <div className="card p-6">
+      <div className="card p-4 sm:p-6">
         <h2 className="text-base font-semibold mb-3">Recently viewed</h2>
         {recentlyViewed.length === 0 ? (
           <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>

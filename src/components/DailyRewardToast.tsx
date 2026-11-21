@@ -9,13 +9,49 @@ interface DailyRewardToastProps {
   onClose: () => void;
 }
 
+/** Short celebratory chime, synthesized with Web Audio (no audio file). */
+function playRewardChime() {
+  try {
+    const Ctx =
+      window.AudioContext ??
+      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    // Browsers keep the context suspended until the user has interacted
+    // with the page; notes scheduled while suspended play when (and if) it
+    // resumes, and nothing breaks if they never do.
+    void ctx.resume?.();
+    const note = (freq: number, start: number, dur: number) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      const t0 = ctx.currentTime + start;
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.exponentialRampToValueAtTime(0.22, t0 + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(t0);
+      osc.stop(t0 + dur + 0.05);
+    };
+    // Bright major arpeggio: E5 -> G#5 -> B5.
+    note(659.25, 0, 0.18);
+    note(830.61, 0.09, 0.18);
+    note(987.77, 0.18, 0.34);
+    setTimeout(() => {
+      ctx.close().catch(() => undefined);
+    }, 900);
+  } catch {
+    // Sound is best-effort: never break the toast for it.
+  }
+}
+
 /**
- * Animated daily-login reward toast.
- *
+ * Daily-login reward toast, deliberately UNMISSABLE: a gold animated
+ * gradient (nothing else on the site is gold), a chime, and an 8s display.
  * Shows once when the server awards the daily login XP (first authenticated
- * visit of the UTC day) — a flame, the +XP amount and the current streak.
- * Slides in with the site's toast animation, dismisses itself after 6s, and
- * can be closed early. The positioning translate lives on the outer wrapper
+ * visit of the UTC day). The positioning translate lives on the outer wrapper
  * so the inner animation's transform never overrides it.
  */
 export default function DailyRewardToast({ reward, onClose }: DailyRewardToastProps) {
@@ -24,10 +60,11 @@ export default function DailyRewardToast({ reward, onClose }: DailyRewardToastPr
   useEffect(() => {
     if (!reward) return;
     setVisible(true);
+    playRewardChime();
     const timer = setTimeout(() => {
       setVisible(false);
       onClose();
-    }, 6000);
+    }, 8000);
     return () => clearTimeout(timer);
   }, [reward, onClose]);
 
@@ -35,23 +72,25 @@ export default function DailyRewardToast({ reward, onClose }: DailyRewardToastPr
 
   return (
     <div
-      className="fixed bottom-5 left-1/2 z-[95] -translate-x-1/2"
+      className="fixed bottom-5 left-1/2 z-[95] w-[calc(100vw-2rem)] max-w-md -translate-x-1/2"
       role="status"
       aria-live="polite"
     >
       <div
-        className="animate-toast-in card flex items-center gap-3 px-4 py-3 shadow-floating"
-        style={{ border: "1px solid var(--color-border)" }}
+        className="animate-toast-in reward-gold flex items-center gap-3 rounded-2xl px-4 py-3 shadow-floating"
+        style={{ border: "1px solid #b45309" }}
       >
         <span
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
-          style={{ background: "var(--color-accent-soft)" }}
+          style={{ background: "rgba(255,255,255,0.4)" }}
         >
-          <Icon name="fire" size={20} style={{ color: "var(--color-primary)" }} aria-hidden="true" />
+          <Icon name="fire" size={20} style={{ color: "#92400e" }} aria-hidden="true" />
         </span>
         <div className="min-w-0">
-          <p className="text-sm font-bold whitespace-nowrap">Daily reward: +{reward.xp} XP</p>
-          <p className="text-xs whitespace-nowrap" style={{ color: "var(--color-text-muted)" }}>
+          <p className="text-sm font-bold whitespace-nowrap" style={{ color: "#451a03" }}>
+            Daily reward: +{reward.xp} XP
+          </p>
+          <p className="text-xs whitespace-nowrap" style={{ color: "#78350f" }}>
             Day {reward.streak} streak — come back tomorrow to keep it going.
           </p>
         </div>
@@ -62,7 +101,8 @@ export default function DailyRewardToast({ reward, onClose }: DailyRewardToastPr
             onClose();
           }}
           aria-label="Dismiss daily reward"
-          className="ml-1 shrink-0 rounded-lg p-1.5 text-on-surface-variant hover:bg-surface-container-low transition-colors"
+          className="ml-1 shrink-0 rounded-lg p-1.5 transition-colors hover:bg-black/10"
+          style={{ color: "#451a03" }}
         >
           <span className="material-symbols-outlined text-[18px] leading-none" aria-hidden="true">
             close
