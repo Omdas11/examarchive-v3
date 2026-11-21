@@ -122,6 +122,12 @@ export const APP_SIDEBAR_ITEMS: AppSidebarItem[] = [
     href: "/admin/users",
     roles: ["moderator", "founder"],
   },
+  {
+    label: "Exam Timetable",
+    icon: "calendar_month",
+    href: "/admin/exam-timetable",
+    roles: ["moderator", "founder"],
+  },
   // ── Founder only ──────────────────────────────────────
   {
     label: "DevTool",
