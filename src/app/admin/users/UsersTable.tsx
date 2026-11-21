@@ -32,26 +32,28 @@ function resolveXpTotal(user: AdminUser): number {
 /**
  * Course summary for the admin table. `dept` is the DSC subject — the
  * user's major department, shown in its own Department column. `lines` is
- * every selected course, one per line, so the Courses cell reads as rows
- * instead of one wrapped paragraph. `full` is the whole selection (used for
- * the hover title).
+ * all 7 paper slots, one row each — unset slots show "—" so the admin sees
+ * at a glance which papers a user has not picked yet. `full` is the set
+ * courses only (used for the hover title).
  */
 function formatCoursePrefs(
   prefs: NonNullable<AdminUser["course_prefs"]>,
 ): { dept: string; lines: string[]; full: string } {
-  const lines = [
-    prefs.dsc ? `DSC ${prefs.dsc}` : "",
-    prefs.dsm1 ? `DSM ${prefs.dsm1}` : "",
-    prefs.dsm2 ? `DSM ${prefs.dsm2}` : "",
-    prefs.sec ? `SEC ${prefs.sec}` : "",
-    prefs.idc ? `IDC ${prefs.idc}` : "",
-    prefs.aec ? `AEC ${prefs.aec}` : "",
-    prefs.vac ? `VAC ${prefs.vac}` : "",
-  ].filter(Boolean);
+  const slots: Array<[string, string]> = [
+    ["DSC", prefs.dsc],
+    ["DSM", prefs.dsm1],
+    ["DSM", prefs.dsm2],
+    ["SEC", prefs.sec],
+    ["IDC", prefs.idc],
+    ["AEC", prefs.aec],
+    ["VAC", prefs.vac],
+  ];
+  const lines = slots.map(([label, value]) => (value ? `${label} ${value}` : `${label} —`));
+  const setLines = lines.filter((line) => !line.endsWith(" —"));
   return {
     dept: prefs.dsc,
     lines,
-    full: lines.join(" · ") || "Set",
+    full: setLines.join(" · ") || "Set",
   };
 }
 
@@ -131,11 +133,11 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
             <tr>
               <th className="whitespace-nowrap text-left text-xs font-semibold">User</th>
               <th className="whitespace-nowrap text-left text-xs font-semibold">Role</th>
-              <th className="whitespace-nowrap text-left text-xs font-semibold">Community Badges</th>
-              <th className="whitespace-nowrap text-right text-xs font-semibold">Uploads</th>
-              <th className="whitespace-nowrap text-right text-xs font-semibold">Verified</th>
-              <th className="whitespace-nowrap text-right text-xs font-semibold">XP</th>
-              <th className="whitespace-nowrap text-left text-xs font-semibold">Achievements</th>
+              <th className="hidden whitespace-nowrap text-left text-xs font-semibold xl:table-cell">Community Badges</th>
+              <th className="hidden whitespace-nowrap text-right text-xs font-semibold xl:table-cell">Uploads</th>
+              <th className="hidden whitespace-nowrap text-right text-xs font-semibold xl:table-cell">Verified</th>
+              <th className="hidden whitespace-nowrap text-right text-xs font-semibold">XP</th>
+              <th className="hidden whitespace-nowrap text-left text-xs font-semibold xl:table-cell">Achievements</th>
               <th className="whitespace-nowrap text-right text-xs font-semibold">Streak</th>
               <th className="whitespace-nowrap text-left text-xs font-semibold">Last seen</th>
               <th className="whitespace-nowrap text-left text-xs font-semibold">Department</th>
@@ -179,8 +181,10 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
                     <RoleBadge role={u.role} />
                   </td>
 
-                  {/* Community badges (secondary + tertiary) */}
-                  <td className="whitespace-nowrap">
+                  {/* Community badges (secondary + tertiary) — hidden below
+                      xl: all 0/empty today, and the table must fit without
+                      horizontal scrolling on a laptop */}
+                  <td className="hidden whitespace-nowrap xl:table-cell">
                     <div className="flex flex-wrap gap-1">
                       {u.secondary_role ? <RoleBadge role={u.secondary_role} /> : null}
                       {u.tertiary_role ? <RoleBadge role={u.tertiary_role} /> : null}
@@ -190,13 +194,13 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
                     </div>
                   </td>
 
-                  {/* Uploads (= approved papers) */}
-                  <td className="whitespace-nowrap text-right font-medium text-sm">
+                  {/* Uploads (= approved papers) — hidden below xl */}
+                  <td className="hidden whitespace-nowrap text-right font-medium text-sm xl:table-cell">
                     {u.upload_count}
                   </td>
 
-                  {/* Verified (verify-to-earn) */}
-                  <td className="whitespace-nowrap text-right font-medium text-sm">
+                  {/* Verified (verify-to-earn) — hidden below xl */}
+                  <td className="hidden whitespace-nowrap text-right font-medium text-sm xl:table-cell">
                     {u.verified_count ?? 0}
                   </td>
 
@@ -205,8 +209,8 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
                     {xpTotal.toLocaleString()}
                   </td>
 
-                  {/* Achievements / XP milestones */}
-                  <td>
+                  {/* Achievements / XP milestones — hidden below xl */}
+                  <td className="hidden xl:table-cell">
                     {milestones.length > 0 || u.streak_days >= 30 ? (
                       <div className="flex flex-wrap gap-1">
                         {milestones.map((m) => (
