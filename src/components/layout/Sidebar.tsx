@@ -69,9 +69,16 @@ export default function Sidebar({
     (item) => !item.roles || item.roles.includes(userRole)
   );
 
+  // Exact match wins: on /admin/users only "Manage Users" lights up — the
+  // prefix rule alone also lit "Admin Panel" (/admin), so two items glowed
+  // at once. When nothing matches exactly, prefix matching still highlights
+  // the section (e.g. /admin on /admin/verifications).
+  const hasExactMatch = visibleItems.some((item) => pathname === item.href);
   const isActive = (href: string) => {
     if (href.startsWith('http')) return false;
-    return pathname === href || pathname.startsWith(href + '/');
+    if (pathname === href) return true;
+    if (hasExactMatch) return false;
+    return pathname.startsWith(href + '/');
   };
 
   return (
@@ -152,6 +159,10 @@ export default function Sidebar({
                 'flex items-center gap-3 px-4 py-3.5 rounded-full',
                 'transition-all duration-200 ease-in-out',
                 'relative group',
+                // Collapsed (icon rail): centre the icon in the pill. Without
+                // this the icon sat left-aligned with px-4 padding, so the
+                // active highlight looked off-centre.
+                isCollapsed && 'justify-center px-2',
                 isActive(item.href)
                   ? 'bg-primary text-on-primary font-bold shadow-floating'
                   : 'text-on-surface-variant hover:bg-surface-container-low hover:text-primary font-medium'

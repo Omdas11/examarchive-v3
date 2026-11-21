@@ -30,29 +30,28 @@ function resolveXpTotal(user: AdminUser): number {
 }
 
 /**
- * Course summary for the admin table. `dept` is the DSC subject shown as a
- * department badge; `rest` is every other selected course; `full` is the
- * whole selection (used for the hover title).
+ * Course summary for the admin table. `dept` is the DSC subject — the
+ * user's major department, shown in its own Department column. `lines` is
+ * every selected course, one per line, so the Courses cell reads as rows
+ * instead of one wrapped paragraph. `full` is the whole selection (used for
+ * the hover title).
  */
 function formatCoursePrefs(
   prefs: NonNullable<AdminUser["course_prefs"]>,
-): { dept: string; rest: string; full: string } {
-  const dsm = [prefs.dsm1, prefs.dsm2].filter(Boolean).join(", ");
-  const restParts = [
-    dsm ? `DSM ${dsm}` : "",
+): { dept: string; lines: string[]; full: string } {
+  const lines = [
+    prefs.dsc ? `DSC ${prefs.dsc}` : "",
+    prefs.dsm1 ? `DSM ${prefs.dsm1}` : "",
+    prefs.dsm2 ? `DSM ${prefs.dsm2}` : "",
     prefs.sec ? `SEC ${prefs.sec}` : "",
     prefs.idc ? `IDC ${prefs.idc}` : "",
     prefs.aec ? `AEC ${prefs.aec}` : "",
     prefs.vac ? `VAC ${prefs.vac}` : "",
   ].filter(Boolean);
-  const fullParts = [
-    prefs.dsc ? `DSC ${prefs.dsc}` : "",
-    ...restParts,
-  ].filter(Boolean);
   return {
     dept: prefs.dsc,
-    rest: restParts.join(" · "),
-    full: fullParts.join(" · ") || "Set",
+    lines,
+    full: lines.join(" · ") || "Set",
   };
 }
 
@@ -139,6 +138,7 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
               <th className="whitespace-nowrap text-left text-xs font-semibold">Achievements</th>
               <th className="whitespace-nowrap text-right text-xs font-semibold">Streak</th>
               <th className="whitespace-nowrap text-left text-xs font-semibold">Last seen</th>
+              <th className="whitespace-nowrap text-left text-xs font-semibold">Department</th>
               <th className="whitespace-nowrap text-left text-xs font-semibold">Courses</th>
               <th className="whitespace-nowrap text-center text-xs font-semibold">Actions</th>
             </tr>
@@ -248,32 +248,41 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
                     {formatLastSeen(u.last_seen_at)}
                   </td>
 
-                  {/* Courses: department badge + every selected course; "—" when never set */}
+                  {/* Department: the DSC subject is the user's major */}
+                  <td className="whitespace-nowrap text-sm">
+                    {courses?.dept ? (
+                      <span
+                        className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold"
+                        style={{
+                          background: "var(--color-accent-soft)",
+                          color: "var(--color-primary)",
+                          border: "1px solid rgba(211,39,62,0.2)",
+                        }}
+                      >
+                        {courses.dept}
+                      </span>
+                    ) : (
+                      <span style={{ color: "var(--color-text-muted)" }}>—</span>
+                    )}
+                  </td>
+
+                  {/* Courses: one selected course per row; "—" when never set */}
                   <td
                     className="text-sm"
                     style={{ maxWidth: 260 }}
                     title={courses ? courses.full : "No courses selected yet"}
                   >
-                    {courses ? (
-                      <div className="flex flex-col items-start gap-1">
-                        {courses.dept ? (
+                    {courses && courses.lines.length > 0 ? (
+                      <div className="flex flex-col gap-0.5">
+                        {courses.lines.map((line) => (
                           <span
-                            className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold"
-                            style={{
-                              background: "var(--color-accent-soft)",
-                              color: "var(--color-primary)",
-                              border: "1px solid rgba(211,39,62,0.2)",
-                            }}
+                            key={line}
+                            className="text-xs whitespace-nowrap"
+                            style={{ color: "var(--color-text-muted)" }}
                           >
-                            {courses.dept}
+                            {line}
                           </span>
-                        ) : null}
-                        <span
-                          className="text-xs leading-relaxed"
-                          style={{ color: "var(--color-text-muted)" }}
-                        >
-                          {courses.rest || courses.full}
-                        </span>
+                        ))}
                       </div>
                     ) : (
                       <span style={{ color: "var(--color-text-muted)" }}>—</span>

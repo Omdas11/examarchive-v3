@@ -8,7 +8,10 @@ interface ProfileRightSidebarProps {
   tierLabel: string;
   xpScore: number;
   aiCredits: number;
-  courseSummary: string | null;
+  /** Every selected course, one per line. */
+  courseLines: string[];
+  /** The DSC subject — the user's major department. */
+  department: string | null;
   streakDays: number;
   joinedDate: string;
 }
@@ -19,7 +22,8 @@ export default function ProfileRightSidebar({
   tierLabel,
   xpScore,
   aiCredits,
-  courseSummary,
+  courseLines,
+  department,
   streakDays,
   joinedDate,
 }: ProfileRightSidebarProps) {
@@ -121,9 +125,23 @@ export default function ProfileRightSidebar({
                 <dt style={{ color: "var(--color-text-muted)" }}>AI Credits</dt>
                 <dd>{aiCredits}</dd>
               </div>
+              <div className="flex justify-between">
+                <dt style={{ color: "var(--color-text-muted)" }}>Department</dt>
+                <dd className="font-medium">{department ?? "Not set yet"}</dd>
+              </div>
               <div className="flex justify-between gap-4">
-                <dt style={{ color: "var(--color-text-muted)" }}>Courses</dt>
-                <dd className="text-right max-w-[220px]">{courseSummary ?? "Not set yet"}</dd>
+                <dt className="shrink-0" style={{ color: "var(--color-text-muted)" }}>Courses</dt>
+                <dd className="text-right max-w-[220px]">
+                  {courseLines.length > 0 ? (
+                    <span className="flex flex-col gap-0.5">
+                      {courseLines.map((line) => (
+                        <span key={line} className="block">{line}</span>
+                      ))}
+                    </span>
+                  ) : (
+                    "Not set yet"
+                  )}
+                </dd>
               </div>
               <div className="flex justify-between">
                 <dt style={{ color: "var(--color-text-muted)" }}>Streak</dt>

@@ -153,7 +153,10 @@ export default async function ProfilePage({
 
   // Course selection mirrored to D1 (see /api/profile/course-prefs) for the
   // "Show profile details" panel. Local-only prefs sync on the next visit.
-  let courseSummary: string | null = null;
+  // `department` is the DSC subject (the major); `courseLines` is every
+  // selected course, one per line, for the details panel.
+  let courseLines: string[] = [];
+  let department: string | null = null;
   try {
     const prefs = await db
       .prepare(
@@ -170,17 +173,16 @@ export default async function ProfilePage({
         vac: string;
       }>();
     if (prefs) {
-      const parts = [
+      department = prefs.dsc || null;
+      courseLines = [
         prefs.dsc ? `DSC ${prefs.dsc}` : "",
-        [prefs.dsm1, prefs.dsm2].filter(Boolean).join(", ")
-          ? `DSM ${[prefs.dsm1, prefs.dsm2].filter(Boolean).join(", ")}`
-          : "",
+        prefs.dsm1 ? `DSM ${prefs.dsm1}` : "",
+        prefs.dsm2 ? `DSM ${prefs.dsm2}` : "",
         prefs.sec ? `SEC ${prefs.sec}` : "",
         prefs.idc ? `IDC ${prefs.idc}` : "",
         prefs.aec ? `AEC ${prefs.aec}` : "",
         prefs.vac ? `VAC ${prefs.vac}` : "",
       ].filter(Boolean);
-      courseSummary = parts.length > 0 ? parts.join(" · ") : null;
     }
   } catch {
     // ignore
@@ -248,7 +250,8 @@ export default async function ProfilePage({
         tierLabel={tier}
         xpScore={xpScore}
         aiCredits={user.ai_credits ?? 0}
-        courseSummary={courseSummary}
+        courseLines={courseLines}
+        department={department}
         streakDays={streakDays}
         joinedDate={joinedDate}
       />
