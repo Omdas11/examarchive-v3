@@ -4,6 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import { formatQuestionMd } from "@/lib/md-verification-format";
 import {
   STATUS_LABELS,
   type MdVerificationItem,
@@ -28,6 +31,9 @@ import type {
  * newer save gets a 409 and a Reload button instead of silently
  * overwriting; a plain-words how-to box at the top; dark-theme-safe
  * inputs (the v1 hardcoded white boxes were unreadable in dark mode).
+ * Preview renders `$...$` / `$$...$$` maths via remark-math + KaTeX, and
+ * the Format button tidies the draft's spacing and line breaks
+ * (client-side only, nothing saved until Save draft / Submit).
  */
 interface ItemResponse {
   item: MdVerificationItem;
@@ -490,6 +496,18 @@ export default function MdVerificationDetail({ itemId }: { itemId: string }) {
             <div className="flex gap-2">
               <button
                 type="button"
+                onClick={() => {
+                  setDraft(formatQuestionMd(draft));
+                  setMode("edit");
+                }}
+                disabled={!canAct}
+                className="border px-3 py-1 text-sm disabled:opacity-50"
+                title="Tidy the spacing and line breaks. Nothing is saved until you press Save draft."
+              >
+                Format
+              </button>
+              <button
+                type="button"
                 onClick={() => setMode("edit")}
                 className={`border px-3 py-1 text-sm ${mode === "edit" ? "font-bold" : ""}`}
                 aria-pressed={mode === "edit"}
@@ -516,8 +534,11 @@ export default function MdVerificationDetail({ itemId }: { itemId: string }) {
               spellCheck={false}
             />
           ) : (
-            <div className="prose mt-3 h-[70vh] max-w-none overflow-auto border border-[var(--color-border)] bg-[var(--color-input-bg)] p-3 text-sm text-[var(--color-text)] dark:prose-invert">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            <div className="prose mt-3 h-[70vh] max-w-none overflow-auto border border-[var(--color-border)] bg-[var(--color-input-bg)] p-3 text-sm text-[var(--color-text)] dark:prose-invert [&_h1]:text-xl sm:[&_h1]:text-2xl">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm, remarkMath]}
+                rehypePlugins={[rehypeKatex]}
+              >
                 {draft}
               </ReactMarkdown>
             </div>

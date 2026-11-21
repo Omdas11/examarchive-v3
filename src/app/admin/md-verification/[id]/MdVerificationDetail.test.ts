@@ -67,6 +67,27 @@ describe("MdVerificationDetail (reverted v1 UI, v2 behaviours kept)", () => {
     expect(source).toContain("source of truth for AI Notes");
   });
 
+  test("preview renders maths and the title is tamed on phones", () => {
+    expect(source).toContain('import remarkMath from "remark-math"');
+    expect(source).toContain('import rehypeKatex from "rehype-katex"');
+    expect(source).toContain("remarkPlugins={[remarkGfm, remarkMath]}");
+    expect(source).toContain("rehypePlugins={[rehypeKatex]}");
+    // No typography plugin in this repo, so prose-h1: generates nothing;
+    // the h1 size is tamed with an arbitrary variant instead. (The huge
+    // title came from the global `h1 { font-size: clamp(2rem, 4vw, 2.8rem) }`
+    // rule in globals.css.)
+    expect(source).toContain("[&_h1]:text-xl");
+    expect(source).toContain("sm:[&_h1]:text-2xl");
+  });
+
+  test("Format button tidies the draft without saving", () => {
+    expect(source).toContain(
+      'import { formatQuestionMd } from "@/lib/md-verification-format"',
+    );
+    expect(source).toContain("setDraft(formatQuestionMd(draft))");
+    expect(source).toMatch(/>\s*Format\s*</);
+  });
+
   test("no hardcoded white boxes (dark-theme bug)", () => {
     expect(source).not.toContain("bg-white");
     expect(source).toContain("bg-[var(--color-input-bg)]");

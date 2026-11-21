@@ -2,6 +2,10 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Plus_Jakarta_Sans, Noto_Sans_Bengali } from "next/font/google";
 import "./globals.css";
+// KaTeX styles for `$...$` maths rendered by react-markdown (AI Notes and
+// the MD verification preview). Without this the maths renders with no
+// fonts or spacing. The CSS is bundled once here, not per page.
+import "katex/dist/katex.min.css";
 import { getServerUser } from "@/lib/auth-cf";
 import { ADS_ENABLED } from "@/lib/site-flags";
 import DebugPanel from "@/components/DebugPanel";
