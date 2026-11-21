@@ -7,9 +7,8 @@ interface ProfileRightSidebarProps {
   roleLabel: string;
   tierLabel: string;
   xpScore: number;
-  approvedCount: number;
-  verifiedCount: number;
-  totalUploads: number;
+  aiCredits: number;
+  courseSummary: string | null;
   streakDays: number;
   joinedDate: string;
 }
@@ -19,9 +18,8 @@ export default function ProfileRightSidebar({
   roleLabel,
   tierLabel,
   xpScore,
-  approvedCount,
-  verifiedCount,
-  totalUploads,
+  aiCredits,
+  courseSummary,
   streakDays,
   joinedDate,
 }: ProfileRightSidebarProps) {
@@ -120,16 +118,12 @@ export default function ProfileRightSidebar({
                 <dd className="font-semibold">{xpScore}</dd>
               </div>
               <div className="flex justify-between">
-                <dt style={{ color: "var(--color-text-muted)" }}>Approved</dt>
-                <dd>{approvedCount}</dd>
+                <dt style={{ color: "var(--color-text-muted)" }}>AI Credits</dt>
+                <dd>{aiCredits}</dd>
               </div>
-              <div className="flex justify-between">
-                <dt style={{ color: "var(--color-text-muted)" }}>Verified</dt>
-                <dd>{verifiedCount}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt style={{ color: "var(--color-text-muted)" }}>Uploads</dt>
-                <dd>{totalUploads}</dd>
+              <div className="flex justify-between gap-4">
+                <dt style={{ color: "var(--color-text-muted)" }}>Courses</dt>
+                <dd className="text-right max-w-[220px]">{courseSummary ?? "Not set yet"}</dd>
               </div>
               <div className="flex justify-between">
                 <dt style={{ color: "var(--color-text-muted)" }}>Streak</dt>

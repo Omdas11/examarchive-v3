@@ -136,28 +136,55 @@ export default async function ProfilePage({
     // ignore – not found or env missing
   }
 
-  // Total uploads submitted by this user (all statuses across upload types)
-  let totalUploads = 0;
+  // Own activity counts (views + downloads) for the "At a glance" stats.
+  let viewedCount = 0;
+  let downloadedCount = 0;
   try {
-    const row = await db
-      .prepare("SELECT COUNT(*) AS n FROM uploads WHERE user_id = ?")
+    const rows = await db
+      .prepare(
+        "SELECT action, COUNT(*) AS n FROM user_activity WHERE user_id = ? AND action IN ('view', 'download') GROUP BY action",
+      )
       .bind(user.id)
-      .first<{ n: number }>();
-    totalUploads = Number(row?.n ?? 0);
+      .all<{ action: string; n: number }>();
+    for (const row of rows.results ?? []) {
+      if (row.action === "view") viewedCount = Number(row.n ?? 0);
+      if (row.action === "download") downloadedCount = Number(row.n ?? 0);
+    }
   } catch {
     // ignore
   }
 
-  const approvalPct = totalUploads > 0 ? Math.round((approvedCount / totalUploads) * 100) : 0;
-
-  // Verifications submitted (verify-to-earn ledger).
-  let verifiedCount = 0;
+  // Course selection mirrored to D1 (see /api/profile/course-prefs) for the
+  // "Show profile details" panel. Local-only prefs sync on the next visit.
+  let courseSummary: string | null = null;
   try {
-    const row = await db
-      .prepare("SELECT COUNT(*) AS n FROM content_verifications WHERE user_id = ?")
+    const prefs = await db
+      .prepare(
+        "SELECT dsc, dsm1, dsm2, sec, idc, aec, vac FROM user_course_prefs WHERE user_id = ? LIMIT 1",
+      )
       .bind(user.id)
-      .first<{ n: number }>();
-    verifiedCount = Number(row?.n ?? 0);
+      .first<{
+        dsc: string;
+        dsm1: string;
+        dsm2: string;
+        sec: string;
+        idc: string;
+        aec: string;
+        vac: string;
+      }>();
+    if (prefs) {
+      const parts = [
+        prefs.dsc ? `DSC ${prefs.dsc}` : "",
+        [prefs.dsm1, prefs.dsm2].filter(Boolean).join(", ")
+          ? `DSM ${[prefs.dsm1, prefs.dsm2].filter(Boolean).join(", ")}`
+          : "",
+        prefs.sec ? `SEC ${prefs.sec}` : "",
+        prefs.idc ? `IDC ${prefs.idc}` : "",
+        prefs.aec ? `AEC ${prefs.aec}` : "",
+        prefs.vac ? `VAC ${prefs.vac}` : "",
+      ].filter(Boolean);
+      courseSummary = parts.length > 0 ? parts.join(" · ") : null;
+    }
   } catch {
     // ignore
   }
@@ -184,16 +211,12 @@ export default async function ProfilePage({
   const weekActive = getWeekActiveDays(streakDays, user.last_activity ?? "");
   const streakGoal = nextStreakGoal(streakDays);
 
-  // ── Earned achievements (v2 badge types from ACHIEVEMENTS.md) ────────────
-  // Badges that can't be auto-computed (first_review, first_publish, early_user)
-  // use best available proxies; see docs/XP_ACHIEVEMENTS.md for full details.
+  // ── Earned achievements ────────────────────────────────────────────────
+  // Upload-based badges were dropped: uploads are team-only now, so regular
+  // users could never earn them. Streak and XP badges remain.
   const earnedAchievements: EarnedAchievement[] = [
-    totalUploads >= 1   ? { icon: "upload",    label: "First Upload" }    : null,
-    totalUploads >= 10  ? { icon: "trophy",    label: "10 Uploads" }      : null,
-    totalUploads >= 100 ? { icon: "sparkles",  label: "100 Uploads" }     : null,
     streakDays >= 7     ? { icon: "fire",      label: "7-Day Streak" }    : null,
     streakDays >= 30    ? { icon: "lightning", label: "30-Day Streak" }   : null,
-    (approvalPct >= 90 && totalUploads >= 10) ? { icon: "badge", label: "90% Approval" } : null,
     // Top Contributor proxy: Platinum tier (800+ XP)
     user.xp >= 800      ? { icon: "medal",     label: "Top Contributor" } : null,
   ].filter(Boolean) as EarnedAchievement[];
@@ -227,9 +250,8 @@ export default async function ProfilePage({
         roleLabel={roleDisplayLabel}
         tierLabel={tier}
         xpScore={xpScore}
-        approvedCount={approvedCount}
-        verifiedCount={verifiedCount}
-        totalUploads={totalUploads}
+        aiCredits={user.ai_credits ?? 0}
+        courseSummary={courseSummary}
         streakDays={streakDays}
         joinedDate={joinedDate}
       />
@@ -353,36 +375,26 @@ export default async function ProfilePage({
             </div>
           </div>
 
-           {/* ── 4-stat grid (Uploads / Approved / Approval % / XO) ── */}
-          {/* Matches v2 profile stats layout (get_user_upload_stats RPC equivalent) */}
-          <div className="w-full mt-5 grid grid-cols-2 gap-y-0">
+           {/* ── At a glance (replaces the old Uploads / Approved / Approval % grid:
+               uploads are team-only now, so those numbers were 0 for everyone) ── */}
+          <div className="w-full mt-5 grid grid-cols-3 gap-y-0">
             <div
               className="text-center py-4"
               style={{ borderRight: "1px solid var(--color-border)" }}
             >
-              <p className="text-3xl font-bold" style={{ color: "var(--color-primary)" }}>{totalUploads}</p>
-              <p className="text-[11px] tracking-wider mt-1 uppercase" style={{ color: "var(--color-text-muted)" }}>Uploads</p>
+              <p className="text-3xl font-bold" style={{ color: "var(--color-primary)" }}>{user.ai_credits ?? 0}</p>
+              <p className="text-[11px] tracking-wider mt-1 uppercase" style={{ color: "var(--color-text-muted)" }}>AI Credits</p>
+            </div>
+            <div
+              className="text-center py-4"
+              style={{ borderRight: "1px solid var(--color-border)" }}
+            >
+              <p className="text-3xl font-bold" style={{ color: "var(--color-primary)" }}>{streakDays}</p>
+              <p className="text-[11px] tracking-wider mt-1 uppercase" style={{ color: "var(--color-text-muted)" }}>Day Streak</p>
             </div>
             <div className="text-center py-4">
-              <p className="text-3xl font-bold" style={{ color: "var(--color-primary)" }}>{approvedCount}</p>
-              <p className="text-[11px] tracking-wider mt-1 uppercase" style={{ color: "var(--color-text-muted)" }}>Approved</p>
-            </div>
-            <div
-              className="text-center py-4"
-              style={{
-                borderRight: "1px solid var(--color-border)",
-                borderTop: "1px solid var(--color-border)",
-              }}
-            >
-              <p className="text-3xl font-bold" style={{ color: "var(--color-primary)" }}>{approvalPct}%</p>
-              <p className="text-[11px] tracking-wider mt-1 uppercase" style={{ color: "var(--color-text-muted)" }}>Approval</p>
-            </div>
-            <div
-              className="text-center py-4"
-              style={{ borderTop: "1px solid var(--color-border)" }}
-            >
-               <p className="text-3xl font-bold" style={{ color: "var(--color-primary)" }}>{xpScore}</p>
-               <p className="text-[11px] tracking-wider mt-1 uppercase" style={{ color: "var(--color-text-muted)" }}>XP</p>
+              <p className="text-3xl font-bold" style={{ color: "var(--color-primary)" }}>{viewedCount}</p>
+              <p className="text-[11px] tracking-wider mt-1 uppercase" style={{ color: "var(--color-text-muted)" }}>Papers Viewed</p>
             </div>
           </div>
         </div>
@@ -405,11 +417,6 @@ export default async function ProfilePage({
           <div className="flex justify-between items-center">
             <dt style={{ color: "var(--color-text-muted)" }}>Tier</dt>
             <dd><TierBadge tier={tier} /></dd>
-          </div>
-          <hr style={{ borderColor: "var(--color-border)" }} />
-          <div className="flex justify-between">
-            <dt style={{ color: "var(--color-text-muted)" }}>Verified</dt>
-            <dd className="font-medium">{verifiedCount}</dd>
           </div>
           <hr style={{ borderColor: "var(--color-border)" }} />
           <div className="flex justify-between">

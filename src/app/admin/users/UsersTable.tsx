@@ -29,21 +29,31 @@ function resolveXpTotal(user: AdminUser): number {
   return 0;
 }
 
-/** Compact course summary for the admin table ("Physics · Maths, Chemistry"). */
+/**
+ * Course summary for the admin table. `dept` is the DSC subject shown as a
+ * department badge; `rest` is every other selected course; `full` is the
+ * whole selection (used for the hover title).
+ */
 function formatCoursePrefs(
   prefs: NonNullable<AdminUser["course_prefs"]>,
-): { short: string; full: string } {
+): { dept: string; rest: string; full: string } {
   const dsm = [prefs.dsm1, prefs.dsm2].filter(Boolean).join(", ");
-  const parts = [
-    prefs.dsc ? `DSC ${prefs.dsc}` : "",
+  const restParts = [
     dsm ? `DSM ${dsm}` : "",
     prefs.sec ? `SEC ${prefs.sec}` : "",
     prefs.idc ? `IDC ${prefs.idc}` : "",
     prefs.aec ? `AEC ${prefs.aec}` : "",
     prefs.vac ? `VAC ${prefs.vac}` : "",
   ].filter(Boolean);
-  const short = [prefs.dsc, dsm].filter(Boolean).join(" · ");
-  return { short: short || "Set", full: parts.join(" · ") || "Set" };
+  const fullParts = [
+    prefs.dsc ? `DSC ${prefs.dsc}` : "",
+    ...restParts,
+  ].filter(Boolean);
+  return {
+    dept: prefs.dsc,
+    rest: restParts.join(" · "),
+    full: fullParts.join(" · ") || "Set",
+  };
 }
 
 /** Relative "last seen" label from an ISO timestamp ("5m ago", "3d ago"). */
@@ -238,13 +248,33 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
                     {formatLastSeen(u.last_seen_at)}
                   </td>
 
-                  {/* Courses: mirrored from the user's browser; "—" when never set */}
+                  {/* Courses: department badge + every selected course; "—" when never set */}
                   <td
-                    className="whitespace-nowrap text-sm"
+                    className="text-sm"
+                    style={{ maxWidth: 260 }}
                     title={courses ? courses.full : "No courses selected yet"}
                   >
                     {courses ? (
-                      courses.short
+                      <div className="flex flex-col items-start gap-1">
+                        {courses.dept ? (
+                          <span
+                            className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold"
+                            style={{
+                              background: "var(--color-accent-soft)",
+                              color: "var(--color-primary)",
+                              border: "1px solid rgba(211,39,62,0.2)",
+                            }}
+                          >
+                            {courses.dept}
+                          </span>
+                        ) : null}
+                        <span
+                          className="text-xs leading-relaxed"
+                          style={{ color: "var(--color-text-muted)" }}
+                        >
+                          {courses.rest || courses.full}
+                        </span>
+                      </div>
                     ) : (
                       <span style={{ color: "var(--color-text-muted)" }}>—</span>
                     )}

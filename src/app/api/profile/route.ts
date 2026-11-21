@@ -4,6 +4,9 @@ import { getD1 } from "@/lib/d1";
 
 const USERNAME_COOLDOWN_DAYS = 7;
 
+/** XP for the first authenticated visit of the UTC day (see GET below). */
+const DAILY_LOGIN_XP = 10;
+
 /**
  * PATCH /api/profile
  * Update the authenticated user's display profile (display_name, username).
@@ -169,21 +172,64 @@ export async function GET() {
   let approved_upload_count = 0;
   let total_uploads = 0;
   let dbXp = user.xp;
+  let dbStreakDays = user.streak_days ?? 0;
+  let dailyReward: { xp: number; streak: number } | null = null;
   try {
     const db = await getD1();
     const profile = await db
       .prepare(
-        "SELECT username_last_changed, upload_count, xp FROM users WHERE id = ? LIMIT 1",
+        "SELECT username_last_changed, upload_count, xp, streak_days, last_daily_xp_at FROM users WHERE id = ? LIMIT 1",
       )
       .bind(user.id)
       .first<{
         username_last_changed: string | null;
         upload_count: number;
         xp: number;
+        streak_days: number | null;
+        last_daily_xp_at: number | null;
       }>();
     username_last_changed = profile?.username_last_changed ?? null;
     approved_upload_count = profile?.upload_count ?? 0;
     dbXp = profile?.xp ?? user.xp;
+    dbStreakDays = profile?.streak_days ?? user.streak_days ?? 0;
+
+    // ── Daily login XP (+10 XP, first authenticated visit of the UTC day) ──
+    // The conditional UPDATE makes the award atomic: concurrent calls on the
+    // same morning award only once. Streak: last award yesterday -> +1,
+    // earlier (or never) -> 1. Also refreshes last_activity so the profile
+    // streak-week display stays live. Failures are swallowed: daily XP is a
+    // bonus and must never break the profile response.
+    const now = Date.now();
+    const today = new Date(now);
+    const startOfTodayUtc = Date.UTC(
+      today.getUTCFullYear(),
+      today.getUTCMonth(),
+      today.getUTCDate(),
+    );
+    const startOfYesterdayUtc = startOfTodayUtc - 86_400_000;
+    const lastDailyXpAt = profile?.last_daily_xp_at ?? null;
+    if (lastDailyXpAt === null || lastDailyXpAt < startOfTodayUtc) {
+      const newStreak =
+        lastDailyXpAt !== null && lastDailyXpAt >= startOfYesterdayUtc
+          ? dbStreakDays + 1
+          : 1;
+      try {
+        const result = await db
+          .prepare(
+            `UPDATE users SET xp = xp + ?, streak_days = ?, last_activity = ?, last_daily_xp_at = ?
+             WHERE id = ? AND (last_daily_xp_at IS NULL OR last_daily_xp_at < ?)`,
+          )
+          .bind(DAILY_LOGIN_XP, newStreak, now, now, user.id, startOfTodayUtc)
+          .run();
+        if (result.meta.changes === 1) {
+          dailyReward = { xp: DAILY_LOGIN_XP, streak: newStreak };
+          dbXp += DAILY_LOGIN_XP;
+          dbStreakDays = newStreak;
+        }
+      } catch {
+        // ignore — daily XP must never break the profile response
+      }
+    }
 
     // Count only moderated uploads (papers + syllabus) to match upload_count logic.
     const papersRow = await db
@@ -226,9 +272,10 @@ export async function GET() {
     role: user.role,
     tier: user.tier ?? "bronze",
     xp: dbXp,
-    streak_days: user.streak_days,
+    streak_days: dbStreakDays,
     last_activity: user.last_activity,
     created_at: user.created_at,
+    daily_reward: dailyReward,
     approved_upload_count,
     approved_count: approved_upload_count,
     total_uploads,

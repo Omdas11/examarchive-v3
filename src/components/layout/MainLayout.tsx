@@ -2,10 +2,12 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import Sidebar from './Sidebar';
 import Header, { type HeaderProps } from './Header';
 import Footer from '@/components/Footer';
 import RightSidebar, { type SidebarProfileResponse } from './RightSidebar';
+import DailyRewardToast from '@/components/DailyRewardToast';
 import { cn } from '@/lib/utils';
 import { roleLabel, xpTier } from '@/lib/roles';
 import { PROFILE_REFRESH_EVENT } from '@/lib/profile-events';
@@ -55,6 +57,15 @@ export default function MainLayout({
   const [isRightCollapsed, setIsRightCollapsed] = useState(false);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [sidebarProfile, setSidebarProfile] = useState<SidebarProfileResponse | null>(null);
+  const [dailyReward, setDailyReward] = useState<{ xp: number; streak: number } | null>(null);
+
+  // Active state for the collapsed right rail — same rule as the left
+  // Sidebar (exact match, or a sub-path of the link). The rail had no
+  // active state at all, so Profile looked unselected there while the
+  // left sidebar highlighted it.
+  const pathname = usePathname();
+  const isRailActive = (href: string) =>
+    pathname === href || pathname.startsWith(href + '/');
 
   // Persist right sidebar collapsed state
   useEffect(() => {
@@ -79,7 +90,11 @@ export default function MainLayout({
         const res = await fetch('/api/profile', { credentials: 'include' });
         if (!res.ok) return;
         const data = (await res.json()) as SidebarProfileResponse;
-        if (!cancelled) setSidebarProfile(data);
+        if (!cancelled) {
+          setSidebarProfile(data);
+          // Daily login XP was awarded on this call: show the reward toast once.
+          if (data.daily_reward) setDailyReward(data.daily_reward);
+        }
       } catch {
         // Non-blocking; sidebar can render fallback values.
       }
@@ -224,7 +239,13 @@ export default function MainLayout({
                     href={link.href}
                     title={link.label}
                     aria-label={link.label}
-                    className="flex items-center justify-center rounded-lg p-2.5 text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors"
+                    aria-current={isRailActive(link.href) ? 'page' : undefined}
+                    className={cn(
+                      'flex items-center justify-center rounded-lg p-2.5 transition-colors',
+                      isRailActive(link.href)
+                        ? 'bg-primary text-on-primary shadow-floating'
+                        : 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface',
+                    )}
                   >
                     <span className="material-symbols-outlined text-[18px] leading-none" aria-hidden="true">
                       {link.icon}
@@ -276,6 +297,9 @@ export default function MainLayout({
           </aside>
         </>
       )}
+
+      {/* Daily login reward toast (shows only when XP was awarded on this load) */}
+      <DailyRewardToast reward={dailyReward} onClose={() => setDailyReward(null)} />
     </div>
   );
 }

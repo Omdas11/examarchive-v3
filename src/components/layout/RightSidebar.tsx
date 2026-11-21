@@ -23,6 +23,9 @@ export interface SidebarProfileResponse {
   approval_pct: number;
   verified_count?: number;
   ai_credits: number;
+  /** Daily login reward awarded on this call, if this is the user's first
+   * authenticated visit of the UTC day; null otherwise. */
+  daily_reward?: { xp: number; streak: number } | null;
 }
 
 interface RightSidebarProps {
