@@ -1,26 +1,23 @@
 # MD Verification — spec (branch `migrate/cloudflare`, live)
 
 Side-by-side verification of markdown against the official PDF, so AI
-Notes grounding uses clean md. Built 2026-11-21, v2 same day,
-upload flow + Verification Admin role in the follow-up the same day.
+Notes grounding uses clean md. Built 2026-11-21, v2 question-cards UI
+the same day, reverted to this editor UI later the same day (the user
+tried the cards and did not like them); the v2 behaviours below
+(assigned-only actions, suggestions, lock, how-to box) were kept.
+Upload flow + Verification Admin role in the follow-up the same day.
 
 ## The two flows
 
 ### Flow 1 — Manual side-by-side verify
 1. An item exists in the queue (`/admin/md-verification`), status
    `pending`, `in_review`, `needs_fix` or `approved`.
-2. A verifier opens it. Large screens show the PDF on the left and
-   question cards on the right; phones stack them, PDF first.
-3. Each card is one question: plain text box, marks box, PDF page
-   box, and a "Looks right / Needs fix" toggle. No markdown knowledge
-   needed. Saving reassembles the cards back into md in the same
-   format, so the stored md never changes shape. The raw markdown
-   editor sits behind "Raw text", founder only.
-4. Hovering (or tapping) a card highlights its line in the PDF: the
-   page is rendered with pdf.js and OCR'd in the browser, and the
-   question's words are boxed. English only; Bengali / noisy scans
-   fall back to showing the page with a note.
-5. Save draft stores the edit in D1 with `edited_by` / `edited_at`;
+2. A verifier opens it. Large screens show the PDF on the left (the
+   browser's own PDF viewer in an iframe) and the markdown on the
+   right; phones stack them, PDF first.
+3. The markdown pane has Edit (monospace textarea) and Preview
+   (rendered markdown) modes. Fix mistakes directly in the text.
+4. Save draft stores the edit in D1 with `edited_by` / `edited_at`;
    Submit does the same and marks the item `in_review`.
 6. Approve marks `verified_by` / `verified_at`. That md becomes the
    source of truth for AI Notes. Needs fix sends it back with a note
@@ -47,8 +44,9 @@ upload flow + Verification Admin role in the follow-up the same day.
   when the founder assigns it from the detail page.
 - Anyone with page access who is not the assignee sees a "Suggest an
   edit" form instead of the buttons: which question, corrected text,
-  note. The assignee sees pending suggestions above the cards and can
-  Apply (replaces that question's text) or Dismiss each one.
+  note. The assignee sees pending suggestions in the Suggestions
+  section and can Apply (replaces that question's text) or Dismiss
+  each one.
 - Founder or moderator, from the queue page: email a 6-char upload
   code to a verifier (see Flow 2). Founder-only: assign / unassign
   verifiers (by registered email or user id).
@@ -148,17 +146,19 @@ were deleted. The `md_upload_tokens` table stays for history only.
   table, so a student verifier sees the link while other students do
   not. It is also reachable by direct link (`/admin/md-verification`).
 
-## MD format the cards expect
+## MD format the suggestion-apply parser expects
 - Header lines, then `UNIT—I` … `UNIT—V` headings, then numbered
   questions with sub-parts (a) (b) (c). Marks as a trailing number
   ("... : 10"), a maths line ("$2+8=10$"), or a bare number line.
 - The AI adds a `<!-- page N -->` marker before each question (the
-  PDF page the question is on). The cards show it as the page box,
-  and the line highlight uses it. Missing markers are fine — the
-  verifier can set the page number on the card.
-- Anything the parser cannot place is kept verbatim and re-emitted
-  unchanged. Md with no numbered questions (e.g. syllabus md) shows
-  the raw editor fallback instead of cards.
+  PDF page the question is on). The markers are plain HTML comments
+  in the md — harmless, and the editor shows them as text. The
+  current UI does not use them.
+- The parser (`src/lib/md-verification-parse.ts`) exists only for
+  applying suggestions: it locates a question in the md and replaces
+  its text. Anything it cannot place is kept verbatim. Md with no
+  numbered questions cannot take a question-targeted suggestion
+  (whole-paper suggestions still work).
 
 ## Upload code lifecycle
 - Send (founder / moderator): a 6-char code from an unambiguous
@@ -177,13 +177,12 @@ were deleted. The `md_upload_tokens` table stays for history only.
 ## Files
 - Page: `src/app/admin/md-verification/page.tsx`,
   `MdVerificationQueue.tsx`, `[id]/page.tsx`,
-  `[id]/MdVerificationDetail.tsx`, `[id]/PdfLineViewer.tsx`,
+  `[id]/MdVerificationDetail.tsx`,
   `upload/page.tsx`, `upload/MdVerificationUploadForm.tsx`
 - Logic: `src/lib/md-verification.ts` (pure, tested — paper codes,
   upload codes, zip contents), `src/lib/md-verification-access.ts`
   (D1 gate + history), `src/lib/md-verification-parse.ts` (md ->
-  question cards, pure, tested), `src/lib/md-verification-match.ts`
-  (OCR word matcher, pure, tested),
+  questions, used only by suggestion-apply, pure, tested),
   `src/lib/md-verification-permissions.ts` (assigned-only rule, pure,
   tested), `src/lib/resend-email.ts` (Resend HTTP API + code email)
 - APIs: `src/app/api/md-verification/` — `route.ts` (list),
@@ -208,14 +207,10 @@ were deleted. The `md_upload_tokens` table stays for history only.
   SHA-256 token-hash vector, upload validation, paging, R2 key shape),
   `src/lib/md-verification-parse.test.ts` (round-trip on the real
   COMDSC-352T md, page markers, edits, header patch, messy md),
-  `src/lib/md-verification-match.test.ts` (exact / noisy / no match),
   `src/lib/md-verification-permissions.test.ts` (assigned-only rule).
   Jest hangs in this VM (zero output, 20+ min) — verify the pure
   logic by transpiling the single file with the local tsc and running
   node assertions instead; do not block a deploy on a hung jest run.
-- PDF worker: `public/pdf.worker.min.mjs` (copied from pdfjs-dist,
-  no CDN worker URL). OCR runs in the browser via tesseract.js
-  (English only; language data loads from CDN at runtime).
 
 ## Intentionally NOT built yet
 - No auto-publish to the live paper page. Approving an item only marks
@@ -224,8 +219,6 @@ were deleted. The `md_upload_tokens` table stays for history only.
 - No syllabus re-extraction. The 536 syllabus md files already exist;
   this page verifies them, it does not re-extract them.
 - No bulk upload endpoint (one zip = one item, by design).
-- No Bengali OCR for line highlight (tesseract.js English only);
-  Bengali / noisy scans fall back to the page note.
 
 ## Applied with the follow-up deploy (2026-11-21)
 - `migrations/0014_md_upload_codes.sql` applied to production D1

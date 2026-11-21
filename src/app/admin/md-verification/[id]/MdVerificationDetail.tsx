@@ -8,46 +8,27 @@ import {
   STATUS_LABELS,
   type MdVerificationItem,
 } from "@/lib/md-verification";
-import {
-  parseMd,
-  reassembleMd,
-  updateHeaderField,
-  type ParsedMd,
-} from "@/lib/md-verification-parse";
 import type {
   MdVerificationLock,
   MdVerificationSuggestion,
 } from "@/lib/md-verification-access";
-import PdfLineViewer, { type HighlightTarget } from "./PdfLineViewer";
 
 /**
- * Side-by-side verification view, v2. Large screens: PDF on the left,
- * question cards on the right. Phones: stacked, PDF first.
+ * Side-by-side verification view (restored v1 UI). Large screens: PDF on
+ * the left (browser viewer), md on the right. Phones: stacked, PDF first.
+ * The md pane has Edit (monospace textarea) and Preview (rendered
+ * markdown) modes. Save draft stores the edited md in D1 with a history
+ * row; the PDF is never modified. Submit saves and marks the item in
+ * review; Approve / Needs fix record the review decision with an optional
+ * note.
  *
- * - Default view is one card per question: plain text box, marks box,
- *   page box, and a "Looks right / Needs fix" toggle. No markdown
- *   knowledge needed. Saving reassembles the cards back into md in
- *   the same format, so the stored md never changes shape.
- * - The raw markdown editor sits behind "Raw text", founder only.
- * - Hovering (or tapping) a card highlights its line in the PDF.
- * - Only the assigned verifier sees the four action buttons. Everyone
- *   else gets a "Suggest an edit" form. The founder can assign the
- *   item from this page.
- * - A soft lock shows who else is editing; the save carries the
- *   updated_at the page loaded with, so a newer save gets a 409 and a
- *   Reload button instead of silently overwriting.
+ * Kept from v2: only the assigned verifier sees the four action buttons
+ * (everyone else gets a "Suggest an edit" form); a soft lock shows who
+ * else is editing; saves carry the updated_at the page loaded with, so a
+ * newer save gets a 409 and a Reload button instead of silently
+ * overwriting; a plain-words how-to box at the top; dark-theme-safe
+ * inputs (the v1 hardcoded white boxes were unreadable in dark mode).
  */
-
-interface CardEdit {
-  key: string;
-  label: string;
-  unit: string | null;
-  text: string;
-  marks: string;
-  page: string;
-  needsFix: boolean;
-}
-
 interface ItemResponse {
   item: MdVerificationItem;
   suggestions: MdVerificationSuggestion[];
@@ -64,21 +45,6 @@ interface VerifierOption {
 
 const inputCls =
   "w-full border border-[var(--color-border)] bg-[var(--color-input-bg)] px-3 py-2 text-sm text-[var(--color-text)]";
-const smallInputCls =
-  "w-20 border border-[var(--color-border)] bg-[var(--color-input-bg)] px-2 py-1 text-sm text-[var(--color-text)]";
-
-function toCardState(parsed: ParsedMd): CardEdit[] {
-  return parsed.questions.map((q) => ({
-    key: q.key,
-    label: q.label,
-    unit: q.unit,
-    text: q.text,
-    marks: q.marks === null ? "" : String(q.marks),
-    page: q.page === null ? "" : String(q.page),
-    needsFix: false,
-  }));
-}
-
 export default function MdVerificationDetail({ itemId }: { itemId: string }) {
   const [item, setItem] = useState<MdVerificationItem | null>(null);
   const [suggestions, setSuggestions] = useState<MdVerificationSuggestion[]>(
@@ -87,15 +53,8 @@ export default function MdVerificationDetail({ itemId }: { itemId: string }) {
   const [lock, setLock] = useState<MdVerificationLock | null>(null);
   const [canAct, setCanAct] = useState(false);
   const [isFounder, setIsFounder] = useState(false);
-  const [parsed, setParsed] = useState<ParsedMd | null>(null);
-  const [cards, setCards] = useState<CardEdit[]>([]);
-  const [headerFull, setHeaderFull] = useState("");
-  const [headerPass, setHeaderPass] = useState("");
-  const [headerTime, setHeaderTime] = useState("");
-  const [activeKey, setActiveKey] = useState<string | null>(null);
-  const [mode, setMode] = useState<"cards" | "preview" | "raw">("cards");
-  const [editSource, setEditSource] = useState<"cards" | "raw">("cards");
-  const [rawDraft, setRawDraft] = useState("");
+  const [draft, setDraft] = useState("");
+  const [mode, setMode] = useState<"edit" | "preview">("edit");
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -112,22 +71,8 @@ export default function MdVerificationDetail({ itemId }: { itemId: string }) {
 
   const initFromItem = useCallback((next: MdVerificationItem) => {
     setItem(next);
+    setDraft(next.md_text);
     setNote(next.note ?? "");
-    setRawDraft(next.md_text);
-    const nextParsed = parseMd(next.md_text);
-    setParsed(nextParsed);
-    setCards(toCardState(nextParsed));
-    setHeaderFull(
-      nextParsed.header.fullMarks === null
-        ? ""
-        : String(nextParsed.header.fullMarks),
-    );
-    setHeaderPass(
-      nextParsed.header.passMarks === null
-        ? ""
-        : String(nextParsed.header.passMarks),
-    );
-    setHeaderTime(nextParsed.header.time ?? "");
     setConflict(null);
     setAssignSel(next.assigned_to ?? "");
   }, []);
@@ -196,45 +141,8 @@ export default function MdVerificationDetail({ itemId }: { itemId: string }) {
     })();
   }, [isFounder]);
 
-  /** md text built from the current card + header edits. */
-  const buildMd = useCallback((): string | null => {
-    if (!parsed) return null;
-    const next: ParsedMd = JSON.parse(JSON.stringify(parsed)) as ParsedMd;
-    for (const card of cards) {
-      const q = next.questions.find((item) => item.key === card.key);
-      if (!q) continue;
-      const marks = card.marks.trim() === "" ? null : Number(card.marks);
-      const page = card.page.trim() === "" ? null : Number(card.page);
-      q.edited =
-        q.text !== card.text ||
-        q.marks !== (Number.isFinite(marks) ? marks : null) ||
-        q.page !== (Number.isFinite(page) ? page : null);
-      q.text = card.text;
-      q.marks = Number.isFinite(marks) ? marks : null;
-      q.page = Number.isFinite(page) ? page : null;
-    }
-    if (headerFull.trim() !== "") {
-      updateHeaderField(next, "fullMarks", headerFull.trim());
-    }
-    if (headerPass.trim() !== "") {
-      updateHeaderField(next, "passMarks", headerPass.trim());
-    }
-    if (headerTime.trim() !== "") {
-      updateHeaderField(next, "time", headerTime.trim());
-    }
-    return reassembleMd(next);
-  }, [parsed, cards, headerFull, headerPass, headerTime]);
-
-  const dirty =
-    item !== null &&
-    (editSource === "raw"
-      ? rawDraft !== item.md_text
-      : buildMd() !== null && buildMd() !== item.md_text);
-
   async function save(submit: boolean) {
     if (!item) return;
-    const mdText = editSource === "raw" ? rawDraft : buildMd();
-    if (mdText === null) return;
     setSaving(true);
     setError(null);
     setSavedAt(null);
@@ -244,7 +152,7 @@ export default function MdVerificationDetail({ itemId }: { itemId: string }) {
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          md_text: mdText,
+          md_text: draft,
           note: note || undefined,
           expected_updated_at: item.updated_at,
         }),
@@ -262,7 +170,9 @@ export default function MdVerificationDetail({ itemId }: { itemId: string }) {
         throw new Error(data.error ?? "Save failed");
       }
       initFromItem(data.item);
-      setSavedAt(submit ? "Submitted for review." : "Draft saved.");
+      setSavedAt(
+        submit ? "Submitted for review." : "Draft saved.",
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Save failed");
     } finally {
@@ -272,15 +182,6 @@ export default function MdVerificationDetail({ itemId }: { itemId: string }) {
 
   async function review(action: "approve" | "needs_fix") {
     if (!item) return;
-    if (action === "approve") {
-      const flagged = cards.filter((c) => c.needsFix);
-      if (flagged.length > 0) {
-        setError(
-          `${flagged.map((c) => c.label).join(", ")} ${flagged.length === 1 ? "is" : "are"} still flagged as needing a fix — clear the flag or use Needs fix.`,
-        );
-        return;
-      }
-    }
     setSaving(true);
     setError(null);
     try {
@@ -332,7 +233,7 @@ export default function MdVerificationDetail({ itemId }: { itemId: string }) {
           credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            question_ref: suggestRef || undefined,
+            question_ref: suggestRef.trim() || undefined,
             proposed_text: suggestText.trim(),
             note: suggestNote || undefined,
           }),
@@ -449,26 +350,17 @@ export default function MdVerificationDetail({ itemId }: { itemId: string }) {
   }
   if (!item) return null;
 
-  const activeCard = cards.find((c) => c.key === activeKey) ?? null;
-  const highlightTarget: HighlightTarget = activeCard
-    ? {
-        key: activeCard.key,
-        page:
-          activeCard.page.trim() === "" || !Number.isFinite(Number(activeCard.page))
-            ? null
-            : Math.max(1, Math.floor(Number(activeCard.page))),
-        text: activeCard.text,
-      }
-    : { key: null, page: null, text: null };
+  const dirty = draft !== item.md_text;
   const pendingSuggestions = suggestions.filter((s) => s.status === "pending");
   const showActions = canAct && item.status !== "approved";
-  const showSuggest =
-    !canAct && item.status !== "approved";
-  const useCards = parsed !== null && parsed.hasQuestions;
+  const showSuggest = !canAct && item.status !== "approved";
 
   return (
     <div>
-      <Link href="/admin/md-verification" className="text-sm underline">
+      <Link
+        href="/admin/md-verification"
+        className="text-sm underline"
+      >
         Back to the queue
       </Link>
       <div className="mt-4 flex flex-wrap items-baseline justify-between gap-2">
@@ -494,8 +386,8 @@ export default function MdVerificationDetail({ itemId }: { itemId: string }) {
       <div className="mt-4 rounded border border-[var(--color-border)] bg-[var(--color-surface)] p-3 text-sm">
         <p className="font-semibold">How this works</p>
         <p className="mt-1">
-          Read each question card against the PDF. Fix the text in plain
-          boxes — you do not need to know markdown.
+          Read the PDF on the left and the text on the right. Fix mistakes
+          directly in the text box.
         </p>
         <p className="mt-1">
           Save draft keeps your work. Submit sends it for review.
@@ -580,13 +472,11 @@ export default function MdVerificationDetail({ itemId }: { itemId: string }) {
         <section className="card p-4">
           <h2 className="text-base font-bold">Official PDF</h2>
           {item.pdf_key ? (
-            <div className="mt-3">
-              <PdfLineViewer
-                pdfUrl={`/api/md-verification/${item.id}/pdf`}
-                target={highlightTarget}
-                title={item.paper_code}
-              />
-            </div>
+            <iframe
+              title={`PDF for ${item.paper_code}`}
+              src={`/api/md-verification/${item.id}/pdf`}
+              className="mt-3 h-[70vh] w-full border"
+            />
           ) : (
             <p className="mt-3 text-sm text-on-surface-variant">
               No PDF was uploaded for this item yet.
@@ -596,20 +486,15 @@ export default function MdVerificationDetail({ itemId }: { itemId: string }) {
 
         <section className="card p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-base font-bold">
-              {useCards ? "Questions" : "Markdown"}
-            </h2>
+            <h2 className="text-base font-bold">Markdown</h2>
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => {
-                  setMode("cards");
-                  setEditSource("cards");
-                }}
-                className={`border px-3 py-1 text-sm ${mode === "cards" ? "font-bold" : ""}`}
-                aria-pressed={mode === "cards"}
+                onClick={() => setMode("edit")}
+                className={`border px-3 py-1 text-sm ${mode === "edit" ? "font-bold" : ""}`}
+                aria-pressed={mode === "edit"}
               >
-                Cards
+                Edit
               </button>
               <button
                 type="button"
@@ -619,216 +504,24 @@ export default function MdVerificationDetail({ itemId }: { itemId: string }) {
               >
                 Preview
               </button>
-              {isFounder && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMode("raw");
-                    setEditSource("raw");
-                  }}
-                  className={`border px-3 py-1 text-sm ${mode === "raw" ? "font-bold" : ""}`}
-                  aria-pressed={mode === "raw"}
-                >
-                  Raw text
-                </button>
-              )}
             </div>
           </div>
-
-          {mode === "cards" && useCards && (
-            <div className="mt-3 space-y-4">
-              {(parsed.header.fullMarks !== null ||
-                parsed.header.passMarks !== null ||
-                parsed.header.time !== null) && (
-                <div className="flex flex-wrap gap-3 text-sm">
-                  {parsed.header.fullMarks !== null && (
-                    <label className="block">
-                      <span className="mb-1 block text-xs font-semibold">
-                        Full marks
-                      </span>
-                      <input
-                        value={headerFull}
-                        onChange={(e) => setHeaderFull(e.target.value)}
-                        inputMode="numeric"
-                        disabled={!canAct}
-                        className={smallInputCls}
-                      />
-                    </label>
-                  )}
-                  {parsed.header.passMarks !== null && (
-                    <label className="block">
-                      <span className="mb-1 block text-xs font-semibold">
-                        Pass marks
-                      </span>
-                      <input
-                        value={headerPass}
-                        onChange={(e) => setHeaderPass(e.target.value)}
-                        inputMode="numeric"
-                        disabled={!canAct}
-                        className={smallInputCls}
-                      />
-                    </label>
-                  )}
-                  {parsed.header.time !== null && (
-                    <label className="block">
-                      <span className="mb-1 block text-xs font-semibold">
-                        Time
-                      </span>
-                      <input
-                        value={headerTime}
-                        onChange={(e) => setHeaderTime(e.target.value)}
-                        disabled={!canAct}
-                        className="w-32 border border-[var(--color-border)] bg-[var(--color-input-bg)] px-2 py-1 text-sm text-[var(--color-text)]"
-                      />
-                    </label>
-                  )}
-                </div>
-              )}
-              {cards.map((card) => (
-                <article
-                  key={card.key}
-                  onMouseEnter={() => setActiveKey(card.key)}
-                  onFocus={() => setActiveKey(card.key)}
-                  onClick={() => setActiveKey(card.key)}
-                  className={`rounded border p-3 ${
-                    card.needsFix
-                      ? "border-amber-500"
-                      : activeKey === card.key
-                        ? "border-emerald-600"
-                        : "border-[var(--color-border)]"
-                  }`}
-                >
-                  <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <h3 className="text-sm font-bold">
-                      {card.label}
-                      {card.unit ? ` · Unit ${card.unit}` : ""}
-                    </h3>
-                    <span className="flex gap-2">
-                      <button
-                        type="button"
-                        disabled={!canAct}
-                        onClick={() =>
-                          setCards((prev) =>
-                            prev.map((c) =>
-                              c.key === card.key
-                                ? { ...c, needsFix: false }
-                                : c,
-                            ),
-                          )
-                        }
-                        className={`border px-2 py-1 text-xs ${!card.needsFix ? "font-bold" : ""} disabled:opacity-50`}
-                        aria-pressed={!card.needsFix}
-                      >
-                        Looks right
-                      </button>
-                      <button
-                        type="button"
-                        disabled={!canAct}
-                        onClick={() =>
-                          setCards((prev) =>
-                            prev.map((c) =>
-                              c.key === card.key
-                                ? { ...c, needsFix: true }
-                                : c,
-                            ),
-                          )
-                        }
-                        className={`border px-2 py-1 text-xs ${card.needsFix ? "font-bold" : ""} disabled:opacity-50`}
-                        aria-pressed={card.needsFix}
-                      >
-                        Needs fix
-                      </button>
-                    </span>
-                  </div>
-                  <textarea
-                    value={card.text}
-                    onChange={(e) =>
-                      setCards((prev) =>
-                        prev.map((c) =>
-                          c.key === card.key
-                            ? { ...c, text: e.target.value }
-                            : c,
-                        ),
-                      )
-                    }
-                    disabled={!canAct}
-                    rows={Math.max(3, card.text.split("\n").length + 1)}
-                    className="mt-2 w-full border border-[var(--color-border)] bg-[var(--color-input-bg)] p-2 text-sm text-[var(--color-text)]"
-                    aria-label={`${card.label} text`}
-                  />
-                  <div className="mt-2 flex flex-wrap gap-3 text-sm">
-                    <label className="block">
-                      <span className="mb-1 block text-xs font-semibold">
-                        Marks
-                      </span>
-                      <input
-                        value={card.marks}
-                        onChange={(e) =>
-                          setCards((prev) =>
-                            prev.map((c) =>
-                              c.key === card.key
-                                ? { ...c, marks: e.target.value }
-                                : c,
-                            ),
-                          )
-                        }
-                        inputMode="numeric"
-                        disabled={!canAct}
-                        className={smallInputCls}
-                      />
-                    </label>
-                    <label className="block">
-                      <span className="mb-1 block text-xs font-semibold">
-                        PDF page
-                      </span>
-                      <input
-                        value={card.page}
-                        onChange={(e) =>
-                          setCards((prev) =>
-                            prev.map((c) =>
-                              c.key === card.key
-                                ? { ...c, page: e.target.value }
-                                : c,
-                            ),
-                          )
-                        }
-                        inputMode="numeric"
-                        disabled={!canAct}
-                        className={smallInputCls}
-                      />
-                    </label>
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
-
-          {mode === "cards" && !useCards && (
-            <p className="mt-3 text-sm text-on-surface-variant">
-              This md has no numbered questions, so cards are not available
-              here. Use Preview to read it, or Raw text (founder) to edit
-              it.
-            </p>
-          )}
-
-          {mode === "preview" && (
-            <div className="mt-3 max-h-[70vh] overflow-auto border border-[var(--color-border)] bg-[var(--color-input-bg)] p-3 text-sm text-[var(--color-text)]">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {editSource === "raw" ? rawDraft : (buildMd() ?? rawDraft)}
-              </ReactMarkdown>
-            </div>
-          )}
-
-          {mode === "raw" && (
+          {mode === "edit" ? (
             <textarea
-              value={rawDraft}
-              onChange={(e) => setRawDraft(e.target.value)}
-              className="mt-3 h-[70vh] w-full border border-[var(--color-border)] bg-[var(--color-input-bg)] p-3 font-mono text-sm text-[var(--color-text)]"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              disabled={!canAct}
+              className="mt-3 h-[70vh] w-full border border-[var(--color-border)] bg-[var(--color-input-bg)] p-3 font-mono text-sm text-[var(--color-text)] disabled:opacity-60"
               aria-label="Markdown text"
               spellCheck={false}
             />
+          ) : (
+            <div className="prose mt-3 h-[70vh] max-w-none overflow-auto border border-[var(--color-border)] bg-[var(--color-input-bg)] p-3 text-sm text-[var(--color-text)] dark:prose-invert">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {draft}
+              </ReactMarkdown>
+            </div>
           )}
-
           <label className="mt-3 block">
             <span className="mb-1 block text-xs font-semibold">
               Note (shown to the next reviewer; required when sending back)
@@ -847,10 +540,7 @@ export default function MdVerificationDetail({ itemId }: { itemId: string }) {
             </p>
           )}
           {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
-          {savedAt && (
-            <p className="mt-2 text-sm text-[var(--color-primary)]">{savedAt}</p>
-          )}
-
+          {savedAt && <p className="mt-2 text-sm text-emerald-700">{savedAt}</p>}
           {showActions && (
             <div className="mt-3 flex flex-wrap gap-2">
               <button
@@ -954,20 +644,15 @@ export default function MdVerificationDetail({ itemId }: { itemId: string }) {
             one click.
           </p>
           <label className="mt-3 block">
-            <span className="mb-1 block text-xs font-semibold">Question</span>
-            <select
+            <span className="mb-1 block text-xs font-semibold">
+              Question (optional, e.g. Q3)
+            </span>
+            <input
               value={suggestRef}
               onChange={(e) => setSuggestRef(e.target.value)}
-              className="border border-[var(--color-border)] bg-[var(--color-input-bg)] px-2 py-1 text-sm text-[var(--color-text)]"
-            >
-              <option value="">Whole paper</option>
-              {cards.map((c) => (
-                <option key={c.key} value={c.key}>
-                  {c.label}
-                  {c.unit ? ` (Unit ${c.unit})` : ""}
-                </option>
-              ))}
-            </select>
+              className={inputCls}
+              placeholder="Whole paper"
+            />
           </label>
           <label className="mt-3 block">
             <span className="mb-1 block text-xs font-semibold">

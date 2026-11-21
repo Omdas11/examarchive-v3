@@ -132,17 +132,17 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
             <tr>
               <th className="whitespace-nowrap text-left text-xs font-semibold">User</th>
               <th className="whitespace-nowrap text-left text-xs font-semibold">Role</th>
-              <th className="hidden whitespace-nowrap text-left text-xs font-semibold 2xl:table-cell">Community Badges</th>
-              <th className="hidden whitespace-nowrap text-right text-xs font-semibold 2xl:table-cell">Uploads</th>
-              <th className="hidden whitespace-nowrap text-right text-xs font-semibold 2xl:table-cell">Verified</th>
-              <th className="hidden whitespace-nowrap text-right text-xs font-semibold">XP</th>
-              <th className="hidden whitespace-nowrap text-left text-xs font-semibold 2xl:table-cell">Achievements</th>
+              <th className="whitespace-nowrap text-left text-xs font-semibold">Community Badges</th>
+              <th className="whitespace-nowrap text-right text-xs font-semibold">Uploads</th>
+              <th className="whitespace-nowrap text-right text-xs font-semibold">Verified</th>
+              <th className="whitespace-nowrap text-right text-xs font-semibold">XP</th>
+              <th className="whitespace-nowrap text-left text-xs font-semibold">Achievements</th>
               <th className="whitespace-nowrap text-right text-xs font-semibold">Streak</th>
               <th className="whitespace-nowrap text-left text-xs font-semibold">Seen</th>
               {COURSE_SLOT_LABELS.map((label) => (
                 <th
                   key={label}
-                  className="hidden whitespace-nowrap text-left text-xs font-semibold 2xl:table-cell"
+                  className="whitespace-nowrap text-left text-xs font-semibold"
                 >
                   {label}
                 </th>
@@ -186,10 +186,11 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
                     <RoleBadge role={u.role} />
                   </td>
 
-                  {/* Community badges (secondary + tertiary) — hidden below
-                      2xl: all 0/empty today, and the table must fit without
-                      horizontal scrolling on a laptop */}
-                  <td className="hidden whitespace-nowrap 2xl:table-cell">
+                  {/* Community badges (secondary + tertiary) — all
+                      columns show on every screen size now; the table
+                      scrolls sideways on narrower screens instead of
+                      hiding columns. All 0/empty today. */}
+                  <td className="whitespace-nowrap">
                     <div className="flex flex-wrap gap-1">
                       {u.secondary_role ? <RoleBadge role={u.secondary_role} /> : null}
                       {u.tertiary_role ? <RoleBadge role={u.tertiary_role} /> : null}
@@ -199,13 +200,13 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
                     </div>
                   </td>
 
-                  {/* Uploads (= approved papers) — hidden below 2xl */}
-                  <td className="hidden whitespace-nowrap text-right font-medium text-sm 2xl:table-cell">
+                  {/* Uploads (= approved papers) */}
+                  <td className="whitespace-nowrap text-right font-medium text-sm">
                     {u.upload_count}
                   </td>
 
-                  {/* Verified (verify-to-earn) — hidden below 2xl */}
-                  <td className="hidden whitespace-nowrap text-right font-medium text-sm 2xl:table-cell">
+                  {/* Verified (verify-to-earn) */}
+                  <td className="whitespace-nowrap text-right font-medium text-sm">
                     {u.verified_count ?? 0}
                   </td>
 
@@ -214,8 +215,8 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
                     {xpTotal.toLocaleString()}
                   </td>
 
-                  {/* Achievements / XP milestones — hidden below 2xl */}
-                  <td className="hidden 2xl:table-cell">
+                  {/* Achievements / XP milestones */}
+                  <td className="whitespace-nowrap">
                     {milestones.length > 0 || u.streak_days >= 30 ? (
                       <div className="flex flex-wrap gap-1">
                         {milestones.map((m) => (
@@ -260,12 +261,12 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
                   {/* Courses: one column per paper slot (DSC, DSM-1,
                       DSM-2, SEC, IDC, AEC, VAC); "—" when never set.
                       The old Department column duplicated DSC, so it
-                      is gone. Hidden below 2xl like the other
-                      secondary columns. */}
+                      is gone. Every column shows on all screen sizes;
+                      the table scrolls sideways on narrower screens. */}
                   {COURSE_SLOT_LABELS.map((label, i) => (
                     <td
                       key={label}
-                      className="hidden whitespace-nowrap text-sm 2xl:table-cell"
+                      className="whitespace-nowrap text-sm"
                       title={
                         courses
                           ? `${label}: ${courses.slots[i] === "—" ? "not picked" : courses.slots[i]}`
