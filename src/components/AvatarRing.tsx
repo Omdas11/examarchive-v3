@@ -3,7 +3,7 @@
  * role or daily streak level.
  *
  * Ring priority (role ring takes precedence over streak):
- *   founder          → static violet ring (#7c3aed)
+ *   founder          → static emerald ring (#047857)
  *   moderator        → static orange ring
  *   subject_admin    → static sky ring
  *   specialist       → static indigo ring

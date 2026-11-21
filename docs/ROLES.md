@@ -23,6 +23,27 @@
   permanently removed on 2026-10-04; any stray record still carrying one is
   treated as `student`.
 
+## Avatar rings
+
+The coloured ring around a profile photo shows the person's role, or their
+daily streak when their role has no ring colour. A role ring always wins
+over a streak ring. Rings are cosmetic — they grant no permissions.
+Colours live in `src/lib/roles.ts` (`ROLE_RING_COLORS`).
+
+| Ring | Meaning |
+|------|---------|
+| Emerald `#047857` | Founder |
+| Orange `#f97316` | Moderator |
+| Sky `#0ea5e9` | Subject Admin |
+| Indigo `#6366f1` | Specialist |
+| Blue `#3b82f6` | Contributor |
+| Blue `#3b82f6` | Streak of 1–6 days (roles with no ring colour) |
+| Green `#22c55e` | Streak of 7–29 days |
+| Animated 4-colour | Streak of 30+ days |
+
+Students have no role ring, so their ring always shows their streak.
+The same legend is shown to users on the About page (`/about`).
+
 ## XP (experience points)
 
 XP is earned by verifying AI content (notes, solved papers, syllabus content,

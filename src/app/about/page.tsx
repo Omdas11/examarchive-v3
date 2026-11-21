@@ -364,8 +364,9 @@ export default async function AboutPage() {
       {/* XP & Progression */}
       <h2 className="mt-10 text-xl font-semibold">XP & Progression</h2>
       <p className="mt-2 text-sm" style={{ color: "var(--color-text-muted)" }}>
-        Earn XP by contributing to the archive. Your XP sets your tier (Bronze → Diamond)
-        and avatar ring colours on your profile — it does not affect permissions.
+        Earn XP by contributing to the archive. Your XP sets your tier (Bronze → Diamond).
+        Your profile ring shows your role, or your daily streak when your role has no
+        ring colour. Rings are cosmetic — they do not affect permissions.
       </p>
 
       {/* XP tier table */}
@@ -434,6 +435,46 @@ export default async function AboutPage() {
             <p className="text-sm">{item}</p>
           </div>
         ))}
+      </div>
+
+      {/* Profile ring colours */}
+      <h3 className="mt-6 text-base font-semibold">What the profile ring means</h3>
+      <div className="card mt-3 px-4 py-3">
+        <ul className="space-y-2 text-sm">
+          {[
+            { color: "#047857", label: "Founder" },
+            { color: "#f97316", label: "Moderator" },
+            { color: "#0ea5e9", label: "Subject Admin" },
+            { color: "#6366f1", label: "Specialist" },
+            { color: "#3b82f6", label: "Contributor" },
+            { color: "#3b82f6", label: "Streak of 1 to 6 days" },
+            { color: "#22c55e", label: "Streak of 7 to 29 days" },
+          ].map((r) => (
+            <li key={r.label} className="flex items-center gap-2">
+              <span
+                aria-hidden="true"
+                className="inline-block h-3 w-3 shrink-0 rounded-full"
+                style={{ background: r.color }}
+              />
+              {r.label}
+            </li>
+          ))}
+          <li className="flex items-center gap-2">
+            <span
+              aria-hidden="true"
+              className="inline-block h-3 w-3 shrink-0 rounded-full"
+              style={{
+                background:
+                  "conic-gradient(#4285F4 0deg, #EA4335 90deg, #FBBC05 180deg, #34A853 270deg, #4285F4 360deg)",
+              }}
+            />
+            Streak of 30 days or more
+          </li>
+        </ul>
+        <p className="mt-3 text-xs" style={{ color: "var(--color-text-muted)" }}>
+          A role ring always wins over a streak ring. Students have no role ring,
+          so their ring shows their streak.
+        </p>
       </div>
 
       <h2 className="mt-10 text-xl font-semibold">Credits System</h2>
