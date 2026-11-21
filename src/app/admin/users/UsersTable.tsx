@@ -128,19 +128,19 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
     <>
       {/* Horizontal-scroll wrapper for mobile */}
       <div className="overflow-x-auto rounded-lg" style={{ border: "1px solid var(--color-border)" }}>
-        <table className="zebra-table sticky-col-table min-w-full text-sm">
+        <table className="zebra-table sticky-col-table users-table-compact min-w-full text-sm">
           <thead>
             <tr>
               <th className="whitespace-nowrap text-left text-xs font-semibold">User</th>
               <th className="whitespace-nowrap text-left text-xs font-semibold">Role</th>
-              <th className="hidden whitespace-nowrap text-left text-xs font-semibold xl:table-cell">Community Badges</th>
-              <th className="hidden whitespace-nowrap text-right text-xs font-semibold xl:table-cell">Uploads</th>
-              <th className="hidden whitespace-nowrap text-right text-xs font-semibold xl:table-cell">Verified</th>
+              <th className="hidden whitespace-nowrap text-left text-xs font-semibold 2xl:table-cell">Community Badges</th>
+              <th className="hidden whitespace-nowrap text-right text-xs font-semibold 2xl:table-cell">Uploads</th>
+              <th className="hidden whitespace-nowrap text-right text-xs font-semibold 2xl:table-cell">Verified</th>
               <th className="hidden whitespace-nowrap text-right text-xs font-semibold">XP</th>
-              <th className="hidden whitespace-nowrap text-left text-xs font-semibold xl:table-cell">Achievements</th>
+              <th className="hidden whitespace-nowrap text-left text-xs font-semibold 2xl:table-cell">Achievements</th>
               <th className="whitespace-nowrap text-right text-xs font-semibold">Streak</th>
-              <th className="whitespace-nowrap text-left text-xs font-semibold">Last seen</th>
-              <th className="whitespace-nowrap text-left text-xs font-semibold">Department</th>
+              <th className="whitespace-nowrap text-left text-xs font-semibold">Seen</th>
+              <th className="whitespace-nowrap text-left text-xs font-semibold">Dept</th>
               <th className="whitespace-nowrap text-left text-xs font-semibold">Courses</th>
               <th className="whitespace-nowrap text-center text-xs font-semibold">Actions</th>
             </tr>
@@ -182,9 +182,9 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
                   </td>
 
                   {/* Community badges (secondary + tertiary) — hidden below
-                      xl: all 0/empty today, and the table must fit without
+                      2xl: all 0/empty today, and the table must fit without
                       horizontal scrolling on a laptop */}
-                  <td className="hidden whitespace-nowrap xl:table-cell">
+                  <td className="hidden whitespace-nowrap 2xl:table-cell">
                     <div className="flex flex-wrap gap-1">
                       {u.secondary_role ? <RoleBadge role={u.secondary_role} /> : null}
                       {u.tertiary_role ? <RoleBadge role={u.tertiary_role} /> : null}
@@ -194,13 +194,13 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
                     </div>
                   </td>
 
-                  {/* Uploads (= approved papers) — hidden below xl */}
-                  <td className="hidden whitespace-nowrap text-right font-medium text-sm xl:table-cell">
+                  {/* Uploads (= approved papers) — hidden below 2xl */}
+                  <td className="hidden whitespace-nowrap text-right font-medium text-sm 2xl:table-cell">
                     {u.upload_count}
                   </td>
 
-                  {/* Verified (verify-to-earn) — hidden below xl */}
-                  <td className="hidden whitespace-nowrap text-right font-medium text-sm xl:table-cell">
+                  {/* Verified (verify-to-earn) — hidden below 2xl */}
+                  <td className="hidden whitespace-nowrap text-right font-medium text-sm 2xl:table-cell">
                     {u.verified_count ?? 0}
                   </td>
 
@@ -209,8 +209,8 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
                     {xpTotal.toLocaleString()}
                   </td>
 
-                  {/* Achievements / XP milestones — hidden below xl */}
-                  <td className="hidden xl:table-cell">
+                  {/* Achievements / XP milestones — hidden below 2xl */}
+                  <td className="hidden 2xl:table-cell">
                     {milestones.length > 0 || u.streak_days >= 30 ? (
                       <div className="flex flex-wrap gap-1">
                         {milestones.map((m) => (
@@ -281,7 +281,7 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
                         {courses.lines.map((line) => (
                           <span
                             key={line}
-                            className="text-xs whitespace-nowrap"
+                            className="text-xs"
                             style={{ color: "var(--color-text-muted)" }}
                           >
                             {line}

@@ -779,6 +779,17 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
   }
 }
 
+/* ── Admin users table: tighter side padding ────────────────────────
+   Only 8 columns show below 2xl, but on a 1366px laptop with both
+   sidebars open the content is ~778px wide and the table still overflowed
+   by ~50px. Scoped to this table only (class on the <table>); no other
+   table is affected. */
+.users-table-compact td,
+.users-table-compact thead th {
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
 /* ── Danger Zone section ── */
 .danger-zone {
   margin-top: 2rem;
