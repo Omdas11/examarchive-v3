@@ -164,7 +164,7 @@ export function loadCoursePrefs(): CoursePreferences | null {
   }
 }
 
-/** Save course preferences to localStorage. */
+/** Save course preferences to localStorage (and mirror them to the server). */
 export function saveCoursePrefs(prefs: CoursePreferences): void {
   if (typeof window === "undefined") return;
   try {
@@ -173,16 +173,97 @@ export function saveCoursePrefs(prefs: CoursePreferences): void {
   } catch {
     // Ignore storage errors
   }
+  // Mirror to the server (best-effort; local prefs stay the source of truth).
+  void syncCoursePrefsToServer(prefs).then((ok) => {
+    if (!ok) return;
+    try {
+      localStorage.setItem(COURSE_PREFS_SYNCED_KEY, prefs.savedAt);
+    } catch {
+      // Ignore storage errors
+    }
+  });
 }
 
-/** Clear saved course preferences from localStorage. */
+/** Clear saved course preferences from localStorage (and from the server). */
 export function clearCoursePrefs(): void {
   if (typeof window === "undefined") return;
   try {
     localStorage.removeItem(COURSE_PREFS_KEY);
+    localStorage.removeItem(COURSE_PREFS_SYNCED_KEY);
     dispatchCoursePrefsUpdated();
   } catch {
     // Ignore storage errors
+  }
+  // Remove the server copy too (best-effort).
+  void fetch("/api/profile/course-prefs", { method: "DELETE" }).catch(() => undefined);
+}
+
+/** localStorage key marking which savedAt value was last synced to the server. */
+export const COURSE_PREFS_SYNCED_KEY = "ea_course_prefs_synced";
+
+/**
+ * POST the 7 course fields to /api/profile/course-prefs.
+ * Best-effort: returns false on any failure (including a guest 401).
+ */
+export async function syncCoursePrefsToServer(prefs: CoursePreferences): Promise<boolean> {
+  if (typeof window === "undefined") return false;
+  try {
+    const res = await fetch("/api/profile/course-prefs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        dsc: prefs.dsc ?? "",
+        dsm1: prefs.dsm1 ?? "",
+        dsm2: prefs.dsm2 ?? "",
+        sec: prefs.sec ?? "",
+        idc: prefs.idc ?? "",
+        aec: prefs.aec ?? "",
+        vac: prefs.vac ?? "",
+      }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * One-time sync of local course prefs to the server. Safe to call on mount.
+ * - Local prefs exist and were never synced (or changed since the last sync)
+ *   -> POST them, then mark them synced.
+ * - No local prefs -> GET the server copy and restore it locally (new device).
+ * No-ops after the first successful sync. Failures are silent; local prefs
+ * keep working without the server.
+ */
+export async function syncLocalCoursePrefsIfNeeded(): Promise<void> {
+  if (typeof window === "undefined") return;
+  try {
+    const prefs = loadCoursePrefs();
+    if (prefs) {
+      if (localStorage.getItem(COURSE_PREFS_SYNCED_KEY) === prefs.savedAt) return;
+      const ok = await syncCoursePrefsToServer(prefs);
+      if (ok) localStorage.setItem(COURSE_PREFS_SYNCED_KEY, prefs.savedAt);
+      return;
+    }
+    const res = await fetch("/api/profile/course-prefs");
+    if (!res.ok) return;
+    const data = (await res.json()) as { prefs?: Partial<CoursePreferences> | null };
+    if (data.prefs && (data.prefs.dsc || data.prefs.dsm1 || data.prefs.dsm2)) {
+      const now = new Date().toISOString();
+      saveCoursePrefs({
+        dsc: data.prefs.dsc ?? "",
+        dsm1: data.prefs.dsm1 ?? "",
+        dsm2: data.prefs.dsm2 ?? "",
+        sec: data.prefs.sec ?? "",
+        idc: data.prefs.idc ?? "",
+        aec: data.prefs.aec ?? "",
+        vac: data.prefs.vac ?? "",
+        savedAt: now,
+      });
+      localStorage.setItem(COURSE_PREFS_SYNCED_KEY, now);
+    }
+  } catch {
+    // Best-effort only; local prefs keep working without the server.
   }
 }
 

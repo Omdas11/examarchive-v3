@@ -122,6 +122,7 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
 
         <div className="mt-6 rounded-[2rem] bg-surface p-6 shadow-ambient border border-outline-variant/5">
           <BrowseClient
+            isLoggedIn={!!user}
             initialPapers={papers}
             availableYears={availableYears}
             availableStreams={availableStreams}

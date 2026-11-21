@@ -10,6 +10,7 @@ import {
   COURSE_PREFS_UPDATED_EVENT,
   loadCoursePrefs,
   matchesCoursePreferenceSelection,
+  syncLocalCoursePrefsIfNeeded,
   type CoursePreferences,
 } from "@/data/course-selection-data";
 import { getProgramme } from "@/lib/programme";
@@ -25,6 +26,8 @@ interface BrowseClientProps {
   /** Pre-selected university/institute filter (e.g. Haflong Government College). */
   defaultUniversity?: string | null;
   isAdmin: boolean;
+  /** True when the viewer is signed in; gates the one-time course-prefs sync. */
+  isLoggedIn?: boolean;
   initialSearch?: string;
   initialDepartment?: string | null;
   initialYear?: number | null;
@@ -251,6 +254,7 @@ export default function BrowseClient({
   availableSemesters,
   defaultUniversity = null,
   isAdmin,
+  isLoggedIn = false,
   initialSearch = "",
   initialDepartment = null,
   initialYear = null,
@@ -287,6 +291,8 @@ export default function BrowseClient({
   // Load course preferences from localStorage and keep in sync with changes
   useEffect(() => {
     setCoursePrefs(loadCoursePrefs());
+    // One-time sync of any older local prefs to the server (logged-in only).
+    if (isLoggedIn) void syncLocalCoursePrefsIfNeeded();
 
     function handleStorage(e: StorageEvent) {
       if (e.key === "ea_course_prefs") {

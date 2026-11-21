@@ -64,6 +64,41 @@ export default async function AdminUsersPage() {
     } catch {
       // Last-seen stays empty rather than breaking the page.
     }
+    // Course prefs mirrored from each user's browser (user_course_prefs),
+    // one query for all users. Absent rows mean the user never set courses
+    // (or hasn't visited since the sync landed).
+    const coursePrefs = new Map<
+      string,
+      { dsc: string; dsm1: string; dsm2: string; sec: string; idc: string; aec: string; vac: string }
+    >();
+    try {
+      const prefs = await db
+        .prepare("SELECT user_id, dsc, dsm1, dsm2, sec, idc, aec, vac FROM user_course_prefs")
+        .all<{
+          user_id: string;
+          dsc: string;
+          dsm1: string;
+          dsm2: string;
+          sec: string;
+          idc: string;
+          aec: string;
+          vac: string;
+        }>();
+      for (const row of prefs.results ?? []) {
+        if (!row.user_id) continue;
+        coursePrefs.set(row.user_id, {
+          dsc: row.dsc ?? "",
+          dsm1: row.dsm1 ?? "",
+          dsm2: row.dsm2 ?? "",
+          sec: row.sec ?? "",
+          idc: row.idc ?? "",
+          aec: row.aec ?? "",
+          vac: row.vac ?? "",
+        });
+      }
+    } catch {
+      // Course prefs stay empty rather than breaking the page.
+    }
     // Verified counts (verify-to-earn ledger), one count query per user.
     users = await Promise.all(
       mapped.map(async (u) => {
@@ -80,6 +115,7 @@ export default async function AdminUsersPage() {
             last_seen_at: lastSeen.has(u.id)
               ? new Date(lastSeen.get(u.id) as number).toISOString()
               : null,
+            course_prefs: coursePrefs.get(u.id) ?? null,
           };
         } catch {
           return {
@@ -88,6 +124,7 @@ export default async function AdminUsersPage() {
             last_seen_at: lastSeen.has(u.id)
               ? new Date(lastSeen.get(u.id) as number).toISOString()
               : null,
+            course_prefs: coursePrefs.get(u.id) ?? null,
           };
         }
       }),

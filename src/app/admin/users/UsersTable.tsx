@@ -29,6 +29,23 @@ function resolveXpTotal(user: AdminUser): number {
   return 0;
 }
 
+/** Compact course summary for the admin table ("Physics · Maths, Chemistry"). */
+function formatCoursePrefs(
+  prefs: NonNullable<AdminUser["course_prefs"]>,
+): { short: string; full: string } {
+  const dsm = [prefs.dsm1, prefs.dsm2].filter(Boolean).join(", ");
+  const parts = [
+    prefs.dsc ? `DSC ${prefs.dsc}` : "",
+    dsm ? `DSM ${dsm}` : "",
+    prefs.sec ? `SEC ${prefs.sec}` : "",
+    prefs.idc ? `IDC ${prefs.idc}` : "",
+    prefs.aec ? `AEC ${prefs.aec}` : "",
+    prefs.vac ? `VAC ${prefs.vac}` : "",
+  ].filter(Boolean);
+  const short = [prefs.dsc, dsm].filter(Boolean).join(" · ");
+  return { short: short || "Set", full: parts.join(" · ") || "Set" };
+}
+
 /** Relative "last seen" label from an ISO timestamp ("5m ago", "3d ago"). */
 function formatLastSeen(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -112,6 +129,7 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
               <th className="whitespace-nowrap text-left text-xs font-semibold">Achievements</th>
               <th className="whitespace-nowrap text-right text-xs font-semibold">Streak</th>
               <th className="whitespace-nowrap text-left text-xs font-semibold">Last seen</th>
+              <th className="whitespace-nowrap text-left text-xs font-semibold">Courses</th>
               <th className="whitespace-nowrap text-center text-xs font-semibold">Actions</th>
             </tr>
           </thead>
@@ -119,6 +137,7 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
             {list.map((u) => {
               const xpTotal = resolveXpTotal(u);
               const milestones = xpMilestones(xpTotal);
+              const courses = u.course_prefs ? formatCoursePrefs(u.course_prefs) : null;
               const displayName = u.name || u.username || u.email;
 
               return (
@@ -217,6 +236,18 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
                     title={u.last_seen_at ? new Date(u.last_seen_at).toLocaleString("en-IN") : "No recorded activity"}
                   >
                     {formatLastSeen(u.last_seen_at)}
+                  </td>
+
+                  {/* Courses: mirrored from the user's browser; "—" when never set */}
+                  <td
+                    className="whitespace-nowrap text-sm"
+                    title={courses ? courses.full : "No courses selected yet"}
+                  >
+                    {courses ? (
+                      courses.short
+                    ) : (
+                      <span style={{ color: "var(--color-text-muted)" }}>—</span>
+                    )}
                   </td>
 
                   {/* Actions */}

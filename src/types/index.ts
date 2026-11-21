@@ -206,6 +206,18 @@ export interface AdminUser {
    * login) as ISO 8601; null when the user has no recorded activity. Set by
    * the admin users page, not by toAdminUser. */
   last_seen_at?: string | null;
+  /** Course selection (DSC / DSM / SEC / IDC / AEC / VAC) mirrored from the
+   * user's browser into user_course_prefs; null when never set. Set by the
+   * admin users page, not by toAdminUser. */
+  course_prefs?: {
+    dsc: string;
+    dsm1: string;
+    dsm2: string;
+    sec: string;
+    idc: string;
+    aec: string;
+    vac: string;
+  } | null;
   xp: number;
   streak_days: number;
   /** Last login / activity timestamp (ISO 8601). */

@@ -13,6 +13,7 @@ import { IconGraduation } from "@/components/Icons";
 import {
   COURSE_PREFS_UPDATED_EVENT,
   loadCoursePrefs,
+  syncLocalCoursePrefsIfNeeded,
   type CoursePreferences,
 } from "@/data/course-selection-data";
 
@@ -28,6 +29,8 @@ export default function ProfileCoursePrefs({ compact = false }: ProfileCoursePre
   useEffect(() => {
     setMounted(true);
     setPrefs(loadCoursePrefs());
+    // One-time sync of any older local prefs to the server (no-op if synced).
+    void syncLocalCoursePrefsIfNeeded();
 
     function handleStorage(e: StorageEvent) {
       if (e.key === "ea_course_prefs") {

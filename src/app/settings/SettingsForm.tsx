@@ -7,6 +7,7 @@ import MfaSettingsSection from "@/components/MfaSettingsSection";
 import {
   loadCoursePrefs,
   clearCoursePrefs,
+  syncLocalCoursePrefsIfNeeded,
   type CoursePreferences,
 } from "@/data/course-selection-data";
 
@@ -50,6 +51,8 @@ export default function SettingsForm({ user }: SettingsFormProps) {
     else setTheme("system");
     setReduceMotion(localStorage.getItem("reduceMotion") === "true");
     setCoursePrefs(loadCoursePrefs());
+    // One-time sync of any older local prefs to the server (no-op if synced).
+    void syncLocalCoursePrefsIfNeeded();
   }, []);
 
   function handleThemeChange(newTheme: "light" | "dark" | "system") {
