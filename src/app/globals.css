@@ -420,38 +420,24 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
   }
 }
 
-/* ── Hero heading shimmer / shine sweep ── */
-@keyframes ea-hero-shine {
-  0%   { left: -80%; }
-  40%  { left: 110%; }
-  100% { left: 110%; }
+/* ── Hero heading gradient text ── */
+/* The gradient lives IN the letters (background-clip: text). This replaces
+   the old shine sweep, whose white band was clipped to the heading box and
+   read as a rectangle behind the text instead of colouring the words. */
+.ea-text-gradient-green {
+  background: linear-gradient(90deg, var(--color-primary), #14b8a6);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
 }
 
-.ea-hero-heading {
-  position: relative;
-  overflow: hidden;
-  display: inline-block;
-}
-
-/* Only play the sweep for users who haven't requested reduced motion */
-@media (prefers-reduced-motion: no-preference) {
-  .ea-hero-heading::after {
-    content: '';
-    position: absolute;
-    top: -10%;
-    left: -80%;
-    width: 45%;
-    height: 120%;
-    background: linear-gradient(
-      90deg,
-      transparent 0%,
-      rgba(255, 255, 255, 0.22) 50%,
-      transparent 100%
-    );
-    transform: skewX(-18deg);
-    animation: ea-hero-shine 3.5s ease-in-out infinite;
-    pointer-events: none;
-  }
+.ea-text-gradient-blue {
+  background: linear-gradient(90deg, var(--brand-blue), #818cf8);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
 }
 
 /* ── Fire particle rise animation ── */

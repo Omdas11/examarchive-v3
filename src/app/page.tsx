@@ -207,12 +207,12 @@ export default async function HomePage() {
 
             {/* Academic Vitality heading */}
             <h1
-              className="ea-hero-heading text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl mx-auto max-w-4xl leading-[1.1]"
+              className="text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl mx-auto max-w-4xl leading-[1.1]"
             >
               Academic Intelligence —{" "}
-              <span className="text-primary">Past Papers &amp; Syllabi</span>
+              <span className="ea-text-gradient-green">Past Papers &amp; Syllabi</span>
               {" "}for{" "}
-              <span className="text-secondary">HGC Students.</span>
+              <span className="ea-text-gradient-blue">HGC Students.</span>
             </h1>
             <p className="mx-auto mt-8 max-w-2xl text-lg sm:text-xl font-medium" style={{ color: "var(--color-text-muted)" }}>
               Starting with <span className="text-primary font-bold">Haflong Government College</span>
