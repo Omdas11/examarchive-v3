@@ -15,8 +15,12 @@ Upload flow + Verification Admin role in the follow-up the same day.
 2. A verifier opens it. Large screens show the PDF on the left (the
    browser's own PDF viewer in an iframe) and the markdown on the
    right; phones stack them, PDF first.
-3. The markdown pane has Edit (monospace textarea) and Preview
-   (rendered markdown) modes. Fix mistakes directly in the text.
+3. The markdown pane is a proper editor (@uiw/react-md-editor, free,
+   MIT) with a small toolbar (bold, italic, heading, lists, link,
+   quote, code) and Edit / Preview modes. Fix mistakes directly in
+   the text. The preview renders single newlines as line breaks, so
+   each question shows on its own line, and `$...$` maths as real
+   maths.
 4. Save draft stores the edit in D1 with `edited_by` / `edited_at`;
    Submit does the same and marks the item `in_review`.
 6. Approve marks `verified_by` / `verified_at`. That md becomes the

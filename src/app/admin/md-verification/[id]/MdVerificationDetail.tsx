@@ -1,11 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import remarkMath from "remark-math";
-import rehypeKatex from "rehype-katex";
 import { formatQuestionMd } from "@/lib/md-verification-format";
 import {
   STATUS_LABELS,
@@ -16,14 +13,21 @@ import type {
   MdVerificationSuggestion,
 } from "@/lib/md-verification-access";
 
+const MdEditor = dynamic(() => import("./MdEditor"), {
+  ssr: false,
+  loading: () => (
+    <p className="mt-3 text-sm text-on-surface-variant">Loading editor…</p>
+  ),
+});
+
 /**
  * Side-by-side verification view (restored v1 UI). Large screens: PDF on
  * the left (browser viewer), md on the right. Phones: stacked, PDF first.
- * The md pane has Edit (monospace textarea) and Preview (rendered
- * markdown) modes. Save draft stores the edited md in D1 with a history
- * row; the PDF is never modified. Submit saves and marks the item in
- * review; Approve / Needs fix record the review decision with an optional
- * note.
+ * The md pane is a proper markdown editor (@uiw/react-md-editor, free,
+ * MIT) with a small toolbar and Edit/Preview modes. Save draft stores the
+ * edited md in D1 with a history row; the PDF is never modified. Submit
+ * saves and marks the item in review; Approve / Needs fix record the
+ * review decision with an optional note.
  *
  * Kept from v2: only the assigned verifier sees the four action buttons
  * (everyone else gets a "Suggest an edit" form); a soft lock shows who
@@ -31,8 +35,10 @@ import type {
  * newer save gets a 409 and a Reload button instead of silently
  * overwriting; a plain-words how-to box at the top; dark-theme-safe
  * inputs (the v1 hardcoded white boxes were unreadable in dark mode).
- * Preview renders `$...$` / `$$...$$` maths via remark-math + KaTeX, and
- * the Format button tidies the draft's spacing and line breaks
+ * The editor preview renders `$...$` / `$$...$$` maths via remark-math +
+ * KaTeX, and single newlines as line breaks via remark-breaks (so each
+ * question shows on its own line even before anyone presses Format).
+ * The Format button tidies the draft's spacing and line breaks
  * (client-side only, nothing saved until Save draft / Submit).
  */
 interface ItemResponse {
@@ -524,25 +530,12 @@ export default function MdVerificationDetail({ itemId }: { itemId: string }) {
               </button>
             </div>
           </div>
-          {mode === "edit" ? (
-            <textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              disabled={!canAct}
-              className="mt-3 h-[70vh] w-full border border-[var(--color-border)] bg-[var(--color-input-bg)] p-3 font-mono text-sm text-[var(--color-text)] disabled:opacity-60"
-              aria-label="Markdown text"
-              spellCheck={false}
-            />
-          ) : (
-            <div className="prose mt-3 h-[70vh] max-w-none overflow-auto border border-[var(--color-border)] bg-[var(--color-input-bg)] p-3 text-sm text-[var(--color-text)] dark:prose-invert [&_h1]:text-xl sm:[&_h1]:text-2xl">
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm, remarkMath]}
-                rehypePlugins={[rehypeKatex]}
-              >
-                {draft}
-              </ReactMarkdown>
-            </div>
-          )}
+          <MdEditor
+            value={draft}
+            onChange={setDraft}
+            disabled={!canAct}
+            mode={mode}
+          />
           <label className="mt-3 block">
             <span className="mb-1 block text-xs font-semibold">
               Note (shown to the next reviewer; required when sending back)
