@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { formatQuestionMd } from "@/lib/md-verification-format";
+import { buildQuestionIndex } from "@/lib/md-question-index";
 import {
   STATUS_LABELS,
   type MdVerificationItem,
@@ -38,8 +39,13 @@ const MdEditor = dynamic(() => import("./MdEditor"), {
  * The editor preview renders `$...$` / `$$...$$` maths via remark-math +
  * KaTeX, and single newlines as line breaks via remark-breaks (so each
  * question shows on its own line even before anyone presses Format).
- * The Format button tidies the draft's spacing and line breaks
- * (client-side only, nothing saved until Save draft / Submit).
+ * The Format button converts the draft to the canonical file format
+ * (client-side only, nothing saved until Save draft / Submit): it
+ * tidies spacing and line breaks, ensures the YAML frontmatter at the
+ * top, and rebuilds the `## Question index` table at the end from the
+ * transcript — one row per sub-question with No. / Question / Marks /
+ * ID / Unit / Group / Keywords. Keywords already written in the table
+ * survive, keyed by question ID.
  */
 interface ItemResponse {
   item: MdVerificationItem;
@@ -503,12 +509,17 @@ export default function MdVerificationDetail({ itemId }: { itemId: string }) {
               <button
                 type="button"
                 onClick={() => {
-                  setDraft(formatQuestionMd(draft));
+                  setDraft(
+                    buildQuestionIndex(
+                      formatQuestionMd(draft),
+                      item.paper_code,
+                    ),
+                  );
                   setMode("edit");
                 }}
                 disabled={!canAct}
                 className="border px-3 py-1 text-sm disabled:opacity-50"
-                title="Tidy the spacing and line breaks. Nothing is saved until you press Save draft."
+                title="Convert to frontmatter + question index table. Nothing is saved until you press Save draft."
               >
                 Format
               </button>

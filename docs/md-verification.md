@@ -31,6 +31,36 @@ Upload flow + Verification Admin role in the follow-up the same day.
    the previous md text, so the original is never lost. The PDF is
    never modified or deleted by this page.
 
+## Md file format — frontmatter + transcript + question index
+Every question-paper md has three parts, in order:
+1. YAML frontmatter: `paper_code`, `title`, `exam`, `year`, `semester`,
+   `subject`, `full_marks`, `pass_marks`, `time`. Only fields actually
+   known — a missing value is left out, never guessed.
+2. The readable transcript: `#` title, `UNIT—I..V` (or `SECTION—A/B`)
+   headings, numbered questions with `(a)/(b)/(c)` sub-questions,
+   `$...$` maths, and the "Answer any two/one of the following"
+   instruction lines.
+3. A `## Question index` table, one row per sub-question:
+   `| No. | Question | Marks | ID | Unit | Group | Keywords |`.
+   ID is `<paper_code>-Q<label>` compacted (e.g. `COMDSC-352T-Q1a`),
+   unique across the site. Unit is the Roman numeral of the UNIT
+   section (or the letter for SECTION papers). Group is the answering
+   rule from the instruction line ("Answer any 2" / "Answer any 1").
+   Keywords is 2-3 topic words per question, from the question text
+   and the syllabus unit it sits under.
+The table is derived, never hand-written: the Format button rebuilds
+it from the transcript (`src/lib/md-question-index.ts`, pure, tested
+on the real COMDSC-352T md — 25 rows), preserving Keywords already
+written, keyed by question ID. Keywords come from the extraction
+prompts (Kaggle `REFINED_PROMPT.md`, the Antigravity setup) or the
+verifier editing the table text.
+On Approve, the rows go into D1 `paper_questions` (migration `0016`)
+— one row per sub-question with `question_id`, `item_id`,
+`paper_code`, `label`, `question_text`, `marks`, `unit`, `group_rule`,
+`keywords` — so AI Notes can query questions by unit or keyword
+later. Needs fix, drafts, and submits write no rows. Re-approving
+after an edit replaces the item's rows.
+
 ## Who can do what
 - Page + APIs: moderator, founder, verification admin, or a user
   listed in `md_verifiers`.
@@ -187,11 +217,15 @@ were deleted. The `md_upload_tokens` table stays for history only.
   upload codes, zip contents), `src/lib/md-verification-access.ts`
   (D1 gate + history), `src/lib/md-verification-parse.ts` (md ->
   questions, used only by suggestion-apply, pure, tested),
+  `src/lib/md-verification-format.ts` (deterministic md formatter,
+  pure, tested), `src/lib/md-question-index.ts` (frontmatter +
+  transcript -> question rows + index table, pure, tested),
   `src/lib/md-verification-permissions.ts` (assigned-only rule, pure,
   tested), `src/lib/resend-email.ts` (Resend HTTP API + code email)
 - APIs: `src/app/api/md-verification/` — `route.ts` (list),
   `[id]/route.ts` (get / save, 409 version check),
-  `[id]/review/route.ts` (409 when already approved),
+  `[id]/review/route.ts` (409 when already approved; writes
+  `paper_questions` rows on approve),
   `[id]/pdf/route.ts`, `[id]/suggestions/route.ts` (list / create),
   `[id]/suggestions/[suggestionId]/route.ts` (apply / dismiss),
   `[id]/lock/route.ts` (soft lock), `[id]/assign/route.ts`
@@ -207,11 +241,15 @@ were deleted. The `md_upload_tokens` table stays for history only.
   `md_verification_suggestions` and `md_verification_locks`.
   `migrations/0014_md_upload_codes.sql` adds `md_upload_codes`
   (emailed 6-char codes; `md_upload_tokens` kept for history only).
+  `migrations/0016_paper_questions.sql` adds `paper_questions`
+  (one row per sub-question of approved md, written on Approve).
 - Tests: `src/lib/md-verification.test.ts` (paper-code validation,
   SHA-256 token-hash vector, upload validation, paging, R2 key shape),
   `src/lib/md-verification-parse.test.ts` (round-trip on the real
   COMDSC-352T md, page markers, edits, header patch, messy md),
-  `src/lib/md-verification-permissions.test.ts` (assigned-only rule).
+  `src/lib/md-question-index.test.ts` (25 rows from the real
+  COMDSC-352T md, frontmatter, Group values, idempotency, keywords
+  preserved), `src/lib/md-verification-permissions.test.ts` (assigned-only rule).
   Jest hangs in this VM (zero output, 20+ min) — verify the pure
   logic by transpiling the single file with the local tsc and running
   node assertions instead; do not block a deploy on a hung jest run.

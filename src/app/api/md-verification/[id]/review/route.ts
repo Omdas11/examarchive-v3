@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getServerUser } from "@/lib/auth-cf";
 import { getD1 } from "@/lib/d1";
+import { parseQuestions } from "@/lib/md-question-index";
 import {
   MD_COMPLETION_CREDITS,
   MD_COMPLETION_XP,
@@ -128,7 +129,39 @@ export async function POST(
             .bind(MD_COMPLETION_XP, MD_COMPLETION_CREDITS, awardTo),
         );
       }
-      // One D1 batch: item status + XP update land together.
+      // Question index: on Approve only, the approved md's questions
+      // land in paper_questions (one row per sub-question, keywords
+      // merged in from the index table). Approving an md with no
+      // questions writes no rows. The old rows for this item are
+      // replaced, so re-approving after an edit never duplicates.
+      const questionRows = parseQuestions(item.md_text ?? "", item.paper_code);
+      statements.push(
+        db
+          .prepare("DELETE FROM paper_questions WHERE item_id = ?")
+          .bind(id),
+      );
+      const createdAt = new Date(now).toISOString();
+      for (const qRow of questionRows) {
+        statements.push(
+          db
+            .prepare(
+              "INSERT INTO paper_questions (question_id, item_id, paper_code, label, question_text, marks, unit, group_rule, keywords, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            )
+            .bind(
+              qRow.id,
+              id,
+              item.paper_code,
+              qRow.label,
+              qRow.question,
+              qRow.marks,
+              qRow.unit,
+              qRow.group,
+              qRow.keywords,
+              createdAt,
+            ),
+        );
+      }
+      // One D1 batch: item status + XP update + question rows land together.
       await db.batch(statements);
       await addMdHistory({
         itemId: id,
