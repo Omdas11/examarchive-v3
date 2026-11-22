@@ -5,6 +5,7 @@ import { isModerator } from "@/lib/roles";
 import { getD1 } from "@/lib/d1";
 import type { AdminUser } from "@/types";
 import { toAdminUser } from "@/types";
+import { mergeVerifiedCounts } from "./verified-counts";
 import UsersTable from "./UsersTable";
 import MainLayout from "@/components/layout/MainLayout";
 import { APP_SIDEBAR_ITEMS } from "@/components/layout/appSidebarItems";
@@ -99,36 +100,30 @@ export default async function AdminUsersPage() {
     } catch {
       // Course prefs stay empty rather than breaking the page.
     }
-    // Verified counts (verify-to-earn ledger), one count query per user.
-    users = await Promise.all(
-      mapped.map(async (u) => {
-        try {
-          const row = await db
-            .prepare(
-              "SELECT COUNT(*) AS n FROM content_verifications WHERE user_id = ?",
-            )
-            .bind(u.id)
-            .first<{ n: number }>();
-          return {
-            ...u,
-            verified_count: Number(row?.n ?? 0),
-            last_seen_at: lastSeen.has(u.id)
-              ? new Date(lastSeen.get(u.id) as number).toISOString()
-              : null,
-            course_prefs: coursePrefs.get(u.id) ?? null,
-          };
-        } catch {
-          return {
-            ...u,
-            verified_count: 0,
-            last_seen_at: lastSeen.has(u.id)
-              ? new Date(lastSeen.get(u.id) as number).toISOString()
-              : null,
-            course_prefs: coursePrefs.get(u.id) ?? null,
-          };
-        }
-      }),
-    );
+    // Verified counts (verify-to-earn ledger), one GROUP BY for all users
+    // instead of one COUNT query per user (~28 D1 calls per render before).
+    let verifiedCounts = new Map<string, number>();
+    try {
+      const counts = await db
+        .prepare(
+          "SELECT user_id, COUNT(*) AS n FROM content_verifications GROUP BY user_id",
+        )
+        .all<{ user_id: string; n: number }>();
+      verifiedCounts = mergeVerifiedCounts(
+        mapped.map((u) => u.id),
+        counts.results ?? [],
+      );
+    } catch {
+      // Verified counts stay 0 rather than breaking the page.
+    }
+    users = mapped.map((u) => ({
+      ...u,
+      verified_count: verifiedCounts.get(u.id) ?? 0,
+      last_seen_at: lastSeen.has(u.id)
+        ? new Date(lastSeen.get(u.id) as number).toISOString()
+        : null,
+      course_prefs: coursePrefs.get(u.id) ?? null,
+    }));
   } catch {
     // table may not exist yet
   }
