@@ -769,3 +769,188 @@ describe("parser gaps fixed from batch 14 (2026-11-22, ENGDSC252/ENGSEC101T)", (
     ]);
   });
 });
+
+describe("parser gaps fixed from batch 15 (2026-11-23, MTM papers)", () => {
+  test("'Answer either [(a) and (b)] or [(c) and (d)]' is an instruction, not a phantom row (MTMDSM301 Q2)", () => {
+    const md = `UNIT—I\n\n1. Answer any two of the following questions : $2 \\times 2 = 4$\n\n(a) First short.\n\n(b) Second short.\n\n(c) Third short.\n\n2. Answer either [(a) and (b)] or [(c) and (d)] :\n\n(a) First part.\n\n(b) Second part. 6\n\n(c) Third part. 4\n\n(d) Fourth part. 5`;
+    const rows = parseTranscriptToRows(md, "MTMDSM301");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1(a)", 2, "Answer any 2"],
+      ["1(b)", 2, "Answer any 2"],
+      ["1(c)", 2, "Answer any 2"],
+      ["2", null, "Answer either"],
+      ["2(a)", null, "Answer either"],
+      ["2(b)", 6, "Answer either"],
+      ["2(c)", 4, "Answer either"],
+      ["2(d)", 5, "Answer either"],
+    ]);
+  });
+
+  test("pair-either with a printed total keeps the total on the instruction row (MTMDSC301T Q4)", () => {
+    const md = `UNIT—II\n\n4. Answer either [(a) and (b)] or [(c) and (d)] : 10\n\n(a) First part. 5\n\n(b) Second part. 5\n\n(c) Third part. 5\n\n(d) Fourth part. 5`;
+    const rows = parseTranscriptToRows(md, "MTMDSC301T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["4", 10, "Answer either"],
+      ["4(a)", 5, "Answer either"],
+      ["4(b)", 5, "Answer either"],
+      ["4(c)", 5, "Answer either"],
+      ["4(d)", 5, "Answer either"],
+    ]);
+  });
+
+  test("an unnumbered per-detail group does not leak into the next question (MTMDSM301 Q4(a))", () => {
+    const md = `UNIT—II\n\n2. Answer either [(a) and (b)] or [(c) and (d)] :\n\n(a) First part.\n\n(b) Second part. 6\n\n(c) Third part. 4\n\n(d) Fourth part. 5\n\nAnswer any two of the following questions : $2 \\times 2 = 4$\n\n(a) First short.\n\n(b) Second short.\n\n(c) Third short.\n\n4. Answer either [(a) and (b)] or [(c) and (d)] :\n\n(a) Find the equation of the tangent to the circle. 5\n\n(b) Prove that the straight line is a normal. 5\n\n(c) Show that three normals can be drawn.\n\n(d) Show that the product of the lengths is $b^2$.`;
+    const rows = parseTranscriptToRows(md, "MTMDSM301");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["2", null, "Answer either"],
+      ["2(a)", null, "Answer either"],
+      ["2(b)", 6, "Answer either"],
+      ["2(c)", 4, "Answer either"],
+      ["2(d)", 5, "Answer either"],
+      ["3(a)", 2, "Answer any 2"],
+      ["3(b)", 2, "Answer any 2"],
+      ["3(c)", 2, "Answer any 2"],
+      ["4", null, "Answer either"],
+      ["4(a)", 5, "Answer either"],
+      ["4(b)", 5, "Answer either"],
+      ["4(c)", null, "Answer either"],
+      ["4(d)", null, "Answer either"],
+    ]);
+  });
+
+  test("a numbered sub-question with no instruction ends an unnumbered per-detail group", () => {
+    const md = `UNIT—II\n\nAnswer any two of the following questions : $2 \\times 2 = 4$\n\n(a) First short.\n\n(b) Second short.\n\n2. (a) First long. 5\n\n(b) Second long. 5`;
+    const rows = parseTranscriptToRows(md, "MTMDSM301");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1(a)", 2, "Answer any 2"],
+      ["1(b)", 2, "Answer any 2"],
+      ["2(a)", 5, ""],
+      ["2(b)", 5, ""],
+    ]);
+  });
+
+  test("a part with no trailing figure reads null, not a phantom group value (MTMDSC301T Q8(c))", () => {
+    const md = `UNIT—IV\n\n6. A direct question. 5\n\nAnswer any two of the following questions : $2 \\times 2 = 4$\n\n(a) First short.\n\n(b) Second short.\n\n(c) Third short.\n\n8. Answer either [(a) and (b)] or [(c) and (d)] : 10\n\n(a) Obtain the canonical form of the PDE. 5\n\n(b) Solve the PDE. 5\n\n(c) Reduce the PDE $$\\frac{\\partial^2 z}{\\partial x^2} = x^2 \\frac{\\partial^2 z}{\\partial y^2}$$ into canonical form and hence solve it.\n\n(d) Solve the PDE using separation of variables.`;
+    const rows = parseTranscriptToRows(md, "MTMDSC301T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["6", 5, ""],
+      ["7(a)", 2, "Answer any 2"],
+      ["7(b)", 2, "Answer any 2"],
+      ["7(c)", 2, "Answer any 2"],
+      ["8", 10, "Answer either"],
+      ["8(a)", 5, "Answer either"],
+      ["8(b)", 5, "Answer either"],
+      ["8(c)", null, "Answer either"],
+      ["8(d)", null, "Answer either"],
+    ]);
+  });
+
+  test("merged (i)/(ii) figures sum, and a figure inside maths is not one (MTMSEC101T Q9)", () => {
+    const md = `UNIT—III\n\n9. Answer any one of the following questions:\n\n(a) (i) Show that $10^n + 3\\cdot 4^{n+2} + 5$ is divisible by 9. (ii) If $p$ is prime and $p|ab$, then prove that $p|a$ or $p|b$, where $a, b \\in \\mathbb{Z}$. 2\n\n(b) (i) Show that g.c.d. of $a + b$ and $a - b$ is either 1 or 2 if $(a, b) = 1$. 3 (ii) If $a \\equiv b (\\text{mod } m)$, $c \\equiv d (\\text{mod } m)$, then prove that $a + c \\equiv b + d (\\text{mod } m)$. 2`;
+    const rows = parseTranscriptToRows(md, "MTMSEC101T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["9(a)", 2, "Answer any 1"],
+      ["9(b)", 5, "Answer any 1"],
+    ]);
+    // The figures stay in the question text (they are the sub-parts'
+    // printed marks); only the total is the row's marks.
+    expect(rows[1].question).toContain("3 (ii)");
+  });
+
+  test("a merged sum that disagrees with the group guard still falls back (CHMDSM252 rule)", () => {
+    const md = `UNIT—I\n\n2. Answer any one of the following questions : 10\n\n(a) (i) First sub-part. 2 (ii) Second sub-part. 3`;
+    const rows = parseTranscriptToRows(md, "CHMDSM252");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["2(a)", 10, "Answer any 1"],
+    ]);
+  });
+
+  test("a merged sum that agrees with the group guard is the row's marks (CHMDSM252 Q4(a))", () => {
+    const md = `UNIT—II\n\n4. Answer any one of the following questions : 10\n\n(a) (i) First sub-part. 2 (ii) Second sub-part. 1 (iii) Third sub-part. 4 (iv) Fourth sub-part. 3`;
+    const rows = parseTranscriptToRows(md, "CHMDSM252");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["4(a)", 10, "Answer any 1"],
+    ]);
+  });
+
+  test("parenthesised trailing '(5)' is marks; 'equation (5)' is not (MTMDSC301T Q10)", () => {
+    const md = `UNIT—V\n\n10. Answer either [(a) and (b)] or [(c) and (d)] : 10\n\n(a) Derive heat conduction equation for a bar. (5)\n\n(b) Second part text. (5)\n\n(c) Third part text. (5)\n\n(d) Fourth part text. (5)\n\n11. Answer any one of the following questions : 10\n\n(a) Solve equation (5)`;
+    const rows = parseTranscriptToRows(md, "MTMDSC301T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["10", 10, "Answer either"],
+      ["10(a)", 5, "Answer either"],
+      ["10(b)", 5, "Answer either"],
+      ["10(c)", 5, "Answer either"],
+      ["10(d)", 5, "Answer either"],
+      ["11(a)", 10, "Answer any 1"],
+    ]);
+    expect(rows[1].question).toBe("Derive heat conduction equation for a bar.");
+    expect(rows[5].question).toBe("Solve equation (5)");
+  });
+
+  test("a bare sum on its own line attaches to the preceding question (PHIDSC201T)", () => {
+    const md = `UNIT—I\n\n1. Answer any one of the following questions :\n\n(a) What is existential import? Explain in this connection the Boolean square of opposition.\n\n2+8=10`;
+    const rows = parseTranscriptToRows(md, "PHIDSC201T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1(a)", 10, "Answer any 1"],
+    ]);
+  });
+
+  test("separate-line (i)/(ii) sub-parts join the row and carry its marks (MTMDSC301T Q6(b))", () => {
+    const md = `UNIT—III\n\n6. Answer either [(a) and (b)] or [(c) and (d)] : 10\n\n(a) Solve : $$(2D^2 - 5DD' + 2D'^2)z = 5 \\sin(2x + y)$$ 5\n\n(b) Solve :\n\n(i) $(D^2 - D'^2 + D - D')z = 0$ (ii) $t + s + q = 0$ $2+3=5$\n\n(c) Solve : $$(D^2 - 2DD' - 15D'^2)z = 12xy$$ 5`;
+    const rows = parseTranscriptToRows(md, "MTMDSC301T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["6", 10, "Answer either"],
+      ["6(a)", 5, "Answer either"],
+      ["6(b)", 5, "Answer either"],
+      ["6(c)", 5, "Answer either"],
+    ]);
+    expect(rows[2].question).toContain("(i) $(D^2 - D'^2 + D - D')z = 0$");
+    expect(rows[2].question).toContain("(ii) $t + s + q = 0$");
+  });
+
+  test("separate-line (i)/(ii) with a bare trailing figure joins too (MTMDSC302T Q2(c), MTMDSM301 Q8(a))", () => {
+    const md = `UNIT—I\n\n2. Answer either [(a) and (b)] or [(c) and (d)] : 10\n\n(a) First part. 5\n\n(b) Second part. 5\n\n(c) Prove that d is a metric if and only if d satisfies the two conditions\n\n(i) $d(x,y)=0 \\Leftrightarrow x=y$ (ii) $d(x,y)\\le d(x,z)+d(y,z)$ 5\n\n8. Answer either [(a) and (b)] or [(c) and (d)] :\n\n(a) Prove that—\n\n(i) $[\\vec{a}+\\vec{b} \\quad \\vec{b}+\\vec{c} \\quad \\vec{c}+\\vec{a}] = 2 [\\vec{a} \\quad \\vec{b} \\quad \\vec{c}]$ (ii) $\\hat{i} \\times (\\vec{a} \\times \\hat{i}) + \\hat{j} \\times (\\vec{a} \\times \\hat{j}) + \\hat{k} \\times (\\vec{a} \\times \\hat{k}) = 2\\vec{a}$ 3+3=6`;
+    const rows = parseTranscriptToRows(md, "MTMDSC302T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["2", 10, "Answer either"],
+      ["2(a)", 5, "Answer either"],
+      ["2(b)", 5, "Answer either"],
+      ["2(c)", 5, "Answer either"],
+      ["8", null, "Answer either"],
+      ["8(a)", 6, "Answer either"],
+    ]);
+    expect(rows[3].question).toContain("(i) $d(x,y)=0");
+    expect(rows[5].question).toContain("(ii)");
+  });
+
+  test("a separate-line (i)/(ii)/(iii) with a split total joins too (MTMDSC201T Q10(d))", () => {
+    const md = `UNIT—V\n\n10. Answer either [(a) and (b)] or [(c) and (d)] : 10\n\n(d) State the theorem.\n\n(i) First condition. (ii) Second condition. (iii) Third condition. 3+3+1=7`;
+    const rows = parseTranscriptToRows(md, "MTMDSC201T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["10", 10, "Answer either"],
+      ["10(d)", 7, "Answer either"],
+    ]);
+    expect(rows[1].question).toContain("(i) First condition.");
+    expect(rows[1].question).toContain("(iii) Third condition.");
+  });
+
+  test("a bare 'Answer either' line opens the next question number, not the previous one", () => {
+    const md = `UNIT—V\n\n9. Answer any two of the following questions : $2 \\times 2 = 4$\n\n(a) First short.\n\n(b) Second short.\n\nAnswer either [(a) and (b)] or [(c) and (d)] : 10\n\n(a) First part. 5\n\n(b) Second part. 5`;
+    const rows = parseTranscriptToRows(md, "MTMDSC301T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["9(a)", 2, "Answer any 2"],
+      ["9(b)", 2, "Answer any 2"],
+      ["10", 10, "Answer either"],
+      ["10(a)", 5, "Answer either"],
+      ["10(b)", 5, "Answer either"],
+    ]);
+    expect(rows.map((r) => r.id)).toEqual([
+      "MTMDSC301T-Q9a",
+      "MTMDSC301T-Q9b",
+      "MTMDSC301T-Q10",
+      "MTMDSC301T-Q10a",
+      "MTMDSC301T-Q10b",
+    ]);
+  });
+});

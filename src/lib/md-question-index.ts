@@ -152,6 +152,15 @@ const INSTRUCTION_LINE =
 const EITHER_LINE =
   /^(?:([\d০-৯]+)[।.]\s*)?Answer\s+the\s+following\s+questions\s+either\s+\(a\)\s+or\s+\(b\)[^\n]*$/i;
 
+// "2. Answer either [(a) and (b)] or [(c) and (d)] : 10" (MTM papers) —
+// one question whose parts form two alternative PAIRS: the candidate
+// answers either (a)+(b) or (c)+(d), so the question is worth one
+// pair's sum, not both. The number is optional (a bare line opens the
+// next number, batch 15 gap 7) and the total may be absent (MTMDSM301
+// prints none). The brackets are optional.
+const PAIR_EITHER_LINE =
+  /^(?:([\d০-৯]+)[।.]\s*)?Answer\s+either\s+\[?\s*\(([a-z])\)\s+and\s+\(([a-z])\)\s*\]?\s+or\s+\[?\s*\(([a-z])\)\s+and\s+\(([a-z])\)\s*\]?[^\n]*$/i;
+
 // Bengali: "১। যে কোনো দুটি প্রশ্নের উত্তর দাও : $2 \times 4 = 8$" —
 // number optional, count word captured for the lookup below. The
 // "অতি সংক্ষিপ্ত" (very short) form puts those two words either
@@ -377,18 +386,26 @@ function instructionMarksDetail(
  * when the line carries none — the caller opens the next number.
  * `either` is true only for "either (a) or (b)" lines: there the (a)/(b)
  * parts are alternatives worth the question total each, even when the
- * line carries no number.
+ * line carries no number. `pairEither` is true only for "Answer either
+ * [(a) and (b)] or [(c) and (d)]" lines: there the parts form two
+ * alternative pairs, and the question is worth one pair's sum.
  */
 function matchInstruction(line: string): {
   num: number | null;
   count: number;
   either: boolean;
+  pairEither: boolean;
 } | null {
   const en = line.match(INSTRUCTION_LINE);
   if (en) {
     const count = wordToNumber(en[2]);
     if (count === null) return null;
-    return { num: en[1] ? asciiNumber(en[1]) : null, count, either: false };
+    return {
+      num: en[1] ? asciiNumber(en[1]) : null,
+      count,
+      either: false,
+      pairEither: false,
+    };
   }
   const either = line.match(EITHER_LINE);
   if (either) {
@@ -396,19 +413,39 @@ function matchInstruction(line: string): {
       num: either[1] ? asciiNumber(either[1]) : null,
       count: 1,
       either: true,
+      pairEither: false,
+    };
+  }
+  const pairEither = line.match(PAIR_EITHER_LINE);
+  if (pairEither) {
+    return {
+      num: pairEither[1] ? asciiNumber(pairEither[1]) : null,
+      count: 2,
+      either: true,
+      pairEither: true,
     };
   }
   const bn = line.match(BN_INSTRUCTION_LINE);
   if (bn) {
     const count = BN_COUNT_WORDS.get(foldBnYy(bn[2]));
     if (count === undefined) return null;
-    return { num: bn[1] ? asciiNumber(bn[1]) : null, count, either: false };
+    return {
+      num: bn[1] ? asciiNumber(bn[1]) : null,
+      count,
+      either: false,
+      pairEither: false,
+    };
   }
   const mn = line.match(MN_INSTRUCTION_LINE);
   if (mn) {
     const count = mnInstructionCount(mn[2], line);
     if (count === null) return null;
-    return { num: mn[1] ? asciiNumber(mn[1]) : null, count, either: false };
+    return {
+      num: mn[1] ? asciiNumber(mn[1]) : null,
+      count,
+      either: false,
+      pairEither: false,
+    };
   }
   const mnBare = line.match(MN_BARE_LINE);
   if (mnBare) {
@@ -418,6 +455,7 @@ function matchInstruction(line: string): {
       num: mnBare[1] ? asciiNumber(mnBare[1]) : null,
       count,
       either: false,
+      pairEither: false,
     };
   }
   return null;
@@ -568,10 +606,74 @@ export function parseIndexTableKeywords(md: string): Map<string, string> {
   return map;
 }
 
+/**
+ * The marks figure a (i)/(ii)/(iii)/(iv) segment ends in: a bare
+ * number after terminal punctuation or a closing $ ("... . 3",
+ * "... $$ 2"). Never a number inside maths ("divisible by 9." — the
+ * 9 is followed by ".", not at the end) or the total of a split
+ * expression ("3+2=5" — the 5 is preceded by "="). Returns null when
+ * the segment carries no such figure.
+ */
+function segmentMarksFigure(segment: string): number | null {
+  // Maths spans collapse to a bare "$" so a figure after one still
+  // reads ("$$...$$ 2" -> "$ 2"), while a figure inside one vanishes
+  // with the span ("$x=5$" -> "$").
+  const flat = segment.replace(/\${1,2}[^$]*\${1,2}/g, " $ ");
+  const m = flat.match(/(?:[.!?]|\$)\s+([\d০-৯]+)\s*$/);
+  if (!m) return null;
+  const n = asciiNumber(m[1]);
+  if (n === null || n < 1 || n > 100) return null;
+  return n;
+}
+
+/**
+ * The total of a row whose (i)/(ii)/(iii)/(iv) sub-parts each print
+ * their own figure on one line — "(i) ... 3 (ii) ... 2" is worth
+ * 3+2=5, not the trailing 2 alone. Only when an (i) is followed by at
+ * least one more marker (a lone "(ii)" is an oxidation state, not a
+ * sub-part — "iron (ii) oxide") and EVERY segment carries a bare
+ * figure: a segment ending in a split expression ("3+2=5") already
+ * states the row's total, and the existing branches read it.
+ */
+function mergedSubPartMarks(text: string): number | null {
+  const parts = text.split(/\((iii|ii|iv|i)\)/);
+  if (parts.length < 5 || parts[1] !== "i") return null;
+  const figures: number[] = [];
+  for (let k = 2; k < parts.length; k += 2) {
+    const fig = segmentMarksFigure(parts[k]);
+    if (fig === null) return null;
+    figures.push(fig);
+  }
+  if (figures.length < 2) return null;
+  const sum = figures.reduce((a, b) => a + b, 0);
+  return sum >= 1 && sum <= 100 ? sum : null;
+}
+
 function stripTrailingMarks(
   text: string,
   groupGuard: number | null,
+  group: string,
 ): { text: string; marks: number | null } {
+  // Sub-parts on one line, each with its own figure — "(i) ... 3
+  // (ii) ... 2" is worth 3+2=5, not the trailing 2 alone (MTMSEC101T
+  // Q9(b), MTMDSC302T Q8(d), MTMDSM301 Q8(c)). The figures stay in
+  // the text (they are the sub-parts' printed marks); only the total
+  // is returned. A sum that disagrees with the group's per-part marks
+  // is rejected (batch 12) — except for an "Answer either" pair,
+  // where the sum is the part's own marks and the guard is the pair's
+  // total, not the part's.
+  const merged = mergedSubPartMarks(text);
+  if (merged !== null) {
+    if (
+      groupGuard === null ||
+      groupGuard === merged ||
+      group === "Answer either"
+    ) {
+      return { text, marks: merged };
+    }
+    // Disagrees with the guard: fall through to the existing
+    // branches, which reject the trailing figure and fall back.
+  }
   // A $...$ maths expression at the end of the question is its marks,
   // not part of its text — e.g. "$2+8=10$" or "$2 x 4 = 8$". It must
   // carry $ delimiters: a bare "2+3=5" could be the question itself.
@@ -613,6 +715,23 @@ function stripTrailingMarks(
       (groupGuard === null || groupGuard === derived)
     ) {
       return { text: bareExpr[1].trim(), marks: derived };
+    }
+  }
+  // A parenthesised trailing figure "(5)" is the row's marks
+  // (MTMDSC301T Q10(a)-(d)) — but only standing alone after terminal
+  // punctuation or a maths span, so a cross-reference ("equation
+  // (5)") is not mistaken for marks. The punctuation stays in the
+  // text, as the bare-number branch leaves it.
+  const paren = text.match(/^(.*?)([.!?]|\$)\s*\(([\d০-৯]+)\)\s*$/);
+  if (paren) {
+    const n = asciiNumber(paren[3]);
+    if (
+      n !== null &&
+      n >= 1 &&
+      n <= 100 &&
+      (groupGuard === null || groupGuard === n)
+    ) {
+      return { text: `${paren[1]}${paren[2]}`.trim(), marks: n };
     }
   }
   // A bare number at the end of the question is its marks — but only
@@ -729,7 +848,7 @@ export function parseTranscriptToRows(
     rawText: string,
   ): { row: QuestionRow; isOr: boolean } => {
     const orStripped = stripTrailingOr(rawText.trim());
-    const stripped = stripTrailingMarks(orStripped.text, groupGuard);
+    const stripped = stripTrailingMarks(orStripped.text, groupGuard, group);
     const label = `${qNum}(${letter})`;
     return {
       row: {
@@ -759,6 +878,30 @@ export function parseTranscriptToRows(
   };
 
   /**
+   * A rejected "(i)/(ii)/..." line that ends in a marks expression is
+   * a continuation of the previous sub-question — its sub-parts,
+   * printed on their own line. Join it into that row's text and
+   * re-derive the marks (MTMDSC301T Q6(b), MTMDSC302T Q2(c),
+   * MTMDSM301 Q8(a), MTMDSC201T Q10(d)). A line with no trailing
+   * marks is an MCQ option (ENGSEC101T "(i) Stationary (ii)
+   * Stationery") and stays dropped. Returns true when joined.
+   */
+  const joinContinuation = (line: string): boolean => {
+    const probe = stripTrailingMarks(line, null, "");
+    if (probe.marks === null) return false;
+    const last = rows[rows.length - 1];
+    if (!last) return false;
+    if (last.label.split("(")[0] !== qNum) return false;
+    // The pair-either instruction row is not a question to continue.
+    if (last.label === qNum && last.group === "Answer either") return false;
+    last.question = `${last.question} ${line}`.trim();
+    const rederived = stripTrailingMarks(last.question, groupGuard, group);
+    last.question = rederived.text;
+    if (rederived.marks !== null) last.marks = rederived.marks;
+    return true;
+  };
+
+  /**
    * A new numbered question ends the current group, unless the group
    * governs this very number (a numbered instruction's own parts) or
    * the group came from an unnumbered instruction whose alternatives
@@ -778,6 +921,21 @@ export function parseTranscriptToRows(
     } else if (groupBareUnnumbered) {
       groupMarks = null;
       groupGuard = null;
+      groupBareUnnumbered = false;
+    } else if (
+      groupQNum === null &&
+      String(n) !== qNum &&
+      (groupGuard !== null || group === "Answer either")
+    ) {
+      // An unnumbered per-detail instruction ("$2×2=4$") or
+      // pair-either governs only the sub-questions under the number it
+      // opened; a new numbered question ends it, or its per-part marks
+      // and group leak into the next question (MTMDSM301 Q4(a) and
+      // MTMDSC301T Q8(c) both read a phantom 2 from the stale group).
+      group = "";
+      groupMarks = null;
+      groupGuard = null;
+      groupQNum = null;
       groupBareUnnumbered = false;
     }
   };
@@ -839,10 +997,21 @@ export function parseTranscriptToRows(
         qNum = String(lastQNum);
       }
       lastSubLetter = "";
-      group = `Answer any ${instr.count}`;
+      group = instr.pairEither
+        ? "Answer either"
+        : `Answer any ${instr.count}`;
       groupQNum = instr.num;
       const detail = instructionMarksDetail(line);
-      if (detail && detail.per !== null) {
+      if (instr.pairEither) {
+        // The printed total (": 10") is the PAIR's total, not each
+        // part's — the parts are worth 5 each, so it must not become
+        // the per-part guard (a trailing "5" would be rejected and the
+        // part would fall back to 10). The parts read their own
+        // figures; the total rides on the instruction row below.
+        groupMarks = null;
+        groupGuard = null;
+        groupBareUnnumbered = false;
+      } else if (detail && detail.per !== null) {
         // "N×M=K": the per-part marks are explicit (2 in "2×2=4").
         groupMarks = detail.per;
         groupGuard = detail.per;
@@ -862,6 +1031,32 @@ export function parseTranscriptToRows(
         groupMarks = null;
         groupGuard = null;
         groupBareUnnumbered = false;
+      }
+      if (instr.pairEither) {
+        // The pair-either instruction is also a row (the question
+        // itself): its printed total, when present, is the question's
+        // marks — it saves the count when the parts are gutter-hidden
+        // (MTMDSC302T Q2/Q10). With no printed total the row carries
+        // no marks and the counter takes the larger pair's sum.
+        const afterNum = line.replace(/^[\d০-৯]+[।.]\s*/, "");
+        const orStripped = stripTrailingOr(afterNum.trim());
+        const stripped = stripTrailingMarks(orStripped.text, null, "");
+        const instrRow: QuestionRow = {
+          label: qNum,
+          question: stripped.text,
+          marks: stripped.marks,
+          unit,
+          group: "Answer either",
+          id: `${paperCode}-Q${qNum}`,
+          keywords: "",
+        };
+        if (orStripped.isOr) {
+          applyOr(instrRow);
+          orPending = true;
+          rows.push(instrRow);
+        } else {
+          pushRow(instrRow);
+        }
       }
       pendingSub = null;
       continue;
@@ -943,12 +1138,25 @@ export function parseTranscriptToRows(
       continue;
     }
 
+    // A "(ii)"/"(iii)"/"(iv)" line never starts a sub-question (those
+    // are single letters) — it is a continuation of the previous row's
+    // sub-parts, or an MCQ option. Join it when it ends in marks.
+    if (/^\((ii|iii|iv)\)\s+.+$/.test(line)) {
+      joinContinuation(line);
+      continue;
+    }
+
     const subMatch = line.match(SUB_QUESTION_LINE);
     if (subMatch && qNum) {
       pendingSub = null;
       const letter = subMatch[1] ?? BN_PART_TO_LATIN[subMatch[2]];
-      // A lone (i)/(j) out of sequence is an MCQ option, not a row.
-      if (!acceptsSubLetter(letter)) continue;
+      // A lone (i)/(j) out of sequence is an MCQ option, not a row —
+      // unless it ends in a marks expression, in which case it is the
+      // previous sub-question's sub-parts on their own line.
+      if (!acceptsSubLetter(letter)) {
+        joinContinuation(line);
+        continue;
+      }
       pushSubRow(letter, subMatch[3]);
       continue;
     }
@@ -970,7 +1178,7 @@ export function parseTranscriptToRows(
       lastSubLetter = "";
       pendingSub = null;
       const orStripped = stripTrailingOr(numMatch[2].trim());
-      const stripped = stripTrailingMarks(orStripped.text, null);
+      const stripped = stripTrailingMarks(orStripped.text, null, "");
       const row: QuestionRow = {
         label: qNum,
         question: stripped.text,
