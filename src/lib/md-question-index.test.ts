@@ -373,3 +373,42 @@ describe("parser gaps fixed from batch 3, continued (2026-11-22)", () => {
     ]);
   });
 });
+
+describe("parser gaps fixed from batch 4 (2026-11-22)", () => {
+  test("three-term split totals read as marks (BOTDSC102T Q6b/Q8b/Q10a)", () => {
+    const md = `UNIT—III\n\n6. Answer any one of the following :\n\n(a) With necessary example, describe the Ainsworth classification of fungi. **8+2=10**\n\n(b) Briefly discuss the affinities of fungi with plants and animals. **4+4+2=10**\n\nUNIT—IV\n\n8. Answer any one of the following :\n\n(a) Discuss the life cycle of Penicillium. 7+3\n\n(b) Discuss the reproduction in Agaricus. 6+3+1\n\nUNIT—V\n\n10. Answer any one of the following :\n\n(a) Discuss the role of fungi in production of enzymes. 4+3+3\n\n(b) Discuss the role of fungi in pharmaceutical preparation. 5+5`;
+    const rows = parseTranscriptToRows(md, "BOTDSC102T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["6(a)", 10],
+      ["6(b)", 10],
+      ["8(a)", 10],
+      ["8(b)", 10],
+      ["10(a)", 10],
+      ["10(b)", 10],
+    ]);
+  });
+
+  test("four-term split total and doubled-dollar split (PHYDSM101T Q8/Q9b)", () => {
+    const md = `UNIT—III\n\n8. What is central force? Prove the following for a particle moving under a central force :\n1+3+3+3=10\n\n(a) Angular momentum about the centre of force is a constant of motion.\n\n(b) The motion of the particle is always confined to a plane.\n\n(c) The areal velocity of the line joining the centre of force and the particle is a constant of motion.\n\n### OR\n\n9. (a) Find an expression for orbital velocity of a satellite.\n\n(b) What do you mean by weightlessness? State the necessary conditions for a satellite to be geostationary. Write a short note on global positioning system.\n\n$$2+2+1=5$$`;
+    const rows = parseTranscriptToRows(md, "PHYDSM101T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["8", 10],
+      ["8(a)", null],
+      ["8(b)", null],
+      ["8(c)", null],
+      ["9(a)", null],
+      ["9(b)", 5],
+    ]);
+  });
+
+  test("two-term splits still read exactly as before", () => {
+    const md = `UNIT—I\n\n1. Answer any two of the following questions : 2×2=4\n\n(a) First short.\n\n(b) Second short.\n\n2. Answer any one of the following questions :\n\n(a) First long. 7+3\n\n(b) Second long. $3+4$`;
+    const rows = parseTranscriptToRows(md, "XXXX-101T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["1(a)", 2],
+      ["1(b)", 2],
+      ["2(a)", 10],
+      ["2(b)", 7],
+    ]);
+  });
+});

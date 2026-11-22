@@ -164,27 +164,29 @@ const SUB_QUESTION_LINE = /^\((?:([a-h])|([কখগঘঙচছজঝ]))\)\s+(.
 const BARE_SUB_LINE = /^\((?:([a-h])|([কখগঘঙচছজঝ]))\)$/;
 
 // A whole line that is only a marks expression: "$2\times 2=4$",
-// "$2 x 4 = 8$", "2×2=4", "২×২=৪", "$2+8=10$". For "×" the first
-// number is the marks per sub-question; for "+" it is the total (or the
-// sum when no total is given).
+// "$2 x 4 = 8$", "2×2=4", "২×২=৪", "$2+8=10$", "$4+4+2=10$",
+// "6+3+1", "1+3+3+3=10". Any number of terms joined by "+" (or one
+// "×"); for "+" it is the total (or the sum when no total is given),
+// for "×" the first number is the marks per sub-question.
 const MARKS_EXPR =
-  /^\${0,2}\s*([\d০-৯]+)\s*(\\times|[×x+])\s*([\d০-৯]+)\s*(?:=\s*([\d০-৯]+))?\s*\${0,2}$/;
+  /^\${0,2}\s*([\d০-৯]+(?:\s*(?:\\times|[×x+])\s*[\d০-৯]+)+)\s*(?:=\s*([\d০-৯]+))?\s*\${0,2}$/;
 
-/** Marks a marks-expression's numbers mean (see MARKS_EXPR). */
+/** Marks a marks-expression means (see MARKS_EXPR). */
 function marksFromParts(
-  aStr: string,
-  op: string,
-  bStr: string,
+  exprStr: string,
   totalStr: string | undefined,
 ): number | null {
-  const a = asciiNumber(aStr);
-  const b = asciiNumber(bStr);
-  if (a === null || b === null) return null;
-  if (op === "+") {
-    const total = totalStr ? asciiNumber(totalStr) : null;
-    return total ?? a + b;
+  const nums = exprStr.match(/[\d০-৯]+/g);
+  if (!nums || nums.length < 2) return null;
+  const values = nums.map((n) => asciiNumber(n));
+  if (values.some((v) => v === null)) return null;
+  const total = totalStr ? asciiNumber(totalStr) : null;
+  if (/\+/.test(exprStr)) {
+    // A "+" split: the stated total, or the sum of the parts.
+    return total ?? (values as number[]).reduce((a, b) => a + b, 0);
   }
-  return a;
+  // A "×" split: the first number is the marks per sub-question.
+  return (values as number[])[0];
 }
 
 /**
@@ -194,10 +196,10 @@ function marksFromParts(
  */
 function instructionMarks(line: string): number | null {
   const expr = line.match(
-    /\$?\s*([\d০-৯]+)\s*(\\times|[×x+])\s*([\d০-৯]+)\s*(?:=\s*([\d০-৯]+))?\s*\$?\s*$/,
+    /\$?\s*\**([\d০-৯]+(?:\s*(?:\\times|[×x+])\s*[\d০-৯]+)+)\s*(?:=\s*([\d০-৯]+))?\**\s*\$?\s*$/,
   );
   if (expr) {
-    const n = marksFromParts(expr[1], expr[2], expr[3], expr[4]);
+    const n = marksFromParts(expr[1], expr[2]);
     if (n !== null && n >= 1 && n <= 100) return n;
   }
   const trailing = line.match(/:\s*\**([\d০-৯]+)\**\s*$/);
@@ -384,11 +386,12 @@ function stripTrailingMarks(
   // A $...$ maths expression at the end of the question is its marks,
   // not part of its text — e.g. "$2+8=10$" or "$2 x 4 = 8$". It must
   // carry $ delimiters: a bare "2+3=5" could be the question itself.
-  const tailMath = text.match(/^(.*?)\s*(\$[^$]+\$)\s*$/);
+  // The delimiters may be doubled ("$$2+2+1=5$$").
+  const tailMath = text.match(/^(.*?)\s*(\${1,2}[^$]+\${1,2})\s*$/);
   if (tailMath) {
     const expr = tailMath[2].match(MARKS_EXPR);
     if (expr) {
-      const derived = marksFromParts(expr[1], expr[2], expr[3], expr[4]);
+      const derived = marksFromParts(expr[1], expr[2]);
       if (
         derived !== null &&
         derived >= 1 &&
@@ -401,17 +404,13 @@ function stripTrailingMarks(
   }
   // A bare marks expression at the end, e.g. "… : ২×২=৪" — Bengali
   // papers write it without $ delimiters. Checked before the bare
-  // number below, or "৪" alone would be misread as marks 4.
+  // number below, or "৪" alone would be misread as marks 4. The
+  // expression may carry bold markers ("**7+3**", "**4+4+2=10**").
   const bareExpr = text.match(
-    /^(.*?)\s+([\d০-৯]+)\s*(\\times|[×x+])\s*([\d০-৯]+)\s*(?:=\s*([\d০-৯]+))?\s*$/,
+    /^(.*?)\s+\**([\d০-৯]+(?:\s*(?:\\times|[×x+])\s*[\d০-৯]+)+)\s*(?:=\s*([\d০-৯]+))?\**\s*$/,
   );
   if (bareExpr) {
-    const derived = marksFromParts(
-      bareExpr[2],
-      bareExpr[3],
-      bareExpr[4],
-      bareExpr[5],
-    );
+    const derived = marksFromParts(bareExpr[2], bareExpr[3]);
     if (
       derived !== null &&
       derived >= 1 &&
@@ -545,7 +544,8 @@ export function parseTranscriptToRows(
 
     // A standalone OR line: the question above and the one below are
     // alternatives — each counts once. Bengali papers write অথবা.
-    if (/^(OR|অথবা)$/i.test(line)) {
+    // The line may be a heading ("### OR") or bold ("**OR**").
+    if (/^(OR|অথবা)$/i.test(line.replace(/^[#*\s]+|[#*\s]+$/g, ""))) {
       if (rows.length > 0) applyOr(rows[rows.length - 1]);
       orPending = true;
       continue;
@@ -573,17 +573,26 @@ export function parseTranscriptToRows(
     }
 
     // A line that is only a marks expression ("$2 x 4 = 8$", "2×2=4").
+    // After an instruction it is the group's marks (the standalone
+    // "$2 x 4 = 8$" case: no row exists for the number yet). After a
+    // question it belongs to that question — PHYDSM101T Q9b has
+    // "$$2+2+1=5$$" on its own line under (b), and Q8's "1+3+3+3=10"
+    // sits under its instruction line.
     const marksMatch = line.match(MARKS_EXPR);
     if (marksMatch) {
       pendingSub = null;
-      if (groupMarks === null) {
-        const n = marksFromParts(
-          marksMatch[1],
-          marksMatch[2],
-          marksMatch[3],
-          marksMatch[4],
-        );
-        if (n !== null) groupMarks = n;
+      const n = marksFromParts(marksMatch[1], marksMatch[2]);
+      const last = rows[rows.length - 1];
+      if (
+        n !== null &&
+        last &&
+        last.marks === null &&
+        qNum !== "" &&
+        last.label.split("(")[0] === qNum
+      ) {
+        last.marks = n;
+      } else if (groupMarks === null && n !== null) {
+        groupMarks = n;
       }
       continue;
     }
