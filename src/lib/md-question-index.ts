@@ -153,14 +153,84 @@ const EITHER_LINE =
 const BN_INSTRUCTION_LINE =
   /^(?:([\d০-৯]+)[।.]\s*)?যে[\s-]*কোনো\s*(\S+?)\s*প্রশ্নের\s+উত্তর\s+দাও(?=\s|:|$)[^\n]*$/;
 
-// Manipuri in Bengali script: "১। মখাগী ৱাহংশিং অসিদগী ৪খক্তী পাউখুম পীয়ু : ১×৪=৪"
-// (MANIDC101T) — "answer any four/one of the following questions".
-// The count is the Bengali digit before the classifier suffix
-// (খক্তী/থক্কী/ধকপী/খক্কী); the noun varies (ৱাহংশিং/বাহং/বাহংশিং/
-// বাহংচিং/ৱাহং). The য় in পীয়ু is U+09DF (single codepoint) — the
-// YA+nukta byte form is normalised to it by the assembler before parsing.
+// Manipuri (Bengali script) count words in instruction lines:
+// "অমতংগী" and "অমখক" are one, "অনীদংগী" two, "অহুমথকী" and
+// "অহুমখক্কী" three. None of these words contains য়, so they are
+// typed; the য় in পীয়ু is written as \u09df, never typed (typing it
+// risks the YA+nukta byte form, which never matches).
+const MN_COUNT_WORDS = new Map<string, number>([
+  ["অমতংগী", 1],
+  ["অমখক", 1],
+  ["অনীদংগী", 2],
+  ["অহুমথকী", 3],
+  ["অহুমখক্কী", 3],
+]);
+
+// Manipuri in Bengali script, "মখাগী …" form:
+// "১। মখাগী ৱাহংশিং অসিদগী ৪খক্তী পাউখুম পীয়ু : ১×৪=৪" (MANIDC101T)
+// "মখাগী ৱাহংশিং অসিদগী অমখক থল্লগা পাউখুম পীয়ু : ২" (MANSEC201T)
+// "মখাগী ৱাহংশিং অসিগী অতেনবা পাউখুম পীয়ু : $1 \times 3 = 3$" (MANSEC201T)
+// — the count is a Bengali digit + classifier suffix (খক্তী/থক্কী/…),
+// a count word (অমখক/অহুমথকী/অহুমখক্কী), or absent ("অতেনবা",
+// short answers: the count is the multiplier of the N×M=K marks
+// expression on the line). The noun varies (ৱাহংশিং/বাহং/…), the
+// source word varies (অসিদগী/অসিগী), and a verb (থল্লগা/খল্লগা/খঙনা)
+// may sit between the count and পাউখুম. The য় in পীয়ু is U+09DF.
 const MN_INSTRUCTION_LINE =
-  /^(?:([\d০-৯]+)[।.]\s*)?মখাগী\s+\S+\s+অসিদগী\s+([০-৯]+)\S*\s+পাউখুম\s+পী\u09dfু[^\n]*$/;
+  /^(?:([\d০-৯]+)[।.]\s*)?মখাগী\s+\S+\s+(?:অসিদগী|অসিগী)\s+(\S+)(?:\s+(?:থল্লগা|খল্লগা|খঙনা))?\s+পাউখুম\s+পী\u09dfু[^\n]*$/;
+
+// Manipuri in Bengali script, bare count-word form:
+// "১। অনীদংগী পাউখুম পীয়ু : $2 \times 2 = 4$" (MANDSC202T Q1/Q3/Q5/Q7/Q9)
+// "২। অমতংগী পাউখুম পীয়ু : ১০" (MANDSC202T Q2/Q4/Q6/Q8/Q10)
+// "অহুমথকী/অহুমখক্কী পাউখুম পীয়ু" (answer three, MANSEC201T).
+const MN_BARE_LINE =
+  /^(?:([\d০-৯]+)[।.]\s*)?(অমতংগী|অনীদংগী|অহুমথকী|অহুমখক্কী)\s+পাউখুম\s+পী\u09dfু[^\n]*$/;
+
+/**
+ * A trailing "N×M=K" marks expression: "$2\\times 2 = 4$",
+ * "$1 \\times 3 = 3$", "২×২=৪", "১×৩=৩". The first number is the marks
+ * per sub-question, the second is how many sub-questions the group
+ * counts, and the third is their product (the group's total). Returns
+ * null when the line carries no such expression. The count (second
+ * number) is what "অতেনবা" (short answers) instructions need — the
+ * count word is absent there, so the paper states it only as the
+ * multiplier. Careful with backslashes: exactly ONE literal backslash
+ * in "$1 \\times 4 = 4$"; two give marks null (batch 7).
+ */
+function parseTimesMarks(line: string): {
+  per: number;
+  count: number;
+  total: number;
+} | null {
+  const m = line.match(
+    /\${0,2}\s*([\d০-৯]+)\s*(?:\\times|[×x])\s*([\d০-৯]+)\s*=\s*([\d০-৯]+)\s*\${0,2}\s*$/,
+  );
+  if (!m) return null;
+  const per = asciiNumber(m[1]);
+  const count = asciiNumber(m[2]);
+  const total = asciiNumber(m[3]);
+  if (per === null || count === null || total === null) return null;
+  if (per < 1 || count < 1 || total < 1 || total > 100) return null;
+  return { per, count, total };
+}
+
+/**
+ * The count a Manipuri "মখাগী …" instruction asks for. The count token
+ * is a Bengali digit + classifier suffix ("৪খক্তী" -> 4), a count word
+ * ("অমখক" -> 1, "অহুমথকী" -> 3), or "অতেনবা" (short answers): no count
+ * word at all, so the count is the multiplier of the N×M=K marks
+ * expression on the line ("$1 \\times 3 = 3$" -> 3). The word wins when
+ * both are present — a mis-OCRed marks expression must not override
+ * the instruction itself.
+ */
+function mnInstructionCount(countToken: string, line: string): number | null {
+  const digit = countToken.match(/^([০-৯]+)/);
+  if (digit) return asciiNumber(digit[1]);
+  const word = MN_COUNT_WORDS.get(countToken);
+  if (word !== undefined) return word;
+  const times = parseTimesMarks(line);
+  return times ? times.count : null;
+}
 
 // A numbered line that is not an instruction: a direct question.
 // The number may be Bengali digits with a danda ("২।").
@@ -255,9 +325,15 @@ function matchInstruction(line: string): {
   }
   const mn = line.match(MN_INSTRUCTION_LINE);
   if (mn) {
-    const count = asciiNumber(mn[2]);
+    const count = mnInstructionCount(mn[2], line);
     if (count === null) return null;
     return { num: mn[1] ? asciiNumber(mn[1]) : null, count };
+  }
+  const mnBare = line.match(MN_BARE_LINE);
+  if (mnBare) {
+    const count = MN_COUNT_WORDS.get(mnBare[2]);
+    if (count === undefined) return null;
+    return { num: mnBare[1] ? asciiNumber(mnBare[1]) : null, count };
   }
   return null;
 }

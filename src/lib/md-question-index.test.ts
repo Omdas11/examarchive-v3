@@ -465,3 +465,66 @@ describe("parser gaps fixed from batch 7 (2026-11-22, MANIDC101T)", () => {
     ]);
   });
 });
+
+describe("parser gaps fixed from batch 8 (2026-11-22, MANDSC202T/MANSEC201T)", () => {
+  // The য় in পীয়ু is written as \u09df (single codepoint U+09DF):
+  // typing it risks the YA+nukta byte form, which never matches.
+  const piyyu = "পী\u09dfু";
+
+  test("Manipuri bare count-word instructions are instructions, not phantom rows", () => {
+    const md = `UNIT—I\n\n1. অনীদংগী পাউখুম ${piyyu} : $2 \\times 2 = 4$\n\n(a) First short question?\n\n(b) Second short question?\n\n(c) Third short question?\n\n2. অমতংগী পাউখুম ${piyyu} : ১০\n\n(a) First long question?\n\n(b) Second long question?`;
+    const rows = parseTranscriptToRows(md, "MANDSC202T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1(a)", 2, "Answer any 2"],
+      ["1(b)", 2, "Answer any 2"],
+      ["1(c)", 2, "Answer any 2"],
+      ["2(a)", 10, "Answer any 1"],
+      ["2(b)", 10, "Answer any 1"],
+    ]);
+    // The instruction's total K is recognised through the group:
+    // 2 questions x 2 marks = 4, not the first number alone.
+    expect(rows[0].group).toBe("Answer any 2");
+    expect(rows[0].marks).toBe(2);
+  });
+
+  test("N×M=K marks read in every format: plain ২×২=৪ and $২\\times২=৪$", () => {
+    const md = `UNIT—II\n\n3. অনীদংগী পাউখুম ${piyyu} : ২×২=৪\n\n(a) First?\n\n(b) Second?\n\n4. অনীদংগী পাউখুম ${piyyu} : $২\\times২=৪$\n\n(a) Third?\n\n(b) Fourth?`;
+    const rows = parseTranscriptToRows(md, "MANDSC202T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["3(a)", 2, "Answer any 2"],
+      ["3(b)", 2, "Answer any 2"],
+      ["4(a)", 2, "Answer any 2"],
+      ["4(b)", 2, "Answer any 2"],
+    ]);
+  });
+
+  test("Manipuri মখাগী instructions with count words, verbs, and অসিগী", () => {
+    const md = `UNIT—I\n\n1. মখাগী ৱাহংশিং অসিগী অতেনবা পাউখুম ${piyyu} : $1 \\times 3 = 3$\n\n(a) First short?\n\n(b) Second short?\n\n(c) Third short?\n\n(d) Fourth short?\n\n2. মখাগী ৱাহংশিং অসিদগী অমখক থল্লগা পাউখুম ${piyyu} : ২\n\n(a) First?\n\n(b) Second?\n\nUNIT—II\n\n4. মখাগী ৱাহংশিং অসিদগী অহুমথকী পাউখুম ${piyyu} : ১×৩=৩\n\n(a) One?\n\n(b) Two?\n\n(c) Three?\n\n(d) Four?`;
+    const rows = parseTranscriptToRows(md, "MANSEC201T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1(a)", 1, "Answer any 3"],
+      ["1(b)", 1, "Answer any 3"],
+      ["1(c)", 1, "Answer any 3"],
+      ["1(d)", 1, "Answer any 3"],
+      ["2(a)", 2, "Answer any 1"],
+      ["2(b)", 2, "Answer any 1"],
+      ["4(a)", 1, "Answer any 3"],
+      ["4(b)", 1, "Answer any 3"],
+      ["4(c)", 1, "Answer any 3"],
+      ["4(d)", 1, "Answer any 3"],
+    ]);
+  });
+
+  test("Manipuri খল্লগা/খঙনা verbs and অহুমখক্কী count word", () => {
+    const md = `UNIT—III\n\n8. মখাগী ৱাহংশিং অসিদগী অমখক খল্লগা পাউখুম ${piyyu} : ২\n\n(a) First?\n\n(b) Second?\n\n10. মখাগী ৱাহংশিং অসিদগী অহুমখক্কী পাউখুম ${piyyu} : ১×৩=৩\n\n(a) One?\n\n(b) Two?\n\n14. মখাগী ৱাহংশিং অসিগী অমখক খঙনা পাউখুম ${piyyu} : ৫\n\n(a) First?\n\n(b) Second?`;
+    const rows = parseTranscriptToRows(md, "MANSEC201T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["8(a)", 2, "Answer any 1"],
+      ["8(b)", 2, "Answer any 1"],
+      ["10(a)", 1, "Answer any 3"],
+      ["10(b)", 1, "Answer any 3"],
+      ["14(a)", 5, "Answer any 1"],
+      ["14(b)", 5, "Answer any 1"],
+    ]);
+  });
+});
