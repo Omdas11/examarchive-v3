@@ -138,8 +138,10 @@ const BN_COUNT_WORDS = new Map<string, number>([
 // following : 2" — that shape is an instruction too. Language papers
 // say "Translate any four of the following as directed" (PERIDC101T),
 // and "Answer any four as directed" with no "of the following" at all.
+// SEC papers write the bare form "Answer any three questions :
+// $1 \times 3 = 3$" (MTMSEC201T) — no "of the following" at all.
 const INSTRUCTION_LINE =
-  /^(?:([\d০-৯]+)[।.]\s*)?(?:Answer\s+any|Translate\s+any|Write\s+a\s+note\s+on\s+any)\s+\**(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\**\s+(?:(?:of|from)\s+the\s+following|as\s+directed)\b[^\n]*$/i;
+  /^(?:([\d০-৯]+)[।.]\s*)?(?:Answer\s+any|Translate\s+any|Write\s+a\s+note\s+on\s+any)\s+\**(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\**\s+(?:(?:of|from)\s+the\s+following|as\s+directed|questions?)\b[^\n]*$/i;
 
 // "3. Answer the following questions either (a) or (b) : 8" (PERIDC101T) —
 // one question with two alternatives; the candidate answers either one,

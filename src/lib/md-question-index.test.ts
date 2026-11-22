@@ -528,3 +528,51 @@ describe("parser gaps fixed from batch 8 (2026-11-22, MANDSC202T/MANSEC201T)", (
     ]);
   });
 });
+
+describe("parser gaps fixed from batch 9 (2026-11-22, MTMSEC201T)", () => {
+  test("bare 'Answer any three questions : $1 \\times 3 = 3$' is an instruction, not a phantom row", () => {
+    const md = `UNIT—I\n\n1. Answer any three questions : $1 \\times 3 = 3$\n\n(a) Define absolute error.\n\n(b) Evaluate the sum.\n\n(c) Define shift operator.\n\n2. Answer any one question : 2\n\n(a) Write down the value of pi.\n\n(b) Prove the identity.\n\n3. Answer any one question : 5\n\n(a) Find the relative error.\n\n(b) Find the polynomial.`;
+    const rows = parseTranscriptToRows(md, "MTMSEC201T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1(a)", 1, "Answer any 3"],
+      ["1(b)", 1, "Answer any 3"],
+      ["1(c)", 1, "Answer any 3"],
+      ["2(a)", 2, "Answer any 1"],
+      ["2(b)", 2, "Answer any 1"],
+      ["3(a)", 5, "Answer any 1"],
+      ["3(b)", 5, "Answer any 1"],
+    ]);
+  });
+
+  test("bare form with no colon and no marks is still an instruction", () => {
+    const md = `UNIT—I\n\n1. Answer any three questions\n\n(a) First?\n\n(b) Second?\n\n(c) Third?`;
+    const rows = parseTranscriptToRows(md, "MTMSEC201T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1(a)", null, "Answer any 3"],
+      ["1(b)", null, "Answer any 3"],
+      ["1(c)", null, "Answer any 3"],
+    ]);
+  });
+
+  test("bare form with plain 1x3=3 marks and a digit count word", () => {
+    const md = `UNIT—II\n\n4. Answer any three questions : 1x3=3\n\n(a) One?\n\n(b) Two?\n\n(c) Three?\n\n5. Answer any 2 questions : 2x2=4\n\n(a) First?\n\n(b) Second?`;
+    const rows = parseTranscriptToRows(md, "MTMSEC201T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["4(a)", 1, "Answer any 3"],
+      ["4(b)", 1, "Answer any 3"],
+      ["4(c)", 1, "Answer any 3"],
+      ["5(a)", 2, "Answer any 2"],
+      ["5(b)", 2, "Answer any 2"],
+    ]);
+  });
+
+  test("two backslashes in the marks still give marks null (batch 7 rule)", () => {
+    const md = `UNIT—I\n\n1. Answer any three questions : $1 \\\\times 3 = 3$\n\n(a) First?\n\n(b) Second?\n\n(c) Third?`;
+    const rows = parseTranscriptToRows(md, "MTMSEC201T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1(a)", null, "Answer any 3"],
+      ["1(b)", null, "Answer any 3"],
+      ["1(c)", null, "Answer any 3"],
+    ]);
+  });
+});
