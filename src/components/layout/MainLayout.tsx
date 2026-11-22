@@ -8,6 +8,7 @@ import Header, { type HeaderProps } from './Header';
 import Footer from '@/components/Footer';
 import RightSidebar, { type SidebarProfileResponse } from './RightSidebar';
 import DailyRewardToast from '@/components/DailyRewardToast';
+import SupporterPopup from '@/components/SupporterPopup';
 import { cn } from '@/lib/utils';
 import { roleLabel, xpTier } from '@/lib/roles';
 import { PROFILE_REFRESH_EVENT } from '@/lib/profile-events';
@@ -59,6 +60,8 @@ export default function MainLayout({
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [sidebarProfile, setSidebarProfile] = useState<SidebarProfileResponse | null>(null);
   const [dailyReward, setDailyReward] = useState<{ xp: number; streak: number } | null>(null);
+  const [supporterPopup, setSupporterPopup] = useState(false);
+  const [profileChecked, setProfileChecked] = useState(false);
 
   // Active state for the collapsed right rail — same rule as the left
   // Sidebar (exact match, or a sub-path of the link). The rail had no
@@ -98,6 +101,8 @@ export default function MainLayout({
         }
       } catch {
         // Non-blocking; sidebar can render fallback values.
+      } finally {
+        if (!cancelled) setProfileChecked(true);
       }
     }
     void loadSidebarProfile();
@@ -110,6 +115,29 @@ export default function MainLayout({
       window.removeEventListener(PROFILE_REFRESH_EVENT, onProfileRefresh);
     };
   }, []);
+
+  // Supporter subscription popup: show once per session, ~1.2s after load,
+  // to visitors who are not supporters yet. Dismissing it only minimizes it
+  // to a corner peeking out at the bottom of the screen (the component owns
+  // that state) — it stays available until the session ends. Guests see it
+  // too; the subscribe button sends them to sign in first.
+  // Supporter detection is best-effort: /api/profile only exposes the
+  // primary role, and "supporter" lives as a secondary/tertiary custom role,
+  // so a supporter whose flag is only in a secondary role will still see it
+  // once per session until the profile API exposes those roles. The
+  // localStorage flag is for the future subscribe flow to set.
+  useEffect(() => {
+    if (!profileChecked) return;
+    if (pathname === "/maintenance-cost") return;
+    if (sessionStorage.getItem("ea_supporter_popup_shown") === "1") return;
+    if (sidebarProfile?.role === "supporter") return;
+    if (localStorage.getItem("ea_supporter") === "1") return;
+    const timer = setTimeout(() => {
+      setSupporterPopup(true);
+      sessionStorage.setItem("ea_supporter_popup_shown", "1");
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, [profileChecked, sidebarProfile, pathname]);
 
   // Effective login identity: server-provided page props are the source of
   // truth when present (dynamic pages — no change, no flash). On static pages
@@ -302,6 +330,9 @@ export default function MainLayout({
 
       {/* Daily login reward toast (shows only when XP was awarded on this load) */}
       <DailyRewardToast reward={dailyReward} onClose={() => setDailyReward(null)} />
+
+      {/* Supporter subscription popup (once per session, non-supporters only) */}
+      <SupporterPopup open={supporterPopup} isLoggedIn={effectiveIsLoggedIn} />
     </div>
   );
 }

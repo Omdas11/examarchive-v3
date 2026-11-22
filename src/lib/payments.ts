@@ -68,9 +68,10 @@ export const PASSES: readonly Pass[] = [
   {
     id: "supporter",
     label: "Be a Supporter",
-    description: "Support ExamArchive. Claim 100 Credits every month + exclusive Supporter Badge.",
-    oneTimePaise: 4900,
-    subscribedPaise: 4900,
+    description:
+      "Support ExamArchive for Rs 29/month. Supporter badge + name on the supporters wall, ask the team directly, 100 AI credits every month, 2 free AI Notes PDFs a day, priority paper requests, early access to new papers and features.",
+    oneTimePaise: 2900,
+    subscribedPaise: 2900,
     billingPeriod: "month",
     dailyCredits: 0,
     durationDays: 30,
