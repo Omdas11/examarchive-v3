@@ -286,22 +286,82 @@ function marksFromParts(
 }
 
 /**
- * Marks carried by an instruction line itself: a trailing ": 10", or a
- * trailing marks expression ("... : $2 \times 4 = 8$", "... : 2×2=4").
- * Returns null when the line carries no marks.
+ * The two numbers a marks expression on an instruction line carries:
+ * `per` (marks per sub-question) and `total` (the group's total).
+ * For "×" the per is the first number and the total is the stated
+ * product (or N*M when no total is printed); for "+" there is no
+ * per-part value, only the total (stated, or the sum of the parts).
+ * Returns null when the expression has no usable numbers.
  */
-function instructionMarks(line: string): number | null {
+function marksDetailFromParts(
+  exprStr: string,
+  totalStr: string | undefined,
+): { per: number | null; total: number | null } | null {
+  const nums = exprStr.match(/[\d০-৯]+/g);
+  if (!nums || nums.length < 2) return null;
+  const values = nums.map((n) => asciiNumber(n));
+  if (values.some((v) => v === null)) return null;
+  const stated = totalStr ? asciiNumber(totalStr) : null;
+  if (/\+/.test(exprStr)) {
+    // A "+" split: the stated total, or the sum of the parts.
+    return {
+      per: null,
+      total: stated ?? (values as number[]).reduce((a, b) => a + b, 0),
+    };
+  }
+  // A "×" split: the first number is the marks per sub-question, the
+  // total is the stated product (or N*M when no total is printed).
+  return {
+    per: (values as number[])[0],
+    total: stated ?? (values as number[])[0] * (values as number[])[1],
+  };
+}
+
+/**
+ * Marks a row's own trailing expression means: the TOTAL the row is
+ * worth. For "+" that is the stated total (or the sum); for "×" it is
+ * the product (the stated K, or N*M when no total is printed) — the
+ * row aggregates the M items, so "5×2=10" on a "Write short notes"
+ * row is 10, not 5, and "$1\\times 5=5$" is 5, not 1. (The per-part
+ * value is marksFromParts, used for instruction lines where the
+ * expression is the group's rule, not the row's marks.)
+ */
+function marksTotalFromParts(
+  exprStr: string,
+  totalStr: string | undefined,
+): number | null {
+  const detail = marksDetailFromParts(exprStr, totalStr);
+  return detail ? detail.total : null;
+}
+
+/**
+ * Marks carried by an instruction line itself, as {per, total}: a
+ * trailing ": 10" gives {per: null, total: 10}; a trailing marks
+ * expression ("... : $2 \\times 4 = 8$", "... : 2×2=4") gives
+ * {per: 2, total: 8}; a "+" expression gives {per: null, total}.
+ * A LaTeX spacing command may sit between ":" and the number
+ * ("... : \\hfill 10", CHMDSM252 Q10). Returns null when the line
+ * carries no marks.
+ */
+function instructionMarksDetail(
+  line: string,
+): { per: number | null; total: number | null } | null {
   const expr = line.match(
     /\$?\s*\**([\d০-৯]+(?:\s*(?:\\times|[×x+])\s*[\d০-৯]+)+)\s*(?:=\s*([\d০-৯]+))?\**\s*\$?\s*$/,
   );
   if (expr) {
-    const n = marksFromParts(expr[1], expr[2]);
-    if (n !== null && n >= 1 && n <= 100) return n;
+    const detail = marksDetailFromParts(expr[1], expr[2]);
+    if (detail !== null) {
+      // Same validation the old instructionMarks did: the value it
+      // would have returned (per for "×", total for "+") must be sane.
+      const n = /\+/.test(expr[1]) ? detail.total : detail.per;
+      if (n !== null && n >= 1 && n <= 100) return detail;
+    }
   }
-  const trailing = line.match(/:\s*\**([\d০-৯]+)\**\s*$/);
+  const trailing = line.match(/:\s*(?:\\[a-zA-Z]+\s*)?\**([\d০-৯]+)\**\s*$/);
   if (trailing) {
     const n = asciiNumber(trailing[1]);
-    if (n !== null && n >= 1 && n <= 100) return n;
+    if (n !== null && n >= 1 && n <= 100) return { per: null, total: n };
   }
   return null;
 }
@@ -310,38 +370,50 @@ function instructionMarks(line: string): number | null {
  * An instruction line, English ("Answer any two of/from the following")
  * or Bengali ("যে কোনো দুটি প্রশ্নের উত্তর দাও"). The number is null
  * when the line carries none — the caller opens the next number.
+ * `either` is true only for "either (a) or (b)" lines: there the (a)/(b)
+ * parts are alternatives worth the question total each, even when the
+ * line carries no number.
  */
 function matchInstruction(line: string): {
   num: number | null;
   count: number;
+  either: boolean;
 } | null {
   const en = line.match(INSTRUCTION_LINE);
   if (en) {
     const count = wordToNumber(en[2]);
     if (count === null) return null;
-    return { num: en[1] ? asciiNumber(en[1]) : null, count };
+    return { num: en[1] ? asciiNumber(en[1]) : null, count, either: false };
   }
   const either = line.match(EITHER_LINE);
   if (either) {
-    return { num: either[1] ? asciiNumber(either[1]) : null, count: 1 };
+    return {
+      num: either[1] ? asciiNumber(either[1]) : null,
+      count: 1,
+      either: true,
+    };
   }
   const bn = line.match(BN_INSTRUCTION_LINE);
   if (bn) {
     const count = BN_COUNT_WORDS.get(foldBnYy(bn[2]));
     if (count === undefined) return null;
-    return { num: bn[1] ? asciiNumber(bn[1]) : null, count };
+    return { num: bn[1] ? asciiNumber(bn[1]) : null, count, either: false };
   }
   const mn = line.match(MN_INSTRUCTION_LINE);
   if (mn) {
     const count = mnInstructionCount(mn[2], line);
     if (count === null) return null;
-    return { num: mn[1] ? asciiNumber(mn[1]) : null, count };
+    return { num: mn[1] ? asciiNumber(mn[1]) : null, count, either: false };
   }
   const mnBare = line.match(MN_BARE_LINE);
   if (mnBare) {
     const count = MN_COUNT_WORDS.get(mnBare[2]);
     if (count === undefined) return null;
-    return { num: mnBare[1] ? asciiNumber(mnBare[1]) : null, count };
+    return {
+      num: mnBare[1] ? asciiNumber(mnBare[1]) : null,
+      count,
+      either: false,
+    };
   }
   return null;
 }
@@ -493,22 +565,28 @@ export function parseIndexTableKeywords(md: string): Map<string, string> {
 
 function stripTrailingMarks(
   text: string,
-  groupMarks: number | null,
+  groupGuard: number | null,
 ): { text: string; marks: number | null } {
   // A $...$ maths expression at the end of the question is its marks,
   // not part of its text — e.g. "$2+8=10$" or "$2 x 4 = 8$". It must
   // carry $ delimiters: a bare "2+3=5" could be the question itself.
-  // The delimiters may be doubled ("$$2+2+1=5$$").
+  // The delimiters may be doubled ("$$2+2+1=5$$"). The expression is
+  // the row's TOTAL: "5×2=10" is 10, "$1\\times 5=5$" is 5.
+  // groupGuard is the per-part marks the instruction states (2 for
+  // "Answer any two : 2×2=4"): a trailing expression that disagrees
+  // with it is a sub-part's marks, not the row's — e.g. the (iii)
+  // part's "$2+3=5$" at the end of a 10-mark "either (a) or (b)"
+  // row — so it is rejected and the row falls back to the group.
   const tailMath = text.match(/^(.*?)\s*(\${1,2}[^$]+\${1,2})\s*$/);
   if (tailMath) {
     const expr = tailMath[2].match(MARKS_EXPR);
     if (expr) {
-      const derived = marksFromParts(expr[1], expr[2]);
+      const derived = marksTotalFromParts(expr[1], expr[2]);
       if (
         derived !== null &&
         derived >= 1 &&
         derived <= 100 &&
-        (groupMarks === null || groupMarks === derived)
+        (groupGuard === null || groupGuard === derived)
       ) {
         return { text: tailMath[1].trim(), marks: derived };
       }
@@ -522,26 +600,26 @@ function stripTrailingMarks(
     /^(.*?)\s+\**([\d০-৯]+(?:\s*(?:\\times|[×x+])\s*[\d০-৯]+)+)\s*(?:=\s*([\d০-৯]+))?\**\s*$/,
   );
   if (bareExpr) {
-    const derived = marksFromParts(bareExpr[2], bareExpr[3]);
+    const derived = marksTotalFromParts(bareExpr[2], bareExpr[3]);
     if (
       derived !== null &&
       derived >= 1 &&
       derived <= 100 &&
-      (groupMarks === null || groupMarks === derived)
+      (groupGuard === null || groupGuard === derived)
     ) {
       return { text: bareExpr[1].trim(), marks: derived };
     }
   }
   // A bare number at the end of the question is its marks — but only
   // when it is a plausible mark (<= 100) and agrees with the group's
-  // marks when those are known. A year or a number inside the question
+  // per-part marks when those are known. A year or a number inside the question
   // never looks like this: it is followed by punctuation or is too big.
   // The number may carry *emphasis* ("**10**") or be Bengali digits.
   const m = text.match(/^(.*?)\s+\**([\d০-৯]+)\**$/);
   if (!m) return { text, marks: null };
   const n = asciiNumber(m[2]);
   if (n === null || n < 1 || n > 100) return { text, marks: null };
-  if (groupMarks !== null && groupMarks !== n) return { text, marks: null };
+  if (groupGuard !== null && groupGuard !== n) return { text, marks: null };
   return { text: m[1].trim(), marks: n };
 }
 
@@ -564,6 +642,21 @@ export function parseTranscriptToRows(
   let lastQNum = 0;
   let group = "";
   let groupMarks: number | null = null;
+  // The per-part marks the instruction states, used only as the guard
+  // in stripTrailingMarks (a trailing expression that disagrees with
+  // it is a sub-part's marks, not the row's). It is NOT the fallback:
+  // under "Answer any one : 10" spanning two numbered questions the
+  // parts are worth 5, 2, 3 — the 10 is the question total, and a part
+  // must never inherit it.
+  let groupGuard: number | null = null;
+  // The question number the current group's instruction named (null
+  // when the instruction carried no number), and whether the group's
+  // marks came from an unnumbered bare ": T" (provisional: the first
+  // question line shows whether the alternatives are the parts that
+  // follow the instruction, each worth T, or the numbered questions
+  // after it, whose parts add up to T).
+  let groupQNum: number | null = null;
+  let groupBareUnnumbered = false;
   let orPending = false;
   // A bare "(b)" label seen on its own line, waiting for the next
   // line to supply that sub-question's text.
@@ -614,7 +707,7 @@ export function parseTranscriptToRows(
     rawText: string,
   ): { row: QuestionRow; isOr: boolean } => {
     const orStripped = stripTrailingOr(rawText.trim());
-    const stripped = stripTrailingMarks(orStripped.text, groupMarks);
+    const stripped = stripTrailingMarks(orStripped.text, groupGuard);
     const label = `${qNum}(${letter})`;
     return {
       row: {
@@ -642,6 +735,30 @@ export function parseTranscriptToRows(
     }
   };
 
+  /**
+   * A new numbered question ends the current group, unless the group
+   * governs this very number (a numbered instruction's own parts) or
+   * the group came from an unnumbered instruction whose alternatives
+   * are the numbered questions that follow. A numbered question under
+   * an unnumbered bare instruction is a candidate: its parts add up
+   * to the total, they are not each worth it — so the parts keep
+   * their own marks (the group label stays, for the counter).
+   */
+  const clearGroupForNumber = (n: number | null): void => {
+    if (n === null) return;
+    if (groupQNum !== null && n !== groupQNum) {
+      group = "";
+      groupMarks = null;
+      groupGuard = null;
+      groupQNum = null;
+      groupBareUnnumbered = false;
+    } else if (groupBareUnnumbered) {
+      groupMarks = null;
+      groupGuard = null;
+      groupBareUnnumbered = false;
+    }
+  };
+
   for (const raw of formatted.split("\n")) {
     const line = raw.trim();
     if (!line) continue;
@@ -649,6 +766,13 @@ export function parseTranscriptToRows(
     const unitMatch = line.match(UNIT_HEADING);
     if (unitMatch) {
       unit = unitMatch[2] ?? (unitMatch[3] ? asciiDigits(unitMatch[3]) : "");
+      // A unit is self-contained: every unit starts with its own
+      // instruction, so the previous unit's group never carries over.
+      group = "";
+      groupMarks = null;
+      groupGuard = null;
+      groupQNum = null;
+      groupBareUnnumbered = false;
       orPending = false;
       pendingSub = null;
       continue;
@@ -676,7 +800,11 @@ export function parseTranscriptToRows(
 
     // Instruction lines (English or Bengali). The number is optional:
     // an unnumbered instruction opens the next question number — a
-    // missing "1." must not lose the whole first question.
+    // missing "1." must not lose the whole first question. The group
+    // stays until the next instruction (or a new numbered question
+    // outside it): an unnumbered "Answer any one : 10" spans the two
+    // numbered questions that follow it (CHMDSC252 Q2/Q3), it does
+    // not end at the first one.
     const instr = matchInstruction(line);
     if (instr) {
       if (instr.num !== null) {
@@ -687,7 +815,29 @@ export function parseTranscriptToRows(
         qNum = String(lastQNum);
       }
       group = `Answer any ${instr.count}`;
-      groupMarks = instructionMarks(line);
+      groupQNum = instr.num;
+      const detail = instructionMarksDetail(line);
+      if (detail && detail.per !== null) {
+        // "N×M=K": the per-part marks are explicit (2 in "2×2=4").
+        groupMarks = detail.per;
+        groupGuard = detail.per;
+        groupBareUnnumbered = false;
+      } else if (detail) {
+        // Bare ": T" (or a "+" total): the question total. The parts
+        // are alternatives worth T each when they follow the
+        // instruction directly (a numbered instruction, or an
+        // either/or line); when the instruction is unnumbered, the
+        // alternatives are the numbered questions that follow, so the
+        // marks stay provisional until the first question line shows
+        // which shape this is.
+        groupMarks = detail.total;
+        groupGuard = detail.total;
+        groupBareUnnumbered = instr.num === null && !instr.either;
+      } else {
+        groupMarks = null;
+        groupGuard = null;
+        groupBareUnnumbered = false;
+      }
       pendingSub = null;
       continue;
     }
@@ -697,22 +847,26 @@ export function parseTranscriptToRows(
     // "$2 x 4 = 8$" case: no row exists for the number yet). After a
     // question it belongs to that question — PHYDSM101T Q9b has
     // "$$2+2+1=5$$" on its own line under (b), and Q8's "1+3+3+3=10"
-    // sits under its instruction line.
+    // sits under its instruction line. A lone line under a question
+    // is that question's total ("5×2=10" is 10, not 5); under an
+    // instruction it is the per-part marks.
     const marksMatch = line.match(MARKS_EXPR);
     if (marksMatch) {
       pendingSub = null;
-      const n = marksFromParts(marksMatch[1], marksMatch[2]);
+      const nPer = marksFromParts(marksMatch[1], marksMatch[2]);
+      const nTotal = marksTotalFromParts(marksMatch[1], marksMatch[2]);
       const last = rows[rows.length - 1];
       if (
-        n !== null &&
+        nTotal !== null &&
         last &&
         last.marks === null &&
         qNum !== "" &&
         last.label.split("(")[0] === qNum
       ) {
-        last.marks = n;
-      } else if (groupMarks === null && n !== null) {
-        groupMarks = n;
+        last.marks = nTotal;
+      } else if (groupMarks === null && nPer !== null) {
+        groupMarks = nPer;
+        groupGuard = nPer;
       }
       continue;
     }
@@ -722,11 +876,10 @@ export function parseTranscriptToRows(
     if (numberedSub) {
       const n = asciiNumber(numberedSub[1]);
       if (n !== null) {
+        clearGroupForNumber(n);
         qNum = String(n);
         lastQNum = n;
       }
-      group = "";
-      groupMarks = null;
       pendingSub = null;
       const letter =
         numberedSub[2] ?? BN_PART_TO_LATIN[numberedSub[3]];
@@ -771,13 +924,12 @@ export function parseTranscriptToRows(
       // current question number for any (a)/(b) lines that follow it.
       const n = asciiNumber(numMatch[1]);
       if (n !== null) {
+        clearGroupForNumber(n);
         qNum = String(n);
         lastQNum = n;
       } else {
         qNum = numMatch[1];
       }
-      group = "";
-      groupMarks = null;
       pendingSub = null;
       const orStripped = stripTrailingOr(numMatch[2].trim());
       const stripped = stripTrailingMarks(orStripped.text, null);

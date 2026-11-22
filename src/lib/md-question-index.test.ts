@@ -610,3 +610,94 @@ describe("parser gaps fixed from batch 11 (2026-11-22, BNGIDC201T)", () => {
     ]);
   });
 });
+
+describe("parser gaps fixed from batch 12 (2026-11-22, CHMDSC252/CHMDSM252/BOTDSM301)", () => {
+  test("unnumbered 'Answer any one : 10' spans two numbered questions (CHMDSC252)", () => {
+    const md = `UNIT—I\n\n1. Answer any two of the following questions : $2 \\times 2 = 4$\n\n(a) First short.\n\n(b) Second short.\n\n(c) Third short.\n\nAnswer any one of the following questions : 10\n\n2. (a) (i) Count the electrons. 2 (ii) Give an example. 3 $2+3=5$\n\n(b) (i) Compare stabilities. 3 (ii) Discuss classification. 2 $3+2=5$\n\n3. (a) Complete the following reactions : $1\\times 5=5$ 5\n\n(b) Mention one method. 2\n\n(c) Discuss stability. 3`;
+    const rows = parseTranscriptToRows(md, "CHMDSC252");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1(a)", 2, "Answer any 2"],
+      ["1(b)", 2, "Answer any 2"],
+      ["1(c)", 2, "Answer any 2"],
+      ["2(a)", 5, "Answer any 1"],
+      ["2(b)", 5, "Answer any 1"],
+      ["3(a)", 5, "Answer any 1"],
+      ["3(b)", 2, "Answer any 1"],
+      ["3(c)", 3, "Answer any 1"],
+    ]);
+  });
+
+  test("group does not leak into the next numbered question after a numbered instruction", () => {
+    const md = `UNIT—I\n\n2. Answer any one question [either (a) or (b)] of the following : 10\n\n(a) First alternative.\n\n(b) Second alternative.\n\n3. (a) New question part one. 5\n\n(b) New question part two. 5`;
+    const rows = parseTranscriptToRows(md, "CHMDSM252");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["2(a)", 10, "Answer any 1"],
+      ["2(b)", 10, "Answer any 1"],
+      ["3(a)", 5, ""],
+      ["3(b)", 5, ""],
+    ]);
+  });
+
+  test("merged (i)/(ii) row carries the sum, not one part (CHMDSM252 Q10)", () => {
+    const md = `UNIT—V\n\n10. Answer any one question [either (a) or (b)] of the following : \\hfill 10\n\n(a) (i) Discuss the SN1 mechanism. \\hfill 2+2+2=6\n\n(b) (i) Treatment of 2-bromobutane. $$(1/2\\times 4)+4=6$$ (ii) Discuss briefly. $$2+2=4$$ $6+4=10$`;
+    const rows = parseTranscriptToRows(md, "CHMDSM252");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["10(a)", 10, "Answer any 1"],
+      ["10(b)", 10, "Answer any 1"],
+    ]);
+  });
+
+  test("'$1\\\\times 5=5$' on a sub-row reads as 5, not 1 (CHMDSC252 Q3a)", () => {
+    const md = `UNIT—I\n\nAnswer any one of the following questions : 10\n\n2. (a) First long. 5\n\n(b) Second long. 5\n\n3. (a) Complete the following reactions : $1\\times 5=5$\n\n(b) Mention one method. 2\n\n(c) Discuss stability. 3`;
+    const rows = parseTranscriptToRows(md, "CHMDSC252");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["2(a)", 5, "Answer any 1"],
+      ["2(b)", 5, "Answer any 1"],
+      ["3(a)", 5, "Answer any 1"],
+      ["3(b)", 2, "Answer any 1"],
+      ["3(c)", 3, "Answer any 1"],
+    ]);
+  });
+
+  test("bare '5×2=10' on a sub-row reads as 10, not 5 (BOTDSM301-A Q8b)", () => {
+    const md = `UNIT—IV\n\n8. Answer any one question :\n\n(a) Write in detail about the TCA cycle. 8+2=10\n\n(b) Write short notes on the following : 5×2=10`;
+    const rows = parseTranscriptToRows(md, "BOTDSM301");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["8(a)", 10, "Answer any 1"],
+      ["8(b)", 10, "Answer any 1"],
+    ]);
+  });
+
+  test("standalone '5×2=10' line under a question is that question's total", () => {
+    const md = `UNIT—IV\n\n8. Answer any one question :\n\n(a) Write in detail about the TCA cycle. 8+2=10\n\n(b) Write short notes on the following :\n\n5×2=10`;
+    const rows = parseTranscriptToRows(md, "BOTDSM301");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["8(a)", 10, "Answer any 1"],
+      ["8(b)", 10, "Answer any 1"],
+    ]);
+  });
+
+  test("group does not carry across a UNIT boundary", () => {
+    const md = `UNIT—I\n\nAnswer any one of the following questions : 10\n\n2. (a) First. 5\n\n(b) Second. 5\n\nUNIT—II\n\n3. (a) New unit part one. 5\n\n(b) New unit part two. 5`;
+    const rows = parseTranscriptToRows(md, "CHMDSC252");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["2(a)", 5, "Answer any 1"],
+      ["2(b)", 5, "Answer any 1"],
+      ["3(a)", 5, ""],
+      ["3(b)", 5, ""],
+    ]);
+  });
+
+  test("unnumbered bare instruction followed by parts keeps the total per part (PERIDC Q8)", () => {
+    const md = `UNIT—III\n\n7. Answer any four of the following questions : 1x4=4\n\n(a) First.\n\n(b) Second.\n\n(c) Third.\n\n(d) Fourth.\n\nAnswer any one of the following questions : 2\n\n(a) Mention the names of Bihu festivals celebrated in Assam.\n\n(b) What are the things the throne of King Jamshid made of?`;
+    const rows = parseTranscriptToRows(md, "PERIDC101T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["7(a)", 1, "Answer any 4"],
+      ["7(b)", 1, "Answer any 4"],
+      ["7(c)", 1, "Answer any 4"],
+      ["7(d)", 1, "Answer any 4"],
+      ["8(a)", 2, "Answer any 1"],
+      ["8(b)", 2, "Answer any 1"],
+    ]);
+  });
+});
