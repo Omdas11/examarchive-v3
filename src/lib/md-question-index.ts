@@ -135,14 +135,32 @@ const BN_COUNT_WORDS = new Map<string, number>([
 // The count word may carry *emphasis* ("Answer any *two* ..."), and the
 // paper may say "from the following" instead of "of the following".
 // Some papers write the same rule as "Write a note on any one of the
-// following : 2" — that shape is an instruction too.
+// following : 2" — that shape is an instruction too. Language papers
+// say "Translate any four of the following as directed" (PERIDC101T),
+// and "Answer any four as directed" with no "of the following" at all.
 const INSTRUCTION_LINE =
-  /^(?:([\d০-৯]+)[।.]\s*)?(?:Answer\s+any|Write\s+a\s+note\s+on\s+any)\s+\**(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\**\s+(?:of|from)\s+the\s+following\b[^\n]*$/i;
+  /^(?:([\d০-৯]+)[।.]\s*)?(?:Answer\s+any|Translate\s+any|Write\s+a\s+note\s+on\s+any)\s+\**(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\**\s+(?:(?:of|from)\s+the\s+following|as\s+directed)\b[^\n]*$/i;
+
+// "3. Answer the following questions either (a) or (b) : 8" (PERIDC101T) —
+// one question with two alternatives; the candidate answers either one,
+// so it counts as 1. The marks ride on the line itself (": 8") or are
+// filled from the paper's per-unit structure like any other instruction.
+const EITHER_LINE =
+  /^(?:([\d০-৯]+)[।.]\s*)?Answer\s+the\s+following\s+questions\s+either\s+\(a\)\s+or\s+\(b\)[^\n]*$/i;
 
 // Bengali: "১। যে কোনো দুটি প্রশ্নের উত্তর দাও : $2 \times 4 = 8$" —
 // number optional, count word captured for the lookup below.
 const BN_INSTRUCTION_LINE =
   /^(?:([\d০-৯]+)[।.]\s*)?যে[\s-]*কোনো\s*(\S+?)\s*প্রশ্নের\s+উত্তর\s+দাও(?=\s|:|$)[^\n]*$/;
+
+// Manipuri in Bengali script: "১। মখাগী ৱাহংশিং অসিদগী ৪খক্তী পাউখুম পীয়ু : ১×৪=৪"
+// (MANIDC101T) — "answer any four/one of the following questions".
+// The count is the Bengali digit before the classifier suffix
+// (খক্তী/থক্কী/ধকপী/খক্কী); the noun varies (ৱাহংশিং/বাহং/বাহংশিং/
+// বাহংচিং/ৱাহং). The য় in পীয়ু is U+09DF (single codepoint) — the
+// YA+nukta byte form is normalised to it by the assembler before parsing.
+const MN_INSTRUCTION_LINE =
+  /^(?:([\d০-৯]+)[।.]\s*)?মখাগী\s+\S+\s+অসিদগী\s+([০-৯]+)\S*\s+পাউখুম\s+পী\u09dfু[^\n]*$/;
 
 // A numbered line that is not an instruction: a direct question.
 // The number may be Bengali digits with a danda ("২।").
@@ -225,11 +243,21 @@ function matchInstruction(line: string): {
     if (count === null) return null;
     return { num: en[1] ? asciiNumber(en[1]) : null, count };
   }
+  const either = line.match(EITHER_LINE);
+  if (either) {
+    return { num: either[1] ? asciiNumber(either[1]) : null, count: 1 };
+  }
   const bn = line.match(BN_INSTRUCTION_LINE);
   if (bn) {
     const count = BN_COUNT_WORDS.get(foldBnYy(bn[2]));
     if (count === undefined) return null;
     return { num: bn[1] ? asciiNumber(bn[1]) : null, count };
+  }
+  const mn = line.match(MN_INSTRUCTION_LINE);
+  if (mn) {
+    const count = asciiNumber(mn[2]);
+    if (count === null) return null;
+    return { num: mn[1] ? asciiNumber(mn[1]) : null, count };
   }
   return null;
 }

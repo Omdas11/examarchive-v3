@@ -425,3 +425,43 @@ describe("parser gaps fixed from batch 4 (2026-11-22)", () => {
     ]);
   });
 });
+
+describe("parser gaps fixed from batch 7 (2026-11-22, PERIDC101T)", () => {
+  test("Translate any + as-directed instructions are instructions, not phantom rows", () => {
+    const md = `UNIT—V\n\n13. Translate any four of the following as directed : 1×4=4\n\n(a) Congratulation (into Persian)\n\n(b) College (into Persian)\n\n14. Translate any one of the following as directed : 2\n\n(a) Happy new year, good night (Turn into Persian)\n\n(b) Good morning (Turn into Persian)\n\n15. Answer any four as directed : 2×4=8\n\n(a) They were reading in the library. (Turn into Persian)\n\n(b) I came to college. (Turn into Persian)`;
+    const rows = parseTranscriptToRows(md, "PERIDC101T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["13(a)", 1, "Answer any 4"],
+      ["13(b)", 1, "Answer any 4"],
+      ["14(a)", 2, "Answer any 1"],
+      ["14(b)", 2, "Answer any 1"],
+      ["15(a)", 2, "Answer any 4"],
+      ["15(b)", 2, "Answer any 4"],
+    ]);
+  });
+
+  test("either (a) or (b) is one question, count 1, no phantom row", () => {
+    const md = `UNIT—I\n\n3. Answer the following questions either (a) or (b) : 8\n\n(a) What is Persian grammar?\n\n(b) Conjugate the verbs.`;
+    const rows = parseTranscriptToRows(md, "PERIDC101T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["3(a)", 8, "Answer any 1"],
+      ["3(b)", 8, "Answer any 1"],
+    ]);
+  });
+});
+
+describe("parser gaps fixed from batch 7 (2026-11-22, MANIDC101T)", () => {
+  test("Manipuri instruction lines are instructions, not phantom rows", () => {
+    // The য় in পীয়ু is written as \u09df (single codepoint U+09DF):
+    // typing it risks the YA+nukta byte form, which never matches.
+    const piyyu = "পী\u09dfু";
+    const md = `UNIT—I\n\n১। মখাগী ৱাহংশিং অসিদগী ৪খক্তী পাউখুম ${piyyu} : ১×৪=৪\n\n(ক) কাসা পাউতাকপা হায়বসি করিনো ?\n\n(খ) করম্বা মচুগী য়েননা লোইমোম ফৌগৌনবগে ?\n\n২। মখাগী বাহং অসিদগী ১থক্কী পাউখুম ${piyyu} : ২\n\n(ক) য়ৈতৈ লৈবাকচা য়াকেবা উচেক অনীদু করি-করিনো?\n\n(খ) লাইগী জগোই শাবী হায়বগী বাহংছোক করিনো?`;
+    const rows = parseTranscriptToRows(md, "MANIDC101T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1(a)", 1, "Answer any 4"],
+      ["1(b)", 1, "Answer any 4"],
+      ["2(a)", 2, "Answer any 1"],
+      ["2(b)", 2, "Answer any 1"],
+    ]);
+  });
+});
