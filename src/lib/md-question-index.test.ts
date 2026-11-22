@@ -954,3 +954,61 @@ describe("parser gaps fixed from batch 15 (2026-11-23, MTM papers)", () => {
     ]);
   });
 });
+
+describe("parser gaps fixed from batch 19 (2026-11-23, BENSEC201)", () => {
+  test("a marks figure after a colon introducing a quoted passage is the row's marks (BENSEC201 Q8/Q9/Q10)", () => {
+    const md = `UNIT—II\n\n6. যে কোনো তিনটি প্রশ্নের উত্তর দাও : ১×৩=৩\n\n(a) প্রথম প্রশ্ন।\n\n(b) দ্বিতীয় প্রশ্ন।\n\n(c) তৃতীয় প্রশ্ন।\n\n(d) চতুর্থ প্রশ্ন।\n\n7. ঈশ্বরচন্দ্র বিদ্যাসাগরের অনুদিত যে কোনো দুটি গ্রন্থের নাম লেখো। ২\n\nOR\n\n8. বাংলায় অনুবাদ করো : ২ "Arise, awake and stop not till the goal is reached."\n\nOR\n\n"सफलता वही पाता है जो निरंतर कोशिश करता रहता है।"\n\n9. বাংলায় অনুবাদ করো : ৫ "Patriotism is love for one's country."\n\nOR\n\n10. বাংলায় অনুবাদ করো : ৫ "অসমীয়া আধুনিক সাহিত্যজগতের অন্যতম পুরোধা।"`;
+    const rows = parseTranscriptToRows(md, "BENSEC201");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["6(a)", 1, "Answer any 3"],
+      ["6(b)", 1, "Answer any 3"],
+      ["6(c)", 1, "Answer any 3"],
+      ["6(d)", 1, "Answer any 3"],
+      ["7", 2, "OR"],
+      ["8", 2, "OR"],
+      ["9", 5, "OR"],
+      ["10", 5, "OR"],
+    ]);
+    // The colon stays, the figure goes; the passage is untouched.
+    expect(rows[5].question).toBe(
+      'বাংলায় অনুবাদ করো : "Arise, awake and stop not till the goal is reached."',
+    );
+  });
+
+  test("a colon with no figure after it is not marks (BENSEC201 Q6(c))", () => {
+    const md = `UNIT—II\n\n6. বাংলা প্রতিশব্দ লেখো : Manuscript/Feedback`;
+    const rows = parseTranscriptToRows(md, "BENSEC201");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([["6", null]]);
+    expect(rows[0].question).toBe(
+      "বাংলা প্রতিশব্দ লেখো : Manuscript/Feedback",
+    );
+  });
+
+  test("the Assamese-spelled instruction is an instruction, not a direct row (BENSEC201 Q11)", () => {
+    const md = `UNIT—III\n\n11. যে কোনো তিনিটি প্ৰশ্নৰ উত্তৰ দাও : ১×৩=৩\n\n(a) 'গণজ্ঞাপন'-এর ইংরেজি পরিভাষা কী?\n\n(b) 'Television'-এর বাংলা পরিভাষা কী?\n\n(c) 'গণজ্ঞাপন' পরিভাষাটির প্রবক্তা কে?\n\n(d) কে প্রথম মুদ্রণ প্রযুক্তির আবিষ্কার করেন?`;
+    const rows = parseTranscriptToRows(md, "BENSEC201");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["11(a)", 1, "Answer any 3"],
+      ["11(b)", 1, "Answer any 3"],
+      ["11(c)", 1, "Answer any 3"],
+      ["11(d)", 1, "Answer any 3"],
+    ]);
+    expect(rows.map((r) => r.id)).toEqual([
+      "BENSEC201-Q11a",
+      "BENSEC201-Q11b",
+      "BENSEC201-Q11c",
+      "BENSEC201-Q11d",
+    ]);
+  });
+
+  test("the Bengali spelling of the same instruction still parses (no regression)", () => {
+    const md = `UNIT—III\n\n11. যে কোনো তিনটি প্রশ্নের উত্তর দাও : ১×৩=৩\n\n(a) প্রথম প্রশ্ন।\n\n(b) দ্বিতীয় প্রশ্ন।\n\n(c) তৃতীয় প্রশ্ন।\n\n(d) চতুর্থ প্রশ্ন।`;
+    const rows = parseTranscriptToRows(md, "BENSEC201");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["11(a)", 1, "Answer any 3"],
+      ["11(b)", 1, "Answer any 3"],
+      ["11(c)", 1, "Answer any 3"],
+      ["11(d)", 1, "Answer any 3"],
+    ]);
+  });
+});

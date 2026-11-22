@@ -114,13 +114,26 @@ function foldBnYy(s: string): string {
   return s.replace(/\u09af\u09bc/g, "\u09df");
 }
 
+/**
+ * Assamese ৰ (U+09F0) is the same letter as Bengali র (U+09B0) for
+ * matching — papers mix the two spellings ("প্ৰশ্নৰ উত্তৰ দাও",
+ * BENSEC201 Q11). Fold it before testing the Bengali instruction
+ * pattern; the count word "তিনিটি" is Assamese too (see BN_COUNT_WORDS).
+ */
+function foldAsmRa(s: string): string {
+  return s.replace(/\u09f0/g, "\u09b0");
+}
+
 // Bengali count words in "যে কোনো <word> প্রশ্নের উত্তর দাও". The two
 // words containing য় are written with explicit codepoints (U+09DF),
 // never typed, so the two byte forms of য় cannot slip in.
+// "তিনিটি" is the Assamese spelling of "তিনটি" (BENSEC201 Q11) —
+// same count, different letters, so it is its own entry.
 const BN_COUNT_WORDS = new Map<string, number>([
   ["একটি", 1],
   ["দুটি", 2],
   ["তিনটি", 3],
+  ["তিনিটি", 3],
   ["চারটি", 4],
   ["পাঁচটি", 5],
   ["\u099b\u09df\u099f\u09bf", 6],
@@ -169,8 +182,12 @@ const PAIR_EITHER_LINE =
 // ("যে কোনো চারটি প্রশ্নের অতি সংক্ষিপ্ত উত্তর দাও", BNGIDC201T
 // Q1/Q7/Q10/Q13) — both are the same instruction. Neither word
 // contains য়, so they are typed, not escaped.
+// Assamese spelling (BENSEC201 Q11): "যে কোনো তিনিটি প্ৰশ্নৰ উত্তৰ
+// দাও" — the ৰ is folded to র before matching (see foldAsmRa), and
+// the ে in "প্রশ্নের" is optional because the Assamese form drops it
+// ("প্রশ্নর"). The count word "তিনিটি" is in BN_COUNT_WORDS.
 const BN_INSTRUCTION_LINE =
-  /^(?:([\d০-৯]+)[।.]\s*)?যে[\s-]*কোনো\s*(\S+?)\s*(?:অতি\s+সংক্ষিপ্ত\s+)?প্রশ্নের\s+(?:অতি\s+সংক্ষিপ্ত\s+)?উত্তর\s+দাও(?=\s|:|$)[^\n]*$/;
+  /^(?:([\d০-৯]+)[।.]\s*)?যে[\s-]*কোনো\s*(\S+?)\s*(?:অতি\s+সংক্ষিপ্ত\s+)?প্রশ্নে?র\s+(?:অতি\s+সংক্ষিপ্ত\s+)?উত্তর\s+দাও(?=\s|:|$)[^\n]*$/;
 
 // Manipuri (Bengali script) count words in instruction lines:
 // "অমতংগী" and "অমখক" are one, "অনীদংগী" two, "অহুমথকী" and
@@ -425,7 +442,10 @@ function matchInstruction(line: string): {
       pairEither: true,
     };
   }
-  const bn = line.match(BN_INSTRUCTION_LINE);
+  // Assamese spelling is folded (ৰ -> র) before matching, so
+  // "যে কোনো তিনিটি প্ৰশ্নৰ উত্তৰ দাও" (BENSEC201 Q11) matches the
+  // same pattern; the count word lookup below covers "তিনিটি".
+  const bn = foldAsmRa(line).match(BN_INSTRUCTION_LINE);
   if (bn) {
     const count = BN_COUNT_WORDS.get(foldBnYy(bn[2]));
     if (count === undefined) return null;
@@ -732,6 +752,25 @@ function stripTrailingMarks(
       (groupGuard === null || groupGuard === n)
     ) {
       return { text: `${paren[1]}${paren[2]}`.trim(), marks: n };
+    }
+  }
+  // A marks figure right after a colon, introducing a quoted passage
+  // — "বাংলায় অনুবাদ করো : ২ "Arise, awake..."" (BENSEC201 Q8/Q9/Q10).
+  // The figure is the question's marks, not part of the passage: the
+  // colon stays, the figure goes. The quote anchor matters: a bare
+  // ": 5" mid-text could be part of the question itself.
+  const colonQuote = text.match(
+    /^(.*?):\s*\**([\d০-৯]+)\**\s+(["“‘].*)$/,
+  );
+  if (colonQuote) {
+    const n = asciiNumber(colonQuote[2]);
+    if (
+      n !== null &&
+      n >= 1 &&
+      n <= 100 &&
+      (groupGuard === null || groupGuard === n)
+    ) {
+      return { text: `${colonQuote[1]}: ${colonQuote[3]}`.trim(), marks: n };
     }
   }
   // A bare number at the end of the question is its marks — but only
