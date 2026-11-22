@@ -545,8 +545,16 @@ export function parseTranscriptToRows(
     // A standalone OR line: the question above and the one below are
     // alternatives — each counts once. Bengali papers write অথবা.
     // The line may be a heading ("### OR") or bold ("**OR**").
+    // Only a direct question (label with no sub-part) takes the OR
+    // group: when the question above has (a)/(b)/(c) parts, its last
+    // part is not itself the alternative — the whole question is
+    // (PHYDSM101T Q8(c) was wrongly grouped OR, double-counting its
+    // 3 marks). The question-level alternative is still recorded by
+    // orPending for the row below, and by the counter's or_pairs.
     if (/^(OR|অথবা)$/i.test(line.replace(/^[#*\s]+|[#*\s]+$/g, ""))) {
-      if (rows.length > 0) applyOr(rows[rows.length - 1]);
+      if (rows.length > 0 && !rows[rows.length - 1].label.includes("(")) {
+        applyOr(rows[rows.length - 1]);
+      }
       orPending = true;
       continue;
     }

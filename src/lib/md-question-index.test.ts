@@ -411,4 +411,17 @@ describe("parser gaps fixed from batch 4 (2026-11-22)", () => {
       ["2(b)", 7],
     ]);
   });
+
+  test("standalone OR after a sub-part question does not mark the last part OR (PHYDSM101T Q8/Q9)", () => {
+    const md = `UNIT—III\n\n8. What is central force? Prove the following for a particle moving under a central force :\n1+3+3+3=10\n\n(a) Angular momentum about the centre of force is a constant of motion. **3**\n\n(b) The motion of the particle is always confined to a plane. **3**\n\n(c) The areal velocity of the line joining the centre of force and the particle is a constant of motion. **3**\n\n### OR\n\n9. (a) Find an expression for orbital velocity of a satellite. **5**\n\n(b) What do you mean by weightlessness? **2+2+1=5**`;
+    const rows = parseTranscriptToRows(md, "PHYDSM101T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["8", 10, ""],
+      ["8(a)", 3, ""],
+      ["8(b)", 3, ""],
+      ["8(c)", 3, ""],
+      ["9(a)", 5, "OR"],
+      ["9(b)", 5, ""],
+    ]);
+  });
 });
