@@ -140,8 +140,10 @@ const BN_COUNT_WORDS = new Map<string, number>([
 // and "Answer any four as directed" with no "of the following" at all.
 // SEC papers write the bare form "Answer any three questions :
 // $1 \times 3 = 3$" (MTMSEC201T) — no "of the following" at all.
+// English papers say "Define any seven of the following terms"
+// (ENGDSC252 Q1) — same shape, same rule.
 const INSTRUCTION_LINE =
-  /^(?:([\d০-৯]+)[।.]\s*)?(?:Answer\s+any|Translate\s+any|Write\s+a\s+note\s+on\s+any)\s+\**(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\**\s+(?:(?:of|from)\s+the\s+following|as\s+directed|questions?)\b[^\n]*$/i;
+  /^(?:([\d০-৯]+)[।.]\s*)?(?:Answer\s+any|Define\s+any|Translate\s+any|Write\s+a\s+note\s+on\s+any)\s+\**(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\**\s+(?:(?:of|from)\s+the\s+following|as\s+directed|questions?)\b[^\n]*$/i;
 
 // "3. Answer the following questions either (a) or (b) : 8" (PERIDC101T) —
 // one question with two alternatives; the candidate answers either one,
@@ -246,18 +248,21 @@ const NUMBERED_LINE = /^([\d০-৯]+)[।.]\s+(.+)$/;
 
 // "1. (a) What ...?" — a question number with its first part inline.
 const NUMBERED_SUB_LINE =
-  /^([\d০-৯]+)[।.]\s*\((?:([a-h])|([কখগঘঙচছজঝ]))\)\s+(.+)$/;
+  /^([\d০-৯]+)[।.]\s*\((?:([a-j])|([কখগঘঙচছজঝ]))\)\s+(.+)$/;
 
 // "(a) What is ...?" — a sub-question of the current question number.
-// Bengali papers use (ক) (খ) (গ) (ঘ) (ঙ). Letters run to (h):
-// papers with five or six options in a group use (e) and (f).
-// (i) is deliberately excluded: MCQ options (i)/(ii)/(iii)/(iv)
-// print on their own lines and must not become sub-questions.
-const SUB_QUESTION_LINE = /^\((?:([a-h])|([কখগঘঙচছজঝ]))\)\s+(.+)$/;
+// Bengali papers use (ক) (খ) (গ) (ঘ) (ঙ). Letters run to (j): papers
+// with ten options in a group use (i) and (j) (ENGDSC252 Q1).
+// (i)/(j) are only accepted in sequence — (i) after (h), (j) after
+// (i) in the same question (see acceptsSubLetter in
+// parseTranscriptToRows): a lone "(i)/(ii)" line is an MCQ option
+// (ENGSEC101T: "(i) Stationary (ii) Stationery" under Q1(c)) and
+// must not become a sub-question.
+const SUB_QUESTION_LINE = /^\((?:([a-j])|([কখগঘঙচছজঝ]))\)\s+(.+)$/;
 
 // A bare sub-question label on its own line, e.g. "(b)" with the
 // question text on the next line (maths papers split them).
-const BARE_SUB_LINE = /^\((?:([a-h])|([কখগঘঙচছজঝ]))\)$/;
+const BARE_SUB_LINE = /^\((?:([a-j])|([কখগঘঙচছজঝ]))\)$/;
 
 // A whole line that is only a marks expression: "$2\times 2=4$",
 // "$2 x 4 = 8$", "2×2=4", "২×২=৪", "$2+8=10$", "$4+4+2=10$",
@@ -661,11 +666,28 @@ export function parseTranscriptToRows(
   // A bare "(b)" label seen on its own line, waiting for the next
   // line to supply that sub-question's text.
   let pendingSub: string | null = null;
+  // The letter of the most recent sub-question row for the current
+  // question number — the sequence gate for (i)/(j) (see
+  // acceptsSubLetter). Reset whenever the question number changes.
+  let lastSubLetter = "";
 
   /** Append " (OR)" to a row's group, or set it to "OR" when empty. */
   const applyOr = (row: QuestionRow): void => {
     if (row.group === "OR" || row.group.endsWith(" (OR)")) return;
     row.group = row.group ? `${row.group} (OR)` : "OR";
+  };
+
+  /**
+   * (i)/(j) are sub-questions only in sequence — (i) after (h), (j)
+   * after (i) in the same question. A lone "(i)/(ii)" line is an MCQ
+   * option (ENGSEC101T: "(i) Stationary (ii) Stationery" under Q1(c))
+   * and must not become a row. The Bengali (ঝ) maps to "i", so the
+   * same gate covers it.
+   */
+  const acceptsSubLetter = (letter: string): boolean => {
+    if (letter === "i") return lastSubLetter === "h";
+    if (letter === "j") return lastSubLetter === "i";
+    return true;
   };
 
   /** Push a row, carrying a pending OR (from an OR line just above) onto it. */
@@ -725,6 +747,7 @@ export function parseTranscriptToRows(
 
   /** Push a sub-question row, honouring a trailing OR on its text. */
   const pushSubRow = (letter: string, rawText: string): void => {
+    lastSubLetter = letter;
     const { row, isOr } = subRow(letter, rawText);
     if (isOr) {
       applyOr(row);
@@ -775,6 +798,7 @@ export function parseTranscriptToRows(
       groupBareUnnumbered = false;
       orPending = false;
       pendingSub = null;
+      lastSubLetter = "";
       continue;
     }
 
@@ -814,6 +838,7 @@ export function parseTranscriptToRows(
         lastQNum += 1;
         qNum = String(lastQNum);
       }
+      lastSubLetter = "";
       group = `Answer any ${instr.count}`;
       groupQNum = instr.num;
       const detail = instructionMarksDetail(line);
@@ -874,6 +899,12 @@ export function parseTranscriptToRows(
     // "1. (a) What ...?" — a question number with its first part inline.
     const numberedSub = line.match(NUMBERED_SUB_LINE);
     if (numberedSub) {
+      const letter =
+        numberedSub[2] ?? BN_PART_TO_LATIN[numberedSub[3]];
+      // A first part of (i)/(j) cannot be in sequence — the question
+      // number just changed, so the (a)–(h) run it would follow belongs
+      // to another question. It is an MCQ option, not a row.
+      if (letter === "i" || letter === "j") continue;
       const n = asciiNumber(numberedSub[1]);
       if (n !== null) {
         clearGroupForNumber(n);
@@ -881,8 +912,6 @@ export function parseTranscriptToRows(
         lastQNum = n;
       }
       pendingSub = null;
-      const letter =
-        numberedSub[2] ?? BN_PART_TO_LATIN[numberedSub[3]];
       pushSubRow(letter, numberedSub[4]);
       continue;
     }
@@ -906,7 +935,11 @@ export function parseTranscriptToRows(
     // the next line as its text.
     const bareSub = line.match(BARE_SUB_LINE);
     if (bareSub && qNum) {
-      pendingSub = bareSub[1] ?? BN_PART_TO_LATIN[bareSub[2]];
+      const letter = bareSub[1] ?? BN_PART_TO_LATIN[bareSub[2]];
+      // A bare (i)/(j) out of sequence is an MCQ option label, not a
+      // sub-question — leave it for the next line to be ignored.
+      if (!acceptsSubLetter(letter)) continue;
+      pendingSub = letter;
       continue;
     }
 
@@ -914,6 +947,8 @@ export function parseTranscriptToRows(
     if (subMatch && qNum) {
       pendingSub = null;
       const letter = subMatch[1] ?? BN_PART_TO_LATIN[subMatch[2]];
+      // A lone (i)/(j) out of sequence is an MCQ option, not a row.
+      if (!acceptsSubLetter(letter)) continue;
       pushSubRow(letter, subMatch[3]);
       continue;
     }
@@ -930,6 +965,9 @@ export function parseTranscriptToRows(
       } else {
         qNum = numMatch[1];
       }
+      // A new number breaks the sub-letter sequence: an (i) line
+      // after this is an MCQ option, not a sub-question of it.
+      lastSubLetter = "";
       pendingSub = null;
       const orStripped = stripTrailingOr(numMatch[2].trim());
       const stripped = stripTrailingMarks(orStripped.text, null);

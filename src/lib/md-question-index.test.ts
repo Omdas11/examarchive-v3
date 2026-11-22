@@ -701,3 +701,71 @@ describe("parser gaps fixed from batch 12 (2026-11-22, CHMDSC252/CHMDSM252/BOTDS
     ]);
   });
 });
+
+describe("parser gaps fixed from batch 14 (2026-11-22, ENGDSC252/ENGSEC101T)", () => {
+  test("'Define any seven ...' is an instruction; (i)/(j) after (h) are rows (ENGDSC252 Q1)", () => {
+    const md = `UNIT—I\n\n1. Define any seven of the following terms : $2 \\times 7 = 14$\n\n(a) Patriarchy\n\n(b) Stereotyping\n\n(c) Misogyny\n\n(d) Gynocriticism\n\n(e) Dalit feminism\n\n(f) Gaze\n\n<!-- page 2 -->\n\n(g) Abjection\n\n(h) Matrocentric\n\n(i) Androgyny\n\n(j) Binary oppositions`;
+    const rows = parseTranscriptToRows(md, "ENGDSC252");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1(a)", 2, "Answer any 7"],
+      ["1(b)", 2, "Answer any 7"],
+      ["1(c)", 2, "Answer any 7"],
+      ["1(d)", 2, "Answer any 7"],
+      ["1(e)", 2, "Answer any 7"],
+      ["1(f)", 2, "Answer any 7"],
+      ["1(g)", 2, "Answer any 7"],
+      ["1(h)", 2, "Answer any 7"],
+      ["1(i)", 2, "Answer any 7"],
+      ["1(j)", 2, "Answer any 7"],
+    ]);
+    // No direct "1" row: the instruction is the rule, not a question.
+    expect(rows.some((r) => r.label === "1")).toBe(false);
+    expect(rows[8].question).toBe("Androgyny");
+    expect(rows[8].id).toBe("ENGDSC252-Q1i");
+    expect(rows[9].question).toBe("Binary oppositions");
+    expect(rows[9].id).toBe("ENGDSC252-Q1j");
+  });
+
+  test("MCQ (i)/(ii) options with no (a)-(h) sequence are not rows (ENGSEC101T)", () => {
+    const md = `UNIT—I\n\n1. Answer any three of the following questions : $1 \\times 3 = 3$\n\n(a) What is entrepreneur business?\n\n(b) Give an example of entrepreneurship business of Assam.\n\n(c) Make sentences to show the difference between the following words :\n\n(i) Stationary (ii) Stationery\n\n(d) Add suffixes to the following verbs to transform them into adjectives :\n\n(i) Create (ii) Depend\n\n2. Answer any one of the following questions : 2\n\n(a) Mention two barriers that can affect listening.`;
+    const rows = parseTranscriptToRows(md, "ENGSEC101T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1(a)", 1, "Answer any 3"],
+      ["1(b)", 1, "Answer any 3"],
+      ["1(c)", 1, "Answer any 3"],
+      ["1(d)", 1, "Answer any 3"],
+      ["2(a)", 2, "Answer any 1"],
+    ]);
+  });
+
+  test("a bare '(i)' label after (h) takes the next line as its text", () => {
+    const md = `UNIT—I\n\n1. Define any three of the following terms : $1 \\times 3 = 3$\n\n(a) First term.\n\n(b) Second term.\n\n(g) Seventh term.\n\n(h) Eighth term.\n\n(i)\n\nNinth term.\n\n(j) Tenth term.`;
+    const rows = parseTranscriptToRows(md, "ENGDSC252");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1(a)", 1, "Answer any 3"],
+      ["1(b)", 1, "Answer any 3"],
+      ["1(g)", 1, "Answer any 3"],
+      ["1(h)", 1, "Answer any 3"],
+      ["1(i)", 1, "Answer any 3"],
+      ["1(j)", 1, "Answer any 3"],
+    ]);
+    expect(rows[4].question).toBe("Ninth term.");
+  });
+
+  test("a '(j)' with no preceding (i) is not a row", () => {
+    const md = `UNIT—I\n\n1. Define any two of the following terms : $1 \\times 2 = 2$\n\n(a) First term.\n\n(h) Eighth term.\n\n(j) Tenth term.\n\n(b) Second term.`;
+    const rows = parseTranscriptToRows(md, "ENGDSC252");
+    expect(rows.map((r) => r.label)).toEqual(["1(a)", "1(h)", "1(b)"]);
+  });
+
+  test("an (i) line after a new numbered question is not that question's part", () => {
+    const md = `UNIT—I\n\n1. Define any seven of the following terms : $2 \\times 7 = 14$\n\n(a) Patriarchy\n\n(h) Matrocentric\n\n2. Answer any two of the following questions : $2 \\times 2 = 4$\n\n(i) Androgyny\n\n(a) First short.\n\n(b) Second short.`;
+    const rows = parseTranscriptToRows(md, "ENGDSC252");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1(a)", 2, "Answer any 7"],
+      ["1(h)", 2, "Answer any 7"],
+      ["2(a)", 2, "Answer any 2"],
+      ["2(b)", 2, "Answer any 2"],
+    ]);
+  });
+});

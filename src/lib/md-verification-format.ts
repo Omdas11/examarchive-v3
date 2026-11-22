@@ -23,6 +23,11 @@
 // (ঙ) is in the class: BNGIDC201T folds it into the (ঘ) line otherwise.
 // The first character after the marker may be a quote (' or ‘): three of
 // BNGIDC201T's (ঙ) parts open with one, so quotes join the lookahead.
+// (e)–(j) are deliberately NOT split here: a merged "(i)/(ii)" pair
+// inside a sub-row's text (CHMDSC252 Q2(a): "(i) Count ... 2 (ii) Give
+// an example. 3 $2+3=5$") must stay on that row's line, or the row's
+// split marks are lost. (i)/(j) sub-questions on their own lines are
+// handled by the parser's sequence gate, not by this split.
 const SUB_QUESTION_SPLIT =
   /\s+(?=\([a-dকখগঘঙ]\)\s+[''"‘’“”\u0980-\u09FFA-Z0-9])/g;
 

@@ -179,4 +179,9 @@ describe("formatQuestionMd on messy input", () => {
       expect(line).not.toMatch(/\(d\).*\(ঙ\)/);
     }
   });
+
+  test("MCQ (i)/(ii) options on their own line are left alone (ENGSEC101T)", () => {
+    const out = formatQuestionMd("(i) Stationary (ii) Stationery");
+    expect(out.trim()).toBe("(i) Stationary (ii) Stationery");
+  });
 });
