@@ -576,3 +576,37 @@ describe("parser gaps fixed from batch 9 (2026-11-22, MTMSEC201T)", () => {
     ]);
   });
 });
+
+describe("parser gaps fixed from batch 11 (2026-11-22, BNGIDC201T)", () => {
+  test("'অতি সংক্ষিপ্ত' instructions in both positions are instructions, not phantom rows", () => {
+    const md = `UNIT—I\n\n1. যে কোনো চারটি প্রশ্নের অতি সংক্ষিপ্ত উত্তর দাও : ১×৪=৪\n\n(a) মুসাফির কত বছর প্রভুকে ডাকেনি?\n\n(b) 'সাম্যবাদী' কবিতায় উল্লেখিত যে কোনো একটি তীর্থস্থানের নাম উল্লেখ করো।\n\n(c) 'সাম্যবাদী' কাব্যগ্রন্থটির প্রকাশকাল কত?\n\n(d) 'আবার আসিব ফিরে' কবিতায় উল্লেখিত যে কোনো একটি পাখির নাম লেখো। (ঙ) 'বাংলার মুখ আমি দেখিয়াছি' কবিতায় ডুমুরের গাছের নিচে কবি কোন্ পাখিকে বসে থাকতে দেখেছিলেন?\n\nUNIT—II\n\n4. যে কোনো চারটি অতি সংক্ষিপ্ত প্রশ্নের উত্তর দাও : ১ × ৪ = ৪\n\n(a) ‘হারানের নাতজামাই’ গল্পটি কোন্ আন্দোলনের পটভূমিতে রচিত?\n\n(b) ‘কুষ্ঠরোগীর বউ’ গল্পে যতীনের স্ত্রীর নাম কী?\n\n(c) পরশুরামের আসল নাম কী?\n\n(d) ‘শ্রী শ্রী সিদ্ধেশ্বরী লিমিটেড’ গল্পের যে কোনো একটি চরিত্রের নাম লেখো। (ঙ) ‘লম্বকর্ণ’ গল্পটি কোন্ গল্পগ্রন্থের অন্তর্গত?`;
+    const rows = parseTranscriptToRows(md, "BNGIDC201T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1(a)", 1, "Answer any 4"],
+      ["1(b)", 1, "Answer any 4"],
+      ["1(c)", 1, "Answer any 4"],
+      ["1(d)", 1, "Answer any 4"],
+      ["1(e)", 1, "Answer any 4"],
+      ["4(a)", 1, "Answer any 4"],
+      ["4(b)", 1, "Answer any 4"],
+      ["4(c)", 1, "Answer any 4"],
+      ["4(d)", 1, "Answer any 4"],
+      ["4(e)", 1, "Answer any 4"],
+    ]);
+    expect(rows[4].question).toContain("ডুমুরের গাছের নিচে");
+    expect(rows[9].question).toContain("লম্বকর্ণ");
+    expect(rows[4].id).toBe("BNGIDC201T-Q1e");
+    expect(rows[9].id).toBe("BNGIDC201T-Q4e");
+  });
+
+  test("plain 'যে কোনো ... প্রশ্নের উত্তর দাও' still parses (no regression)", () => {
+    const md = `UNIT—I\n\n১। যে কোনো চারটি প্রশ্নের উত্তর দাও : $1 \\times 4 = 4$\n\n(ক) প্রথম প্রশ্ন।\n\n(খ) দ্বিতীয় প্রশ্ন।\n\n(গ) তৃতীয় প্রশ্ন।\n\n(ঘ) চতুর্থ প্রশ্ন।`;
+    const rows = parseTranscriptToRows(md, "BNGDSC101T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1(a)", 1, "Answer any 4"],
+      ["1(b)", 1, "Answer any 4"],
+      ["1(c)", 1, "Answer any 4"],
+      ["1(d)", 1, "Answer any 4"],
+    ]);
+  });
+});

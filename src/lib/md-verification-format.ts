@@ -15,13 +15,16 @@
  * Save draft or Submit.
  */
 
-// A sub-question marker (a), (b), (c), (d) — or Bengali (ক), (খ), (গ), (ঘ) —
-// that starts a new sub-question. Split on the whitespace before a marker
-// that appears mid-line and is followed by a letter or digit — a real
+// A sub-question marker (a), (b), (c), (d) — or Bengali (ক), (খ), (গ), (ঘ),
+// (ঙ) — that starts a new sub-question. Split on the whitespace before a
+// marker that appears mid-line and is followed by a letter or digit — a real
 // question start, not a parenthetical aside. The marker stays attached to
 // its own text: the split point is the whitespace, checked by a lookahead.
+// (ঙ) is in the class: BNGIDC201T folds it into the (ঘ) line otherwise.
+// The first character after the marker may be a quote (' or ‘): three of
+// BNGIDC201T's (ঙ) parts open with one, so quotes join the lookahead.
 const SUB_QUESTION_SPLIT =
-  /\s+(?=\([a-dকখগঘ]\)\s+[\u0980-\u09FFA-Z0-9])/g;
+  /\s+(?=\([a-dকখগঘঙ]\)\s+[''"‘’“”\u0980-\u09FFA-Z0-9])/g;
 
 // A line that is only a number is a marks line that lost its question.
 const LONE_MARKS = /^[\d০-৯]+$/;

@@ -151,9 +151,15 @@ const EITHER_LINE =
   /^(?:([\d০-৯]+)[।.]\s*)?Answer\s+the\s+following\s+questions\s+either\s+\(a\)\s+or\s+\(b\)[^\n]*$/i;
 
 // Bengali: "১। যে কোনো দুটি প্রশ্নের উত্তর দাও : $2 \times 4 = 8$" —
-// number optional, count word captured for the lookup below.
+// number optional, count word captured for the lookup below. The
+// "অতি সংক্ষিপ্ত" (very short) form puts those two words either
+// before "প্রশ্নের" ("যে কোনো চারটি অতি সংক্ষিপ্ত প্রশ্নের উত্তর
+// দাও", BNGIDC201T Q4) or between "প্রশ্নের" and "উত্তর দাও"
+// ("যে কোনো চারটি প্রশ্নের অতি সংক্ষিপ্ত উত্তর দাও", BNGIDC201T
+// Q1/Q7/Q10/Q13) — both are the same instruction. Neither word
+// contains য়, so they are typed, not escaped.
 const BN_INSTRUCTION_LINE =
-  /^(?:([\d০-৯]+)[।.]\s*)?যে[\s-]*কোনো\s*(\S+?)\s*প্রশ্নের\s+উত্তর\s+দাও(?=\s|:|$)[^\n]*$/;
+  /^(?:([\d০-৯]+)[।.]\s*)?যে[\s-]*কোনো\s*(\S+?)\s*(?:অতি\s+সংক্ষিপ্ত\s+)?প্রশ্নের\s+(?:অতি\s+সংক্ষিপ্ত\s+)?উত্তর\s+দাও(?=\s|:|$)[^\n]*$/;
 
 // Manipuri (Bengali script) count words in instruction lines:
 // "অমতংগী" and "অমখক" are one, "অনীদংগী" two, "অহুমথকী" and

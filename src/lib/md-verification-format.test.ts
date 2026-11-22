@@ -167,4 +167,16 @@ describe("formatQuestionMd on messy input", () => {
     expect(out).toContain("(ক) প্রথম প্রশ্ন?");
     expect(out).toContain("(খ) দ্বিতীয় প্রশ্ন? ১০");
   });
+
+  test("Bengali fifth sub-question (ঙ) splits off its (ঘ) line, even when quoted (BNGIDC201T)", () => {
+    const out = formatQuestionMd(
+      "(d) 'আবার আসিব ফিরে' কবিতায় উল্লেখিত যে কোনো একটি পাখির নাম লেখো। (ঙ) 'বাংলার মুখ আমি দেখিয়াছি' কবিতায় ডুমুরের গাছের নিচে কবি কোন্ পাখিকে বসে থাকতে দেখেছিলেন?\n(d) ‘শ্রী শ্রী সিদ্ধেশ্বরী লিমিটেড’ গল্পের যে কোনো একটি চরিত্রের নাম লেখো। (ঙ) ‘লম্বকর্ণ’ গল্পটি কোন্ গল্পগ্রন্থের অন্তর্গত?\n(d) 'বুয়েনা নোচে' কথাটির অর্থ কী? (ঙ) প্রফেসর শঙ্কুর পুরো নাম কী?",
+    );
+    expect(out).toContain("(ঙ) 'বাংলার মুখ আমি দেখিয়াছি'");
+    expect(out).toContain("(ঙ) ‘লম্বকর্ণ’ গল্পটি");
+    expect(out).toContain("(ঙ) প্রফেসর শঙ্কুর পুরো নাম কী?");
+    for (const line of out.split("\n")) {
+      expect(line).not.toMatch(/\(d\).*\(ঙ\)/);
+    }
+  });
 });
