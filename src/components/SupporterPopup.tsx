@@ -49,11 +49,12 @@ declare global {
   }
 }
 
-const PERKS: Array<{ icon: string; text: string }> = [
+const PERKS: Array<{ icon: string; text: string; comingSoon?: boolean }> = [
   { icon: "badge", text: "Supporter badge on your profile + name on the supporters wall" },
   { icon: "forum", text: "Ask the team directly — reply within a day" },
-  { icon: "auto_awesome", text: "100 AI credits every month" },
-  { icon: "picture_as_pdf", text: "2 free AI Notes PDFs a day instead of 1" },
+  // Coming soon: not enforced by code yet — shown with a badge, not promised as live.
+  { icon: "auto_awesome", text: "100 AI credits every month", comingSoon: true },
+  { icon: "picture_as_pdf", text: "2 free AI Notes PDFs a day instead of 1", comingSoon: true },
   { icon: "priority_high", text: "Your paper requests jump the queue" },
   { icon: "new_releases", text: "Early access to new papers and features" },
 ];
@@ -227,7 +228,14 @@ export default function SupporterPopup({ open, isLoggedIn }: SupporterPopupProps
                 >
                   {perk.icon}
                 </span>
-                <span>{perk.text}</span>
+                <span>
+                  {perk.text}{" "}
+                  {perk.comingSoon && (
+                    <span className="whitespace-nowrap rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-700 dark:bg-amber-900/60 dark:text-amber-300">
+                      Coming soon
+                    </span>
+                  )}
+                </span>
               </li>
             ))}
           </ul>
