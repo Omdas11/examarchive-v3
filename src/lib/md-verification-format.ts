@@ -15,18 +15,25 @@
  * Save draft or Submit.
  */
 
-// A sub-question marker (a), (b), (c), (d) that starts a new sub-question.
-// Split on the whitespace before a marker that appears mid-line and is
-// followed by a capital letter or digit — a real question start, not a
-// parenthetical aside. The marker stays attached to its own text: the
-// split point is the whitespace, checked by a lookahead.
-const SUB_QUESTION_SPLIT = /\s+(?=\([a-d]\)\s+[A-Z0-9])/g;
+// A sub-question marker (a), (b), (c), (d) — or Bengali (ক), (খ), (গ), (ঘ) —
+// that starts a new sub-question. Split on the whitespace before a marker
+// that appears mid-line and is followed by a letter or digit — a real
+// question start, not a parenthetical aside. The marker stays attached to
+// its own text: the split point is the whitespace, checked by a lookahead.
+const SUB_QUESTION_SPLIT =
+  /\s+(?=\([a-dকখগঘ]\)\s+[\u0980-\u09FFA-Z0-9])/g;
 
 // A line that is only a number is a marks line that lost its question.
-const LONE_MARKS = /^\d+$/;
+const LONE_MARKS = /^[\d০-৯]+$/;
+
+// A bare question number on its own ("1." / "১।") belongs with the
+// sub-question that follows it on the same line — it is not a line of
+// its own.
+const BARE_QUESTION_NUMBER = /^[\d০-৯]+\s*[।.]$/;
 
 // "Paper Code :" -> "Paper Code:" (and the same for the other header labels).
-const HEADER_COLON = /\b(Paper Code|Full Marks|Pass Marks|Time)\s+:/g;
+const HEADER_COLON =
+  /\b(Paper Code|Course No\.|Full Marks|Pass Marks|Time)\s+:/g;
 
 export function formatQuestionMd(md: string): string {
   // 1. Split into logical lines; sub-questions sharing a line get their own.
@@ -36,9 +43,25 @@ export function formatQuestionMd(md: string): string {
     if (!line) continue;
     // The split regex is lookahead-only, so each part starts with its
     // marker and keeps its text.
-    for (const part of line.split(SUB_QUESTION_SPLIT)) {
-      const trimmed = part.trim();
-      if (trimmed) lines.push(trimmed);
+    const parts = line
+      .split(SUB_QUESTION_SPLIT)
+      .map((p) => p.trim())
+      .filter(Boolean);
+    for (const part of parts) {
+      // A bare question number ("1." / "১।") belongs with the
+      // sub-question that follows it — "1. (a) ..." must not become
+      // "1." on one line and "(a) ..." on the next, or the parser
+      // loses the sub-question entirely.
+      const last = lines[lines.length - 1];
+      if (
+        last !== undefined &&
+        BARE_QUESTION_NUMBER.test(last) &&
+        /^\([a-dকখগঘ]\)/.test(part)
+      ) {
+        lines[lines.length - 1] = `${last} ${part}`;
+      } else {
+        lines.push(part);
+      }
     }
   }
 

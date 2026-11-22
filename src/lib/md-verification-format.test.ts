@@ -155,4 +155,16 @@ describe("formatQuestionMd on messy input", () => {
     expect(formatQuestionMd("")).toBe("");
     expect(formatQuestionMd("  \n\n  ")).toBe("");
   });
+
+  test("'1. (a) ...' is not split from its first sub-question", () => {
+    const out = formatQuestionMd("1. (a) What is x? (b) What is y?");
+    expect(out).toContain("1. (a) What is x?");
+    expect(out).not.toContain("1.\n\n(a) What is x?");
+  });
+
+  test("Bengali sub-question markers are split; a lone Bengali marks line joins its question", () => {
+    const out = formatQuestionMd("(ক) প্রথম প্রশ্ন? (খ) দ্বিতীয় প্রশ্ন?\n১০");
+    expect(out).toContain("(ক) প্রথম প্রশ্ন?");
+    expect(out).toContain("(খ) দ্বিতীয় প্রশ্ন? ১০");
+  });
 });

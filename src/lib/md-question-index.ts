@@ -77,25 +77,146 @@ const TABLE_HEADER =
 const TABLE_SEPARATOR = "| --- | --- | --- | --- | --- | --- | --- |";
 
 // "UNIT—I" / "UNIT—II" / "SECTION—A" (em dash, en dash, or hyphen).
-const UNIT_HEADING = /^(UNIT|SECTION)\s*[—–-]\s*([A-Za-z0-9]+)\s*$/;
+// Bengali papers use গুচ্ছ—N the same way.
+const UNIT_HEADING =
+  /^(?:(UNIT|SECTION)\s*[—–-]\s*([A-Za-z0-9]+)|গুচ্ছ\s*[—–-]\s*([\d০-৯]+))\s*$/;
 
-// "1. Answer any two of the following questions : 10" — the trailing
-// number is the group's marks. "Answer any one" works the same.
+// Bengali digits, and the letters used for sub-question markers.
+const BN_DIGITS = "০১২৩৪৫৬৭৮৯";
+const BN_PART_TO_LATIN: Record<string, string> = {
+  "ক": "a",
+  "খ": "b",
+  "গ": "c",
+  "ঘ": "d",
+};
+
+/** Bengali digits to ASCII ("২" -> "2"); ASCII passes through. */
+function asciiDigits(s: string): string {
+  return s.replace(/[০-৯]/g, (d) => String(BN_DIGITS.indexOf(d)));
+}
+
+function asciiNumber(s: string): number | null {
+  const n = parseInt(asciiDigits(s), 10);
+  return Number.isNaN(n) ? null : n;
+}
+
+/**
+ * Bengali য় has two byte forms (single codepoint U+09DF, or য + nukta
+ * U+09AF U+09BC) that render identically but never match in a plain
+ * search. Fold the two-codepoint form to U+09DF before comparing words.
+ */
+function foldBnYy(s: string): string {
+  return s.replace(/\u09af\u09bc/g, "\u09df");
+}
+
+// Bengali count words in "যে কোনো <word> প্রশ্নের উত্তর দাও". The two
+// words containing য় are written with explicit codepoints (U+09DF),
+// never typed, so the two byte forms of য় cannot slip in.
+const BN_COUNT_WORDS = new Map<string, number>([
+  ["একটি", 1],
+  ["দুটি", 2],
+  ["তিনটি", 3],
+  ["চারটি", 4],
+  ["পাঁচটি", 5],
+  ["\u099b\u09df\u099f\u09bf", 6],
+  ["সাতটি", 7],
+  ["আটটি", 8],
+  ["\u09a8\u09df\u099f\u09bf", 9],
+  ["দশটি", 10],
+]);
+
+// "1. Answer any two of/from the following questions : 10" — the number
+// is optional: an unnumbered instruction opens the next question number.
+// The count word may carry *emphasis* ("Answer any *two* ..."), and the
+// paper may say "from the following" instead of "of the following".
 const INSTRUCTION_LINE =
-  /^(\d+)\.\s+Answer\s+any\s+(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+of\s+the\s+following\b[^\n]*$/i;
+  /^(?:([\d০-৯]+)[।.]\s*)?Answer\s+any\s+\**(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\**\s+(?:of|from)\s+the\s+following\b[^\n]*$/i;
+
+// Bengali: "১। যে কোনো দুটি প্রশ্নের উত্তর দাও : $2 \times 4 = 8$" —
+// number optional, count word captured for the lookup below.
+const BN_INSTRUCTION_LINE =
+  /^(?:([\d০-৯]+)[।.]\s*)?যে[\s-]*কোনো\s*(\S+?)\s*প্রশ্নের\s+উত্তর\s+দাও(?=\s|:|$)[^\n]*$/;
 
 // A numbered line that is not an instruction: a direct question.
-const NUMBERED_LINE = /^(\d+)\.\s+(.+)$/;
+// The number may be Bengali digits with a danda ("২।").
+const NUMBERED_LINE = /^([\d০-৯]+)[।.]\s+(.+)$/;
+
+// "1. (a) What ...?" — a question number with its first part inline.
+const NUMBERED_SUB_LINE =
+  /^([\d০-৯]+)[।.]\s*\((?:([a-d])|([কখগঘ]))\)\s+(.+)$/;
 
 // "(a) What is ...?" — a sub-question of the current question number.
-const SUB_QUESTION_LINE = /^\(([a-d])\)\s+(.+)$/;
+// Bengali papers use (ক) (খ) (গ) (ঘ).
+const SUB_QUESTION_LINE = /^\((?:([a-d])|([কখগঘ]))\)\s+(.+)$/;
 
-// "$2\times 2=4$" — the first number is the marks per sub-question.
-const TIMES_MARKS = /^\$(\d+)\s*\\times\s*(\d+)\s*=\s*(\d+)\$$/;
-// "$2+8=10$" — the total is the marks for the question.
-const PLUS_MARKS = /^\$(\d+)\s*\+\s*(\d+)\s*=\s*(\d+)\$$/;
-// A bare trailing number on an instruction line, e.g. "... questions : 10".
-const TRAILING_MARKS = /:\s*(\d+)\s*$/;
+// A whole line that is only a marks expression: "$2\times 2=4$",
+// "$2 x 4 = 8$", "2×2=4", "২×২=৪", "$2+8=10$". For "×" the first
+// number is the marks per sub-question; for "+" it is the total (or the
+// sum when no total is given).
+const MARKS_EXPR =
+  /^\${0,2}\s*([\d০-৯]+)\s*(\\times|[×x+])\s*([\d০-৯]+)\s*(?:=\s*([\d০-৯]+))?\s*\${0,2}$/;
+
+/** Marks a marks-expression's numbers mean (see MARKS_EXPR). */
+function marksFromParts(
+  aStr: string,
+  op: string,
+  bStr: string,
+  totalStr: string | undefined,
+): number | null {
+  const a = asciiNumber(aStr);
+  const b = asciiNumber(bStr);
+  if (a === null || b === null) return null;
+  if (op === "+") {
+    const total = totalStr ? asciiNumber(totalStr) : null;
+    return total ?? a + b;
+  }
+  return a;
+}
+
+/**
+ * Marks carried by an instruction line itself: a trailing ": 10", or a
+ * trailing marks expression ("... : $2 \times 4 = 8$", "... : 2×2=4").
+ * Returns null when the line carries no marks.
+ */
+function instructionMarks(line: string): number | null {
+  const expr = line.match(
+    /\$?\s*([\d০-৯]+)\s*(\\times|[×x+])\s*([\d০-৯]+)\s*(?:=\s*([\d০-৯]+))?\s*\$?\s*$/,
+  );
+  if (expr) {
+    const n = marksFromParts(expr[1], expr[2], expr[3], expr[4]);
+    if (n !== null && n >= 1 && n <= 100) return n;
+  }
+  const trailing = line.match(/:\s*\**([\d০-৯]+)\**\s*$/);
+  if (trailing) {
+    const n = asciiNumber(trailing[1]);
+    if (n !== null && n >= 1 && n <= 100) return n;
+  }
+  return null;
+}
+
+/**
+ * An instruction line, English ("Answer any two of/from the following")
+ * or Bengali ("যে কোনো দুটি প্রশ্নের উত্তর দাও"). The number is null
+ * when the line carries none — the caller opens the next number.
+ */
+function matchInstruction(line: string): {
+  num: number | null;
+  count: number;
+} | null {
+  const en = line.match(INSTRUCTION_LINE);
+  if (en) {
+    const count = wordToNumber(en[2]);
+    if (count === null) return null;
+    return { num: en[1] ? asciiNumber(en[1]) : null, count };
+  }
+  const bn = line.match(BN_INSTRUCTION_LINE);
+  if (bn) {
+    const count = BN_COUNT_WORDS.get(foldBnYy(bn[2]));
+    if (count === undefined) return null;
+    return { num: bn[1] ? asciiNumber(bn[1]) : null, count };
+  }
+  return null;
+}
 
 const WORD_NUMBERS: Record<string, number> = {
   one: 1,
@@ -246,14 +367,55 @@ function stripTrailingMarks(
   text: string,
   groupMarks: number | null,
 ): { text: string; marks: number | null } {
+  // A $...$ maths expression at the end of the question is its marks,
+  // not part of its text — e.g. "$2+8=10$" or "$2 x 4 = 8$". It must
+  // carry $ delimiters: a bare "2+3=5" could be the question itself.
+  const tailMath = text.match(/^(.*?)\s*(\$[^$]+\$)\s*$/);
+  if (tailMath) {
+    const expr = tailMath[2].match(MARKS_EXPR);
+    if (expr) {
+      const derived = marksFromParts(expr[1], expr[2], expr[3], expr[4]);
+      if (
+        derived !== null &&
+        derived >= 1 &&
+        derived <= 100 &&
+        (groupMarks === null || groupMarks === derived)
+      ) {
+        return { text: tailMath[1].trim(), marks: derived };
+      }
+    }
+  }
+  // A bare marks expression at the end, e.g. "… : ২×২=৪" — Bengali
+  // papers write it without $ delimiters. Checked before the bare
+  // number below, or "৪" alone would be misread as marks 4.
+  const bareExpr = text.match(
+    /^(.*?)\s+([\d০-৯]+)\s*(\\times|[×x+])\s*([\d০-৯]+)\s*(?:=\s*([\d০-৯]+))?\s*$/,
+  );
+  if (bareExpr) {
+    const derived = marksFromParts(
+      bareExpr[2],
+      bareExpr[3],
+      bareExpr[4],
+      bareExpr[5],
+    );
+    if (
+      derived !== null &&
+      derived >= 1 &&
+      derived <= 100 &&
+      (groupMarks === null || groupMarks === derived)
+    ) {
+      return { text: bareExpr[1].trim(), marks: derived };
+    }
+  }
   // A bare number at the end of the question is its marks — but only
   // when it is a plausible mark (<= 100) and agrees with the group's
   // marks when those are known. A year or a number inside the question
   // never looks like this: it is followed by punctuation or is too big.
-  const m = text.match(/^(.*?)\s+(\d+)$/);
+  // The number may carry *emphasis* ("**10**") or be Bengali digits.
+  const m = text.match(/^(.*?)\s+\**([\d০-৯]+)\**$/);
   if (!m) return { text, marks: null };
-  const n = parseInt(m[2], 10);
-  if (n < 1 || n > 100) return { text, marks: null };
+  const n = asciiNumber(m[2]);
+  if (n === null || n < 1 || n > 100) return { text, marks: null };
   if (groupMarks !== null && groupMarks !== n) return { text, marks: null };
   return { text: m[1].trim(), marks: n };
 }
@@ -274,8 +436,83 @@ export function parseTranscriptToRows(
   const rows: QuestionRow[] = [];
   let unit = "";
   let qNum = "";
+  let lastQNum = 0;
   let group = "";
   let groupMarks: number | null = null;
+  let orPending = false;
+
+  /** Append " (OR)" to a row's group, or set it to "OR" when empty. */
+  const applyOr = (row: QuestionRow): void => {
+    if (row.group === "OR" || row.group.endsWith(" (OR)")) return;
+    row.group = row.group ? `${row.group} (OR)` : "OR";
+  };
+
+  /** Push a row, carrying a pending OR (from an OR line just above) onto it. */
+  const pushRow = (row: QuestionRow): void => {
+    if (orPending) {
+      applyOr(row);
+      // An OR alternative with no marks of its own shares the marks of
+      // the question it alternates with (same question number).
+      const prev = rows[rows.length - 1];
+      if (
+        row.marks === null &&
+        prev &&
+        prev.marks !== null &&
+        row.label.split("(")[0] === prev.label.split("(")[0]
+      ) {
+        row.marks = prev.marks;
+      }
+      orPending = false;
+    }
+    rows.push(row);
+  };
+
+  /** Strip a trailing "OR" / "অথবা" from question text. */
+  const stripTrailingOr = (text: string): { text: string; isOr: boolean } => {
+    const m = text.match(/^(.*?)\s+(OR|অথবা)$/);
+    if (!m) return { text, isOr: false };
+    return { text: m[1].trim(), isOr: true };
+  };
+
+  /**
+   * Build a sub-question row from its marker letter and raw text.
+   * Returns the row plus whether the text ended in an OR (the next row
+   * is its alternative). The caller pushes the row: directly when it
+   * ends in OR (so the pending flag survives for the next row), through
+   * pushRow otherwise.
+   */
+  const subRow = (
+    letter: string,
+    rawText: string,
+  ): { row: QuestionRow; isOr: boolean } => {
+    const orStripped = stripTrailingOr(rawText.trim());
+    const stripped = stripTrailingMarks(orStripped.text, groupMarks);
+    const label = `${qNum}(${letter})`;
+    return {
+      row: {
+        label,
+        question: stripped.text,
+        marks: stripped.marks ?? groupMarks,
+        unit,
+        group,
+        id: `${paperCode}-Q${qNum}${letter}`,
+        keywords: "",
+      },
+      isOr: orStripped.isOr,
+    };
+  };
+
+  /** Push a sub-question row, honouring a trailing OR on its text. */
+  const pushSubRow = (letter: string, rawText: string): void => {
+    const { row, isOr } = subRow(letter, rawText);
+    if (isOr) {
+      applyOr(row);
+      orPending = true;
+      rows.push(row);
+    } else {
+      pushRow(row);
+    }
+  };
 
   for (const raw of formatted.split("\n")) {
     const line = raw.trim();
@@ -283,52 +520,74 @@ export function parseTranscriptToRows(
 
     const unitMatch = line.match(UNIT_HEADING);
     if (unitMatch) {
-      unit = unitMatch[2];
+      unit = unitMatch[2] ?? (unitMatch[3] ? asciiDigits(unitMatch[3]) : "");
+      orPending = false;
       continue;
     }
 
-    const instrMatch = line.match(INSTRUCTION_LINE);
-    if (instrMatch) {
-      qNum = instrMatch[1];
-      const count = wordToNumber(instrMatch[2]);
-      group = count !== null ? `Answer any ${count}` : "";
-      const trailing = line.match(TRAILING_MARKS);
-      groupMarks = trailing ? parseInt(trailing[1], 10) : null;
-      continue;
-    }
-
-    const timesMatch = line.match(TIMES_MARKS);
-    if (timesMatch) {
-      // "$2\times 2=4$": each sub-question in this group is worth the
-      // first number. Only fills marks the instruction line left blank.
-      if (groupMarks === null) groupMarks = parseInt(timesMatch[1], 10);
-      continue;
-    }
-
-    const plusMatch = line.match(PLUS_MARKS);
-    if (plusMatch) {
-      // "$2+8=10$": the total is the marks for the question.
-      if (groupMarks === null) groupMarks = parseInt(plusMatch[3], 10);
+    // A standalone OR line: the question above and the one below are
+    // alternatives — each counts once. Bengali papers write অথবা.
+    if (/^(OR|অথবা)$/i.test(line)) {
+      if (rows.length > 0) applyOr(rows[rows.length - 1]);
+      orPending = true;
       continue;
     }
 
     // Page markers and any other HTML comments are not questions.
     if (line.startsWith("<!--")) continue;
 
+    // Instruction lines (English or Bengali). The number is optional:
+    // an unnumbered instruction opens the next question number — a
+    // missing "1." must not lose the whole first question.
+    const instr = matchInstruction(line);
+    if (instr) {
+      if (instr.num !== null) {
+        qNum = String(instr.num);
+        lastQNum = instr.num;
+      } else {
+        lastQNum += 1;
+        qNum = String(lastQNum);
+      }
+      group = `Answer any ${instr.count}`;
+      groupMarks = instructionMarks(line);
+      continue;
+    }
+
+    // A line that is only a marks expression ("$2 x 4 = 8$", "2×2=4").
+    const marksMatch = line.match(MARKS_EXPR);
+    if (marksMatch) {
+      if (groupMarks === null) {
+        const n = marksFromParts(
+          marksMatch[1],
+          marksMatch[2],
+          marksMatch[3],
+          marksMatch[4],
+        );
+        if (n !== null) groupMarks = n;
+      }
+      continue;
+    }
+
+    // "1. (a) What ...?" — a question number with its first part inline.
+    const numberedSub = line.match(NUMBERED_SUB_LINE);
+    if (numberedSub) {
+      const n = asciiNumber(numberedSub[1]);
+      if (n !== null) {
+        qNum = String(n);
+        lastQNum = n;
+      }
+      group = "";
+      groupMarks = null;
+      const letter =
+        numberedSub[2] ?? BN_PART_TO_LATIN[numberedSub[3]];
+      pushSubRow(letter, numberedSub[4]);
+      continue;
+    }
+
     const subMatch = line.match(SUB_QUESTION_LINE);
     if (subMatch && qNum) {
-      const label = `${qNum}(${subMatch[1]})`;
-      const stripped = stripTrailingMarks(subMatch[2].trim(), groupMarks);
-      const marks = stripped.marks ?? groupMarks;
-      rows.push({
-        label,
-        question: stripped.text,
-        marks,
-        unit,
-        group,
-        id: `${paperCode}-Q${qNum}${subMatch[1]}`,
-        keywords: "",
-      });
+      const letter = subMatch[1] ?? BN_PART_TO_LATIN[subMatch[2]];
+      pushSubRow(letter, subMatch[3]);
       continue;
     }
 
@@ -336,11 +595,18 @@ export function parseTranscriptToRows(
     if (numMatch) {
       // A direct question with no sub-parts. It also becomes the
       // current question number for any (a)/(b) lines that follow it.
-      qNum = numMatch[1];
+      const n = asciiNumber(numMatch[1]);
+      if (n !== null) {
+        qNum = String(n);
+        lastQNum = n;
+      } else {
+        qNum = numMatch[1];
+      }
       group = "";
       groupMarks = null;
-      const stripped = stripTrailingMarks(numMatch[2].trim(), null);
-      rows.push({
+      const orStripped = stripTrailingOr(numMatch[2].trim());
+      const stripped = stripTrailingMarks(orStripped.text, null);
+      const row: QuestionRow = {
         label: qNum,
         question: stripped.text,
         marks: stripped.marks,
@@ -348,7 +614,14 @@ export function parseTranscriptToRows(
         group: "",
         id: `${paperCode}-Q${qNum}`,
         keywords: "",
-      });
+      };
+      if (orStripped.isOr) {
+        applyOr(row);
+        orPending = true;
+        rows.push(row);
+      } else {
+        pushRow(row);
+      }
       continue;
     }
     // Everything else (title, header lines, "The figures in the
@@ -438,24 +711,30 @@ export function ensureFrontmatter(
 
   if (!fm.subject) {
     // The subject line sits between the title and the paper-code line:
-    // one all-caps word, e.g. COMMERCE or BENGALI.
-    const codeIdx = lines.findIndex((l) => /Paper Code\s*:/.test(l));
-    const before = codeIdx === -1 ? lines : lines.slice(0, codeIdx);
-    const subjectLine = before.find(
-      (l) =>
-        /^[A-Z][A-Z\s&'-]{2,}$/.test(l) &&
-        !/^(UNIT|SECTION)\b/.test(l) &&
-        !l.startsWith("#"),
+    // one all-caps word, e.g. COMMERCE or BENGALI. The code line may
+    // read "Course No." instead of "Paper Code", and header lines may
+    // carry markdown markers ("## COMMERCE").
+    const codeIdx = lines.findIndex((l) =>
+      /(?:Paper Code|Course No\.)\s*:/.test(l),
     );
-    if (subjectLine) fm.subject = subjectLine.trim();
+    const before = codeIdx === -1 ? lines : lines.slice(0, codeIdx);
+    const subjectLine = before.find((l) => {
+      const clean = l.replace(/^[#*\s]+/, "");
+      return (
+        /^[A-Z][A-Z\s&'-]{2,}$/.test(clean) && !/^(UNIT|SECTION)\b/.test(clean)
+      );
+    });
+    if (subjectLine) fm.subject = subjectLine.replace(/^[#*\s]+/, "").trim();
   }
 
   if (!fm.title) {
     // The paper title is the parenthetical right after the Paper Code
     // line, e.g. "( Consumer Behaviour )".
-    const codeIdx = lines.findIndex((l) => /Paper Code\s*:/.test(l));
+    const codeIdx = lines.findIndex((l) =>
+      /(?:Paper Code|Course No\.)\s*:/.test(l),
+    );
     if (codeIdx !== -1 && lines[codeIdx + 1]) {
-      const m = lines[codeIdx + 1].match(/^\(\s*(.+?)\s*\)$/);
+      const m = lines[codeIdx + 1].match(/^\*{0,2}\s*\(\s*(.+?)\s*\)\*{0,2}$/);
       if (m && !/\d+(?:st|nd|rd|th)\s+Semester/.test(m[1])) {
         fm.title = m[1].trim();
       }
@@ -472,7 +751,7 @@ export function ensureFrontmatter(
   }
   if (!fm.time) {
     const m = transcript.match(/Time\s*:\s*(.+?)\s*(?:\n|$)/);
-    if (m) fm.time = m[1].trim();
+    if (m) fm.time = m[1].replace(/\*+\s*$/, "").trim();
   }
   return fm;
 }
