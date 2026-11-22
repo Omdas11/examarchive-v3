@@ -316,3 +316,60 @@ describe("parser gaps fixed from the OCR pilot (2026-11-22)", () => {
     expect(fmBlock).not.toContain("3 hours**");
   });
 });
+
+describe("parser gaps fixed from batch 3 (2026-11-22)", () => {
+  test("(e) and (f) sub-questions parse, not only (a)-(d)", () => {
+    const md = `UNIT—II\n\n4. Answer any four of the following questions : 1x4=4\n\n(a) Define ethnobotany.\n\n(b) What is the scientific name of Basak?\n\n(c) [illegible]\n\n(d) Name two dominant tribes of Meghalaya.\n\n(e) Name one medicinal use of turmeric.\n\n(f) Name the family to which Tulsi belongs.`;
+    const rows = parseTranscriptToRows(md, "BOTIDC201T");
+    expect(rows.map((r) => r.label)).toEqual([
+      "4(a)",
+      "4(b)",
+      "4(c)",
+      "4(d)",
+      "4(e)",
+      "4(f)",
+    ]);
+    expect(rows.every((r) => r.marks === 1)).toBe(true);
+  });
+
+  test("Bengali fifth sub-question (ঙ) parses", () => {
+    const md = `UNIT—I\n\n১। যে কোনো চারটি প্রশ্নের উত্তর দাও : $1 \\times 4 = 4$\n\n(ক) প্রথম প্রশ্ন।\n\n(খ) দ্বিতীয় প্রশ্ন।\n\n(গ) তৃতীয় প্রশ্ন।\n\n(ঘ) চতুর্থ প্রশ্ন।\n\n(ঙ) পঞ্চম প্রশ্ন।`;
+    const rows = parseTranscriptToRows(md, "BNGDSC101T");
+    expect(rows.map((r) => r.label)).toEqual([
+      "1(a)",
+      "1(b)",
+      "1(c)",
+      "1(d)",
+      "1(e)",
+    ]);
+  });
+
+  test("bare (b) label line takes the next line as its text", () => {
+    const md = `UNIT—III\n\n9. Answer any one of the following questions : 8\n\n(a) (i) First part. (ii) Second part.\n\n(b)\n\n(i) Find the maximum and minimum values. (ii) Find the intervals.`;
+    const rows = parseTranscriptToRows(md, "MTMIDC201T");
+    expect(rows.map((r) => r.label)).toEqual(["9(a)", "9(b)"]);
+    expect(rows[1].question).toContain("Find the maximum and minimum");
+    expect(rows[1].marks).toBe(8);
+  });
+
+  test("bare label followed by a new instruction does not swallow it", () => {
+    const md = `UNIT—I\n\n1. Answer any four of the following questions : $1 \\times 4 = 4$\n\n(a) First.\n\n(b)\n\n2. Answer any one of the following questions : 2\n\n(a) Second question.`;
+    const rows = parseTranscriptToRows(md, "XXXX-101T");
+    expect(rows.map((r) => r.label)).toEqual(["1(a)", "2(a)"]);
+    expect(rows[1].marks).toBe(2);
+  });
+});
+
+describe("parser gaps fixed from batch 3, continued (2026-11-22)", () => {
+  test("'Write a note on any one of the following : 2' is an instruction", () => {
+    const md = `UNIT—II\n\n4. Answer any four of the following questions : 1x4=4\n\n(a) What is the full form of STD?\n\n(b) What is diabetes mellitus?\n\n5. Write a note on any one of the following : 2\n\n(a) Obesity\n\n(b) Gonorrhea\n\n6. Answer any one of the following questions : 8\n\n(a) Give an account of population control measures. 6+2=8`;
+    const rows = parseTranscriptToRows(md, "ZOOIDC201T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["4(a)", 1, "Answer any 4"],
+      ["4(b)", 1, "Answer any 4"],
+      ["5(a)", 2, "Answer any 1"],
+      ["5(b)", 2, "Answer any 1"],
+      ["6(a)", 8, "Answer any 1"],
+    ]);
+  });
+});

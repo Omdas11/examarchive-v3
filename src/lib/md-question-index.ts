@@ -88,6 +88,11 @@ const BN_PART_TO_LATIN: Record<string, string> = {
   "খ": "b",
   "গ": "c",
   "ঘ": "d",
+  "ঙ": "e",
+  "চ": "f",
+  "ছ": "g",
+  "জ": "h",
+  "ঝ": "i",
 };
 
 /** Bengali digits to ASCII ("২" -> "2"); ASCII passes through. */
@@ -129,8 +134,10 @@ const BN_COUNT_WORDS = new Map<string, number>([
 // is optional: an unnumbered instruction opens the next question number.
 // The count word may carry *emphasis* ("Answer any *two* ..."), and the
 // paper may say "from the following" instead of "of the following".
+// Some papers write the same rule as "Write a note on any one of the
+// following : 2" — that shape is an instruction too.
 const INSTRUCTION_LINE =
-  /^(?:([\d০-৯]+)[।.]\s*)?Answer\s+any\s+\**(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\**\s+(?:of|from)\s+the\s+following\b[^\n]*$/i;
+  /^(?:([\d০-৯]+)[।.]\s*)?(?:Answer\s+any|Write\s+a\s+note\s+on\s+any)\s+\**(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\**\s+(?:of|from)\s+the\s+following\b[^\n]*$/i;
 
 // Bengali: "১। যে কোনো দুটি প্রশ্নের উত্তর দাও : $2 \times 4 = 8$" —
 // number optional, count word captured for the lookup below.
@@ -143,11 +150,18 @@ const NUMBERED_LINE = /^([\d০-৯]+)[।.]\s+(.+)$/;
 
 // "1. (a) What ...?" — a question number with its first part inline.
 const NUMBERED_SUB_LINE =
-  /^([\d০-৯]+)[।.]\s*\((?:([a-d])|([কখগঘ]))\)\s+(.+)$/;
+  /^([\d০-৯]+)[।.]\s*\((?:([a-h])|([কখগঘঙচছজঝ]))\)\s+(.+)$/;
 
 // "(a) What is ...?" — a sub-question of the current question number.
-// Bengali papers use (ক) (খ) (গ) (ঘ).
-const SUB_QUESTION_LINE = /^\((?:([a-d])|([কখগঘ]))\)\s+(.+)$/;
+// Bengali papers use (ক) (খ) (গ) (ঘ) (ঙ). Letters run to (h):
+// papers with five or six options in a group use (e) and (f).
+// (i) is deliberately excluded: MCQ options (i)/(ii)/(iii)/(iv)
+// print on their own lines and must not become sub-questions.
+const SUB_QUESTION_LINE = /^\((?:([a-h])|([কখগঘঙচছজঝ]))\)\s+(.+)$/;
+
+// A bare sub-question label on its own line, e.g. "(b)" with the
+// question text on the next line (maths papers split them).
+const BARE_SUB_LINE = /^\((?:([a-h])|([কখগঘঙচছজঝ]))\)$/;
 
 // A whole line that is only a marks expression: "$2\times 2=4$",
 // "$2 x 4 = 8$", "2×2=4", "২×২=৪", "$2+8=10$". For "×" the first
@@ -440,6 +454,9 @@ export function parseTranscriptToRows(
   let group = "";
   let groupMarks: number | null = null;
   let orPending = false;
+  // A bare "(b)" label seen on its own line, waiting for the next
+  // line to supply that sub-question's text.
+  let pendingSub: string | null = null;
 
   /** Append " (OR)" to a row's group, or set it to "OR" when empty. */
   const applyOr = (row: QuestionRow): void => {
@@ -522,6 +539,7 @@ export function parseTranscriptToRows(
     if (unitMatch) {
       unit = unitMatch[2] ?? (unitMatch[3] ? asciiDigits(unitMatch[3]) : "");
       orPending = false;
+      pendingSub = null;
       continue;
     }
 
@@ -550,12 +568,14 @@ export function parseTranscriptToRows(
       }
       group = `Answer any ${instr.count}`;
       groupMarks = instructionMarks(line);
+      pendingSub = null;
       continue;
     }
 
     // A line that is only a marks expression ("$2 x 4 = 8$", "2×2=4").
     const marksMatch = line.match(MARKS_EXPR);
     if (marksMatch) {
+      pendingSub = null;
       if (groupMarks === null) {
         const n = marksFromParts(
           marksMatch[1],
@@ -578,14 +598,39 @@ export function parseTranscriptToRows(
       }
       group = "";
       groupMarks = null;
+      pendingSub = null;
       const letter =
         numberedSub[2] ?? BN_PART_TO_LATIN[numberedSub[3]];
       pushSubRow(letter, numberedSub[4]);
       continue;
     }
 
+    // The line after a bare sub-question label is that question's
+    // text. Checked before SUB_QUESTION_LINE: "(i) ..." content must
+    // not become a sub-question of its own. An instruction or a new
+    // numbered question instead means the bare label had no text.
+    if (
+      pendingSub &&
+      qNum &&
+      !matchInstruction(line) &&
+      !NUMBERED_LINE.test(line)
+    ) {
+      pushSubRow(pendingSub, line);
+      pendingSub = null;
+      continue;
+    }
+
+    // A bare sub-question label on its own line: remember it and take
+    // the next line as its text.
+    const bareSub = line.match(BARE_SUB_LINE);
+    if (bareSub && qNum) {
+      pendingSub = bareSub[1] ?? BN_PART_TO_LATIN[bareSub[2]];
+      continue;
+    }
+
     const subMatch = line.match(SUB_QUESTION_LINE);
     if (subMatch && qNum) {
+      pendingSub = null;
       const letter = subMatch[1] ?? BN_PART_TO_LATIN[subMatch[2]];
       pushSubRow(letter, subMatch[3]);
       continue;
@@ -604,6 +649,7 @@ export function parseTranscriptToRows(
       }
       group = "";
       groupMarks = null;
+      pendingSub = null;
       const orStripped = stripTrailingOr(numMatch[2].trim());
       const stripped = stripTrailingMarks(orStripped.text, null);
       const row: QuestionRow = {
