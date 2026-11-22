@@ -8,7 +8,8 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
@@ -62,6 +63,31 @@ export default function Sidebar({
 
   // Use controlled collapsed state if provided, otherwise use local state
   const isCollapsed = controlledCollapsed !== undefined ? controlledCollapsed : localCollapsed;
+
+  // Collapsed-rail tooltip, rendered in a portal on document.body so it
+  // can never widen the scrollable <nav>. The old tooltip lived inside
+  // each link (absolute, left-full, whitespace-nowrap): even at opacity-0
+  // it stuck out past the rail and made the nav scroll sideways, its
+  // horizontal scrollbar sitting right above the Logout button.
+  const [tooltip, setTooltip] = useState<{
+    item: SidebarItem;
+    top: number;
+    left: number;
+  } | null>(null);
+
+  // Hide the tooltip when the route changes (navigation from a rail item).
+  useEffect(() => {
+    setTooltip(null);
+  }, [pathname]);
+
+  const showTooltip =
+    (item: SidebarItem) =>
+    (e: React.MouseEvent<HTMLElement> | React.FocusEvent<HTMLElement>) => {
+      if (!isCollapsed) return;
+      const rect = e.currentTarget.getBoundingClientRect();
+      setTooltip({ item, top: rect.top + rect.height / 2, left: rect.right + 16 });
+    };
+  const hideTooltip = () => setTooltip(null);
 
   const handleCollapseToggle = () => {
     const next = !isCollapsed;
@@ -158,7 +184,11 @@ export default function Sidebar({
         </button>
       </div>
 
-      <nav className="flex-1 min-h-0 space-y-1.5 px-4 pb-4 overflow-y-auto" aria-label="Primary">
+      <nav
+        className="flex-1 min-h-0 space-y-1.5 px-4 pb-4 overflow-y-auto overflow-x-hidden"
+        aria-label="Primary"
+        onScroll={hideTooltip}
+      >
         {visibleItems.map((item) => {
           const isExternal = item.href.startsWith('http');
           const LinkComponent = isExternal ? 'a' : Link;
@@ -173,7 +203,6 @@ export default function Sidebar({
               className={cn(
                 'flex items-center gap-3 px-4 py-3.5 rounded-full',
                 'transition-all duration-200 ease-in-out',
-                'relative group',
                 // Collapsed (icon rail): centre the icon in the pill. Without
                 // this the icon sat left-aligned with px-4 padding, so the
                 // active highlight looked off-centre.
@@ -184,6 +213,10 @@ export default function Sidebar({
               )}
               title={isCollapsed ? item.label : undefined}
               aria-label={isCollapsed ? item.label : undefined}
+              onMouseEnter={showTooltip(item)}
+              onMouseLeave={hideTooltip}
+              onFocus={showTooltip(item)}
+              onBlur={hideTooltip}
             >
               <span className="material-symbols-outlined flex-shrink-0 text-xl font-medium">
                 {item.icon}
@@ -203,21 +236,6 @@ export default function Sidebar({
                     </span>
                   )}
                 </>
-              )}
-
-              {/* Tooltip for collapsed state */}
-              {isCollapsed && (
-                <div
-                  className={cn(
-                    'absolute left-full ml-4 px-3 py-1.5 bg-on-surface text-surface text-xs font-bold rounded-full shadow-lg',
-                    'opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity duration-200',
-                    'pointer-events-none whitespace-nowrap z-50 border border-outline-variant/20'
-                  )}
-                >
-                  {item.label}
-                  {item.tag ? ` — ${item.tag}` : ""}
-                  {item.badge !== undefined && item.badge > 0 && ` (${item.badge})`}
-                </div>
               )}
             </LinkComponent>
           );
@@ -241,6 +259,31 @@ export default function Sidebar({
         )}
       </div>
     </aside>
+
+      {/* Collapsed-rail tooltip, portalled to <body> so it never sits
+          inside the scrollable nav and can never make it scroll sideways.
+          Positioned from the hovered/focused item's bounding rect: to the
+          right of the rail, vertically centred on the item. Only ever set
+          from client event handlers, so document.body is safe here. */}
+      {isCollapsed &&
+        tooltip &&
+        createPortal(
+          <div
+            role="tooltip"
+            aria-hidden="true"
+            className="fixed z-[100] px-3 py-1.5 bg-on-surface text-surface text-xs font-bold rounded-full shadow-lg pointer-events-none whitespace-nowrap border border-outline-variant/20"
+            style={{
+              left: tooltip.left,
+              top: tooltip.top,
+              transform: 'translateY(-50%)',
+            }}
+          >
+            {tooltip.item.label}
+            {tooltip.item.tag ? ` — ${tooltip.item.tag}` : ''}
+            {tooltip.item.badge !== undefined && tooltip.item.badge > 0 && ` (${tooltip.item.badge})`}
+          </div>,
+          document.body
+        )}
     </>
   );
 }
