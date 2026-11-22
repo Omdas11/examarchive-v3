@@ -121,16 +121,19 @@ export default function MainLayout({
   // to a corner peeking out at the bottom of the screen (the component owns
   // that state) — it stays available until the session ends. Guests see it
   // too; the subscribe button sends them to sign in first.
-  // Supporter detection is best-effort: /api/profile only exposes the
-  // primary role, and "supporter" lives as a secondary/tertiary custom role,
-  // so a supporter whose flag is only in a secondary role will still see it
-  // once per session until the profile API exposes those roles. The
-  // localStorage flag is for the future subscribe flow to set.
+  // Supporters are detected by their custom role (secondary/tertiary),
+  // exposed by /api/profile; the localStorage flag is set by the subscribe
+  // flow right after a successful payment, so the popup hides at once.
   useEffect(() => {
     if (!profileChecked) return;
     if (pathname === "/maintenance-cost") return;
     if (sessionStorage.getItem("ea_supporter_popup_shown") === "1") return;
-    if (sidebarProfile?.role === "supporter") return;
+    if (
+      sidebarProfile?.role === "supporter" ||
+      sidebarProfile?.secondary_role === "supporter" ||
+      sidebarProfile?.tertiary_role === "supporter"
+    )
+      return;
     if (localStorage.getItem("ea_supporter") === "1") return;
     const timer = setTimeout(() => {
       setSupporterPopup(true);

@@ -46,6 +46,7 @@ const USER_COLUMNS = [
   "google_sub",
   "role",
   "secondary_role",
+  "tertiary_role",
   "xp",
   "streak_days",
   "last_activity",
@@ -131,6 +132,9 @@ export function userRowToProfile(row: UserRow): UserProfile {
     role: normalizeRole((row.role as string) ?? "student"),
     secondary_role: isValidCustomRole(row.secondary_role)
       ? row.secondary_role
+      : null,
+    tertiary_role: isValidCustomRole(row.tertiary_role)
+      ? row.tertiary_role
       : null,
     // Tier is derived from XP alone, never from the stored value.
     tier: xpTier(Number(row.xp ?? 0)),

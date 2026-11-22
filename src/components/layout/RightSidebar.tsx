@@ -13,6 +13,8 @@ export interface SidebarProfileResponse {
   username: string;
   avatar_url: string;
   role: string;
+  secondary_role?: string | null;
+  tertiary_role?: string | null;
   tier: string;
   xp: number;
   streak_days: number;

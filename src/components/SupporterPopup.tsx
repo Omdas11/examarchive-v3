@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { dispatchProfileRefreshEvent } from "@/lib/profile-events";
 
 /**
  * Supporter subscription popup — Rs 29/month.
@@ -13,14 +14,40 @@ import Link from "next/link";
  * The minimized corner stays visible across client-side navigations because
  * MainLayout (and this component's state) survives them.
  *
- * TODO (subscribe wiring): there is no working Razorpay subscription route
- * on Cloudflare Workers yet — src/app/api/payments/razorpay/* is the old
- * Appwrite-based credit-pack flow and does not run on Workers. Until the
- * subscription create/verify routes exist, "Become a Supporter" goes to
- * /maintenance-cost. Wiring it needs a Rs 29/month Razorpay plan and its
- * plan ID in the RAZORPAY_PLAN_ID_SUPPORTER env var (see
- * getRazorpayPlanId in src/lib/payments.ts) — do not invent a plan ID.
+ * Subscribe flow (signed-in users): loads Razorpay Checkout.js on demand,
+ * creates the subscription via POST /api/subscriptions/create, opens
+ * Checkout with the subscription id, then verifies the payment via POST
+ * /api/subscriptions/verify. On success the popup shows a confirmation,
+ * sets localStorage ea_supporter=1 (so MainLayout stops showing it) and
+ * refreshes the profile. Guests keep the old behaviour: the button sends
+ * them to sign in first.
  */
+
+/** Load https://checkout.razorpay.com/v1/checkout.js once, on demand. */
+let checkoutScriptPromise: Promise<void> | null = null;
+function loadCheckoutScript(): Promise<void> {
+  if (typeof window === "undefined") return Promise.reject(new Error("No window"));
+  if (window.Razorpay) return Promise.resolve();
+  if (checkoutScriptPromise) return checkoutScriptPromise;
+  checkoutScriptPromise = new Promise<void>((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => {
+      checkoutScriptPromise = null;
+      reject(new Error("Razorpay checkout failed to load. Check your connection and try again."));
+    };
+    document.head.appendChild(script);
+  });
+  return checkoutScriptPromise;
+}
+
+declare global {
+  interface Window {
+    Razorpay?: new (options: Record<string, unknown>) => { open: () => void };
+  }
+}
 
 const PERKS: Array<{ icon: string; text: string }> = [
   { icon: "badge", text: "Supporter badge on your profile + name on the supporters wall" },
@@ -42,6 +69,76 @@ export default function SupporterPopup({ open, isLoggedIn }: SupporterPopupProps
   // Minimized = only the card's top-left corner peeks out at the bottom-right
   // of the screen, slightly tilted. Tapping that corner reopens the card.
   const [minimized, setMinimized] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // Expiry (epoch ms) once the subscription is verified.
+  const [subscribedUntil, setSubscribedUntil] = useState<number | null>(null);
+
+  async function subscribe() {
+    setError(null);
+    setBusy(true);
+    try {
+      const createRes = await fetch("/api/subscriptions/create", { method: "POST" });
+      const createData = (await createRes.json()) as {
+        error?: string;
+        keyId?: string;
+        subscriptionId?: string;
+      };
+      if (!createRes.ok) throw new Error(createData.error ?? "Failed to start subscription");
+      if (!createData.keyId || !createData.subscriptionId) {
+        throw new Error("Subscription could not be started. Please try again.");
+      }
+      await loadCheckoutScript();
+      if (!window.Razorpay) throw new Error("Razorpay checkout failed to load.");
+
+      const checkout = new window.Razorpay({
+        key: createData.keyId,
+        subscription_id: createData.subscriptionId,
+        name: "ExamArchive",
+        description: "Supporter — ₹29/month",
+        handler: async (response: Record<string, unknown>) => {
+          try {
+            const verifyRes = await fetch("/api/subscriptions/verify", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_subscription_id: response.razorpay_subscription_id,
+                razorpay_signature: response.razorpay_signature,
+              }),
+            });
+            const verifyData = (await verifyRes.json()) as {
+              error?: string;
+              message?: string;
+              expiresAt?: number;
+            };
+            if (!verifyRes.ok) throw new Error(verifyData.error ?? "Payment verification failed");
+            try {
+              localStorage.setItem("ea_supporter", "1");
+            } catch {
+              // popup hides via state anyway; the flag is a bonus
+            }
+            dispatchProfileRefreshEvent();
+            setSubscribedUntil(
+              typeof verifyData.expiresAt === "number" ? verifyData.expiresAt : null,
+            );
+          } catch (e) {
+            setError(e instanceof Error ? e.message : "Payment verification failed");
+          } finally {
+            setBusy(false);
+          }
+        },
+        modal: {
+          ondismiss: () => setBusy(false),
+        },
+        theme: { color: "#047857" },
+      });
+      checkout.open();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong");
+      setBusy(false);
+    }
+  }
 
   if (!open) return null;
 
@@ -135,23 +232,88 @@ export default function SupporterPopup({ open, isLoggedIn }: SupporterPopupProps
             ))}
           </ul>
 
-          <Link
-            href={isLoggedIn ? "/maintenance-cost" : "/login?redirect=/maintenance-cost"}
-            tabIndex={minimized ? -1 : undefined}
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-emerald-600 to-blue-600 px-4 py-3 text-sm font-bold text-white transition-opacity hover:opacity-90"
-          >
-            <span
-              className="material-symbols-outlined text-[18px] leading-none"
-              aria-hidden="true"
-            >
-              favorite
-            </span>
-            {isLoggedIn ? "Become a Supporter — ₹29/mo" : "Sign in to become a Supporter"}
-          </Link>
-          {!isLoggedIn && (
-            <p className="mt-2 text-center text-xs text-on-surface-variant">
-              You need an account to subscribe — signing in is free.
-            </p>
+          {subscribedUntil ? (
+            <div className="mt-4 rounded-xl bg-emerald-50 px-4 py-3 text-center dark:bg-emerald-950">
+              <p className="flex items-center justify-center gap-2 text-sm font-bold text-emerald-700 dark:text-emerald-300">
+                <span className="material-symbols-outlined text-[18px] leading-none" aria-hidden="true">
+                  check_circle
+                </span>
+                You are a Supporter now!
+              </p>
+              <p className="mt-1 text-xs text-on-surface-variant">
+                Active until{" "}
+                {new Date(subscribedUntil).toLocaleDateString("en-IN", {
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                })}
+                . Thank you for keeping ExamArchive alive.
+              </p>
+            </div>
+          ) : (
+            <>
+              {error && (
+                <p
+                  key={error}
+                  className="mt-4 flex items-center gap-2 rounded-xl bg-red-50 px-3 py-2 text-sm font-bold text-red-600"
+                >
+                  <span className="material-symbols-outlined text-base" aria-hidden="true">
+                    error
+                  </span>
+                  {error}
+                </p>
+              )}
+              {isLoggedIn ? (
+                <button
+                  type="button"
+                  onClick={subscribe}
+                  disabled={busy}
+                  tabIndex={minimized ? -1 : undefined}
+                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-emerald-600 to-blue-600 px-4 py-3 text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+                >
+                  {busy ? (
+                    <>
+                      <span className="btn-spinner" aria-hidden="true" />
+                      Opening secure checkout…
+                    </>
+                  ) : (
+                    <>
+                      <span
+                        className="material-symbols-outlined text-[18px] leading-none"
+                        aria-hidden="true"
+                      >
+                        favorite
+                      </span>
+                      Become a Supporter — ₹29/mo
+                    </>
+                  )}
+                </button>
+              ) : (
+                <Link
+                  href="/login?redirect=/maintenance-cost"
+                  tabIndex={minimized ? -1 : undefined}
+                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-emerald-600 to-blue-600 px-4 py-3 text-sm font-bold text-white transition-opacity hover:opacity-90"
+                >
+                  <span
+                    className="material-symbols-outlined text-[18px] leading-none"
+                    aria-hidden="true"
+                  >
+                    favorite
+                  </span>
+                  Sign in to become a Supporter
+                </Link>
+              )}
+              {!isLoggedIn && (
+                <p className="mt-2 text-center text-xs text-on-surface-variant">
+                  You need an account to subscribe — signing in is free.
+                </p>
+              )}
+              {isLoggedIn && (
+                <p className="mt-2 text-center text-xs text-on-surface-variant">
+                  Secured by Razorpay · ₹29/month, cancel anytime
+                </p>
+              )}
+            </>
           )}
           <button
             type="button"

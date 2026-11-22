@@ -95,6 +95,8 @@ export interface UserProfile {
   role: UserRole;
   /** Community/custom secondary role, if any. */
   secondary_role?: CustomRole;
+  /** Community/custom tertiary role, if any. */
+  tertiary_role?: CustomRole;
   /** Activity-based tier. */
   tier?: UserTier;
   xp: number;

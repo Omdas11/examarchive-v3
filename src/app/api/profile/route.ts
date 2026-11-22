@@ -281,6 +281,8 @@ export async function GET() {
     username: user.username,
     avatar_url: user.avatar_url,
     role: user.role,
+    secondary_role: user.secondary_role ?? null,
+    tertiary_role: user.tertiary_role ?? null,
     tier: user.tier ?? "bronze",
     xp: dbXp,
     streak_days: dbStreakDays,
