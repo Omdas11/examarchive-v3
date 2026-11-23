@@ -1909,3 +1909,77 @@ Questions :
     ]);
   });
 });
+
+describe("parser gaps fixed from batch 25 (2026-11-23, ECODSM101T / ECOSEC151T / ENGAEC151T)", () => {
+  test("a trailing '*' bullet after ': 10' is read — ECODSM101T Q4", () => {
+    // Real staged line (batch-25/ECODSM101T-2024/staged.md line 71):
+    // "4. Answer either (a) or (b) : 10 *" — the space-separated star
+    // blocked the bare-number read, so Q4 counted 0 and the paper
+    // read 60/70 instead of 70/70.
+    const md = `UNIT—II
+
+4. Answer either (a) or (b) : 10 *
+
+(a) Explain how a consumer attains equilibrium using indifference curve analysis.`;
+    const rows = parseTranscriptToRows(md, "ECODSM101T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["4", 10],
+      ["4(a)", null],
+    ]);
+    expect(rows[0].question).toBe("Answer either (a) or (b) :");
+  });
+
+  test("a trailing '*' after an instruction-line figure is read — ': 10 *' on 'Answer any two'", () => {
+    const md = `UNIT—I
+
+2. Answer any two of the following : 10 *
+
+(a) First question here.
+
+(b) Second question here.`;
+    const rows = parseTranscriptToRows(md, "T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["2(a)", 10],
+      ["2(b)", 10],
+    ]);
+  });
+
+  test("a cut-off total '1+4=' evaluates the partial sum — ECOSEC151T Q31/Q32", () => {
+    // Real staged lines (batch-25/ECOSEC151T-2024/staged.md): the
+    // marks figures are cut off at the photo's right edge, leaving
+    // "1+4=" with no total. The partial sum (5) is the row's marks.
+    const md = `SECTION—C
+
+Answer any five questions : 5×5=
+
+31. What do you mean by risk management? What are the important steps of risk management? 1+4=
+
+32. Define risk. Add a note on the classification of risks. 1+4=`;
+    const rows = parseTranscriptToRows(md, "ECOSEC151T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["31", 5],
+      ["32", 5],
+    ]);
+  });
+
+  test("a cut-off instruction total '5×5=' still gives the per-part marks — ECOSEC151T Section C", () => {
+    // The instruction's total is cut off, but the per (5) is
+    // printed — so markless direct questions in the section (the
+    // [illegible] ones) still read 5 from the group.
+    const md = `SECTION—C
+
+Answer any five questions : 5×5=
+
+31. What do you mean by risk management? 1+4=
+
+33. Explain any five principles of insurance. [illegible]
+
+35. How is life insurance differed from general insurance? 2+3=5`;
+    const rows = parseTranscriptToRows(md, "ECOSEC151T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["31", 5],
+      ["33", 5],
+      ["35", 5],
+    ]);
+  });
+});

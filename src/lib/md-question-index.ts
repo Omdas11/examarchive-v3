@@ -337,8 +337,10 @@ const MARKS_TERM = String.raw`(?:${MARKS_NUM}|\(${MARKS_NUM}(?:\s*${MARKS_OP}\s*
 // "6+3+1", "1+3+3+3=10". Any number of terms joined by "+" (or one
 // "×"); for "+" it is the total (or the sum when no total is given),
 // for "×" the first number is the marks per sub-question.
+// The total may be cut off ("1+4=", ECOSEC151T Q31/Q32, batch 25):
+// a trailing "=" with no digits still yields the partial sum.
 const MARKS_EXPR = new RegExp(
-  String.raw`^\${0,2}\s*(${MARKS_TERM}(?:\s*${MARKS_OP}\s*${MARKS_TERM})+)\s*(?:=\s*([\d০-৯]+))?\s*\${0,2}$`,
+  String.raw`^\${0,2}\s*(${MARKS_TERM}(?:\s*${MARKS_OP}\s*${MARKS_TERM})+)\s*(?:=\s*([\d০-৯]+)?)?\s*\${0,2}$`,
 );
 
 /**
@@ -525,7 +527,11 @@ function instructionMarksDetail(
 ): { per: number | null; total: number | null } | null {
   const expr = line.match(
     new RegExp(
-      String.raw`\$?\s*\**(${MARKS_TERM}(?:\s*${MARKS_OP}\s*${MARKS_TERM})+)\s*(?:=\s*([\d০-৯]+))?\**\s*\$?\s*$`,
+      // The total may be cut off ("5×5=", ECOSEC151T Section C,
+      // batch 25): a trailing "=" with no digits still yields the
+      // partial sum / product. A trailing "*" bullet artifact is
+      // tolerated after the figure (": 10 *", ECODSM101T Q4).
+      String.raw`\$?\s*\**(${MARKS_TERM}(?:\s*${MARKS_OP}\s*${MARKS_TERM})+)\s*(?:=\s*([\d০-৯]+)?)?\**\s*\$?\s*$`,
     ),
   );
   if (expr) {
@@ -537,14 +543,17 @@ function instructionMarksDetail(
       if (n !== null && n >= 1 && n <= 100) return detail;
     }
   }
-  const trailing = line.match(/:\s*(?:\\[a-zA-Z]+\s*)?\**([\d০-৯]+)\**\s*$/);
+  // A trailing "*" bullet artifact may sit after the figure, with a
+  // space between ("... : 10 *", ECODSM101T Q4, batch 25) — the
+  // space-separated star blocked the read before.
+  const trailing = line.match(/:\s*(?:\\[a-zA-Z]+\s*)?\**([\d০-৯]+)[\s*]*$/);
   if (trailing) {
     const n = asciiNumber(trailing[1]);
     if (n !== null && n >= 1 && n <= 100) return { per: null, total: n };
   }
   // A bracketed figure ": [10]" is the same as a bare ": 10"
   // (PHIDSC303T Q10: "Answer any one of the following : [10]").
-  const bracket = line.match(/:\s*\[([\d০-৯]+)\]\s*$/);
+  const bracket = line.match(/:\s*\[([\d০-৯]+)\][\s*]*$/);
   if (bracket) {
     const n = asciiNumber(bracket[1]);
     if (n !== null && n >= 1 && n <= 100) return { per: null, total: n };
@@ -917,9 +926,11 @@ function stripTrailingMarks(
   // papers write it without $ delimiters. Checked before the bare
   // number below, or "৪" alone would be misread as marks 4. The
   // expression may carry bold markers ("**7+3**", "**4+4+2=10**").
+  // The total may be cut off ("1+4=", ECOSEC151T Q31/Q32, batch 25):
+  // a trailing "=" with no digits still yields the partial sum.
   const bareExpr = text.match(
     new RegExp(
-      String.raw`^(.*?)\s+\**(${MARKS_TERM}(?:\s*${MARKS_OP}\s*${MARKS_TERM})+)\s*(?:=\s*([\d০-৯]+))?\**\s*$`,
+      String.raw`^(.*?)\s+\**(${MARKS_TERM}(?:\s*${MARKS_OP}\s*${MARKS_TERM})+)\s*(?:=\s*([\d০-৯]+)?)?\**\s*$`,
     ),
   );
   if (bareExpr) {
@@ -959,7 +970,7 @@ function stripTrailingMarks(
   // punctuation is required before the "(".
   const splitParen = text.match(
     new RegExp(
-      String.raw`^(.*?)\s*\((${MARKS_NUM}(?:\s*${MARKS_OP}\s*${MARKS_NUM})+)\s*(?:=\s*([\d০-৯]+))?\)\s*:?\s*$`,
+      String.raw`^(.*?)\s*\((${MARKS_NUM}(?:\s*${MARKS_OP}\s*${MARKS_NUM})+)\s*(?:=\s*([\d০-৯]+)?)?\)\s*:?\s*$`,
     ),
   );
   if (splitParen) {
@@ -979,7 +990,7 @@ function stripTrailingMarks(
   // split above.
   const bracketSplit = text.match(
     new RegExp(
-      String.raw`^(.*?)\s*\[(${MARKS_NUM}(?:\s*${MARKS_OP}\s*${MARKS_NUM})+)\s*(?:=\s*([\d০-৯]+))?\]\s*$`,
+      String.raw`^(.*?)\s*\[(${MARKS_NUM}(?:\s*${MARKS_OP}\s*${MARKS_NUM})+)\s*(?:=\s*([\d০-৯]+)?)?\]\s*$`,
     ),
   );
   if (bracketSplit) {
@@ -1113,7 +1124,9 @@ function stripTrailingMarks(
   // per-part marks when those are known. A year or a number inside the question
   // never looks like this: it is followed by punctuation or is too big.
   // The number may carry *emphasis* ("**10**") or be Bengali digits.
-  const m = text.match(/^(.*?)\s+\**([\d০-৯]+)\**$/);
+  // A trailing "*" bullet artifact may follow the figure with a space
+  // ("... : 10 *", ECODSM101T Q4, batch 25).
+  const m = text.match(/^(.*?)\s+\**([\d০-৯]+)[\s*]*$/);
   if (!m) return { text, marks: null };
   const n = asciiNumber(m[2]);
   if (n === null || n < 1 || n > 100) return { text, marks: null };
