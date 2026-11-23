@@ -1180,3 +1180,46 @@ Answer any two of the following questions : 2×2=4
     ]);
   });
 });
+
+describe("parser gaps fixed from batch 21 (2026-11-23, BNGSEC151T)", () => {
+  test("পনেরোটি (15) is a count word — the বিভাগ—ক instruction is recognised (BNGSEC151T)", () => {
+    // Real staged lines: batch-21/BNGSEC151T-2024/staged.md lines 35-38.
+    // Before the fix the instruction was a direct question row and
+    // Q1–Q20 got no group/marks (counted 35/50 instead of 50/50).
+    const md = `## বিভাগ—ক
+
+যে কোনো পনেরোটি প্রশ্নের উত্তর দাও : $1 \\times ১৫=১৫$
+
+1. DTP (ডি.টি.পি.)-র পূর্ণরূপ কী?
+
+2. দ্বিতীয় প্রশ্ন।`;
+    const rows = parseTranscriptToRows(md, "BNGSEC151T");
+    expect(rows.map((r) => [r.label, r.marks, r.group, r.unit])).toEqual([
+      ["1", 1, "Answer any 15", "ক"],
+      ["2", 1, "Answer any 15", "ক"],
+    ]);
+  });
+
+  test("every count word from eleven to nineteen is recognised", () => {
+    // None of these words contains য় or ড়, so they are typed, not
+    // escaped — the same convention as একটি/দুটি/দশটি above.
+    const words: [string, number][] = [
+      ["এগারোটি", 11],
+      ["বারোটি", 12],
+      ["তেরোটি", 13],
+      ["চৌদ্দটি", 14],
+      ["পনেরোটি", 15],
+      ["ষোলোটি", 16],
+      ["সতেরোটি", 17],
+      ["আঠারোটি", 18],
+      ["উনিশটি", 19],
+    ];
+    for (const [word, n] of words) {
+      const md = `যে কোনো ${word} প্রশ্নের উত্তর দাও : $1 \\times ${n}=${n}$\n\n1. প্রথম প্রশ্ন।`;
+      const rows = parseTranscriptToRows(md, "BNGTEST");
+      expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+        ["1", 1, `Answer any ${n}`],
+      ]);
+    }
+  });
+});

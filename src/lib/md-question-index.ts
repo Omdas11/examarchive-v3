@@ -148,6 +148,18 @@ const BN_COUNT_WORDS = new Map<string, number>([
   ["আটটি", 8],
   ["\u09a8\u09df\u099f\u09bf", 9],
   ["দশটি", 10],
+  // Eleven to nineteen (BNGSEC151T বিভাগ—ক: "যে কোনো পনেরোটি
+  // প্রশ্নের উত্তর দাও"). None of these words contains য় or ড়, so
+  // they are typed, not escaped — unlike ছয়টি/নয়টি/কুড়িটি above.
+  ["এগারোটি", 11],
+  ["বারোটি", 12],
+  ["তেরোটি", 13],
+  ["চৌদ্দটি", 14],
+  ["পনেরোটি", 15],
+  ["ষোলোটি", 16],
+  ["সতেরোটি", 17],
+  ["আঠারোটি", 18],
+  ["উনিশটি", 19],
   ["\u0995\u09c1\u09a1\u09bc\u09bf\u099f\u09bf", 20],
   ["\u0995\u09c1\u09dc\u09bf\u099f\u09bf", 20],
 ]);
