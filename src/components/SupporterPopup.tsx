@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { dispatchProfileRefreshEvent } from "@/lib/profile-events";
 
@@ -12,8 +12,11 @@ import { dispatchProfileRefreshEvent } from "@/lib/profile-events";
  * away until only one corner of it peeks out at the bottom-right of the
  * screen, slightly tilted, and tapping that corner reopens the full card.
  * When open, the card is a centered modal like the WhatsApp popup
- * (bottom-anchored on phones, centered on wider screens, dimmed
- * backdrop) — not a corner card.
+ * (middle of the screen on phones and desktop, dimmed backdrop) — not
+ * a corner card. Minimize/maximize is a real slide: the card is ONE
+ * fixed element whose position is driven only by transform, so it
+ * glides between the middle and the bottom-right corner instead of
+ * jumping between two different layouts.
  *
  * MainLayout is NOT in the root layout — every page mounts its own
  * MainLayout, so this component remounts on every navigation. The
@@ -101,6 +104,14 @@ export default function SupporterPopup({
   const [minimized, setMinimized] = useState(initialMinimized);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Entrance: mount slightly faded/scaled down, then transition in.
+  // (The old animate-toast-in keyframe fought the centering transform,
+  // so it is gone — the transition below is the entrance now.)
+  const [entered, setEntered] = useState(false);
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setEntered(true));
+    return () => cancelAnimationFrame(frame);
+  }, []);
   // Expiry (epoch ms) once the subscription is verified.
   const [subscribedUntil, setSubscribedUntil] = useState<number | null>(null);
 
@@ -191,25 +202,31 @@ export default function SupporterPopup({
 
   if (!open) return null;
 
-  // Layout: when open, the card is a centered modal like the WhatsApp
-  // popup (bottom-anchored on phones, centered on wider screens, dimmed
-  // backdrop). Dismissing still slides it to the bottom-right corner
-  // (minimized). While the WhatsApp modal is open, the full card docks
-  // top-right instead so both stay visible and stacked.
+  // Layout: the card is ONE fixed element whose position is driven only
+  // by transform, so minimize/maximize animates smoothly. (Previously the
+  // card jumped between a centered flex container and an absolute
+  // bottom-right corner, and the transform transition could never run —
+  // that is why there was no animation.)
+  // - open: centered modal, dimmed backdrop (backdrop tap minimizes)
+  // - minimized: slides to the bottom-right until only its corner peeks
+  //   out, slightly tilted; tapping it slides it back to the middle
+  // - stacked (WhatsApp modal open): docks top-right so both stay visible
   const centered = !minimized && !stacked;
 
   return (
     <div
       className={
-        centered
-          ? "fixed inset-0 z-[100] flex items-end justify-center p-4 sm:items-center"
-          : "pointer-events-none fixed inset-0 overflow-hidden " +
-            (stacked ? "z-[101]" : "z-[100]")
+        "fixed inset-0 overflow-hidden " +
+        (stacked ? "z-[101]" : "z-[100]") +
+        (centered ? "" : " pointer-events-none")
       }
     >
       {centered && (
         <div
-          className="absolute inset-0 bg-black/50"
+          className={
+            "absolute inset-0 bg-black/50 transition-opacity duration-300 " +
+            (entered ? "opacity-100" : "opacity-0")
+          }
           onClick={minimize}
           aria-hidden="true"
         />
@@ -235,15 +252,13 @@ export default function SupporterPopup({
             : undefined
         }
         className={
-          "pointer-events-auto max-w-sm overflow-hidden rounded-lg bg-surface shadow-floating transition-transform duration-300 ease-out " +
-          (centered
-            ? "animate-toast-in relative w-full "
-            : "absolute right-4 w-[calc(100vw-2rem)] ") +
+          "pointer-events-auto fixed left-1/2 top-1/2 w-[calc(100vw-2rem)] max-w-sm overflow-hidden rounded-lg bg-surface shadow-floating transition-all duration-300 ease-out " +
+          (entered ? "opacity-100 " : "opacity-0 scale-[0.97] ") +
           (minimized
-            ? "bottom-4 translate-x-[calc(100%_-_72px)] translate-y-[calc(100%_-_60px)] rotate-[4deg] cursor-pointer"
+            ? "translate-x-[calc(50vw-88px)] translate-y-[calc(50vh-76px)] rotate-[4deg] cursor-pointer"
             : stacked
-              ? "top-4 translate-x-0 translate-y-0 rotate-0"
-              : "translate-x-0 translate-y-0 rotate-0")
+              ? "translate-x-[calc(50vw-16px-100%)] translate-y-[calc(16px-50vh)]"
+              : "-translate-x-1/2 -translate-y-1/2")
         }
       >
         {/* Header — emerald-to-blue gradient, same family as the reward toast */}
