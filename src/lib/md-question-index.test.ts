@@ -1012,3 +1012,171 @@ describe("parser gaps fixed from batch 19 (2026-11-23, BENSEC201)", () => {
     ]);
   });
 });
+
+// "কুড়িটি" (twenty) with the single-codepoint ড় (U+09DC) — the form
+// the BNGIDC151T scan actually prints. Written as codepoint escapes,
+// never typed: the two byte forms of ড় look identical and only
+// codepoints tell them apart (AGENTS.md, Bengali য় trap).
+const KURITI_SINGLE = "\u0995\u09c1\u09dc\u09bf\u099f\u09bf";
+
+describe("parser gaps fixed from batch 20 (2026-11-23, BNG section papers)", () => {
+  test("a section instruction propagates to every question under it (BNGDSC152T বিভাগ—ক/খ)", () => {
+    const md = `## বিভাগ—ক
+
+যে কোনো দশটি প্রশ্নের উত্তর দাও : ২×১০=২০
+
+1. প্রথম প্রশ্ন।
+
+2. দ্বিতীয় প্রশ্ন।
+
+3. তৃতীয় প্রশ্ন।
+
+## বিভাগ—খ
+
+যে কোনো পাঁচটি প্রশ্নের উত্তর দাও : ১০×৫=৫০
+
+4. চতুর্থ প্রশ্ন।
+
+5. পঞ্চম প্রশ্ন।`;
+    const rows = parseTranscriptToRows(md, "BNGDSC152T");
+    expect(rows.map((r) => [r.label, r.marks, r.group, r.unit])).toEqual([
+      ["1", 2, "Answer any 10", "ক"],
+      ["2", 2, "Answer any 10", "ক"],
+      ["3", 2, "Answer any 10", "ক"],
+      ["4", 10, "Answer any 5", "খ"],
+      ["5", 10, "Answer any 5", "খ"],
+    ]);
+  });
+
+  test("‘সংক্ষিপ্ত’ without ‘অতি’ still matches the instruction (BNGDSM151T SECTION—A)", () => {
+    const md = `SECTION—A
+
+যেকোনো দশটি প্রশ্নের সংক্ষিপ্ত উত্তর দাও : ২×১০=২০
+
+1. প্রথম প্রশ্ন।
+
+2. দ্বিতীয় প্রশ্ন।`;
+    const rows = parseTranscriptToRows(md, "BNGDSM151T");
+    expect(rows.map((r) => [r.label, r.marks, r.group, r.unit])).toEqual([
+      ["1", 2, "Answer any 10", "A"],
+      ["2", 2, "Answer any 10", "A"],
+    ]);
+  });
+
+  test("mixed বিভাগ/SECTION headings, both quote styles, Latin x, and the single-codepoint ড় count word (BNGIDC151T)", () => {
+    const md = `### বিভাগ—‘ক’
+
+যে কোনো ${KURITI_SINGLE} প্রশ্নের উত্তর দাও : ১×২০=২০
+
+1. প্রথম প্রশ্ন।
+
+2. দ্বিতীয় প্রশ্ন।
+
+## বিভাগ—'খ'
+
+যে কোনো পাঁচটি প্রশ্নের উত্তর দাও : ২×৫=১০
+
+3. তৃতীয় প্রশ্ন।
+
+SECTION—'গ'
+
+যে কোনো পাঁচটি প্রশ্নের উত্তর দাও : ৮x৫=৪০
+
+4. চতুর্থ প্রশ্ন।`;
+    const rows = parseTranscriptToRows(md, "BNGIDC151T");
+    expect(rows.map((r) => [r.label, r.marks, r.group, r.unit])).toEqual([
+      ["1", 1, "Answer any 20", "ক"],
+      ["2", 1, "Answer any 20", "ক"],
+      ["3", 2, "Answer any 5", "খ"],
+      ["4", 8, "Answer any 5", "গ"],
+    ]);
+  });
+
+  test("a bare question number whose text starts as a blockquote still becomes a row (BNGDSM151T Q21)", () => {
+    const md = `SECTION—B
+
+যে কোনো পাঁচটি প্রশ্নের উত্তর দাও : ১০×৫=৫০
+
+20. বিংশ প্রশ্ন।
+
+21.
+
+> “নতুন মঙ্গল আশে ভারত সরস ভাষে
+
+> রাজা কৃষ্ণচন্দ্রের আজ্ঞায়।”
+
+কবি ভারতচন্দ্র তাঁর কাব্যকে কেন ‘নতুন মঙ্গল’ বলে অভিহিত করেছেন তা সংক্ষেপে বিবৃত করো।
+
+22. দ্বাবিংশ প্রশ্ন।`;
+    const rows = parseTranscriptToRows(md, "BNGDSM151T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["20", 10, "Answer any 5"],
+      ["21", 10, "Answer any 5"],
+      ["22", 10, "Answer any 5"],
+    ]);
+    expect(rows[1].question).toContain("নতুন মঙ্গল");
+    expect(rows[1].question).toContain("ভারতচন্দ্র");
+    expect(rows[1].question).not.toContain(">");
+  });
+
+  test("marks printed mid-question-text show in the Marks column (BNGAEC101T Q3/Q15/Q25)", () => {
+    const md = `1. নিম্নলিখিত যে কোনো তিনটি প্রশ্নের উত্তর দাও : ১×৩=৩
+
+(a) প্রথম প্রশ্ন।
+
+(b) দ্বিতীয় প্রশ্ন।
+
+(c) তৃতীয় প্রশ্ন।
+
+(d) চতুর্থ প্রশ্ন।
+
+OR
+
+3. টীকা লেখো : ২ তদ্ভব শব্দ
+
+OR
+
+15. অশুদ্ধি সংশোধন করো (যে কোনো পাঁচটি) : ১×৫=৫ কৌতুহল; উচ্ছ্বাস; গীতাঞ্জলী
+
+OR
+
+25. “পথিক, তুমি পথ হারাইয়াছ?” উক্তিটির আলোকে উপন্যাসে বর্ণিত ঘটনার বিবরণ দাও। ৫ ★★★ J25—13100/555 2024/FYUG/ODD/SEM/BNGAEC–101T/230`;
+    const rows = parseTranscriptToRows(md, "BNGAEC101T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1(a)", 1, "Answer any 3"],
+      ["1(b)", 1, "Answer any 3"],
+      ["1(c)", 1, "Answer any 3"],
+      ["1(d)", 1, "Answer any 3"],
+      ["3", 2, "OR"],
+      ["15", 5, "OR"],
+      ["25", 5, "OR"],
+    ]);
+  });
+
+  test("an unnumbered instruction under a UNIT heading never becomes section-scoped (MTMDSM301 UNIT—II)", () => {
+    const md = `UNIT—II
+
+Answer any two of the following questions : 2×2=4
+
+(a) First part.
+
+(b) Second part.
+
+(c) Third part.
+
+4. Answer either [(a) and (b)] or [(c) and (d)] :
+
+(a) Fourth part a. 5
+
+(b) Fourth part b. 5`;
+    const rows = parseTranscriptToRows(md, "MTMDSM301");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1(a)", 2, "Answer any 2"],
+      ["1(b)", 2, "Answer any 2"],
+      ["1(c)", 2, "Answer any 2"],
+      ["4", null, "Answer either"],
+      ["4(a)", 5, "Answer either"],
+      ["4(b)", 5, "Answer either"],
+    ]);
+  });
+});

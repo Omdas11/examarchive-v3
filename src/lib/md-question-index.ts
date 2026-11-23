@@ -77,9 +77,12 @@ const TABLE_HEADER =
 const TABLE_SEPARATOR = "| --- | --- | --- | --- | --- | --- | --- |";
 
 // "UNIT—I" / "UNIT—II" / "SECTION—A" (em dash, en dash, or hyphen).
-// Bengali papers use গুচ্ছ—N the same way.
+// Bengali papers use গুচ্ছ—N the same way, and বিভাগ—ক/খ/গ for
+// sections (BNGDSC152T, BNGIDC151T). The section letter may be quoted
+// ("বিভাগ—‘ক’", "SECTION—'গ'") and the heading may carry a markdown
+// prefix ("## বিভাগ—ক", "### বিভাগ—খ").
 const UNIT_HEADING =
-  /^(?:(UNIT|SECTION)\s*[—–-]\s*([A-Za-z0-9]+)|গুচ্ছ\s*[—–-]\s*([\d০-৯]+))\s*$/;
+  /^(?:#{1,3}\s*)?(?:(UNIT|SECTION)\s*[—–-]\s*['‘’"“”]?\s*([A-Za-z0-9কখগঘঙচছজঝ]+)\s*['‘’"“”]?|বিভাগ\s*[—–-]\s*['‘’"“”]?\s*([কখগঘঙচছজঝA-Za-z])\s*['‘’"“”]?|গুচ্ছ\s*[—–-]\s*([\d০-৯]+))\s*$/;
 
 // Bengali digits, and the letters used for sub-question markers.
 const BN_DIGITS = "০১২৩৪৫৬৭৮৯";
@@ -129,6 +132,10 @@ function foldAsmRa(s: string): string {
 // never typed, so the two byte forms of য় cannot slip in.
 // "তিনিটি" is the Assamese spelling of "তিনটি" (BENSEC201 Q11) —
 // same count, different letters, so it is its own entry.
+// "কুড়িটি" is twenty (BNGIDC151T বিভাগ—‘ক’: answer any twenty).
+// Its ড় has two byte forms like য় does — ড + nukta (U+09A1
+// U+09BC) and the single codepoint ড় (U+09DC) — so both are
+// listed, written with explicit codepoints, never typed.
 const BN_COUNT_WORDS = new Map<string, number>([
   ["একটি", 1],
   ["দুটি", 2],
@@ -141,6 +148,8 @@ const BN_COUNT_WORDS = new Map<string, number>([
   ["আটটি", 8],
   ["\u09a8\u09df\u099f\u09bf", 9],
   ["দশটি", 10],
+  ["\u0995\u09c1\u09a1\u09bc\u09bf\u099f\u09bf", 20],
+  ["\u0995\u09c1\u09dc\u09bf\u099f\u09bf", 20],
 ]);
 
 // "1. Answer any two of/from the following questions : 10" — the number
@@ -180,14 +189,20 @@ const PAIR_EITHER_LINE =
 // before "প্রশ্নের" ("যে কোনো চারটি অতি সংক্ষিপ্ত প্রশ্নের উত্তর
 // দাও", BNGIDC201T Q4) or between "প্রশ্নের" and "উত্তর দাও"
 // ("যে কোনো চারটি প্রশ্নের অতি সংক্ষিপ্ত উত্তর দাও", BNGIDC201T
-// Q1/Q7/Q10/Q13) — both are the same instruction. Neither word
+// Q1/Q7/Q10/Q13) — both are the same instruction. The "সংক্ষিপ্ত"
+// without "অতি" also occurs ("যে কোনো দশটি প্রশ্নের সংক্ষিপ্ত
+// উত্তর দাও", BNGDSM151T SECTION—A). Neither word
 // contains য়, so they are typed, not escaped.
+// AEC papers put "নিম্নলিখিত" (the following) before "যে কোনো"
+// ("১। নিম্নলিখিত যে কোনো তিনটি প্রশ্নের উত্তর দাও", BNGAEC101T Q1)
+// — same instruction, same rule; without the prefix the line became
+// a direct question row and its (a)–(d) parts got no marks.
 // Assamese spelling (BENSEC201 Q11): "যে কোনো তিনিটি প্ৰশ্নৰ উত্তৰ
 // দাও" — the ৰ is folded to র before matching (see foldAsmRa), and
 // the ে in "প্রশ্নের" is optional because the Assamese form drops it
 // ("প্রশ্নর"). The count word "তিনিটি" is in BN_COUNT_WORDS.
 const BN_INSTRUCTION_LINE =
-  /^(?:([\d০-৯]+)[।.]\s*)?যে[\s-]*কোনো\s*(\S+?)\s*(?:অতি\s+সংক্ষিপ্ত\s+)?প্রশ্নে?র\s+(?:অতি\s+সংক্ষিপ্ত\s+)?উত্তর\s+দাও(?=\s|:|$)[^\n]*$/;
+  /^(?:([\d০-৯]+)[।.]\s*)?(?:নিম্নলিখিত\s+)?যে[\s-]*কোনো\s*(\S+?)\s*(?:(?:অতি\s+)?সংক্ষিপ্ত\s+)?প্রশ্নে?র\s+(?:(?:অতি\s+)?সংক্ষিপ্ত\s+)?উত্তর\s+দাও(?=\s|:|$)[^\n]*$/;
 
 // Manipuri (Bengali script) count words in instruction lines:
 // "অমতংগী" and "অমখক" are one, "অনীদংগী" two, "অহুমথকী" and
@@ -773,6 +788,59 @@ function stripTrailingMarks(
       return { text: `${colonQuote[1]}: ${colonQuote[3]}`.trim(), marks: n };
     }
   }
+  // A marks figure/expression after a colon, with the question's
+  // items after it — "টীকা লেখো : ২ তদ্ভব শব্দ" (BNGAEC101T Q3),
+  // "অশুদ্ধি সংশোধন করো (যে কোনো পাঁচটি) : ১×৫=৫ কৌতুহল; ..."
+  // (BNGAEC101T Q15), "ব্যাসবাক্যসহ সমাস নির্ণয় করো (যে কোনো
+  // পাঁচটি) : ১×৫=৫ দম্পতি; ..." (BNGAEC201T Q25). The figure is
+  // the question's marks, not part of the items: the colon stays,
+  // the figure goes, the items stay. Only when the rest carries no
+  // sub-question marker — a merged "(i) ... : 2 ... (ii) ..." row
+  // keeps its figures for the merged-sum logic — and, for a bare
+  // figure, no question mark or list star (the rest is a topic or a
+  // list, not another question).
+  const colonMid = text.match(
+    /^(.*?):\s+\**([\d০-৯]+(?:\s*(?:\\times|[×x+])\s*[\d০-৯]+)*)\s*(?:=\s*([\d০-৯]+))?\**\s+(.+)$/,
+  );
+  if (colonMid) {
+    const rest = colonMid[4];
+    const hasSubMarker =
+      /\([a-jকখগঘঙ]\)/.test(rest) || /\((i|ii|iii|iv)\)/.test(rest);
+    if (!hasSubMarker) {
+      let derived: number | null = null;
+      if (/[×x+]/.test(colonMid[2])) {
+        // An N×M=K expression after the colon is unambiguous marks.
+        derived = marksTotalFromParts(colonMid[2], colonMid[3]);
+      } else if (!/[?*]/.test(rest)) {
+        // A bare figure: only when the rest is a topic or a list.
+        derived = asciiNumber(colonMid[2]);
+      }
+      if (
+        derived !== null &&
+        derived >= 1 &&
+        derived <= 100 &&
+        (groupGuard === null || groupGuard === derived)
+      ) {
+        return { text: `${colonMid[1]}: ${rest}`.trim(), marks: derived };
+      }
+    }
+  }
+  // A trailing marks figure followed by a page footer ("★★★ J25—..."):
+  // the figure is the question's marks, the footer is not question
+  // text (BNGAEC101T Q25). The ★ marker is distinctive — exam-code
+  // footers are the only ★ usage in these transcripts.
+  const footerMarks = text.match(/^(.*?)\s+\**([\d০-৯]+)\**\s+★.*$/);
+  if (footerMarks) {
+    const n = asciiNumber(footerMarks[2]);
+    if (
+      n !== null &&
+      n >= 1 &&
+      n <= 100 &&
+      (groupGuard === null || groupGuard === n)
+    ) {
+      return { text: footerMarks[1].trim(), marks: n };
+    }
+  }
   // A bare number at the end of the question is its marks — but only
   // when it is a plausible mark (<= 100) and agrees with the group's
   // per-part marks when those are known. A year or a number inside the question
@@ -820,6 +888,19 @@ export function parseTranscriptToRows(
   // after it, whose parts add up to T).
   let groupQNum: number | null = null;
   let groupBareUnnumbered = false;
+  // rows.length when the current group was set by an instruction.
+  let rowsAtGroupStart = 0;
+  // Whether the current group governs the whole section: an
+  // unnumbered instruction whose question produced no rows before the
+  // next number arrived (see clearGroupForNumber). A section
+  // instruction ("যে কোনো দশটি প্রশ্নের উত্তর দাও : $২×১০=২০$",
+  // BNGDSC152T বিভাগ—ক) survives every numbered question under it;
+  // a new heading or instruction ends it.
+  let sectionScoped = false;
+  // What the most recent heading was: "section" for বিভাগ/SECTION
+  // headings, "unit" for UNIT/গুচ্ছ, null before any heading. Only a
+  // section heading can open a section instruction (see below).
+  let lastHeadingKind: "section" | "unit" | null = null;
   let orPending = false;
   // A bare "(b)" label seen on its own line, waiting for the next
   // line to supply that sub-question's text.
@@ -948,9 +1029,21 @@ export function parseTranscriptToRows(
    * an unnumbered bare instruction is a candidate: its parts add up
    * to the total, they are not each worth it — so the parts keep
    * their own marks (the group label stays, for the counter).
+   * The one exception is a SECTION instruction: an unnumbered
+   * per-detail instruction whose question produced NO rows before
+   * this number arrived governs the numbered questions that follow
+   * it, not one question's parts — it is recognised as section-scoped
+   * here and survives every later number under the section. Two
+   * things must both hold: no row was pushed for the opened number
+   * yet, and the most recent heading is a বিভাগ/SECTION heading.
+   * The MTM shape is the other one: the instruction's (a)/(b) rows
+   * were pushed first (MTMDSM301 UNIT—II), so the group clears here
+   * exactly as before and its per-part marks never leak into the
+   * next question.
    */
   const clearGroupForNumber = (n: number | null): void => {
     if (n === null) return;
+    if (sectionScoped) return;
     if (groupQNum !== null && n !== groupQNum) {
       group = "";
       groupMarks = null;
@@ -971,11 +1064,86 @@ export function parseTranscriptToRows(
       // opened; a new numbered question ends it, or its per-part marks
       // and group leak into the next question (MTMDSM301 Q4(a) and
       // MTMDSC301T Q8(c) both read a phantom 2 from the stale group).
+      // Unless no row was pushed for the opened number at all: then
+      // the instruction is a section instruction (see above) — but
+      // only under a বিভাগ/SECTION heading; a UNIT heading can never
+      // open one (MTMDSM301 UNIT—II).
+      if (
+        rows.length === rowsAtGroupStart &&
+        lastHeadingKind === "section"
+      ) {
+        sectionScoped = true;
+        return;
+      }
       group = "";
       groupMarks = null;
       groupGuard = null;
       groupQNum = null;
       groupBareUnnumbered = false;
+    } else if (
+      groupQNum === null &&
+      !groupBareUnnumbered &&
+      String(n) === qNum &&
+      groupGuard !== null &&
+      rows.length === rowsAtGroupStart &&
+      lastHeadingKind === "section"
+    ) {
+      // The first numbered question under an unnumbered per-detail
+      // instruction IS the number the instruction opened, and no row
+      // was pushed for it yet: the instruction governs the numbered
+      // questions that follow (section shape, BNGDSC152T বিভাগ—ক:
+      // the instruction opens Q1, then Q1, Q2, ... are direct
+      // questions each worth the per-part marks). Without this the
+      // group would be recognised one number too late — Q1 keeps it
+      // and Q2 loses it.
+      sectionScoped = true;
+    }
+  };
+
+  // A bare question number on its own line ("২১।"), waiting for its
+  // text — which may start on the next line as a blockquote
+  // (BNGDSM151T Q21). Lines after it are its text until a structural
+  // line arrives. Only the next number opens one (a bare "1."/"2."
+  // inside a question is a list item, PHYDSC302T Q10(b), not a
+  // question start).
+  let pendingQ: { num: string; text: string } | null = null;
+
+  /** A line that starts a new row or ends the current group. */
+  const isStructuralLine = (l: string): boolean =>
+    UNIT_HEADING.test(l) ||
+    /^(OR|অথবা)$/i.test(l.replace(/^[#*\s]+|[#*\s]+$/g, "")) ||
+    matchInstruction(l) !== null ||
+    MARKS_EXPR.test(l) ||
+    NUMBERED_SUB_LINE.test(l) ||
+    BARE_SUB_LINE.test(l) ||
+    SUB_QUESTION_LINE.test(l) ||
+    NUMBERED_LINE.test(l) ||
+    /^\((ii|iii|iv)\)\s+.+$/.test(l) ||
+    /^[\d০-৯]+\s*[।.]$/.test(l);
+
+  /** Flush a pending bare-number question as a row (if it has text). */
+  const flushPendingQ = (): void => {
+    if (!pendingQ) return;
+    const { num, text } = pendingQ;
+    pendingQ = null;
+    if (!text.trim()) return;
+    const orStripped = stripTrailingOr(text.trim());
+    const stripped = stripTrailingMarks(orStripped.text, null, "");
+    const row: QuestionRow = {
+      label: num,
+      question: stripped.text,
+      marks: stripped.marks ?? groupMarks,
+      unit,
+      group,
+      id: `${paperCode}-Q${num}`,
+      keywords: "",
+    };
+    if (orStripped.isOr) {
+      applyOr(row);
+      orPending = true;
+      rows.push(row);
+    } else {
+      pushRow(row);
     }
   };
 
@@ -985,7 +1153,14 @@ export function parseTranscriptToRows(
 
     const unitMatch = line.match(UNIT_HEADING);
     if (unitMatch) {
-      unit = unitMatch[2] ?? (unitMatch[3] ? asciiDigits(unitMatch[3]) : "");
+      unit =
+        unitMatch[2] ??
+        unitMatch[3] ??
+        (unitMatch[4] ? asciiDigits(unitMatch[4]) : "");
+      lastHeadingKind =
+        unitMatch[1] === "SECTION" || unitMatch[3] !== undefined
+          ? "section"
+          : "unit";
       // A unit is self-contained: every unit starts with its own
       // instruction, so the previous unit's group never carries over.
       group = "";
@@ -993,6 +1168,7 @@ export function parseTranscriptToRows(
       groupGuard = null;
       groupQNum = null;
       groupBareUnnumbered = false;
+      sectionScoped = false;
       orPending = false;
       pendingSub = null;
       lastSubLetter = "";
@@ -1019,6 +1195,19 @@ export function parseTranscriptToRows(
     // Page markers and any other HTML comments are not questions.
     if (line.startsWith("<!--")) continue;
 
+    // A pending bare-number question: a structural line ends it (and
+    // is then handled normally below); anything else is its text —
+    // a blockquote marker is stripped, lines join with a space.
+    if (pendingQ) {
+      if (isStructuralLine(line)) {
+        flushPendingQ();
+      } else {
+        pendingQ.text +=
+          (pendingQ.text ? " " : "") + line.replace(/^>\s*/, "");
+        continue;
+      }
+    }
+
     // Instruction lines (English or Bengali). The number is optional:
     // an unnumbered instruction opens the next question number — a
     // missing "1." must not lose the whole first question. The group
@@ -1040,6 +1229,8 @@ export function parseTranscriptToRows(
         ? "Answer either"
         : `Answer any ${instr.count}`;
       groupQNum = instr.num;
+      rowsAtGroupStart = rows.length;
+      sectionScoped = false;
       const detail = instructionMarksDetail(line);
       if (instr.pairEither) {
         // The printed total (": 10") is the PAIR's total, not each
@@ -1200,6 +1391,26 @@ export function parseTranscriptToRows(
       continue;
     }
 
+    // A bare question number on its own line ("২১।") — its text
+    // follows on the next lines (see pendingQ above). Only the next
+    // number opens one: a bare "1."/"2." inside a question is a list
+    // item (PHYDSC302T Q10(b)), not a question start.
+    const bareNum = line.match(/^([\d০-৯]+)\s*[।.]$/);
+    if (bareNum) {
+      const n = asciiNumber(bareNum[1]);
+      if (n !== null && n === lastQNum + 1) {
+        clearGroupForNumber(n);
+        qNum = String(n);
+        lastQNum = n;
+        lastSubLetter = "";
+        pendingSub = null;
+        pendingQ = { num: String(n), text: "" };
+        continue;
+      }
+      // Any other bare number is not a question start.
+      continue;
+    }
+
     const numMatch = line.match(NUMBERED_LINE);
     if (numMatch) {
       // A direct question with no sub-parts. It also becomes the
@@ -1218,12 +1429,18 @@ export function parseTranscriptToRows(
       pendingSub = null;
       const orStripped = stripTrailingOr(numMatch[2].trim());
       const stripped = stripTrailingMarks(orStripped.text, null, "");
+      // A direct question under a group carries the group's rule and,
+      // when it prints no marks of its own, the group's per-part
+      // marks — a section question ("যে কোনো দশটি ... : $২×১০=২০$")
+      // is worth 2, not blank. The group was already cleared above
+      // when this number is outside it, so a stale group never leaks
+      // in here.
       const row: QuestionRow = {
         label: qNum,
         question: stripped.text,
-        marks: stripped.marks,
+        marks: stripped.marks ?? groupMarks,
         unit,
-        group: "",
+        group,
         id: `${paperCode}-Q${qNum}`,
         keywords: "",
       };
