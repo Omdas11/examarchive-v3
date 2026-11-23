@@ -1056,6 +1056,18 @@ export function parseTranscriptToRows(
   // after it, whose parts add up to T).
   let groupQNum: number | null = null;
   let groupBareUnnumbered = false;
+  // Whether groupMarks was set by a standalone marks-expression line
+  // ("8×5") since the last heading, and whether any instruction has
+  // been seen since the last heading. A marks line printed ABOVE a
+  // section's instruction states that section's per-part marks
+  // (ECOIDC-151T Section C: "8×5" then "Answer any five questions :"
+  // with no marks of its own) — the first instruction after a heading
+  // inherits it, so the section's questions read 8 instead of blank.
+  // A marks line AFTER an instruction belongs to that instruction,
+  // so a later instruction must not inherit it (hence the second
+  // flag): without it the per would leak into the next group.
+  let groupMarksFromLine = false;
+  let seenInstructionSinceHeading = false;
   // rows.length when the current group was set by an instruction.
   let rowsAtGroupStart = 0;
   // Whether the current group governs the whole section: an
@@ -1351,6 +1363,8 @@ export function parseTranscriptToRows(
       groupGuard = null;
       groupQNum = null;
       groupBareUnnumbered = false;
+      groupMarksFromLine = false;
+      seenInstructionSinceHeading = false;
       sectionScoped = false;
       orPending = false;
       pendingSub = null;
@@ -1440,11 +1454,26 @@ export function parseTranscriptToRows(
         groupMarks = detail.total;
         groupGuard = detail.total;
         groupBareUnnumbered = instr.num === null && !instr.either;
+      } else if (groupMarksFromLine && !seenInstructionSinceHeading) {
+        // The instruction prints no marks, but a standalone marks
+        // line above it does ("8×5" over ECOIDC-151T Section C):
+        // keep that line's per-part marks. Without this the section's
+        // questions read blank (Q38–Q45) and the counter falls back
+        // per question (90/70 instead of 70/70). Only the first
+        // instruction after a heading inherits it, and the marks are
+        // per-part (from N×M), so groupBareUnnumbered stays false —
+        // the parts ARE each worth the per, they do not add up to it.
+        groupBareUnnumbered = false;
       } else {
         groupMarks = null;
         groupGuard = null;
         groupBareUnnumbered = false;
       }
+      // A marks line's per is consumed by the first instruction after
+      // it (whether kept, overridden by the instruction's own marks,
+      // or dropped because an earlier instruction owns it).
+      groupMarksFromLine = false;
+      seenInstructionSinceHeading = true;
       if (instr.pairEither) {
         // The pair-either instruction is also a row (the question
         // itself): its printed total, when present, is the question's
@@ -1500,6 +1529,10 @@ export function parseTranscriptToRows(
       } else if (groupMarks === null && nPer !== null) {
         groupMarks = nPer;
         groupGuard = nPer;
+        // Remember the per came from this line, not from an
+        // instruction: the first instruction after a heading may
+        // inherit it (see the instruction branch above).
+        groupMarksFromLine = true;
       }
       continue;
     }

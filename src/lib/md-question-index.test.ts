@@ -1350,3 +1350,57 @@ Answer any five questions : 10×5=50
     expect(rows.map((r) => [r.label, r.marks])).toEqual([["5", 10]]);
   });
 });
+
+describe("parser gaps fixed from batch 23 (2026-11-23, ECOIDC-151T / COMIDC-151T-B)", () => {
+  test("a marks line above a markless section instruction is inherited — ECOIDC-151T Section C Q38–Q45 read 8", () => {
+    // Real staged lines: batch-23/ECOIDC-151T-2024/staged.md lines
+    // 77-86. The instruction prints no marks of its own; the "8×5"
+    // line above it states the section's per-part marks. Before the
+    // fix the instruction cleared the per, Q38–Q45 read blank, and the
+    // counter fell back per question (90/70 instead of 70/70).
+    const md = `SECTION—C
+
+8×5
+
+Answer any five questions :
+
+36. Explain the scope and importance of macroeconomics. 4+4
+
+37. Discuss the necessity of aggregative approach. What are its limitations? 5+3
+
+38. Discuss the working of circular flow in a three-sector economy.
+
+39. Explain in brief the value-added method of estimation of national income.`;
+    const rows = parseTranscriptToRows(md, "ECOIDC-151T");
+    expect(rows.map((r) => [r.label, r.marks, r.group, r.unit])).toEqual([
+      ["36", 8, "Answer any 5", "C"],
+      ["37", 8, "Answer any 5", "C"],
+      ["38", 8, "Answer any 5", "C"],
+      ["39", 8, "Answer any 5", "C"],
+    ]);
+  });
+
+  test("a split question's parts share one section question — COMIDC-151T (B) Q45(a)/(b) are 8 each, no direct Q45 row", () => {
+    // Real staged lines: batch-23/COMIDC-151T-B-2024/staged.md lines
+    // 119-145. The parser side of the batch-23 double-count: Q45 has
+    // no direct row, only (a)/(b) parts worth 8 each under
+    // "Answer any 5". The counter fix (assemble.py) relies on this
+    // shape — the parts must carry the section group so their qnum is
+    // covered once, not counted again as a second 5×8 allowance.
+    const md = `SECTION-C
+
+Answer any five of the following questions: $8\\times5=40$
+
+36. Explain briefly the various roles performed by HR Manager.
+
+45. (a) What do you mean by grievances?
+
+(b) What are the essentials of an effective grievance handling procedure?`;
+    const rows = parseTranscriptToRows(md, "COMIDC-151T (B)");
+    expect(rows.map((r) => [r.label, r.marks, r.group, r.unit])).toEqual([
+      ["36", 8, "Answer any 5", "C"],
+      ["45(a)", 8, "Answer any 5", "C"],
+      ["45(b)", 8, "Answer any 5", "C"],
+    ]);
+  });
+});
