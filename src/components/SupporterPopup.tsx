@@ -236,7 +236,7 @@ export default function SupporterPopup({
             : undefined
         }
         className={
-          "pointer-events-auto max-w-sm overflow-hidden rounded-2xl bg-surface shadow-floating transition-transform duration-300 ease-out " +
+          "pointer-events-auto max-w-sm overflow-hidden rounded-lg bg-surface shadow-floating transition-transform duration-300 ease-out " +
           (centered
             ? "animate-toast-in relative w-full "
             : "absolute right-4 w-[calc(100vw-2rem)] ") +
@@ -316,7 +316,7 @@ export default function SupporterPopup({
           </ul>
 
           {subscribedUntil ? (
-            <div className="mt-4 rounded-xl bg-emerald-50 px-4 py-3 text-center dark:bg-emerald-950">
+            <div className="mt-4 rounded-lg bg-emerald-50 px-4 py-3 text-center dark:bg-emerald-950">
               <p className="flex items-center justify-center gap-2 text-sm font-bold text-emerald-700 dark:text-emerald-300">
                 <span className="material-symbols-outlined text-[18px] leading-none" aria-hidden="true">
                   check_circle
@@ -338,7 +338,7 @@ export default function SupporterPopup({
               {error && (
                 <p
                   key={error}
-                  className="mt-4 flex items-center gap-2 rounded-xl bg-red-50 px-3 py-2 text-sm font-bold text-red-600"
+                  className="mt-4 flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm font-bold text-red-600"
                 >
                   <span className="material-symbols-outlined text-base" aria-hidden="true">
                     error
@@ -352,7 +352,7 @@ export default function SupporterPopup({
                   onClick={subscribe}
                   disabled={busy}
                   tabIndex={minimized ? -1 : undefined}
-                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-emerald-600 to-blue-600 px-4 py-3 text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-br from-emerald-600 to-blue-600 px-4 py-3 text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
                 >
                   {busy ? (
                     <>
@@ -375,7 +375,7 @@ export default function SupporterPopup({
                 <Link
                   href="/login?redirect=/maintenance-cost"
                   tabIndex={minimized ? -1 : undefined}
-                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-emerald-600 to-blue-600 px-4 py-3 text-sm font-bold text-white transition-opacity hover:opacity-90"
+                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-br from-emerald-600 to-blue-600 px-4 py-3 text-sm font-bold text-white transition-opacity hover:opacity-90"
                 >
                   <span
                     className="material-symbols-outlined text-[18px] leading-none"
