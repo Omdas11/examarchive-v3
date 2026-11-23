@@ -542,6 +542,13 @@ function instructionMarksDetail(
     const n = asciiNumber(trailing[1]);
     if (n !== null && n >= 1 && n <= 100) return { per: null, total: n };
   }
+  // A bracketed figure ": [10]" is the same as a bare ": 10"
+  // (PHIDSC303T Q10: "Answer any one of the following : [10]").
+  const bracket = line.match(/:\s*\[([\d০-৯]+)\]\s*$/);
+  if (bracket) {
+    const n = asciiNumber(bracket[1]);
+    if (n !== null && n >= 1 && n <= 100) return { per: null, total: n };
+  }
   return null;
 }
 
@@ -572,7 +579,13 @@ function matchInstruction(line: string): {
       pairEither: false,
     };
   }
-  const either = line.match(EITHER_LINE);
+  // Either-group lines may arrive with their brackets wrapped in maths
+  // spans — "Answer either $[(a)$ and $(b)]$ or $[(c)$ and $(d)]$"
+  // (MATDSC253 lite, batch 24). The $ and * carry no meaning here, so
+  // the either patterns are tested against the stripped line; the
+  // instruction row itself keeps the original text.
+  const clean = line.replace(/[$*]/g, "");
+  const either = clean.match(EITHER_LINE);
   if (either) {
     return {
       num: either[1] ? asciiNumber(either[1]) : null,
@@ -581,7 +594,7 @@ function matchInstruction(line: string): {
       pairEither: false,
     };
   }
-  const pairEither = line.match(PAIR_EITHER_LINE);
+  const pairEither = clean.match(PAIR_EITHER_LINE);
   if (pairEither) {
     return {
       num: pairEither[1] ? asciiNumber(pairEither[1]) : null,
@@ -937,6 +950,92 @@ function stripTrailingMarks(
       return { text: `${paren[1]}${paren[2]}`.trim(), marks: n };
     }
   }
+  // A parenthesised split expression at the end is the row's marks —
+  // "... (2+3=5)" (MATDSM251 Q4(b), after a $$...$$ block),
+  // "... (2+8=10)" (direct questions), "... (1+1+2=4)" — the stated
+  // total (or the sum, when no total is printed). A trailing ":" after
+  // the ")" is a stray colon. The split shape is unambiguous — a
+  // cross-reference is a single number, handled above — so no
+  // punctuation is required before the "(".
+  const splitParen = text.match(
+    new RegExp(
+      String.raw`^(.*?)\s*\((${MARKS_NUM}(?:\s*${MARKS_OP}\s*${MARKS_NUM})+)\s*(?:=\s*([\d০-৯]+))?\)\s*:?\s*$`,
+    ),
+  );
+  if (splitParen) {
+    // Groups: 1 = prefix, 2 = inner expression, 3 = stated total.
+    const derived = marksTotalFromParts(splitParen[2], splitParen[3]);
+    if (
+      derived !== null &&
+      derived >= 1 &&
+      derived <= 100 &&
+      (groupGuard === null || groupGuard === derived)
+    ) {
+      return { text: splitParen[1].trim(), marks: derived };
+    }
+  }
+  // A bracketed split expression at the end is the row's marks —
+  // "... [3+4=7]" (PHYDSC101T Q15). Same rule as the parenthesised
+  // split above.
+  const bracketSplit = text.match(
+    new RegExp(
+      String.raw`^(.*?)\s*\[(${MARKS_NUM}(?:\s*${MARKS_OP}\s*${MARKS_NUM})+)\s*(?:=\s*([\d০-৯]+))?\]\s*$`,
+    ),
+  );
+  if (bracketSplit) {
+    const derived = marksTotalFromParts(bracketSplit[2], bracketSplit[3]);
+    if (
+      derived !== null &&
+      derived >= 1 &&
+      derived <= 100 &&
+      (groupGuard === null || groupGuard === derived)
+    ) {
+      return { text: bracketSplit[1].trim(), marks: derived };
+    }
+  }
+  // A bracketed figure at the end is the row's marks — "... show that
+  // [5] $$...$$" (MATDSC303T Q8(d), reached here by the tailMath
+  // recursion above, which strips the trailing formula first),
+  // "... by using $\Gamma$-function. [3]" (PHYDSC101T Q15(b)).
+  const bracketSingle = text.match(/^(.*?)\s*\[([\d০-৯]+)\]\s*$/);
+  if (bracketSingle) {
+    const n = asciiNumber(bracketSingle[2]);
+    if (
+      n !== null &&
+      n >= 1 &&
+      n <= 100 &&
+      (groupGuard === null || groupGuard === n)
+    ) {
+      return { text: bracketSingle[1].trim(), marks: n };
+    }
+  }
+  // A marks figure standing before a display formula mid-text —
+  // "Solve the total differential equation 5 $$Pdx + Qdy + Rdz = 0$$
+  // given that ..." (MATDSM251 Q8(b)). The tailMath branch above only
+  // covers a formula at the very end of the text. The figure must be
+  // a standalone token: a number that is part of an equation ("= 5
+  // $$", "+ 5 $$", "(5 $$") or of a longer number ("15 $$" read as
+  // "5") is a value, not marks, so the character before it is
+  // checked — a word or ":" may precede a marks figure, an operator
+  // or a digit may not.
+  const midFormulaRe = /(^|[\s:;,])([\d০-৯]+)\s+\$\$[^$]+\$\$/g;
+  let midFormula: RegExpExecArray | null;
+  while ((midFormula = midFormulaRe.exec(text)) !== null) {
+    const beforeIdx = midFormula.index;
+    const charBefore = beforeIdx > 0 ? text[beforeIdx - 1] : "";
+    if (/[=+\-×x($\d০-৯,;]/.test(charBefore)) continue;
+    const n = asciiNumber(midFormula[2]);
+    if (n === null || n < 1 || n > 100) continue;
+    if (groupGuard !== null && groupGuard !== n) continue;
+    const numStart = beforeIdx + midFormula[1].length;
+    const numEnd = numStart + midFormula[2].length;
+    let after = numEnd;
+    while (text[after] === " " || text[after] === "\t") after++;
+    return {
+      text: `${text.slice(0, numStart)}${text.slice(after)}`.trim(),
+      marks: n,
+    };
+  }
   // A marks figure right after a colon, introducing a quoted passage
   // — "বাংলায় অনুবাদ করো : ২ "Arise, awake..."" (BENSEC201 Q8/Q9/Q10).
   // The figure is the question's marks, not part of the passage: the
@@ -1023,6 +1122,212 @@ function stripTrailingMarks(
 }
 
 /**
+ * The pair total T for a paper: the common sum of every complete pair
+ * (both parts marked) across the paper's "Answer either" questions.
+ * T exists only when at least two complete pairs agree — a single
+ * pair cannot prove the paper's pair total (MATDSC303T, batch 24:
+ * six complete pairs, all 10).
+ */
+function pairEitherTotal(rows: QuestionRow[]): number | null {
+  const sums: number[] = [];
+  for (const p of rows) {
+    if (p.group !== "Answer either" || p.label.includes("(")) continue;
+    const q = p.label;
+    const parts = new Map<string, number | null>();
+    for (const r of rows) {
+      if (r.label.startsWith(`${q}(`)) {
+        parts.set(r.label.slice(q.length + 1, -1), r.marks);
+      }
+    }
+    for (const [a, b] of [
+      ["a", "b"],
+      ["c", "d"],
+    ] as const) {
+      const x = parts.get(a);
+      const y = parts.get(b);
+      if (x != null && y != null) sums.push(x + y);
+    }
+  }
+  if (sums.length < 2) return null;
+  const t = sums[0];
+  return sums.every((s) => s === t) ? t : null;
+}
+
+/**
+ * Fill a pair-either part that is blank when its pair's other part is
+ * marked and the paper's pair total T is established: blank = T -
+ * marked (MATDSC303T Q2(b) = 10 - 5 = 5). A pair with both parts
+ * blank stays blank — the split is unknown.
+ */
+function fillPairTotalParts(rows: QuestionRow[], t: number): void {
+  for (const p of rows) {
+    if (p.group !== "Answer either" || p.label.includes("(")) continue;
+    const q = p.label;
+    const byLetter = new Map<string, QuestionRow>();
+    for (const r of rows) {
+      if (r.label.startsWith(`${q}(`)) {
+        byLetter.set(r.label.slice(q.length + 1, -1), r);
+      }
+    }
+    for (const [a, b] of [
+      ["a", "b"],
+      ["c", "d"],
+    ] as const) {
+      const ra = byLetter.get(a);
+      const rb = byLetter.get(b);
+      if (!ra || !rb) continue;
+      if (ra.marks === null && rb.marks !== null) {
+        const v = t - rb.marks;
+        if (v >= 1 && v <= 100) ra.marks = v;
+      } else if (rb.marks === null && ra.marks !== null) {
+        const v = t - ra.marks;
+        if (v >= 1 && v <= 100) rb.marks = v;
+      }
+    }
+  }
+}
+
+/**
+ * Fill a blank pair-either parent row from the paper's pair total T —
+ * but only when T is established (pairEitherTotal) and the question's
+ * own complete pairs agree with it (or it has none). A parent is
+ * never filled from a single pair's sum: MTMDSM301 Q2's pairs are
+ * (blank+6) and (4+5), so its total is genuinely unknown and the
+ * parent stays blank, while MATDSC303T Q6 (no pair complete) takes
+ * T = 10. The counted total does not change when the parent equals
+ * the max pair sum — the counter takes the parent alone instead.
+ */
+function fillEitherParentMarks(
+  rows: QuestionRow[],
+  t: number | null,
+): void {
+  if (t === null) return;
+  for (const p of rows) {
+    if (p.group !== "Answer either" || p.label.includes("(")) continue;
+    if (p.marks !== null) continue;
+    const q = p.label;
+    const parts = new Map<string, number | null>();
+    for (const r of rows) {
+      if (r.label.startsWith(`${q}(`)) {
+        parts.set(r.label.slice(q.length + 1, -1), r.marks);
+      }
+    }
+    let agrees = true;
+    for (const [a, b] of [
+      ["a", "b"],
+      ["c", "d"],
+    ] as const) {
+      const x = parts.get(a);
+      const y = parts.get(b);
+      if (x != null && y != null && x + y !== t) agrees = false;
+    }
+    if (agrees) p.marks = t;
+  }
+}
+
+/**
+ * Positional per-part marks for "Answer any" questions whose figures
+ * the paper never prints (VAC/EESVAC papers, batch 24: the margin
+ * figures are blank). Each unit repeats the same 3-question shape, so
+ * a question's position among its unit's "Answer any" instructions
+ * determines its per-part value — but only when the paper itself
+ * proves it: at least two questions at that position (same group
+ * wording) in other units carry the same value on every part, with no
+ * disagreement. A single witness is accepted only when every other
+ * position in the paper is already established that way (NCC/NSS:
+ * position 3 is witnessed once, by Q9 = 5, while positions 1 and 2
+ * are witnessed 5 and 3 times). Only questions whose parts are ALL
+ * blank are filled; a partly marked question is left alone.
+ */
+function fillPositionalMarks(rows: QuestionRow[]): void {
+  const byQ = new Map<
+    string,
+    { unit: string; group: string; parts: QuestionRow[] }
+  >();
+  for (const r of rows) {
+    if (!r.group.startsWith("Answer any ") || !r.label.includes("(")) continue;
+    if (!r.unit) continue;
+    const q = r.label.split("(")[0];
+    const key = `${r.unit}|${q}`;
+    let e = byQ.get(key);
+    if (!e) {
+      e = { unit: r.unit, group: r.group, parts: [] };
+      byQ.set(key, e);
+    }
+    e.parts.push(r);
+  }
+  // Position of each question among its unit's "Answer any" questions.
+  const byUnit = new Map<string, string[]>();
+  for (const [key, e] of byQ) {
+    const list = byUnit.get(e.unit) ?? [];
+    list.push(key);
+    byUnit.set(e.unit, list);
+  }
+  const posOf = new Map<string, number>();
+  for (const list of byUnit.values()) {
+    list.sort((a, b) => {
+      const qa = parseInt(a.split("|")[1], 10);
+      const qb = parseInt(b.split("|")[1], 10);
+      return qa - qb;
+    });
+    list.forEach((key, i) => posOf.set(key, i + 1));
+  }
+  // Witnesses per (position, group): values from questions whose parts
+  // are all marked with one common value.
+  const witnesses = new Map<string, number[]>();
+  for (const [key, e] of byQ) {
+    const pos = posOf.get(key);
+    if (pos === undefined || e.parts.length === 0) continue;
+    if (!e.parts.every((p) => p.marks !== null)) continue;
+    const v = e.parts[0].marks as number;
+    if (!e.parts.every((p) => p.marks === v)) continue;
+    const wkey = `${pos}|${e.group}`;
+    const arr = witnesses.get(wkey) ?? [];
+    arr.push(v);
+    witnesses.set(wkey, arr);
+  }
+  // Established positions: at least two agreeing witnesses.
+  const established = new Map<string, number>();
+  for (const [key, vals] of witnesses) {
+    if (vals.length >= 2 && vals.every((v) => v === vals[0])) {
+      established.set(key, vals[0]);
+    }
+  }
+  const positions = new Set(
+    [...witnesses.keys()].map((k) => k.split("|")[0]),
+  );
+  const valueFor = (key: string): number | null => {
+    const vals = witnesses.get(key);
+    if (!vals) return null;
+    if (established.has(key)) return established.get(key) as number;
+    if (vals.length === 1) {
+      // One witness: accept it only when every other position in the
+      // paper is established — the paper's positional pattern is then
+      // fully proven except for this one slot.
+      const pos = key.split("|")[0];
+      const others = [...positions].filter((p) => p !== pos);
+      if (
+        others.length >= 2 &&
+        others.every((p) =>
+          [...established.keys()].some((k) => k.startsWith(`${p}|`)),
+        )
+      ) {
+        return vals[0];
+      }
+    }
+    return null;
+  };
+  for (const [key, e] of byQ) {
+    const pos = posOf.get(key);
+    if (pos === undefined) continue;
+    if (!e.parts.every((p) => p.marks === null)) continue;
+    const v = valueFor(`${pos}|${e.group}`);
+    if (v === null) continue;
+    for (const p of e.parts) p.marks = v;
+  }
+}
+
+/**
  * Parse a transcript into question rows. The transcript is normalised
  * with the formatter first (lone marks lines join their question,
  * sub-questions sharing a line are split apart). Frontmatter and any
@@ -1035,6 +1340,7 @@ export function parseTranscriptToRows(
   const { rest } = parseFrontmatter(md);
   const { transcript } = splitIndexTable(rest);
   const formatted = formatQuestionMd(transcript);
+  const lines = formatted.split("\n");
   const rows: QuestionRow[] = [];
   let unit = "";
   let qNum = "";
@@ -1082,6 +1388,11 @@ export function parseTranscriptToRows(
   // section heading can open a section instruction (see below).
   let lastHeadingKind: "section" | "unit" | null = null;
   let orPending = false;
+  // Whether a page break ("<!-- page N -->") has been seen since the
+  // last numbered question — a sub-part line after one may be an
+  // orphan whose label was cut off at the boundary (see
+  // handleOrphanLine below).
+  let crossedPageBreak = false;
   // A bare "(b)" label seen on its own line, waiting for the next
   // line to supply that sub-question's text.
   let pendingSub: string | null = null;
@@ -1189,17 +1500,29 @@ export function parseTranscriptToRows(
   };
 
   /**
-   * A rejected "(i)/(ii)/..." line that ends in a marks expression is
+   * A rejected "(i)/(ii)/..." line that carries a marks figure is
    * a continuation of the previous sub-question — its sub-parts,
    * printed on their own line. Join it into that row's text and
    * re-derive the marks (MTMDSC301T Q6(b), MTMDSC302T Q2(c),
-   * MTMDSM301 Q8(a), MTMDSC201T Q10(d)). A line with no trailing
-   * marks is an MCQ option (ENGSEC101T "(i) Stationary (ii)
-   * Stationery") and stays dropped. Returns true when joined.
+   * MTMDSM301 Q8(a), MTMDSC201T Q10(d)). The figure may sit mid-line
+   * ("(v) ... ? 2 (vi) ... : 2 * enormous * indication", ENGAEC251
+   * Q4(b)). A line with no figure at all is an MCQ option
+   * (ENGSEC101T "(i) Stationary (ii) Stationery") and stays dropped.
+   * Returns true when joined.
    */
   const joinContinuation = (line: string): boolean => {
     const probe = stripTrailingMarks(line, null, "");
-    if (probe.marks === null) return false;
+    // A roman sub-part line joins when it carries a marks figure: at
+    // the end ("(iv) ... ? 1") or after one of its questions
+    // ("(v) ... ? 2 (vi) ... : 2 * enormous * indication",
+    // ENGAEC251 Q4(b) — the figure sits mid-line, the line ends in
+    // the (vi) question's word list). A bare MCQ-option line
+    // ("(i) Stationary (ii) Stationery") has no figure at all and
+    // still stays dropped.
+    const hasFigure =
+      probe.marks !== null ||
+      /[?:]\s*\d/.test(line);
+    if (!hasFigure) return false;
     const last = rows[rows.length - 1];
     if (!last) return false;
     if (last.label.split("(")[0] !== qNum) return false;
@@ -1213,6 +1536,187 @@ export function parseTranscriptToRows(
     );
     last.question = rederived.text;
     if (rederived.marks !== null) last.marks = rederived.marks;
+    return true;
+  };
+
+  /**
+   * A display formula on its own line belongs to the last row of the
+   * current question — it is that question's equation, possibly
+   * carrying its marks figure ("$$...$$ [3]", PHYDSC101T Q14(c);
+   * "$$...$$ 5", MATDSC252 Q2(b) in the raw transcript). The formula
+   * joins the row's text and the marks are re-derived; only a figure
+   * the formula line itself carries may change the marks.
+   */
+  const joinFormulaLine = (line: string): boolean => {
+    const last = rows[rows.length - 1];
+    if (!last) return false;
+    if (last.label.split("(")[0] !== qNum) return false;
+    // The pair-either instruction row is not a question to continue.
+    if (last.label === qNum && last.group === "Answer either") return false;
+    last.question = `${last.question} ${line}`.trim();
+    if (
+      /\$\$\s*(?:\**[\d০-৯]+\**|\[[\d০-৯]+(?:\s*(?:\\times|[×x+])\s*[\d০-৯]+)*(?:\s*=\s*[\d০-৯]+)?\])\s*$/.test(
+        line,
+      )
+    ) {
+      const rederived = stripTrailingMarks(
+        last.question,
+        sectionScoped ? null : groupGuard,
+        group,
+      );
+      last.question = rederived.text;
+      if (rederived.marks !== null) last.marks = rederived.marks;
+    }
+    return true;
+  };
+
+  /** Append a line to the last row's text and re-derive its marks. */
+  const appendToLast = (line: string): void => {
+    const last = rows[rows.length - 1];
+    if (!last) return;
+    last.question = `${last.question} ${line}`.trim();
+    const rederived = stripTrailingMarks(
+      last.question,
+      sectionScoped ? null : groupGuard,
+      group,
+    );
+    last.question = rederived.text;
+    if (rederived.marks !== null) last.marks = rederived.marks;
+  };
+
+  /**
+   * The next labeled sub-question after line `from`, or "end" when the
+   * current question's sub-part run ends first (a numbered question,
+   * instruction, heading, OR line, or bare number). Lines that are
+   * neither are further orphan fragments and are skipped.
+   */
+  const nextSubAfter = (
+    from: number,
+    inferredLetter?: string,
+  ): { letter: string } | "end" => {
+    for (let j = from; j < lines.length; j++) {
+      const t = lines[j].trim();
+      if (!t || t.startsWith("<!--")) continue;
+      const sm = t.match(SUB_QUESTION_LINE);
+      // A "(i)" line is a roman-numeral sub-part of the current
+      // option, not the next lettered option (ENGAEC251 Q4: the
+      // "(i) What is the name of the company...?" comprehension
+      // questions after a passage) — unless (i) is exactly the
+      // letter being inferred (an orphan after (h)).
+      if (sm && !(sm[1] === "i" && inferredLetter !== "i")) {
+        return { letter: sm[1] ?? BN_PART_TO_LATIN[sm[2]] };
+      }
+      const bs = t.match(BARE_SUB_LINE);
+      if (bs && !(bs[1] === "i" && inferredLetter !== "i")) {
+        return { letter: bs[1] ?? BN_PART_TO_LATIN[bs[2]] };
+      }
+      const ns = t.match(NUMBERED_SUB_LINE);
+      if (ns) return { letter: ns[2] ?? BN_PART_TO_LATIN[ns[3]] };
+      if (
+        NUMBERED_LINE.test(t) ||
+        UNIT_HEADING.test(t) ||
+        matchInstruction(t) !== null ||
+        /^(OR|অথবা)$/i.test(t.replace(/^[#*\s]+|[#*\s]+$/g, "")) ||
+        /^[\d০-৯]+\s*[।.]$/.test(t)
+      ) {
+        return "end";
+      }
+    }
+    return "end";
+  };
+
+  /**
+   * An unlabeled line after a page break, inside a question whose
+   * latest sub-part is known: the sub-part's label was cut off at the
+   * page boundary (EESVAC-A Q1(b)/(c): pg-1 ends at Q1(a), pg-2 opens
+   * with "pyramid." then "Give one example of terrestrial
+   * ecosystem.", then "(d)"). The next labeled part decides: when it
+   * skips the inferred letter (or the question ends), this line IS
+   * that skipped part; when it is the inferred letter itself, this
+   * line continues the previous part. A part whose text was cut off
+   * mid-sentence (no terminal punctuation) is continued, never
+   * promoted. Returns true when the line was consumed.
+   */
+  const handleOrphanLine = (line: string, idx: number): boolean => {
+    if (!qNum || !lastSubLetter) return false;
+    if (line.startsWith("#") || isTableLine(line)) return false;
+    if (line.startsWith("(")) return false;
+    // A footer/header line, never a question.
+    if (
+      /^(J\d+|\(?\s*(Continued|Turn Over)|Time\s*:|Full Marks|Pass Marks|Course No)/i.test(
+        line,
+      )
+    ) {
+      return false;
+    }
+    const last = rows[rows.length - 1];
+    if (!last || last.label !== `${qNum}(${lastSubLetter})`) return false;
+    // Not a question at all: a markdown rule, an editorial bracketed
+    // note, a bare number fragment, or a line with no words in it —
+    // a page-break artifact, never a sub-part (CHMDSM201T /
+    // MTMDSM101T / PHYDSM101T "---" rules, BNGDSC201T "[page 3
+    // FAILED...]", CHMDSM252 "\hfill 2 \hfill 3+3=6", UNIVAC101T
+    // "4 )"). Consumed, never a row and never appended: appending a
+    // dangling figure would overwrite the row's true marks.
+    const stripped = line.replace(/^[#*\s]+/, "");
+    if (
+      /^([-*_]\s*){3,}$/.test(stripped) ||
+      stripped.startsWith("[") ||
+      !/[A-Za-z\u0985-\u09e5\u0600-\u06ff]/.test(
+        stripped.replace(/\\[A-Za-z]+/g, ""),
+      )
+    ) {
+      return true;
+    }
+    const inferred = String.fromCharCode(lastSubLetter.charCodeAt(0) + 1);
+    if (inferred > "j") {
+      // No further sub-part letter exists: a continuation, not a row.
+      appendToLast(line);
+      return true;
+    }
+    if (!acceptsSubLetter(inferred)) return false;
+    const prevComplete = /[.!?$:;]$/.test(last.question.trim());
+    if (!prevComplete) {
+      appendToLast(line);
+      return true;
+    }
+    // A "(i)/(ii)/..." line is a sub-part of the previous row, never
+    // a new lettered option (ECODSC101T Q2(b)(ii) after the page
+    // break) — join it when it ends in marks, drop it otherwise,
+    // exactly like the main loop's "(ii)" rule. It sits AFTER the
+    // mid-sentence check above: a (i) line continuing an unfinished
+    // part (ECODSC101T "* (i) Discuss briefly..." after "* (b)") is
+    // appended there, not dropped here. The `*` bullet prefix is
+    // stripped for the test; the joined text keeps the raw line.
+    if (/^\((i|ii|iii|iv|v|vi)\)\s+.+$/.test(stripped)) {
+      joinContinuation(line);
+      return true;
+    }
+    const next = nextSubAfter(idx + 1, inferred);
+    if (next !== "end" && next.letter <= inferred) {
+      // The next labeled part IS the inferred letter: a continuation.
+      appendToLast(line);
+      return true;
+    }
+    // A header line ("Questions :") labels the roman-numeral
+    // questions that follow it — it belongs to the previous part,
+    // never a row of its own (ENGAEC251 Q4(b)).
+    if (/^(Questions?|Answer the following[^:]*)\s*:/i.test(stripped)) {
+      appendToLast(line);
+      return true;
+    }
+    if (next === "end") {
+      // No labeled part follows: a short fragment is the skipped last
+      // part (EESVAC-A "pyramid."), but a multi-sentence paragraph is
+      // the previous part's prose continuing across the break
+      // (ENGAEC251 Q4(b) passage) — append that, don't promote it.
+      const sentences = (line.match(/[.!?]+/g) || []).length;
+      if (sentences > 2) {
+        appendToLast(line);
+        return true;
+      }
+    }
+    pushSubRow(inferred, line);
     return true;
   };
 
@@ -1342,7 +1846,8 @@ export function parseTranscriptToRows(
     }
   };
 
-  for (const raw of formatted.split("\n")) {
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
     const line = raw.trim();
     if (!line) continue;
 
@@ -1369,6 +1874,7 @@ export function parseTranscriptToRows(
       orPending = false;
       pendingSub = null;
       lastSubLetter = "";
+      crossedPageBreak = false;
       continue;
     }
 
@@ -1389,8 +1895,13 @@ export function parseTranscriptToRows(
       continue;
     }
 
-    // Page markers and any other HTML comments are not questions.
-    if (line.startsWith("<!--")) continue;
+    // Page markers and any other HTML comments are not questions —
+    // but a marker inside a question means the next unlabeled line
+    // may be an orphan sub-part (see handleOrphanLine).
+    if (line.startsWith("<!--")) {
+      crossedPageBreak = true;
+      continue;
+    }
 
     // A pending bare-number question: a structural line ends it (and
     // is then handled normally below); anything else is its text —
@@ -1422,6 +1933,7 @@ export function parseTranscriptToRows(
         qNum = String(lastQNum);
       }
       lastSubLetter = "";
+      crossedPageBreak = false;
       group = instr.pairEither
         ? "Answer either"
         : `Answer any ${instr.count}`;
@@ -1551,6 +2063,7 @@ export function parseTranscriptToRows(
         clearGroupForNumber(n);
         qNum = String(n);
         lastQNum = n;
+        crossedPageBreak = false;
       }
       pendingSub = null;
       pushSubRow(letter, numberedSub[4]);
@@ -1584,10 +2097,11 @@ export function parseTranscriptToRows(
       continue;
     }
 
-    // A "(ii)"/"(iii)"/"(iv)" line never starts a sub-question (those
-    // are single letters) — it is a continuation of the previous row's
-    // sub-parts, or an MCQ option. Join it when it ends in marks.
-    if (/^\((ii|iii|iv)\)\s+.+$/.test(line)) {
+    // A "(ii)"/"(iii)"/"(iv)"/"(v)"/"(vi)" line never starts a
+    // sub-question (those are single letters) — it is a continuation
+    // of the previous row's sub-parts, or an MCQ option. Join it when
+    // it ends in marks.
+    if (/^\((ii|iii|iv|v|vi)\)\s+.+$/.test(line)) {
       joinContinuation(line);
       continue;
     }
@@ -1619,6 +2133,7 @@ export function parseTranscriptToRows(
         qNum = String(n);
         lastQNum = n;
         lastSubLetter = "";
+        crossedPageBreak = false;
         pendingSub = null;
         pendingQ = { num: String(n), text: "" };
         continue;
@@ -1636,6 +2151,7 @@ export function parseTranscriptToRows(
         clearGroupForNumber(n);
         qNum = String(n);
         lastQNum = n;
+        crossedPageBreak = false;
       } else {
         qNum = numMatch[1];
       }
@@ -1670,8 +2186,22 @@ export function parseTranscriptToRows(
       continue;
     }
     // Everything else (title, header lines, "The figures in the
-    // margin...", maths on its own line) is not a question.
+    // margin...") is not a question — except a display formula on its
+    // own line, which is the last row's equation (and may carry its
+    // marks figure), and an orphan sub-part line after a page break,
+    // whose label was cut off at the boundary.
+    if (line.startsWith("$")) {
+      if (joinFormulaLine(line)) continue;
+    }
+    if (crossedPageBreak && handleOrphanLine(line, i)) continue;
   }
+  // Marks the paper never prints, recovered from the paper's own
+  // structure (batch 24). These only ever FILL blank cells — a
+  // printed figure is never overwritten.
+  const pairTotal = pairEitherTotal(rows);
+  if (pairTotal !== null) fillPairTotalParts(rows, pairTotal);
+  fillEitherParentMarks(rows, pairTotal);
+  fillPositionalMarks(rows);
   return rows;
 }
 

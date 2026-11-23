@@ -1404,3 +1404,508 @@ Answer any five of the following questions: $8\\times5=40$
     ]);
   });
 });
+
+describe("parser gaps fixed from batch 24 (2026-11-23, MATDSC253/252/303T, MATDSM251, VAC/EESVAC)", () => {
+  test("$...$-wrapped either brackets are recognised — MATDSC253 lite wrote 'Answer either $[(a)$ and $(b)]$ or $[(c)$ and $(d)]$'", () => {
+    // Real staged line (batch-24/MATDSC253-2025/lite.json): before the
+    // fix the wrapped line matched no instruction pattern, became a
+    // direct question row, and the counter summed both pairs (90/70).
+    const md = `UNIT—I
+
+2. Answer either $[(a)$ and $(b)]$ or $[(c)$ and $(d)]$ :
+
+(a) Let V be a vector space. 6
+
+(b) Define dependent set. 4
+
+(c) Show the union of subspaces is a subspace. 4
+
+(d) Prove span facts. 6`;
+    const rows = parseTranscriptToRows(md, "MATDSC253");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["2", 10, "Answer either"],
+      ["2(a)", 6, "Answer either"],
+      ["2(b)", 4, "Answer either"],
+      ["2(c)", 4, "Answer either"],
+      ["2(d)", 6, "Answer either"],
+    ]);
+  });
+
+  test("a [N] figure before a trailing display formula is read — MATDSC303T Q8(d)", () => {
+    // Real staged line: batch-24/MATDSC303T-2025/staged.md line 182.
+    const md = `UNIT—IV
+
+8. Answer either [(a) and (b)] or [(c) and (d)] :
+
+(a) Show that if f is Riemann integrable then the integral is unique. 4
+
+(b) Show that every Riemann integrable function is bounded. 6
+
+(c) Show that every continuous function is Riemann integrable. 5
+
+(d) If $f(x) \\le g(x)$, then show that [5] $$\\int_a^b f \\le \\int_a^b g$$`;
+    const rows = parseTranscriptToRows(md, "MATDSC303T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["8", 10],
+      ["8(a)", 4],
+      ["8(b)", 6],
+      ["8(c)", 5],
+      ["8(d)", 5],
+    ]);
+    expect(rows[4].question).toBe(
+      // The trailing display formula is stripped from the index text
+      // by the tailMath recursion (same as CHMDSM151T 25(d), whose
+      // structure is dropped the same way); the transcript keeps it.
+      "If $f(x) \\le g(x)$, then show that",
+    );
+  });
+
+  test("a figure before a mid-text display formula is read — MATDSM251 Q8(b)", () => {
+    // Real staged line: batch-24/MATDSM251-2025/staged.md line 174.
+    // Q8(a) already worked (the formula is at the end of its line);
+    // Q8(b) is the gap — the formula sits mid-text.
+    const md = `UNIT—IV
+
+8. Answer either [(a) and (b)] or [(c) and (d)] : 10
+
+(a) Solve the simultaneous differential equations 5 $$\\frac{dx}{2x+y} = \\frac{dy}{x+3y}$$
+
+(b) Solve the total differential equation 5 $$Pdx + Qdy + Rdz = 0$$ given that $P = y+z$, $Q = x+z$ and $R = x+y$.`;
+    const rows = parseTranscriptToRows(md, "MATDSM251");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["8", 10],
+      ["8(a)", 5],
+      ["8(b)", 5],
+    ]);
+  });
+
+  test("a split expression after a display formula is read — MATDSM251 Q4(b) (2+3=5)", () => {
+    // Real staged line: batch-24/MATDSM251-2025/staged.md line 158.
+    const md = `UNIT—II
+
+4. Answer either [(a) and (b)] or [(c) and (d)] : 10
+
+(a) Find the general solution of $y'' + 3y' + 2y = e^{-2x}$. 5
+
+(b) Reduce the order and solve the equation $$xy'' + 2y' = x^2$$ (2+3=5)
+
+(c) Solve the Clairaut's equation $$y = xp + e^{-p}$$ 5
+
+(d) Find the singular solution of the differential equation $$y = xp + \\frac{1}{p}$$ 5`;
+    const rows = parseTranscriptToRows(md, "MATDSM251");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["4", 10],
+      ["4(a)", 5],
+      ["4(b)", 5],
+      ["4(c)", 5],
+      ["4(d)", 5],
+    ]);
+  });
+
+  test("a trailing split expression on a direct question is read — (2+8=10)", () => {
+    const md = `SECTION—C
+
+16. What is macroeconomics? Write a note on static macroeconomic analysis during the short run. (2+8=10)`;
+    const rows = parseTranscriptToRows(md, "T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([["16", 10]]);
+  });
+
+  test("a bracketed figure on an instruction line is read — PHIDSC303T Q10 : [10]", () => {
+    // Real staged line: batch-1/PHIDSC303T-2025/staged.md line 121.
+    // Q10(a) already read 10 from its "$5 + 5 = 10$"; Q10(b) was blank.
+    const md = `SECTION—C
+
+10. Answer any one of the following : [10]
+
+(a) Explain Radhakrishnan's view on the nature of intuition. $5 + 5 = 10$
+
+(b) Explain K. C. Bhattacharjee's concept of Philosophy.`;
+    const rows = parseTranscriptToRows(md, "PHIDSC303T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["10(a)", 10, "Answer any 1"],
+      ["10(b)", 10, "Answer any 1"],
+    ]);
+  });
+
+  test("a display formula on its own line joins its question and its [N] is read — PHYDSC101T Q14(c)/Q15", () => {
+    // Real staged lines: pilot/PHYDSC101T/staged.md lines 163-171.
+    // The pipeline joins most formula lines to their question, but not
+    // this one — the parser dropped it and Q14(c) read blank.
+    const md = `UNIT—V
+
+14. Find the relation between beta and gamma function.
+
+(b) Evaluate $\\int_0^1 \\frac{dx}{\\sqrt{1-x^n}}$
+
+(c) Show that
+
+$$\\int_0^1 \\frac{y^{m-1} + y^{n-1}}{(1+y)^{m+n}} dy = \\frac{\\Gamma(m)\\Gamma(n)}{\\Gamma(mn)}$$ [3]
+
+OR
+
+15. Explain the method of finding solution of algebraic equation by bi-section method. Find the real root of the equation $x^3 - x - 1 = 0$. [3+4=7]
+
+(b) Evaluate $\\int_0^{\\frac{\\pi}{2}} \\sqrt{\\tan \\theta} \\, d\\theta$ by using $\\Gamma$-function. [3]`;
+    const rows = parseTranscriptToRows(md, "PHYDSC101T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["14", null],
+      ["14(b)", null],
+      ["14(c)", 3],
+      ["15", 7],
+      ["15(b)", 3],
+    ]);
+  });
+
+  test("a pair total proved by complete pairs fills a single blank part and a blank parent — MATDSC303T", () => {
+    // Real staged shape: batch-24/MATDSC303T-2025/staged.md. Q4 is the
+    // only fully-marked either-question (two pairs of 5+5), so T = 10:
+    // Q2(b) = 10 - 5, Q6's parent = 10, and Q2(c)/(d) stay blank
+    // (their split is unknown).
+    const md = `UNIT—I
+
+2. Answer either [(a) and (b)] or [(c) and (d)] :
+
+(a) Show that the set of integers is countable. 5
+
+(b) Show that a continuous function on a closed and bounded interval is uniformly continuous.
+
+(c) Show that the open interval $(0, 1)$ is uncountable.
+
+(d) Show that $f(x) = \\frac{1}{x}$ is uniformly continuous on $[a, \\infty)$.
+
+UNIT—II
+
+4. Answer either [(a) and (b)] or [(c) and (d)] :
+
+(a) Show that the harmonic series is divergent. 5
+
+(b) Test the convergence of the following : 5
+
+(c) Show that every absolutely convergent series is convergent. 5
+
+(d) Test the convergence of the following : 5
+
+UNIT—III
+
+6. Answer either [(a) and (b)] or [(c) and (d)] :
+
+(a) Let f be bounded. Show that $L(P, f) \\le L(Q, f)$.
+
+(b) Let f and g be Darboux integrable. Show that f+g is Darboux integrable.
+
+(c) Let f be bounded. Show that f is integrable if and only if for every $\\varepsilon > 0$ there exists a partition P.
+
+(d) If f is bounded and integrable, show that $|f|$ is also bounded and integrable.`;
+    const rows = parseTranscriptToRows(md, "MATDSC303T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["2", 10],
+      ["2(a)", 5],
+      ["2(b)", 5],
+      ["2(c)", null],
+      ["2(d)", null],
+      ["4", 10],
+      ["4(a)", 5],
+      ["4(b)", 5],
+      ["4(c)", 5],
+      ["4(d)", 5],
+      ["6", 10],
+      ["6(a)", null],
+      ["6(b)", null],
+      ["6(c)", null],
+      ["6(d)", null],
+    ]);
+  });
+
+  test("blank 'Answer any' parts are filled from the unit position — VAC shape", () => {
+    // HWYVAC101T shape, three units: position 1 is "Answer any
+    // three" (1 per part), position 2 the first "Answer any one" (2),
+    // position 3 the second "Answer any one" (5). Unit II's Q5 is
+    // blank, so position 2 is proved by Q2 and Q8; position 3 has a
+    // single witness (Q9 = 5) and is accepted because positions 1
+    // and 2 are both established.
+    const md = `UNIT—I
+
+1. Answer any three from the following questions : $1 \\times 3 = 3$
+
+(a) First short question.
+
+(b) Second short question.
+
+2. Answer any one from the following questions : 2
+
+(a) First medium question.
+
+(b) Second medium question.
+
+3. Answer any one from the following questions :
+
+(a) First long question.
+
+(b) Second long question.
+
+UNIT—II
+
+4. Answer any three from the following questions : $1 \\times 3 = 3$
+
+(a) First short question.
+
+(b) Second short question.
+
+5. Answer any one from the following questions :
+
+(a) First medium question.
+
+(b) Second medium question.
+
+6. Answer any one from the following questions :
+
+(a) First long question.
+
+(b) Second long question.
+
+UNIT—III
+
+7. Answer any three from the following questions : $1 \\times 3 = 3$
+
+(a) First short question.
+
+(b) Second short question.
+
+8. Answer any one from the following questions : 2
+
+(a) First medium question.
+
+(b) Second medium question.
+
+9. Answer any one from the following questions : 5
+
+(a) First long question.
+
+(b) Second long question.`;
+    const rows = parseTranscriptToRows(md, "T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["1(a)", 1],
+      ["1(b)", 1],
+      ["2(a)", 2],
+      ["2(b)", 2],
+      ["3(a)", 5],
+      ["3(b)", 5],
+      ["4(a)", 1],
+      ["4(b)", 1],
+      ["5(a)", 2],
+      ["5(b)", 2],
+      ["6(a)", 5],
+      ["6(b)", 5],
+      ["7(a)", 1],
+      ["7(b)", 1],
+      ["8(a)", 2],
+      ["8(b)", 2],
+      ["9(a)", 5],
+      ["9(b)", 5],
+    ]);
+  });
+
+  test("positional fill is refused when the witnesses disagree", () => {
+    // Position 2 is witnessed as 2 in unit I and 5 in unit II: the
+    // paper does not prove one value, so Q6 stays blank. Position 1
+    // is witnessed twice at 1, so Q5 is still filled.
+    const md = `UNIT—I
+
+1. Answer any three from the following questions : $1 \\times 3 = 3$
+
+(a) First short question.
+
+(b) Second short question.
+
+2. Answer any one from the following questions : 2
+
+(a) First medium question.
+
+(b) Second medium question.
+
+UNIT—II
+
+3. Answer any three from the following questions : $1 \\times 3 = 3$
+
+(a) First short question.
+
+(b) Second short question.
+
+4. Answer any one from the following questions : 5
+
+(a) First medium question.
+
+(b) Second medium question.
+
+UNIT—III
+
+5. Answer any three from the following questions :
+
+(a) First short question.
+
+(b) Second short question.
+
+6. Answer any one from the following questions :
+
+(a) First medium question.
+
+(b) Second medium question.`;
+    const rows = parseTranscriptToRows(md, "T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["1(a)", 1],
+      ["1(b)", 1],
+      ["2(a)", 2],
+      ["2(b)", 2],
+      ["3(a)", 1],
+      ["3(b)", 1],
+      ["4(a)", 5],
+      ["4(b)", 5],
+      ["5(a)", 1],
+      ["5(b)", 1],
+      ["6(a)", null],
+      ["6(b)", null],
+    ]);
+  });
+
+  test("an orphan sub-part line after a page break is carried, not dropped — EESVAC-A Q1(b)/(c)", () => {
+    // Real staged lines, pre-repair shape: batch-24/EESVAC151-2025-A
+    // primary.json pg-1 ends at Q1(a); pg-2 opens with the tail of (b)
+    // ("pyramid.") and (c) with its label cut off, then "(d)".
+    const md = `UNIT—I
+
+1. Answer any four of the following questions : $1 \\times 4 = 4$
+
+(a) Name the abiotic components of an ecosystem.
+
+<!-- page 2 -->
+
+pyramid.
+
+Give one example of terrestrial ecosystem.
+
+(d) Mention the different types of food chain.
+
+(e) Give one example of tertiary consumer.`;
+    const rows = parseTranscriptToRows(md, "EESVAC-151 (A)");
+    expect(rows.map((r) => [r.label, r.marks, r.question])).toEqual([
+      ["1(a)", 1, "Name the abiotic components of an ecosystem."],
+      ["1(b)", 1, "pyramid."],
+      ["1(c)", 1, "Give one example of terrestrial ecosystem."],
+      ["1(d)", 1, "Mention the different types of food chain."],
+      ["1(e)", 1, "Give one example of tertiary consumer."],
+    ]);
+  });
+
+  test("an orphan line after a page break continues a mid-sentence part instead of becoming a new part", () => {
+    const md = `UNIT—I
+
+1. Answer any four of the following questions : $1 \\times 4 = 4$
+
+(a) Name the abiotic components of an ecosystem and explain
+
+<!-- page 2 -->
+
+how they interact with each other.
+
+(b) Give one example of a terrestrial ecosystem.`;
+    const rows = parseTranscriptToRows(md, "T");
+    expect(rows.map((r) => [r.label, r.marks, r.question])).toEqual([
+      [
+        "1(a)",
+        1,
+        "Name the abiotic components of an ecosystem and explain how they interact with each other.",
+      ],
+      ["1(b)", 1, "Give one example of a terrestrial ecosystem."],
+    ]);
+  });
+
+  test("a (ii) line after a page break joins its (b), never becomes (c) — ECODSC101T Q2(b)", () => {
+    // Real staged lines: batch-24/ECODSC101T-2024, Q2 straddles the
+    // pg-1 -> pg-2 break; option (b) is itself (i)+(ii) worth 5+5=10.
+    const md = `UNIT—I
+
+2. Answer any one of the following questions : 10
+
+(a) Discuss the nature, scope and significance of microeconomics.
+
+<!-- page 2 -->
+
+* (b)
+
+* (i) Discuss briefly the central problems of an economy.
+
+* (ii) "Economics is the science of choice." Explain the statement. $5+5=10$`;
+    const rows = parseTranscriptToRows(md, "ECODSC101T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["2(a)", 10],
+      ["2(b)", 10],
+    ]);
+    expect(rows[1].question).toContain("(i) Discuss briefly");
+    expect(rows[1].question).toContain("(ii)");
+  });
+
+  test("a passage split across a page break stays one option — ENGAEC251 Q4(a)", () => {
+    // Real staged lines: batch-13/ENGAEC251-2025, Q4(a) is a reading
+    // passage + its (i)-(v) questions; the passage continues after
+    // the pg-4 -> pg-5 break. The (i) questions are roman sub-parts
+    // of (a), not the next lettered option — the old code promoted
+    // the passage tail to 4(b)/4(c) and split the Questions block off.
+    const md = `UNIT—IV
+
+4. Answer any 1 of the following questions (Read the following passages and answer the questions given below) : $10$
+
+(a) William H. Gates is the co-founder and Chairman of Microsoft Corporation. In 1973 Gates entered Harvard University, and while there he developed a version of the programming language known as BASIC, which was used for the first microcomputer—The MITS Altair.
+
+<!-- page 5 -->
+
+In his junior age, Gates left Harvard to devote his energies to Microsoft.
+
+Under Gates' leadership, Microsoft's mission has been to continually advance and improve software technology.
+
+Questions :
+
+(i) What is the name of the company that Gates founded? When was it founded? 1+1=2 (ii) What kind of business is Microsoft engaged in? 2 (iii) Why is Microsoft so famous? 2 (iv) Why did Gates not complete his education? 2
+
+(v) How has Gates guided the future of Microsoft Corporation? 2
+
+(b) The old lady was glad to be back at the block of flats where she lived.`;
+    const rows = parseTranscriptToRows(md, "ENGAEC251");
+    expect(rows.map((r) => r.label)).toEqual(["4(a)", "4(b)"]);
+    expect(rows[0].question).toContain("In his junior age");
+    expect(rows[0].question).toContain("(i) What is the name");
+    expect(rows[0].question).toContain("(v) How has Gates guided");
+    expect(rows[1].question).toContain("old lady");
+  });
+
+  test("non-question lines after a page break are dropped, never promoted", () => {
+    // Real shapes: a markdown rule (CHMDSM201T Q9, MTMDSM101T Q8,
+    // PHYDSM101T Q8), an editorial failure note (BNGDSC201T pg-3),
+    // a LaTeX spacing + figures line (CHMDSM252 Q8(b)), a bare
+    // number fragment (UNIVAC101T "4 )" before Q11).
+    const md = `UNIT—I
+
+1. Answer any two of the following questions : $2\\times 2 = 4$
+
+(a) First question here.
+
+(b) Second question here.
+
+<!-- page 2 -->
+
+---
+
+[page 3 FAILED: both models failed]
+
+\\hfill 2 \\hfill 3+3=6
+
+4 )
+
+(c) Third question here.`;
+    const rows = parseTranscriptToRows(md, "T");
+    expect(rows.map((r) => [r.label, r.marks, r.question])).toEqual([
+      ["1(a)", 2, "First question here."],
+      ["1(b)", 2, "Second question here."],
+      ["1(c)", 2, "Third question here."],
+    ]);
+  });
+});
