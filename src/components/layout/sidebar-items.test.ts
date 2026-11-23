@@ -31,15 +31,23 @@ describe("sidebar MD Verification entry", () => {
     const manageUsers = APP_SIDEBAR_ITEMS.find(
       (item) => item.href === "/admin/users",
     );
-    const timetable = APP_SIDEBAR_ITEMS.find(
-      (item) => item.href === "/admin/exam-timetable",
-    );
     expect(isSidebarItemVisible(manageUsers!, "verification_admin", false)).toBe(
       false,
     );
-    expect(isSidebarItemVisible(timetable!, "verification_admin", false)).toBe(
-      false,
+  });
+
+  it("exam timetable is public, not an admin item", () => {
+    const timetable = APP_SIDEBAR_ITEMS.find(
+      (item) => item.href === "/exam-timetable",
     );
+    expect(timetable).toBeDefined();
+    expect(timetable?.label).toBe("Exam Timetable");
+    expect(timetable?.roles).toBeUndefined();
+    expect(isSidebarItemVisible(timetable!, "student", false)).toBe(true);
+    expect(isSidebarItemVisible(timetable!, "verification_admin", false)).toBe(
+      true,
+    );
+    expect(isSidebarItemVisible(timetable!, "user", false)).toBe(true);
   });
 
   it("shows to an assigned verifier even as a student", () => {
