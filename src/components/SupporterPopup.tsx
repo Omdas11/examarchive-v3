@@ -11,6 +11,9 @@ import { dispatchProfileRefreshEvent } from "@/lib/profile-events";
  * flag). Dismissing it does NOT hide it for the session: the card slides
  * away until only one corner of it peeks out at the bottom-right of the
  * screen, slightly tilted, and tapping that corner reopens the full card.
+ * When open, the card is a centered modal like the WhatsApp popup
+ * (bottom-anchored on phones, centered on wider screens, dimmed
+ * backdrop) — not a corner card.
  *
  * MainLayout is NOT in the root layout — every page mounts its own
  * MainLayout, so this component remounts on every navigation. The
@@ -79,7 +82,7 @@ interface SupporterPopupProps {
   /**
    * The WhatsApp channel modal is open at the same time. The card moves to
    * the top-right (above the WhatsApp backdrop, z-101) so both popups stay
-   * fully visible and stacked instead of overlapping at the bottom-right.
+   * fully visible and stacked instead of overlapping in the middle.
    * Only applies while the full card is showing, never to the minimized
    * corner (which always peeks out at the bottom-right).
    */
@@ -189,13 +192,29 @@ export default function SupporterPopup({
 
   if (!open) return null;
 
+  // Layout: when open, the card is a centered modal like the WhatsApp
+  // popup (bottom-anchored on phones, centered on wider screens, dimmed
+  // backdrop). Dismissing still slides it to the bottom-right corner
+  // (minimized). While the WhatsApp modal is open, the full card docks
+  // top-right instead so both stay visible and stacked.
+  const centered = !minimized && !stacked;
+
   return (
     <div
       className={
-        "pointer-events-none fixed inset-0 overflow-hidden " +
-        (stacked ? "z-[101]" : "z-[100]")
+        centered
+          ? "fixed inset-0 z-[100] flex items-end justify-center p-4 sm:items-center"
+          : "pointer-events-none fixed inset-0 overflow-hidden " +
+            (stacked ? "z-[101]" : "z-[100]")
       }
     >
+      {centered && (
+        <div
+          className="absolute inset-0 bg-black/50"
+          onClick={minimize}
+          aria-hidden="true"
+        />
+      )}
       <div
         role={minimized ? "button" : "dialog"}
         aria-modal={minimized ? undefined : true}
@@ -217,13 +236,15 @@ export default function SupporterPopup({
             : undefined
         }
         className={
-          "pointer-events-auto absolute right-4 w-[calc(100vw-2rem)] max-w-sm overflow-hidden rounded-2xl bg-surface shadow-floating transition-transform duration-300 ease-out " +
-          // Stacked (WhatsApp modal open): full card docks top-right so both
-          // popups stay visible; the minimized corner always stays bottom-right.
-          (stacked && !minimized ? "top-4 " : "bottom-4 ") +
+          "pointer-events-auto max-w-sm overflow-hidden rounded-2xl bg-surface shadow-floating transition-transform duration-300 ease-out " +
+          (centered
+            ? "animate-toast-in relative w-full "
+            : "absolute right-4 w-[calc(100vw-2rem)] ") +
           (minimized
-            ? "translate-x-[calc(100%_-_72px)] translate-y-[calc(100%_-_60px)] rotate-[4deg] cursor-pointer"
-            : "translate-x-0 translate-y-0 rotate-0")
+            ? "bottom-4 translate-x-[calc(100%_-_72px)] translate-y-[calc(100%_-_60px)] rotate-[4deg] cursor-pointer"
+            : stacked
+              ? "top-4 translate-x-0 translate-y-0 rotate-0"
+              : "translate-x-0 translate-y-0 rotate-0")
         }
       >
         {/* Header — emerald-to-blue gradient, same family as the reward toast */}
