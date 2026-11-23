@@ -31,6 +31,8 @@ export interface SidebarProfileResponse {
   /** Daily login reward awarded on this call, if this is the user's first
    * authenticated visit of the UTC day; null otherwise. */
   daily_reward?: { xp: number; streak: number } | null;
+  /** True once the user clicked Join on the WhatsApp channel popup. */
+  whatsapp_channel_joined?: boolean;
 }
 
 interface RightSidebarProps {

@@ -48,8 +48,8 @@ function playRewardChime() {
 }
 
 /**
- * Daily-login reward toast, deliberately UNMISSABLE: a gold animated
- * gradient (nothing else on the site is gold), a chime, and an 8s display.
+ * Daily-login reward toast, deliberately UNMISSABLE: an emerald-to-blue
+ * animated gradient matching the site hero, a chime, and an 8s display.
  * Shows once when the server awards the daily login XP (first authenticated
  * visit of the UTC day). The positioning translate lives on the outer wrapper
  * so the inner animation's transform never overrides it.
@@ -77,20 +77,20 @@ export default function DailyRewardToast({ reward, onClose }: DailyRewardToastPr
       aria-live="polite"
     >
       <div
-        className="animate-toast-in reward-gold flex items-center gap-3 rounded-2xl px-4 py-3 shadow-floating"
-        style={{ border: "1px solid #b45309" }}
+        className="animate-toast-in reward-gradient flex items-center gap-3 rounded-2xl px-4 py-3 shadow-floating"
+        style={{ border: "1px solid rgba(255,255,255,0.4)" }}
       >
         <span
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
-          style={{ background: "rgba(255,255,255,0.4)" }}
+          style={{ background: "rgba(255,255,255,0.25)" }}
         >
-          <Icon name="fire" size={20} style={{ color: "#92400e" }} aria-hidden="true" />
+          <Icon name="fire" size={20} style={{ color: "#ffffff" }} aria-hidden="true" />
         </span>
         <div className="min-w-0">
-          <p className="text-sm font-bold whitespace-nowrap" style={{ color: "#451a03" }}>
+          <p className="text-sm font-bold whitespace-nowrap" style={{ color: "#ffffff" }}>
             Daily reward: +{reward.xp} XP
           </p>
-          <p className="text-xs whitespace-nowrap" style={{ color: "#78350f" }}>
+          <p className="text-xs whitespace-nowrap" style={{ color: "rgba(255,255,255,0.85)" }}>
             Day {reward.streak} streak — come back tomorrow to keep it going.
           </p>
         </div>
@@ -101,8 +101,8 @@ export default function DailyRewardToast({ reward, onClose }: DailyRewardToastPr
             onClose();
           }}
           aria-label="Dismiss daily reward"
-          className="ml-1 shrink-0 rounded-lg p-1.5 transition-colors hover:bg-black/10"
-          style={{ color: "#451a03" }}
+          className="ml-1 shrink-0 rounded-lg p-1.5 transition-colors hover:bg-white/20"
+          style={{ color: "#ffffff" }}
         >
           <span className="material-symbols-outlined text-[18px] leading-none" aria-hidden="true">
             close

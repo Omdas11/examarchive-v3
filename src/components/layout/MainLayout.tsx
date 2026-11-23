@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import Sidebar from './Sidebar';
@@ -9,6 +9,7 @@ import Footer from '@/components/Footer';
 import RightSidebar, { type SidebarProfileResponse } from './RightSidebar';
 import DailyRewardToast from '@/components/DailyRewardToast';
 import SupporterPopup from '@/components/SupporterPopup';
+import WhatsAppChannelPopup from '@/components/WhatsAppChannelPopup';
 import { cn } from '@/lib/utils';
 import { roleLabel, xpTier } from '@/lib/roles';
 import { PROFILE_REFRESH_EVENT } from '@/lib/profile-events';
@@ -67,6 +68,10 @@ export default function MainLayout({
   // minimized state is carried in sessionStorage, not React state.
   const [supporterInitialMinimized, setSupporterInitialMinimized] = useState(false);
   const [profileChecked, setProfileChecked] = useState(false);
+  const [whatsappPopup, setWhatsappPopup] = useState(false);
+  // Whether the WhatsApp invite was dismissed on THIS page (this MainLayout
+  // instance). Dismissing it is the trigger that shows the Supporter popup.
+  const whatsappDismissedRef = useRef(false);
 
   // Active state for the collapsed right rail — same rule as the left
   // Sidebar (exact match, or a sub-path of the link). The rail had no
@@ -121,6 +126,42 @@ export default function MainLayout({
     };
   }, []);
 
+  // WhatsApp channel popup: show once per session to every visitor who has
+  // not clicked Join yet — registered users (server flag) and guests
+  // (localStorage). Closing it only hides it for this session; it comes
+  // back the next time they open the site, until they join.
+  useEffect(() => {
+    if (!profileChecked) return;
+    if (sessionStorage.getItem('ea_whatsapp_popup_shown') === '1') return;
+    const joinedLocal = localStorage.getItem('ea_whatsapp_joined') === '1';
+    const joinedServer = sidebarProfile?.whatsapp_channel_joined === true;
+    if (joinedLocal || joinedServer) return;
+    const timer = setTimeout(() => {
+      setWhatsappPopup(true);
+      sessionStorage.setItem('ea_whatsapp_popup_shown', '1');
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, [profileChecked, sidebarProfile]);
+
+  const handleWhatsAppJoin = () => {
+    localStorage.setItem('ea_whatsapp_joined', '1');
+    if (sidebarProfile) {
+      // Best-effort: localStorage already stops it on this device.
+      fetch('/api/profile/whatsapp-joined', {
+        method: 'POST',
+        credentials: 'include',
+      }).catch(() => undefined);
+    }
+    setWhatsappPopup(false);
+  };
+
+  const handleWhatsAppDismiss = () => {
+    // Dismissing the WhatsApp invite is the trigger that shows the
+    // Supporter popup (see the Supporter effect below).
+    whatsappDismissedRef.current = true;
+    setWhatsappPopup(false);
+  };
+
   // Supporter subscription popup: show once per session, ~1.2s after load
   // on the first page, to visitors who are not supporters yet. Dismissing
   // it only minimizes it to a corner peeking out at the bottom of the
@@ -135,6 +176,13 @@ export default function MainLayout({
   // Supporters are detected by their custom role (secondary/tertiary),
   // exposed by /api/profile; the localStorage flag is set by the subscribe
   // flow right after a successful payment, so the popup hides at once.
+  //
+  // Sequencing with the WhatsApp invite: WhatsApp shows first (~1.2s).
+  // While it is on screen — or about to appear — the Supporter popup is
+  // held back. Dismissing WhatsApp opens the Supporter popup at once.
+  // If both are ever visible at the same time, the Supporter card stacks
+  // above the WhatsApp modal (see the `stacked` prop) instead of
+  // overlapping it.
   useEffect(() => {
     if (!profileChecked) return;
     if (pathname === "/maintenance-cost") return;
@@ -145,6 +193,15 @@ export default function MainLayout({
     )
       return;
     if (localStorage.getItem("ea_supporter") === "1") return;
+    // Hold the Supporter popup while the WhatsApp invite is on screen or
+    // about to appear (same ~1.2s timer, same gate inputs as its effect).
+    const whatsappShownThisSession =
+      sessionStorage.getItem("ea_whatsapp_popup_shown") === "1";
+    const whatsappJoined =
+      localStorage.getItem("ea_whatsapp_joined") === "1" ||
+      sidebarProfile?.whatsapp_channel_joined === true;
+    const whatsappWillShow = !whatsappShownThisSession && !whatsappJoined;
+    if (whatsappPopup || whatsappWillShow) return;
     if (sessionStorage.getItem("ea_supporter_popup_shown") === "1") {
       // Already shown this session (previous page): reopen at once on this
       // page, minimized if the visitor left it that way.
@@ -154,12 +211,18 @@ export default function MainLayout({
       setSupporterPopup(true);
       return;
     }
+    // WhatsApp was dismissed on this page: open the Supporter popup at once.
+    if (whatsappDismissedRef.current) {
+      setSupporterPopup(true);
+      sessionStorage.setItem("ea_supporter_popup_shown", "1");
+      return;
+    }
     const timer = setTimeout(() => {
       setSupporterPopup(true);
       sessionStorage.setItem("ea_supporter_popup_shown", "1");
     }, 1200);
     return () => clearTimeout(timer);
-  }, [profileChecked, sidebarProfile, pathname]);
+  }, [profileChecked, sidebarProfile, pathname, whatsappPopup]);
 
   // Effective login identity: server-provided page props are the source of
   // truth when present (dynamic pages — no change, no flash). On static pages
@@ -353,15 +416,27 @@ export default function MainLayout({
       {/* Daily login reward toast (shows only when XP was awarded on this load) */}
       <DailyRewardToast reward={dailyReward} onClose={() => setDailyReward(null)} />
 
+      {/* WhatsApp channel invite (every visitor, until they click Join).
+          Mounted before the Supporter popup so the Supporter card paints
+          above it when both are visible at once (see `stacked`). */}
+      <WhatsAppChannelPopup
+        open={whatsappPopup}
+        onJoin={handleWhatsAppJoin}
+        onDismiss={handleWhatsAppDismiss}
+      />
+
       {/* Supporter subscription popup (once per session, non-supporters only).
           Mounted only once opened, so the fresh mount picks up
           initialMinimized from sessionStorage — MainLayout remounts on every
-          navigation, and the popup must reopen minimized on the new page. */}
+          navigation, and the popup must reopen minimized on the new page.
+          `stacked` moves the card to the top-right while the WhatsApp
+          modal is open, so both stay visible instead of overlapping. */}
       {supporterPopup && (
         <SupporterPopup
           open={supporterPopup}
           initialMinimized={supporterInitialMinimized}
           isLoggedIn={effectiveIsLoggedIn}
+          stacked={whatsappPopup}
         />
       )}
     </div>

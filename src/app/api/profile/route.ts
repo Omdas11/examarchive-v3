@@ -249,6 +249,23 @@ export async function GET() {
   } catch {
     // ignore
   }
+  // WhatsApp channel popup: has this user clicked Join already? Separate
+  // lookup so a missing column (migration not applied) never breaks the
+  // profile response — it just means the popup shows.
+  let whatsapp_channel_joined = false;
+  try {
+    const db = await getD1();
+    const flagRow = await db
+      .prepare(
+        "SELECT whatsapp_channel_joined FROM users WHERE id = ? LIMIT 1",
+      )
+      .bind(user.id)
+      .first<{ whatsapp_channel_joined: number | null }>();
+    whatsapp_channel_joined = (flagRow?.whatsapp_channel_joined ?? 0) === 1;
+  } catch {
+    // ignore — popup shows
+  }
+
   const approval_pct = total_uploads > 0 ? Math.round((approved_upload_count / total_uploads) * 100) : 0;
 
   // Verifications submitted (verify-to-earn ledger).
@@ -289,6 +306,7 @@ export async function GET() {
     last_activity: user.last_activity,
     created_at: user.created_at,
     daily_reward: dailyReward,
+    whatsapp_channel_joined,
     approved_upload_count,
     approved_count: approved_upload_count,
     total_uploads,

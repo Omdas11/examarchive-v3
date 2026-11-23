@@ -76,12 +76,21 @@ interface SupporterPopupProps {
    * on every navigation, so React state alone cannot carry it.
    */
   initialMinimized?: boolean;
+  /**
+   * The WhatsApp channel modal is open at the same time. The card moves to
+   * the top-right (above the WhatsApp backdrop, z-101) so both popups stay
+   * fully visible and stacked instead of overlapping at the bottom-right.
+   * Only applies while the full card is showing, never to the minimized
+   * corner (which always peeks out at the bottom-right).
+   */
+  stacked?: boolean;
 }
 
 export default function SupporterPopup({
   open,
   isLoggedIn,
   initialMinimized = false,
+  stacked = false,
 }: SupporterPopupProps) {
   // Minimized = only the card's top-left corner peeks out at the bottom-right
   // of the screen, slightly tilted. Tapping that corner reopens the card.
@@ -181,7 +190,12 @@ export default function SupporterPopup({
   if (!open) return null;
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-[100] overflow-hidden">
+    <div
+      className={
+        "pointer-events-none fixed inset-0 overflow-hidden " +
+        (stacked ? "z-[101]" : "z-[100]")
+      }
+    >
       <div
         role={minimized ? "button" : "dialog"}
         aria-modal={minimized ? undefined : true}
@@ -203,7 +217,10 @@ export default function SupporterPopup({
             : undefined
         }
         className={
-          "pointer-events-auto absolute bottom-4 right-4 w-[calc(100vw-2rem)] max-w-sm overflow-hidden rounded-2xl bg-surface shadow-floating transition-transform duration-300 ease-out " +
+          "pointer-events-auto absolute right-4 w-[calc(100vw-2rem)] max-w-sm overflow-hidden rounded-2xl bg-surface shadow-floating transition-transform duration-300 ease-out " +
+          // Stacked (WhatsApp modal open): full card docks top-right so both
+          // popups stay visible; the minimized corner always stays bottom-right.
+          (stacked && !minimized ? "top-4 " : "bottom-4 ") +
           (minimized
             ? "translate-x-[calc(100%_-_72px)] translate-y-[calc(100%_-_60px)] rotate-[4deg] cursor-pointer"
             : "translate-x-0 translate-y-0 rotate-0")
