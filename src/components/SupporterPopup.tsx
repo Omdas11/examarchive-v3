@@ -64,7 +64,6 @@ const PERKS: Array<{ icon: string; text: string; comingSoon?: boolean }> = [
   { icon: "auto_awesome", text: "100 AI credits every month", comingSoon: true },
   { icon: "picture_as_pdf", text: "2 free AI Notes PDFs a day instead of 1", comingSoon: true },
   { icon: "priority_high", text: "Your paper requests jump the queue" },
-  { icon: "new_releases", text: "Early access to new papers and features" },
 ];
 
 interface SupporterPopupProps {
