@@ -815,6 +815,14 @@ export function parseIndexTableKeywords(md: string): Map<string, string> {
  * the segment carries no such figure.
  */
 function segmentMarksFigure(segment: string): number | null {
+  // A trailing "\quad <n>" inside a display formula is the segment's
+  // marks figure ("$$... \quad 3$$", MATDSC152T Q22(a)(ii), batch 29).
+  // The maths-span collapse below would swallow it with the formula.
+  const quad = segment.match(/\\(?:quad|qquad)\s*([\d০-৯]+)\s*\${1,2}\s*$/);
+  if (quad) {
+    const n = asciiNumber(quad[1]);
+    if (n !== null && n >= 1 && n <= 100) return n;
+  }
   // Maths spans collapse to a bare "$" so a figure after one still
   // reads ("$$...$$ 2" -> "$ 2"), while a figure inside one vanishes
   // with the span ("$x=5$" -> "$").
@@ -917,6 +925,30 @@ function stripTrailingMarks(
         (groupGuard === null || groupGuard === n)
       ) {
         return { text: tailMath[1].trim(), marks: n, split: false };
+      }
+    }
+    // A trailing "\quad <n>" inside the final display formula is the
+    // row's marks figure ("$$... \quad 5$$", MATDSC152T Q16(b)/Q18(b)/
+    // Q19(a)/Q19(b), batch 29). The figure is stripped from inside
+    // the formula; the rest of the formula stays as question text.
+    // Same guard rule as the lone-number branch.
+    const quad = tailMath[2].match(
+      /^([\s\S]*?)\\(?:quad|qquad)\s*([\d০-৯]+)\s*(\${1,2})$/,
+    );
+    if (quad) {
+      const n = asciiNumber(quad[2]);
+      if (
+        n !== null &&
+        n >= 1 &&
+        n <= 100 &&
+        (groupGuard === null || groupGuard === n)
+      ) {
+        const block = `${quad[1].trim()}${quad[3]}`;
+        return {
+          text: `${tailMath[1].trim()} ${block}`.trim(),
+          marks: n,
+          split: false,
+        };
       }
     }
     // A trailing $...$ span that is not a marks figure is content (a
@@ -1673,6 +1705,12 @@ function countedTotalExcludingRemainder(
     let ok = true;
     for (const qrs of byNum.values()) {
       const ms = qrs.map((r) => rowMarksForCount(r));
+      // An all-blank question (MATDSC151T Q25, batch 29: no printed
+      // figure on any part) neither proves nor breaks uniformity — it
+      // is consistent with the section's per-question total and
+      // contributes no sum to test. A question with SOME blank parts
+      // still breaks the test.
+      if (ms.every((m) => m === null)) continue;
       if (ms.some((m) => m === null)) {
         ok = false;
         break;
@@ -1768,6 +1806,65 @@ function countedTotalExcludingRemainder(
     }
   }
   return total;
+}
+
+/**
+ * Fill a blank sub-part from its question's remainder (batch 29,
+ * G18b): under a section-scoped "Answer any five : 10×5=50" a part
+ * with no printed figure used to inherit the per-question total
+ * (10) as its display marks — MATDSC151T Q17(a) read 10, true 4
+ * (10−4−2). When exactly one part of a question took the fallback
+ * and the others are printed, the blank part is the remainder of
+ * the question total. When every part took the fallback (MATDSC151T
+ * Q25), the rows stay blank — no figure is invented — and the
+ * counter treats the question as consistent (G18d). A question
+ * with two or more blank parts keeps the fallback display: the
+ * split is underivable, and clearing it would break the
+ * section-uniformity witnesses the counter needs. Only
+ * section-scoped fallback rows are touched (a numbered
+ * instruction's options really are worth the per each); a printed
+ * figure is never overwritten; a question with a direct parent row
+ * is left alone (its parts' display is the parent fill's business
+ * — BOTDSC151T Q19(a)/(b), ENGSEC101T Q18); and a lone part keeps
+ * its fallback (it IS the whole question). Runs after the rename
+ * (labels final) and before the remainder-section fill.
+ */
+function fillRemainderSubParts(
+  rows: QuestionRow[],
+  fallback: Map<QuestionRow, number>,
+): void {
+  const byQ = new Map<string, QuestionRow[]>();
+  for (const r of rows) {
+    if (!r.label.includes("(")) continue;
+    const q = r.label.split("(")[0];
+    const arr = byQ.get(q) ?? [];
+    arr.push(r);
+    byQ.set(q, arr);
+  }
+  const parentQs = new Set(
+    rows.filter((r) => !r.label.includes("(")).map((r) => r.label),
+  );
+  for (const [q, parts] of byQ) {
+    if (parentQs.has(q)) continue;
+    const blank = parts.filter((r) => fallback.has(r));
+    if (blank.length === 0) continue;
+    const t = fallback.get(blank[0] as QuestionRow) as number;
+    if (!blank.every((r) => fallback.get(r) === t)) continue;
+    if (blank.length === parts.length) {
+      if (parts.length > 1) {
+        for (const r of blank) r.marks = null;
+      }
+      continue;
+    }
+    if (blank.length !== 1) continue;
+    const printed = parts.filter(
+      (r) => !fallback.has(r) && r.marks !== null,
+    );
+    if (printed.length !== parts.length - 1) continue;
+    const rem =
+      t - printed.reduce((a, r) => a + (r.marks as number), 0);
+    if (rem >= 1 && rem <= 100) blank[0].marks = rem;
+  }
 }
 
 /**
@@ -1916,6 +2013,18 @@ export function parseTranscriptToRows(
   // a standalone marks line is never in here: its parts have their
   // own values, or none are known.
   const wholeQuestionParents = new Set<string>();
+  // Marks provenance for sub-rows (batch 29, G18b/G18c), keyed by row
+  // object — labels change under the duplicate-number rename, objects
+  // do not. groupMarksFallback: a sub-row whose marks came from the
+  // groupMarks fallback under a section-scoped group, mapped to the
+  // value it took (the per-QUESTION total, not the part's marks).
+  // Under a numbered instruction the fallback is legitimate (each
+  // option is worth the per), so only section-scoped fallbacks are
+  // tracked. printedSubMarks: a sub-row whose marks came from a
+  // figure printed on its own line — the G18c sum may add it back
+  // when a roman continuation joins, but never a fallback value.
+  const groupMarksFallback = new Map<QuestionRow, number>();
+  const printedSubMarks = new Set<QuestionRow>();
   // A bare "(b)" label seen on its own line, waiting for the next
   // line to supply that sub-question's text.
   let pendingSub: string | null = null;
@@ -1996,26 +2105,33 @@ export function parseTranscriptToRows(
     // the parts split that total (CHMDSM151T 16(a)=1+2=3,
     // 16(b)=1+1=2), so the guard must not reject their own printed
     // figures. A part with no figure still falls back to groupMarks
-    // below (a section question with no split marks at all,
-    // BOTDSC151T 19(a)/(b)).
+    // below — provisionally: the post-pass fillRemainderSubParts
+    // (batch 29, G18b) derives its remainder from the printed
+    // siblings, or blanks it when no figure is printed anywhere.
+    // Under a numbered instruction the fallback is the part's own
+    // marks (each option is worth the per), so only section-scoped
+    // fallbacks are tracked as such.
     const stripped = stripTrailingMarks(
       orStripped.text,
       sectionScoped ? null : groupGuard,
       group,
     );
     const label = `${qNum}(${letter})`;
-    return {
-      row: {
-        label,
-        question: stripped.text,
-        marks: stripped.marks ?? groupMarks,
-        unit,
-        group,
-        id: `${paperCode}-Q${qNum}${letter}`,
-        keywords: "",
-      },
-      isOr: orStripped.isOr,
+    const row: QuestionRow = {
+      label,
+      question: stripped.text,
+      marks: stripped.marks ?? groupMarks,
+      unit,
+      group,
+      id: `${paperCode}-Q${qNum}${letter}`,
+      keywords: "",
     };
+    if (stripped.marks !== null) {
+      printedSubMarks.add(row);
+    } else if (groupMarks !== null && sectionScoped) {
+      groupMarksFallback.set(row, groupMarks);
+    }
+    return { row, isOr: orStripped.isOr };
   };
 
   /** Push a sub-question row, honouring a trailing OR on its text. */
@@ -2060,6 +2176,8 @@ export function parseTranscriptToRows(
     if (last.label.split("(")[0] !== qNum) return false;
     // The pair-either instruction row is not a question to continue.
     if (last.label === qNum && last.group === "Answer either") return false;
+    const prevMarks = last.marks;
+    const prevHasRomanI = /\(i\)/.test(last.question);
     last.question = `${last.question} ${line}`.trim();
     const rederived = stripTrailingMarks(
       last.question,
@@ -2068,6 +2186,29 @@ export function parseTranscriptToRows(
     );
     last.question = rederived.text;
     if (rederived.marks !== null) last.marks = rederived.marks;
+    // Merged roman sub-parts split across a page break (batch 29,
+    // G18c): MATDSC152T Q22(b) — "(b) (i) ... 2" was pushed with the
+    // (i) figure already stripped as the row's marks, so when "(ii)
+    // ... 3" joins, the re-derived marks cover the (ii) part only.
+    // Add the (i) part's printed marks back — but only when the row's
+    // marks were printed (never a groupMarks fallback), the appended
+    // line is a roman continuation, and the re-derive found exactly
+    // the appended line's figure (so the merged sum did not fire and
+    // nothing is double-counted).
+    if (
+      /^\((ii|iii|iv|v|vi)\)\s/.test(line.trim()) &&
+      prevHasRomanI &&
+      prevMarks !== null &&
+      printedSubMarks.has(last) &&
+      probe.marks !== null &&
+      rederived.marks === probe.marks
+    ) {
+      const sum = prevMarks + probe.marks;
+      const guard = sectionScoped ? null : groupGuard;
+      if (sum >= 1 && sum <= 100 && (guard === null || guard === sum)) {
+        last.marks = sum;
+      }
+    }
     return true;
   };
 
@@ -2786,6 +2927,7 @@ export function parseTranscriptToRows(
   // first "23", and the hybrid guard would wrongly skip the pair.
   renameDuplicateNumbers(rows, paperCode);
   fillOrPartnerMarks(rows);
+  fillRemainderSubParts(rows, groupMarksFallback);
   fillRemainderMarks(rows, transcript, transcript.split("\n"));
   return rows;
 }

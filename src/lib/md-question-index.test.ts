@@ -1380,13 +1380,17 @@ Answer any five questions :
     ]);
   });
 
-  test("a split question's parts share one section question — COMIDC-151T (B) Q45(a)/(b) are 8 each, no direct Q45 row", () => {
+  test("a split question's parts share one section question — COMIDC-151T (B) Q45(a)/(b) are blank, no direct Q45 row", () => {
     // Real staged lines: batch-23/COMIDC-151T-B-2024/staged.md lines
     // 119-145. The parser side of the batch-23 double-count: Q45 has
-    // no direct row, only (a)/(b) parts worth 8 each under
-    // "Answer any 5". The counter fix (assemble.py) relies on this
-    // shape — the parts must carry the section group so their qnum is
-    // covered once, not counted again as a second 5×8 allowance.
+    // no direct row, only (a)/(b) parts under "Answer any 5". The
+    // counter fix (assemble.py) relies on this shape — the parts must
+    // carry the section group so their qnum is covered once, not
+    // counted again as a second 5×8 allowance. The parts print no
+    // figure of their own, so since batch 29 (G18b) they read blank
+    // instead of the section per-question total 8: the two parts
+    // split the 8, the split is unknown, and no figure is invented.
+    // The group coverage the counter relies on is unchanged.
     const md = `SECTION-C
 
 Answer any five of the following questions: $8\\times5=40$
@@ -1399,8 +1403,8 @@ Answer any five of the following questions: $8\\times5=40$
     const rows = parseTranscriptToRows(md, "COMIDC-151T (B)");
     expect(rows.map((r) => [r.label, r.marks, r.group, r.unit])).toEqual([
       ["36", 8, "Answer any 5", "C"],
-      ["45(a)", 8, "Answer any 5", "C"],
-      ["45(b)", 8, "Answer any 5", "C"],
+      ["45(a)", null, "Answer any 5", "C"],
+      ["45(b)", null, "Answer any 5", "C"],
     ]);
   });
 });
@@ -2305,6 +2309,187 @@ describe("parser gaps fixed from batch 28 (2026-11-23, HISSEC201T / HISSEC151T /
       ["4", null],
       ["5", null],
       ["6", null],
+    ]);
+  });
+});
+
+describe("parser gaps fixed from batch 29 (2026-11-23, MATDSC151T / MATDSC152T)", () => {
+  test("a trailing \\quad <n> inside a display formula is the row's marks — MATDSC152T Q19(a)", () => {
+    // The figure sits inside the $$...$$ block, so the maths-span
+    // collapse used to swallow it and the row fell back to 10.
+    // The figure is stripped from inside the formula; the rest of
+    // the formula stays as question text.
+    const md = String.raw`SECTION—B
+
+Answer any five of the following questions : $10 \times 5 = 50$
+
+19. (a) If $I_n = \int_0^{\pi/2} x^n \sin x \, dx$ and $n > 1$, then show that $$I_n + n(n-1)I_{n-2} = n\left(\frac{\pi}{2}\right)^{n-1} \quad 5$$
+(b) Second part. 5`;
+    const rows = parseTranscriptToRows(md, "MATDSC152T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["19(a)", 5],
+      ["19(b)", 5],
+    ]);
+    expect(rows[0].question.endsWith("$$")).toBe(true);
+    expect(rows[0].question).not.toContain("\\quad");
+  });
+
+  test("a trailing \\qquad <n> inside a display formula is the row's marks too", () => {
+    const md = String.raw`SECTION—B
+
+Answer any five of the following questions : $10 \times 5 = 50$
+
+19. (a) Show that $$x + y = 1 \qquad 5$$
+(b) Second part. 5`;
+    const rows = parseTranscriptToRows(md, "MATDSC152T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["19(a)", 5],
+      ["19(b)", 5],
+    ]);
+    expect(rows[0].question).not.toContain("qquad");
+  });
+
+  test("merged (i)/(ii) parts sum when the (ii) figure is a \\quad — MATDSC152T Q22(a)", () => {
+    const md = String.raw`SECTION—B
+
+Answer any five of the following questions : $10 \times 5 = 50$
+
+22. (a) (i) First sub-part. 2 (ii) Second sub-part. $$\vec{c} \quad 3$$`;
+    const rows = parseTranscriptToRows(md, "MATDSC152T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([["22(a)", 5]]);
+  });
+
+  test("a (ii) line after a page break sums with the (i) figure already stripped — MATDSC152T Q22(b)", () => {
+    // "(b) (i) ... 2" was pushed with the (i) figure as the row's
+    // marks; when "(ii) ... 3" joins, the re-derive covers the (ii)
+    // part only, so the (i) part's printed marks are added back.
+    const md = String.raw`SECTION—B
+
+Answer any five of the following questions : $10 \times 5 = 50$
+
+22. (a) (i) First sub-part. 2
+(ii) Second sub-part. 3
+(b) (i) Third sub-part. 2
+(ii) Fourth sub-part. 3`;
+    const rows = parseTranscriptToRows(md, "MATDSC152T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["22(a)", 5],
+      ["22(b)", 5],
+    ]);
+  });
+
+  test("a blank part takes the remainder of the question total — MATDSC151T Q17(a)", () => {
+    // (a) prints no figure; (b)=4 and (c)=2 are printed, so (a) is
+    // 10−4−2=4 — never the section per-question total 10.
+    const md = `SECTION—B
+
+Answer any five of the following questions : $10 \\times 5 = 50$
+
+17. (a) First part.
+(b) Second part. 4
+(c) Third part. 2`;
+    const rows = parseTranscriptToRows(md, "MATDSC151T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["17(a)", 4],
+      ["17(b)", 4],
+      ["17(c)", 2],
+    ]);
+  });
+
+  test("a question with no printed figure anywhere stays blank — MATDSC151T Q25", () => {
+    const md = `SECTION—B
+
+Answer any five of the following questions : $10 \\times 5 = 50$
+
+25. (a) First part.
+(b) Second part.
+(c) Third part.`;
+    const rows = parseTranscriptToRows(md, "MATDSC151T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["25(a)", null],
+      ["25(b)", null],
+      ["25(c)", null],
+    ]);
+  });
+
+  test("two blank parts keep the fallback — the split is underivable", () => {
+    const md = `SECTION—B
+
+Answer any five of the following questions : $10 \\times 5 = 50$
+
+17. (a) First part. 4
+(b) Second part.
+(c) Third part.`;
+    const rows = parseTranscriptToRows(md, "MATDSC151T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["17(a)", 4],
+      ["17(b)", 10],
+      ["17(c)", 10],
+    ]);
+  });
+
+  test("a numbered instruction's options really are worth the per each — HISSEC201T Q21 shape", () => {
+    // The instruction sits on the question's own line, so its (a)–(d)
+    // are the alternatives to choose among, each worth 1 — the
+    // fallback here is legitimate and must not be remainder-filled.
+    const md = `UNIT—V
+
+21. Answer any three from the following : $1 \\times 3 = 3$
+(a) First option.
+(b) Second option.
+(c) Third option.
+(d) Fourth option.`;
+    const rows = parseTranscriptToRows(md, "HISSEC201T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["21(a)", 1],
+      ["21(b)", 1],
+      ["21(c)", 1],
+      ["21(d)", 1],
+    ]);
+  });
+
+  test("an all-blank question does not break section uniformity — MATDSC151T Q25 in the counter", () => {
+    // Full marks 24: Section A 2×2=4, Section B "answer any 1"
+    // over Q3 (4+6=10) and Q4 (blank) = 10, so the remainder over
+    // Section C's "answer any 2" is 10 = 5 each. Without the G18d
+    // skip, Section B's uniformity test fails on Q4's blank parts,
+    // the counter falls back per question (4+6=6), and Section C
+    // reads 7 each.
+    const md = `Full Marks : 24
+
+SECTION—A
+
+Answer any two of the following questions : $2 \\times 2 = 4$
+
+1. First question. 2
+2. Second question. 2
+
+SECTION—B
+
+Answer any one of the following questions : $10 \\times 1 = 10$
+
+3. (a) First part. 4
+(b) Second part. 6
+
+4. (a) Blank part.
+(b) Blank part.
+
+SECTION—C
+
+Answer any two of the following questions :
+
+5. Fifth question.
+6. Sixth question.`;
+    const rows = parseTranscriptToRows(md, "MATDSC151T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["1", 2],
+      ["2", 2],
+      ["3(a)", 4],
+      ["3(b)", 6],
+      ["4(a)", null],
+      ["4(b)", null],
+      ["5", 5],
+      ["6", 5],
     ]);
   });
 });
