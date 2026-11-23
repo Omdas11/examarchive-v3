@@ -9,10 +9,21 @@
  * Slots are kept as separate items: each slot is a separate exam sitting.
  *
  * canonicalCode is the normalised paper code (see normalizePaperCode) when
- * the label starts with a real subject code (e.g. PHYDSC301T, COMDSC-103T,
- * COMDSE-501T/502T (E) -> COMDSE501T). Labels with no real code ("AEC 101",
- * "Core 502", "Assamese DSC/GE 101") have canonicalCode null: show the
- * label, do no paper/syllabus lookup for them.
+ * the label starts with a real subject code (e.g. PHYDSC301T, COMDSC-103T).
+ * Labels with no real code ("AEC 101", "Core 502", "Assamese DSC/GE 101")
+ * have canonicalCode null: show the label, do no paper/syllabus lookup
+ * for them.
+ *
+ * Variant codes are stored in their D1-normalised form, because that is
+ * what the lookup keys on. D1 stores IDC/DSE variants as "COMIDC-201T (A)"
+ * and "COMDSE-501T/502T (E)", which normalise to "COMIDC201TA" and
+ * "COMDSE501T502TE" — the letter lands AFTER the T. The programme prints
+ * them as "COMIDC201AT" / "COMDSE-501T/502T (E)", so the canonicalCode
+ * for those slots uses the D1 spelling (e.g. COMDSE-501T/502T (E) ->
+ * COMDSE501T502TE, COMDSE-501T/502T (Management Accounting) ->
+ * COMDSE501T502TA, the (A) row whose paper_name is "Management
+ * Accounting"). Without this the variant slots show as Missing even
+ * though the paper is on the site.
  */
 
 export interface HgcExamDate {
@@ -251,7 +262,7 @@ export const HGC_EXAM_ITEMS: HgcExamItem[] = [
   { subject: "Commerce", date: "2026-11-30", code: "COMDSM301T", canonicalCode: "COMDSM301T", session: "PM" as "AM" | "PM" },
   { subject: "Commerce", date: "2026-12-02", code: "COMGE-501T", canonicalCode: "COMGE501T", session: "AM" as "AM" | "PM" },
   { subject: "Commerce", date: "2026-12-02", code: "COMDSC303T", canonicalCode: "COMDSC303T", session: "PM" as "AM" | "PM" },
-  { subject: "Commerce", date: "2026-12-03", code: "COMDSE-501T/502T (E)", canonicalCode: "COMDSE501T", session: "AM" as "AM" | "PM" },
+  { subject: "Commerce", date: "2026-12-03", code: "COMDSE-501T/502T (E)", canonicalCode: "COMDSE501T502TE", session: "AM" as "AM" | "PM" },
   { subject: "Commerce", date: "2026-12-05", code: "COMDSC101T", canonicalCode: "COMDSC101T", session: "PM" as "AM" | "PM" },
   { subject: "Commerce", date: "2026-12-07", code: "COMDSC-101T", canonicalCode: "COMDSC101T", session: "AM" as "AM" | "PM" },
   { subject: "Commerce", date: "2026-12-07", code: "COMGE-101T", canonicalCode: "COMGE101T", session: "AM" as "AM" | "PM" },
@@ -260,18 +271,18 @@ export const HGC_EXAM_ITEMS: HgcExamItem[] = [
   { subject: "Commerce", date: "2026-12-08", code: "COMDSE 501 (Pass)", canonicalCode: "COMDSE501", session: "AM" as "AM" | "PM" },
   { subject: "Commerce", date: "2026-12-09", code: "COMDSC-302T", canonicalCode: "COMDSC302T", session: "AM" as "AM" | "PM" },
   { subject: "Commerce", date: "2026-12-09", code: "COMGE-301T", canonicalCode: "COMGE301T", session: "AM" as "AM" | "PM" },
-  { subject: "Commerce", date: "2026-12-10", code: "COMDSE-501T/502T (D)", canonicalCode: "COMDSE501T", session: "AM" as "AM" | "PM" },
+  { subject: "Commerce", date: "2026-12-10", code: "COMDSE-501T/502T (D)", canonicalCode: "COMDSE501T502TD", session: "AM" as "AM" | "PM" },
   { subject: "Commerce", date: "2026-12-10", code: "COMDSM101T", canonicalCode: "COMDSM101T", session: "PM" as "AM" | "PM" },
-  { subject: "Commerce", date: "2026-12-11", code: "COMDSE-501T/502T (Management Accounting)", canonicalCode: "COMDSE501T", session: "PM" as "AM" | "PM" },
-  { subject: "Commerce", date: "2026-12-12", code: "COMDSE-501T/502T (B)", canonicalCode: "COMDSE501T", session: "PM" as "AM" | "PM" },
-  { subject: "Commerce", date: "2026-12-12", code: "COMIDC201AT", canonicalCode: "COMIDC201AT", session: "PM" as "AM" | "PM" },
-  { subject: "Commerce", date: "2026-12-12", code: "COMIDC201BT", canonicalCode: "COMIDC201BT", session: "PM" as "AM" | "PM" },
+  { subject: "Commerce", date: "2026-12-11", code: "COMDSE-501T/502T (Management Accounting)", canonicalCode: "COMDSE501T502TA", session: "PM" as "AM" | "PM" },
+  { subject: "Commerce", date: "2026-12-12", code: "COMDSE-501T/502T (B)", canonicalCode: "COMDSE501T502TB", session: "PM" as "AM" | "PM" },
+  { subject: "Commerce", date: "2026-12-12", code: "COMIDC201AT", canonicalCode: "COMIDC201TA", session: "PM" as "AM" | "PM" },
+  { subject: "Commerce", date: "2026-12-12", code: "COMIDC201BT", canonicalCode: "COMIDC201TB", session: "PM" as "AM" | "PM" },
   { subject: "Commerce", date: "2026-12-15", code: "COMDSC102T", canonicalCode: "COMDSC102T", session: "PM" as "AM" | "PM" },
   { subject: "Commerce", date: "2026-12-15", code: "COMDSE 502 (Pass)", canonicalCode: "COMDSE502", session: "PM" as "AM" | "PM" },
-  { subject: "Commerce", date: "2026-12-15", code: "COMDSE-501T/502T (C)", canonicalCode: "COMDSE501T", session: "PM" as "AM" | "PM" },
+  { subject: "Commerce", date: "2026-12-15", code: "COMDSE-501T/502T (C)", canonicalCode: "COMDSE501T502TC", session: "PM" as "AM" | "PM" },
   { subject: "Commerce", date: "2026-12-17", code: "COMDSC202T", canonicalCode: "COMDSC202T", session: "PM" as "AM" | "PM" },
-  { subject: "Commerce", date: "2026-12-18", code: "COMIDC101AT", canonicalCode: "COMIDC101AT", session: "PM" as "AM" | "PM" },
-  { subject: "Commerce", date: "2026-12-18", code: "COMIDC101BT", canonicalCode: "COMIDC101BT", session: "PM" as "AM" | "PM" },
+  { subject: "Commerce", date: "2026-12-18", code: "COMIDC101AT", canonicalCode: "COMIDC101TA", session: "PM" as "AM" | "PM" },
+  { subject: "Commerce", date: "2026-12-18", code: "COMIDC101BT", canonicalCode: "COMIDC101TB", session: "PM" as "AM" | "PM" },
   { subject: "Commerce", date: "2026-12-21", code: "COMSEC201T", canonicalCode: "COMSEC201T", session: "PM" as "AM" | "PM" },
   { subject: "Commerce", date: "2026-12-22", code: "COMDSC-301T", canonicalCode: "COMDSC301T", session: "AM" as "AM" | "PM" },
   { subject: "Commerce", date: "2026-12-22", code: "COMDSM302T", canonicalCode: "COMDSM302T", session: "PM" as "AM" | "PM" },

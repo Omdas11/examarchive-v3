@@ -56,6 +56,16 @@ export const APP_SIDEBAR_ITEMS: AppSidebarItem[] = [
     href: "/browse",
   },
   {
+    label: "Exam Timetable",
+    icon: "calendar_month",
+    href: "/exam-timetable",
+  },
+  {
+    label: "Notices",
+    icon: "campaign",
+    href: "/notices",
+  },
+  {
     label: "Submit a Paper",
     icon: "upload",
     href: "/submit-paper",
@@ -140,12 +150,6 @@ export const APP_SIDEBAR_ITEMS: AppSidebarItem[] = [
     label: "Manage Users",
     icon: "group",
     href: "/admin/users",
-    roles: ["moderator", "founder"],
-  },
-  {
-    label: "Exam Timetable",
-    icon: "calendar_month",
-    href: "/admin/exam-timetable",
     roles: ["moderator", "founder"],
   },
   {
