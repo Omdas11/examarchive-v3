@@ -175,9 +175,11 @@ const BN_COUNT_WORDS = new Map<string, number>([
 // SEC papers write the bare form "Answer any three questions :
 // $1 \times 3 = 3$" (MTMSEC201T) — no "of the following" at all.
 // English papers say "Define any seven of the following terms"
-// (ENGDSC252 Q1) — same shape, same rule.
+// (ENGDSC252 Q1) — same shape, same rule. The count word runs to
+// twenty: BOTIDC151T SECTION—A says "Answer any twenty ..."
+// and BOTSEC151T SECTION—A "Answer any fifteen ..." (batch 22).
 const INSTRUCTION_LINE =
-  /^(?:([\d০-৯]+)[।.]\s*)?(?:Answer\s+any|Define\s+any|Translate\s+any|Write\s+a\s+note\s+on\s+any)\s+\**(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\**\s+(?:(?:of|from)\s+the\s+following|as\s+directed|questions?)\b[^\n]*$/i;
+  /^(?:([\d০-৯]+)[।.]\s*)?(?:Answer\s+any|Define\s+any|Translate\s+any|Write\s+a\s+note\s+on\s+any)\s+\**(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|\d+)\**\s+(?:(?:of|from)\s+the\s+following|as\s+directed|questions?)\b[^\n]*$/i;
 
 // "3. Answer the following questions either (a) or (b) : 8" (PERIDC101T) —
 // one question with two alternatives; the candidate answers either one,
@@ -317,30 +319,148 @@ const SUB_QUESTION_LINE = /^\((?:([a-j])|([কখগঘঙচছজঝ]))\)\s+(.
 // question text on the next line (maths papers split them).
 const BARE_SUB_LINE = /^\((?:([a-j])|([কখগঘঙচছজঝ]))\)$/;
 
+// A number atom in a marks expression: an integer, a vulgar fraction
+// "1/2", a LaTeX fraction "\frac{1}{2}", or a mixed number
+// "1\frac{1}{2}" (CHMDSM151T Q18(c): "1+2+1/2+1/2=4", Q22(a):
+// "$1\frac{1}{2}+1\frac{1}{2}=3$"). Bengali digits pass through
+// (asciiDigits normalises them before evaluation).
+const MARKS_NUM = String.raw`(?:[\d০-৯]+(?:\\frac\{[\d০-৯]+\}\{[\d০-৯]+\})?|[\d০-৯]+\/[\d০-৯]+|\\frac\{[\d০-৯]+\}\{[\d০-৯]+\})`;
+// The operator in a marks expression: "\times", "×" or "x", or "+".
+const MARKS_OP = String.raw`(?:\\times|[×x+])`;
+// A term in a marks expression: a number, or one parenthesised sum —
+// "1+(6+3)=10" (BOTDSM201T Q5). Only one level of parens: papers
+// never nest them.
+const MARKS_TERM = String.raw`(?:${MARKS_NUM}|\(${MARKS_NUM}(?:\s*${MARKS_OP}\s*${MARKS_NUM})*\))`;
+
 // A whole line that is only a marks expression: "$2\times 2=4$",
 // "$2 x 4 = 8$", "2×2=4", "২×২=৪", "$2+8=10$", "$4+4+2=10$",
 // "6+3+1", "1+3+3+3=10". Any number of terms joined by "+" (or one
 // "×"); for "+" it is the total (or the sum when no total is given),
 // for "×" the first number is the marks per sub-question.
-const MARKS_EXPR =
-  /^\${0,2}\s*([\d০-৯]+(?:\s*(?:\\times|[×x+])\s*[\d০-৯]+)+)\s*(?:=\s*([\d০-৯]+))?\s*\${0,2}$/;
+const MARKS_EXPR = new RegExp(
+  String.raw`^\${0,2}\s*(${MARKS_TERM}(?:\s*${MARKS_OP}\s*${MARKS_TERM})+)\s*(?:=\s*([\d০-৯]+))?\s*\${0,2}$`,
+);
+
+/**
+ * Evaluate a marks expression to a number, or null when it cannot be
+ * parsed: integers, vulgar fractions ("1/2"), LaTeX fractions
+ * ("\frac{1}{2}", mixed "1\frac{1}{2}"), "+" and "×"/"x"/"\times",
+ * one level of parens. Anything else (letters, other symbols)
+ * rejects it — the regex gate above already limits what reaches here;
+ * this is the second check. The value may be fractional mid-sum
+ * ("1+2+1/2+1/2" is 4); callers decide whether a whole number is
+ * required.
+ */
+function evalMarksValue(expr: string): number | null {
+  const s = asciiDigits(expr)
+    .replace(/(\d+)\\frac\{(\d+)\}\{(\d+)\}/g, "($1+($2/$3))")
+    .replace(/\\frac\{(\d+)\}\{(\d+)\}/g, "($1/$2)")
+    .replace(/\\times/g, "*")
+    .replace(/[×x]/g, "*");
+  if (!/^[\d\s+*\/().]+$/.test(s)) return null;
+  let i = 0;
+  const skipSpaces = (): void => {
+    while (s[i] === " ") i++;
+  };
+  const parseFactor = (): number | null => {
+    skipSpaces();
+    if (s[i] === "(") {
+      i++;
+      const v = parseSum();
+      if (v === null) return null;
+      skipSpaces();
+      if (s[i] !== ")") return null;
+      i++;
+      return v;
+    }
+    const m = /^\d+/.exec(s.slice(i));
+    if (!m) return null;
+    i += m[0].length;
+    return parseInt(m[0], 10);
+  };
+  const parseProduct = (): number | null => {
+    let v = parseFactor();
+    if (v === null) return null;
+    for (;;) {
+      skipSpaces();
+      const op = s[i];
+      if (op !== "*" && op !== "/") return v;
+      i++;
+      const f = parseFactor();
+      if (f === null || (op === "/" && f === 0)) return null;
+      v = op === "*" ? v * f : v / f;
+    }
+  };
+  const parseSum = (): number | null => {
+    let v = parseProduct();
+    if (v === null) return null;
+    for (;;) {
+      skipSpaces();
+      if (s[i] !== "+") return v;
+      i++;
+      const t = parseProduct();
+      if (t === null) return null;
+      v += t;
+    }
+  };
+  const v = parseSum();
+  if (v === null) return null;
+  skipSpaces();
+  return i === s.length ? v : null;
+}
+
+/** A whole-number result of evalMarksValue, or null (marks are whole). */
+function wholeMarksValue(expr: string): number | null {
+  const v = evalMarksValue(expr);
+  if (v === null) return null;
+  const n = Math.round(v);
+  return Math.abs(v - n) < 1e-9 && n >= 1 && n <= 100 ? n : null;
+}
+
+/**
+ * The value of the first factor of a "×" expression ("1/2×4" is 0.5,
+ * "2×4" is 2). The operator is the first "\times"/"×"/"x" at paren
+ * depth 0; an "x" counts only between digits/spaces, so a stray
+ * letter never splits the expression.
+ */
+function firstMarksFactor(expr: string): number | null {
+  let depth = 0;
+  for (let k = 0; k < expr.length; k++) {
+    const c = expr[k];
+    if (c === "(") depth++;
+    else if (c === ")") depth--;
+    else if (depth === 0) {
+      if (expr.startsWith("\\times", k) || c === "×") {
+        return evalMarksValue(expr.slice(0, k));
+      }
+      if (
+        c === "x" &&
+        /[\d০-৯\s]/.test(expr[k - 1] ?? "") &&
+        /[\s\d০-৯]/.test(expr[k + 1] ?? "")
+      ) {
+        return evalMarksValue(expr.slice(0, k));
+      }
+    }
+  }
+  return evalMarksValue(expr);
+}
 
 /** Marks a marks-expression means (see MARKS_EXPR). */
 function marksFromParts(
   exprStr: string,
   totalStr: string | undefined,
 ): number | null {
-  const nums = exprStr.match(/[\d০-৯]+/g);
-  if (!nums || nums.length < 2) return null;
-  const values = nums.map((n) => asciiNumber(n));
-  if (values.some((v) => v === null)) return null;
   const total = totalStr ? asciiNumber(totalStr) : null;
   if (/\+/.test(exprStr)) {
     // A "+" split: the stated total, or the sum of the parts.
-    return total ?? (values as number[]).reduce((a, b) => a + b, 0);
+    return total ?? wholeMarksValue(exprStr);
   }
   // A "×" split: the first number is the marks per sub-question.
-  return (values as number[])[0];
+  // It must be whole ("1/2×4" has no whole per-part value).
+  const first = firstMarksFactor(exprStr);
+  if (first === null) return null;
+  const n = Math.round(first);
+  return Math.abs(first - n) < 1e-9 && n >= 1 ? n : null;
 }
 
 /**
@@ -355,24 +475,23 @@ function marksDetailFromParts(
   exprStr: string,
   totalStr: string | undefined,
 ): { per: number | null; total: number | null } | null {
-  const nums = exprStr.match(/[\d০-৯]+/g);
-  if (!nums || nums.length < 2) return null;
-  const values = nums.map((n) => asciiNumber(n));
-  if (values.some((v) => v === null)) return null;
   const stated = totalStr ? asciiNumber(totalStr) : null;
   if (/\+/.test(exprStr)) {
     // A "+" split: the stated total, or the sum of the parts.
-    return {
-      per: null,
-      total: stated ?? (values as number[]).reduce((a, b) => a + b, 0),
-    };
+    const total = stated ?? wholeMarksValue(exprStr);
+    return total === null ? null : { per: null, total };
   }
   // A "×" split: the first number is the marks per sub-question, the
   // total is the stated product (or N*M when no total is printed).
-  return {
-    per: (values as number[])[0],
-    total: stated ?? (values as number[])[0] * (values as number[])[1],
-  };
+  const per = (() => {
+    const first = firstMarksFactor(exprStr);
+    if (first === null) return null;
+    const n = Math.round(first);
+    return Math.abs(first - n) < 1e-9 && n >= 1 ? n : null;
+  })();
+  const total = stated ?? wholeMarksValue(exprStr);
+  if (per === null && total === null) return null;
+  return { per, total };
 }
 
 /**
@@ -405,7 +524,9 @@ function instructionMarksDetail(
   line: string,
 ): { per: number | null; total: number | null } | null {
   const expr = line.match(
-    /\$?\s*\**([\d০-৯]+(?:\s*(?:\\times|[×x+])\s*[\d০-৯]+)+)\s*(?:=\s*([\d০-৯]+))?\**\s*\$?\s*$/,
+    new RegExp(
+      String.raw`\$?\s*\**(${MARKS_TERM}(?:\s*${MARKS_OP}\s*${MARKS_TERM})+)\s*(?:=\s*([\d০-৯]+))?\**\s*\$?\s*$`,
+    ),
   );
   if (expr) {
     const detail = marksDetailFromParts(expr[1], expr[2]);
@@ -519,6 +640,16 @@ const WORD_NUMBERS: Record<string, number> = {
   eight: 8,
   nine: 9,
   ten: 10,
+  eleven: 11,
+  twelve: 12,
+  thirteen: 13,
+  fourteen: 14,
+  fifteen: 15,
+  sixteen: 16,
+  seventeen: 17,
+  eighteen: 18,
+  nineteen: 19,
+  twenty: 20,
 };
 
 function wordToNumber(word: string): number | null {
@@ -745,13 +876,38 @@ function stripTrailingMarks(
         return { text: tailMath[1].trim(), marks: derived };
       }
     }
+    // A lone "$N$" span is the row's marks figure ("... bond order?
+    // $1$", CHMDSM151T 18(d)) — a single number, not a split
+    // expression. Same guard rule as the bare-number branch below.
+    const lone = tailMath[2].match(/^\${1,2}\s*\**([\d০-৯]+)\**\s*\${1,2}$/);
+    if (lone) {
+      const n = asciiNumber(lone[1]);
+      if (
+        n !== null &&
+        n >= 1 &&
+        n <= 100 &&
+        (groupGuard === null || groupGuard === n)
+      ) {
+        return { text: tailMath[1].trim(), marks: n };
+      }
+    }
+    // A trailing $...$ span that is not a marks figure is content (a
+    // structure, a list of ions) — strip it and read the figure
+    // before it ("... why? 2 $$[structures]$$", CHMDSM151T 25(d)).
+    // The prefix is strictly shorter, so this terminates. When the
+    // prefix has no figure either, fall through to the branches
+    // below on the original text.
+    const before = stripTrailingMarks(tailMath[1].trim(), groupGuard, group);
+    if (before.marks !== null) return before;
   }
   // A bare marks expression at the end, e.g. "… : ২×২=৪" — Bengali
   // papers write it without $ delimiters. Checked before the bare
   // number below, or "৪" alone would be misread as marks 4. The
   // expression may carry bold markers ("**7+3**", "**4+4+2=10**").
   const bareExpr = text.match(
-    /^(.*?)\s+\**([\d০-৯]+(?:\s*(?:\\times|[×x+])\s*[\d০-৯]+)+)\s*(?:=\s*([\d০-৯]+))?\**\s*$/,
+    new RegExp(
+      String.raw`^(.*?)\s+\**(${MARKS_TERM}(?:\s*${MARKS_OP}\s*${MARKS_TERM})+)\s*(?:=\s*([\d০-৯]+))?\**\s*$`,
+    ),
   );
   if (bareExpr) {
     const derived = marksTotalFromParts(bareExpr[2], bareExpr[3]);
@@ -980,7 +1136,18 @@ export function parseTranscriptToRows(
     rawText: string,
   ): { row: QuestionRow; isOr: boolean } => {
     const orStripped = stripTrailingOr(rawText.trim());
-    const stripped = stripTrailingMarks(orStripped.text, groupGuard, group);
+    // Under a section-scoped group the guard value is the per-QUESTION
+    // total (10 in "Answer any five : 10×5=50"), not per-part marks —
+    // the parts split that total (CHMDSM151T 16(a)=1+2=3,
+    // 16(b)=1+1=2), so the guard must not reject their own printed
+    // figures. A part with no figure still falls back to groupMarks
+    // below (a section question with no split marks at all,
+    // BOTDSC151T 19(a)/(b)).
+    const stripped = stripTrailingMarks(
+      orStripped.text,
+      sectionScoped ? null : groupGuard,
+      group,
+    );
     const label = `${qNum}(${letter})`;
     return {
       row: {
@@ -1027,7 +1194,11 @@ export function parseTranscriptToRows(
     // The pair-either instruction row is not a question to continue.
     if (last.label === qNum && last.group === "Answer either") return false;
     last.question = `${last.question} ${line}`.trim();
-    const rederived = stripTrailingMarks(last.question, groupGuard, group);
+    const rederived = stripTrailingMarks(
+      last.question,
+      sectionScoped ? null : groupGuard,
+      group,
+    );
     last.question = rederived.text;
     if (rederived.marks !== null) last.marks = rederived.marks;
     return true;

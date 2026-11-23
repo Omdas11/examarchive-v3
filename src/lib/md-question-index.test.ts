@@ -1223,3 +1223,130 @@ describe("parser gaps fixed from batch 21 (2026-11-23, BNGSEC151T)", () => {
     }
   });
 });
+
+describe("parser gaps fixed from batch 22 (2026-11-23, BOTIDC151T / CHMDSM151T / BOTDSM201T)", () => {
+  test("twenty is a count word — BOTIDC151T SECTION—A counts 70/70, not 50/70", () => {
+    // Real staged lines: batch-22/BOTIDC151T-2024/staged.md lines 33-35.
+    // Before the fix "twenty" was unrecognised, the instruction became
+    // a direct question row and Q1–Q20 got no group/marks.
+    const md = `SECTION—A
+
+Answer any twenty of the following questions : $1 \\times 20 = 20$
+
+1. First question.
+
+2. Second question.`;
+    const rows = parseTranscriptToRows(md, "BOTIDC151T");
+    expect(rows.map((r) => [r.label, r.marks, r.group, r.unit])).toEqual([
+      ["1", 1, "Answer any 20", "A"],
+      ["2", 1, "Answer any 20", "A"],
+    ]);
+  });
+
+  test("fifteen is a count word — BOTSEC151T SECTION—A counts 50/50, not 35/50", () => {
+    // Real staged lines: batch-22/BOTSEC151T-2024/staged.md lines 33-35.
+    const md = `SECTION—A
+
+Answer any fifteen of the following questions : $1 \\times 15 = 15$
+
+1. First question.`;
+    const rows = parseTranscriptToRows(md, "BOTSEC151T");
+    expect(rows.map((r) => [r.label, r.marks, r.group, r.unit])).toEqual([
+      ["1", 1, "Answer any 15", "A"],
+    ]);
+  });
+
+  test("every English count word from eleven to twenty is recognised", () => {
+    const words: [string, number][] = [
+      ["eleven", 11],
+      ["twelve", 12],
+      ["thirteen", 13],
+      ["fourteen", 14],
+      ["fifteen", 15],
+      ["sixteen", 16],
+      ["seventeen", 17],
+      ["eighteen", 18],
+      ["nineteen", 19],
+      ["twenty", 20],
+    ];
+    for (const [word, n] of words) {
+      const md = `Answer any ${word} of the following questions : $1 \\times ${n} = ${n}$\n\n1. First question.`;
+      const rows = parseTranscriptToRows(md, "ENGTEST");
+      expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+        ["1", 1, `Answer any ${n}`],
+      ]);
+    }
+  });
+
+  test("section-scoped sub-rows keep their split marks — CHMDSM151T Q16 (3, 2, 2, 3), not 10 each", () => {
+    // Real staged lines: batch-22/CHMDSM151T-2024/staged.md, SECTION—B.
+    // Before the fix the group guard (10, the per-QUESTION total from
+    // "Answer any five : 10×5=50") rejected the parts' own figures
+    // (3 ≠ 10) and every part fell back to 10, counting 520/70.
+    const md = `SECTION—B
+
+Answer any five questions : 10×5=50
+
+16. (a) Write the Schrödinger wave equation for hydrogen atom and explain each term in the equation. 1+2=3
+
+(b) Designate the orbitals bearing quantum numbers : 1+1=2
+
+(i) $n = 2, l = 1$ (ii) $n = 3, l = 2$`;
+    const rows = parseTranscriptToRows(md, "CHMDSM151T");
+    expect(rows.map((r) => [r.label, r.marks, r.group, r.unit])).toEqual([
+      ["16(a)", 3, "Answer any 5", "B"],
+      ["16(b)", 2, "Answer any 5", "B"],
+    ]);
+  });
+
+  test("fraction split marks add up — CHMDSM151T 18(c) 1+2+1/2+1/2=4, 22(a) 1½+1½=3", () => {
+    // Real staged lines: batch-22/CHMDSM151T-2024/staged.md lines 107
+    // and 137. Before the fix the "1/2" and "\\frac{1}{2}" atoms were
+    // unread, so both parts fell back to the group total 10.
+    const md = `SECTION—B
+
+Answer any five questions : 10×5=50
+
+18. (a) Write down the basic postulates of valence bond (VB) theory. 3
+
+(c) Write the MO electronic configuration of $\\text{O}_2$ and draw the MO energy level diagram for $\\text{O}_2$ molecule. Comment on its bond order and magnetic properties. $1+2+1/2+1/2=4$
+
+(d) How do you express bond strength in terms of bond order? $1$
+
+22. (a) Explain the following terms : $1\\frac{1}{2}+1\\frac{1}{2}=3$`;
+    const rows = parseTranscriptToRows(md, "CHMDSM151T");
+    expect(rows.map((r) => [r.label, r.marks, r.group, r.unit])).toEqual([
+      ["18(a)", 3, "Answer any 5", "B"],
+      ["18(c)", 4, "Answer any 5", "B"],
+      ["18(d)", 1, "Answer any 5", "B"],
+      ["22(a)", 3, "Answer any 5", "B"],
+    ]);
+  });
+
+  test("a marks figure before a trailing content span is read — CHMDSM151T 25(d) is 2", () => {
+    // Real staged lines: batch-22/CHMDSM151T-2024/staged.md lines 169
+    // and 175. The "2" sits before a $$...$$ structure span, not at
+    // the end of the line; before the fix it fell back to 10.
+    const md = `SECTION—B
+
+Answer any five questions : 10×5=50
+
+25. (a) What are carbanions? Explain, with orbital picture, the structure of methyl carbanion. $1+2=3$
+
+(d) Which ion in each of the following pair is more stable and why? 2 $$\\text{[Cyclopropenyl cation structure]} \\quad \\text{Or} \\quad \\text{[Cyclopropenyl anion structure]}$$`;
+    const rows = parseTranscriptToRows(md, "CHMDSM151T");
+    expect(rows.map((r) => [r.label, r.marks, r.group, r.unit])).toEqual([
+      ["25(a)", 3, "Answer any 5", "B"],
+      ["25(d)", 2, "Answer any 5", "B"],
+    ]);
+  });
+
+  test("a parenthesised sum reads its total — BOTDSM201T Q5 1+(6+3)=10", () => {
+    // Real staged line: batch-22/BOTDSM201T-2024/staged.md line 61.
+    // Before the fix the marks cell was blank (the count stayed 70/70
+    // only because the OR fallback supplied the group total).
+    const md = `5. What is adaptation? Give an account of the anatomical adaptations found in hydrophytes with necessary diagrams. $1+(6+3)=10$`;
+    const rows = parseTranscriptToRows(md, "BOTDSM201T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([["5", 10]]);
+  });
+});
