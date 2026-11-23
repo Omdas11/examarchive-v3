@@ -11,8 +11,13 @@ import { dispatchProfileRefreshEvent } from "@/lib/profile-events";
  * flag). Dismissing it does NOT hide it for the session: the card slides
  * away until only one corner of it peeks out at the bottom-right of the
  * screen, slightly tilted, and tapping that corner reopens the full card.
- * The minimized corner stays visible across client-side navigations because
- * MainLayout (and this component's state) survives them.
+ *
+ * MainLayout is NOT in the root layout — every page mounts its own
+ * MainLayout, so this component remounts on every navigation. The
+ * minimized state therefore lives in sessionStorage
+ * (ea_supporter_popup_minimized) instead of React state alone: MainLayout
+ * passes it back in as `initialMinimized`, so the corner survives
+ * navigation and the popup reopens on every page this session.
  *
  * Subscribe flow (signed-in users): loads Razorpay Checkout.js on demand,
  * creates the subscription via POST /api/subscriptions/create, opens
@@ -64,16 +69,47 @@ interface SupporterPopupProps {
   open: boolean;
   /** Guests see the popup too, but the subscribe button sends them to sign in first. */
   isLoggedIn: boolean;
+  /**
+   * Start minimized (only the corner peeking out) when the visitor left it
+   * minimized on a previous page this session. MainLayout reads this from
+   * sessionStorage (ea_supporter_popup_minimized) — the component remounts
+   * on every navigation, so React state alone cannot carry it.
+   */
+  initialMinimized?: boolean;
 }
 
-export default function SupporterPopup({ open, isLoggedIn }: SupporterPopupProps) {
+export default function SupporterPopup({
+  open,
+  isLoggedIn,
+  initialMinimized = false,
+}: SupporterPopupProps) {
   // Minimized = only the card's top-left corner peeks out at the bottom-right
   // of the screen, slightly tilted. Tapping that corner reopens the card.
-  const [minimized, setMinimized] = useState(false);
+  // The minimized state is persisted to sessionStorage so it survives the
+  // remount on every navigation (see the header comment).
+  const [minimized, setMinimized] = useState(initialMinimized);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Expiry (epoch ms) once the subscription is verified.
   const [subscribedUntil, setSubscribedUntil] = useState<number | null>(null);
+
+  function minimize() {
+    setMinimized(true);
+    try {
+      sessionStorage.setItem("ea_supporter_popup_minimized", "1");
+    } catch {
+      // storage unavailable; the corner just won't survive navigation
+    }
+  }
+
+  function reopen() {
+    setMinimized(false);
+    try {
+      sessionStorage.removeItem("ea_supporter_popup_minimized");
+    } catch {
+      // storage unavailable; nothing to clear
+    }
+  }
 
   async function subscribe() {
     setError(null);
@@ -116,6 +152,7 @@ export default function SupporterPopup({ open, isLoggedIn }: SupporterPopupProps
             if (!verifyRes.ok) throw new Error(verifyData.error ?? "Payment verification failed");
             try {
               localStorage.setItem("ea_supporter", "1");
+              sessionStorage.removeItem("ea_supporter_popup_minimized");
             } catch {
               // popup hides via state anyway; the flag is a bonus
             }
@@ -154,13 +191,13 @@ export default function SupporterPopup({ open, isLoggedIn }: SupporterPopupProps
             : "Become a Supporter for Rs 29 a month"
         }
         tabIndex={minimized ? 0 : undefined}
-        onClick={minimized ? () => setMinimized(false) : undefined}
+        onClick={minimized ? () => reopen() : undefined}
         onKeyDown={
           minimized
             ? (e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
-                  setMinimized(false);
+                  reopen();
                 }
               }
             : undefined
@@ -178,7 +215,7 @@ export default function SupporterPopup({ open, isLoggedIn }: SupporterPopupProps
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              setMinimized(true);
+              minimize();
             }}
             tabIndex={minimized ? -1 : undefined}
             aria-label="Minimize"
@@ -327,7 +364,7 @@ export default function SupporterPopup({ open, isLoggedIn }: SupporterPopupProps
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              setMinimized(true);
+              minimize();
             }}
             tabIndex={minimized ? -1 : undefined}
             className="mt-2 w-full rounded-lg py-2 text-sm text-on-surface-variant transition-colors hover:bg-surface-container-low"

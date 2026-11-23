@@ -61,6 +61,11 @@ export default function MainLayout({
   const [sidebarProfile, setSidebarProfile] = useState<SidebarProfileResponse | null>(null);
   const [dailyReward, setDailyReward] = useState<{ xp: number; streak: number } | null>(null);
   const [supporterPopup, setSupporterPopup] = useState(false);
+  // Whether the popup should start minimized (corner peeking) when it opens
+  // on this page — read from sessionStorage in the effect below. MainLayout
+  // remounts on every navigation (it is not in the root layout), so the
+  // minimized state is carried in sessionStorage, not React state.
+  const [supporterInitialMinimized, setSupporterInitialMinimized] = useState(false);
   const [profileChecked, setProfileChecked] = useState(false);
 
   // Active state for the collapsed right rail — same rule as the left
@@ -116,18 +121,23 @@ export default function MainLayout({
     };
   }, []);
 
-  // Supporter subscription popup: show once per session, ~1.2s after load,
-  // to visitors who are not supporters yet. Dismissing it only minimizes it
-  // to a corner peeking out at the bottom of the screen (the component owns
-  // that state) — it stays available until the session ends. Guests see it
-  // too; the subscribe button sends them to sign in first.
+  // Supporter subscription popup: show once per session, ~1.2s after load
+  // on the first page, to visitors who are not supporters yet. Dismissing
+  // it only minimizes it to a corner peeking out at the bottom of the
+  // screen (the component owns that state, persisted in sessionStorage).
+  //
+  // MainLayout is NOT in the root layout — every page mounts its own
+  // MainLayout, so on every navigation this effect runs again. If the popup
+  // was already shown this session, reopen it immediately (no delay) on the
+  // new page: minimized if the visitor left it minimized, full card
+  // otherwise. Guests see it too; the subscribe button sends them to sign
+  // in first.
   // Supporters are detected by their custom role (secondary/tertiary),
   // exposed by /api/profile; the localStorage flag is set by the subscribe
   // flow right after a successful payment, so the popup hides at once.
   useEffect(() => {
     if (!profileChecked) return;
     if (pathname === "/maintenance-cost") return;
-    if (sessionStorage.getItem("ea_supporter_popup_shown") === "1") return;
     if (
       sidebarProfile?.role === "supporter" ||
       sidebarProfile?.secondary_role === "supporter" ||
@@ -135,6 +145,15 @@ export default function MainLayout({
     )
       return;
     if (localStorage.getItem("ea_supporter") === "1") return;
+    if (sessionStorage.getItem("ea_supporter_popup_shown") === "1") {
+      // Already shown this session (previous page): reopen at once on this
+      // page, minimized if the visitor left it that way.
+      setSupporterInitialMinimized(
+        sessionStorage.getItem("ea_supporter_popup_minimized") === "1",
+      );
+      setSupporterPopup(true);
+      return;
+    }
     const timer = setTimeout(() => {
       setSupporterPopup(true);
       sessionStorage.setItem("ea_supporter_popup_shown", "1");
@@ -334,8 +353,17 @@ export default function MainLayout({
       {/* Daily login reward toast (shows only when XP was awarded on this load) */}
       <DailyRewardToast reward={dailyReward} onClose={() => setDailyReward(null)} />
 
-      {/* Supporter subscription popup (once per session, non-supporters only) */}
-      <SupporterPopup open={supporterPopup} isLoggedIn={effectiveIsLoggedIn} />
+      {/* Supporter subscription popup (once per session, non-supporters only).
+          Mounted only once opened, so the fresh mount picks up
+          initialMinimized from sessionStorage — MainLayout remounts on every
+          navigation, and the popup must reopen minimized on the new page. */}
+      {supporterPopup && (
+        <SupporterPopup
+          open={supporterPopup}
+          initialMinimized={supporterInitialMinimized}
+          isLoggedIn={effectiveIsLoggedIn}
+        />
+      )}
     </div>
   );
 }
