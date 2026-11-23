@@ -77,7 +77,7 @@ export default function DailyRewardToast({ reward, onClose }: DailyRewardToastPr
       aria-live="polite"
     >
       <div
-        className="animate-toast-in reward-gradient flex items-center gap-3 rounded-2xl px-4 py-3 shadow-floating"
+        className="animate-toast-in reward-gradient flex items-center gap-3 rounded-lg px-4 py-3 shadow-floating"
         style={{ border: "1px solid rgba(255,255,255,0.4)" }}
       >
         <span

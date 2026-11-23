@@ -40,7 +40,7 @@ export default function WhatsAppChannelPopup({
         onClick={onDismiss}
         aria-hidden="true"
       />
-      <div className="animate-toast-in relative w-full max-w-sm overflow-hidden rounded-2xl bg-surface shadow-floating">
+      <div className="animate-toast-in relative w-full max-w-sm overflow-hidden rounded-lg bg-surface shadow-floating">
         <div className="reward-gradient relative px-5 pb-5 pt-6 text-center">
           <button
             type="button"
@@ -80,7 +80,7 @@ export default function WhatsAppChannelPopup({
             target="_blank"
             rel="noopener noreferrer"
             onClick={onJoin}
-            className="reward-gradient flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-white"
+            className="reward-gradient flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-bold text-white"
           >
             <span
               className="material-symbols-outlined text-[18px] leading-none"
