@@ -853,7 +853,13 @@ function stripTrailingMarks(
   text: string,
   groupGuard: number | null,
   group: string,
-): { text: string; marks: number | null } {
+): { text: string; marks: number | null; split: boolean } {
+  // `split` is true when the marks were derived from a multi-term
+  // expression (a total composed of parts: "1+3+3+3=10", "$2+8=10$")
+  // and false for a single figure (": 2", "$10$", "[5]"). The G14
+  // parent fill needs it: a split total must never be copied onto
+  // the parts (PHYDSM101T Q8's parts are 3+3+3, not 10 each), while
+  // a single figure is the whole question's marks (ENGSEC101T Q18).
   // Sub-parts on one line, each with its own figure — "(i) ... 3
   // (ii) ... 2" is worth 3+2=5, not the trailing 2 alone (MTMSEC101T
   // Q9(b), MTMDSC302T Q8(d), MTMDSM301 Q8(c)). The figures stay in
@@ -869,7 +875,7 @@ function stripTrailingMarks(
       groupGuard === merged ||
       group === "Answer either"
     ) {
-      return { text, marks: merged };
+      return { text, marks: merged, split: true };
     }
     // Disagrees with the guard: fall through to the existing
     // branches, which reject the trailing figure and fall back.
@@ -895,7 +901,7 @@ function stripTrailingMarks(
         derived <= 100 &&
         (groupGuard === null || groupGuard === derived)
       ) {
-        return { text: tailMath[1].trim(), marks: derived };
+        return { text: tailMath[1].trim(), marks: derived, split: true };
       }
     }
     // A lone "$N$" span is the row's marks figure ("... bond order?
@@ -910,7 +916,7 @@ function stripTrailingMarks(
         n <= 100 &&
         (groupGuard === null || groupGuard === n)
       ) {
-        return { text: tailMath[1].trim(), marks: n };
+        return { text: tailMath[1].trim(), marks: n, split: false };
       }
     }
     // A trailing $...$ span that is not a marks figure is content (a
@@ -941,7 +947,7 @@ function stripTrailingMarks(
       derived <= 100 &&
       (groupGuard === null || groupGuard === derived)
     ) {
-      return { text: bareExpr[1].trim(), marks: derived };
+      return { text: bareExpr[1].trim(), marks: derived, split: true };
     }
   }
   // A parenthesised trailing figure "(5)" is the row's marks
@@ -958,7 +964,7 @@ function stripTrailingMarks(
       n <= 100 &&
       (groupGuard === null || groupGuard === n)
     ) {
-      return { text: `${paren[1]}${paren[2]}`.trim(), marks: n };
+      return { text: `${paren[1]}${paren[2]}`.trim(), marks: n, split: false };
     }
   }
   // A parenthesised split expression at the end is the row's marks —
@@ -982,7 +988,7 @@ function stripTrailingMarks(
       derived <= 100 &&
       (groupGuard === null || groupGuard === derived)
     ) {
-      return { text: splitParen[1].trim(), marks: derived };
+      return { text: splitParen[1].trim(), marks: derived, split: true };
     }
   }
   // A bracketed split expression at the end is the row's marks —
@@ -1001,7 +1007,7 @@ function stripTrailingMarks(
       derived <= 100 &&
       (groupGuard === null || groupGuard === derived)
     ) {
-      return { text: bracketSplit[1].trim(), marks: derived };
+      return { text: bracketSplit[1].trim(), marks: derived, split: true };
     }
   }
   // A bracketed figure at the end is the row's marks — "... show that
@@ -1017,7 +1023,7 @@ function stripTrailingMarks(
       n <= 100 &&
       (groupGuard === null || groupGuard === n)
     ) {
-      return { text: bracketSingle[1].trim(), marks: n };
+      return { text: bracketSingle[1].trim(), marks: n, split: false };
     }
   }
   // A marks figure standing before a display formula mid-text —
@@ -1045,6 +1051,7 @@ function stripTrailingMarks(
     return {
       text: `${text.slice(0, numStart)}${text.slice(after)}`.trim(),
       marks: n,
+      split: false,
     };
   }
   // A marks figure right after a colon, introducing a quoted passage
@@ -1063,7 +1070,7 @@ function stripTrailingMarks(
       n <= 100 &&
       (groupGuard === null || groupGuard === n)
     ) {
-      return { text: `${colonQuote[1]}: ${colonQuote[3]}`.trim(), marks: n };
+      return { text: `${colonQuote[1]}: ${colonQuote[3]}`.trim(), marks: n, split: false };
     }
   }
   // A marks figure/expression after a colon, with the question's
@@ -1099,7 +1106,7 @@ function stripTrailingMarks(
         derived <= 100 &&
         (groupGuard === null || groupGuard === derived)
       ) {
-        return { text: `${colonMid[1]}: ${rest}`.trim(), marks: derived };
+        return { text: `${colonMid[1]}: ${rest}`.trim(), marks: derived, split: /[×x+]/.test(colonMid[2]) };
       }
     }
   }
@@ -1116,7 +1123,7 @@ function stripTrailingMarks(
       n <= 100 &&
       (groupGuard === null || groupGuard === n)
     ) {
-      return { text: footerMarks[1].trim(), marks: n };
+      return { text: footerMarks[1].trim(), marks: n, split: false };
     }
   }
   // A bare number at the end of the question is its marks — but only
@@ -1127,11 +1134,11 @@ function stripTrailingMarks(
   // A trailing "*" bullet artifact may follow the figure with a space
   // ("... : 10 *", ECODSM101T Q4, batch 25).
   const m = text.match(/^(.*?)\s+\**([\d০-৯]+)[\s*]*$/);
-  if (!m) return { text, marks: null };
+  if (!m) return { text, marks: null, split: false };
   const n = asciiNumber(m[2]);
-  if (n === null || n < 1 || n > 100) return { text, marks: null };
-  if (groupGuard !== null && groupGuard !== n) return { text, marks: null };
-  return { text: m[1].trim(), marks: n };
+  if (n === null || n < 1 || n > 100) return { text, marks: null, split: false };
+  if (groupGuard !== null && groupGuard !== n) return { text, marks: null, split: false };
+  return { text: m[1].trim(), marks: n, split: false };
 }
 
 /**
@@ -1341,10 +1348,51 @@ function fillPositionalMarks(rows: QuestionRow[]): void {
 }
 
 /**
+ * Fill blank sub-rows from a marks-carrying parent row when the
+ * parent's marks are the whole question's marks (batch 27, G14):
+ * ENGSEC101T Q18 "Change the mode of narration : 2" with (a)–(d)
+ * and no per-part figures — the 2 is the whole question, so each
+ * part displays it. Only parents in `wholeQuestionParents` qualify:
+ * their marks came from a single figure on the question's own line.
+ * A parent whose marks came from a split total ("1+3+3+3=10",
+ * PHYDSM101T Q8 — its parts are 3+3+3, not 10 each) or a standalone
+ * marks line is never in the set. An instruction row ("Answer
+ * either (a) or (b) : 10", ECODSM101T Q4) is the question total with
+ * pair-split parts and is excluded too, and a partly marked question
+ * is left alone. The counter counts such a question once (see
+ * assemble.py counted_total: all sub-rows equal to the parent means
+ * the parent alone), so the filled cells never change the total.
+ */
+function fillWholeQuestionParentParts(
+  rows: QuestionRow[],
+  wholeQuestionParents: Set<string>,
+): void {
+  for (const p of rows) {
+    if (p.label.includes("(") || p.marks === null) continue;
+    if (!wholeQuestionParents.has(p.label)) continue;
+    if (p.group === "Answer either") continue;
+    if (/^Answer\s/i.test(p.question.replace(/^[\s$*#]+/, ""))) continue;
+    // A split printed in the parent's own text ("Write short notes
+    // on the following (3+4+3=10) : 10", COMDSM-101T Q19) gives the
+    // parts their own values (3, 4, 3) — the total must never be
+    // copied onto them. Only a parent with no split expression in
+    // its text qualifies.
+    if (/[\d০-৯]+\s*(?:\+|\\times|[×x])\s*[\d০-৯]/.test(p.question)) continue;
+    const parts = rows.filter((r) => r.label.startsWith(`${p.label}(`));
+    if (parts.length === 0) continue;
+    if (!parts.every((r) => r.marks === null)) continue;
+    for (const r of parts) r.marks = p.marks;
+  }
+}
+
+/**
  * A standalone OR line, allowing markdown markers ("### OR", "**OR**")
  * and HTML centring ("<center>**OR**</center>", "<center>OR</center>" —
  * ENGDSC202T Q11/Q14: primary puts the margin figure on its own line,
- * then the centred OR). Bengali papers write অথবা.
+ * then the centred OR) and HTML line breaks ("<br>Or<br>",
+ * "<br>OR<br>", "<br>or<br>" — HISDSC202T Q4/Q6/Q8/Q10, batch 27).
+ * The tags are stripped before the test, so every wrapped form reads
+ * as a bare OR. Bengali papers write অথবা.
  */
 const isOrLine = (l: string): boolean =>
   /^(OR|অথবা)$/i.test(
@@ -1417,6 +1465,13 @@ export function parseTranscriptToRows(
   // orphan whose label was cut off at the boundary (see
   // handleOrphanLine below).
   let crossedPageBreak = false;
+  // Question numbers whose parent row's marks came from a single
+  // figure on the question's own line (": 2", "$10$") — the whole
+  // question's marks, which its blank sub-rows may inherit (G14).
+  // A parent whose marks came from a split total ("1+3+3+3=10") or
+  // a standalone marks line is never in here: its parts have their
+  // own values, or none are known.
+  const wholeQuestionParents = new Set<string>();
   // A bare "(b)" label seen on its own line, waiting for the next
   // line to supply that sub-question's text.
   let pendingSub: string | null = null;
@@ -1467,8 +1522,17 @@ export function parseTranscriptToRows(
   /** Strip a trailing "OR" / "অথবা" from question text. */
   const stripTrailingOr = (text: string): { text: string; isOr: boolean } => {
     const m = text.match(/^(.*?)\s+(OR|অথবা)$/);
-    if (!m) return { text, isOr: false };
-    return { text: m[1].trim(), isOr: true };
+    if (m) return { text: m[1].trim(), isOr: true };
+    // A trailing "<br>Or<br>" (HISDSC202T, batch 27): the model writes
+    // the OR marker with HTML line breaks, and the pipeline reflow can
+    // join it onto the row's line. The <br> before the marker is
+    // required — a bare trailing lowercase "or" is ordinary text, not
+    // a marker, and must never match.
+    const m2 = text.match(
+      /^(.*?)\s*<br\s*\/?>\s*(OR|অথবা)(?:\s*<br\s*\/?>)*\s*$/i,
+    );
+    if (!m2) return { text, isOr: false };
+    return { text: m2[1].trim(), isOr: true };
   };
 
   /**
@@ -1861,6 +1925,9 @@ export function parseTranscriptToRows(
       id: `${paperCode}-Q${num}`,
       keywords: "",
     };
+    if (stripped.marks !== null && !stripped.split) {
+      wholeQuestionParents.add(num);
+    }
     if (orStripped.isOr) {
       applyOr(row);
       orPending = true;
@@ -2106,6 +2173,8 @@ export function parseTranscriptToRows(
           last.label.split("(")[0] === qNum
         ) {
           last.marks = n;
+          // A single bare figure: the whole question's marks (G14).
+          wholeQuestionParents.add(qNum);
         }
       }
       continue;
@@ -2238,6 +2307,9 @@ export function parseTranscriptToRows(
         id: `${paperCode}-Q${qNum}`,
         keywords: "",
       };
+      if (stripped.marks !== null && !stripped.split) {
+        wholeQuestionParents.add(qNum);
+      }
       if (orStripped.isOr) {
         applyOr(row);
         orPending = true;
@@ -2264,6 +2336,7 @@ export function parseTranscriptToRows(
   if (pairTotal !== null) fillPairTotalParts(rows, pairTotal);
   fillEitherParentMarks(rows, pairTotal);
   fillPositionalMarks(rows);
+  fillWholeQuestionParentParts(rows, wholeQuestionParents);
   return rows;
 }
 

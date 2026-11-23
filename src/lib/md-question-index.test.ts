@@ -2028,3 +2028,133 @@ describe("parser gaps fixed from batch 26 (2026-11-23, ENGDSC202T)", () => {
     ]);
   });
 });
+
+describe("parser gaps fixed from batch 27 (2026-11-23, HISDSC202T / ENGSEC101T)", () => {
+  test("<br>Or<br> lines are OR markers in every case — HISDSC202T Q4/Q6/Q8/Q10", () => {
+    // Primary's form (from batch-27 primary.json, pg-2): the OR
+    // marker written with HTML line breaks. The three case variants
+    // each sit between one question's (a) and (b) alternatives.
+    const md = `UNIT—II\n\n3. Answer any two of the following : $2 \\times 2 = 4$\n(a) Mention two causes for the failure of the French for supremacy in India.\n(b) Write any two important causes of the Battle of Buxar.\n(c) Who introduced dual system of administration in Bengal? When was it introduced?\n4. (a) Write a note on Anglo-French conflict for supremacy in India. 10\n<br>Or<br>\n(b) Discuss the causes and results of the Battle of Plassey.\nUNIT—III\n\n5. Answer any two of the following : $2 \\times 2 = 4$\n(a) When did the First Anglo-Maratha War start? Who won this War?\n(b) Mention two causes for the downfall of the Maratha Empire.\n(c) Name two rulers of Mysore.\n6. (a) Write a note on Anglo-Maratha relation. 10\n<br>OR<br>\n(b) Analyze the various conquests of Ranjit Singh.\nUNIT—IV\n\n7. Answer any two of the following : $2 \\times 2 = 4$\n(a) Who introduced Subsidiary Alliance? Name the first Indian ruler to accept the Subsidiary Alliance.\n(b) Mention the names of two princely States annexed by Dalhousie with the application of Doctrine of Lapse.\n(c) Name two prominent leaders of the Santhal rebellion.\n8. (a) Write a note on Subsidiary Alliance. 10\n<br>or<br>\n(b) Give an account on Kol resistance against British.`;
+    const rows = parseTranscriptToRows(md, "HISDSC202T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["3(a)", 2, "Answer any 2"],
+      ["3(b)", 2, "Answer any 2"],
+      ["3(c)", 2, "Answer any 2"],
+      ["4(a)", 10, ""],
+      ["4(b)", 10, "OR"],
+      ["5(a)", 2, "Answer any 2"],
+      ["5(b)", 2, "Answer any 2"],
+      ["5(c)", 2, "Answer any 2"],
+      ["6(a)", 10, ""],
+      ["6(b)", 10, "OR"],
+      ["7(a)", 2, "Answer any 2"],
+      ["7(b)", 2, "Answer any 2"],
+      ["7(c)", 2, "Answer any 2"],
+      ["8(a)", 10, ""],
+      ["8(b)", 10, "OR"],
+    ]);
+  });
+
+  test("a <br>Or<br> joined onto its row's line still marks the OR — HISDSC202T reflow form", () => {
+    // The pipeline reflow (before its own fix) joined the marker onto
+    // the (a) line: "4. (a) ... 10 <br>Or<br>". The parser must read
+    // the marks and the OR off that joined line.
+    const md = `UNIT—II\n\n4. (a) Write a note on Anglo-French conflict for supremacy in India. 10 <br>Or<br>\n(b) Discuss the causes and results of the Battle of Plassey.`;
+    const rows = parseTranscriptToRows(md, "HISDSC202T");
+    expect(rows.map((r) => [r.label, r.marks, r.group, r.question])).toEqual([
+      [
+        "4(a)",
+        10,
+        "OR",
+        "Write a note on Anglo-French conflict for supremacy in India.",
+      ],
+      [
+        "4(b)",
+        10,
+        "OR",
+        "Discuss the causes and results of the Battle of Plassey.",
+      ],
+    ]);
+  });
+
+  test("a bare trailing lowercase 'or' is ordinary text, never an OR marker", () => {
+    const md = `UNIT—I\n\n1. (a) Discuss whether the king acted wisely or not.\n(b) Give an account of the battle.`;
+    const rows = parseTranscriptToRows(md, "HISDSC202T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1(a)", null, ""],
+      ["1(b)", null, ""],
+    ]);
+  });
+
+  test("sub-rows of a marks-carrying parent are filled from the parent — ENGSEC101T Q18", () => {
+    // "18. Change the mode of narration : 2" with (a)–(d) and no
+    // per-part figures: the 2 is the whole question, so each part
+    // displays it. The parent is Q17's OR alternative.
+    const md = `UNIT—IV\n\n17. Change the voice : 2\n(a) He wrote a letter.\n(b) She sings a song.\nOr\n18. Change the mode of narration : 2\n(a) He said, "The bell rang."\n(b) He says to me, "What is this place called?"\n(c) He asked me what my name was.\n(d) The man ordered me not to put my things here.\n19. Do as directed : 2\n(a) First item.\n(b) Second item.`;
+    const rows = parseTranscriptToRows(md, "ENGSEC101T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["17", 2, ""],
+      ["17(a)", 2, ""],
+      ["17(b)", 2, ""],
+      ["18", 2, "OR"],
+      ["18(a)", 2, ""],
+      ["18(b)", 2, ""],
+      ["18(c)", 2, ""],
+      ["18(d)", 2, ""],
+      ["19", 2, ""],
+      ["19(a)", 2, ""],
+      ["19(b)", 2, ""],
+    ]);
+  });
+
+  test("a parent whose marks are a split total on its own line is never filled — PHYDSM101T Q8", () => {
+    // "1+3+3+3=10" is a total composed of the parts (3+3+3, plus 1
+    // for the stem): the parts are not 10 each, so they stay blank.
+    // This is the batch-4 regression case.
+    const md = `UNIT—III\n\n8. What is central force? Prove the following for a particle moving under a central force :\n1+3+3+3=10\n\n(a) Angular momentum about the centre of force is a constant of motion.\n\n(b) The motion of the particle is always confined to a plane.\n\n(c) The areal velocity of the line joining the centre of force and the particle is a constant of motion.`;
+    const rows = parseTranscriptToRows(md, "PHYDSM101T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["8", 10],
+      ["8(a)", null],
+      ["8(b)", null],
+      ["8(c)", null],
+    ]);
+  });
+
+  test("a parent whose text prints the split is never filled — COMDSM-101T Q19 (3+4+3=10)", () => {
+    // "(3+4+3=10)" in the parent's own text gives the parts their
+    // own values (3, 4, 3): the total 10 must never be copied onto
+    // them, even though the trailing ": 10" is a single figure.
+    const md = `UNIT—II\n\n19. Write short notes on the following (3+4+3=10) : 10\n(a) Income effect\n(b) Substitution effect\n(c) Price effect`;
+    const rows = parseTranscriptToRows(md, "COMDSM-101T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["19", 10],
+      ["19(a)", null],
+      ["19(b)", null],
+      ["19(c)", null],
+    ]);
+  });
+
+  test("a partly marked question is left alone by the parent fill", () => {
+    const md = `UNIT—IV\n\n18. Change the mode of narration : 2\n(a) He said, "The bell rang." 1\n(b) He says to me, "What is this place called?"\n(c) He asked me what my name was.`;
+    const rows = parseTranscriptToRows(md, "ENGSEC101T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["18", 2],
+      ["18(a)", 1],
+      ["18(b)", null],
+      ["18(c)", null],
+    ]);
+  });
+
+  test("an 'Answer either' parent is never filled from — its parts carry pair-split marks", () => {
+    const md = `UNIT—III\n\n6. Answer either [(a) and (b)] or [(c) and (d)] :\n(a) First part. 4\n(b) Second part. 6\n(c) Third part. 5\n(d) Fourth part. 5`;
+    const rows = parseTranscriptToRows(md, "MATDSC253");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["6", 10, "Answer either"],
+      ["6(a)", 4, "Answer either"],
+      ["6(b)", 6, "Answer either"],
+      ["6(c)", 5, "Answer either"],
+      ["6(d)", 5, "Answer either"],
+    ]);
+  });
+});
