@@ -1386,6 +1386,450 @@ function fillWholeQuestionParentParts(
 }
 
 /**
+ * Fill a blank OR alternative from its OR partner (batch 28, G17):
+ * HISIDC201T/HISSEC201T/ENGDSC202T print the marks figure on the
+ * first of each OR pair only ("2. ... [2] / OR / 3. ..." — Q3 prints
+ * no figure), so the (b) rows stay blank while the counter is right
+ * (or_pairs subtracts the min, so the total never depended on them).
+ * Direct rows whose group is exactly "OR" pair up in order within
+ * each maximal run of consecutive direct OR rows: (1st, 2nd),
+ * (3rd, 4th), ... A blank member takes its marked partner's figure;
+ * a pair with both blank, or both marked (even disagreeing), is left
+ * alone. Sub-row OR pairs are already filled at push time (same
+ * question number), and an odd run leaves its last row unpaired —
+ * the safe blank. Only group exactly "OR" qualifies: a direct row
+ * under an "Answer any" group that also carries "(OR)" is a section
+ * question, not a plain alternative, and is left alone. A direct
+ * row WITH sub-rows is never filled: the counter sums parent +
+ * parts unless every part equals the parent (the G14 guard), so
+ * filling such a parent double-counts — BOTIDC101T Q20 (parent
+ * blank, part (b) 8) would read 70/70 as 78/70. Its marks live on
+ * the parts, and the cell stays blank as before.
+ */
+function fillOrPartnerMarks(rows: QuestionRow[]): void {
+  const hasSubRows = new Set<string>();
+  for (const r of rows) {
+    if (r.label.includes("(")) hasSubRows.add(r.label.split("(")[0]);
+  }
+  const direct = rows.filter((r) => !r.label.includes("("));
+  let run: QuestionRow[] = [];
+  const flush = (): void => {
+    for (let i = 0; i + 1 < run.length; i += 2) {
+      const a = run[i];
+      const b = run[i + 1];
+      if (a.marks === null && b.marks !== null) a.marks = b.marks;
+      else if (b.marks === null && a.marks !== null) b.marks = a.marks;
+    }
+    run = [];
+  };
+  for (const r of direct) {
+    if (r.group === "OR" && !hasSubRows.has(r.label)) run.push(r);
+    else flush();
+  }
+  flush();
+}
+
+/**
+ * A paper misprint can print the same question number twice
+ * (HISSEC201T prints Q23 twice — "On which ocassion..." and "Give
+ * a pen picture of Ellora Caves" — and no Q24, then Q25). Two rows
+ * with the same label break ID uniqueness and merge in the counter's
+ * per-question grouping, so the second occurrence takes a suffixed
+ * label ("23b") and ID, and its sub-rows take the suffix too
+ * ("23b(a)"). The transcript is untouched — the paper really does
+ * print 23 twice — and the suffix is visible in the table. Only
+ * direct rows are counted: sub-rows share their parent's number and
+ * never collide on their own.
+ */
+function renameDuplicateNumbers(
+  rows: QuestionRow[],
+  paperCode: string,
+): void {
+  const seen = new Map<string, number>();
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    if (r.label.includes("(")) continue;
+    const base = r.label;
+    const n = (seen.get(base) ?? 0) + 1;
+    seen.set(base, n);
+    if (n === 1) continue;
+    if (n > 26) continue; // absurd for a paper; leave the duplicate
+    const suffix = String.fromCharCode(96 + n);
+    const newLabel = `${base}${suffix}`;
+    r.label = newLabel;
+    r.id = `${paperCode}-Q${newLabel}`;
+    for (let j = i + 1; j < rows.length; j++) {
+      const s = rows[j];
+      if (!s.label.includes("(")) break;
+      if (s.label.split("(")[0] !== base) break;
+      const letter = s.label.slice(base.length + 1, -1);
+      s.label = `${newLabel}(${letter})`;
+      s.id = `${paperCode}-Q${newLabel}${letter}`;
+    }
+  }
+
+  // Sub-row duplicates: a repeated FULL sub-row label ("6(b)" twice,
+  // COMDSC-353T — the paper prints (b) twice and no (a)). The second
+  // occurrence takes a numeric suffix inside the parens ("6(b2)",
+  // ID "...-Q6b2"). Same principle as the direct rows: the transcript
+  // keeps the printed label, the table keeps unique IDs.
+  const seenSub = new Map<string, number>();
+  for (const r of rows) {
+    if (!r.label.includes("(")) continue;
+    const n = (seenSub.get(r.label) ?? 0) + 1;
+    seenSub.set(r.label, n);
+    if (n === 1) continue;
+    const base = r.label.split("(")[0];
+    const letter = r.label.slice(base.length + 1, -1);
+    r.label = `${base}(${letter}${n})`;
+    r.id = `${paperCode}-Q${base}${letter}${n}`;
+  }
+}
+
+/**
+ * Marks a row contributes to the counted total: its own marks, else
+ * a split-marks total at the end of its text — a line-for-line port
+ * of assemble.py row_marks_for_count (the pipeline counter), so the
+ * remainder fill below agrees with the counter it feeds. Python's
+ * \d matches Bengali digits too, so the digit classes here include
+ * ০-৯ and every captured figure is folded with asciiDigits first.
+ */
+function rowMarksForCount(r: QuestionRow): number | null {
+  if (r.marks !== null) return r.marks;
+  const q = r.question.trim();
+  const d = "[\\d০-৯]";
+  const op = "(?:\\+|\\\\times|x)";
+  let m = q.match(
+    new RegExp(
+      `[\\$\\[]?(${d}+(?:\\s*${op}\\s*${d}+)+)\\s*(?:=\\s*(${d}+))?[\\$\\]]{0,2}\\s*$`,
+    ),
+  );
+  if (m) {
+    if (m[2]) return asciiNumber(m[2]);
+    const terms = m[1].match(/[\d০-৯]+/g) ?? [];
+    const vals = terms.map((t) => asciiNumber(t) as number);
+    return vals.length >= 2 ? vals.reduce((a, b) => a + b, 0) : null;
+  }
+  m = q.match(/\[([\d০-৯]+)\]\s*$/);
+  if (m) return asciiNumber(m[1]);
+  const vals: number[] = [];
+  for (const ln of q.split("\n")) {
+    const t = ln.trim();
+    if (!t) continue;
+    const m2 = t.match(
+      new RegExp(`(${d}+(?:\\s*${op}\\s*${d}+)+)\\s*(?:=\\s*(${d}+))?\\s*$`),
+    );
+    if (m2) {
+      if (m2[2]) vals.push(asciiNumber(m2[2]) as number);
+      else {
+        const terms = m2[1].match(/[\d০-৯]+/g) ?? [];
+        vals.push(
+          terms
+            .map((x) => asciiNumber(x) as number)
+            .reduce((a, b) => a + b, 0),
+        );
+      }
+      continue;
+    }
+    const m3 = t.match(/\b([\d০-৯]+)\s*$/);
+    if (m3) vals.push(asciiNumber(m3[1]) as number);
+  }
+  if (vals.length >= 2) return vals.reduce((a, b) => a + b, 0);
+  const m4 = q.match(/(?<![\d০-৯])([\d০-৯]{1,2})\s*$/);
+  if (m4) {
+    const v = asciiNumber(m4[1]) as number;
+    if (v <= 20) return v;
+  }
+  return null;
+}
+
+/**
+ * Alternative question pairs joined by a standalone OR line — a
+ * line-for-line port of assemble.py or_pairs, so the remainder fill
+ * below subtracts exactly what the pipeline counter subtracts. The
+ * numbered lines may start with a sub-part marker ('2. (a) ...') —
+ * the pair counts when the two question numbers differ. Duplicate
+ * question numbers (G15) are disambiguated by occurrence: the
+ * second "23." line is key "23b", matching the renamed row labels.
+ */
+function orPairs(lines: string[]): Array<[string, string]> {
+  const numbered = /^([\d০-৯]+)\.\s+/;
+  const isOr = (l: string): boolean =>
+    l
+      .replace(/<[^>]+>/g, "")
+      .trim()
+      .replace(/^[#*]+/, "")
+      .replace(/[#*]+$/, "")
+      .trim() === "OR";
+  // Occurrence-suffixed key of each numbered line, in scan order.
+  const keyOfLine = new Map<number, string>();
+  {
+    const seen = new Map<string, number>();
+    lines.forEach((l, idx) => {
+      const m = l.trim().match(numbered);
+      if (!m) return;
+      const base = m[1];
+      const n = (seen.get(base) ?? 0) + 1;
+      seen.set(base, n);
+      keyOfLine.set(
+        idx,
+        n === 1 ? base : `${base}${String.fromCharCode(96 + n)}`,
+      );
+    });
+  }
+  const nextContent = (ls: string[]): string | null => {
+    for (const l of ls) {
+      const s = l.trim();
+      if (!s || s.startsWith("<!--")) continue;
+      return s;
+    }
+    return null;
+  };
+  const pairs: Array<[string, string]> = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (!isOr(lines[i])) continue;
+    let above: string | null = null;
+    for (let j = i - 1; j >= 0; j--) {
+      const k = keyOfLine.get(j);
+      if (k !== undefined) {
+        above = k;
+        break;
+      }
+    }
+    let below: string | null = null;
+    for (let j = i + 1; j < lines.length; j++) {
+      const k = keyOfLine.get(j);
+      if (k !== undefined) {
+        below = k;
+        break;
+      }
+    }
+    const next = nextContent(lines.slice(i + 1));
+    if (next && /^\([a-zA-Z\u0985-\u09b9]\)/.test(next)) continue;
+    if (next && !numbered.test(next.trim())) continue;
+    if (above && below && above !== below) pairs.push([above, below]);
+  }
+  return pairs;
+}
+
+/**
+ * The counted total WITHOUT the remainder rule — a line-for-line
+ * port of assemble.py counted_total (section sets, per-question
+ * rules, OR-pair subtraction), used only by the remainder fill
+ * below. It must agree with the pipeline counter: the full-corpus
+ * diff (Python counted_total before vs after a refresh) is the
+ * check that any fill it justifies is total-neutral.
+ */
+function countedTotalExcludingRemainder(
+  rows: QuestionRow[],
+  lines: string[],
+): number {
+  const byQnum = new Map<string, QuestionRow[]>();
+  for (const r of rows) {
+    const q = r.label.split("(")[0];
+    const arr = byQnum.get(q) ?? [];
+    arr.push(r);
+    byQnum.set(q, arr);
+  }
+  let sectionTotal = 0;
+  const sectionQnums = new Set<string>();
+  const bySection = new Map<string, QuestionRow[]>();
+  for (const r of rows) {
+    const g = r.group || "";
+    if (g.startsWith("Answer any ")) {
+      const key = `${g}|${r.unit || ""}`;
+      const arr = bySection.get(key) ?? [];
+      arr.push(r);
+      bySection.set(key, arr);
+    }
+  }
+  for (const [key, rs] of bySection) {
+    const g = key.split("|")[0];
+    const nOf = (fallback: number): number => {
+      const parsed = parseInt(g.split(" ").pop() ?? "", 10);
+      return Number.isNaN(parsed) ? fallback : parsed;
+    };
+    const directRs = rs.filter((r) => r.label === r.label.split("(")[0]);
+    const qnums = new Set(directRs.map((r) => r.label.split("(")[0]));
+    const marked = directRs
+      .map((r) => r.marks)
+      .filter((m): m is number => m !== null);
+    if (qnums.size > 1 && marked.length >= 2 && new Set(marked).size === 1) {
+      sectionTotal += nOf(rs.length) * marked[0];
+      for (const q of qnums) sectionQnums.add(q);
+      for (const r of rs) sectionQnums.add(r.label.split("(")[0]);
+      continue;
+    }
+    if (directRs.length > 0) continue;
+    const byNum = new Map<string, QuestionRow[]>();
+    for (const r of rs) {
+      const q = r.label.split("(")[0];
+      const arr = byNum.get(q) ?? [];
+      arr.push(r);
+      byNum.set(q, arr);
+    }
+    if (byNum.size <= 1) continue;
+    const sums: number[] = [];
+    let ok = true;
+    for (const qrs of byNum.values()) {
+      const ms = qrs.map((r) => rowMarksForCount(r));
+      if (ms.some((m) => m === null)) {
+        ok = false;
+        break;
+      }
+      sums.push((ms as number[]).reduce((a, b) => a + b, 0));
+    }
+    if (ok && new Set(sums).size === 1) {
+      const n = nOf(byNum.size);
+      if (n < byNum.size) {
+        sectionTotal += n * sums[0];
+        for (const q of byNum.keys()) sectionQnums.add(q);
+      }
+    }
+  }
+  const perQnum = new Map<string, number>();
+  const add = (q: string, v: number): void => {
+    perQnum.set(q, (perQnum.get(q) ?? 0) + v);
+  };
+  for (const [qnum, rs] of byQnum) {
+    if (sectionQnums.has(qnum)) continue;
+    const eitherRs = rs.filter((r) => (r.group || "") === "Answer either");
+    const anyRs = rs.filter((r) => (r.group || "").startsWith("Answer any "));
+    if (eitherRs.length > 0) {
+      const instr = eitherRs.find(
+        (r) => r.label === qnum && r.marks !== null,
+      );
+      if (instr) {
+        add(qnum, instr.marks as number);
+      } else {
+        const pairSum = (letters: string): number => {
+          let s = 0;
+          for (const r of eitherRs) {
+            const letter =
+              r.label.split("(").pop()?.replace(/\)$/, "") ?? "";
+            if (letters.includes(letter)) {
+              const m = rowMarksForCount(r);
+              if (m !== null) s += m;
+            }
+          }
+          return s;
+        };
+        add(qnum, Math.max(pairSum("ab"), pairSum("cd")));
+      }
+    } else if (anyRs.length > 0) {
+      const group = anyRs[0].group || "";
+      const parsed = parseInt(group.split(" ").pop() ?? "", 10);
+      const n = Number.isNaN(parsed) ? anyRs.length : parsed;
+      const marked = anyRs
+        .map((r) => r.marks)
+        .filter((m): m is number => m !== null);
+      const per = marked.length > 0 ? Math.max(...marked) : null;
+      if (per !== null) add(qnum, n * per);
+    } else if (rs.slice(1).some((r) => (r.group || "").includes("OR"))) {
+      const ms = rs
+        .map((r) => rowMarksForCount(r))
+        .filter((m): m is number => m !== null);
+      if (ms.length > 0) add(qnum, Math.max(...ms));
+    } else {
+      const first = rs[0];
+      const firstText = (first?.question ?? "").replace(/^[\s$*#]+/, "");
+      const subs = rs.filter((r) => r.label !== qnum);
+      if (
+        first &&
+        first.label === qnum &&
+        first.marks !== null &&
+        subs.length > 0 &&
+        subs.every((r) => r.marks !== null && r.marks === first.marks)
+      ) {
+        add(qnum, first.marks);
+      } else if (
+        first &&
+        first.label === qnum &&
+        first.marks !== null &&
+        /^Answer\s/.test(firstText)
+      ) {
+        add(qnum, first.marks);
+      } else {
+        for (const r of rs) {
+          const m = rowMarksForCount(r);
+          if (m !== null) add(qnum, m);
+        }
+      }
+    }
+  }
+  let total = sectionTotal;
+  for (const v of perQnum.values()) total += v;
+  for (const [a, b] of orPairs(lines)) {
+    if (perQnum.has(a) && perQnum.has(b)) {
+      total -= Math.min(
+        perQnum.get(a) as number,
+        perQnum.get(b) as number,
+      );
+    }
+  }
+  return total;
+}
+
+/**
+ * Fill a wholly markless section's rows from the full-marks
+ * remainder (batch 28, G16): HISSEC151T Section C (Q31–Q40) counts
+ * 50/50 through the pipeline's remainder rule, but every row's
+ * Marks cell is blank. When exactly one section is markless and the
+ * remainder divides evenly across its "Answer any N" count, each of
+ * its rows displays the per-question remainder (25 over 5 = 5 each).
+ * The total cannot change: the section rule then counts n x per
+ * once, exactly the remainder. The remainder itself comes from
+ * countedTotalExcludingRemainder above — the fill must agree with
+ * the counter it feeds. A remainder that does not divide evenly, a
+ * section with sub-rows (the per-question split is unknown), two
+ * markless sections, or a missing full-marks figure all leave the
+ * rows blank — the safe undercount, never an invented figure.
+ */
+function fillRemainderMarks(
+  rows: QuestionRow[],
+  transcript: string,
+  lines: string[],
+): void {
+  if (!/SECTION/i.test(transcript)) return;
+  const fm = transcript.match(/full[ _]marks\s*:\s*(\d+)/i);
+  if (!fm) return;
+  const fullMarks = parseInt(fm[1], 10);
+  const byUnit = new Map<string, QuestionRow[]>();
+  for (const r of rows) {
+    const u = r.unit || "";
+    if (!u) continue;
+    const arr = byUnit.get(u) ?? [];
+    arr.push(r);
+    byUnit.set(u, arr);
+  }
+  const markless: Array<[string, QuestionRow[]]> = [];
+  for (const [u, urs] of byUnit) {
+    if (urs.length > 0 && urs.every((r) => r.marks === null)) {
+      markless.push([u, urs]);
+    }
+  }
+  if (markless.length !== 1) return;
+  const [, urs] = markless[0];
+  if (urs.some((r) => r.label.includes("("))) return;
+  let n: number | null = null;
+  for (const r of urs) {
+    const g = r.group || "";
+    if (g.startsWith("Answer any ")) {
+      const parsed = parseInt(g.split(" ").pop() ?? "", 10);
+      n = Number.isNaN(parsed) ? null : parsed;
+      break;
+    }
+  }
+  if (n === null) return;
+  const total = countedTotalExcludingRemainder(rows, lines);
+  const rem = fullMarks - total;
+  if (rem <= 0 || rem % n !== 0) return;
+  const per = rem / n;
+  if (per < 1 || per > 20) return;
+  for (const r of urs) r.marks = per;
+}
+
+/**
  * A standalone OR line, allowing markdown markers ("### OR", "**OR**")
  * and HTML centring ("<center>**OR**</center>", "<center>OR</center>" —
  * ENGDSC202T Q11/Q14: primary puts the margin figure on its own line,
@@ -2337,6 +2781,12 @@ export function parseTranscriptToRows(
   fillEitherParentMarks(rows, pairTotal);
   fillPositionalMarks(rows);
   fillWholeQuestionParentParts(rows, wholeQuestionParents);
+  // The rename runs before the OR-partner fill: until the second
+  // "23" becomes "23b", its sub-rows look like they belong to the
+  // first "23", and the hybrid guard would wrongly skip the pair.
+  renameDuplicateNumbers(rows, paperCode);
+  fillOrPartnerMarks(rows);
+  fillRemainderMarks(rows, transcript, transcript.split("\n"));
   return rows;
 }
 

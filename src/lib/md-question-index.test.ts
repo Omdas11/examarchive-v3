@@ -1993,12 +1993,12 @@ describe("parser gaps fixed from batch 26 (2026-11-23, ENGDSC202T)", () => {
     const rows = parseTranscriptToRows(md, "ENGDSC202T");
     expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
       ["11", 10, "OR"],
-      ["12", null, "OR"],
+      ["12", 10, "OR"],
       ["13(a)", 2, "Answer any 2"],
       ["13(b)", 2, "Answer any 2"],
       ["13(c)", 2, "Answer any 2"],
       ["14", 10, "OR"],
-      ["15", null, "OR"],
+      ["15", 10, "OR"],
     ]);
   });
 
@@ -2155,6 +2155,156 @@ describe("parser gaps fixed from batch 27 (2026-11-23, HISDSC202T / ENGSEC101T)"
       ["6(b)", 6, "Answer either"],
       ["6(c)", 5, "Answer either"],
       ["6(d)", 5, "Answer either"],
+    ]);
+  });
+});
+
+describe("parser gaps fixed from batch 28 (2026-11-23, HISSEC201T / HISSEC151T / HISIDC201T)", () => {
+  test("a duplicate question number takes a suffixed label and ID — HISSEC201T Q23 twice, no Q24", () => {
+    // The paper prints Q23 twice and no Q24, then Q25. The second
+    // 23 becomes "23b" (label and ID); the transcript is untouched.
+    // The first 23 takes its OR partner Q22's 2, and Q25 takes the
+    // second 23's 5.
+    const md = `UNIT—V\n\n21. Answer any three from the following : $1 \\times 3 = 3$\n(a) When was Hampi declared a World Heritage Site?\n(b) Name the chief architect of Taj Mahal.\n(c) State one architectural specimen of Khaspur.\n(d) On which occasion is the Bhuvan Mela organised?\n\n22. State two basic features of the historical site of Unakoti. [2]\n\n**OR**\n\n23. On which ocassion and on which month is a mela organised at Badarpurghat?\n\n23. Give a pen picture of Ellora Caves. [5]\n\n**OR**\n\n25. Describe the importance of Malegarh as a tourist site.`;
+    const rows = parseTranscriptToRows(md, "HISSEC201T");
+    expect(rows.map((r) => [r.label, r.marks, r.group, r.id])).toEqual([
+      ["21(a)", 1, "Answer any 3", "HISSEC201T-Q21a"],
+      ["21(b)", 1, "Answer any 3", "HISSEC201T-Q21b"],
+      ["21(c)", 1, "Answer any 3", "HISSEC201T-Q21c"],
+      ["21(d)", 1, "Answer any 3", "HISSEC201T-Q21d"],
+      ["22", 2, "OR", "HISSEC201T-Q22"],
+      ["23", 2, "OR", "HISSEC201T-Q23"],
+      ["23b", 5, "OR", "HISSEC201T-Q23b"],
+      ["25", 5, "OR", "HISSEC201T-Q25"],
+    ]);
+  });
+
+  test("a duplicate question's sub-rows take the suffix too", () => {
+    // The rename propagates to the duplicate's parts (23b(a)/(b)).
+    // Q25 stays blank here: the OR line after the sub-rows cannot
+    // mark the parent question OR (the PHYDSM101T Q8/Q9 guard — the
+    // last part is not itself the alternative), so the G17 run does
+    // not reach it. The counter still reads it right through
+    // or_pairs; only this display cell stays blank.
+    const md = `UNIT—V\n\n22. First question. [2]\n\n**OR**\n\n23. Second question.\n\n23. Third question. [5]\n(a) First part.\n(b) Second part.\n\n**OR**\n\n25. Fifth question.`;
+    const rows = parseTranscriptToRows(md, "HISSEC201T");
+    expect(rows.map((r) => [r.label, r.marks, r.id])).toEqual([
+      ["22", 2, "HISSEC201T-Q22"],
+      ["23", 2, "HISSEC201T-Q23"],
+      ["23b", 5, "HISSEC201T-Q23b"],
+      ["23b(a)", 5, "HISSEC201T-Q23ba"],
+      ["23b(b)", 5, "HISSEC201T-Q23bb"],
+      ["25", null, "HISSEC201T-Q25"],
+    ]);
+  });
+
+  test("a blank OR alternative takes its partner's marks — HISIDC201T Q3/Q5", () => {
+    const md = `UNIT—I\n\n1. Answer any four of the following : $1 \\times 4 = 4$\n(a) When was the Magna Carta issued?\n(b) Name one fundamental feature of human rights.\n(c) Name one United Nations agency responsible for promoting human rights.\n(d) Who issued the Magna Carta?\n(e) How many Articles does the UN Charter, 1945 contain?\n\n2. What was the primary purpose of the Magna Carta? [2]\n\n**OR**\n\n3. What was the primary objective of the UN Charter, 1945?\n\n4. Discuss the nature and characteristics of human rights. [8]\n\n**OR**\n\n5. Write a brief note on the Magna Carta, 1215 AD.`;
+    const rows = parseTranscriptToRows(md, "HISIDC201T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1(a)", 1, "Answer any 4"],
+      ["1(b)", 1, "Answer any 4"],
+      ["1(c)", 1, "Answer any 4"],
+      ["1(d)", 1, "Answer any 4"],
+      ["1(e)", 1, "Answer any 4"],
+      ["2", 2, "OR"],
+      ["3", 2, "OR"],
+      ["4", 8, "OR"],
+      ["5", 8, "OR"],
+    ]);
+  });
+
+  test("an OR pair with both members blank stays blank", () => {
+    const md = `UNIT—I\n\n2. First alternative.\n\n**OR**\n\n3. Second alternative.`;
+    const rows = parseTranscriptToRows(md, "HISIDC201T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["2", null, "OR"],
+      ["3", null, "OR"],
+    ]);
+  });
+
+  test("a direct OR row that has sub-rows is NOT filled from its partner — BOTIDC101T Q20", () => {
+    // Q20's marks live on part (b) (8); the parent cell stays blank,
+    // or the counter would sum parent + parts and read 78/70.
+    const md = `UNIT—V\n\n19. Nineteenth question. [8]\n\n**OR**\n\n20. Twentieth question.\n(a) First part.\n(b) Second part. [8]`;
+    const rows = parseTranscriptToRows(md, "BOTIDC101T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["19", 8, "OR"],
+      ["20", null, "OR"],
+      ["20(a)", null, ""],
+      ["20(b)", 8, ""],
+    ]);
+  });
+
+  test("a repeated sub-part label takes a numeric suffix — COMDSC-353T Q6(b) twice", () => {
+    // The paper prints (b) twice and no (a); the transcript keeps the
+    // printed label, the second row's ID is suffixed instead.
+    const md = `UNIT—III\n\n6. Answer any *one* of the following questions : 10\n(b) Can a banker refuse payment of a cheque? Justify your answer with sufficient reference to rules.\n(b) What is crossing of a cheque? Explain the general rules of crossing a cheque. 2+8=10`;
+    const rows = parseTranscriptToRows(md, "COMDSC-353T");
+    expect(rows.map((r) => [r.label, r.marks, r.id])).toEqual([
+      ["6(b)", 10, "COMDSC-353T-Q6b"],
+      ["6(b2)", 10, "COMDSC-353T-Q6b2"],
+    ]);
+  });
+
+  test("a wholly markless section's rows take the remainder per question — HISSEC151T Section C", () => {
+    // Full marks 15: Section A 3 x 1 = 3, Section B 2 x 2 = 4,
+    // remainder 8 over Section C's "Answer any 2" = 4 each.
+    const md = `Full Marks : 15\n\nSECTION—A\n\nAnswer any three of the following questions : $1 \\times 3 = 3$\n\n1. First question.\n2. Second question.\n3. Third question.\n\nSECTION—B\n\nAnswer any two of the following questions : $2 \\times 2 = 4$\n\n4. Fourth question.\n5. Fifth question.\n\nSECTION—C\n\nAnswer any two of the following questions :\n\n6. Sixth question.\n7. Seventh question.`;
+    const rows = parseTranscriptToRows(md, "HISSEC151T");
+    expect(rows.map((r) => [r.label, r.marks, r.unit, r.group])).toEqual([
+      ["1", 1, "A", "Answer any 3"],
+      ["2", 1, "A", "Answer any 3"],
+      ["3", 1, "A", "Answer any 3"],
+      ["4", 2, "B", "Answer any 2"],
+      ["5", 2, "B", "Answer any 2"],
+      ["6", 4, "C", "Answer any 2"],
+      ["7", 4, "C", "Answer any 2"],
+    ]);
+  });
+
+  test("a remainder that does not divide evenly leaves the rows blank", () => {
+    // Same shape, full marks 16: remainder 9 over "Answer any 2"
+    // is not whole, so nothing is invented.
+    const md = `Full Marks : 16\n\nSECTION—A\n\nAnswer any three of the following questions : $1 \\times 3 = 3$\n\n1. First question.\n2. Second question.\n3. Third question.\n\nSECTION—B\n\nAnswer any two of the following questions : $2 \\times 2 = 4$\n\n4. Fourth question.\n5. Fifth question.\n\nSECTION—C\n\nAnswer any two of the following questions :\n\n6. Sixth question.\n7. Seventh question.`;
+    const rows = parseTranscriptToRows(md, "HISSEC151T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["1", 1],
+      ["2", 1],
+      ["3", 1],
+      ["4", 2],
+      ["5", 2],
+      ["6", null],
+      ["7", null],
+    ]);
+  });
+
+  test("the remainder counts OR pairs once, not twice — other sections with OR alternatives", () => {
+    // Full marks 20: Section A is two OR pairs (2 and 8), Section B
+    // is markless "Answer any 2": remainder 10 over 2 = 5 each. If
+    // the OR pairs were counted twice the remainder would be 0.
+    const md = `Full Marks : 20\n\nSECTION—A\n\n1. First question. [2]\n\n**OR**\n\n2. Second question.\n\n3. Third question. [8]\n\n**OR**\n\n4. Fourth question.\n\nSECTION—B\n\nAnswer any two of the following questions :\n\n5. Fifth question.\n6. Sixth question.`;
+    const rows = parseTranscriptToRows(md, "HISSEC151T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1", 2, "OR"],
+      ["2", 2, "OR"],
+      ["3", 8, "OR"],
+      ["4", 8, "OR"],
+      ["5", 5, "Answer any 2"],
+      ["6", 5, "Answer any 2"],
+    ]);
+  });
+
+  test("two markless sections leave both blank — the remainder is ambiguous", () => {
+    const md = `Full Marks : 20\n\nSECTION—A\n\nAnswer any two of the following questions : $1 \\times 2 = 2$\n\n1. First question.\n2. Second question.\n\nSECTION—B\n\nAnswer any two of the following questions :\n\n3. Third question.\n4. Fourth question.\n\nSECTION—C\n\nAnswer any two of the following questions :\n\n5. Fifth question.\n6. Sixth question.`;
+    const rows = parseTranscriptToRows(md, "HISSEC151T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["1", 1],
+      ["2", 1],
+      ["3", null],
+      ["4", null],
+      ["5", null],
+      ["6", null],
     ]);
   });
 });
