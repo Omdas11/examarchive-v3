@@ -1983,3 +1983,48 @@ Answer any five questions : 5×5=
     ]);
   });
 });
+
+describe("parser gaps fixed from batch 26 (2026-11-23, ENGDSC202T)", () => {
+  test("centred OR lines are OR markers, and a bare figure before one is the question's marks", () => {
+    // Primary's form (reconstructed from batch-26 diff.txt): the
+    // margin figure on its own line, then "<center>**OR**</center>".
+    // The second pair uses the plain "<center>OR</center>" variant.
+    const md = `UNIT—IV\n\n11. Examine Charles Lamb's perspective on city life in The Londoner.\n10\n\n<center>**OR**</center>\n\n12. Explain Newmen's idea of liberal education as presented in Knowledge its Own End.\n\n### UNIT—V\n\n13. Answer any *two* from the following questions :\n$2 \\times 2 = 4$\n\n(a) First question.\n\n(b) Second question.\n\n(c) Third question.\n\n14. Analyze Chesterton's views on materialism in The Worship of the Wealthy.\n10\n\n<center>OR</center>\n\n15. Discuss the significance of civility and good manners in modern society.`;
+    const rows = parseTranscriptToRows(md, "ENGDSC202T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["11", 10, "OR"],
+      ["12", null, "OR"],
+      ["13(a)", 2, "Answer any 2"],
+      ["13(b)", 2, "Answer any 2"],
+      ["13(c)", 2, "Answer any 2"],
+      ["14", 10, "OR"],
+      ["15", null, "OR"],
+    ]);
+  });
+
+  test("a centred OR after a sub-part question does not mark the last part OR", () => {
+    // Same guard as the plain "### OR" case (PHYDSM101T Q8/Q9):
+    // only a direct question takes the OR group.
+    const md = `UNIT—III\n\n8. What is central force? Prove the following for a particle moving under a central force :\n1+3+3+3=10\n\n(a) Angular momentum about the centre of force is a constant of motion. **3**\n\n(b) The motion of the particle is always confined to a plane. **3**\n\n(c) The areal velocity of the line joining the centre of force and the particle is a constant of motion. **3**\n\n<center>**OR**</center>\n\n9. (a) Find an expression for orbital velocity of a satellite. **5**`;
+    const rows = parseTranscriptToRows(md, "PHYDSM101T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["8", 10, ""],
+      ["8(a)", 3, ""],
+      ["8(b)", 3, ""],
+      ["8(c)", 3, ""],
+      ["9(a)", 5, "OR"],
+    ]);
+  });
+
+  test("a bare figure NOT before an OR marker never becomes marks", () => {
+    // A stray lone "10" between two questions (no OR after it) must
+    // not create a row, and must not change the previous row's marks:
+    // Q2 keeps its own printed 10, Q3 stays blank.
+    const md = `UNIT—I\n\n2. Write a note on the development of the Personal Essay. 10\n\n10\n\n3. Trace the development of 18th century periodical essays.`;
+    const rows = parseTranscriptToRows(md, "ENGDSC202T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["2", 10, ""],
+      ["3", null, ""],
+    ]);
+  });
+});

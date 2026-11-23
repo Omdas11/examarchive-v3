@@ -1341,6 +1341,17 @@ function fillPositionalMarks(rows: QuestionRow[]): void {
 }
 
 /**
+ * A standalone OR line, allowing markdown markers ("### OR", "**OR**")
+ * and HTML centring ("<center>**OR**</center>", "<center>OR</center>" —
+ * ENGDSC202T Q11/Q14: primary puts the margin figure on its own line,
+ * then the centred OR). Bengali papers write অথবা.
+ */
+const isOrLine = (l: string): boolean =>
+  /^(OR|অথবা)$/i.test(
+    l.replace(/<[^>]+>/g, "").replace(/^[#*\s]+|[#*\s]+$/g, ""),
+  );
+
+/**
  * Parse a transcript into question rows. The transcript is normalised
  * with the formatter first (lone marks lines join their question,
  * sub-questions sharing a line are split apart). Frontmatter and any
@@ -1629,7 +1640,7 @@ export function parseTranscriptToRows(
         NUMBERED_LINE.test(t) ||
         UNIT_HEADING.test(t) ||
         matchInstruction(t) !== null ||
-        /^(OR|অথবা)$/i.test(t.replace(/^[#*\s]+|[#*\s]+$/g, "")) ||
+        isOrLine(t) ||
         /^[\d০-৯]+\s*[।.]$/.test(t)
       ) {
         return "end";
@@ -1823,7 +1834,7 @@ export function parseTranscriptToRows(
   /** A line that starts a new row or ends the current group. */
   const isStructuralLine = (l: string): boolean =>
     UNIT_HEADING.test(l) ||
-    /^(OR|অথবা)$/i.test(l.replace(/^[#*\s]+|[#*\s]+$/g, "")) ||
+    isOrLine(l) ||
     matchInstruction(l) !== null ||
     MARKS_EXPR.test(l) ||
     NUMBERED_SUB_LINE.test(l) ||
@@ -1900,7 +1911,7 @@ export function parseTranscriptToRows(
     // (PHYDSM101T Q8(c) was wrongly grouped OR, double-counting its
     // 3 marks). The question-level alternative is still recorded by
     // orPending for the row below, and by the counter's or_pairs.
-    if (/^(OR|অথবা)$/i.test(line.replace(/^[#*\s]+|[#*\s]+$/g, ""))) {
+    if (isOrLine(line)) {
       if (rows.length > 0 && !rows[rows.length - 1].label.includes("(")) {
         applyOr(rows[rows.length - 1]);
       }
@@ -2058,6 +2069,44 @@ export function parseTranscriptToRows(
         // instruction: the first instruction after a heading may
         // inherit it (see the instruction branch above).
         groupMarksFromLine = true;
+      }
+      continue;
+    }
+
+    // A bare marks figure on its own line ("10") directly before an
+    // OR marker is that question's marks (ENGDSC202T Q11/Q14, batch
+    // 26: primary puts the margin figure on its own line, then
+    // "<center>**OR**</center>"). Only when the next meaningful line
+    // is an OR marker — a bare number anywhere else is a page number
+    // or list fragment, never marks — and only into a blank cell of
+    // the current direct question (never over a printed figure, and
+    // never onto a sub-part row, whose marks are its own split).
+    const bareFig = line.match(/^([\d০-৯]+)$/);
+    if (bareFig) {
+      const n = asciiNumber(bareFig[1]);
+      let next: string | null = null;
+      for (let j = i + 1; j < lines.length; j++) {
+        const t = lines[j].trim();
+        if (!t || t.startsWith("<!--")) continue;
+        next = t;
+        break;
+      }
+      if (
+        n !== null &&
+        n >= 1 &&
+        n <= 100 &&
+        next !== null &&
+        isOrLine(next)
+      ) {
+        const last = rows[rows.length - 1];
+        if (
+          last &&
+          last.marks === null &&
+          !last.label.includes("(") &&
+          last.label.split("(")[0] === qNum
+        ) {
+          last.marks = n;
+        }
       }
       continue;
     }
