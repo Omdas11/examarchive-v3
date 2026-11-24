@@ -62,7 +62,7 @@ interface VerifierOption {
 }
 
 const inputCls =
-  "w-full border border-[var(--color-border)] bg-[var(--color-input-bg)] px-3 py-2 text-sm text-[var(--color-text)]";
+  "w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-input-bg)] px-3 py-2 text-sm text-[var(--color-text)]";
 export default function MdVerificationDetail({ itemId }: { itemId: string }) {
   const [item, setItem] = useState<MdVerificationItem | null>(null);
   const [suggestions, setSuggestions] = useState<MdVerificationSuggestion[]>(
@@ -446,7 +446,7 @@ export default function MdVerificationDetail({ itemId }: { itemId: string }) {
           <button
             type="button"
             onClick={() => void load()}
-            className="mt-2 border border-red-700 px-3 py-1 font-semibold"
+            className="mt-2 rounded-lg border border-red-700 px-3 py-1 font-semibold"
           >
             Reload the latest version
           </button>
@@ -464,7 +464,7 @@ export default function MdVerificationDetail({ itemId }: { itemId: string }) {
               <select
                 value={assignSel}
                 onChange={(e) => setAssignSel(e.target.value)}
-                className="border border-[var(--color-border)] bg-[var(--color-input-bg)] px-2 py-1 text-[var(--color-text)]"
+                className="rounded-lg border border-[var(--color-border)] bg-[var(--color-input-bg)] px-2 py-1 text-[var(--color-text)]"
               >
                 <option value="">Unassigned</option>
                 {verifiers.map((v) => (
@@ -477,7 +477,7 @@ export default function MdVerificationDetail({ itemId }: { itemId: string }) {
                 type="button"
                 onClick={() => void assignItem()}
                 disabled={assigning}
-                className="border px-3 py-1 font-semibold disabled:opacity-50"
+                className="rounded-lg border px-3 py-1 font-semibold disabled:opacity-50"
               >
                 Assign
               </button>
@@ -487,13 +487,13 @@ export default function MdVerificationDetail({ itemId }: { itemId: string }) {
       )}
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <section className="card p-4">
+        <section className="card rounded-lg p-5 sm:p-6">
           <h2 className="text-base font-bold">Official PDF</h2>
           {item.pdf_key ? (
             <iframe
               title={`PDF for ${item.paper_code}`}
               src={`/api/md-verification/${item.id}/pdf`}
-              className="mt-3 h-[70vh] w-full border"
+              className="mt-3 h-[70vh] w-full rounded-lg border"
             />
           ) : (
             <p className="mt-3 text-sm text-on-surface-variant">
@@ -502,7 +502,7 @@ export default function MdVerificationDetail({ itemId }: { itemId: string }) {
           )}
         </section>
 
-        <section className="card p-4">
+        <section className="card rounded-lg p-5 sm:p-6">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-base font-bold">Markdown</h2>
             <div className="flex gap-2">
@@ -518,7 +518,7 @@ export default function MdVerificationDetail({ itemId }: { itemId: string }) {
                   setMode("edit");
                 }}
                 disabled={!canAct}
-                className="border px-3 py-1 text-sm disabled:opacity-50"
+                className="rounded-lg border px-3 py-1 text-sm disabled:opacity-50"
                 title="Convert to frontmatter + question index table. Nothing is saved until you press Save draft."
               >
                 Format
@@ -526,7 +526,7 @@ export default function MdVerificationDetail({ itemId }: { itemId: string }) {
               <button
                 type="button"
                 onClick={() => setMode("edit")}
-                className={`border px-3 py-1 text-sm ${mode === "edit" ? "font-bold" : ""}`}
+                className={`rounded-lg border px-3 py-1 text-sm ${mode === "edit" ? "font-bold" : ""}`}
                 aria-pressed={mode === "edit"}
               >
                 Edit
@@ -534,7 +534,7 @@ export default function MdVerificationDetail({ itemId }: { itemId: string }) {
               <button
                 type="button"
                 onClick={() => setMode("preview")}
-                className={`border px-3 py-1 text-sm ${mode === "preview" ? "font-bold" : ""}`}
+                className={`rounded-lg border px-3 py-1 text-sm ${mode === "preview" ? "font-bold" : ""}`}
                 aria-pressed={mode === "preview"}
               >
                 Preview
@@ -572,7 +572,7 @@ export default function MdVerificationDetail({ itemId }: { itemId: string }) {
                 type="button"
                 onClick={() => void save(false)}
                 disabled={saving}
-                className="border px-3 py-2 text-sm font-semibold disabled:opacity-50"
+                className="rounded-lg border px-3 py-2 text-sm font-semibold disabled:opacity-50"
               >
                 Save draft
               </button>
@@ -580,7 +580,7 @@ export default function MdVerificationDetail({ itemId }: { itemId: string }) {
                 type="button"
                 onClick={() => void save(true)}
                 disabled={saving}
-                className="border px-3 py-2 text-sm font-semibold disabled:opacity-50"
+                className="rounded-lg border px-3 py-2 text-sm font-semibold disabled:opacity-50"
               >
                 Submit
               </button>
@@ -588,7 +588,7 @@ export default function MdVerificationDetail({ itemId }: { itemId: string }) {
                 type="button"
                 onClick={() => void review("approve")}
                 disabled={saving}
-                className="border border-emerald-700 bg-emerald-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                className="rounded-lg border border-emerald-700 bg-emerald-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
               >
                 Approve
               </button>
@@ -596,7 +596,7 @@ export default function MdVerificationDetail({ itemId }: { itemId: string }) {
                 type="button"
                 onClick={() => void review("needs_fix")}
                 disabled={saving || !note.trim()}
-                className="border border-red-700 px-3 py-2 text-sm font-semibold text-red-700 disabled:opacity-50"
+                className="rounded-lg border border-red-700 px-3 py-2 text-sm font-semibold text-red-700 disabled:opacity-50"
               >
                 Needs fix
               </button>
@@ -612,7 +612,7 @@ export default function MdVerificationDetail({ itemId }: { itemId: string }) {
       </div>
 
       {suggestions.length > 0 && (
-        <section className="card mt-6 p-4">
+        <section className="card mt-6 rounded-lg p-5 sm:p-6">
           <h2 className="text-base font-bold">Suggestions</h2>
           <ul className="mt-3 space-y-3">
             {suggestions.map((s) => (
@@ -641,7 +641,7 @@ export default function MdVerificationDetail({ itemId }: { itemId: string }) {
                       type="button"
                       onClick={() => void decideSuggestion(s.id, "apply")}
                       disabled={saving}
-                      className="border px-2 py-1 text-xs font-semibold disabled:opacity-50"
+                      className="rounded-lg border px-2 py-1 text-xs font-semibold disabled:opacity-50"
                     >
                       Apply
                     </button>
@@ -649,7 +649,7 @@ export default function MdVerificationDetail({ itemId }: { itemId: string }) {
                       type="button"
                       onClick={() => void decideSuggestion(s.id, "dismiss")}
                       disabled={saving}
-                      className="border px-2 py-1 text-xs disabled:opacity-50"
+                      className="rounded-lg border px-2 py-1 text-xs disabled:opacity-50"
                     >
                       Dismiss
                     </button>
@@ -662,7 +662,7 @@ export default function MdVerificationDetail({ itemId }: { itemId: string }) {
       )}
 
       {showSuggest && (
-        <section className="card mt-6 p-4">
+        <section className="card mt-6 rounded-lg p-5 sm:p-6">
           <h2 className="text-base font-bold">Suggest an edit</h2>
           <p className="mt-1 text-sm text-on-surface-variant">
             The assigned verifier sees your suggestion and can apply it in
@@ -687,7 +687,7 @@ export default function MdVerificationDetail({ itemId }: { itemId: string }) {
               value={suggestText}
               onChange={(e) => setSuggestText(e.target.value)}
               rows={4}
-              className="w-full border border-[var(--color-border)] bg-[var(--color-input-bg)] p-2 text-sm text-[var(--color-text)]"
+              className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-input-bg)] p-2 text-sm text-[var(--color-text)]"
               placeholder="Write the question as it should read"
             />
           </label>
@@ -706,7 +706,7 @@ export default function MdVerificationDetail({ itemId }: { itemId: string }) {
             type="button"
             onClick={() => void submitSuggestion()}
             disabled={saving || !suggestText.trim()}
-            className="mt-3 border px-3 py-2 text-sm font-semibold disabled:opacity-50"
+            className="mt-3 rounded-lg border px-3 py-2 text-sm font-semibold disabled:opacity-50"
           >
             Send suggestion
           </button>

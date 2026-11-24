@@ -68,7 +68,7 @@ export default function MdEditor({
   }, []);
 
   return (
-    <div className="mt-3 [&_.wmde-markdown_h1]:text-xl sm:[&_.wmde-markdown_h1]:text-2xl">
+    <div className="md-verify-editor mt-3 [&_.wmde-markdown_h1]:text-xl sm:[&_.wmde-markdown_h1]:text-2xl">
       <MDEditor
         value={value}
         onChange={(next) => onChange(next ?? "")}

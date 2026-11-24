@@ -199,7 +199,7 @@ export default function ExamTimetableClient({
     return (
       <article
         key={key}
-        className="border p-4"
+        className="rounded-lg border p-4 sm:p-5"
         style={{ borderColor: "var(--color-border)", background: "#fff" }}
       >
         <div className="flex flex-wrap items-start justify-between gap-2">
@@ -245,7 +245,7 @@ export default function ExamTimetableClient({
                 href={`/paper/${latest.id}`}
                 target="_blank"
                 rel="noreferrer"
-                className="mb-3 inline-flex max-w-full items-center gap-1.5 rounded-md px-3 py-2 text-sm font-bold text-white"
+                className="mb-3 inline-flex max-w-full items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-bold text-white"
                 style={{ background: "#047857" }}
               >
                 <span
@@ -372,7 +372,7 @@ export default function ExamTimetableClient({
           <button
             type="button"
             onClick={() => setSelectedDate(nextDateIso)}
-            className="rounded-md px-4 py-2 text-sm font-bold text-white"
+            className="rounded-lg px-4 py-2 text-sm font-bold text-white"
             style={{ background: "#047857" }}
           >
             View that day
@@ -441,7 +441,7 @@ export default function ExamTimetableClient({
                 type="button"
                 onClick={() => setSelectedDate(d.iso)}
                 aria-pressed={selected}
-                className="shrink-0 rounded-md border px-3 py-2 text-left text-xs"
+                className="shrink-0 rounded-lg border px-3 py-2 text-left text-xs"
                 style={{
                   borderColor: selected
                     ? "#047857"
@@ -477,7 +477,7 @@ export default function ExamTimetableClient({
             Other dates
           </span>
           <div
-            className="inline-flex border"
+            className="inline-flex overflow-hidden rounded-lg border"
             style={{ borderColor: "var(--color-border)" }}
             role="group"
             aria-label="Focus mode"
@@ -513,7 +513,7 @@ export default function ExamTimetableClient({
         <div>
           <span className="mb-1 block text-xs font-semibold">Show</span>
           <div
-            className="inline-flex border"
+            className="inline-flex overflow-hidden rounded-lg border"
             style={{ borderColor: "var(--color-border)" }}
             role="group"
             aria-label="Filter by availability"
@@ -552,18 +552,29 @@ export default function ExamTimetableClient({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="e.g. PHYDSC301T"
-            className="w-full border bg-white px-3 py-2 text-sm"
+            className="w-full rounded-lg border bg-white px-3 py-2 text-sm"
             style={{ borderColor: "var(--color-border)" }}
           />
         </div>
       </div>
 
-      {/* Full timetable grid */}
+      {/* Full timetable grid.
+          Fixed layout + explicit col widths: every date column is
+          guaranteed 152px, so no column can ever collapse to zero
+          width and one day's codes can never print on top of the
+          next day's (Mon 23 Nov was rendering at zero width, its
+          DSM201T codes overlapping Sat 21 Nov's DSC301T codes). */}
       <div
         className="mb-8 overflow-x-auto rounded-lg"
         style={{ border: "1px solid var(--color-border)" }}
       >
-        <table className="zebra-table sticky-col-table min-w-full text-sm">
+        <table className="zebra-table sticky-col-table table-fixed min-w-full text-sm">
+          <colgroup>
+            <col style={{ width: 200 }} />
+            {visibleDates.map((d) => (
+              <col key={d.iso} style={{ width: 152 }} />
+            ))}
+          </colgroup>
           <thead>
             <tr>
               <th className="whitespace-nowrap text-left text-xs font-semibold">
@@ -610,7 +621,7 @@ export default function ExamTimetableClient({
                   return (
                     <td
                       key={d.iso}
-                      className="whitespace-nowrap align-top text-xs"
+                      className="align-top text-xs"
                       style={
                         dimmed
                           ? { opacity: 0.35 }
@@ -619,10 +630,11 @@ export default function ExamTimetableClient({
                             : undefined
                       }
                     >
+                      <div className="flex flex-col gap-1.5">
                       {cellItems.map((item) => {
                         const st = statusFor(item);
                         return (
-                          <span key={item.code} className="mb-1 flex items-center gap-1">
+                          <div key={item.code} className="flex items-center gap-1.5">
                             <span
                               aria-hidden="true"
                               className="inline-block h-2 w-2 shrink-0 rounded-full"
@@ -642,9 +654,9 @@ export default function ExamTimetableClient({
                                     : "No paper code"
                               }
                             />
-                            <span className="font-semibold">{item.code}</span>{" "}
+                            <span className="whitespace-nowrap font-semibold">{item.code}</span>{" "}
                             <span
-                              className="inline-block px-1 text-[10px] font-semibold"
+                              className="inline-block shrink-0 rounded px-1 text-[10px] font-semibold"
                               style={{
                                 background:
                                   item.session === "AM" ? "#e0e7ff" : "#fef3c7",
@@ -654,9 +666,10 @@ export default function ExamTimetableClient({
                             >
                               {item.session}
                             </span>
-                          </span>
+                          </div>
                         );
                       })}
+                      </div>
                     </td>
                   );
                 })}

@@ -263,6 +263,19 @@ h6 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spa
     @apply -translate-y-0.5;
   }
 
+  /* MD verification editor: the @uiw/react-md-editor text area and
+   * preview sit almost flush against the pane edge. Give the text a
+   * real margin inside the editor, in both edit and preview modes.
+   * Higher specificity than the library's own rules, so no
+   * !important is needed. */
+  .md-verify-editor .w-md-editor-text-input,
+  .md-verify-editor .w-md-editor-text-input:focus {
+    padding: 16px 20px;
+  }
+  .md-verify-editor .w-md-editor-preview {
+    padding: 16px 20px;
+  }
+
   .toggle-btn {
     @apply inline-flex items-center justify-center px-4 py-1.5 text-xs font-medium transition-all cursor-pointer;
     border: 1px solid var(--color-border);
