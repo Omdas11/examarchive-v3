@@ -1476,13 +1476,22 @@ function fillWholeQuestionParentParts(
  * filling such a parent double-counts — BOTIDC101T Q20 (parent
  * blank, part (b) 8) would read 70/70 as 78/70. Its marks live on
  * the parts, and the cell stays blank as before.
+ *
+ * A run is consecutive in the FULL table, not among direct rows
+ * only (batch 34, G25): an "Answer any 3" question exists only as
+ * sub-rows, so it never appears as a direct row — but it still
+ * breaks the run. PHYSEC201T's OR pairs are (Q2,Q3), (Q7,Q8),
+ * (Q9,Q10), (Q12,Q13), ...; the old direct-only scan put Q5, Q7,
+ * Q8, Q9, Q10, ... in one giant run and paired (Q5,Q7),
+ * (Q8,Q9), (Q10,Q12), so Q8 took Q9's 5 and Q10 took Q12's 2
+ * (62/50). Any row that is not a direct OR row — a sub-row, an
+ * "Answer any" row, a direct row with sub-rows — flushes the run.
  */
 function fillOrPartnerMarks(rows: QuestionRow[]): void {
   const hasSubRows = new Set<string>();
   for (const r of rows) {
     if (r.label.includes("(")) hasSubRows.add(r.label.split("(")[0]);
   }
-  const direct = rows.filter((r) => !r.label.includes("("));
   let run: QuestionRow[] = [];
   const flush = (): void => {
     for (let i = 0; i + 1 < run.length; i += 2) {
@@ -1493,9 +1502,19 @@ function fillOrPartnerMarks(rows: QuestionRow[]): void {
     }
     run = [];
   };
-  for (const r of direct) {
-    if (r.group === "OR" && !hasSubRows.has(r.label)) run.push(r);
-    else flush();
+  // Scan the FULL table: a sub-row (or any other row) between two
+  // direct OR rows breaks the run, even though it is not itself a
+  // direct row (batch 34, G25 — see the doc comment above).
+  for (const r of rows) {
+    if (
+      !r.label.includes("(") &&
+      r.group === "OR" &&
+      !hasSubRows.has(r.label)
+    ) {
+      run.push(r);
+    } else {
+      flush();
+    }
   }
   flush();
 }
@@ -1645,11 +1664,14 @@ function orPairs(lines: string[]): Array<[string, string]> {
       .replace(/\\text\{/g, "")
       .replace(/\}/g, "")
       .trim();
-    return bare === "OR";
+    // Case-insensitive (batch 34, G26): the mixed-case display
+    // form "$$\text{Or}$$" (PLSDSC102T Q8/Q10) is an OR marker
+    // exactly like "$$\text{OR}$$".
+    return bare.toUpperCase() === "OR";
   };
   const isTrailingOr = (l: string): boolean => {
     const s = stripWrap(l);
-    const m = s.match(/\$\$(?:\\text\{)?(OR|অথবা)(?:\})?\$\$\s*$/);
+    const m = s.match(/\$\$(?:\\text\{)?(OR|অথবা)(?:\})?\$\$\s*$/i);
     return m !== null && s.slice(0, m.index).trim().length > 0;
   };
   // Occurrence-suffixed key of each numbered line, in scan order.
@@ -2326,11 +2348,18 @@ function fillRemainderMarks(
  * then the centred OR) and HTML line breaks ("<br>Or<br>",
  * "<br>OR<br>", "<br>or<br>" — HISDSC202T Q4/Q6/Q8/Q10, batch 27).
  * The tags are stripped before the test, so every wrapped form reads
- * as a bare OR. Bengali papers write অথবা.
+ * as a bare OR. Bengali papers write অথবা. A display-maths marker
+ * ("$$\text{OR}$$", "$$\text{Or}$$" — batch 34, G26) reads the same
+ * way: the $$ delimiters and \text{} wrapper are stripped first.
  */
 const isOrLine = (l: string): boolean =>
   /^(OR|অথবা)$/i.test(
-    l.replace(/<[^>]+>/g, "").replace(/^[#*\s]+|[#*\s]+$/g, ""),
+    l
+      .replace(/<[^>]+>/g, "")
+      .replace(/\$\$/g, "")
+      .replace(/\\text\{/g, "")
+      .replace(/\}/g, "")
+      .replace(/^[#*\s]+|[#*\s]+$/g, ""),
   );
 
 /**
@@ -2488,8 +2517,24 @@ export function parseTranscriptToRows(
     const m2 = text.match(
       /^(.*?)\s*<br\s*\/?>\s*(OR|অথবা)(?:\s*<br\s*\/?>)*\s*$/i,
     );
-    if (!m2) return { text, isOr: false };
-    return { text: m2[1].trim(), isOr: true };
+    if (m2) return { text: m2[1].trim(), isOr: true };
+    // A trailing display-maths OR marker ("... [2] $$\text{OR}$$",
+    // MATSEC101T Q12/Q13 — the pipeline reflow joins it onto the
+    // question line). Any case variant counts ("$$\text{Or}$$",
+    // PLSDSC102T Q8/Q10, batch 34, G26). The span must contain ONLY
+    // the OR word: an Or between two structures inside one formula
+    // ("$$\text{[...]} \quad \text{Or} \quad \text{[...]} $$",
+    // CHMDSM151T 1(d)) is content, not a marker, and never matches
+    // — the regex requires $$ immediately followed by the word.
+    // Single-dollar "$\text{Or}$" (ECOSEC201T, under "Answer
+    // either") is deliberately NOT matched here: recognising it
+    // would append " (OR)" to the Answer-either group and break
+    // that counter branch.
+    const m3 = text.match(
+      /^(.*?)\s*\$\$(?:\\text\{)?(OR|অথবা)(?:\})?\$\$\s*$/i,
+    );
+    if (m3) return { text: m3[1].trim(), isOr: true };
+    return { text, isOr: false };
   };
 
   /**

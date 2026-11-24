@@ -3101,3 +3101,154 @@ Answer any ten of the following questions : $2 \times 10 = 20$
     ]);
   });
 });
+
+describe("parser gaps fixed from batch 34 (2026-11-24, PHYSEC201T / PLSDSC102T)", () => {
+  test("OR-partner fill pairs by adjacency in the full table, not by position among direct rows — PHYSEC201T (G25)", () => {
+    // The OR pairs are (Q2,Q3), (Q7,Q8), (Q9,Q10): Q3/Q8/Q10 print
+    // no figure and take their own pair's. The "Answer any 3"
+    // questions exist only as sub-rows, so the old run — built over
+    // direct rows only — never broke at them: one giant run paired
+    // (Q5,Q7), (Q8,Q9), (Q10,Q12), ... and Q8 took Q9's 5, Q10
+    // took Q12's 2, Q25 stayed blank (62/50). A run now breaks on
+    // ANY row that is not a direct OR row.
+    const md = `UNIT—I
+
+1. Answer any three of the following : $1\\times3=3$
+
+(a) Define work done.
+(b) What is the unit of energy in MKS system?
+(c) What do you mean by power?
+(d) State the law of conservation of energy.
+
+2. What is the difference between renewable and non-renewable energy? 2
+
+OR
+
+3. What do you mean by green energy? Give one example of green energy source.
+
+4. (a) Differentiate between commercial and non-commercial energy. 2
+
+(b) Explain the importance of renewable energy source. 3
+
+OR
+
+5. Write a short note on various types of energy sources with suitable example. 5
+
+UNIT—II
+
+6. Answer any three of the following : $1\\times3=3$
+
+(a) What do you mean by fossil fuel?
+(b) What is a nuclear reactor?
+(c) State one advantage of nuclear energy.
+(d) Mention one application of biogas.
+
+7. What is meant by non-conventional energy source? Is LPG conventional or non-conventional? 2
+
+OR
+
+8. Mention one advantage and disadvantage of fossil fuel.
+
+9. Explain the construction and working of a nuclear reactor. 5
+
+OR
+
+10. Write a short note on hydroelectric power.`;
+    const rows = parseTranscriptToRows(md, "PHYSEC201T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["1(a)", 1],
+      ["1(b)", 1],
+      ["1(c)", 1],
+      ["1(d)", 1],
+      ["2", 2],
+      ["3", 2],
+      ["4(a)", 2],
+      ["4(b)", 3],
+      ["5", 5],
+      ["6(a)", 1],
+      ["6(b)", 1],
+      ["6(c)", 1],
+      ["6(d)", 1],
+      ["7", 2],
+      ["8", 2],
+      ["9", 5],
+      ["10", 5],
+    ]);
+  });
+
+  test("a trailing $$\\text{Or}$$ (mixed case) is an OR marker — PLSDSC102T Q8 (G26)", () => {
+    // The (a) line ends "7+3=10 $$\text{Or}$$": the (a) and (b)
+    // rows are alternatives, so the question counts max(10, 10) =
+    // 10, not 10+10. Before the fix the marker was silently eaten
+    // by the marks-strip recursion and both rows counted (90/70).
+    const md = String.raw`UNIT—IV
+
+7. Answer any two of the following : $2 \times 2 = 4$
+
+(a) Mention two special powers of the Speaker of Lok Sabha.
+(b) How is a Judge of the Supreme Court appointed?
+(c) What is Public Interest Litigation?
+
+8. (a) Explain the relationship between the Lok Sabha and Rajya Sabha. What are the special powers of Rajya Sabha? 7+3=10 $$\text{Or}$$
+
+(b) What is Judicial Review? How does the Supreme Court of India exercise the power of judicial review? 3+7=10`;
+    const rows = parseTranscriptToRows(md, "PLSDSC102T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["7(a)", 2, "Answer any 2"],
+      ["7(b)", 2, "Answer any 2"],
+      ["7(c)", 2, "Answer any 2"],
+      ["8(a)", 10, "OR"],
+      ["8(b)", 10, "OR"],
+    ]);
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(14);
+  });
+
+  test("a trailing $$\\text{Or}$$ between direct questions pairs them in the counter — G26 or_pairs", () => {
+    // Direct-row form (MATSEC101T Q12/Q13 shape, mixed case):
+    // Q12 prints 2, Q13 prints no figure; the pair counts 2 once.
+    const md = String.raw`UNIT—I
+
+12. First alternative question. 2 $$\text{Or}$$
+
+13. Second alternative question.`;
+    const rows = parseTranscriptToRows(md, "TEST-101T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["12", 2, "OR"],
+      ["13", 2, "OR"],
+    ]);
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(2);
+  });
+
+  test("a standalone $$\\text{Or}$$ line is an OR line — G26 isOrLine", () => {
+    const md = String.raw`UNIT—I
+
+12. First alternative question. 2
+
+$$\text{Or}$$
+
+13. Second alternative question.`;
+    const rows = parseTranscriptToRows(md, "TEST-101T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["12", 2, "OR"],
+      ["13", 2, "OR"],
+    ]);
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(2);
+  });
+
+  test("an Or between two structures inside one formula is not an OR marker — CHMDSM151T guard", () => {
+    // "$$\text{[...]} \quad \text{Or} \quad \text{[...]}$$" is
+    // one display formula contrasting two structures, not a
+    // trailing OR marker: the question keeps its figure and no
+    // OR group, and the next question is not its alternative.
+    const md = String.raw`UNIT—I
+
+1. (d) Which ion in each of the following pair is more stable and why? 2 $$\text{[Cyclopropenyl cation structure]} \quad \text{Or} \quad \text{[Cyclopropenyl anion structure]}$$
+
+2. Next question. 2`;
+    const rows = parseTranscriptToRows(md, "CHMDSM151T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1(d)", 2, ""],
+      ["2", 2, ""],
+    ]);
+  });
+});
