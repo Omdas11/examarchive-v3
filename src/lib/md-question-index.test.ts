@@ -7,10 +7,13 @@
  */
 import {
   buildQuestionIndex,
+  countedTotalExcludingRemainder,
+  ensureFrontmatter,
   parseIndexTable,
   parseQuestions,
   parseTranscriptToRows,
 } from "./md-question-index";
+import type { QuestionRow } from "./md-question-index";
 
 const COMDSC_352T = String.raw`# FYUG Even Semester Exam., 2026
 
@@ -1380,13 +1383,17 @@ Answer any five questions :
     ]);
   });
 
-  test("a split question's parts share one section question — COMIDC-151T (B) Q45(a)/(b) are 8 each, no direct Q45 row", () => {
+  test("a split question's parts share one section question — COMIDC-151T (B) Q45(a)/(b) are blank, no direct Q45 row", () => {
     // Real staged lines: batch-23/COMIDC-151T-B-2024/staged.md lines
     // 119-145. The parser side of the batch-23 double-count: Q45 has
-    // no direct row, only (a)/(b) parts worth 8 each under
-    // "Answer any 5". The counter fix (assemble.py) relies on this
-    // shape — the parts must carry the section group so their qnum is
-    // covered once, not counted again as a second 5×8 allowance.
+    // no direct row, only (a)/(b) parts under "Answer any 5". The
+    // counter fix (assemble.py) relies on this shape — the parts must
+    // carry the section group so their qnum is covered once, not
+    // counted again as a second 5×8 allowance. The parts print no
+    // figure of their own, so since batch 29 (G18b) they read blank
+    // instead of the section per-question total 8: the two parts
+    // split the 8, the split is unknown, and no figure is invented.
+    // The group coverage the counter relies on is unchanged.
     const md = `SECTION-C
 
 Answer any five of the following questions: $8\\times5=40$
@@ -1399,8 +1406,8 @@ Answer any five of the following questions: $8\\times5=40$
     const rows = parseTranscriptToRows(md, "COMIDC-151T (B)");
     expect(rows.map((r) => [r.label, r.marks, r.group, r.unit])).toEqual([
       ["36", 8, "Answer any 5", "C"],
-      ["45(a)", 8, "Answer any 5", "C"],
-      ["45(b)", 8, "Answer any 5", "C"],
+      ["45(a)", null, "Answer any 5", "C"],
+      ["45(b)", null, "Answer any 5", "C"],
     ]);
   });
 });
@@ -1906,6 +1913,3262 @@ Questions :
       ["1(a)", 2, "First question here."],
       ["1(b)", 2, "Second question here."],
       ["1(c)", 2, "Third question here."],
+    ]);
+  });
+});
+
+describe("parser gaps fixed from batch 25 (2026-11-23, ECODSM101T / ECOSEC151T / ENGAEC151T)", () => {
+  test("a trailing '*' bullet after ': 10' is read — ECODSM101T Q4", () => {
+    // Real staged line (batch-25/ECODSM101T-2024/staged.md line 71):
+    // "4. Answer either (a) or (b) : 10 *" — the space-separated star
+    // blocked the bare-number read, so Q4 counted 0 and the paper
+    // read 60/70 instead of 70/70.
+    const md = `UNIT—II
+
+4. Answer either (a) or (b) : 10 *
+
+(a) Explain how a consumer attains equilibrium using indifference curve analysis.`;
+    const rows = parseTranscriptToRows(md, "ECODSM101T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["4", 10],
+      ["4(a)", null],
+    ]);
+    expect(rows[0].question).toBe("Answer either (a) or (b) :");
+  });
+
+  test("a trailing '*' after an instruction-line figure is read — ': 10 *' on 'Answer any two'", () => {
+    const md = `UNIT—I
+
+2. Answer any two of the following : 10 *
+
+(a) First question here.
+
+(b) Second question here.`;
+    const rows = parseTranscriptToRows(md, "T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["2(a)", 10],
+      ["2(b)", 10],
+    ]);
+  });
+
+  test("a cut-off total '1+4=' evaluates the partial sum — ECOSEC151T Q31/Q32", () => {
+    // Real staged lines (batch-25/ECOSEC151T-2024/staged.md): the
+    // marks figures are cut off at the photo's right edge, leaving
+    // "1+4=" with no total. The partial sum (5) is the row's marks.
+    const md = `SECTION—C
+
+Answer any five questions : 5×5=
+
+31. What do you mean by risk management? What are the important steps of risk management? 1+4=
+
+32. Define risk. Add a note on the classification of risks. 1+4=`;
+    const rows = parseTranscriptToRows(md, "ECOSEC151T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["31", 5],
+      ["32", 5],
+    ]);
+  });
+
+  test("a cut-off instruction total '5×5=' still gives the per-part marks — ECOSEC151T Section C", () => {
+    // The instruction's total is cut off, but the per (5) is
+    // printed — so markless direct questions in the section (the
+    // [illegible] ones) still read 5 from the group.
+    const md = `SECTION—C
+
+Answer any five questions : 5×5=
+
+31. What do you mean by risk management? 1+4=
+
+33. Explain any five principles of insurance. [illegible]
+
+35. How is life insurance differed from general insurance? 2+3=5`;
+    const rows = parseTranscriptToRows(md, "ECOSEC151T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["31", 5],
+      ["33", 5],
+      ["35", 5],
+    ]);
+  });
+});
+
+describe("parser gaps fixed from batch 26 (2026-11-23, ENGDSC202T)", () => {
+  test("centred OR lines are OR markers, and a bare figure before one is the question's marks", () => {
+    // Primary's form (reconstructed from batch-26 diff.txt): the
+    // margin figure on its own line, then "<center>**OR**</center>".
+    // The second pair uses the plain "<center>OR</center>" variant.
+    const md = `UNIT—IV\n\n11. Examine Charles Lamb's perspective on city life in The Londoner.\n10\n\n<center>**OR**</center>\n\n12. Explain Newmen's idea of liberal education as presented in Knowledge its Own End.\n\n### UNIT—V\n\n13. Answer any *two* from the following questions :\n$2 \\times 2 = 4$\n\n(a) First question.\n\n(b) Second question.\n\n(c) Third question.\n\n14. Analyze Chesterton's views on materialism in The Worship of the Wealthy.\n10\n\n<center>OR</center>\n\n15. Discuss the significance of civility and good manners in modern society.`;
+    const rows = parseTranscriptToRows(md, "ENGDSC202T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["11", 10, "OR"],
+      ["12", 10, "OR"],
+      ["13(a)", 2, "Answer any 2"],
+      ["13(b)", 2, "Answer any 2"],
+      ["13(c)", 2, "Answer any 2"],
+      ["14", 10, "OR"],
+      ["15", 10, "OR"],
+    ]);
+  });
+
+  test("a centred OR after a sub-part question does not mark the last part OR", () => {
+    // Same guard as the plain "### OR" case (PHYDSM101T Q8/Q9):
+    // only a direct question takes the OR group.
+    const md = `UNIT—III\n\n8. What is central force? Prove the following for a particle moving under a central force :\n1+3+3+3=10\n\n(a) Angular momentum about the centre of force is a constant of motion. **3**\n\n(b) The motion of the particle is always confined to a plane. **3**\n\n(c) The areal velocity of the line joining the centre of force and the particle is a constant of motion. **3**\n\n<center>**OR**</center>\n\n9. (a) Find an expression for orbital velocity of a satellite. **5**`;
+    const rows = parseTranscriptToRows(md, "PHYDSM101T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["8", 10, ""],
+      ["8(a)", 3, ""],
+      ["8(b)", 3, ""],
+      ["8(c)", 3, ""],
+      ["9(a)", 5, "OR"],
+    ]);
+  });
+
+  test("a bare figure NOT before an OR marker never becomes marks", () => {
+    // A stray lone "10" between two questions (no OR after it) must
+    // not create a row, and must not change the previous row's marks:
+    // Q2 keeps its own printed 10, Q3 stays blank.
+    const md = `UNIT—I\n\n2. Write a note on the development of the Personal Essay. 10\n\n10\n\n3. Trace the development of 18th century periodical essays.`;
+    const rows = parseTranscriptToRows(md, "ENGDSC202T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["2", 10, ""],
+      ["3", null, ""],
+    ]);
+  });
+});
+
+describe("parser gaps fixed from batch 27 (2026-11-23, HISDSC202T / ENGSEC101T)", () => {
+  test("<br>Or<br> lines are OR markers in every case — HISDSC202T Q4/Q6/Q8/Q10", () => {
+    // Primary's form (from batch-27 primary.json, pg-2): the OR
+    // marker written with HTML line breaks. The three case variants
+    // each sit between one question's (a) and (b) alternatives.
+    const md = `UNIT—II\n\n3. Answer any two of the following : $2 \\times 2 = 4$\n(a) Mention two causes for the failure of the French for supremacy in India.\n(b) Write any two important causes of the Battle of Buxar.\n(c) Who introduced dual system of administration in Bengal? When was it introduced?\n4. (a) Write a note on Anglo-French conflict for supremacy in India. 10\n<br>Or<br>\n(b) Discuss the causes and results of the Battle of Plassey.\nUNIT—III\n\n5. Answer any two of the following : $2 \\times 2 = 4$\n(a) When did the First Anglo-Maratha War start? Who won this War?\n(b) Mention two causes for the downfall of the Maratha Empire.\n(c) Name two rulers of Mysore.\n6. (a) Write a note on Anglo-Maratha relation. 10\n<br>OR<br>\n(b) Analyze the various conquests of Ranjit Singh.\nUNIT—IV\n\n7. Answer any two of the following : $2 \\times 2 = 4$\n(a) Who introduced Subsidiary Alliance? Name the first Indian ruler to accept the Subsidiary Alliance.\n(b) Mention the names of two princely States annexed by Dalhousie with the application of Doctrine of Lapse.\n(c) Name two prominent leaders of the Santhal rebellion.\n8. (a) Write a note on Subsidiary Alliance. 10\n<br>or<br>\n(b) Give an account on Kol resistance against British.`;
+    const rows = parseTranscriptToRows(md, "HISDSC202T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["3(a)", 2, "Answer any 2"],
+      ["3(b)", 2, "Answer any 2"],
+      ["3(c)", 2, "Answer any 2"],
+      ["4(a)", 10, ""],
+      ["4(b)", 10, "OR"],
+      ["5(a)", 2, "Answer any 2"],
+      ["5(b)", 2, "Answer any 2"],
+      ["5(c)", 2, "Answer any 2"],
+      ["6(a)", 10, ""],
+      ["6(b)", 10, "OR"],
+      ["7(a)", 2, "Answer any 2"],
+      ["7(b)", 2, "Answer any 2"],
+      ["7(c)", 2, "Answer any 2"],
+      ["8(a)", 10, ""],
+      ["8(b)", 10, "OR"],
+    ]);
+  });
+
+  test("a <br>Or<br> joined onto its row's line still marks the OR — HISDSC202T reflow form", () => {
+    // The pipeline reflow (before its own fix) joined the marker onto
+    // the (a) line: "4. (a) ... 10 <br>Or<br>". The parser must read
+    // the marks and the OR off that joined line.
+    const md = `UNIT—II\n\n4. (a) Write a note on Anglo-French conflict for supremacy in India. 10 <br>Or<br>\n(b) Discuss the causes and results of the Battle of Plassey.`;
+    const rows = parseTranscriptToRows(md, "HISDSC202T");
+    expect(rows.map((r) => [r.label, r.marks, r.group, r.question])).toEqual([
+      [
+        "4(a)",
+        10,
+        "OR",
+        "Write a note on Anglo-French conflict for supremacy in India.",
+      ],
+      [
+        "4(b)",
+        10,
+        "OR",
+        "Discuss the causes and results of the Battle of Plassey.",
+      ],
+    ]);
+  });
+
+  test("a bare trailing lowercase 'or' is ordinary text, never an OR marker", () => {
+    const md = `UNIT—I\n\n1. (a) Discuss whether the king acted wisely or not.\n(b) Give an account of the battle.`;
+    const rows = parseTranscriptToRows(md, "HISDSC202T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1(a)", null, ""],
+      ["1(b)", null, ""],
+    ]);
+  });
+
+  test("sub-rows of a marks-carrying parent are filled from the parent — ENGSEC101T Q18", () => {
+    // "18. Change the mode of narration : 2" with (a)–(d) and no
+    // per-part figures: the 2 is the whole question, so each part
+    // displays it. The parent is Q17's OR alternative.
+    const md = `UNIT—IV\n\n17. Change the voice : 2\n(a) He wrote a letter.\n(b) She sings a song.\nOr\n18. Change the mode of narration : 2\n(a) He said, "The bell rang."\n(b) He says to me, "What is this place called?"\n(c) He asked me what my name was.\n(d) The man ordered me not to put my things here.\n19. Do as directed : 2\n(a) First item.\n(b) Second item.`;
+    const rows = parseTranscriptToRows(md, "ENGSEC101T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["17", 2, ""],
+      ["17(a)", 2, ""],
+      ["17(b)", 2, ""],
+      ["18", 2, "OR"],
+      ["18(a)", 2, ""],
+      ["18(b)", 2, ""],
+      ["18(c)", 2, ""],
+      ["18(d)", 2, ""],
+      ["19", 2, ""],
+      ["19(a)", 2, ""],
+      ["19(b)", 2, ""],
+    ]);
+  });
+
+  test("a parent whose marks are a split total on its own line is never filled — PHYDSM101T Q8", () => {
+    // "1+3+3+3=10" is a total composed of the parts (3+3+3, plus 1
+    // for the stem): the parts are not 10 each, so they stay blank.
+    // This is the batch-4 regression case.
+    const md = `UNIT—III\n\n8. What is central force? Prove the following for a particle moving under a central force :\n1+3+3+3=10\n\n(a) Angular momentum about the centre of force is a constant of motion.\n\n(b) The motion of the particle is always confined to a plane.\n\n(c) The areal velocity of the line joining the centre of force and the particle is a constant of motion.`;
+    const rows = parseTranscriptToRows(md, "PHYDSM101T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["8", 10],
+      ["8(a)", null],
+      ["8(b)", null],
+      ["8(c)", null],
+    ]);
+  });
+
+  test("a parent whose text prints the split is never filled — COMDSM-101T Q19 (3+4+3=10)", () => {
+    // "(3+4+3=10)" in the parent's own text gives the parts their
+    // own values (3, 4, 3): the total 10 must never be copied onto
+    // them, even though the trailing ": 10" is a single figure.
+    const md = `UNIT—II\n\n19. Write short notes on the following (3+4+3=10) : 10\n(a) Income effect\n(b) Substitution effect\n(c) Price effect`;
+    const rows = parseTranscriptToRows(md, "COMDSM-101T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["19", 10],
+      ["19(a)", null],
+      ["19(b)", null],
+      ["19(c)", null],
+    ]);
+  });
+
+  test("a partly marked question is left alone by the parent fill", () => {
+    const md = `UNIT—IV\n\n18. Change the mode of narration : 2\n(a) He said, "The bell rang." 1\n(b) He says to me, "What is this place called?"\n(c) He asked me what my name was.`;
+    const rows = parseTranscriptToRows(md, "ENGSEC101T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["18", 2],
+      ["18(a)", 1],
+      ["18(b)", null],
+      ["18(c)", null],
+    ]);
+  });
+
+  test("an 'Answer either' parent is never filled from — its parts carry pair-split marks", () => {
+    const md = `UNIT—III\n\n6. Answer either [(a) and (b)] or [(c) and (d)] :\n(a) First part. 4\n(b) Second part. 6\n(c) Third part. 5\n(d) Fourth part. 5`;
+    const rows = parseTranscriptToRows(md, "MATDSC253");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["6", 10, "Answer either"],
+      ["6(a)", 4, "Answer either"],
+      ["6(b)", 6, "Answer either"],
+      ["6(c)", 5, "Answer either"],
+      ["6(d)", 5, "Answer either"],
+    ]);
+  });
+});
+
+describe("parser gaps fixed from batch 28 (2026-11-23, HISSEC201T / HISSEC151T / HISIDC201T)", () => {
+  test("a duplicate question number takes a suffixed label and ID — HISSEC201T Q23 twice, no Q24", () => {
+    // The paper prints Q23 twice and no Q24, then Q25. The second
+    // 23 becomes "23b" (label and ID); the transcript is untouched.
+    // The first 23 takes its OR partner Q22's 2, and Q25 takes the
+    // second 23's 5.
+    const md = `UNIT—V\n\n21. Answer any three from the following : $1 \\times 3 = 3$\n(a) When was Hampi declared a World Heritage Site?\n(b) Name the chief architect of Taj Mahal.\n(c) State one architectural specimen of Khaspur.\n(d) On which occasion is the Bhuvan Mela organised?\n\n22. State two basic features of the historical site of Unakoti. [2]\n\n**OR**\n\n23. On which ocassion and on which month is a mela organised at Badarpurghat?\n\n23. Give a pen picture of Ellora Caves. [5]\n\n**OR**\n\n25. Describe the importance of Malegarh as a tourist site.`;
+    const rows = parseTranscriptToRows(md, "HISSEC201T");
+    expect(rows.map((r) => [r.label, r.marks, r.group, r.id])).toEqual([
+      ["21(a)", 1, "Answer any 3", "HISSEC201T-Q21a"],
+      ["21(b)", 1, "Answer any 3", "HISSEC201T-Q21b"],
+      ["21(c)", 1, "Answer any 3", "HISSEC201T-Q21c"],
+      ["21(d)", 1, "Answer any 3", "HISSEC201T-Q21d"],
+      ["22", 2, "OR", "HISSEC201T-Q22"],
+      ["23", 2, "OR", "HISSEC201T-Q23"],
+      ["23b", 5, "OR", "HISSEC201T-Q23b"],
+      ["25", 5, "OR", "HISSEC201T-Q25"],
+    ]);
+  });
+
+  test("a duplicate question's sub-rows take the suffix too", () => {
+    // The rename propagates to the duplicate's parts (23b(a)/(b)).
+    // Q25 stays blank here: the OR line after the sub-rows cannot
+    // mark the parent question OR (the PHYDSM101T Q8/Q9 guard — the
+    // last part is not itself the alternative), so the G17 run does
+    // not reach it. The counter still reads it right through
+    // or_pairs; only this display cell stays blank.
+    const md = `UNIT—V\n\n22. First question. [2]\n\n**OR**\n\n23. Second question.\n\n23. Third question. [5]\n(a) First part.\n(b) Second part.\n\n**OR**\n\n25. Fifth question.`;
+    const rows = parseTranscriptToRows(md, "HISSEC201T");
+    expect(rows.map((r) => [r.label, r.marks, r.id])).toEqual([
+      ["22", 2, "HISSEC201T-Q22"],
+      ["23", 2, "HISSEC201T-Q23"],
+      ["23b", 5, "HISSEC201T-Q23b"],
+      ["23b(a)", 5, "HISSEC201T-Q23ba"],
+      ["23b(b)", 5, "HISSEC201T-Q23bb"],
+      ["25", null, "HISSEC201T-Q25"],
+    ]);
+  });
+
+  test("a blank OR alternative takes its partner's marks — HISIDC201T Q3/Q5", () => {
+    const md = `UNIT—I\n\n1. Answer any four of the following : $1 \\times 4 = 4$\n(a) When was the Magna Carta issued?\n(b) Name one fundamental feature of human rights.\n(c) Name one United Nations agency responsible for promoting human rights.\n(d) Who issued the Magna Carta?\n(e) How many Articles does the UN Charter, 1945 contain?\n\n2. What was the primary purpose of the Magna Carta? [2]\n\n**OR**\n\n3. What was the primary objective of the UN Charter, 1945?\n\n4. Discuss the nature and characteristics of human rights. [8]\n\n**OR**\n\n5. Write a brief note on the Magna Carta, 1215 AD.`;
+    const rows = parseTranscriptToRows(md, "HISIDC201T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1(a)", 1, "Answer any 4"],
+      ["1(b)", 1, "Answer any 4"],
+      ["1(c)", 1, "Answer any 4"],
+      ["1(d)", 1, "Answer any 4"],
+      ["1(e)", 1, "Answer any 4"],
+      ["2", 2, "OR"],
+      ["3", 2, "OR"],
+      ["4", 8, "OR"],
+      ["5", 8, "OR"],
+    ]);
+  });
+
+  test("an OR pair with both members blank stays blank", () => {
+    const md = `UNIT—I\n\n2. First alternative.\n\n**OR**\n\n3. Second alternative.`;
+    const rows = parseTranscriptToRows(md, "HISIDC201T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["2", null, "OR"],
+      ["3", null, "OR"],
+    ]);
+  });
+
+  test("a direct OR row that has sub-rows is NOT filled from its partner — BOTIDC101T Q20", () => {
+    // Q20's marks live on part (b) (8); the parent cell stays blank,
+    // or the counter would sum parent + parts and read 78/70.
+    const md = `UNIT—V\n\n19. Nineteenth question. [8]\n\n**OR**\n\n20. Twentieth question.\n(a) First part.\n(b) Second part. [8]`;
+    const rows = parseTranscriptToRows(md, "BOTIDC101T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["19", 8, "OR"],
+      ["20", null, "OR"],
+      ["20(a)", null, ""],
+      ["20(b)", 8, ""],
+    ]);
+  });
+
+  test("a repeated sub-part label takes a numeric suffix — COMDSC-353T Q6(b) twice", () => {
+    // The paper prints (b) twice and no (a); the transcript keeps the
+    // printed label, the second row's ID is suffixed instead.
+    const md = `UNIT—III\n\n6. Answer any *one* of the following questions : 10\n(b) Can a banker refuse payment of a cheque? Justify your answer with sufficient reference to rules.\n(b) What is crossing of a cheque? Explain the general rules of crossing a cheque. 2+8=10`;
+    const rows = parseTranscriptToRows(md, "COMDSC-353T");
+    expect(rows.map((r) => [r.label, r.marks, r.id])).toEqual([
+      ["6(b)", 10, "COMDSC-353T-Q6b"],
+      ["6(b2)", 10, "COMDSC-353T-Q6b2"],
+    ]);
+  });
+
+  test("a wholly markless section's rows take the remainder per question — HISSEC151T Section C", () => {
+    // Full marks 15: Section A 3 x 1 = 3, Section B 2 x 2 = 4,
+    // remainder 8 over Section C's "Answer any 2" = 4 each.
+    const md = `Full Marks : 15\n\nSECTION—A\n\nAnswer any three of the following questions : $1 \\times 3 = 3$\n\n1. First question.\n2. Second question.\n3. Third question.\n\nSECTION—B\n\nAnswer any two of the following questions : $2 \\times 2 = 4$\n\n4. Fourth question.\n5. Fifth question.\n\nSECTION—C\n\nAnswer any two of the following questions :\n\n6. Sixth question.\n7. Seventh question.`;
+    const rows = parseTranscriptToRows(md, "HISSEC151T");
+    expect(rows.map((r) => [r.label, r.marks, r.unit, r.group])).toEqual([
+      ["1", 1, "A", "Answer any 3"],
+      ["2", 1, "A", "Answer any 3"],
+      ["3", 1, "A", "Answer any 3"],
+      ["4", 2, "B", "Answer any 2"],
+      ["5", 2, "B", "Answer any 2"],
+      ["6", 4, "C", "Answer any 2"],
+      ["7", 4, "C", "Answer any 2"],
+    ]);
+  });
+
+  test("a remainder that does not divide evenly leaves the rows blank", () => {
+    // Same shape, full marks 16: remainder 9 over "Answer any 2"
+    // is not whole, so nothing is invented.
+    const md = `Full Marks : 16\n\nSECTION—A\n\nAnswer any three of the following questions : $1 \\times 3 = 3$\n\n1. First question.\n2. Second question.\n3. Third question.\n\nSECTION—B\n\nAnswer any two of the following questions : $2 \\times 2 = 4$\n\n4. Fourth question.\n5. Fifth question.\n\nSECTION—C\n\nAnswer any two of the following questions :\n\n6. Sixth question.\n7. Seventh question.`;
+    const rows = parseTranscriptToRows(md, "HISSEC151T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["1", 1],
+      ["2", 1],
+      ["3", 1],
+      ["4", 2],
+      ["5", 2],
+      ["6", null],
+      ["7", null],
+    ]);
+  });
+
+  test("the remainder counts OR pairs once, not twice — other sections with OR alternatives", () => {
+    // Full marks 20: Section A is two OR pairs (2 and 8), Section B
+    // is markless "Answer any 2": remainder 10 over 2 = 5 each. If
+    // the OR pairs were counted twice the remainder would be 0.
+    const md = `Full Marks : 20\n\nSECTION—A\n\n1. First question. [2]\n\n**OR**\n\n2. Second question.\n\n3. Third question. [8]\n\n**OR**\n\n4. Fourth question.\n\nSECTION—B\n\nAnswer any two of the following questions :\n\n5. Fifth question.\n6. Sixth question.`;
+    const rows = parseTranscriptToRows(md, "HISSEC151T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1", 2, "OR"],
+      ["2", 2, "OR"],
+      ["3", 8, "OR"],
+      ["4", 8, "OR"],
+      ["5", 5, "Answer any 2"],
+      ["6", 5, "Answer any 2"],
+    ]);
+  });
+
+  test("two markless sections leave both blank — the remainder is ambiguous", () => {
+    const md = `Full Marks : 20\n\nSECTION—A\n\nAnswer any two of the following questions : $1 \\times 2 = 2$\n\n1. First question.\n2. Second question.\n\nSECTION—B\n\nAnswer any two of the following questions :\n\n3. Third question.\n4. Fourth question.\n\nSECTION—C\n\nAnswer any two of the following questions :\n\n5. Fifth question.\n6. Sixth question.`;
+    const rows = parseTranscriptToRows(md, "HISSEC151T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["1", 1],
+      ["2", 1],
+      ["3", null],
+      ["4", null],
+      ["5", null],
+      ["6", null],
+    ]);
+  });
+});
+
+describe("parser gaps fixed from batch 29 (2026-11-23, MATDSC151T / MATDSC152T)", () => {
+  test("a trailing \\quad <n> inside a display formula is the row's marks — MATDSC152T Q19(a)", () => {
+    // The figure sits inside the $$...$$ block, so the maths-span
+    // collapse used to swallow it and the row fell back to 10.
+    // The figure is stripped from inside the formula; the rest of
+    // the formula stays as question text.
+    const md = String.raw`SECTION—B
+
+Answer any five of the following questions : $10 \times 5 = 50$
+
+19. (a) If $I_n = \int_0^{\pi/2} x^n \sin x \, dx$ and $n > 1$, then show that $$I_n + n(n-1)I_{n-2} = n\left(\frac{\pi}{2}\right)^{n-1} \quad 5$$
+(b) Second part. 5`;
+    const rows = parseTranscriptToRows(md, "MATDSC152T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["19(a)", 5],
+      ["19(b)", 5],
+    ]);
+    expect(rows[0].question.endsWith("$$")).toBe(true);
+    expect(rows[0].question).not.toContain("\\quad");
+  });
+
+  test("a trailing \\qquad <n> inside a display formula is the row's marks too", () => {
+    const md = String.raw`SECTION—B
+
+Answer any five of the following questions : $10 \times 5 = 50$
+
+19. (a) Show that $$x + y = 1 \qquad 5$$
+(b) Second part. 5`;
+    const rows = parseTranscriptToRows(md, "MATDSC152T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["19(a)", 5],
+      ["19(b)", 5],
+    ]);
+    expect(rows[0].question).not.toContain("qquad");
+  });
+
+  test("merged (i)/(ii) parts sum when the (ii) figure is a \\quad — MATDSC152T Q22(a)", () => {
+    const md = String.raw`SECTION—B
+
+Answer any five of the following questions : $10 \times 5 = 50$
+
+22. (a) (i) First sub-part. 2 (ii) Second sub-part. $$\vec{c} \quad 3$$`;
+    const rows = parseTranscriptToRows(md, "MATDSC152T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([["22(a)", 5]]);
+  });
+
+  test("a (ii) line after a page break sums with the (i) figure already stripped — MATDSC152T Q22(b)", () => {
+    // "(b) (i) ... 2" was pushed with the (i) figure as the row's
+    // marks; when "(ii) ... 3" joins, the re-derive covers the (ii)
+    // part only, so the (i) part's printed marks are added back.
+    const md = String.raw`SECTION—B
+
+Answer any five of the following questions : $10 \times 5 = 50$
+
+22. (a) (i) First sub-part. 2
+(ii) Second sub-part. 3
+(b) (i) Third sub-part. 2
+(ii) Fourth sub-part. 3`;
+    const rows = parseTranscriptToRows(md, "MATDSC152T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["22(a)", 5],
+      ["22(b)", 5],
+    ]);
+  });
+
+  test("a blank part takes the remainder of the question total — MATDSC151T Q17(a)", () => {
+    // (a) prints no figure; (b)=4 and (c)=2 are printed, so (a) is
+    // 10−4−2=4 — never the section per-question total 10.
+    const md = `SECTION—B
+
+Answer any five of the following questions : $10 \\times 5 = 50$
+
+17. (a) First part.
+(b) Second part. 4
+(c) Third part. 2`;
+    const rows = parseTranscriptToRows(md, "MATDSC151T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["17(a)", 4],
+      ["17(b)", 4],
+      ["17(c)", 2],
+    ]);
+  });
+
+  test("a question with no printed figure anywhere stays blank — MATDSC151T Q25", () => {
+    const md = `SECTION—B
+
+Answer any five of the following questions : $10 \\times 5 = 50$
+
+25. (a) First part.
+(b) Second part.
+(c) Third part.`;
+    const rows = parseTranscriptToRows(md, "MATDSC151T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["25(a)", null],
+      ["25(b)", null],
+      ["25(c)", null],
+    ]);
+  });
+
+  test("two blank parts with a printed sibling stay blank — the split is underivable (G40)", () => {
+    // Batch 40, G40: the old behaviour kept the fallback on both
+    // blanks (10 each), so MATDSC102T Q19 read 10+10+2 = 22 for a
+    // 10-mark question and the counter overcounted (82/70). The
+    // fallback is provisional, never printed: blank both and let the
+    // section rule count the question once from the proven
+    // questions. A single blank still takes the forced remainder
+    // (MATDSC151T Q17(a) = 10-4-2 = 4, above).
+    const md = `SECTION—B
+
+Answer any five of the following questions : $10 \\times 5 = 50$
+
+17. (a) First part. 4
+(b) Second part.
+(c) Third part.`;
+    const rows = parseTranscriptToRows(md, "MATDSC151T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["17(a)", 4],
+      ["17(b)", null],
+      ["17(c)", null],
+    ]);
+  });
+
+  test("a numbered instruction's options really are worth the per each — HISSEC201T Q21 shape", () => {
+    // The instruction sits on the question's own line, so its (a)–(d)
+    // are the alternatives to choose among, each worth 1 — the
+    // fallback here is legitimate and must not be remainder-filled.
+    const md = `UNIT—V
+
+21. Answer any three from the following : $1 \\times 3 = 3$
+(a) First option.
+(b) Second option.
+(c) Third option.
+(d) Fourth option.`;
+    const rows = parseTranscriptToRows(md, "HISSEC201T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["21(a)", 1],
+      ["21(b)", 1],
+      ["21(c)", 1],
+      ["21(d)", 1],
+    ]);
+  });
+
+  test("an all-blank question does not break section uniformity — MATDSC151T Q25 in the counter", () => {
+    // Full marks 24: Section A 2×2=4, Section B "answer any 1"
+    // over Q3 (4+6=10) and Q4 (blank) = 10, so the remainder over
+    // Section C's "answer any 2" is 10 = 5 each. Without the G18d
+    // skip, Section B's uniformity test fails on Q4's blank parts,
+    // the counter falls back per question (4+6=6), and Section C
+    // reads 7 each.
+    const md = `Full Marks : 24
+
+SECTION—A
+
+Answer any two of the following questions : $2 \\times 2 = 4$
+
+1. First question. 2
+2. Second question. 2
+
+SECTION—B
+
+Answer any one of the following questions : $10 \\times 1 = 10$
+
+3. (a) First part. 4
+(b) Second part. 6
+
+4. (a) Blank part.
+(b) Blank part.
+
+SECTION—C
+
+Answer any two of the following questions :
+
+5. Fifth question.
+6. Sixth question.`;
+    const rows = parseTranscriptToRows(md, "MATDSC151T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["1", 2],
+      ["2", 2],
+      ["3(a)", 4],
+      ["3(b)", 6],
+      ["4(a)", null],
+      ["4(b)", null],
+      ["5", 5],
+      ["6", 5],
+    ]);
+  });
+});
+
+describe("parser gaps fixed from batch 30 (2026-11-24, MATDSM151T / MATSEC151T / MATIDC151T / MATSEC101T)", () => {
+  const row = (
+    label: string,
+    marks: number | null,
+    unit: string,
+    group: string,
+  ): QuestionRow => ({
+    label,
+    question: `${label} question text.`,
+    marks,
+    unit,
+    group,
+    id: `TEST-Q${label.replace(/[()]/g, "")}`,
+    keywords: "",
+  });
+
+  test("G19 largest-N: non-uniform section-level choice counts the N largest question totals — MATDSM151T Section B", () => {
+    // Section B, "Answer any five questions", 10 questions worth
+    // 5–10 each (two partly known: a blank part). The old fallback
+    // counted 5 x max-part per question (285/70); the section
+    // contributes the five largest question totals = 50.
+    const rows: QuestionRow[] = [
+      row("16(a)", 5, "B", "Answer any 5"),
+      row("16(b)", null, "B", "Answer any 5"),
+      row("17(a)", 3, "B", "Answer any 5"),
+      row("17(b)", 2, "B", "Answer any 5"),
+      row("18(a)", 4, "B", "Answer any 5"),
+      row("18(b)", 6, "B", "Answer any 5"),
+      row("19(a)", 4, "B", "Answer any 5"),
+      row("19(b)", 6, "B", "Answer any 5"),
+      row("20(a)", 5, "B", "Answer any 5"),
+      row("20(b)", 5, "B", "Answer any 5"),
+      row("21(a)", 5, "B", "Answer any 5"),
+      row("21(b)", null, "B", "Answer any 5"),
+      row("22(a)", 4, "B", "Answer any 5"),
+      row("22(b)", 6, "B", "Answer any 5"),
+      row("23(a)", 5, "B", "Answer any 5"),
+      row("23(b)", 5, "B", "Answer any 5"),
+      row("24(a)", 5, "B", "Answer any 5"),
+      row("24(b)", 5, "B", "Answer any 5"),
+      row("25(a)", 5, "B", "Answer any 5"),
+      row("25(b)", 5, "B", "Answer any 5"),
+    ];
+    const lines = [
+      "Answer any five questions:",
+      "16. (a) First question.",
+      "17. (a) Second question.",
+      "18. (a) Third question.",
+    ];
+    expect(countedTotalExcludingRemainder(rows, lines)).toBe(50);
+  });
+
+  test("G19 uniform with all-blank questions: blanks neither prove nor break uniformity — MATSEC151T Section C", () => {
+    // Section C, "Answer any five", Q31–Q40 each worth 5, but only
+    // Q33–Q36 print a figure; the rest are blank. The old fallback
+    // counted 5 x 5 per question (85/50); the section contributes
+    // 5 x 5 = 25.
+    const rows: QuestionRow[] = [];
+    for (let q = 31; q <= 40; q++) {
+      rows.push(
+        row(`${q}(a)`, q >= 33 && q <= 36 ? 5 : null, "C", "Answer any 5"),
+      );
+    }
+    const lines = [
+      "Answer any five questions from the following : $5 \\times 5 = 25$",
+      "31. (a) First question.",
+    ];
+    expect(countedTotalExcludingRemainder(rows, lines)).toBe(25);
+  });
+
+  test("G19b direct branch: a question's value is direct + parts, not the direct figure alone — MATIDC151T Section C", () => {
+    // Section C, "Answer any five", Q36–Q40 each (direct 4 + (b) 4
+    // = 8). The old section rule used the direct row's 4 (50/70);
+    // the section contributes 5 x 8 = 40.
+    const rows: QuestionRow[] = [];
+    for (let q = 36; q <= 40; q++) {
+      rows.push(row(`${q}`, 4, "C", "Answer any 5"));
+      rows.push(row(`${q}(b)`, 4, "C", "Answer any 5"));
+    }
+    const lines = [
+      "Answer any five of the following questions :",
+      "36. First question. 4",
+      "37. Second question. 4",
+    ];
+    expect(countedTotalExcludingRemainder(rows, lines)).toBe(40);
+  });
+
+  test("G20 OR alternatives count once: standalone $$\\text{OR}$$ line and bare number lines — MATSEC101T", () => {
+    // Q2 and Q3 are OR alternatives (5 each); Q4 is a bare-number
+    // question (5). The old counter read 15; the pair counts once.
+    const rows: QuestionRow[] = [
+      row("2(a)", 5, "A", ""),
+      row("3(a)", 5, "A", ""),
+      row("4(a)", 5, "A", ""),
+    ];
+    const lines = [
+      "2. First question. 5",
+      "$$\\text{OR}$$",
+      "3. Second question. 5",
+      "4.",
+      "(a) Fourth question. 5",
+    ];
+    expect(countedTotalExcludingRemainder(rows, lines)).toBe(10);
+  });
+
+  test("G20 trailing $$\\text{OR}$$ on a question line pairs that question with the next", () => {
+    const rows: QuestionRow[] = [
+      row("12(a)", 2, "A", ""),
+      row("13(a)", 2, "A", ""),
+    ];
+    const lines = [
+      "12. Twelfth question. [2] $$\\text{OR}$$",
+      "13. Thirteenth question. [2]",
+    ];
+    expect(countedTotalExcludingRemainder(rows, lines)).toBe(2);
+  });
+
+  test("instruction placement: on-line instructions are per-question, not section-level — CHMDSM151", () => {
+    // Q2/Q4/Q6 each say "Answer any one of the following
+    // questions: 10" on their own line, each worth 10 — three
+    // independent questions, not one section-level choice of one.
+    // A section rule would count 1 x 20 = 20 (60/70); the paper
+    // is 4 + 10 + 10 + 10 = 34 for this fragment.
+    const rows: QuestionRow[] = [
+      row("1(a)", 2, "I", "Answer any 2"),
+      row("1(b)", 2, "I", "Answer any 2"),
+      row("1(c)", 2, "I", "Answer any 2"),
+      row("2(a)", 10, "I", "Answer any 1"),
+      row("2(b)", 10, "I", "Answer any 1"),
+      row("4(a)", 10, "I", "Answer any 1"),
+      row("4(b)", 10, "I", "Answer any 1"),
+      row("6(a)", 10, "I", "Answer any 1"),
+      row("6(b)", 10, "I", "Answer any 1"),
+    ];
+    const lines = [
+      "1. Answer any two of the following questions :",
+      "2. Answer any one of the following questions: 10",
+      "4. Answer any one of the following questions : 10",
+      "6. Answer any one of the following questions : 10",
+    ];
+    expect(countedTotalExcludingRemainder(rows, lines)).toBe(34);
+  });
+
+  test("instruction placement: a standalone instruction IS section-level — MATDSC202T", () => {
+    // "Answer any one of the following : 10" stands alone above Q2
+    // (4+3+3) and Q3 (5+5): answer ONE question, worth 10. Q1 is
+    // per-question (2 x 2 = 4). Total for this fragment: 14.
+    const rows: QuestionRow[] = [
+      row("1(a)", 2, "I", "Answer any 2"),
+      row("1(b)", 2, "I", "Answer any 2"),
+      row("1(c)", 2, "I", "Answer any 2"),
+      row("2(a)", 4, "I", "Answer any 1"),
+      row("2(b)", 3, "I", "Answer any 1"),
+      row("2(c)", 3, "I", "Answer any 1"),
+      row("3(a)", 5, "I", "Answer any 1"),
+      row("3(b)", 5, "I", "Answer any 1"),
+    ];
+    const lines = [
+      "1. Answer any two of the following : $2 \\times 2 = 4$",
+      "Answer any one of the following : 10",
+      "2. (a) First question. 4",
+      "3. (a) Second question. 5",
+    ];
+    expect(countedTotalExcludingRemainder(rows, lines)).toBe(14);
+  });
+
+  test("per-question choice stays per-question: ENGAEC201T Q9/Q10 do not become a section choice", () => {
+    // "9. Answer any one ... : 2" and "10. Answer any one ... : 5"
+    // are on the question lines: Q9 contributes 2, Q10 contributes
+    // 5 — not the largest-N 10 a section reading would give.
+    const rows: QuestionRow[] = [
+      row("9(a)", 2, "IV", "Answer any 1"),
+      row("9(b)", 2, "IV", "Answer any 1"),
+      row("10(a)", 5, "IV", "Answer any 1"),
+      row("10(b)", 5, "IV", "Answer any 1"),
+    ];
+    const lines = [
+      "9. Answer any one from the following questions : 2",
+      "10. Answer any one from the following questions : 5",
+    ];
+    expect(countedTotalExcludingRemainder(rows, lines)).toBe(7);
+  });
+
+  test("G21 split total on the question line is the question total — PHYDSM101T Q8", () => {
+    // "8. ... : 1+3+3+3=10" — the direct row's 10 is the whole
+    // question (1 for the definition + 3 each for (a)/(b)/(c)).
+    // Counting direct + parts would read 19; the question is 10.
+    const rows: QuestionRow[] = [
+      row("8", 10, "III", ""),
+      row("8(a)", 3, "III", ""),
+      row("8(b)", 3, "III", ""),
+      row("8(c)", 3, "III", ""),
+      row("9(a)", 5, "III", ""),
+      row("9(b)", 5, "III", ""),
+    ];
+    const lines = [
+      "8. What is central force? Prove the following for a particle moving under a central force : 1+3+3+3=10",
+      "9. (a) Ninth question. 5",
+    ];
+    expect(countedTotalExcludingRemainder(rows, lines)).toBe(20);
+  });
+
+  test("G21 does not fire for a no-(a) question: the identity is part (a)'s own composition — PHYDSC101T Q15", () => {
+    // "15. ... [3+4=7]" — the direct row IS part (a) (7) and (b)
+    // adds 3: the question is 7+3=10, not 7 alone.
+    const rows: QuestionRow[] = [
+      row("15", 7, "V", ""),
+      row("15(b)", 3, "V", ""),
+    ];
+    const lines = [
+      "15. Explain the method. Find the real root of the equation $x^3 - x - 1 = 0$. [3+4=7]",
+      "15. (b) Second part. 3",
+    ];
+    expect(countedTotalExcludingRemainder(rows, lines)).toBe(10);
+  });
+});
+
+describe("parser gaps fixed from batch 31 (2026-11-24, PHIDSC201T / titles)", () => {
+  test("numbered list items inside a question fold into it, not new top-level rows — PHIDSC201T Q4(b)", () => {
+    const md = String.raw`UNIT—II
+
+3. Answer any two of the following : $2\times2=4$
+
+(a) What is existential import?
+
+(b) Do $A$ and $E$ propositions have existential import according to Boole?
+
+(c) If 'All logicians are philosophers' is false, what will be the truth value of 'some logicians are not philosophers'?
+
+4. (a) What is opposition of proposition? 2+4+4=10
+
+Or
+
+(b) Let (i), (ii), (iii) and (iv) be four propositions as given below :
+
+(i) All successful administrators are hard-working people. (ii) No successful administrators are hard-working people. (iii) Some successful administrators are hard-working people. (iv) Some successful administrators are not hard-working people.
+
+1. What will be the truth value of (ii), (iii) and (iv) if we assume (i) to be true? 3
+
+2. What will be the truth- or falsehood of (ii), (iii) and (iv), if we assume (i) to be false? 3
+
+3. If $I$ proposition is given as false, then what will be the truth- or falsehood of $A$, $E$ and $O$ granted that they have same subject and predicate? 2
+
+4. If $E$ proposition is given as true, then what will be the truth or falsity of $A$, $I$ and $O$ granted that they have the same subject and predicate? 2
+
+UNIT—III
+
+5. Answer any two of the following : $2\times2=4$
+
+(a) Mention two characteristics of analytical reasoning.`;
+    const rows = parseTranscriptToRows(md, "PHIDSC201T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["3(a)", 2, "Answer any 2"],
+      ["3(b)", 2, "Answer any 2"],
+      ["3(c)", 2, "Answer any 2"],
+      ["4(a)", 10, ""],
+      ["4(b)", 10, "OR"],
+      ["5(a)", 2, "Answer any 2"],
+    ]);
+    // No top-level '1'–'4' rows, IDs unique, and the folded items
+    // (plus the four propositions) survive in 4(b)'s text.
+    expect(rows.some((r) => ["1", "2", "3", "4"].includes(r.label))).toBe(
+      false,
+    );
+    expect(new Set(rows.map((r) => r.id)).size).toBe(rows.length);
+    const q4b = rows.find((r) => r.label === "4(b)") as QuestionRow;
+    expect(q4b.question).toContain("hard-working people");
+    expect(q4b.question).toContain("truth value of (ii), (iii) and (iv)");
+    expect(q4b.question).toContain("If $E$ proposition is given as true");
+  });
+
+  test("numbered arguments inside a sub-part fold in and their figures add up — PHIDSC201T Q10(c)", () => {
+    const md = String.raw`UNIT—V
+
+9. Answer any two of the following : $2\times2=4$
+
+(a) What is a set?
+
+(b) What is an empty set?
+
+(c) What is a subset?
+
+10. (a) If $A = \{ 1, 2 \}$ $B = \{ 1, 3, 5 \}$ $C = \{ 2, 3, 5, 7 \}$ $D = \{ 4, 5, 6, 7 \}$ then find
+
+(i) $A \cup B$ (ii) $B \cap C$ (iii) $C \cup D$ (iv) $(A \cup B) \cup C$
+
+(v) $C \cap D$ 5
+
+(b) Which of the following statements are true and which of them are false (for all sets $A, B$ and $C$)? 5
+
+(i) If $A=B$ and $B=C$, then $A=C$. (ii) If $A \in B$ and $B \in C$, then $A \in C$. (iii) If $A \subseteq B$ and $B \subseteq C$, then $A \subseteq C$. (iv) If $A=B$ and $B \in C$, then $A \in C$.
+
+(v) If $A \in B$ and $B=C$, then $A \in C$.
+
+Or
+
+(c) (i) What is wrong with the following arguments? 2+2=4
+
+1. Tomcats are cats. Cats are a species. Therefore, tomcats are a species.
+
+2. Socrates is a man. Men are numerous. Therefore, Socrates is numerous. (ii) What is the principle of extensionality for sets? [2] (iii) What is intersection of sets? [2] (iv) What is domain of individuals? 2`;
+    const rows = parseTranscriptToRows(md, "PHIDSC201T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["9(a)", 2, "Answer any 2"],
+      ["9(b)", 2, "Answer any 2"],
+      ["9(c)", 2, "Answer any 2"],
+      ["10(a)", 5, ""],
+      ["10(b)", 5, ""],
+      ["10(c)", 10, "OR"],
+    ]);
+    // No '1b'/'2b' rows, IDs unique (the old code collided with
+    // Unit-I Q1(b)/Q2(b)).
+    expect(rows.some((r) => r.label === "1b" || r.label === "2b")).toBe(
+      false,
+    );
+    expect(new Set(rows.map((r) => r.id)).size).toBe(rows.length);
+    const q10a = rows.find((r) => r.label === "10(a)") as QuestionRow;
+    expect(q10a.question).toContain("$A \\cup B$");
+    expect(q10a.question).toContain("(v) $C \\cap D$");
+    const q10c = rows.find((r) => r.label === "10(c)") as QuestionRow;
+    expect(q10c.question).toContain("Tomcats are cats");
+    expect(q10c.question).toContain("Socrates is a man");
+    // (a)=5, (b)=5, Or (c)=10 still holds.
+    expect(rows.find((r) => r.label === "10(a)")?.marks).toBe(5);
+    expect(rows.find((r) => r.label === "10(b)")?.marks).toBe(5);
+  });
+
+  test("a '1.' line right after a heading is a new question, not a fold", () => {
+    // A paper that restarts its numbering per unit opens with "1."
+    // right after the heading, with no row pushed since — that "1."
+    // IS a new question.
+    const md = `UNIT—I
+
+3. Answer any two of the following : $2 \\times 2 = 4$
+
+(a) First short.
+
+(b) Second short.
+
+UNIT—II
+
+1. First question of unit two. [2]`;
+    const rows = parseTranscriptToRows(md, "PHIDSC201T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["3(a)", 2],
+      ["3(b)", 2],
+      ["1", 2],
+    ]);
+  });
+
+  test("a duplicate number after a direct row still opens a new question and gets renamed (G15)", () => {
+    const md = `UNIT—I
+
+1. First question. [2]
+
+2. Second question. [2]
+
+1. A repeated first question. [3]`;
+    const rows = parseTranscriptToRows(md, "PHIDSC201T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["1", 2],
+      ["2", 2],
+      ["1b", 3],
+    ]);
+  });
+
+  test("titles: bracketed, text-plus-parenthetical, and heading-marked lines (G23)", () => {
+    const bracketed = `# FYUG Even Semester Exam., 2024
+
+PERSIAN
+
+( 2nd Semester )
+
+Paper Code: PERDSC–151T
+
+[ Persian Poetry (Some Selections) ]
+
+Full Marks: 70
+
+Pass Marks: 28
+
+Time: 3 hours
+
+UNIT—I
+
+1. First question. [2]`;
+    expect(buildQuestionIndex(bracketed, "PERDSC151T")).toContain(
+      "title: Persian Poetry (Some Selections)",
+    );
+
+    const textParen = `# FYUG Even Semester Exam., 2024
+
+PHILOSOPHY
+
+( 2nd Semester )
+
+Paper Code: PHIDSC-151T
+
+Ethics—I (Indian)
+
+Full Marks: 70
+
+Pass Marks: 28
+
+Time: 3 hours
+
+UNIT—I
+
+1. First question. [2]`;
+    expect(buildQuestionIndex(textParen, "PHIDSC151T")).toContain(
+      "title: Ethics—I (Indian)",
+    );
+
+    const headingMarked = `# FYUG Even Semester Exam., 2024
+
+PHILOSOPHY
+
+( 2nd Semester )
+
+Paper Code: PHIDSC-152T
+
+### Ethics—II (Western)
+
+Full Marks: 70
+
+Pass Marks: 28
+
+Time: 3 hours
+
+UNIT—I
+
+1. First question. [2]`;
+    expect(buildQuestionIndex(headingMarked, "PHIDSC152T")).toContain(
+      "title: Ethics—II (Western)",
+    );
+  });
+
+  test("titles: a semester line or a marks line after Paper Code is still not a title (G23)", () => {
+    const semester = `# FYUG Even Semester Exam., 2024
+
+PHILOSOPHY
+
+Paper Code: PHIDSC-151T
+
+( 2nd Semester )
+
+Full Marks: 70
+
+Pass Marks: 28
+
+Time: 3 hours
+
+UNIT—I
+
+1. First question. [2]`;
+    const outSemester = buildQuestionIndex(semester, "PHIDSC151T");
+    expect(outSemester).not.toContain("title:");
+    expect(outSemester).toContain("semester: 2");
+
+    const marksLine = `# FYUG Even Semester Exam., 2024
+
+PHILOSOPHY
+
+Paper Code: PHIDSC-151T
+
+Full Marks: 70
+
+Pass Marks: 28
+
+Time: 3 hours
+
+UNIT—I
+
+1. First question. [2]`;
+    expect(buildQuestionIndex(marksLine, "PHIDSC151T")).not.toContain(
+      "title:",
+    );
+  });
+});
+
+describe("parser gaps fixed from batch 33 (2026-11-24, PHYDSC151T / PHYDSC101T)", () => {
+  test("a blank sub-row of a direct parent row takes the remainder — PHYDSC151T Q25 (G24b)", () => {
+    // The (a) part was folded into the direct row by the pipeline's
+    // inline-(a) handling, so the parent carries (a)'s 6 and the
+    // question total is 10: (b) is 10−6=4, never the section
+    // per-question total 10. Before the fix this read 25=6,
+    // 25(b)=10 (16 for the question, 76/70 overall).
+    const md = `SECTION—B
+
+Answer any five of the following questions : $10 \\times 5 = 50$
+
+25. State and prove Thevenin's theorem. 6
+(b) Calculate the current flowing through the resistance using Thevenin's theorem.`;
+    const rows = parseTranscriptToRows(md, "PHYDSC151T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["25", 6],
+      ["25(b)", 4],
+    ]);
+  });
+
+  test("the direct-parent remainder uses the printed siblings too", () => {
+    // Parent 6, (b) printed 2, (c) blank: (c) is 10−6−2=2.
+    const md = `SECTION—B
+
+Answer any five of the following questions : $10 \\times 5 = 50$
+
+25. First part folded into the parent. 6
+(b) Second part. 2
+(c) Third part.`;
+    const rows = parseTranscriptToRows(md, "PHYDSC151T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["25", 6],
+      ["25(b)", 2],
+      ["25(c)", 2],
+    ]);
+  });
+
+  test("a direct parent with no printed figure does not remainder-fill its blank sub-rows", () => {
+    // No printed figure anywhere: the split is underivable, so the
+    // remainder rule must not invent one from the section total.
+    // (The parent and the sub-rows all keep the section fallback
+    // 10, exactly as before this fix — the new pass requires a
+    // parent figure, and the arithmetic alone would give 10−10=0.)
+    const md = `SECTION—B
+
+Answer any five of the following questions : $10 \\times 5 = 50$
+
+25. First part.
+(b) Second part.
+(c) Third part.`;
+    const rows = parseTranscriptToRows(md, "PHYDSC151T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["25", 10],
+      ["25(b)", 10],
+      ["25(c)", 10],
+    ]);
+  });
+
+  test("two blank sub-rows of a direct parent are not remainder-filled", () => {
+    // Two blanks make the split underivable: neither takes the
+    // 10−6=4 remainder; both keep the section fallback (10).
+    const md = `SECTION—B
+
+Answer any five of the following questions : $10 \\times 5 = 50$
+
+45. First part folded into the parent. 6
+(b) Second part.
+(c) Third part.`;
+    const rows = parseTranscriptToRows(md, "PHYDSC151T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["45", 6],
+      ["45(b)", 10],
+      ["45(c)", 10],
+    ]);
+  });
+
+  test("the (a)/(b) pair shape still fills without a parent row — no regression on G18b", () => {
+    const md = `SECTION—B
+
+Answer any five of the following questions : $10 \\times 5 = 50$
+
+17. (a) First part.
+(b) Second part. 4
+(c) Third part. 2`;
+    const rows = parseTranscriptToRows(md, "MATDSC151T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["17(a)", 4],
+      ["17(b)", 4],
+      ["17(c)", 2],
+    ]);
+  });
+
+  test("a trailing \\quad split-sum inside a display formula is the row's marks — PHYDSC101T 2(a)", () => {
+    // "$$... \\quad 1+5=6$$" is 6 (the stated total), not a bare
+    // figure; the formula stays as question text.
+    const md = String.raw`SECTION—A
+
+Answer any ten of the following questions : $2 \times 10 = 20$
+
+2. (a) Define vector triple product. Show that $$\vec{A} \times (\vec{B} \times \vec{C}) = (\vec{A} \cdot \vec{C})\vec{B} - (\vec{A} \cdot \vec{B})\vec{C} \quad 1+5=6$$
+(b) Second part. 4`;
+    const rows = parseTranscriptToRows(md, "PHYDSC101T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["2(a)", 6],
+      ["2(b)", 4],
+    ]);
+    expect(rows[0].question).not.toContain("\\quad");
+  });
+
+  test("a \\quad split-sum reads its stated total, like a bare split expression", () => {
+    // marksTotalFromParts trusts the stated total for "+" splits
+    // ("$2+8=10$" is 10); the quad-sum form follows the same rule.
+    const md = String.raw`SECTION—A
+
+Answer any ten of the following questions : $2 \times 10 = 20$
+
+2. (a) A formula with a stray sum $$x + y = 1 \quad 1+5=7$$
+(b) Second part. 4`;
+    const rows = parseTranscriptToRows(md, "PHYDSC101T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["2(a)", 7],
+      ["2(b)", 4],
+    ]);
+  });
+});
+
+describe("parser gaps fixed from batch 34 (2026-11-24, PHYSEC201T / PLSDSC102T)", () => {
+  test("OR-partner fill pairs by adjacency in the full table, not by position among direct rows — PHYSEC201T (G25)", () => {
+    // The OR pairs are (Q2,Q3), (Q7,Q8), (Q9,Q10): Q3/Q8/Q10 print
+    // no figure and take their own pair's. The "Answer any 3"
+    // questions exist only as sub-rows, so the old run — built over
+    // direct rows only — never broke at them: one giant run paired
+    // (Q5,Q7), (Q8,Q9), (Q10,Q12), ... and Q8 took Q9's 5, Q10
+    // took Q12's 2, Q25 stayed blank (62/50). A run now breaks on
+    // ANY row that is not a direct OR row.
+    const md = `UNIT—I
+
+1. Answer any three of the following : $1\\times3=3$
+
+(a) Define work done.
+(b) What is the unit of energy in MKS system?
+(c) What do you mean by power?
+(d) State the law of conservation of energy.
+
+2. What is the difference between renewable and non-renewable energy? 2
+
+OR
+
+3. What do you mean by green energy? Give one example of green energy source.
+
+4. (a) Differentiate between commercial and non-commercial energy. 2
+
+(b) Explain the importance of renewable energy source. 3
+
+OR
+
+5. Write a short note on various types of energy sources with suitable example. 5
+
+UNIT—II
+
+6. Answer any three of the following : $1\\times3=3$
+
+(a) What do you mean by fossil fuel?
+(b) What is a nuclear reactor?
+(c) State one advantage of nuclear energy.
+(d) Mention one application of biogas.
+
+7. What is meant by non-conventional energy source? Is LPG conventional or non-conventional? 2
+
+OR
+
+8. Mention one advantage and disadvantage of fossil fuel.
+
+9. Explain the construction and working of a nuclear reactor. 5
+
+OR
+
+10. Write a short note on hydroelectric power.`;
+    const rows = parseTranscriptToRows(md, "PHYSEC201T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["1(a)", 1],
+      ["1(b)", 1],
+      ["1(c)", 1],
+      ["1(d)", 1],
+      ["2", 2],
+      ["3", 2],
+      ["4(a)", 2],
+      ["4(b)", 3],
+      ["5", 5],
+      ["6(a)", 1],
+      ["6(b)", 1],
+      ["6(c)", 1],
+      ["6(d)", 1],
+      ["7", 2],
+      ["8", 2],
+      ["9", 5],
+      ["10", 5],
+    ]);
+  });
+
+  test("a trailing $$\\text{Or}$$ (mixed case) is an OR marker — PLSDSC102T Q8 (G26)", () => {
+    // The (a) line ends "7+3=10 $$\text{Or}$$": the (a) and (b)
+    // rows are alternatives, so the question counts max(10, 10) =
+    // 10, not 10+10. Before the fix the marker was silently eaten
+    // by the marks-strip recursion and both rows counted (90/70).
+    const md = String.raw`UNIT—IV
+
+7. Answer any two of the following : $2 \times 2 = 4$
+
+(a) Mention two special powers of the Speaker of Lok Sabha.
+(b) How is a Judge of the Supreme Court appointed?
+(c) What is Public Interest Litigation?
+
+8. (a) Explain the relationship between the Lok Sabha and Rajya Sabha. What are the special powers of Rajya Sabha? 7+3=10 $$\text{Or}$$
+
+(b) What is Judicial Review? How does the Supreme Court of India exercise the power of judicial review? 3+7=10`;
+    const rows = parseTranscriptToRows(md, "PLSDSC102T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["7(a)", 2, "Answer any 2"],
+      ["7(b)", 2, "Answer any 2"],
+      ["7(c)", 2, "Answer any 2"],
+      ["8(a)", 10, "OR"],
+      ["8(b)", 10, "OR"],
+    ]);
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(14);
+  });
+
+  test("a trailing $$\\text{Or}$$ between direct questions pairs them in the counter — G26 or_pairs", () => {
+    // Direct-row form (MATSEC101T Q12/Q13 shape, mixed case):
+    // Q12 prints 2, Q13 prints no figure; the pair counts 2 once.
+    const md = String.raw`UNIT—I
+
+12. First alternative question. 2 $$\text{Or}$$
+
+13. Second alternative question.`;
+    const rows = parseTranscriptToRows(md, "TEST-101T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["12", 2, "OR"],
+      ["13", 2, "OR"],
+    ]);
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(2);
+  });
+
+  test("a standalone $$\\text{Or}$$ line is an OR line — G26 isOrLine", () => {
+    const md = String.raw`UNIT—I
+
+12. First alternative question. 2
+
+$$\text{Or}$$
+
+13. Second alternative question.`;
+    const rows = parseTranscriptToRows(md, "TEST-101T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["12", 2, "OR"],
+      ["13", 2, "OR"],
+    ]);
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(2);
+  });
+
+  test("an Or between two structures inside one formula is not an OR marker — CHMDSM151T guard", () => {
+    // "$$\text{[...]} \quad \text{Or} \quad \text{[...]}$$" is
+    // one display formula contrasting two structures, not a
+    // trailing OR marker: the question keeps its figure and no
+    // OR group, and the next question is not its alternative.
+    const md = String.raw`UNIT—I
+
+1. (d) Which ion in each of the following pair is more stable and why? 2 $$\text{[Cyclopropenyl cation structure]} \quad \text{Or} \quad \text{[Cyclopropenyl anion structure]}$$
+
+2. Next question. 2`;
+    const rows = parseTranscriptToRows(md, "CHMDSM151T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1(d)", 2, ""],
+      ["2", 2, ""],
+    ]);
+  });
+});
+
+describe("parser gaps fixed from batch 35/36 (2026-11-24, SANDSC152T / ZOO papers)", () => {
+  test("a trailing HTML-wrapped OR marker reads the figure before it — ZOODSM101T Q2 (G27)", () => {
+    // The (a)/(b) lines end "... $3+7=10$ <div align=\"center\">OR</div>":
+    // the line used to end in "</div>", so no figure was extracted
+    // at all and the Marks cells stayed blank (counter already
+    // 70/70 via the section rule — display only).
+    const md = String.raw`UNIT—I
+
+2. First alternative question. $3+7=10$ <div align="center">OR</div>
+
+3. Second alternative question. $3+7=10$`;
+    const rows = parseTranscriptToRows(md, "ZOODSM101T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["2", 10, "OR"],
+      ["3", 10, "OR"],
+    ]);
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(10);
+  });
+
+  test("a trailing <br> $$\\text{OR}$$ <br> reads the figure before it — ZOOIDC101T Q2 (G27)", () => {
+    // "... 2 <br> $$\\text{OR}$$ <br>": the <br> before the marker
+    // survived into the stripped text, so stripTrailingMarks saw
+    // "... 2 <br>" and found no trailing figure.
+    const md = String.raw`UNIT—I
+
+2. Discuss briefly the different levels of biodiversity. 2 <br> $$\text{OR}$$ <br>
+
+3. What is biodiversity hotspot? 2`;
+    const rows = parseTranscriptToRows(md, "ZOOIDC101T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["2", 2, "OR"],
+      ["3", 2, "OR"],
+    ]);
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(2);
+  });
+
+  test("a trailing <center><b>OR</b></center> reads the figure before it — ZOODSC202T Q14 (G27)", () => {
+    const md = String.raw`UNIT—V
+
+14. First alternative question. $6+4=10$ <center><b>OR</b></center>
+
+15. Second alternative question. $6+4=10$`;
+    const rows = parseTranscriptToRows(md, "ZOODSC202T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["14", 10, "OR"],
+      ["15", 10, "OR"],
+    ]);
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(10);
+  });
+
+  test("an HTML-wrapped span that is not the OR word is not a marker — G27 guard", () => {
+    const md = `UNIT—I
+
+1. What is X? 2 <div align="center">See figure</div>
+
+2. Next question. 2`;
+    const rows = parseTranscriptToRows(md, "TEST-101T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1", null, ""],
+      ["2", 2, ""],
+    ]);
+  });
+
+  test("a split-sum parent's parts take the expression's terms — ZOODSC151T Q19 (G28)", () => {
+    // "$5+5=10$" with (a)/(b) means 5 each — not the full 10,
+    // which the G14 fill used to copy onto the parts. The parts
+    // read 10 from the section rule at push time; a fallback value
+    // is provisional and is overwritten by the term, never a
+    // conflict.
+    const md = `SECTION—B
+
+Answer any five of the following questions : $10 \\times 5 = 50$
+
+19. Write short notes on the following : $5+5=10$
+
+(a) First note.
+(b) Second note.`;
+    const rows = parseTranscriptToRows(md, "ZOODSC151T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["19", 10],
+      ["19(a)", 5],
+      ["19(b)", 5],
+    ]);
+  });
+
+  test("a bare split expression on the parent line splits the same way — ZOODSC202T Q6 (G28)", () => {
+    const md = `SECTION—B
+
+Answer any five of the following questions : $10 \\times 5 = 50$
+
+6. Write short notes on the following : 5+5=10
+
+(a) First note.
+(b) Second note.`;
+    const rows = parseTranscriptToRows(md, "ZOODSC202T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["6", 10],
+      ["6(a)", 5],
+      ["6(b)", 5],
+    ]);
+  });
+
+  test("a LaTeX product on the parent line splits by count, not by term — ZOODSC201 Q12 (G28)", () => {
+    // "$5 \\times 2=10$" means 2 parts of 5 marks each, not 5
+    // and 2: the raw expression holds "\\times" (a backslash
+    // word, no "x" or "×" in it), so the sum branch must not fire
+    // vacuously on an operator-less match.
+    const md = String.raw`SECTION—B
+
+Answer any five of the following questions : $10 \times 5 = 50$
+
+12. Write short notes on the following : $5 \times 2=10$
+
+(a) First note.
+(b) Second note.`;
+    const rows = parseTranscriptToRows(md, "ZOODSC201");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["12", 10],
+      ["12(a)", 5],
+      ["12(b)", 5],
+    ]);
+  });
+
+  test("an instruction parent's parts are never split-filled — PLSDSC101T Q10 (G28 guard)", () => {
+    // "10. Answer the following : 2×2=4" is an instruction row,
+    // not a question: its (a)/(b) stay blank, exactly as the
+    // G14 fill leaves them — the split fill attaches only to
+    // genuine question parents.
+    const md = `UNIT—IV
+
+10. Answer the following : 2×2=4
+
+(a) First question.
+(b) Second question.`;
+    const rows = parseTranscriptToRows(md, "PLSDSC101T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["10", 4],
+      ["10(a)", null],
+      ["10(b)", null],
+    ]);
+  });
+
+  test("a product on the parent line counts the parent alone — ZOODSC201 counter (G28)", () => {
+    // The split-total check used to know "+" sums only, so a
+    // "5×2=10" parent with 5,5 parts counted 10+5+5=20. The
+    // product states the split, so the question counts 10 once.
+    const md = String.raw`UNIT—II
+
+6. Write short notes on the following : 5×2=10
+
+(a) First note.
+(b) Second note.
+
+7. Plain question. 10`;
+    const rows = parseTranscriptToRows(md, "ZOODSC201");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["6", 10],
+      ["6(a)", 5],
+      ["6(b)", 5],
+      ["7", 10],
+    ]);
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(20);
+  });
+
+  test("a parent with no printed figure keeps its parts blank — ZOODSC151T Q21 (G28 guard)", () => {
+    // Q21 prints no figure; its 10 came from the section rule, so
+    // the split is underivable and the parts stay blank — not a
+    // share of the total.
+    const md = `SECTION—B
+
+Answer any five of the following questions : $10 \\times 5 = 50$
+
+21. Write short notes on the following :
+
+(a) First note.
+(b) Second note.`;
+    const rows = parseTranscriptToRows(md, "ZOODSC151T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["21", 10],
+      ["21(a)", null],
+      ["21(b)", null],
+    ]);
+  });
+
+  test("a term count that matches nothing leaves printed parts alone — PHYDSM101T Q8 (G28 guard)", () => {
+    // "1+3+3+3=10" has four terms but only three parts: the "1" is
+    // the stem itself, so the printed 3,3,3 stay.
+    const md = `UNIT—III
+
+8. What is central force? Prove the following for a particle moving under a central force : 1+3+3+3=10
+
+(a) Angular momentum about the centre of force is a constant of motion. 3
+
+(b) The motion of the particle is always confined to a plane. 3
+
+(c) The areal velocity of the line joining the centre of force and the particle is a constant of motion. 3`;
+    const rows = parseTranscriptToRows(md, "PHYDSM101T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["8", 10],
+      ["8(a)", 3],
+      ["8(b)", 3],
+      ["8(c)", 3],
+    ]);
+  });
+
+  test("a printed part disagreeing with its term blocks the whole assignment — G28 guard", () => {
+    const md = `SECTION—B
+
+Answer any five of the following questions : $10 \\times 5 = 50$
+
+6. Write short notes on the following : $5+5=10$
+
+(a) First note. 4
+(b) Second note.`;
+    const rows = parseTranscriptToRows(md, "TEST-101T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["6", 10],
+      ["6(a)", 4],
+      ["6(b)", 10],
+    ]);
+  });
+
+  test("a bracketed figure after a colon is the sub-row's marks — SANDSC152T Q19(a)/(b)", () => {
+    // "(a) Explain the following : [6] '...'" — the figure is the
+    // part's marks, not part of the passage: the colon stays, the
+    // figure goes, the items stay.
+    const md = `SECTION—B
+
+Answer any five of the following questions : $10 \\times 5 = 50$
+
+19. (a) Explain the following : [6] 'Yauvanarambhe cha prayah shastrajalaprakshalana-nirmalapi'
+(b) Translate into English : [4] Tata Chandrapida!`;
+    const rows = parseTranscriptToRows(md, "SANDSC152T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["19(a)", 6],
+      ["19(b)", 4],
+    ]);
+    expect(rows[0].question).toBe(
+      "Explain the following : 'Yauvanarambhe cha prayah shastrajalaprakshalana-nirmalapi'",
+    );
+  });
+
+  test("a merged (i)/(ii) row keeps its figures for the merged sum — MTMDSC202T guard", () => {
+    // "(b) (i) Solve : [3] ... (ii) Find ... [2+2=4] (iii) Solve :
+    // [3] ..." (MTMDSC202T Q4(b), batch 6, verbatim): the figures
+    // belong to the sub-parts and sum to the row's total — the
+    // bracketed-marks branch must not strip the [3] out of it.
+    // The row sits under a numbered "Answer any one" instruction,
+    // so its per-part guard (10) rejects the trailing [3] as a
+    // lone figure and the row takes the fallback 10 with all
+    // three figures still in its text.
+    const md = String.raw`4. Answer any one of the following questions : 10 Solve the following : 3+3+4=10
+
+(a) (i) $(x^2 y - 2x y^2)dx - (x^3 - 3x^2 y)dy = 0$ (ii) $(1 + y^2) + (x - e^{-\tan^{-1} y})\left(\frac{dy}{dx}\right) = 0$ (iii) $x^2(y - px) = yp^2$, where $p \equiv \frac{d}{dx}$
+
+(b) (i) Solve : [3] $$y = 2px + p^4 x^2$$ where $p \equiv \frac{d}{dx}$ (ii) Find the differential equation of the family of circles $$x^2 + y^2 + 2cx + 2c^2 - 1 = 0$$ ($c$ is an arbitrary constant). Determine singular solution of the differential equation. [2+2=4] (iii) Solve : [3] $$\frac{dy}{dx} + x \sin 2y = x^3 \cos^2 y$$`;
+    const rows = parseTranscriptToRows(md, "MTMDSC202T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["4(a)", 10],
+      ["4(b)", 10],
+    ]);
+    expect(rows[1].question).toContain("[3]");
+    expect(rows[1].question).toContain("[2+2=4]");
+  });
+
+  test("a header code line put first as a heading is not the exam field — SANDSC151T / ZOODSC151T / ZOOIDC101T guard", () => {
+    // Primary puts the header code line first as a "#" heading and
+    // the parser used to take it as the exam field. The code line
+    // is printer-code noise; the real title line after it wins.
+    const fm1 = ensureFrontmatter(
+      {},
+      "SANDSC151T",
+      "# 2024/FYUG/EVEN/SEM/SANDSC-151T/070\n\n# FYUG Even Semester Exam., 2024\n\nSANSKRIT\n( 1st Semester )",
+    );
+    expect(fm1.exam).toBe("FYUG Even Semester Exam.");
+    expect(fm1.year).toBe(2024);
+    const fm2 = ensureFrontmatter(
+      {},
+      "ZOOIDC101T",
+      "# 2024/FYUG/ODD/SEM/ZOOIDC-101T/066\n\n# FYUG Odd Semester Exam., 2024\n\nZOOLOGY\n( 1st Semester )",
+    );
+    expect(fm2.exam).toBe("FYUG Odd Semester Exam.");
+    expect(fm2.year).toBe(2024);
+  });
+
+  test("a real exam heading with no code line above it is still taken — heading guard", () => {
+    const fm = ensureFrontmatter(
+      {},
+      "TEST-101T",
+      "# FYUG Odd Semester Exam., 2024\n\nZOOLOGY\n( 1st Semester )",
+    );
+    expect(fm.exam).toBe("FYUG Odd Semester Exam.");
+    expect(fm.year).toBe(2024);
+  });
+});
+
+describe("batch 37 parser fix — Bengali section instructions (G29–G32)", () => {
+  test("G29: a Bengali section instruction with a per-unit count and a standalone Bengali-digit marks line — BNGDSC102T Section A", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+BENGALI
+( 1st Semester )
+
+Paper Code : BNGDSC102T
+
+Full Marks : 70
+Pass Marks : 28
+
+Time : 3 hours
+
+SECTION—A
+
+প্রতিটি ইউনিট থেকে যে কোনো দুটি প্রশ্ন নিয়ে দশটি প্রশ্নের উত্তর দাও :
+
+২×১০=২০
+
+UNIT—I
+
+1. First question?
+
+2. Second question?
+
+UNIT—II
+
+3. Third question?
+
+4. Fourth question?
+
+UNIT—III
+
+5. Fifth question?
+
+6. Sixth question?
+
+UNIT—IV
+
+7. Seventh question?
+
+8. Eighth question?
+
+UNIT—V
+
+9. Ninth question?
+
+10. Tenth question?
+`;
+    const rows = parseTranscriptToRows(md, "BNGDSC102T");
+    expect(rows).toHaveLength(10);
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual(
+      Array.from({ length: 10 }, (_, i) => [
+        String(i + 1),
+        2,
+        "Answer any 10",
+      ]),
+    );
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(20);
+  });
+
+  test("G29: Bengali digits inside a $...$ figure evaluate — BNGAEC101T Section A shape", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+SECTION—A
+
+প্রতিটি ইউনিট থেকে যে কোনো তিনটি প্রশ্ন নিয়ে মোট পনেরোটি প্রশ্নের উত্তর দাও : $১ \times ১৫ = ১৫$
+
+UNIT—I
+
+1. First question?
+
+2. Second question?
+
+UNIT—II
+
+3. Third question?
+
+4. Fourth question?
+
+UNIT—III
+
+5. Fifth question?
+`;
+    const rows = parseTranscriptToRows(md, "BNGAEC101T");
+    expect(rows).toHaveLength(5);
+    expect(
+      rows.every((r) => r.marks === 1 && r.group === "Answer any 15"),
+    ).toBe(true);
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(15);
+  });
+
+  test("G29: a plain Bengali-digit figure with spaces evaluates — BNG1D Section C shape", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+SECTION—C
+
+প্রতিটি ইউনিট থেকে যে কোনো একটি প্রশ্ন নিয়ে পাঁচটি প্রশ্নের উত্তর দাও : ৮ × ৫ = ৪০
+
+UNIT—I
+
+1. First question?
+
+UNIT—II
+
+2. Second question?
+
+UNIT—III
+
+3. Third question?
+
+UNIT—IV
+
+4. Fourth question?
+
+UNIT—V
+
+5. Fifth question?
+`;
+    const rows = parseTranscriptToRows(md, "BNG1D");
+    expect(rows).toHaveLength(5);
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual(
+      Array.from({ length: 5 }, (_, i) => [String(i + 1), 8, "Answer any 5"]),
+    );
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(40);
+  });
+
+  test("G30: a standalone marks line after a section instruction belongs to the following section — BNGAEC101T", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+SECTION—A
+
+প্রতিটি ইউনিট থেকে যে কোনো তিনটি প্রশ্ন নিয়ে মোট পনেরোটি প্রশ্নের উত্তর দাও : $১ \times ১৫ = ১৫$
+
+UNIT—I
+
+1. First question?
+
+2. Second question?
+
+UNIT—II
+
+3. Third question?
+
+4. Fourth question?
+
+UNIT—III
+
+5. Fifth question?
+
+SECTION—B
+
+প্রতিটি ইউনিট থেকে একটি করে প্রশ্ন নিয়ে মোট পাঁচটি প্রশ্নের উত্তর দাও :
+
+২×৫=১০
+
+UNIT—I
+
+6. Sixth question?
+
+7. Seventh question?
+`;
+    const rows = parseTranscriptToRows(md, "BNGAEC101T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1", 1, "Answer any 15"],
+      ["2", 1, "Answer any 15"],
+      ["3", 1, "Answer any 15"],
+      ["4", 1, "Answer any 15"],
+      ["5", 1, "Answer any 15"],
+      ["6", 2, "Answer any 5"],
+      ["7", 2, "Answer any 5"],
+    ]);
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(25);
+  });
+
+  test("G31: a section choice applies even when questions carry printed figures — BOTDSC101T", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+BOTANY
+( 1st Semester )
+
+Paper Code : BOTDSC101T
+
+Full Marks : 70
+Pass Marks : 28
+
+Time : 3 hours
+
+SECTION—A
+
+Answer ten questions, selecting any two from each Unit : $2 \times 10 = 20$
+
+UNIT—I
+
+1. First question?
+
+2. Second question?
+
+UNIT—II
+
+3. Third question?
+
+4. Fourth question?
+
+SECTION—B
+
+Answer five questions, selecting one from each Unit: $10 \times 5 = 50$
+
+UNIT—I
+
+5. Fifth question? 10
+
+6. Sixth question? 10
+
+UNIT—II
+
+7. Seventh question? 10
+
+8. Eighth question? 10
+
+UNIT—III
+
+9. Ninth question?
+`;
+    const rows = parseTranscriptToRows(md, "BOTDSC101T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1", 2, "Answer any 10"],
+      ["2", 2, "Answer any 10"],
+      ["3", 2, "Answer any 10"],
+      ["4", 2, "Answer any 10"],
+      ["5", 10, "Answer any 5"],
+      ["6", 10, "Answer any 5"],
+      ["7", 10, "Answer any 5"],
+      ["8", 10, "Answer any 5"],
+      // No printed figure on the paper — the section rule fills it.
+      ["9", 10, "Answer any 5"],
+    ]);
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(70);
+  });
+
+  test("G32: a section instruction joined onto a question's line splits, and sections split without SECTION headings — BNGSEC101T", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+প্রতিটি ইউনিট থেকে যে কোনো তিনটি প্রশ্ন নিয়ে পনেরোটি প্রশ্নের উত্তর দাও : $১ \times ১৫ = ১৫$
+
+UNIT—I
+
+1. First question?
+
+2. Second question?
+
+UNIT—II
+
+3. Third question?
+
+4. Fourth question?
+
+20. যার কাছে পত্র লেখা হয় তাকে বলা হয়—প্রাপক না প্রেরক? প্রতিটি ইউনিট থেকে একটি করে প্রশ্ন নিয়ে পাঁচটি প্রশ্নের উত্তর দাও : ২×৫=১০
+
+UNIT—I
+
+21. Twenty-first question?
+
+22. Twenty-second question?
+`;
+    const rows = parseTranscriptToRows(md, "BNGSEC101T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1", 1, "Answer any 15"],
+      ["2", 1, "Answer any 15"],
+      ["3", 1, "Answer any 15"],
+      ["4", 1, "Answer any 15"],
+      ["20", 1, "Answer any 15"],
+      ["21", 2, "Answer any 5"],
+      ["22", 2, "Answer any 5"],
+    ]);
+    expect(rows[4].question).not.toContain("প্রতিটি");
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(25);
+  });
+
+  test("G29: the U+09DF byte form of য় matches too — BNGAEC101T form", () => {
+    // The staged transcripts mix both য় byte forms: BNG1D writes
+    // "নিয়ে" as YA + nukta, BNGAEC101T as the single codepoint
+    // U+09DF. The instruction must match either form.
+    const yy = "\u09df";
+    const md = `# FYUG Odd Semester Exam., 2023
+
+SECTION—A
+
+প্রতিটি ইউনিট থেকে যে কোনো তিনটি প্রশ্ন নি${yy}ে মোট পনেরোটি প্রশ্নের উত্তর দাও : $১ \\times ১৫ = ১৫$
+
+UNIT—I
+
+1. First question?
+
+2. Second question?
+
+UNIT—II
+
+3. Third question?
+
+4. Fourth question?
+
+UNIT—III
+
+5. Fifth question?
+`;
+    const rows = parseTranscriptToRows(md, "BNGAEC101T");
+    expect(rows).toHaveLength(5);
+    expect(
+      rows.every((r) => r.marks === 1 && r.group === "Answer any 15"),
+    ).toBe(true);
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(15);
+  });
+});
+
+describe("batch 38 parser fix — lone roman continuations, 'taking' section instructions (G33–G35)", () => {
+  test("G33: a lone '(v)' line joins a row already holding '(ii)'–'(iv)' — COMIDC-B Q41 staged form", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+COMMERCE
+( 1st Semester )
+
+Paper Code : COMIDC-101T (B)
+
+Full Marks : 70
+Pass Marks : 28
+
+Time : 3 hours
+
+41. [illegible] (ii) Cheques of ₹2,500 were deposited into Bank but were not collected by Bank up to 31-12-2023 (iii) Cheques issued but not presented for payment up to 31-12-2023 is ₹3,000 (iv) Interest on deposit credited by Bank ₹500
+
+(v) Bank charges debited by Bank ₹200
+`;
+    const rows = parseTranscriptToRows(md, "COMIDC-101T (B)");
+    expect(rows).toHaveLength(1);
+    expect(rows[0].label).toBe("41");
+    expect(rows[0].question).toContain("(ii) Cheques of ₹2,500");
+    expect(rows[0].question).toContain("(iv) Interest on deposit");
+    expect(rows[0].question).toContain("(v) Bank charges debited by Bank ₹200");
+  });
+
+  test("G33: separate '(ii)'–'(v)' lines join an '[illegible]' stem in sequence — COMIDC-B Q41 raw form", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+41. [illegible]
+
+(ii) Second part of the question.
+
+(iii) Third part of the question.
+
+(iv) Fourth part of the question.
+
+(v) Fifth part of the question.
+`;
+    const rows = parseTranscriptToRows(md, "COMIDC-101T (B)");
+    expect(rows).toHaveLength(1);
+    expect(rows[0].question).toContain("(ii) Second part");
+    expect(rows[0].question).toContain("(iii) Third part");
+    expect(rows[0].question).toContain("(iv) Fourth part");
+    expect(rows[0].question).toContain("(v) Fifth part");
+  });
+
+  test("G33: a figure-less '(ii)' after a substantive stem stays dropped — short-notes list, not a continuation", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+2. Write short notes on the following :
+
+(i) Benefit-sharing
+
+(ii) IPR
+`;
+    const rows = parseTranscriptToRows(md, "COMDSC-102T");
+    expect(rows).toHaveLength(1);
+    expect(rows[0].question).toBe("Write short notes on the following :");
+    expect(rows[0].question).not.toContain("(ii)");
+  });
+
+  test("G34: 'taking' section instructions fire with inline figures — COMIDC-A shape", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+COMMERCE
+( 1st Semester )
+
+Paper Code : COMIDC-101T (A)
+
+Full Marks : 70
+Pass Marks : 28
+
+Time : 3 hours
+
+SECTION—A
+
+Answer twenty questions, taking any four from each Unit : $1 \times 20 = 20$
+
+UNIT—I
+
+1. What is market?
+
+2. Define marketing?
+
+SECTION—B
+
+Answer five questions, taking one from each Unit : 2×5=10
+
+UNIT—I
+
+3. Third question?
+
+SECTION—C
+
+Answer five questions, taking one from each Unit : 8×5=40
+
+UNIT—I
+
+4. Fourth question?
+`;
+    const rows = parseTranscriptToRows(md, "COMIDC-101T (A)");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1", 1, "Answer any 20"],
+      ["2", 1, "Answer any 20"],
+      ["3", 2, "Answer any 5"],
+      ["4", 8, "Answer any 5"],
+    ]);
+    // The counter counts each section's full group allowance, not
+    // just the questions present here: A 20 x 1, B 5 x 2, C 5 x 8.
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(70);
+  });
+
+  test("G34: an emphasised 'taking' instruction with the figure on the next line — COMIDC-A Section B raw form", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+SECTION—B
+
+Answer *five* questions, taking *one* from each Unit :
+2×5=10
+
+UNIT—I
+
+21. First B question?
+
+22. Second B question?
+`;
+    const rows = parseTranscriptToRows(md, "COMIDC-101T (A)");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["21", 2, "Answer any 5"],
+      ["22", 2, "Answer any 5"],
+    ]);
+    // The counter counts the full "Answer any 5" allowance (5 x 2),
+    // not just the two questions present here.
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(10);
+  });
+
+  test("G34: emphasis spanning 'any' and the per-unit count — ENGDSC102T Section A raw form", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+SECTION—A
+
+Answer *ten* questions, taking *any two* from each Unit :
+
+2×10=20
+
+UNIT—I
+
+1. First question?
+
+2. Second question?
+`;
+    const rows = parseTranscriptToRows(md, "ENGDSC102T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1", 2, "Answer any 10"],
+      ["2", 2, "Answer any 10"],
+    ]);
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(20);
+  });
+
+  test("G35: the section choice caps Section B's printed figures — COMDSM-101T shape", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+COMMERCE
+( 1st Semester )
+
+Paper Code : COMDSM-101T
+
+Full Marks : 70
+Pass Marks : 28
+
+Time : 3 hours
+
+SECTION—A
+
+Answer ten questions, taking any two from each Unit : 2×10=20
+
+UNIT—I
+
+1. First question?
+
+2. Second question?
+
+3. Third question?
+
+SECTION—B
+
+Answer five questions, taking one from each Unit : 10×5=50
+
+UNIT—I
+
+4. Fourth question? 10
+
+5. Fifth question? 10
+
+6. Sixth question? 10
+
+7. Seventh question? 10
+
+8. Eighth question? 10
+
+9. Ninth question? 10
+`;
+    const rows = parseTranscriptToRows(md, "COMDSM-101T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1", 2, "Answer any 10"],
+      ["2", 2, "Answer any 10"],
+      ["3", 2, "Answer any 10"],
+      ["4", 10, "Answer any 5"],
+      ["5", 10, "Answer any 5"],
+      ["6", 10, "Answer any 5"],
+      ["7", 10, "Answer any 5"],
+      ["8", 10, "Answer any 5"],
+      ["9", 10, "Answer any 5"],
+    ]);
+    // Section A: 3 x 2 = 6 present, full allowance 10 x 2 = 20.
+    // Section B: 6 x 10 = 60 printed, capped at the section total
+    // 5 x 10 = 50. Total 70 — the real COMDSM-101T reads 100/70
+    // without this rule and 70/70 with it.
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(70);
+  });
+});
+
+describe("batch 39 parser fix — 'as directed' section instructions, 'any N' split parents, currency amounts (G37/G38)", () => {
+  test("G37: 'Answer twenty as directed, selecting four from each Unit' with the figure on the next line — ECOIDC101T Section A", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+SECTION—A
+
+Answer twenty as directed, selecting four from each Unit :
+$1 \times 20 = 20$
+
+UNIT—I
+
+1. First question?
+
+2. Second question?
+`;
+    const rows = parseTranscriptToRows(md, "ECOIDC101T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1", 1, "Answer any 20"],
+      ["2", 1, "Answer any 20"],
+    ]);
+    // The counter counts the full "Answer any 20" allowance (20 x 1),
+    // not just the two questions present here.
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(20);
+  });
+
+  test("G37: 'questions as directed' variant with an inline figure", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+SECTION—A
+
+Answer ten questions as directed, taking two from each Unit : 2×10=20
+
+UNIT—I
+
+1. First question?
+
+2. Second question?
+`;
+    const rows = parseTranscriptToRows(md, "ECOIDC101T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1", 2, "Answer any 10"],
+      ["2", 2, "Answer any 10"],
+    ]);
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(20);
+  });
+
+  test("G38: 'Define any seven ... : $2 \\times 7 = 14$' fills each listed term with 2 and the question still counts 14 once — ENGIDC101T Q1", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+UNIT—I
+
+1. Define any seven literary terms from the following list : $2 \times 7 = 14$
+
+(a) Sonnet
+
+(b) Allegory
+
+(c) Novella
+
+(d) Metaphor
+
+(e) Personification
+
+(f) Elegy
+
+(g) Simile
+
+(h) Ode
+
+(i) Soliloquy
+
+(j) Character
+
+2. Answer any four of the following questions : $1\times4=4$
+
+(a) First?
+
+(b) Second?
+
+(c) Third?
+
+(d) Fourth?
+
+(e) Fifth?
+`;
+    const rows = parseTranscriptToRows(md, "ENGIDC101T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1", 14, ""],
+      ["1(a)", 2, ""],
+      ["1(b)", 2, ""],
+      ["1(c)", 2, ""],
+      ["1(d)", 2, ""],
+      ["1(e)", 2, ""],
+      ["1(f)", 2, ""],
+      ["1(g)", 2, ""],
+      ["1(h)", 2, ""],
+      ["1(i)", 2, ""],
+      ["1(j)", 2, ""],
+      ["2(a)", 1, "Answer any 4"],
+      ["2(b)", 1, "Answer any 4"],
+      ["2(c)", 1, "Answer any 4"],
+      ["2(d)", 1, "Answer any 4"],
+      ["2(e)", 1, "Answer any 4"],
+    ]);
+    // Q1 counts 14 once (the direct figure is the question total),
+    // not 14 + 10 x 2; Q2 counts its "Answer any 4" allowance, 4.
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(18);
+  });
+
+  test("currency: a joined '(v)' line ending in a rupee amount keeps the amount in the text and takes no marks", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+41. [illegible] (ii) Cheques of ₹2,500 were deposited into Bank but were not collected by Bank up to 31-12-2023 (iii) Cheques issued but not presented for payment up to 31-12-2023 is ₹3,000 (iv) Interest on deposit credited by Bank ₹500
+
+(v) Bank charges debited by Bank ₹ 200
+`;
+    const rows = parseTranscriptToRows(md, "COMIDC-101T (B)");
+    expect(rows).toHaveLength(1);
+    expect(rows[0].question).toContain(
+      "(v) Bank charges debited by Bank ₹ 200",
+    );
+    expect(rows[0].marks).toBeNull();
+  });
+
+  test("currency: COMIDC-B Q45 keeps its printed 8 when the adjustments join — the raw transcript counted 162 before this fix", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+SECTION—C
+
+Answer five questions, taking one from each Unit : 8×5=40
+
+UNIT—I
+
+40. Q40 text : 8
+
+41. Q41 text : 8
+
+42. Q42 text : 8
+
+43. Q43 text : 8
+
+44. Q44 text : 8
+
+45. From the following Trial Balance of Shri R. K. Sarma, Prepare a Trading and Profit and Loss Account for the year ended on 31.12.2023 and a Balance Sheet as on that date : 8
+
+### Trial Balance
+
+#### Adjustments :
+(i) Closing stock—₹ 30,000
+
+(ii) Prepaid insurance—₹ 100
+
+(iii) Depreciation for office furniture—10%
+`;
+    const rows = parseTranscriptToRows(md, "COMIDC-101T (B)");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["40", 8, "Answer any 5"],
+      ["41", 8, "Answer any 5"],
+      ["42", 8, "Answer any 5"],
+      ["43", 8, "Answer any 5"],
+      ["44", 8, "Answer any 5"],
+      ["45", 8, "Answer any 5"],
+    ]);
+    // Section C counts its full allowance, 5 x 8 — not 132 with a
+    // phantom 100 on Q45.
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(40);
+  });
+});
+
+describe("batch 40 parser fix — section-rule overfill, figure-less sections, tagged figures, lone end mark (G40–G43)", () => {
+  test("G40: two blank fallback sub-rows with a printed sibling stay blank — MATDSC102T Q19 shape", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+Full Marks : 70
+
+SECTION—A
+
+Answer ten questions, selecting any two from each Unit : $2 \times 10 = 20$
+
+UNIT—I
+
+1. First question? 2
+
+2. Second question? 2
+
+SECTION—B
+
+Answer any five questions, selecting one from each Unit : $10 \times 5 = 50$
+
+UNIT—I
+
+11. (a) First part of Q11?
+
+(b) Second part of Q11?
+
+12. (a) First part of Q12? 2
+
+(b) Second part of Q12?
+
+UNIT—II
+
+13. (a) First part of Q13?
+
+(b) Second part of Q13?
+
+(c) Third part of Q13? 2
+
+14. (a) First part of Q14? 4
+
+(b) Second part of Q14? 4
+
+(c) Third part of Q14? 2
+
+UNIT—III
+
+15. (a) First part of Q15? 3
+
+(b) Second part of Q15? 4
+
+(c) Third part of Q15? 3
+
+16. (a) First part of Q16? 6
+
+(b) Second part of Q16? 4
+
+17. (a) First part of Q17? 6
+
+(b) Second part of Q17? 4
+
+18. (a) First part of Q18? 4
+
+(b) Second part of Q18? 4
+
+(c) Third part of Q18? 2
+
+19. (a) First part of Q19? 3
+
+(b) Second part of Q19? 4
+
+(c) Third part of Q19? 3
+
+20. (a) First part of Q20? 6
+
+(b) Second part of Q20? 4
+`;
+    const rows = parseTranscriptToRows(md, "MATDSC102T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["1", 2],
+      ["2", 2],
+      ["11(a)", null],
+      ["11(b)", null],
+      ["12(a)", 2],
+      // A single blank still takes the forced remainder, 10 - 2.
+      ["12(b)", 8],
+      // Two blanks with a printed sibling: no invented split, no
+      // full-total-on-each-blank — both stay blank and the section
+      // rule counts the question once.
+      ["13(a)", null],
+      ["13(b)", null],
+      ["13(c)", 2],
+      ["14(a)", 4],
+      ["14(b)", 4],
+      ["14(c)", 2],
+      ["15(a)", 3],
+      ["15(b)", 4],
+      ["15(c)", 3],
+      ["16(a)", 6],
+      ["16(b)", 4],
+      ["17(a)", 6],
+      ["17(b)", 4],
+      ["18(a)", 4],
+      ["18(b)", 4],
+      ["18(c)", 2],
+      ["19(a)", 3],
+      ["19(b)", 4],
+      ["19(c)", 3],
+      ["20(a)", 6],
+      ["20(b)", 4],
+    ]);
+    // Section A counts its full allowance (10 x 2); Section B counts
+    // 50 via largest-N (eight proven 10s, top 5 = 50) — not 82, and
+    // not 22 for Q13 alone.
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(70);
+  });
+
+  test("G41: a figure-less section instruction fills its direct rows from full-marks arithmetic — MATIDC101T Section B shape", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+Full Marks : 70
+
+SECTION—A
+
+Answer twenty questions, selecting four from each Unit : 1×20=20
+
+UNIT—I
+
+1. First question? 1
+
+2. Second question? 1
+
+SECTION—B
+
+Answer five questions, selecting one from each Unit :
+
+UNIT—I
+
+3. Direct question, no printed figure?
+
+4. Direct question, no printed figure?
+
+5. (a) Sub-row, no printed figure?
+
+(b) Sub-row, no printed figure?
+
+SECTION—C
+
+Answer five questions, selecting one from each Unit : $8 \times 5 = 40$
+
+UNIT—I
+
+6. First question? 8
+
+7. Second question? 8
+`;
+    const rows = parseTranscriptToRows(md, "MATIDC101T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1", 1, "Answer any 20"],
+      ["2", 1, "Answer any 20"],
+      // 70 - 20 - 40 = 10 over 5 answered: 2 each.
+      ["3", 2, "Answer any 5"],
+      ["4", 2, "Answer any 5"],
+      // Sub-rows are never filled by the section remainder — a
+      // sub-row's value is part of its question's total, not the
+      // total (MATSEC101T Q31–Q36 stay blank the same way).
+      ["5(a)", null, "Answer any 5"],
+      ["5(b)", null, "Answer any 5"],
+      ["6", 8, "Answer any 5"],
+      ["7", 8, "Answer any 5"],
+    ]);
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(70);
+  });
+
+  test("G41: the section remainder does not fire when two sections are markless — ambiguity guard", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+Full Marks : 70
+
+SECTION—A
+
+Answer ten questions, selecting any two from each Unit : $2 \times 10 = 20$
+
+UNIT—I
+
+1. First question? 2
+
+SECTION—B
+
+Answer five questions, selecting one from each Unit :
+
+UNIT—I
+
+2. Direct question, no printed figure?
+
+SECTION—C
+
+Answer five questions, selecting one from each Unit :
+
+UNIT—I
+
+3. Direct question, no printed figure?
+`;
+    const rows = parseTranscriptToRows(md, "MATIDC101T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["1", 2],
+      ["2", null],
+      ["3", null],
+    ]);
+  });
+
+  test("G42: a bracketed figure inside <align right> tags is the sub-row's marks — MATSEC101T Q34–Q36", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+34. (a) Give an example of a continuous function $f:[0, 1] \to R$ which is not differentiable at 1. Justify your answer. <align right>[4]</align>
+
+(b) If $1 < x < 2$, then what is the value of $[x] + [x + 1] + \left[ \frac{1}{x} \right]$ where $[\cdot]$ is the greatest integer function? <align right>[1]</align>
+
+35. (a) First part of Q35? <align right>[3]</align>
+
+(b) Second part of Q35? <align right>[2]</align>
+`;
+    const rows = parseTranscriptToRows(md, "MATSEC101T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["34(a)", 4],
+      ["34(b)", 1],
+      ["35(a)", 3],
+      ["35(b)", 2],
+    ]);
+    expect(rows[0].question).not.toContain("<align right>");
+    expect(rows[0].question).not.toContain("[4]");
+    // The "<" in "$1 < x < 2$" is maths, not a tag: the whole
+    // question text must survive the tag strip (a loose <[^>]+>
+    // swallowed it up to "<align right>").
+    expect(rows[1].question).toContain("If $1 < x < 2$");
+    expect(rows[1].question).toContain("greatest integer function?");
+    expect(rows[1].question).not.toContain("<align right>");
+  });
+
+  test("G43: a figure before the end mark keeps the ★★★ in the row text — MATDSC101T Q25(b) shape", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+25. (a) First part of Q25? 4
+
+(b) Second part of Q25? 3 ★★★
+`;
+    const rows = parseTranscriptToRows(md, "MATDSC101T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["25(a)", 4],
+      ["25(b)", 3],
+    ]);
+    // The figure is stripped, the end mark stays — the old
+    // footerMarks branch dropped both, so this row came out as
+    // "Second part of Q25?" with no ★★★ while MATIDC101T 45(b)
+    // kept its own.
+    expect(rows[1].question).toBe("Second part of Q25? ★★★");
+  });
+
+  test("G43: a trailing ★★★ on its own line joins the last row without re-deriving its marks", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+25. (a) First part of Q25? 4
+
+(b) Second part of Q25? 3
+
+★★★
+`;
+    const rows = parseTranscriptToRows(md, "MATDSC101T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["25(a)", 4],
+      ["25(b)", 3],
+    ]);
+    // The star survives in the row text (stripTrailingMarks would
+    // have read the 3 as marks and stripped it if the line had gone
+    // through appendToLast).
+    expect(rows[1].question).toContain("★★★");
+    expect(rows[1].question).not.toContain("3 ★★★");
+  });
+
+  test("sum reader: '1+1+1+[illegible]' yields no marks — MATIDC101T Q36(b)", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+36. (a) First part of Q36?
+
+(b) Second part of Q36? 1+1+1+[illegible]
+`;
+    const rows = parseTranscriptToRows(md, "MATIDC101T");
+    // The sum reader returns null for the [illegible] term: it does
+    // not count it as 1. On the real paper the 4s on Q36(a)/(b)
+    // come from fillPositionalMarks (Unit I position-1 witnesses
+    // Q38/Q40/Q42 and position-2 witnesses Q37/Q41/Q43 all (4,4)),
+    // not from this text.
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["36(a)", null],
+      ["36(b)", null],
+    ]);
+  });
+});
+
+describe("batch 42 parser fix — section-group restore, 'any N of the following', sub-row splits, parenthesised split rendering (G44–G46)", () => {
+  test("G46: a nested numbered instruction does not kill the enclosing section group — ZOODSC102T Section B shape", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+Full Marks : 70
+
+SECTION—A
+
+Answer ten questions, selecting any two from each Unit : $2 \times 10 = 20$
+
+UNIT—I
+
+1. Define systematics. 2
+
+2. What is binomial nomenclature? 2
+
+UNIT—II
+
+3. Define alpha taxonomy. 2
+
+SECTION—B
+
+Answer five questions, selecting one from each Unit : 10×5=50
+
+UNIT—I
+
+16. Who is the Father of modern taxonomy? 1+2+3+4=10
+
+17. Answer any 2 of the following questions (Write short notes on the following) : $5\times2=10$
+
+(a) Salient features of binomial nomenclature
+
+(b) Newer trends in systematics
+
+(c) DNA barcoding
+
+UNIT—II
+
+18. Define notochord. 2+1+7=10
+
+19. Why are urochordates also called tunicates? 1+4+5=10
+
+UNIT—III
+
+20. Mention the distinguishing characters of Cyclostomata. 4+6=10
+
+21. Write short notes on any two of the following: 5×2=10
+
+(a) Difference between chondrichthyes and osteichthyes
+
+(b) Migration in fishes
+
+(c) Parental care in fishes
+
+UNIT—IV
+
+22. Mention the general characteristics of Amphibia. 4+3+3=10
+
+UNIT—V
+
+25. Mention the general characteristics of mammal. 5+5=10 ★★★
+`;
+    const rows = parseTranscriptToRows(md, "ZOODSC102T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1", 2, "Answer any 10"],
+      ["2", 2, "Answer any 10"],
+      ["3", 2, "Answer any 10"],
+      ["16", 10, "Answer any 5"],
+      // Q17's own instruction governs its parts; the section group
+      // comes back for the questions after it.
+      ["17(a)", 5, "Answer any 2"],
+      ["17(b)", 5, "Answer any 2"],
+      ["17(c)", 5, "Answer any 2"],
+      ["18", 10, "Answer any 5"],
+      ["19", 10, "Answer any 5"],
+      ["20", 10, "Answer any 5"],
+      ["21", 10, "Answer any 5"],
+      // G44: "on any two of the following" fills like "(any two)".
+      ["21(a)", 5, "Answer any 5"],
+      ["21(b)", 5, "Answer any 5"],
+      ["21(c)", 5, "Answer any 5"],
+      ["22", 10, "Answer any 5"],
+      // The split before the end mark extracts; the stars stay.
+      ["25", 10, "Answer any 5"],
+    ]);
+    expect(rows[rows.length - 1].question).toBe(
+      "Mention the general characteristics of mammal. ★★★",
+    );
+    // Section A 10 x 2, Section B 5 x 10 — not 150.
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(70);
+  });
+
+  test("G46: the figure may sit on the line after the section instruction — ZOODSC102T raw transcript shape", () => {
+    // On the printed page "10×5=50" is right-aligned on the SAME
+    // line as the instruction; the transcript line-breaks it onto
+    // the next line. The group must attach either way (the lone
+    // marks line joins the line above in the formatter, and the
+    // instruction branch reads the figure from it).
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+Full Marks : 70
+
+SECTION—B
+
+Answer five questions, selecting one from each Unit :
+10×5=50
+
+UNIT—I
+
+16. Who is the Father of modern taxonomy? 1+2+3+4=10
+
+17. Answer any 2 of the following questions (Write short notes on the following) : $5\times2=10$
+
+(a) Salient features of binomial nomenclature
+
+(b) Newer trends in systematics
+
+(c) DNA barcoding
+
+UNIT—II
+
+18. Define notochord. 2+1+7=10
+
+19. Why are urochordates also called tunicates? 1+4+5=10
+`;
+    const rows = parseTranscriptToRows(md, "ZOODSC102T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["16", 10, "Answer any 5"],
+      ["17(a)", 5, "Answer any 2"],
+      ["17(b)", 5, "Answer any 2"],
+      ["17(c)", 5, "Answer any 2"],
+      ["18", 10, "Answer any 5"],
+      ["19", 10, "Answer any 5"],
+    ]);
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(50);
+  });
+
+  test("G46: two consecutive nested instructions share the stashed section group", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+Full Marks : 70
+
+SECTION—B
+
+Answer five questions, selecting one from each Unit : $10 \times 5 = 50$
+
+UNIT—I
+
+16. First direct question? 10
+
+17. Answer any 2 of the following questions : $5\times2=10$
+
+(a) First option
+
+(b) Second option
+
+(c) Third option
+
+18. Answer any 3 of the following questions : $2\times3=6$
+
+(a) First option
+
+(b) Second option
+
+(c) Third option
+
+(d) Fourth option
+
+UNIT—II
+
+19. Second direct question? 10
+
+20. Third direct question? 10
+`;
+    const rows = parseTranscriptToRows(md, "ZOODSC102T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["16", 10, "Answer any 5"],
+      ["17(a)", 5, "Answer any 2"],
+      ["17(b)", 5, "Answer any 2"],
+      ["17(c)", 5, "Answer any 2"],
+      ["18(a)", 2, "Answer any 3"],
+      ["18(b)", 2, "Answer any 3"],
+      ["18(c)", 2, "Answer any 3"],
+      ["18(d)", 2, "Answer any 3"],
+      ["19", 10, "Answer any 5"],
+      ["20", 10, "Answer any 5"],
+    ]);
+  });
+
+  test("G46: a new SECTION heading ends the stashed group — no leak into the next section", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+Full Marks : 70
+
+SECTION—B
+
+Answer five questions, selecting one from each Unit : $10 \times 5 = 50$
+
+UNIT—I
+
+16. First direct question? 10
+
+17. Answer any 2 of the following questions : $5\times2=10$
+
+(a) First option
+
+(b) Second option
+
+SECTION—C
+
+Answer five questions, selecting one from each Unit : $8 \times 5 = 40$
+
+UNIT—I
+
+18. First direct question? 8
+
+19. Second direct question? 8
+`;
+    const rows = parseTranscriptToRows(md, "ZOODSC102T");
+    // Q17's parts keep "Answer any 2"; Section C's own instruction
+    // governs Q18/Q19 — the Section B stash must not leak across.
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["16", 10, "Answer any 5"],
+      ["17(a)", 5, "Answer any 2"],
+      ["17(b)", 5, "Answer any 2"],
+      ["18", 8, "Answer any 5"],
+      ["19", 8, "Answer any 5"],
+    ]);
+  });
+
+  test("G45: a split on the last sub-row splits across the question's sub-rows — PLSIDC101T Q43 shape", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+Full Marks : 70
+
+SECTION—C
+
+Answer five questions, selecting one from each Unit : 8x5
+
+UNIT—IV
+
+36. First direct question? 8
+
+37. Second direct question? 8
+
+43. (a) State the characteristics of sovereignty.
+
+(b) Define external sovereignty in the context of international relations. 5+3=8
+
+44. What do you mean by Federal Government? 3+5=8
+`;
+    const rows = parseTranscriptToRows(md, "PLSIDC101T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["36", 8],
+      ["37", 8],
+      ["43(a)", 5],
+      ["43(b)", 3],
+      ["44", 8],
+    ]);
+  });
+
+  test("G45: no split when the split total disagrees with the section fallback — the last sub-row's own composition", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+Full Marks : 70
+
+SECTION—C
+
+Answer five questions, selecting one from each Unit : $10 \times 5 = 50$
+
+UNIT—IV
+
+36. First direct question? 10
+
+43. (a) First part, no printed figure.
+
+(b) Second part, worth eight on its own. 5+3=8
+
+44. Second direct question? 10
+`;
+    const rows = parseTranscriptToRows(md, "PLSIDC101T");
+    // The "5+3=8" is (b)'s own composition (8), not the question's
+    // split: the section per-question value is 10, so the split does
+    // NOT fire — (b) keeps 8 and (a) does NOT become 5. (a) takes
+    // the remainder instead (10 − 8 = 2, the established G40 rule
+    // for a single blank sub-row with a printed sibling).
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["36", 10],
+      ["43(a)", 2],
+      ["43(b)", 8],
+      ["44", 10],
+    ]);
+  });
+
+  test("G45: no split when a sibling prints a figure disagreeing with its term", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+Full Marks : 70
+
+SECTION—C
+
+Answer five questions, selecting one from each Unit : 8x5
+
+UNIT—IV
+
+36. First direct question? 8
+
+43. (a) First part, printed six. 6
+
+(b) Second part. 5+3=8
+
+44. Second direct question? 8
+`;
+    const rows = parseTranscriptToRows(md, "PLSIDC101T");
+    // (a)'s printed 6 disagrees with the split term 5: a conflict
+    // is evidence the split does not map to the parts, not a typo
+    // to override — both stay as printed.
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["36", 8],
+      ["43(a)", 6],
+      ["43(b)", 8],
+      ["44", 8],
+    ]);
+  });
+
+  test("cosmetic: a parenthesised split followed by its total after a colon strips cleanly — ZOOIDC101T Q43 shape", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+43. Discuss the composition of human blood with suitable illustrations. Add a note on the important functions of blood. (4+2+2=8) : 8
+`;
+    const rows = parseTranscriptToRows(md, "ZOOIDC101T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([["43", 8]]);
+    // Only the dangling " : 8" is stripped — the "(4+2+2=8)" stays:
+    // the paper prints it, and the G14 guard reads it (COMDSM-101T
+    // Q19 must keep its parts blank). A full strip would also let
+    // the section-rule blanking null Q19's fallback subs.
+    expect(rows[0].question).toBe(
+      "Discuss the composition of human blood with suitable illustrations. Add a note on the important functions of blood. (4+2+2=8)",
+    );
+  });
+
+  test("cosmetic: a disagreeing ': N' after a parenthesised split does not strip the split", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+43. Discuss the composition of human blood. (4+2+2=8) : 7
+`;
+    const rows = parseTranscriptToRows(md, "ZOOIDC101T");
+    // The tail disagrees with the split total, so the new branch
+    // does not fire: the bare-number branch strips just the 7, as
+    // before, and the split stays in the text.
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([["43", 7]]);
+    expect(rows[0].question).toContain("(4+2+2=8) :");
+  });
+
+  test("G46: a split expression before the end mark extracts — ZOODSC102T Q25 in isolation", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+25. Mention the general characteristics of mammal. Classify mammal up to order with suitable examples. 5+5=10 ★★★
+`;
+    const rows = parseTranscriptToRows(md, "ZOODSC102T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([["25", 10]]);
+    expect(rows[0].question).toBe(
+      "Mention the general characteristics of mammal. Classify mammal up to order with suitable examples. ★★★",
+    );
+  });
+
+  test("G45: no split under a per-question instruction — ECOIDC101T Q9 shape", () => {
+    // "9. Answer any one of the following questions :" makes (a)
+    // and (b) alternatives, each worth 8; the "$4+4=8$" on the (b)
+    // line is (b)'s own two halves, not the question's split
+    // across (a)/(b). (a) stays blank, (b) keeps 8.
+    const md = String.raw`# FYUG Odd Semester Exam., 2025
+
+SECTION—B
+
+Answer five questions, selecting one from each Unit : $10 \times 5 = 50$
+
+UNIT—III
+
+9. Answer any one of the following questions :
+
+(a) Why is the long-run average cost (LAC) curve called the 'envelope curve'? Explain with diagram.
+
+(b) Why can two iso-quant curves not intersect each other? In this context discuss producer's equilibrium with the help of isoquants and isocost curves. $4+4=8$
+`;
+    const rows = parseTranscriptToRows(md, "ECOIDC101T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["9(a)", null],
+      ["9(b)", 8],
+    ]);
+  });
+
+  test("G45: no split when a sibling prints its own figure — PHYDSC102T Q15 shape", () => {
+    // (a) prints 4 and (b) prints "4+2=6": (b) is worth 6 on its
+    // own (its two halves), so the question is 4+6=10 — the sum is
+    // (b)'s own composition, not a 4/2 split of the question.
+    const md = String.raw`# FYUG Odd Semester Exam., 2024
+
+15. (a) Obtain the expression of relativistic addition of velocities. 4
+
+(b) Obtain Einstein's mass-energy relation. Show that the rest mass of photon is zero. 4+2=6
+`;
+    const rows = parseTranscriptToRows(md, "PHYDSC102T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["15(a)", 4],
+      ["15(b)", 6],
+    ]);
+  });
+
+  test("G46: a firing pool must not claim questions governed by another instruction — MANDSC202T shape", () => {
+    // One unit, alternating per-question instructions: the
+    // "Answer any 2" questions form a phantom pool that fires the
+    // uniform branch, but the interleaved "Answer any 1" questions
+    // are independent choices counted one by one below — they must
+    // not be claimed into the pool (70/70 read 50/70 before the
+    // singleton guard).
+    const md = String.raw`# FYUG Odd Semester Exam., 2025
+
+UNIT—I
+
+1. First question : $2 \times 2 = 4$
+
+(a) Part one.
+(b) Part two.
+(c) Part three.
+
+2. Second question : 10
+
+(a) Alternative one.
+(b) Alternative two.
+
+3. Third question : $2 \times 2 = 4$
+
+(a) Part one.
+(b) Part two.
+(c) Part three.
+
+4. Fourth question : 10
+
+(a) Alternative one.
+(b) Alternative two.
+
+5. Fifth question : $2 \times 2 = 4$
+
+(a) Part one.
+(b) Part two.
+(c) Part three.
+
+6. Sixth question : 10
+
+(a) Alternative one.
+(b) Alternative two.
+`;
+    const rows = parseTranscriptToRows(md, "MANDSC202T");
+    // Three "any 2" questions at 4 each plus three "any 1"
+    // questions at 10 each.
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(42);
+  });
+});
+
+describe("batch 43/45 parser fix — fractional split figures, $-delimited colon figures (G47/G48)", () => {
+  test("G47: '$2\\frac{1}{2} \\times 2 = 5$' splits as 2.5 per sub-row — ZOOSEC101T Q38 shape", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+Full Marks : 50
+
+SECTION—C
+
+Answer five questions, selecting one from each Unit : $5 \times 5 = 25$
+
+UNIT—I
+
+36. Write short notes on the following : $2\frac{1}{2}\times 2=5$
+
+(a) First note
+
+(b) Second note
+
+UNIT—II
+
+37. Second question? 5
+
+UNIT—III
+
+38. Write short notes on any two of the following : $2\frac{1}{2} \times 2 = 5$
+
+(a) American foul brood
+
+(b) Thai sac brood disease
+
+(c) Chalk brood disease
+
+UNIT—IV
+
+39. Fourth question? 5
+
+UNIT—V
+
+40. Fifth question? 5
+`;
+    const rows = parseTranscriptToRows(md, "ZOOSEC101T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["36", 5],
+      ["36(a)", 2.5],
+      ["36(b)", 2.5],
+      ["37", 5],
+      ["38", 5],
+      ["38(a)", 2.5],
+      ["38(b)", 2.5],
+      ["38(c)", 2.5],
+      ["39", 5],
+      ["40", 5],
+    ]);
+    // Section C counts 5 x 5 = 25 — the fractional sub-rows never
+    // add on top of their parent's 5.
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(25);
+  });
+
+  test("G47: a fractional sum splits its terms in order — '1+2+1/2+1/2' with four sub-rows", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+Full Marks : 70
+
+1. Explain the following : $1+2+1/2+1/2=4$
+
+(a) First term
+
+(b) Second term
+
+(c) Third term
+
+(d) Fourth term
+`;
+    const rows = parseTranscriptToRows(md, "TEST");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["1", 4],
+      ["1(a)", 1],
+      ["1(b)", 2],
+      ["1(c)", 0.5],
+      ["1(d)", 0.5],
+    ]);
+  });
+
+  test("G48: a $-delimited split expression after a colon fills the sub-row — SANIDC101T Q44 shape", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+Full Marks : 70
+
+SECTION—C
+
+Answer five questions, selecting one from each Unit : 8x5=40
+
+UNIT—V
+
+44. (a) Write equivalent words (Sanskrit to English) of any four of the following : $1 \times 4 = 4$ नमस्कारः ; धन्यवादः ; स्वागतम् ; क्षम्यताम् ; कृपया ; पुनः मिलामः ।
+
+(b) Write equivalent words (English to Sanskrit) of any four of the following : $1 \times 4 = 4$ Teacher ; Mother ; Father ; Sister ; Brother ; Student.
+
+45. (a) Write four vegetables in Sanskrit or write one to ten in Sanskrit. [4]
+
+(b) Write in English of the following : [4]
+(i) मम नाम (ii) एषः मम मित्रम् (iii) कुतः आगच्छति (iv) अहं न जानामि
+`;
+    const rows = parseTranscriptToRows(md, "SANIDC101T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["44(a)", 4],
+      ["44(b)", 4],
+      ["45(a)", 4],
+      ["45(b)", 4],
+    ]);
+    // The expression leaves the row text; the items stay.
+    expect(rows[0].question).toBe(
+      "Write equivalent words (Sanskrit to English) of any four of the following : नमस्कारः ; धन्यवादः ; स्वागतम् ; क्षम्यताम् ; कृपया ; पुनः मिलामः ।",
+    );
+  });
+
+  test("G48: a lone ': $100 ...' never matches — a currency amount is not a marks expression", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+Full Marks : 70
+
+1. The fee is : $100 per month. Explain.
+`;
+    const rows = parseTranscriptToRows(md, "TEST");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([["1", null]]);
+    expect(rows[0].question).toContain("$100");
+  });
+
+  test("G47: parseIndexTable reads a fractional Marks cell — '2.5' round-trips", () => {
+    const md = `---
+paper_code: ZOOSEC101T
+---
+
+## Question index
+
+| No. | Question | Marks | ID | Unit | Group | Keywords |
+| --- | --- | --- | --- | --- | --- | --- |
+| 36(a) | First note | 2.5 | ZOOSEC101T-Q36a | III | Answer any 5 | x |
+| 36(b) | Second note | 5 | ZOOSEC101T-Q36b | III | Answer any 5 | y |
+| 36(c) | Third note |  | ZOOSEC101T-Q36c | III | Answer any 5 | z |
+`;
+    const rows = parseIndexTable(md);
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["36(a)", 2.5],
+      ["36(b)", 5],
+      ["36(c)", null],
     ]);
   });
 });

@@ -207,6 +207,16 @@ const PAIR_EITHER_LINE =
 // without "অতি" also occurs ("যে কোনো দশটি প্রশ্নের সংক্ষিপ্ত
 // উত্তর দাও", BNGDSM151T SECTION—A). Neither word
 // contains য়, so they are typed, not escaped.
+// Section instructions add a per-unit count before the total —
+// "প্রতিটি ইউনিট থেকে যে কোনো দুটি প্রশ্ন নিয়ে দশটি প্রশ্নের
+// উত্তর দাও" (BNGDSC102T Section A, batch 37, G29): answer two
+// from each unit, ten in total. The count is the SECOND word
+// (ten), captured as group 3; group 2 is the per-unit count. The
+// "প্রতিটি ইউনিট থেকে" prefix is optional in the pattern. The য়
+// in "নিয়ে" is written as \u09df, never typed (typing it produces
+// the YA + nukta form, which never matches) — and matchInstruction
+// folds the line with foldBnYy first, because the staged transcripts
+// mix both byte forms (BNG1D is YA + nukta, BNGAEC101T is U+09DF).
 // AEC papers put "নিম্নলিখিত" (the following) before "যে কোনো"
 // ("১। নিম্নলিখিত যে কোনো তিনটি প্রশ্নের উত্তর দাও", BNGAEC101T Q1)
 // — same instruction, same rule; without the prefix the line became
@@ -216,7 +226,41 @@ const PAIR_EITHER_LINE =
 // the ে in "প্রশ্নের" is optional because the Assamese form drops it
 // ("প্রশ্নর"). The count word "তিনিটি" is in BN_COUNT_WORDS.
 const BN_INSTRUCTION_LINE =
-  /^(?:([\d০-৯]+)[।.]\s*)?(?:নিম্নলিখিত\s+)?যে[\s-]*কোনো\s*(\S+?)\s*(?:(?:অতি\s+)?সংক্ষিপ্ত\s+)?প্রশ্নে?র\s+(?:(?:অতি\s+)?সংক্ষিপ্ত\s+)?উত্তর\s+দাও(?=\s|:|$)[^\n]*$/;
+  /^(?:([\d০-৯]+)[।.]\s*)?(?:প্রতিটি\s+ইউনিট\s+থেকে\s+)?(?:নিম্নলিখিত\s+)?যে[\s-]*কোনো\s*(\S+?)\s*(?:প্রশ্ন\s+নি\u09dfে\s+(?:মোট\s+)?(\S+?)\s+)?(?:(?:অতি\s+)?সংক্ষিপ্ত\s+)?প্রশ্নে?র\s+(?:(?:অতি\s+)?সংক্ষিপ্ত\s+)?উত্তর\s+দাও(?=\s|:|$)[^\n]*$/;
+
+// Bengali section instruction without "যে কোনো": "প্রতিটি ইউনিট
+// থেকে একটি করে প্রশ্ন নিয়ে মোট পাঁচটি প্রশ্নের উত্তর দাও"
+// (BNGAEC101T Section B/C, BNGSEC101T Section B/C, batch 37,
+// G29/G30) — answer one from each unit, M questions in total;
+// the count is M (group 2).
+const BN_SECTION_EACH_LINE =
+  /^(?:([\d০-৯]+)[।.]\s*)?প্রতিটি\s+ইউনিট\s+থেকে\s+একটি\s+করে\s+প্রশ্ন\s+নি\u09dfে\s+(?:মোট\s+)?(\S+?)\s+প্রশ্নে?র\s+উত্তর\s+দাও(?=\s|:|$)[^\n]*$/;
+
+// English section instruction: "Answer ten questions, selecting any
+// two from each Unit : $2 \times 10 = 20$" (BOTDSC101T/102T Section
+// A, batch 37, G31) — N questions in total, M from each unit; the
+// count is N (group 2). INSTRUCTION_LINE only covers "Answer any
+// N ...", so this shape needs its own pattern. "taking" is the same
+// verb as "selecting" (COMIDC-A, COMDSM-101T, ENGDSC101T/102T,
+// batch 38/39, G34/G35/G36) — and the raw transcripts emphasise the
+// count words ("Answer *five* questions, taking *one* from each
+// Unit :"), so asterisks are allowed around both — including the
+// "any" with the per-unit count ("taking *any two* from each Unit",
+// ENGDSC102T Section A raw form). The count may also be followed
+// by "as directed" instead of (or after) "questions" ("Answer
+// twenty as directed, selecting four from each Unit", ECOIDC101T
+// Section A, batch 39, G37).
+const EN_SECTION_INSTRUCTION_LINE =
+  /^(?:([\d০-৯]+)[।.]\s*)?Answer\s+\**(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|\d+)\**\s+(?:questions?(?:\s+as\s+directed)?|as\s+directed),\s+(?:selecting|taking)\s+(?:\**any\s+)?\**(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|\d+)\**\s+from\s+each\s+Unit\b[^\n]*$/i;
+
+// A section-level instruction's markers: it spans units ("প্রতিটি
+// ইউনিট থেকে" / "from each Unit") or states a total over per-unit
+// counts ("প্রশ্ন নিয়ে মোট M প্রশ্নের"). An instruction carrying
+// one governs the whole section, so it must survive the UNIT
+// headings inside that section (see sectionInstrPending in
+// parseTranscriptToRows).
+const SECTION_LEVEL_SHAPE =
+  /প্রতিটি\s+ইউনিট\s+থেকে|নি\u09dfে\s+(?:মোট\s+)?\S+\s+প্রশ্নের|from\s+each\s+Unit/i;
 
 // Manipuri (Bengali script) count words in instruction lines:
 // "অমতংগী" and "অমখক" are one, "অনীদংগী" two, "অহুমথকী" and
@@ -337,8 +381,10 @@ const MARKS_TERM = String.raw`(?:${MARKS_NUM}|\(${MARKS_NUM}(?:\s*${MARKS_OP}\s*
 // "6+3+1", "1+3+3+3=10". Any number of terms joined by "+" (or one
 // "×"); for "+" it is the total (or the sum when no total is given),
 // for "×" the first number is the marks per sub-question.
+// The total may be cut off ("1+4=", ECOSEC151T Q31/Q32, batch 25):
+// a trailing "=" with no digits still yields the partial sum.
 const MARKS_EXPR = new RegExp(
-  String.raw`^\${0,2}\s*(${MARKS_TERM}(?:\s*${MARKS_OP}\s*${MARKS_TERM})+)\s*(?:=\s*([\d০-৯]+))?\s*\${0,2}$`,
+  String.raw`^\${0,2}\s*(${MARKS_TERM}(?:\s*${MARKS_OP}\s*${MARKS_TERM})+)\s*(?:=\s*([\d০-৯]+)?)?\s*\${0,2}$`,
 );
 
 /**
@@ -525,7 +571,11 @@ function instructionMarksDetail(
 ): { per: number | null; total: number | null } | null {
   const expr = line.match(
     new RegExp(
-      String.raw`\$?\s*\**(${MARKS_TERM}(?:\s*${MARKS_OP}\s*${MARKS_TERM})+)\s*(?:=\s*([\d০-৯]+))?\**\s*\$?\s*$`,
+      // The total may be cut off ("5×5=", ECOSEC151T Section C,
+      // batch 25): a trailing "=" with no digits still yields the
+      // partial sum / product. A trailing "*" bullet artifact is
+      // tolerated after the figure (": 10 *", ECODSM101T Q4).
+      String.raw`\$?\s*\**(${MARKS_TERM}(?:\s*${MARKS_OP}\s*${MARKS_TERM})+)\s*(?:=\s*([\d০-৯]+)?)?\**\s*\$?\s*$`,
     ),
   );
   if (expr) {
@@ -537,14 +587,17 @@ function instructionMarksDetail(
       if (n !== null && n >= 1 && n <= 100) return detail;
     }
   }
-  const trailing = line.match(/:\s*(?:\\[a-zA-Z]+\s*)?\**([\d০-৯]+)\**\s*$/);
+  // A trailing "*" bullet artifact may sit after the figure, with a
+  // space between ("... : 10 *", ECODSM101T Q4, batch 25) — the
+  // space-separated star blocked the read before.
+  const trailing = line.match(/:\s*(?:\\[a-zA-Z]+\s*)?\**([\d০-৯]+)[\s*]*$/);
   if (trailing) {
     const n = asciiNumber(trailing[1]);
     if (n !== null && n >= 1 && n <= 100) return { per: null, total: n };
   }
   // A bracketed figure ": [10]" is the same as a bare ": 10"
   // (PHIDSC303T Q10: "Answer any one of the following : [10]").
-  const bracket = line.match(/:\s*\[([\d০-৯]+)\]\s*$/);
+  const bracket = line.match(/:\s*\[([\d০-৯]+)\][\s*]*$/);
   if (bracket) {
     const n = asciiNumber(bracket[1]);
     if (n !== null && n >= 1 && n <= 100) return { per: null, total: n };
@@ -579,6 +632,17 @@ function matchInstruction(line: string): {
       pairEither: false,
     };
   }
+  const enSection = line.match(EN_SECTION_INSTRUCTION_LINE);
+  if (enSection) {
+    const count = wordToNumber(enSection[2]);
+    if (count === null) return null;
+    return {
+      num: enSection[1] ? asciiNumber(enSection[1]) : null,
+      count,
+      either: false,
+      pairEither: false,
+    };
+  }
   // Either-group lines may arrive with their brackets wrapped in maths
   // spans — "Answer either $[(a)$ and $(b)]$ or $[(c)$ and $(d)]$"
   // (MATDSC253 lite, batch 24). The $ and * carry no meaning here, so
@@ -606,12 +670,26 @@ function matchInstruction(line: string): {
   // Assamese spelling is folded (ৰ -> র) before matching, so
   // "যে কোনো তিনিটি প্ৰশ্নৰ উত্তৰ দাও" (BENSEC201 Q11) matches the
   // same pattern; the count word lookup below covers "তিনিটি".
-  const bn = foldAsmRa(line).match(BN_INSTRUCTION_LINE);
+  const bn = foldBnYy(foldAsmRa(line)).match(BN_INSTRUCTION_LINE);
   if (bn) {
-    const count = BN_COUNT_WORDS.get(foldBnYy(bn[2]));
+    // "প্রশ্ন নিয়ে মোট M প্রশ্নের": the count is M (total to
+    // answer), not N (per unit) — batch 37, G29.
+    const countWord = bn[3] ?? bn[2];
+    const count = BN_COUNT_WORDS.get(foldBnYy(countWord));
     if (count === undefined) return null;
     return {
       num: bn[1] ? asciiNumber(bn[1]) : null,
+      count,
+      either: false,
+      pairEither: false,
+    };
+  }
+  const bnEach = foldBnYy(foldAsmRa(line)).match(BN_SECTION_EACH_LINE);
+  if (bnEach) {
+    const count = BN_COUNT_WORDS.get(foldBnYy(bnEach[2]));
+    if (count === undefined) return null;
+    return {
+      num: bnEach[1] ? asciiNumber(bnEach[1]) : null,
       count,
       either: false,
       pairEither: false,
@@ -640,6 +718,34 @@ function matchInstruction(line: string): {
     };
   }
   return null;
+}
+
+/**
+ * A section instruction the pipeline reflow joined onto the previous
+ * question's line (BNGSEC101T Q20/Q30, batch 37, G32): "20. ...?
+ * প্রতিটি ইউনিট থেকে একটি করে প্রশ্ন নিয়ে পাঁচটি প্রশ্নের উত্তর
+ * দাও : ২×৫=১০". Returns [question part, instruction part]; the
+ * tail must validate as an instruction, so a question that merely
+ * mentions units never splits. The last validating split point wins
+ * (the instruction sits at the end of the line). The English shape
+ * ("... Answer five questions, selecting one from each Unit: ...")
+ * is covered the same way.
+ */
+function splitAppendedSectionInstruction(
+  line: string,
+): [string, string] | null {
+  const re =
+    /(প্রতিটি\s+ইউনিট\s+থেকে\s+.+|Answer\s+\S+\s+(?:questions?(?:\s+as\s+directed)?|as\s+directed),\s+(?:selecting|taking)\s+.+)/g;
+  let m: RegExpExecArray | null;
+  let found: [string, string] | null = null;
+  while ((m = re.exec(line)) !== null) {
+    const before = line.slice(0, m.index).trim();
+    const tail = m[0].trim();
+    if (before && matchInstruction(tail) !== null) {
+      found = [before, tail];
+    }
+  }
+  return found;
 }
 
 const WORD_NUMBERS: Record<string, number> = {
@@ -774,7 +880,14 @@ export function parseIndexTable(md: string): QuestionRow[] {
     if (/^no\.?$/i.test(cells[0])) continue;
     if (/^-+$/.test(cells[0])) continue;
     const isNewShape = cells.length >= 7;
-    const marks = parseInt(cells[2], 10);
+    // Marks are whole numbers — except a fractional split ("2.5",
+    // ZOOSEC101T Q36/Q38, G47). A clean decimal parses as a float;
+    // anything else keeps the old parseInt behaviour (a junk cell
+    // still reads its leading integer, a blank cell stays null).
+    const marksCell = cells[2].trim();
+    const marks = /^\d+(?:\.\d+)?$/.test(marksCell)
+      ? Number(marksCell)
+      : parseInt(marksCell, 10);
     rows.push({
       label: cells[0],
       question: cells[1],
@@ -806,6 +919,29 @@ export function parseIndexTableKeywords(md: string): Map<string, string> {
  * the segment carries no such figure.
  */
 function segmentMarksFigure(segment: string): number | null {
+  // A trailing "\quad <n>" inside a display formula is the segment's
+  // marks figure ("$$... \quad 3$$", MATDSC152T Q22(a)(ii), batch 29).
+  // The maths-span collapse below would swallow it with the formula.
+  const quad = segment.match(/\\(?:quad|qquad)\s*([\d০-৯]+)\s*\${1,2}\s*$/);
+  if (quad) {
+    const n = asciiNumber(quad[1]);
+    if (n !== null && n >= 1 && n <= 100) return n;
+  }
+  // Same shape, split-sum form ("$$... \quad 1+5=6$$", PHYDSC101T
+  // 2(a)/3(b), batch 33): the stated total, verified against the
+  // parts' sum.
+  const quadSum = segment.match(
+    /\\(?:quad|qquad)\s*([\d০-৯]+(?:\s*[+×x]\s*[\d০-৯]+)+)\s*=\s*([\d০-৯]+)\s*\${1,2}\s*$/,
+  );
+  if (quadSum) {
+    const total = asciiNumber(quadSum[2]);
+    const terms = (quadSum[1].match(/[\d০-৯]+/g) ?? []).map(
+      (t) => asciiNumber(t) ?? 0,
+    );
+    const sum = terms.reduce((a, b) => a + b, 0);
+    if (total !== null && total >= 1 && total <= 100 && sum === total)
+      return total;
+  }
   // Maths spans collapse to a bare "$" so a figure after one still
   // reads ("$$...$$ 2" -> "$ 2"), while a figure inside one vanishes
   // with the span ("$x=5$" -> "$").
@@ -844,7 +980,29 @@ function stripTrailingMarks(
   text: string,
   groupGuard: number | null,
   group: string,
-): { text: string; marks: number | null } {
+): {
+  text: string;
+  marks: number | null;
+  split: boolean;
+  splitExpr?: string;
+} {
+  // `split` is true when the marks were derived from a multi-term
+  // expression (a total composed of parts: "1+3+3+3=10", "$2+8=10$")
+  // and false for a single figure (": 2", "$10$", "[5]"). The G14
+  // parent fill needs it: a split total must never be copied onto
+  // the parts (PHYDSM101T Q8's parts are 3+3+3, not 10 each), while
+  // a single figure is the whole question's marks (ENGSEC101T Q18).
+  // `splitExpr` is the raw expression the split total came from
+  // ("5+5", "5×2", "1+3+3+3") — the G28 post-pass derives the
+  // sub-rows' marks from it ("$5+5=10$" with (a)/(b) means 5 each);
+  // it is absent for merged (i)/(ii)/(iii) sums, which have no
+  // single expression.
+  // `split` is true when the marks were derived from a multi-term
+  // expression (a total composed of parts: "1+3+3+3=10", "$2+8=10$")
+  // and false for a single figure (": 2", "$10$", "[5]"). The G14
+  // parent fill needs it: a split total must never be copied onto
+  // the parts (PHYDSM101T Q8's parts are 3+3+3, not 10 each), while
+  // a single figure is the whole question's marks (ENGSEC101T Q18).
   // Sub-parts on one line, each with its own figure — "(i) ... 3
   // (ii) ... 2" is worth 3+2=5, not the trailing 2 alone (MTMSEC101T
   // Q9(b), MTMDSC302T Q8(d), MTMDSM301 Q8(c)). The figures stay in
@@ -860,7 +1018,7 @@ function stripTrailingMarks(
       groupGuard === merged ||
       group === "Answer either"
     ) {
-      return { text, marks: merged };
+      return { text, marks: merged, split: true };
     }
     // Disagrees with the guard: fall through to the existing
     // branches, which reject the trailing figure and fall back.
@@ -886,7 +1044,12 @@ function stripTrailingMarks(
         derived <= 100 &&
         (groupGuard === null || groupGuard === derived)
       ) {
-        return { text: tailMath[1].trim(), marks: derived };
+        return {
+          text: tailMath[1].trim(),
+          marks: derived,
+          split: true,
+          splitExpr: expr[1],
+        };
       }
     }
     // A lone "$N$" span is the row's marks figure ("... bond order?
@@ -901,7 +1064,56 @@ function stripTrailingMarks(
         n <= 100 &&
         (groupGuard === null || groupGuard === n)
       ) {
-        return { text: tailMath[1].trim(), marks: n };
+        return { text: tailMath[1].trim(), marks: n, split: false };
+      }
+    }
+    // A trailing "\quad <n>" inside the final display formula is the
+    // row's marks figure ("$$... \quad 5$$", MATDSC152T Q16(b)/Q18(b)/
+    // Q19(a)/Q19(b), batch 29). The figure is stripped from inside
+    // the formula; the rest of the formula stays as question text.
+    // Same guard rule as the lone-number branch.
+    const quad = tailMath[2].match(
+      /^([\s\S]*?)\\(?:quad|qquad)\s*([\d০-৯]+)\s*(\${1,2})$/,
+    );
+    if (quad) {
+      const n = asciiNumber(quad[2]);
+      if (
+        n !== null &&
+        n >= 1 &&
+        n <= 100 &&
+        (groupGuard === null || groupGuard === n)
+      ) {
+        const block = `${quad[1].trim()}${quad[3]}`;
+        return {
+          text: `${tailMath[1].trim()} ${block}`.trim(),
+          marks: n,
+          split: false,
+        };
+      }
+    }
+    // Same shape, split-sum form ("$$... \quad 1+5=6$$",
+    // PHYDSC101T 2(a)/3(b), batch 33): the stated total is the
+    // row's marks, split: true (a total composed of parts).
+    const quadSum = tailMath[2].match(
+      new RegExp(
+        String.raw`^([\s\S]*?)\\(?:quad|qquad)\s*(${MARKS_TERM}(?:\s*${MARKS_OP}\s*${MARKS_TERM})+)\s*=\s*([\d০-৯]+)\s*(\${1,2})$`,
+      ),
+    );
+    if (quadSum) {
+      const derived = marksTotalFromParts(quadSum[2], quadSum[3]);
+      if (
+        derived !== null &&
+        derived >= 1 &&
+        derived <= 100 &&
+        (groupGuard === null || groupGuard === derived)
+      ) {
+        const block = `${quadSum[1].trim()}${quadSum[4]}`;
+        return {
+          text: `${tailMath[1].trim()} ${block}`.trim(),
+          marks: derived,
+          split: true,
+          splitExpr: quadSum[2],
+        };
       }
     }
     // A trailing $...$ span that is not a marks figure is content (a
@@ -917,9 +1129,11 @@ function stripTrailingMarks(
   // papers write it without $ delimiters. Checked before the bare
   // number below, or "৪" alone would be misread as marks 4. The
   // expression may carry bold markers ("**7+3**", "**4+4+2=10**").
+  // The total may be cut off ("1+4=", ECOSEC151T Q31/Q32, batch 25):
+  // a trailing "=" with no digits still yields the partial sum.
   const bareExpr = text.match(
     new RegExp(
-      String.raw`^(.*?)\s+\**(${MARKS_TERM}(?:\s*${MARKS_OP}\s*${MARKS_TERM})+)\s*(?:=\s*([\d০-৯]+))?\**\s*$`,
+      String.raw`^(.*?)\s+\**(${MARKS_TERM}(?:\s*${MARKS_OP}\s*${MARKS_TERM})+)\s*(?:=\s*([\d০-৯]+)?)?\**\s*$`,
     ),
   );
   if (bareExpr) {
@@ -930,7 +1144,12 @@ function stripTrailingMarks(
       derived <= 100 &&
       (groupGuard === null || groupGuard === derived)
     ) {
-      return { text: bareExpr[1].trim(), marks: derived };
+      return {
+        text: bareExpr[1].trim(),
+        marks: derived,
+        split: true,
+        splitExpr: bareExpr[2],
+      };
     }
   }
   // A parenthesised trailing figure "(5)" is the row's marks
@@ -947,7 +1166,7 @@ function stripTrailingMarks(
       n <= 100 &&
       (groupGuard === null || groupGuard === n)
     ) {
-      return { text: `${paren[1]}${paren[2]}`.trim(), marks: n };
+      return { text: `${paren[1]}${paren[2]}`.trim(), marks: n, split: false };
     }
   }
   // A parenthesised split expression at the end is the row's marks —
@@ -959,7 +1178,7 @@ function stripTrailingMarks(
   // punctuation is required before the "(".
   const splitParen = text.match(
     new RegExp(
-      String.raw`^(.*?)\s*\((${MARKS_NUM}(?:\s*${MARKS_OP}\s*${MARKS_NUM})+)\s*(?:=\s*([\d০-৯]+))?\)\s*:?\s*$`,
+      String.raw`^(.*?)\s*\((${MARKS_NUM}(?:\s*${MARKS_OP}\s*${MARKS_NUM})+)\s*(?:=\s*([\d০-৯]+)?)?\)\s*:?\s*$`,
     ),
   );
   if (splitParen) {
@@ -971,7 +1190,53 @@ function stripTrailingMarks(
       derived <= 100 &&
       (groupGuard === null || groupGuard === derived)
     ) {
-      return { text: splitParen[1].trim(), marks: derived };
+      return {
+        text: splitParen[1].trim(),
+        marks: derived,
+        split: true,
+        splitExpr: splitParen[2],
+      };
+    }
+  }
+  // A parenthesised split expression followed by its total after a
+  // colon — "... (4+2+2=8) : 8" (ZOOIDC101T Q43, batch 42; the
+  // pipeline reflow writes a trailing "$a+b+c=T$" as "(a+b+c=T) :
+  // T", batch 41 PHYDSM101T Q21(a) / PHYIDC101T Q38/Q39 same
+  // class). Only the dangling " : N" is stripped: the "(expr)"
+  // stays in the text — the paper prints it, and the G14 guard
+  // reads it (COMDSM-101T Q19 "(3+4+3=10) : 10" must keep its
+  // parts blank in the no-section case, batch 27). split:false:
+  // the ": N" is a single figure, so the parent stays a
+  // whole-question parent (stripping the whole tail and marking it
+  // split would let the section-rule blanking null the
+  // section-fallback subs — COMDSM-101T Q19(a)/(b)/(c) read 10).
+  // The ": N" must agree with the split total, or the branch does
+  // not fire and the bare-number branch below strips just the N,
+  // as before.
+  const splitParenColon = text.match(
+    new RegExp(
+      String.raw`^(.*?)\s*\((${MARKS_NUM}(?:\s*${MARKS_OP}\s*${MARKS_NUM})+)\s*(?:=\s*([\d০-৯]+)?)?\)\s*:\s*([\d০-৯]+)\s*$`,
+    ),
+  );
+  if (splitParenColon) {
+    const derived = marksTotalFromParts(
+      splitParenColon[2],
+      splitParenColon[3],
+    );
+    const tailN = asciiNumber(splitParenColon[4]);
+    if (
+      derived !== null &&
+      tailN !== null &&
+      derived === tailN &&
+      derived >= 1 &&
+      derived <= 100 &&
+      (groupGuard === null || groupGuard === derived)
+    ) {
+      return {
+        text: text.replace(/\s*:\s*[\d০-৯]+\s*$/, "").trim(),
+        marks: derived,
+        split: false,
+      };
     }
   }
   // A bracketed split expression at the end is the row's marks —
@@ -979,7 +1244,7 @@ function stripTrailingMarks(
   // split above.
   const bracketSplit = text.match(
     new RegExp(
-      String.raw`^(.*?)\s*\[(${MARKS_NUM}(?:\s*${MARKS_OP}\s*${MARKS_NUM})+)\s*(?:=\s*([\d০-৯]+))?\]\s*$`,
+      String.raw`^(.*?)\s*\[(${MARKS_NUM}(?:\s*${MARKS_OP}\s*${MARKS_NUM})+)\s*(?:=\s*([\d০-৯]+)?)?\]\s*$`,
     ),
   );
   if (bracketSplit) {
@@ -990,7 +1255,35 @@ function stripTrailingMarks(
       derived <= 100 &&
       (groupGuard === null || groupGuard === derived)
     ) {
-      return { text: bracketSplit[1].trim(), marks: derived };
+      return {
+        text: bracketSplit[1].trim(),
+        marks: derived,
+        split: true,
+        splitExpr: bracketSplit[2],
+      };
+    }
+  }
+  // A bracketed figure wrapped in HTML alignment tags at the end —
+  // "... <align right>[4]</align>" (MATSEC101T Q34–Q36, batch 40,
+  // G42). The tags are the pipeline's alignment markup, not question
+  // text: strip them with the figure. Plain "[6]"/"[4]" after a
+  // colon already works (batch 35/36); this is the same figure
+  // inside tags. The tag shape requires a letter right after "<"
+  // (or "</"): a bare "<" in maths ("If $1 < x < 2$ ...") is NOT a
+  // tag — a loose <[^>]+> would swallow the whole question up to
+  // the first ">" (the "<align right>" itself).
+  const bracketTagged = text.match(
+    /^(.*?)\s*(?:<[a-zA-Z][^>]*>\s*)*\[([\d০-৯]+)\]\s*(?:<\/[a-zA-Z][^>]*>\s*)*$/,
+  );
+  if (bracketTagged) {
+    const n = asciiNumber(bracketTagged[2]);
+    if (
+      n !== null &&
+      n >= 1 &&
+      n <= 100 &&
+      (groupGuard === null || groupGuard === n)
+    ) {
+      return { text: bracketTagged[1].trim(), marks: n, split: false };
     }
   }
   // A bracketed figure at the end is the row's marks — "... show that
@@ -1006,7 +1299,7 @@ function stripTrailingMarks(
       n <= 100 &&
       (groupGuard === null || groupGuard === n)
     ) {
-      return { text: bracketSingle[1].trim(), marks: n };
+      return { text: bracketSingle[1].trim(), marks: n, split: false };
     }
   }
   // A marks figure standing before a display formula mid-text —
@@ -1034,6 +1327,7 @@ function stripTrailingMarks(
     return {
       text: `${text.slice(0, numStart)}${text.slice(after)}`.trim(),
       marks: n,
+      split: false,
     };
   }
   // A marks figure right after a colon, introducing a quoted passage
@@ -1052,7 +1346,38 @@ function stripTrailingMarks(
       n <= 100 &&
       (groupGuard === null || groupGuard === n)
     ) {
-      return { text: `${colonQuote[1]}: ${colonQuote[3]}`.trim(), marks: n };
+      return { text: `${colonQuote[1]}: ${colonQuote[3]}`.trim(), marks: n, split: false };
+    }
+  }
+  // A bracketed marks figure after a colon, introducing the
+  // question's items — "(a) Explain the following : [6] ‘...’"
+  // (SANDSC152T Q19(a), batch 35), "(b) Translate into English :
+  // [4] ...". Same rule as the bare-figure colon branches: the
+  // colon stays, the figure goes, the items stay. Only when no
+  // sub-question marker appears anywhere in the text — a merged
+  // "(i) Solve : [3] ... (ii) ... [4] ..." row (MTMDSC202T (b),
+  // batch 6) keeps its figures for the merged-sum logic, so any
+  // roman marker, or a letter marker in the rest, blocks the branch.
+  const colonBracket = text.match(/^(.*?):\s*\[([\d০-৯]+)\]\s+(\S.*)$/);
+  if (colonBracket) {
+    const rest = colonBracket[3];
+    const hasSubMarker =
+      /\((i|ii|iii|iv)\)/.test(text) ||
+      /\([a-jকখগঘঙ]\)/.test(rest);
+    if (!hasSubMarker) {
+      const n = asciiNumber(colonBracket[2]);
+      if (
+        n !== null &&
+        n >= 1 &&
+        n <= 100 &&
+        (groupGuard === null || groupGuard === n)
+      ) {
+        return {
+          text: `${colonBracket[1]}: ${rest}`.trim(),
+          marks: n,
+          split: false,
+        };
+      }
     }
   }
   // A marks figure/expression after a colon, with the question's
@@ -1061,26 +1386,38 @@ function stripTrailingMarks(
   // (BNGAEC101T Q15), "ব্যাসবাক্যসহ সমাস নির্ণয় করো (যে কোনো
   // পাঁচটি) : ১×৫=৫ দম্পতি; ..." (BNGAEC201T Q25). The figure is
   // the question's marks, not part of the items: the colon stays,
-  // the figure goes, the items stay. Only when the rest carries no
-  // sub-question marker — a merged "(i) ... : 2 ... (ii) ..." row
-  // keeps its figures for the merged-sum logic — and, for a bare
-  // figure, no question mark or list star (the rest is a topic or a
-  // list, not another question).
+  // the figure goes, the items stay. The expression may carry $…$
+  // delimiters — "Write equivalent words ... : $1 \times 4 = 4$
+  // नमस्कारः ; ..." (SANIDC101T Q44(a)/(b), batch 45, G48): the
+  // dollars are the maths span, not currency. The $ form must carry
+  // an operator (a lone ": $100 ..." could be a currency amount, so
+  // it never matches); the bare form is unchanged. Only when the
+  // rest carries no sub-question marker — a merged "(i) ... : 2 ...
+  // (ii) ..." row keeps its figures for the merged-sum logic — and,
+  // for a bare figure, no question mark or list star (the rest is a
+  // topic or a list, not another question).
   const colonMid = text.match(
-    /^(.*?):\s+\**([\d০-৯]+(?:\s*(?:\\times|[×x+])\s*[\d০-৯]+)*)\s*(?:=\s*([\d০-৯]+))?\**\s+(.+)$/,
+    /^(.*?):\s+(?:\**([\d০-৯]+(?:\s*(?:\\times|[×x+])\s*[\d০-৯]+)*)\s*(?:=\s*([\d০-৯]+))?\**|\**\${1,2}([\d০-৯]+(?:\s*(?:\\times|[×x+])\s*[\d০-৯]+)+)\s*(?:=\s*([\d০-৯]+))?\${1,2}\**)\s+(.+)$/,
   );
   if (colonMid) {
-    const rest = colonMid[4];
+    const rest = colonMid[6];
     const hasSubMarker =
       /\([a-jকখগঘঙ]\)/.test(rest) || /\((i|ii|iii|iv)\)/.test(rest);
     if (!hasSubMarker) {
+      // The $…$ alternative is group 4/5, the bare one group 2/3.
+      const exprStr = colonMid[2] ?? colonMid[4];
+      const totalStr = colonMid[3] ?? colonMid[5];
+      // A "\times" word is an operator too: the old /[×x+]/ test
+      // misses it ("times" holds no "x"), so a bare "1 \times 4"
+      // fell through to the bare-figure branch and read 1.
+      const isSplit = /[×x+]|\\times/.test(exprStr);
       let derived: number | null = null;
-      if (/[×x+]/.test(colonMid[2])) {
+      if (isSplit) {
         // An N×M=K expression after the colon is unambiguous marks.
-        derived = marksTotalFromParts(colonMid[2], colonMid[3]);
+        derived = marksTotalFromParts(exprStr, totalStr);
       } else if (!/[?*]/.test(rest)) {
         // A bare figure: only when the rest is a topic or a list.
-        derived = asciiNumber(colonMid[2]);
+        derived = asciiNumber(exprStr);
       }
       if (
         derived !== null &&
@@ -1088,15 +1425,23 @@ function stripTrailingMarks(
         derived <= 100 &&
         (groupGuard === null || groupGuard === derived)
       ) {
-        return { text: `${colonMid[1]}: ${rest}`.trim(), marks: derived };
+        return { text: `${colonMid[1]}: ${rest}`.trim(), marks: derived, split: isSplit };
       }
     }
   }
   // A trailing marks figure followed by a page footer ("★★★ J25—..."):
   // the figure is the question's marks, the footer is not question
   // text (BNGAEC101T Q25). The ★ marker is distinctive — exam-code
-  // footers are the only ★ usage in these transcripts.
-  const footerMarks = text.match(/^(.*?)\s+\**([\d০-৯]+)\**\s+★.*$/);
+  // footers are the only ★ usage in these transcripts. The star run
+  // itself stays in the row text (batch 40, G43): MATIDC101T 45(b)
+  // already keeps its ★★★ (it reaches the table through the
+  // ≥3-roman-items append, which never re-derives marks), while rows
+  // through here lost it — "... are LD. 3 ★★★" (MATDSC101T Q25(b))
+  // came out as "... are LD." with no ★★★. Anything after the stars
+  // (the printer code) is still dropped.
+  const footerMarks = text.match(
+    /^(.*?)\s+\**([\d০-৯]+)\**\s+(★+).*$/,
+  );
   if (footerMarks) {
     const n = asciiNumber(footerMarks[2]);
     if (
@@ -1105,7 +1450,40 @@ function stripTrailingMarks(
       n <= 100 &&
       (groupGuard === null || groupGuard === n)
     ) {
-      return { text: footerMarks[1].trim(), marks: n };
+      return {
+        text: `${footerMarks[1].trim()} ${footerMarks[3]}`,
+        marks: n,
+        split: false,
+      };
+    }
+  }
+  // A split expression before the end mark — "... 5+5=10 ★★★"
+  // (ZOODSC102T Q25, batch 42, G46): the bare-expression branch
+  // above only fires at the very end of the text, and the
+  // footerMarks branch only handles a bare number (its figure must
+  // follow whitespace — "5+5=10" has "=" before the "10"), so the
+  // split fell through and the row read blank. Same shape as
+  // footerMarks: the figure is stripped, the star run stays in the
+  // row text.
+  const footerSplit = text.match(
+    new RegExp(
+      String.raw`^(.*?)\s+\**(${MARKS_TERM}(?:\s*${MARKS_OP}\s*${MARKS_TERM})+)\s*(?:=\s*([\d০-৯]+)?)?\**\s+(★+).*$`,
+    ),
+  );
+  if (footerSplit) {
+    const derived = marksTotalFromParts(footerSplit[2], footerSplit[3]);
+    if (
+      derived !== null &&
+      derived >= 1 &&
+      derived <= 100 &&
+      (groupGuard === null || groupGuard === derived)
+    ) {
+      return {
+        text: `${footerSplit[1].trim()} ${footerSplit[4]}`,
+        marks: derived,
+        split: true,
+        splitExpr: footerSplit[2],
+      };
     }
   }
   // A bare number at the end of the question is its marks — but only
@@ -1113,12 +1491,36 @@ function stripTrailingMarks(
   // per-part marks when those are known. A year or a number inside the question
   // never looks like this: it is followed by punctuation or is too big.
   // The number may carry *emphasis* ("**10**") or be Bengali digits.
-  const m = text.match(/^(.*?)\s+\**([\d০-৯]+)\**$/);
-  if (!m) return { text, marks: null };
+  // A trailing "*" bullet artifact may follow the figure with a space
+  // ("... : 10 *", ECODSM101T Q4, batch 25).
+  // A trailing number that is a currency amount is content, never
+  // marks (batch 39, COMIDC-B Q45 raw form: "(ii) Prepaid
+  // insurance—₹ 100" joined onto a row already carrying ": 8" — the
+  // bare-number branch read 100, overwriting the printed 8 and
+  // stripping the amount from the text, so the raw transcript counts
+  // 162 where the staged file counts 70). A currency symbol (₹ $ £ €)
+  // or Rs/INR/টাকা immediately before the number blocks the read.
+  const m = text.match(/^(.*?)\s+\**([\d০-৯]+)[\s*]*$/);
+  if (!m) return { text, marks: null, split: false };
+  // A currency symbol (₹ £ €), Rs/INR/টাকা, or a standalone "$"
+  // token immediately before the number blocks the read. "Rs" and
+  // "INR" must be whole tokens — a bare suffix match would also
+  // catch "integers", "parameters", "numbers", "calipers" (batch 39
+  // regression, caught by the corpus diff). A "$" that closes a
+  // maths span ("... $$ 5", "... $x$ 5") is NOT currency: it must
+  // be a lone "$" preceded by whitespace or the start, never one
+  // closing "$$" or "$...$".
+  const before = m[1].trim();
+  if (
+    /(?:₹|£|€|(?:^|\s)Rs\.?|(?:^|\s)INR|(?:^|\s)টাকা)$/i.test(before) ||
+    /(?:^|\s)\$$/.test(before)
+  ) {
+    return { text, marks: null, split: false };
+  }
   const n = asciiNumber(m[2]);
-  if (n === null || n < 1 || n > 100) return { text, marks: null };
-  if (groupGuard !== null && groupGuard !== n) return { text, marks: null };
-  return { text: m[1].trim(), marks: n };
+  if (n === null || n < 1 || n > 100) return { text, marks: null, split: false };
+  if (groupGuard !== null && groupGuard !== n) return { text, marks: null, split: false };
+  return { text: m[1].trim(), marks: n, split: false };
 }
 
 /**
@@ -1328,6 +1730,1544 @@ function fillPositionalMarks(rows: QuestionRow[]): void {
 }
 
 /**
+ * Fill blank sub-rows from a marks-carrying parent row when the
+ * parent's marks are the whole question's marks (batch 27, G14):
+ * ENGSEC101T Q18 "Change the mode of narration : 2" with (a)–(d)
+ * and no per-part figures — the 2 is the whole question, so each
+ * part displays it. Only parents in `wholeQuestionParents` qualify:
+ * their marks came from a single figure on the question's own line.
+ * A parent whose marks came from a split total ("1+3+3+3=10",
+ * PHYDSM101T Q8 — its parts are 3+3+3, not 10 each) or a standalone
+ * marks line is never in the set. An instruction row ("Answer
+ * either (a) or (b) : 10", ECODSM101T Q4) is the question total with
+ * pair-split parts and is excluded too, and a partly marked question
+ * is left alone. The counter counts such a question once (see
+ * assemble.py counted_total: all sub-rows equal to the parent means
+ * the parent alone), so the filled cells never change the total.
+ */
+function fillWholeQuestionParentParts(
+  rows: QuestionRow[],
+  wholeQuestionParents: Set<string>,
+): void {
+  for (const p of rows) {
+    if (p.label.includes("(") || p.marks === null) continue;
+    if (!wholeQuestionParents.has(p.label)) continue;
+    if (p.group === "Answer either") continue;
+    if (/^Answer\s/i.test(p.question.replace(/^[\s$*#]+/, ""))) continue;
+    // A split printed in the parent's own text ("Write short notes
+    // on the following (3+4+3=10) : 10", COMDSM-101T Q19) gives the
+    // parts their own values (3, 4, 3) — the total must never be
+    // copied onto them. Only a parent with no split expression in
+    // its text qualifies.
+    if (/[\d০-৯]+\s*(?:\+|\\times|[×x])\s*[\d০-৯]/.test(p.question)) continue;
+    const parts = rows.filter((r) => r.label.startsWith(`${p.label}(`));
+    if (parts.length === 0) continue;
+    if (!parts.every((r) => r.marks === null)) continue;
+    for (const r of parts) r.marks = p.marks;
+  }
+}
+
+// Tokenise a split expression into its number atoms and operators —
+// or null when the expression does not parse cleanly. Atoms are the
+// MARKS_NUM shapes (integers, vulgar fractions "1/2", LaTeX fractions
+// "\frac{1}{2}", mixed numbers "2\frac{1}{2}"), so a fractional
+// per-part figure ("2\frac{1}{2} \times 2", ZOOSEC101T Q36/Q38,
+// batch 43, G47) yields the value 2.5, not the integer fragments
+// 2, 1, 2 the old digit-only scan produced. Only whitespace may sit
+// between tokens; anything else rejects the expression.
+function splitExprParts(expr: string): {
+  values: number[];
+  ops: string[];
+} | null {
+  const norm = expr.replace(/\\times/g, "×");
+  const tokenRe = new RegExp(`(${MARKS_NUM})|([+×x])`, "g");
+  const values: number[] = [];
+  const ops: string[] = [];
+  let pos = 0;
+  let expectValue = true;
+  let m: RegExpExecArray | null;
+  while ((m = tokenRe.exec(norm)) !== null) {
+    if (norm.slice(pos, m.index).trim() !== "") return null;
+    if (expectValue) {
+      if (m[1] === undefined) return null;
+      // A vulgar fraction "1/2": MARKS_NUM tries the plain integer
+      // first, so it matches just "1" and leaves "/2" as a gap.
+      // Extend the atom across "/digits" before evaluating it.
+      let atom = m[1];
+      let end = m.index + m[0].length;
+      const fracExt = /^\/[\d০-৯]+/.exec(norm.slice(end));
+      if (fracExt) {
+        atom += fracExt[0];
+        end += fracExt[0].length;
+        // The regex's lastIndex only advanced past the matched
+        // "1" — move it past the "/2" too, or the next exec
+        // re-reads the fraction's denominator as a fresh atom.
+        tokenRe.lastIndex = end;
+      }
+      const v = evalMarksValue(atom);
+      if (v === null) return null;
+      values.push(v);
+      expectValue = false;
+      pos = end;
+    } else {
+      if (m[2] === undefined) return null;
+      ops.push(m[2]);
+      expectValue = true;
+      pos = m.index + m[0].length;
+    }
+  }
+  if (expectValue) return null;
+  if (norm.slice(pos).trim() !== "") return null;
+  if (values.length < 2) return null;
+  return { values, ops };
+}
+
+// The marks each part of a split-sum parent takes, in sub-row
+// order — or null when the expression cannot be assigned safely.
+// A sum "a+b+..." assigns its terms in order when the term count
+// matches the sub-row count ("$5+5=10$" with (a)/(b) means 5 each;
+// "1+3+3+3" with 3 sub-rows matches nothing, so PHYDSM101T Q8's
+// printed 3,3,3 stay). A product "a×b" means b parts of a marks
+// each, or a parts of b marks each ("5×2" with (a)/(b) means 5
+// each). Terms may be fractional ("1+2+1/2+1/2", "2\frac{1}{2}
+// \times 2" — the per-part value is then fractional, e.g. 2.5).
+// Anything else (a lone term, a mismatch, a product that matches
+// neither way) is left alone — a wrong guess would corrupt the
+// table more than a blank.
+function splitTermsForParts(expr: string, subCount: number): number[] | null {
+  const parts = splitExprParts(expr);
+  if (parts === null) return null;
+  const { values, ops } = parts;
+  if (
+    ops.length === values.length - 1 &&
+    ops.every((op) => op === "+") &&
+    values.length === subCount
+  ) {
+    return values;
+  }
+  if (
+    ops.length === 1 &&
+    (ops[0] === "×" || ops[0] === "x") &&
+    values.length === 2
+  ) {
+    const [a, b] = values;
+    if (b === subCount) return Array.from({ length: subCount }, () => a);
+    if (a === subCount) return Array.from({ length: subCount }, () => b);
+  }
+  return null;
+}
+
+// The per-part value for an "any N" parent whose split expression
+// is a product a×N (or N×a) totalling the parent's marks — or null.
+// "Define any seven literary terms ... : $2 \times 7 = 14$"
+// (ENGIDC101T Q1, batch 39, G38): the candidate defines any seven
+// of the ten listed terms, each worth 2 — the product's factor N is
+// the count to answer, not the sub-row count (10 options, 7
+// answered). The generic splitTermsForParts product branch only
+// fires when a factor equals the sub-row count, so this shape never
+// fills. The options must exceed the answered count (otherwise the
+// generic branch already fired), and the product must total the
+// parent's marks.
+function anyCountProductPerPart(
+  parent: QuestionRow,
+  expr: string,
+  subCount: number,
+): number | null {
+  // G44: "Write short notes on any two of the following"
+  // (ZOODSC102T Q21) states the same any-N rule without starting
+  // with Answer/Define/Translate — the "any N of the following"
+  // phrase is the marker. The anchored verb form is tried first;
+  // the phrase form matches anywhere in the text.
+  const cleaned = parent.question.replace(/^[\s$*#]+/, "");
+  const m =
+    cleaned.match(/^(?:Answer|Define|Translate)\s+any\s+\**(\w+)\**/i) ??
+    parent.question.match(/\bany\s+\**(\w+)\**\s+of\s+the\s+following/i);
+  if (!m) return null;
+  const n = wordToNumber(m[1]);
+  if (n === null || subCount <= n) return null;
+  // G47: the product's factors may be fractional ("2\frac{1}{2}
+  // \times 2", ZOOSEC101T Q36 — "any two" of three notes, each
+  // worth 2.5, total 5). Parse atoms, not bare integers.
+  const parts = splitExprParts(expr);
+  if (parts === null) return null;
+  const { values, ops } = parts;
+  if (
+    ops.length !== 1 ||
+    (ops[0] !== "×" && ops[0] !== "x") ||
+    values.length !== 2
+  ) {
+    return null;
+  }
+  const [a, b] = values;
+  if (parent.marks === null || Math.abs(a * b - parent.marks) > 1e-9)
+    return null;
+  if (b === n) return a;
+  if (a === n) return b;
+  return null;
+}
+
+// A split-sum parent's sub-rows take the expression's terms
+// (batch 36, G28): "$5+5=10$" (ZOODSC151T Q19/Q25, ZOODSC201
+// Q6/Q12/Q15, ZOODSC202T Q6/Q9) with (a)/(b) means 5 each — not
+// the full 10, which the G14 fill used to copy. A parent whose
+// marks came from anywhere else (the section rule, a standalone
+// marks line) has no expression recorded: its sub-rows stay BLANK,
+// not a share of the total (ZOODSC151T Q21 prints no figure; its
+// 10 is section-rule-derived). The same guard applies to a split
+// parent whose expression cannot be assigned (a term count that
+// matches nothing): a part that already prints a figure keeps it,
+// and one printed figure disagreeing with its term blocks the
+// whole assignment — a conflict is evidence the split does not
+// map to the parts, not a typo to override. A value a part took
+// only from the group fallback is provisional, not printed: it is
+// overwritten by the term, never a conflict (ZOODSC151T Q19(a)/(b)
+// read 10 from the section rule, and take 5 each from "$5+5=10$").
+function fillSplitParentParts(
+  rows: QuestionRow[],
+  splitParentExpr: Map<QuestionRow, string>,
+  groupMarksFallback: Map<QuestionRow, number>,
+  wholeQuestionParents: Set<string>,
+): void {
+  // An instruction row ("Answer the following : 2×2=4",
+  // PLSDSC101T Q10) is not a question: its parts' marks are the
+  // section rule's business, never a split fill's — the G14 fill
+  // skips Answer parents the same way, and Q10(a)/(b) stay blank.
+  const isInstruction = (r: QuestionRow): boolean =>
+    /^Answer\s/i.test(r.question.replace(/^[\s$*#]+/, ""));
+  for (const [parent, expr] of splitParentExpr) {
+    if (isInstruction(parent)) continue;
+    const subs = rows.filter(
+      (r) =>
+        r.label.startsWith(parent.label + "(") && subLetter(r.label) !== null,
+    );
+    if (subs.length === 0) continue;
+    const terms = splitTermsForParts(expr, subs.length);
+    if (terms !== null) {
+      // Only a PRINTED figure can disagree with its term: a value
+      // taken from the group fallback (ZOODSC151T Q19(a)/(b) read 10
+      // from the section rule, not from the paper) is provisional and
+      // is overwritten by the term, never a conflict.
+      if (
+        subs.some(
+          (r, i) =>
+            r.marks !== null &&
+            !groupMarksFallback.has(r) &&
+            r.marks !== terms[i],
+        )
+      ) {
+        continue;
+      }
+      subs.forEach((r, i) => {
+        if (r.marks === null || groupMarksFallback.has(r)) r.marks = terms[i];
+      });
+      continue;
+    }
+    // G38: an "any N" parent whose product is a×N (or N×a) — the
+    // per-part value is the other factor (see anyCountProductPerPart).
+    // Same conflict rule as the generic branch above.
+    const perPart = anyCountProductPerPart(parent, expr, subs.length);
+    if (perPart === null) continue;
+    if (
+      subs.some(
+        (r) =>
+          r.marks !== null &&
+          !groupMarksFallback.has(r) &&
+          r.marks !== perPart,
+      )
+    ) {
+      continue;
+    }
+    subs.forEach((r) => {
+      if (r.marks === null || groupMarksFallback.has(r)) r.marks = perPart;
+    });
+  }
+  // A parent with no split expression and no single-figure whole
+  // (not in wholeQuestionParents) is section-rule-derived: any
+  // sub-row whose marks came only from the group fallback was never
+  // printed, so it goes back to blank (ZOODSC151T Q21(a)/(b):
+  // 10 → blank). Only when the sub-rows start at (a) — the parent
+  // is an instruction, not a part: when there is no (a) sub-row
+  // the direct row IS part (a) (MATDSC151T Q25: "25. First part."
+  // with (b)/(c) only), and the parts keep the section fallback
+  // 10, exactly as before. Never overwrite a printed figure.
+  for (const parent of rows) {
+    if (parent.label.includes("(")) continue;
+    if (
+      splitParentExpr.has(parent) ||
+      wholeQuestionParents.has(parent.label) ||
+      parent.marks === null ||
+      isInstruction(parent)
+    ) {
+      continue;
+    }
+    const subs = rows.filter(
+      (r) =>
+        r.label.startsWith(parent.label + "(") &&
+        subLetter(r.label) !== null,
+    );
+    if (!subs.some((r) => subLetter(r.label) === "a")) continue;
+    for (const sub of subs) {
+      if (groupMarksFallback.has(sub)) sub.marks = null;
+    }
+  }
+}
+
+// Split a trailing split expression on a question's LAST sub-row
+// across the question's sub-rows (batch 42, G45): PLSIDC101T Q43
+// has no parent row — "(a) State the characteristics of
+// sovereignty. / (b) Define external sovereignty ... 5+3=8" —
+// so the "5+3" is the QUESTION's split ((a)=5, (b)=3), not (b)'s
+// own marks. The terms assign in order when they match the
+// sub-row count. Guards: the question has no direct parent row,
+// its sub-rows start at (a), every other sub-row is blank or
+// fallback-only (a printed figure on a sibling means the last
+// line's sum is that sub-row's own composition — PHYDSC102T Q15,
+// PHYDSM201T Q8), the sub-rows are not alternatives under a
+// per-question instruction (ECOIDC101T Q9), and — when any sub-row
+// took the fallback — the split total equals that fallback value
+// (the section per-question value), so a last sub-row's own
+// composition ("(b) ... 3+2=5" where (b) alone is worth 5) is
+// never mistaken for the question's split. Assigned rows leave the
+// fallback map: their values are derived from the printed split
+// now, not from the section rule.
+function fillSplitSubRowParts(
+  rows: QuestionRow[],
+  splitSubExpr: Map<QuestionRow, { expr: string; perQuestion: boolean }>,
+  groupMarksFallback: Map<QuestionRow, number>,
+): void {
+  const byQ = new Map<string, QuestionRow[]>();
+  for (const r of rows) {
+    if (!r.label.includes("(")) continue;
+    const q = r.label.split("(")[0];
+    const arr = byQ.get(q) ?? [];
+    arr.push(r);
+    byQ.set(q, arr);
+  }
+  const parentQs = new Set(
+    rows.filter((r) => !r.label.includes("(")).map((r) => r.label),
+  );
+  for (const [q, subs] of byQ) {
+    if (parentQs.has(q)) continue;
+    if (!subs.some((r) => subLetter(r.label) === "a")) continue;
+    const last = subs[subs.length - 1];
+    const recorded = splitSubExpr.get(last);
+    if (recorded === undefined) continue;
+    // A split on a sub-row governed by a per-question instruction
+    // is that alternative's own composition, never the question's
+    // split across its alternatives (ECOIDC101T Q9: "Answer any
+    // one" — (a)/(b) are alternatives each worth 8, and "$4+4=8$"
+    // on the (b) line is (b)'s own two halves).
+    if (recorded.perQuestion) continue;
+    const expr = recorded.expr;
+    const terms = splitTermsForParts(expr, subs.length);
+    if (terms === null) continue;
+    const total = marksTotalFromParts(expr, undefined);
+    // Every other sub-row must be blank or fallback-only: a PRINTED
+    // figure on a sibling means the last line's sum is that
+    // sub-row's own composition, not the question's split
+    // (PHYDSC102T Q15: (a) prints 4 and (b) prints "4+2=6" — (b)
+    // is worth 6, not 2; PHYDSM201T Q8 the same with "$1+3=4$" on
+    // (a)). Agreement with the term does not save it — (a)'s 4
+    // agrees with the first term yet the split reading is still
+    // wrong there. A fallback value (in groupMarksFallback) is
+    // provisional and is overwritten, as before.
+    if (
+      subs.some(
+        (r) =>
+          r !== last &&
+          r.marks !== null &&
+          !groupMarksFallback.has(r),
+      )
+    ) {
+      continue;
+    }
+    // When the siblings took the section fallback, the split total
+    // must be that value — otherwise the expression is the last
+    // sub-row's own composition, not the question's split.
+    const fbVals = subs
+      .filter((r) => groupMarksFallback.has(r))
+      .map((r) => groupMarksFallback.get(r) as number);
+    if (
+      fbVals.length > 0 &&
+      (total === null ||
+        fbVals.some((v) => v !== fbVals[0]) ||
+        fbVals[0] !== total)
+    ) {
+      continue;
+    }
+    subs.forEach((r, i) => {
+      r.marks = terms[i];
+      groupMarksFallback.delete(r);
+    });
+  }
+}
+
+/**
+ * Fill a blank OR alternative from its OR partner (batch 28, G17):
+ * HISIDC201T/HISSEC201T/ENGDSC202T print the marks figure on the
+ * first of each OR pair only ("2. ... [2] / OR / 3. ..." — Q3 prints
+ * no figure), so the (b) rows stay blank while the counter is right
+ * (or_pairs subtracts the min, so the total never depended on them).
+ * Direct rows whose group is exactly "OR" pair up in order within
+ * each maximal run of consecutive direct OR rows: (1st, 2nd),
+ * (3rd, 4th), ... A blank member takes its marked partner's figure;
+ * a pair with both blank, or both marked (even disagreeing), is left
+ * alone. Sub-row OR pairs are already filled at push time (same
+ * question number), and an odd run leaves its last row unpaired —
+ * the safe blank. Only group exactly "OR" qualifies: a direct row
+ * under an "Answer any" group that also carries "(OR)" is a section
+ * question, not a plain alternative, and is left alone. A direct
+ * row WITH sub-rows is never filled: the counter sums parent +
+ * parts unless every part equals the parent (the G14 guard), so
+ * filling such a parent double-counts — BOTIDC101T Q20 (parent
+ * blank, part (b) 8) would read 70/70 as 78/70. Its marks live on
+ * the parts, and the cell stays blank as before.
+ *
+ * A run is consecutive in the FULL table, not among direct rows
+ * only (batch 34, G25): an "Answer any 3" question exists only as
+ * sub-rows, so it never appears as a direct row — but it still
+ * breaks the run. PHYSEC201T's OR pairs are (Q2,Q3), (Q7,Q8),
+ * (Q9,Q10), (Q12,Q13), ...; the old direct-only scan put Q5, Q7,
+ * Q8, Q9, Q10, ... in one giant run and paired (Q5,Q7),
+ * (Q8,Q9), (Q10,Q12), so Q8 took Q9's 5 and Q10 took Q12's 2
+ * (62/50). Any row that is not a direct OR row — a sub-row, an
+ * "Answer any" row, a direct row with sub-rows — flushes the run.
+ */
+function fillOrPartnerMarks(rows: QuestionRow[]): void {
+  const hasSubRows = new Set<string>();
+  for (const r of rows) {
+    if (r.label.includes("(")) hasSubRows.add(r.label.split("(")[0]);
+  }
+  let run: QuestionRow[] = [];
+  const flush = (): void => {
+    for (let i = 0; i + 1 < run.length; i += 2) {
+      const a = run[i];
+      const b = run[i + 1];
+      if (a.marks === null && b.marks !== null) a.marks = b.marks;
+      else if (b.marks === null && a.marks !== null) b.marks = a.marks;
+    }
+    run = [];
+  };
+  // Scan the FULL table: a sub-row (or any other row) between two
+  // direct OR rows breaks the run, even though it is not itself a
+  // direct row (batch 34, G25 — see the doc comment above).
+  for (const r of rows) {
+    if (
+      !r.label.includes("(") &&
+      r.group === "OR" &&
+      !hasSubRows.has(r.label)
+    ) {
+      run.push(r);
+    } else {
+      flush();
+    }
+  }
+  flush();
+}
+
+/**
+ * A paper misprint can print the same question number twice
+ * (HISSEC201T prints Q23 twice — "On which ocassion..." and "Give
+ * a pen picture of Ellora Caves" — and no Q24, then Q25). Two rows
+ * with the same label break ID uniqueness and merge in the counter's
+ * per-question grouping, so the second occurrence takes a suffixed
+ * label ("23b") and ID, and its sub-rows take the suffix too
+ * ("23b(a)"). The transcript is untouched — the paper really does
+ * print 23 twice — and the suffix is visible in the table. Only
+ * direct rows are counted: sub-rows share their parent's number and
+ * never collide on their own.
+ */
+function renameDuplicateNumbers(
+  rows: QuestionRow[],
+  paperCode: string,
+): void {
+  const seen = new Map<string, number>();
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    if (r.label.includes("(")) continue;
+    const base = r.label;
+    const n = (seen.get(base) ?? 0) + 1;
+    seen.set(base, n);
+    if (n === 1) continue;
+    if (n > 26) continue; // absurd for a paper; leave the duplicate
+    const suffix = String.fromCharCode(96 + n);
+    const newLabel = `${base}${suffix}`;
+    r.label = newLabel;
+    r.id = `${paperCode}-Q${newLabel}`;
+    for (let j = i + 1; j < rows.length; j++) {
+      const s = rows[j];
+      if (!s.label.includes("(")) break;
+      if (s.label.split("(")[0] !== base) break;
+      const letter = s.label.slice(base.length + 1, -1);
+      s.label = `${newLabel}(${letter})`;
+      s.id = `${paperCode}-Q${newLabel}${letter}`;
+    }
+  }
+
+  // Sub-row duplicates: a repeated FULL sub-row label ("6(b)" twice,
+  // COMDSC-353T — the paper prints (b) twice and no (a)). The second
+  // occurrence takes a numeric suffix inside the parens ("6(b2)",
+  // ID "...-Q6b2"). Same principle as the direct rows: the transcript
+  // keeps the printed label, the table keeps unique IDs.
+  const seenSub = new Map<string, number>();
+  for (const r of rows) {
+    if (!r.label.includes("(")) continue;
+    const n = (seenSub.get(r.label) ?? 0) + 1;
+    seenSub.set(r.label, n);
+    if (n === 1) continue;
+    const base = r.label.split("(")[0];
+    const letter = r.label.slice(base.length + 1, -1);
+    r.label = `${base}(${letter}${n})`;
+    r.id = `${paperCode}-Q${base}${letter}${n}`;
+  }
+}
+
+/**
+ * Marks a row contributes to the counted total: its own marks, else
+ * a split-marks total at the end of its text — a line-for-line port
+ * of assemble.py row_marks_for_count (the pipeline counter), so the
+ * remainder fill below agrees with the counter it feeds. Python's
+ * \d matches Bengali digits too, so the digit classes here include
+ * ০-৯ and every captured figure is folded with asciiDigits first.
+ */
+function rowMarksForCount(r: QuestionRow): number | null {
+  if (r.marks !== null) return r.marks;
+  const q = r.question.trim();
+  const d = "[\\d০-৯]";
+  const op = "(?:\\+|\\\\times|x)";
+  let m = q.match(
+    new RegExp(
+      `[\\$\\[]?(${d}+(?:\\s*${op}\\s*${d}+)+)\\s*(?:=\\s*(${d}+))?[\\$\\]]{0,2}\\s*$`,
+    ),
+  );
+  if (m) {
+    if (m[2]) return asciiNumber(m[2]);
+    const terms = m[1].match(/[\d০-৯]+/g) ?? [];
+    const vals = terms.map((t) => asciiNumber(t) as number);
+    return vals.length >= 2 ? vals.reduce((a, b) => a + b, 0) : null;
+  }
+  m = q.match(/\[([\d০-৯]+)\]\s*$/);
+  if (m) return asciiNumber(m[1]);
+  const vals: number[] = [];
+  for (const ln of q.split("\n")) {
+    const t = ln.trim();
+    if (!t) continue;
+    const m2 = t.match(
+      new RegExp(`(${d}+(?:\\s*${op}\\s*${d}+)+)\\s*(?:=\\s*(${d}+))?\\s*$`),
+    );
+    if (m2) {
+      if (m2[2]) vals.push(asciiNumber(m2[2]) as number);
+      else {
+        const terms = m2[1].match(/[\d০-৯]+/g) ?? [];
+        vals.push(
+          terms
+            .map((x) => asciiNumber(x) as number)
+            .reduce((a, b) => a + b, 0),
+        );
+      }
+      continue;
+    }
+    const m3 = t.match(/\b([\d০-৯]+)\s*$/);
+    if (m3) vals.push(asciiNumber(m3[1]) as number);
+  }
+  if (vals.length >= 2) return vals.reduce((a, b) => a + b, 0);
+  const m4 = q.match(/(?<![\d০-৯])([\d০-৯]{1,2})\s*$/);
+  if (m4) {
+    const v = asciiNumber(m4[1]) as number;
+    if (v <= 20) return v;
+  }
+  return null;
+}
+
+/**
+ * Alternative question pairs joined by a standalone OR line — a
+ * line-for-line port of assemble.py or_pairs, so the remainder fill
+ * below subtracts exactly what the pipeline counter subtracts. The
+ * numbered lines may start with a sub-part marker ('2. (a) ...') —
+ * the pair counts when the two question numbers differ. A question
+ * number on a line by itself ('4.' — the question's text follows as
+ * sub-part lines, MATSEC101T Q4/Q5/Q10) counts as a numbered line
+ * too. The OR marker may also be display maths ('$$\\text{OR}$$'):
+ * on its own line it is a standalone OR; trailing on a question line
+ * ('12. ... [2] $$\\text{OR}$$' — the pipeline reflow joins it
+ * there, MATSEC101T Q12/Q13, Q14/Q15, Q17/Q18, Q19/Q20) the pair is
+ * that line's own question and the next one. Duplicate question
+ * numbers (G15) are disambiguated by occurrence: the second "23."
+ * line is key "23b", matching the renamed row labels.
+ */
+function orPairs(lines: string[]): Array<[string, string]> {
+  const numbered = /^([\d০-৯]+)\.(?:\s+|$)/;
+  const stripWrap = (l: string): string =>
+    l
+      .replace(/<[^>]+>/g, "")
+      .trim()
+      .replace(/^[#*]+/, "")
+      .replace(/[#*]+$/, "")
+      .trim();
+  const isOr = (l: string): boolean => {
+    const bare = stripWrap(l)
+      .replace(/\$\$/g, "")
+      .replace(/\\text\{/g, "")
+      .replace(/\}/g, "")
+      .trim();
+    // Case-insensitive (batch 34, G26): the mixed-case display
+    // form "$$\text{Or}$$" (PLSDSC102T Q8/Q10) is an OR marker
+    // exactly like "$$\text{OR}$$".
+    return bare.toUpperCase() === "OR";
+  };
+  const isTrailingOr = (l: string): boolean => {
+    const s = stripWrap(l);
+    const m = s.match(/\$\$(?:\\text\{)?(OR|অথবা)(?:\})?\$\$\s*$/i);
+    if (m !== null) return s.slice(0, m.index).trim().length > 0;
+    // A trailing HTML-wrapped OR marker ("... $3+7=10$
+    // <div align=\"center\">OR</div>", ZOODSM101T Q2, batch 36,
+    // G27): stripWrap removes the tags, leaving a bare trailing
+    // "OR" on the question's own line. Case-sensitive, like the
+    // display parser's bare-OR branch — a trailing lowercase "or"
+    // is ordinary text, not a marker.
+    const b = s.match(/(?:^|\s)(OR|অথবা)\s*$/);
+    return b !== null && s.slice(0, b.index).trim().length > 0;
+  };
+  // Occurrence-suffixed key of each numbered line, in scan order.
+  const keyOfLine = new Map<number, string>();
+  {
+    const seen = new Map<string, number>();
+    lines.forEach((l, idx) => {
+      const m = l.trim().match(numbered);
+      if (!m) return;
+      const base = m[1];
+      const n = (seen.get(base) ?? 0) + 1;
+      seen.set(base, n);
+      keyOfLine.set(
+        idx,
+        n === 1 ? base : `${base}${String.fromCharCode(96 + n)}`,
+      );
+    });
+  }
+  const nextContent = (ls: string[]): string | null => {
+    for (const l of ls) {
+      const s = l.trim();
+      if (!s || s.startsWith("<!--")) continue;
+      return s;
+    }
+    return null;
+  };
+  const pairs: Array<[string, string]> = [];
+  for (let i = 0; i < lines.length; i++) {
+    const trailing = isTrailingOr(lines[i]);
+    if (!trailing && !isOr(lines[i])) continue;
+    let above: string | null = null;
+    if (trailing) {
+      // The marker trails the question's own line ("12. ...
+      // [2] $$\\text{OR}$$") — or a sub-part line of it ("(b) ...
+      // [3] $$\\text{OR}$$", MATSEC101T Q14/Q15), in which case
+      // the question is the closest numbered line above.
+      above = keyOfLine.get(i) ?? null;
+      if (!above) {
+        for (let j = i - 1; j >= 0; j--) {
+          const k = keyOfLine.get(j);
+          if (k !== undefined) {
+            above = k;
+            break;
+          }
+        }
+      }
+    } else {
+      for (let j = i - 1; j >= 0; j--) {
+        const k = keyOfLine.get(j);
+        if (k !== undefined) {
+          above = k;
+          break;
+        }
+      }
+    }
+    let below: string | null = null;
+    for (let j = i + 1; j < lines.length; j++) {
+      const k = keyOfLine.get(j);
+      if (k !== undefined) {
+        below = k;
+        break;
+      }
+    }
+    const next = nextContent(lines.slice(i + 1));
+    if (next && /^\([a-zA-Z\u0985-\u09b9]\)/.test(next)) continue;
+    if (next && !numbered.test(next.trim())) continue;
+    if (above && below && above !== below) pairs.push([above, below]);
+  }
+  return pairs;
+}
+
+/** Sub-part letter of a row label ("40(b)" -> "b"; "40" -> null). */
+function subLetter(label: string): string | null {
+  if (!label.includes("(")) return null;
+  return label.split("(").pop()?.replace(/\)$/, "") ?? null;
+}
+
+/**
+ * One question's total marks, for a section-level "Answer any N" set
+ * (batch 30, G19/G19b) — the TS port of assemble.py question_value.
+ * A question's marks live either on its direct row alone or split
+ * across its parts, depending on the shape of its rows:
+ * - Sub-rows starting at (a) mean the direct row is a parent /
+ *   instruction carrying the whole question ("Write the structure
+ *   and function of the following : 10", BOTDSC151T Q19, whose
+ *   (a)/(b) copy the 10 by the G14 fill; "Change the mode of
+ *   narration : 2", ENGSEC101T Q18). Its value is the direct row's
+ *   figure, or the sum of its parts when the direct row is blank.
+ * - No (a) sub-row means the direct row IS part (a): its text is
+ *   (a)'s text and its figure is (a)'s figure (MATIDC151T Q40:
+ *   "Show that ... 4" + "(b) ... 4" = 8; PHYDSC101T Q15: 7+3=10).
+ *   Its value is the direct figure plus its sub-rows'.
+ * strict=true (uniformity test): a question counts as a witness
+ * only when every component is known — a partly blank question
+ * neither proves nor breaks uniformity. strict=false (largest-N
+ * ranking): blank components count 0, a lower bound; only an
+ * all-blank question is unknown (null).
+ */
+function questionValue(qrows: QuestionRow[], strict: boolean): number | null {
+  if (qrows.length === 0) return null;
+  const qnum = qrows[0].label.split("(")[0];
+  const direct = qrows.find((r) => r.label === qnum) ?? null;
+  const subs = qrows.filter((r) => r.label !== qnum);
+  if (direct && subs.some((r) => subLetter(r.label) === "a")) {
+    const v = rowMarksForCount(direct);
+    if (v !== null) return v;
+    const vals = subs.map((r) => rowMarksForCount(r));
+    if (vals.length > 0 && vals.every((x) => x !== null)) {
+      return (vals as number[]).reduce((a, b) => a + b, 0);
+    }
+    return null;
+  }
+  const comps = [...(direct ? [direct] : []), ...subs];
+  const vals = comps.map((r) => rowMarksForCount(r));
+  if (vals.every((v) => v === null)) return null;
+  if (strict && vals.some((v) => v === null)) return null;
+  return vals
+    .filter((v): v is number => v !== null)
+    .reduce((a, b) => a + b, 0);
+}
+
+/**
+ * True when some — but not all — of the components that make up a
+ * question's total are known. An all-blank question is false
+ * (batch-29 G18d: it neither proves nor breaks uniformity); a partly
+ * blank one breaks it — its total is not proven equal to the rest.
+ * Mirrors questionValue's shape logic: a parent-shaped question's
+ * total is its direct row alone, so blank sub-rows do not make it
+ * partial.
+ */
+function questionPartiallyKnown(qrows: QuestionRow[]): boolean {
+  if (qrows.length === 0) return false;
+  const qnum = qrows[0].label.split("(")[0];
+  const direct = qrows.find((r) => r.label === qnum) ?? null;
+  const subs = qrows.filter((r) => r.label !== qnum);
+  let vals: Array<number | null>;
+  if (direct && subs.some((r) => subLetter(r.label) === "a")) {
+    if (rowMarksForCount(direct) !== null) return false;
+    vals = subs.map((r) => rowMarksForCount(r));
+  } else {
+    const comps = [...(direct ? [direct] : []), ...subs];
+    vals = comps.map((r) => rowMarksForCount(r));
+  }
+  return vals.some((v) => v !== null) && vals.some((v) => v === null);
+}
+
+function instructionOnQuestionLine(
+  qnum: string,
+  lines: string[],
+): boolean | null {
+  // True if the question's own numbered line carries an "Answer any"
+  // instruction (per-question choice: the choice is among the
+  // question's own parts); false if the question line has no such
+  // instruction (the choice is governed by a standalone instruction
+  // line, i.e. section-level); null if the question's line is not
+  // found. CHMDSM151 ("2. Answer any one of the following
+  // questions: 10") vs MATDSC202T (standalone "Answer any one of
+  // the following : 10" above "2. (a) ..."): the two papers are
+  // identical at row level, only the instruction's placement differs.
+  const escaped = qnum.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pat = new RegExp(`^\\s*${escaped}\\.(?:\\s|$)`);
+  for (const ln of lines) {
+    if (pat.test(ln)) return ln.toLowerCase().includes("answer any");
+  }
+  return null;
+}
+
+function splitTotalOnQuestionLine(
+  qnum: string,
+  lines: string[],
+  directMarks: number,
+  subMarks: Array<number | null>,
+): boolean {
+  // True when the question's own numbered line states its total as a
+  // sum of parts (batch-30 G21): PHYDSM101T Q8's line reads
+  // "... : 1+3+3+3=10" — the direct row's 10 IS the question total
+  // (1 for the definition + 3 each for (a)/(b)/(c)), so the parts
+  // must not be added on top (19/70). An identity counts only when
+  // its terms sum to its total, the total equals the direct figure,
+  // and every sub-row's marks appears among the terms, the leftover
+  // terms summing to direct minus the parts. It fires ONLY for a
+  // parent-shaped question (sub-rows starting at (a)): PHYDSC101T
+  // Q15's "[3+4=7]" is part (a)'s own composition — its direct row
+  // IS part (a) (7) and (b) adds 3 (7+3=10) — so a no-(a) question
+  // never fires here. A question line that merely contains maths
+  // (e.g. "$x^2+2x+1=0$") has no all-integer identity and never
+  // fires. The caller checks the parent shape.
+  const escaped = qnum.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pat = new RegExp(`^\\s*${escaped}\\.(?:\\s|$)`);
+  for (const ln of lines) {
+    if (!pat.test(ln)) continue;
+    const re = /(\d+(?:\s*\+\s*\d+)+)\s*=\s*(\d+)/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(ln)) !== null) {
+      const terms = m[1].split(/\s*\+\s*/).map((x) => parseInt(x, 10));
+      const total = parseInt(m[2], 10);
+      if (total !== directMarks) continue;
+      if (terms.reduce((a, b) => a + b, 0) !== total) continue;
+      const rest = [...terms];
+      let covered = true;
+      for (const sm of subMarks) {
+        if (sm === null) {
+          covered = false;
+          break;
+        }
+        const i = rest.indexOf(sm);
+        if (i < 0) {
+          covered = false;
+          break;
+        }
+        rest.splice(i, 1);
+      }
+      const subSum = subMarks.reduce<number>((a, v) => a + (v ?? 0), 0);
+      if (
+        covered &&
+        rest.reduce((a, b) => a + b, 0) === directMarks - subSum
+      ) {
+        return true;
+      }
+    }
+    // Same shape, product form ("5×2=10", "$5 \\times 2=10$",
+    // ZOODSC201 Q6/Q12/Q15, batch 36, G28): the product states
+    // how the total splits — b parts of a marks each (or a parts
+    // of b). It fires only when the total equals the direct
+    // figure, the product equals the total, and every sub-row's
+    // marks equals the per-part value for the sub-row count.
+    // G47: the product's factors may be fractional
+    // ("$2\frac{1}{2} \times 2 = 5$", ZOOSEC101T Q36/Q38) — match
+    // MARKS_NUM atoms, not bare integers, so the counter's fallback
+    // counts the direct figure once instead of direct + parts.
+    const prodRe = new RegExp(
+      String.raw`(${MARKS_NUM})\s*(?:×|x|\\times)\s*(${MARKS_NUM})\s*=\s*([\d০-৯]+)`,
+      "g",
+    );
+    let pm: RegExpExecArray | null;
+    while ((pm = prodRe.exec(ln)) !== null) {
+      const a = evalMarksValue(pm[1]);
+      const b = evalMarksValue(pm[2]);
+      const total = asciiNumber(pm[3]);
+      if (a === null || b === null || total === null) continue;
+      if (total !== directMarks || Math.abs(a * b - total) > 1e-9) continue;
+      let perPart =
+        subMarks.length === b ? a : subMarks.length === a ? b : null;
+      if (perPart === null) {
+        // G38: "Define any seven ... : $2 \times 7 = 14$"
+        // (ENGIDC101T Q1) — the product's factor N is the count to
+        // answer, not the sub-row count (10 options, 7 answered);
+        // the per-part value is the other factor, and the direct
+        // figure is the question total. The options must exceed N.
+        // G44: "Write short notes on any two of the following"
+        // (ZOODSC102T Q21) — same rule, no leading verb.
+        const anyM =
+          ln.match(/(?:Answer|Define|Translate)\s+any\s+\**(\w+)\**/i) ??
+          ln.match(/\bany\s+\**(\w+)\**\s+of\s+the\s+following/i);
+        const n = anyM ? wordToNumber(anyM[1]) : null;
+        if (n !== null && subMarks.length > n) {
+          if (b === n) perPart = a;
+          else if (a === n) perPart = b;
+        }
+      }
+      if (perPart !== null && subMarks.every((sm) => sm === perPart)) {
+        return true;
+      }
+    }
+    return false;
+  }
+  return false;
+}
+
+/**
+ * The SECTION each question number sits under, from the transcript
+ * lines (batch 37, G31/G32): a SECTION/বিভাগ heading opens a
+ * section, and so does a section-level instruction with no heading
+ * before it (BNGSEC101T: sections split on an instruction line +
+ * UNIT—I restart). A section instruction right after the SECTION
+ * heading that just opened its section belongs to that section,
+ * not a new one. Questions before any section map to "" and keep
+ * the old (group, unit) pool keying.
+ */
+function sectionOfQuestions(lines: string[]): Map<string, string> {
+  const map = new Map<string, string>();
+  let section = "";
+  let justOpened = false;
+  let counter = 0;
+  const openSection = (): void => {
+    if (!justOpened) {
+      counter += 1;
+      section = `§${counter}`;
+    }
+    justOpened = false;
+  };
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line) continue;
+    const h = line.match(UNIT_HEADING);
+    if (h) {
+      if (h[1] === "SECTION" || h[3] !== undefined) {
+        section = h[2] ?? h[3] ?? "";
+        justOpened = true;
+      }
+      continue;
+    }
+    // A section instruction appended to a numbered question's line
+    // (G32 join): the question closes the old section, the
+    // instruction opens the next one.
+    const app = splitAppendedSectionInstruction(line);
+    if (app) {
+      const n = line.match(/^([\d০-৯]+)[।.]\s+/);
+      if (n) {
+        const qn = asciiNumber(n[1]);
+        if (qn !== null) map.set(String(qn), section);
+      }
+      openSection();
+      continue;
+    }
+    // A standalone section instruction line.
+    if (
+      matchInstruction(line) !== null &&
+      SECTION_LEVEL_SHAPE.test(foldBnYy(line))
+    ) {
+      openSection();
+      continue;
+    }
+    const n = line.match(/^([\d০-৯]+)[।.]\s+/);
+    if (n) {
+      const qn = asciiNumber(n[1]);
+      if (qn !== null) map.set(String(qn), section);
+      justOpened = false;
+    }
+  }
+  return map;
+}
+
+/**
+ * The counted total WITHOUT the remainder rule — a line-for-line
+ * port of assemble.py counted_total (section sets, per-question
+ * rules, OR-pair subtraction), used only by the remainder fill
+ * below. It must agree with the pipeline counter: the full-corpus
+ * diff (Python counted_total before vs after a refresh) is the
+ * check that any fill it justifies is total-neutral.
+ */
+export function countedTotalExcludingRemainder(
+  rows: QuestionRow[],
+  lines: string[],
+): number {
+  const byQnum = new Map<string, QuestionRow[]>();
+  for (const r of rows) {
+    const q = r.label.split("(")[0];
+    const arr = byQnum.get(q) ?? [];
+    arr.push(r);
+    byQnum.set(q, arr);
+  }
+  let sectionTotal = 0;
+  const sectionQnums = new Set<string>();
+  const sections = sectionOfQuestions(lines);
+  const bySection = new Map<string, QuestionRow[]>();
+  for (const r of rows) {
+    const g = r.group || "";
+    if (g.startsWith("Answer any ")) {
+      // Pool by section, not by unit (batch 37, G31): one "Answer
+      // any 5" instruction spans all five units of BOTDSC101T
+      // Section B, and pooling by unit counted 5 x 10 once per
+      // unit (100/70). Questions with no section keep the old
+      // (group, unit) key.
+      const qnum = r.label.split("(")[0];
+      const sec = sections.get(qnum);
+      const key = `${g}|${sec !== undefined && sec !== "" ? sec : r.unit || ""}`;
+      const arr = bySection.get(key) ?? [];
+      arr.push(r);
+      bySection.set(key, arr);
+    }
+  }
+  // G46: a question whose rows all carry a nested per-question
+  // "Answer any N" instruction (ZOODSC102T Q17, inside Section B's
+  // "Answer any 5" pool) is one of the pool's candidates — the
+  // pool's N x T already counts any N of them, so the per-question
+  // loop below must not count it a second time. Claimed only when
+  // the pool fires, only inside the pool's question-number span (a
+  // nested question outside the span belongs to another part of the
+  // section and keeps its own count), and only when the question
+  // has no direct row (a direct row would have put it in the pool
+  // itself). The claim assumes the nested value does not exceed the
+  // pool's per-question value — true wherever a nested instruction
+  // splits the section standard (2 x 5 = 10 inside a 10/question
+  // section); a larger nested value would need its own candidate
+  // accounting, which no staged paper shows.
+  const claimNestedInSpan = (
+    poolKey: string,
+    poolQnums: Map<string, QuestionRow[]>,
+  ): void => {
+    const poolScope = poolKey.split("|")[1] ?? "";
+    const nums = [...poolQnums.keys()]
+      .map((q) => parseInt(q, 10))
+      .filter((v) => !Number.isNaN(v));
+    if (nums.length === 0) return;
+    const lo = Math.min(...nums);
+    const hi = Math.max(...nums);
+    for (const [qnum, qrs] of byQnum) {
+      if (sectionQnums.has(qnum) || poolQnums.has(qnum)) continue;
+      const v = parseInt(qnum, 10);
+      if (Number.isNaN(v) || v < lo || v > hi) continue;
+      if (qrs.some((r) => r.label === qnum)) continue;
+      if (!qrs.every((r) => (r.group || "").startsWith("Answer any ")))
+        continue;
+      const qsec = sections.get(qnum);
+      const scope =
+        qsec !== undefined && qsec !== "" ? qsec : qrs[0]?.unit || "";
+      if (scope !== poolScope) continue;
+      // The nested question's own instruction must be a one-off in
+      // this scope: if several questions share its (group, scope)
+      // — MANDSC202T's "Answer any 1" for Q6/Q8/Q10 in unit III —
+      // they are independent per-question choices counted one by
+      // one below, and stealing one into this pool breaks that
+      // accounting (70/70 read 50/70). A singleton (ZOODSC102T
+      // Q17, the only "Answer any 2" in Section B) is a genuine
+      // candidate of the firing pool.
+      const ownGroup = qrs[0]?.group || "";
+      const ownPool = bySection.get(`${ownGroup}|${scope}`) ?? [];
+      const ownQs = new Set(
+        ownPool.map((r) => r.label.split("(")[0]),
+      );
+      if (ownQs.size !== 1) continue;
+      sectionQnums.add(qnum);
+    }
+  };
+  for (const [key, rs] of bySection) {
+    const g = key.split("|")[0];
+    const nOf = (fallback: number): number => {
+      const parsed = parseInt(g.split(" ").pop() ?? "", 10);
+      return Number.isNaN(parsed) ? fallback : parsed;
+    };
+    const byNum = new Map<string, QuestionRow[]>();
+    for (const r of rs) {
+      const q = r.label.split("(")[0];
+      const arr = byNum.get(q) ?? [];
+      arr.push(r);
+      byNum.set(q, arr);
+    }
+    // Batch-30 (CHMDSM151 vs MATDSC202T): a (group, unit) set is a
+    // section-level pool only when its instruction is a standalone
+    // line. When EVERY question in the set carries the instruction
+    // on its own numbered line ("2. Answer any one of the following
+    // questions: 10"), the choice is within each question — the
+    // questions are independent and worth their own figures, so NO
+    // section rule fires for the set at all (CHMDSM151 would read
+    // 60/70 instead of 70/70). A question whose line is not found
+    // votes unknown (allow), so a missing line can never silently
+    // block a real section rule (MATDSC202T's standalone
+    // "Answer any one : 10").
+    const onLine = [...byNum.keys()].map((qn) =>
+      instructionOnQuestionLine(qn, lines),
+    );
+    if (onLine.length > 0 && onLine.every((v) => v === true)) continue;
+    // Batch-30 (G19b): the direct branch's per-question value is the
+    // question's total, not the direct row's single figure — a direct
+    // row that IS part (a) splits its marks across its sub-rows
+    // (MATIDC151T Section C: Q40 direct 4 + (b) 4 = 8). Batch-21
+    // (BOTDSC151T Q19/Q22) and batch-27 (ENGSEC101T Q18) still hold:
+    // a question whose sub-rows start at (a) has a parent direct row,
+    // whose figure is the whole question. Uniformity is tested over
+    // fully-known values only (batch-25 ECOSEC151T: blank rows are
+    // ignored, two witnesses minimum, zero disagreement).
+    const directQs = [...byNum.keys()].filter((qn) =>
+      (byNum.get(qn) ?? []).some((r) => r.label === qn),
+    );
+    const known = new Map<string, number>();
+    for (const qn of directQs) {
+      const v = questionValue(byNum.get(qn) as QuestionRow[], true);
+      if (v !== null) known.set(qn, v);
+    }
+    if (
+      directQs.length > 1 &&
+      known.size >= 2 &&
+      new Set(known.values()).size === 1
+    ) {
+      sectionTotal += nOf(rs.length) * [...known.values()][0];
+      // Batch-23 (COMIDC-151T-B Section C): a split question in the
+      // same section has no direct row, so its qnum never enters the
+      // direct set — the per-question fallback would then count the
+      // allowance a second time (110/70). Every question in this
+      // (group, unit) set is in the section's answer-any pool, so
+      // cover all of them.
+      for (const q of byNum.keys()) sectionQnums.add(q);
+      claimNestedInSpan(key, byNum);
+      continue;
+    }
+    // Batch-30 (G19): the sub-part branch used to be skipped whenever
+    // ANY direct row existed, but a section's direct rows can all be
+    // blank while its sub-rows carry the figures (MATSEC151T Section
+    // C: Q31/Q32 and Q37–Q40 blank, Q33–Q36 worth 5 each). It runs
+    // whenever the direct branch above did not fire. The
+    // per-question sums are the questionValue totals (a parent-shaped
+    // question counts its direct figure alone, never direct + parts).
+    if (byNum.size <= 1) continue;
+    // Uniform branch (batch-22 CHMDSM151T): when every question in
+    // the set sums to the same total T, count n x T once. A partly
+    // known question breaks uniformity (its total is not proven equal
+    // to the rest); an all-blank one neither proves nor breaks it
+    // (batch-29 G18d). The batch-26 guard (N < len(by_num)) still
+    // applies: a set with no question-level choice at all is
+    // per-question counting.
+    const strictVals: number[] = [];
+    let uniformOk = true;
+    for (const qrs of byNum.values()) {
+      const v = questionValue(qrs, true);
+      if (v !== null) strictVals.push(v);
+      else if (questionPartiallyKnown(qrs)) {
+        // A partly known question breaks uniformity (its total is
+        // not proven equal to the rest); an all-blank one neither
+        // proves nor breaks it (G18d).
+        uniformOk = false;
+      }
+    }
+    const n = nOf(byNum.size);
+    // A single witness fires (batch-29 G18d: Section B's Q3=10
+    // alone, Q4 all-blank, counts 1 x 10) — the two-witness minimum
+    // belongs to the direct branch above, not here.
+    if (
+      uniformOk &&
+      strictVals.length >= 1 &&
+      new Set(strictVals).size === 1 &&
+      n < byNum.size
+    ) {
+      sectionTotal += n * strictVals[0];
+      for (const q of byNum.keys()) sectionQnums.add(q);
+      claimNestedInSpan(key, byNum);
+      continue;
+    }
+    // Section-level test for the largest-N fallback below (not for
+    // the uniform branch above it): the "Answer any N" must choose
+    // among QUESTIONS, not among one question's parts. N exceeds
+    // every question's sub-part count, so no question has N parts to
+    // choose within (DSM151T Section B: 5 > 2; CHMDSM151T
+    // SECTION—B: 5 > 4; SEC151T Section C: 5 > 2). A per-question
+    // choice (ENGAEC201T Q9/Q10: N=1 of 2 parts) fails it and keeps
+    // per-question counting. MATDSC202T is the counter-case for
+    // gating the UNIFORM branch this way: its "Answer any one : 10"
+    // is a standalone instruction covering Q2 (4+3+3) and Q3 (5+5) —
+    // a real section-level choice with N=1 <= 3 parts — and the
+    // uniform branch must still fire (1 x 10 = 10). The batch-26
+    // guard (N < len(by_num)) still applies: a set with no
+    // question-level choice at all is per-question counting.
+    const maxParts = Math.max(
+      ...[...byNum.entries()].map(
+        ([qn, qrs]) => qrs.filter((r) => r.label !== qn).length,
+      ),
+    );
+    if (!(n < byNum.size && n > maxParts)) continue;
+    // Largest-N fallback (G19, non-uniform per-question totals):
+    // "Answer any N" over questions worth different marks counts the
+    // N largest question totals (DSM151T Section B: five questions
+    // worth 10, the rest 5–8 — top 5 = 50). Values are lower bounds
+    // (blank parts count 0); an all-blank question is unknown and
+    // excluded. At least N known values are required, or the set
+    // falls through to per-question counting below.
+    const lowerVals = [...byNum.values()]
+      .map((qrs) => questionValue(qrs, false))
+      .filter((v): v is number => v !== null)
+      .sort((a, b) => b - a);
+    if (lowerVals.length >= n) {
+      sectionTotal += lowerVals.slice(0, n).reduce((a, b) => a + b, 0);
+      for (const q of byNum.keys()) sectionQnums.add(q);
+      claimNestedInSpan(key, byNum);
+      continue;
+    }
+  }
+  const perQnum = new Map<string, number>();
+  const add = (q: string, v: number): void => {
+    perQnum.set(q, (perQnum.get(q) ?? 0) + v);
+  };
+  for (const [qnum, rs] of byQnum) {
+    if (sectionQnums.has(qnum)) continue;
+    const eitherRs = rs.filter((r) => (r.group || "") === "Answer either");
+    const anyRs = rs.filter((r) => (r.group || "").startsWith("Answer any "));
+    if (eitherRs.length > 0) {
+      const instr = eitherRs.find(
+        (r) => r.label === qnum && r.marks !== null,
+      );
+      if (instr) {
+        add(qnum, instr.marks as number);
+      } else {
+        const pairSum = (letters: string): number => {
+          let s = 0;
+          for (const r of eitherRs) {
+            const letter =
+              r.label.split("(").pop()?.replace(/\)$/, "") ?? "";
+            if (letters.includes(letter)) {
+              const m = rowMarksForCount(r);
+              if (m !== null) s += m;
+            }
+          }
+          return s;
+        };
+        add(qnum, Math.max(pairSum("ab"), pairSum("cd")));
+      }
+    } else if (anyRs.length > 0) {
+      const group = anyRs[0].group || "";
+      const parsed = parseInt(group.split(" ").pop() ?? "", 10);
+      const n = Number.isNaN(parsed) ? anyRs.length : parsed;
+      const marked = anyRs
+        .map((r) => r.marks)
+        .filter((m): m is number => m !== null);
+      const per = marked.length > 0 ? Math.max(...marked) : null;
+      if (per !== null) add(qnum, n * per);
+    } else if (rs.slice(1).some((r) => (r.group || "").includes("OR"))) {
+      const ms = rs
+        .map((r) => rowMarksForCount(r))
+        .filter((m): m is number => m !== null);
+      if (ms.length > 0) add(qnum, Math.max(...ms));
+    } else {
+      const first = rs[0];
+      const firstText = (first?.question ?? "").replace(/^[\s$*#]+/, "");
+      const subs = rs.filter((r) => r.label !== qnum);
+      if (
+        first &&
+        first.label === qnum &&
+        first.marks !== null &&
+        subs.length > 0 &&
+        subs.every((r) => r.marks !== null && r.marks === first.marks)
+      ) {
+        add(qnum, first.marks);
+      } else if (
+        first &&
+        first.label === qnum &&
+        first.marks !== null &&
+        subs.length > 0 &&
+        // Batch-30 G21 (PHYDSM101T Q8): a parent-shaped question
+        // whose line states its total as a split sum
+        // ("1+3+3+3=10") — the direct figure IS the question total,
+        // the parts must not be added on top. Parent shape only
+        // (sub-rows start at (a)); a no-(a) question's identity is
+        // part (a)'s own composition (PHYDSC101T Q15 "[3+4=7]",
+        // 7+3=10).
+        subs.some(
+          (r) => subLetter(r.label) === "a",
+        ) &&
+        splitTotalOnQuestionLine(
+          qnum,
+          lines,
+          first.marks,
+          subs.map((r) => r.marks),
+        )
+      ) {
+        add(qnum, first.marks);
+      } else if (
+        first &&
+        first.label === qnum &&
+        first.marks !== null &&
+        /^Answer\s/.test(firstText)
+      ) {
+        add(qnum, first.marks);
+      } else {
+        for (const r of rs) {
+          const m = rowMarksForCount(r);
+          if (m !== null) add(qnum, m);
+        }
+      }
+    }
+  }
+  let total = sectionTotal;
+  for (const v of perQnum.values()) total += v;
+  for (const [a, b] of orPairs(lines)) {
+    if (perQnum.has(a) && perQnum.has(b)) {
+      total -= Math.min(
+        perQnum.get(a) as number,
+        perQnum.get(b) as number,
+      );
+    }
+  }
+  return total;
+}
+
+/**
+ * Fill a blank sub-part from its question's remainder (batch 29,
+ * G18b): under a section-scoped "Answer any five : 10×5=50" a part
+ * with no printed figure used to inherit the per-question total
+ * (10) as its display marks — MATDSC151T Q17(a) read 10, true 4
+ * (10−4−2). When exactly one part of a question took the fallback
+ * and the others are printed, the blank part is the remainder of
+ * the question total. When every part took the fallback (MATDSC151T
+ * Q25), the rows stay blank — no figure is invented — and the
+ * counter treats the question as consistent (G18d). A question
+ * with two or more blank parts keeps the fallback display: the
+ * split is underivable, and clearing it would break the
+ * section-uniformity witnesses the counter needs. Only
+ * section-scoped fallback rows are touched (a numbered
+ * instruction's options really are worth the per each); a printed
+ * figure is never overwritten; a question with a direct parent row
+ * is left alone (its parts' display is the parent fill's business
+ * — BOTDSC151T Q19(a)/(b), ENGSEC101T Q18); and a lone part keeps
+ * its fallback (it IS the whole question). Runs after the rename
+ * (labels final) and before the remainder-section fill.
+ */
+function fillRemainderSubParts(
+  rows: QuestionRow[],
+  fallback: Map<QuestionRow, number>,
+): void {
+  const byQ = new Map<string, QuestionRow[]>();
+  for (const r of rows) {
+    if (!r.label.includes("(")) continue;
+    const q = r.label.split("(")[0];
+    const arr = byQ.get(q) ?? [];
+    arr.push(r);
+    byQ.set(q, arr);
+  }
+  const parentQs = new Set(
+    rows.filter((r) => !r.label.includes("(")).map((r) => r.label),
+  );
+  for (const [q, parts] of byQ) {
+    if (parentQs.has(q)) continue;
+    const blank = parts.filter((r) => fallback.has(r));
+    if (blank.length === 0) continue;
+    const t = fallback.get(blank[0] as QuestionRow) as number;
+    if (!blank.every((r) => fallback.get(r) === t)) continue;
+    if (blank.length === parts.length) {
+      if (parts.length > 1) {
+        for (const r of blank) r.marks = null;
+      }
+      continue;
+    }
+    // Batch 40, G40: two or more blank fallback sub-rows with a
+    // printed sibling — the fallback gave EACH blank the full
+    // per-question total (MATDSC102T Q19(a)/(b) read 10 each while
+    // (c) prints 2: 22 for a 10-mark question). The fallback is
+    // provisional, never printed: blank them all and let the section
+    // rule count the question once (the uniform / largest-N branch
+    // counts n x T from the proven questions). A single blank still
+    // takes the remainder below — that split is forced, not guessed.
+    if (blank.length > 1) {
+      const printed = parts.filter(
+        (r) => !fallback.has(r) && r.marks !== null,
+      );
+      if (printed.length > 0) {
+        for (const r of blank) r.marks = null;
+      }
+      continue;
+    }
+    if (blank.length !== 1) continue;
+    const printed = parts.filter(
+      (r) => !fallback.has(r) && r.marks !== null,
+    );
+    if (printed.length !== parts.length - 1) continue;
+    const rem =
+      t - printed.reduce((a, r) => a + (r.marks as number), 0);
+    if (rem >= 1 && rem <= 100) blank[0].marks = rem;
+  }
+}
+
+/**
+ * Fill a blank sub-row of a direct parent row from the remainder
+ * (batch 33, G24b): PHYDSC151T Q25 — the (a) part was folded into
+ * the direct row by the pipeline's inline-(a) handling, so the
+ * parent carries (a)'s 6 and the question total is 10: (b) is
+ * 10−6=4, never the section per-question total 10. Only when the
+ * parent carries a printed figure, exactly one sub-row is blank,
+ * and every other sub-row carries a printed figure — the question
+ * total is the blank row's fallback value (the section per-question
+ * total). A parent with no figure (MATDSC151T Q25: no figure
+ * anywhere), two or more blank sub-rows (COMIDC-151T (B) Q45,
+ * IFFIDC151T Q39), or a blank row with no fallback value all stay
+ * blank — the split is underivable. This only ever fills blank
+ * cells; a printed figure is never overwritten. The (a)/(b) pair
+ * shape (no parent row) is handled by fillRemainderSubParts above
+ * and is untouched here.
+ */
+function fillDirectParentRemainder(
+  rows: QuestionRow[],
+  fallback: Map<QuestionRow, number>,
+): void {
+  const byQ = new Map<string, QuestionRow[]>();
+  for (const r of rows) {
+    if (!r.label.includes("(")) continue;
+    const q = r.label.split("(")[0];
+    const arr = byQ.get(q) ?? [];
+    arr.push(r);
+    byQ.set(q, arr);
+  }
+  const parents = new Map<string, QuestionRow>();
+  for (const r of rows) {
+    if (!r.label.includes("(")) parents.set(r.label, r);
+  }
+  for (const [q, parts] of byQ) {
+    const parent = parents.get(q);
+    if (!parent || parent.marks === null) continue;
+    const blank = parts.filter((r) => fallback.has(r) || r.marks === null);
+    if (blank.length !== 1) continue;
+    const b = blank[0];
+    if (!fallback.has(b)) continue;
+    const t = fallback.get(b) as number;
+    const others = parts.filter((r) => r !== b);
+    if (others.some((r) => fallback.has(r) || r.marks === null)) continue;
+    const rem =
+      t -
+      (parent.marks as number) -
+      others.reduce((a, r) => a + (r.marks as number), 0);
+    if (rem >= 1 && rem <= 100) b.marks = rem;
+  }
+}
+
+/**
+ * Fill a wholly markless section's rows from the full-marks
+ * remainder (batch 28, G16): HISSEC151T Section C (Q31–Q40) counts
+ * 50/50 through the pipeline's remainder rule, but every row's
+ * Marks cell is blank. When exactly one section is markless and the
+ * remainder divides evenly across its "Answer any N" count, each of
+ * its rows displays the per-question remainder (25 over 5 = 5 each).
+ * The total cannot change: the section rule then counts n x per
+ * once, exactly the remainder. The remainder itself comes from
+ * countedTotalExcludingRemainder above — the fill must agree with
+ * the counter it feeds. A remainder that does not divide evenly, a
+ * section with sub-rows (the per-question split is unknown), two
+ * markless sections, or a missing full-marks figure all leave the
+ * rows blank — the safe undercount, never an invented figure.
+ */
+function fillRemainderMarks(
+  rows: QuestionRow[],
+  transcript: string,
+  lines: string[],
+): void {
+  if (!/SECTION/i.test(transcript)) return;
+  const fm = transcript.match(/full[ _]marks\s*:\s*(\d+)/i);
+  if (!fm) return;
+  const fullMarks = parseInt(fm[1], 10);
+  const byUnit = new Map<string, QuestionRow[]>();
+  for (const r of rows) {
+    const u = r.unit || "";
+    if (!u) continue;
+    const arr = byUnit.get(u) ?? [];
+    arr.push(r);
+    byUnit.set(u, arr);
+  }
+  const markless: Array<[string, QuestionRow[]]> = [];
+  for (const [u, urs] of byUnit) {
+    if (urs.length > 0 && urs.every((r) => r.marks === null)) {
+      markless.push([u, urs]);
+    }
+  }
+  if (markless.length !== 1) return;
+  const [, urs] = markless[0];
+  if (urs.some((r) => r.label.includes("("))) return;
+  let n: number | null = null;
+  for (const r of urs) {
+    const g = r.group || "";
+    if (g.startsWith("Answer any ")) {
+      const parsed = parseInt(g.split(" ").pop() ?? "", 10);
+      n = Number.isNaN(parsed) ? null : parsed;
+      break;
+    }
+  }
+  if (n === null) return;
+  const total = countedTotalExcludingRemainder(rows, lines);
+  const rem = fullMarks - total;
+  if (rem <= 0 || rem % n !== 0) return;
+  const per = rem / n;
+  if (per < 1 || per > 20) return;
+  for (const r of urs) r.marks = per;
+}
+
+/**
+ * Fill a wholly markless "Answer any N" section whose instruction
+ * prints no figure (batch 40, G41): MATIDC101T Section B and
+ * MATSEC101T Section B both read "Answer five questions, selecting
+ * one from each Unit :" with no "$…$" figure anywhere, so every
+ * row stays blank even though full-marks arithmetic pins the
+ * per-question marks (70 − 20 − 40 = 10 over 5 answered; 50 − 15 −
+ * 25 = 10 over 5 answered). Same remainder rule as
+ * fillRemainderMarks (G16), but pooled by (group, section): a
+ * section spans units, so the unit grouping never sees it as
+ * markless. Exactly one markless pool, remainder divisible by N,
+ * per in 1..20. Only DIRECT rows are filled — a sub-row of a filled
+ * question would read as part of the total, not the total
+ * (MATSEC101T Q31–Q36 stay blank; their figures are hidden in the
+ * fold). The total cannot change: the section rule then counts n x
+ * per once, exactly the remainder. Runs after fillRemainderMarks
+ * and recomputes the total fresh, so a G16 fill on the same paper
+ * is never double-counted.
+ */
+function fillSectionRemainderMarks(
+  rows: QuestionRow[],
+  transcript: string,
+  lines: string[],
+): void {
+  if (!/SECTION/i.test(transcript)) return;
+  const fm = transcript.match(/full[ _]marks\s*:\s*(\d+)/i);
+  if (!fm) return;
+  const fullMarks = parseInt(fm[1], 10);
+  const sections = sectionOfQuestions(lines);
+  const byPool = new Map<string, QuestionRow[]>();
+  for (const r of rows) {
+    const g = r.group || "";
+    if (!g.startsWith("Answer any ")) continue;
+    const qnum = r.label.split("(")[0];
+    const sec = sections.get(qnum);
+    const key = `${g}|${sec !== undefined && sec !== "" ? sec : r.unit || ""}`;
+    const arr = byPool.get(key) ?? [];
+    arr.push(r);
+    byPool.set(key, arr);
+  }
+  const markless: Array<[string, QuestionRow[]]> = [];
+  for (const [key, pool] of byPool) {
+    if (pool.length > 0 && pool.every((r) => r.marks === null)) {
+      markless.push([key, pool]);
+    }
+  }
+  if (markless.length !== 1) return;
+  const [key, pool] = markless[0];
+  const g = key.split("|")[0];
+  const parsed = parseInt(g.split(" ").pop() ?? "", 10);
+  if (Number.isNaN(parsed)) return;
+  const n = parsed;
+  const total = countedTotalExcludingRemainder(rows, lines);
+  const rem = fullMarks - total;
+  if (rem <= 0 || rem % n !== 0) return;
+  const per = rem / n;
+  if (per < 1 || per > 20) return;
+  for (const r of pool) {
+    if (!r.label.includes("(")) r.marks = per;
+  }
+}
+
+/**
+ * A standalone OR line, allowing markdown markers ("### OR", "**OR**")
+ * and HTML centring ("<center>**OR**</center>", "<center>OR</center>" —
+ * ENGDSC202T Q11/Q14: primary puts the margin figure on its own line,
+ * then the centred OR) and HTML line breaks ("<br>Or<br>",
+ * "<br>OR<br>", "<br>or<br>" — HISDSC202T Q4/Q6/Q8/Q10, batch 27).
+ * The tags are stripped before the test, so every wrapped form reads
+ * as a bare OR. Bengali papers write অথবা. A display-maths marker
+ * ("$$\text{OR}$$", "$$\text{Or}$$" — batch 34, G26) reads the same
+ * way: the $$ delimiters and \text{} wrapper are stripped first.
+ */
+const isOrLine = (l: string): boolean =>
+  /^(OR|অথবা)$/i.test(
+    l
+      .replace(/<[^>]+>/g, "")
+      .replace(/\$\$/g, "")
+      .replace(/\\text\{/g, "")
+      .replace(/\}/g, "")
+      .replace(/^[#*\s]+|[#*\s]+$/g, ""),
+  );
+
+/**
  * Parse a transcript into question rows. The transcript is normalised
  * with the formatter first (lone marks lines join their question,
  * sub-questions sharing a line are split apart). Frontmatter and any
@@ -1340,7 +3280,23 @@ export function parseTranscriptToRows(
   const { rest } = parseFrontmatter(md);
   const { transcript } = splitIndexTable(rest);
   const formatted = formatQuestionMd(transcript);
-  const lines = formatted.split("\n");
+  const rawLines = formatted.split("\n");
+  // A section instruction the pipeline reflow joined onto the
+  // previous question's line is split back into its own line (batch
+  // 37, G32), so the question keeps its own marks and the
+  // instruction starts the next section. Only numbered lines split,
+  // and only when the tail validates as an instruction.
+  const lines: string[] = [];
+  for (const l of rawLines) {
+    const app = NUMBERED_LINE.test(l)
+      ? splitAppendedSectionInstruction(l)
+      : null;
+    if (app) {
+      lines.push(app[0], app[1]);
+    } else {
+      lines.push(l);
+    }
+  }
   const rows: QuestionRow[] = [];
   let unit = "";
   let qNum = "";
@@ -1376,6 +3332,17 @@ export function parseTranscriptToRows(
   let seenInstructionSinceHeading = false;
   // rows.length when the current group was set by an instruction.
   let rowsAtGroupStart = 0;
+  // rows.length when the last UNIT/SECTION heading was seen — a
+  // numbered line is a list item of the current question only when
+  // a row was pushed after that heading (batch 31, G22): a paper
+  // that restarts its numbering per unit opens with "1." right
+  // after the heading, with no row since, and that "1." IS a new
+  // question.
+  let rowsAtLastHeading = 0;
+  // Sub-rows whose marks include figures folded in from numbered
+  // list-item lines (batch 31, G22) — the G18c-style add-back must
+  // never treat a folded figure as a printed single figure.
+  const foldedListMarks = new Set<QuestionRow>();
   // Whether the current group governs the whole section: an
   // unnumbered instruction whose question produced no rows before the
   // next number arrived (see clearGroupForNumber). A section
@@ -1383,6 +3350,35 @@ export function parseTranscriptToRows(
   // BNGDSC152T বিভাগ—ক) survives every numbered question under it;
   // a new heading or instruction ends it.
   let sectionScoped = false;
+  // A section instruction matched but not yet governing any question
+  // (batch 37, G29–G32): an instruction matched directly under a
+  // SECTION/বিভাগ heading, or one carrying a section-level shape
+  // ("প্রতিটি ইউনিট থেকে", "from each Unit"), governs the whole
+  // section — it must survive the UNIT headings inside that section
+  // (see the heading branch below), where the old code reset the
+  // group and only the first question kept it. Set in the
+  // instruction branch, cleared by a non-section instruction, a
+  // SECTION heading, or once the section scope is confirmed.
+  let sectionInstrPending = false;
+  // The enclosing section's group, stashed when a numbered
+  // per-question instruction temporarily overrides it (batch 42,
+  // G46): ZOODSC102T Section B ("Answer any 5") contains Q17,
+  // whose own line is an instruction ("Answer any 2 of the
+  // following questions ..."), so the section group was replaced
+  // by "Answer any 2" and the next UNIT heading cleared it
+  // entirely — Q18–Q25 lost the group and the counter fell back
+  // per question (150/70). The stash restores the section group
+  // at the next numbered question outside the instruction. The
+  // figure-on-next-line in that paper's transcript is NOT the
+  // cause: the formatter joins a lone marks line onto the line
+  // above, and moving the figure onto the instruction line still
+  // reads 150 (verified by experiment) — the clobber is.
+  let sectionGroupStash: {
+    group: string;
+    groupMarks: number | null;
+    groupGuard: number | null;
+    rowsAtGroupStart: number;
+  } | null = null;
   // What the most recent heading was: "section" for বিভাগ/SECTION
   // headings, "unit" for UNIT/গুচ্ছ, null before any heading. Only a
   // section heading can open a section instruction (see below).
@@ -1393,6 +3389,43 @@ export function parseTranscriptToRows(
   // orphan whose label was cut off at the boundary (see
   // handleOrphanLine below).
   let crossedPageBreak = false;
+  // Question numbers whose parent row's marks came from a single
+  // figure on the question's own line (": 2", "$10$") — the whole
+  // question's marks, which its blank sub-rows may inherit (G14).
+  // A parent whose marks came from a split total ("1+3+3+3=10") or
+  // a standalone marks line is never in here: its parts have their
+  // own values, or none are known.
+  const wholeQuestionParents = new Set<string>();
+  // Parent rows whose marks came from a split expression on their
+  // own line ("$5+5=10$", "5×2=10" — batch 36, G28), keyed by row
+  // object (labels change under the duplicate-number rename,
+  // objects do not): the G28 post-pass derives the sub-rows' marks
+  // from the expression ("5+5" with (a)/(b) means 5 each), and a
+  // parent with no printed figure at all (ZOODSC151T Q21: its 10
+  // came from the section rule) is recognised by its ABSENCE here.
+  const splitParentExpr = new Map<QuestionRow, string>();
+  // Marks provenance for sub-rows (batch 29, G18b/G18c), keyed by row
+  // object — labels change under the duplicate-number rename, objects
+  // do not. groupMarksFallback: a sub-row whose marks came from the
+  // groupMarks fallback under a section-scoped group, mapped to the
+  // value it took (the per-QUESTION total, not the part's marks).
+  // Under a numbered instruction the fallback is legitimate (each
+  // option is worth the per), so only section-scoped fallbacks are
+  // tracked. printedSubMarks: a sub-row whose marks came from a
+  // figure printed on its own line — the G18c sum may add it back
+  // when a roman continuation joins, but never a fallback value.
+  const groupMarksFallback = new Map<QuestionRow, number>();
+  const printedSubMarks = new Set<QuestionRow>();
+  // Split expressions carried by SUB-rows (batch 42, G45):
+  // PLSIDC101T Q43 has no parent row — "(a) ... / (b) ... 5+3=8"
+  // — so the "5+3" lives on the last sub-row, not on a parent.
+  // The G45 post-pass splits it across the question's sub-rows.
+  // Keyed by row object (labels change under the duplicate-number
+  // rename, objects do not).
+  const splitSubExpr = new Map<
+    QuestionRow,
+    { expr: string; perQuestion: boolean }
+  >();
   // A bare "(b)" label seen on its own line, waiting for the next
   // line to supply that sub-question's text.
   let pendingSub: string | null = null;
@@ -1442,9 +3475,53 @@ export function parseTranscriptToRows(
 
   /** Strip a trailing "OR" / "অথবা" from question text. */
   const stripTrailingOr = (text: string): { text: string; isOr: boolean } => {
-    const m = text.match(/^(.*?)\s+(OR|অথবা)$/);
-    if (!m) return { text, isOr: false };
-    return { text: m[1].trim(), isOr: true };
+    // A trailing run of <br> tags is a separator, not content:
+    // "2 <br> $$\text{OR}$$ <br>" (ZOOIDC101T Q2/Q4/Q7/Q9, batch
+    // 36, G27) must reduce to the figure before it, and a <br>
+    // before the marker must not survive into the returned text.
+    const stripBr = (s: string): string =>
+      s.replace(/(?:<br\s*\/?>\s*)+$/i, "").trim();
+    const t = stripBr(text);
+    const m = t.match(/^(.*?)\s+(OR|অথবা)$/);
+    if (m) return { text: stripBr(m[1]), isOr: true };
+    // A trailing "<br>Or<br>" (HISDSC202T, batch 27): the model writes
+    // the OR marker with HTML line breaks, and the pipeline reflow can
+    // join it onto the row's line. The <br> before the marker is
+    // required — a bare trailing lowercase "or" is ordinary text, not
+    // a marker, and must never match.
+    const m2 = t.match(
+      /^(.*?)\s*<br\s*\/?>\s*(OR|অথবা)(?:\s*<br\s*\/?>)*\s*$/i,
+    );
+    if (m2) return { text: stripBr(m2[1]), isOr: true };
+    // A trailing display-maths OR marker ("... [2] $$\text{OR}$$",
+    // MATSEC101T Q12/Q13 — the pipeline reflow joins it onto the
+    // question line). Any case variant counts ("$$\text{Or}$$",
+    // PLSDSC102T Q8/Q10, batch 34, G26). The span must contain ONLY
+    // the OR word: an Or between two structures inside one formula
+    // ("$$\text{[...]} \quad \text{Or} \quad \text{[...]} $$",
+    // CHMDSM151T 1(d)) is content, not a marker, and never matches
+    // — the regex requires $$ immediately followed by the word.
+    // Single-dollar "$\text{Or}$" (ECOSEC201T, under "Answer
+    // either") is deliberately NOT matched here: recognising it
+    // would append " (OR)" to the Answer-either group and break
+    // that counter branch.
+    const m3 = t.match(
+      /^(.*?)\s*\$\$(?:\\text\{)?(OR|অথবা)(?:\})?\$\$\s*$/i,
+    );
+    if (m3) return { text: stripBr(m3[1]), isOr: true };
+    // A trailing OR marker wrapped in HTML tags ("... $3+7=10$
+    // <div align="center">OR</div>", ZOODSM101T Q2/Q5/Q8/Q11;
+    // "... $6+4=10$ <center><b>OR</b></center>", ZOODSC202T Q14 —
+    // batch 36, G27). The span must contain ONLY the OR word
+    // (tags and * markers stripped): anything else is content, not
+    // a marker. The figure before the marker is then readable by
+    // stripTrailingMarks — before this the line ended in "</div>"
+    // and no figure was extracted at all.
+    const m4 = t.match(
+      /^(.*?)\s*(?:<[^>]+>)+\s*(?:\*+)?(OR|অথবা)(?:\*+)?\s*(?:<\/[^>]+>)+\s*$/i,
+    );
+    if (m4) return { text: stripBr(m4[1]), isOr: true };
+    return { text, isOr: false };
   };
 
   /**
@@ -1464,26 +3541,44 @@ export function parseTranscriptToRows(
     // the parts split that total (CHMDSM151T 16(a)=1+2=3,
     // 16(b)=1+1=2), so the guard must not reject their own printed
     // figures. A part with no figure still falls back to groupMarks
-    // below (a section question with no split marks at all,
-    // BOTDSC151T 19(a)/(b)).
+    // below — provisionally: the post-pass fillRemainderSubParts
+    // (batch 29, G18b) derives its remainder from the printed
+    // siblings, or blanks it when no figure is printed anywhere.
+    // Under a numbered instruction the fallback is the part's own
+    // marks (each option is worth the per), so only section-scoped
+    // fallbacks are tracked as such.
     const stripped = stripTrailingMarks(
       orStripped.text,
       sectionScoped ? null : groupGuard,
       group,
     );
     const label = `${qNum}(${letter})`;
-    return {
-      row: {
-        label,
-        question: stripped.text,
-        marks: stripped.marks ?? groupMarks,
-        unit,
-        group,
-        id: `${paperCode}-Q${qNum}${letter}`,
-        keywords: "",
-      },
-      isOr: orStripped.isOr,
+    const row: QuestionRow = {
+      label,
+      question: stripped.text,
+      marks: stripped.marks ?? groupMarks,
+      unit,
+      group,
+      id: `${paperCode}-Q${qNum}${letter}`,
+      keywords: "",
     };
+    if (stripped.marks !== null) {
+      printedSubMarks.add(row);
+    } else if (groupMarks !== null && sectionScoped) {
+      groupMarksFallback.set(row, groupMarks);
+    }
+    if (stripped.split && stripped.splitExpr) {
+      // G45: record whether this sub-row is governed by a
+      // per-question instruction (groupQNum set — ECOIDC101T Q9's
+      // "Answer any one" alternatives). A split on such a row is
+      // that alternative's own composition, never the question's
+      // split across its alternatives.
+      splitSubExpr.set(row, {
+        expr: stripped.splitExpr,
+        perQuestion: groupQNum !== null,
+      });
+    }
+    return { row, isOr: orStripped.isOr };
   };
 
   /** Push a sub-question row, honouring a trailing OR on its text. */
@@ -1528,6 +3623,8 @@ export function parseTranscriptToRows(
     if (last.label.split("(")[0] !== qNum) return false;
     // The pair-either instruction row is not a question to continue.
     if (last.label === qNum && last.group === "Answer either") return false;
+    const prevMarks = last.marks;
+    const prevHasRomanI = /\(i\)/.test(last.question);
     last.question = `${last.question} ${line}`.trim();
     const rederived = stripTrailingMarks(
       last.question,
@@ -1536,6 +3633,29 @@ export function parseTranscriptToRows(
     );
     last.question = rederived.text;
     if (rederived.marks !== null) last.marks = rederived.marks;
+    // Merged roman sub-parts split across a page break (batch 29,
+    // G18c): MATDSC152T Q22(b) — "(b) (i) ... 2" was pushed with the
+    // (i) figure already stripped as the row's marks, so when "(ii)
+    // ... 3" joins, the re-derived marks cover the (ii) part only.
+    // Add the (i) part's printed marks back — but only when the row's
+    // marks were printed (never a groupMarks fallback), the appended
+    // line is a roman continuation, and the re-derive found exactly
+    // the appended line's figure (so the merged sum did not fire and
+    // nothing is double-counted).
+    if (
+      /^\((ii|iii|iv|v|vi)\)\s/.test(line.trim()) &&
+      prevHasRomanI &&
+      prevMarks !== null &&
+      printedSubMarks.has(last) &&
+      probe.marks !== null &&
+      rederived.marks === probe.marks
+    ) {
+      const sum = prevMarks + probe.marks;
+      const guard = sectionScoped ? null : groupGuard;
+      if (sum >= 1 && sum <= 100 && (guard === null || guard === sum)) {
+        last.marks = sum;
+      }
+    }
     return true;
   };
 
@@ -1585,6 +3705,99 @@ export function parseTranscriptToRows(
   };
 
   /**
+   * A bare numbered line ("1.", "2.") inside an open question is a
+   * list item of that question, not a new top-level question (batch
+   * 31, G22: PHIDSC201T Q4(b)'s four numbered things, Q10(c)(i)'s
+   * two arguments — the old code made top-level rows '1'–'4' and
+   * '1b'/'2b', whose IDs collided with Unit-I Q1(b)/Q2(b)). The
+   * line folds into the last row of the current question: its text
+   * joins the row (trailing figure stripped, as usual), and its
+   * printed figures add to the row's marks — the trailing figure
+   * plus bracketed [n] figures after a "?" or "." (Q10(c)(ii)/(iii)
+   * [2] + (iv) 2 = 6 on top of the (i) line's 2+2=4, so Q10(c)
+   * reads 10; Q4(b)'s 3+3+2+2 accumulate to 10). Guards: the number
+   * must already exist (a genuine new question is lastQNum + 1),
+   * the last row must be a sub-row of the current question (a G15
+   * duplicate's twin is a direct row, so it still opens a new
+   * question and gets renamed), a row must have been pushed since
+   * the last heading, and no OR may be pending (the alternative is
+   * a genuine question). A row whose marks came from a groupMarks
+   * fallback never takes folded figures (they would double-count
+   * the fallback). Returns true when folded.
+   */
+  const foldNumberedListItem = (line: string, n: number): boolean => {
+    if (n > lastQNum) return false;
+    if (orPending) return false;
+    if (rows.length <= rowsAtLastHeading) return false;
+    const last = rows[rows.length - 1];
+    if (!last) return false;
+    if (!last.label.includes("(")) return false;
+    if (last.label.split("(")[0] !== qNum) return false;
+    const probe = stripTrailingMarks(line, null, "");
+    let contribution = probe.marks ?? 0;
+    for (const m of line.matchAll(/(?:[?.])\s*\[([\d০-৯]+)\]/g)) {
+      const v = asciiNumber(m[1]);
+      if (v !== null) contribution += v;
+    }
+    last.question = `${last.question} ${probe.text}`.trim();
+    if (contribution > 0) {
+      if (last.marks === null) {
+        last.marks = contribution;
+        foldedListMarks.add(last);
+      } else if (printedSubMarks.has(last) || foldedListMarks.has(last)) {
+        last.marks += contribution;
+      }
+      // else: marks came from a groupMarks fallback — never add.
+    }
+    return true;
+  };
+
+  /**
+   * A figure-less "(ii)"/"(iii)"/... line that continues a roman
+   * sequence the current row already holds joins that row (batch 38,
+   * G33: COMIDC-B Q41 — "(ii)"–"(iv)" folded in, the lone "(v)" line
+   * dropped). Two shapes only, so MCQ option runs stay dropped:
+   *  - sequence: the row's text already contains the previous numeral
+   *    ("(iii)" joins a row holding "(ii)"), and
+   *  - cut-off stem: the row's text is only "[illegible]" (the stem
+   *    and earlier parts were cut off at a page edge) and the next
+   *    non-empty line is the next numeral in sequence.
+   * Appends text only — the line has no figure, so no marks change.
+   * Returns true when joined.
+   */
+  const ROMAN_SEQ = ["i", "ii", "iii", "iv", "v", "vi"] as const;
+  const joinRomanContinuation = (line: string, idx: number): boolean => {
+    const m = line.match(/^\((ii|iii|iv|v|vi)\)\s/);
+    if (!m) return false;
+    const last = rows[rows.length - 1];
+    if (!last) return false;
+    if (last.label.split("(")[0] !== qNum) return false;
+    // The pair-either instruction row is not a question to continue.
+    if (last.label === qNum && last.group === "Answer either") return false;
+    const pos = ROMAN_SEQ.indexOf(m[1] as (typeof ROMAN_SEQ)[number]);
+    if (pos <= 0) return false;
+    const prev = ROMAN_SEQ[pos - 1];
+    if (new RegExp(`\\(${prev}\\)`).test(last.question)) {
+      appendToLast(line);
+      return true;
+    }
+    if (last.question.trim() === "[illegible]") {
+      const nextNum = ROMAN_SEQ[pos + 1];
+      if (!nextNum) return false;
+      for (let j = idx + 1; j < lines.length; j++) {
+        const t = lines[j].trim();
+        if (!t || t.startsWith("<!--")) continue;
+        if (new RegExp(`^\\(${nextNum}\\)\\s`).test(t)) {
+          appendToLast(line);
+          return true;
+        }
+        return false;
+      }
+    }
+    return false;
+  };
+
+  /**
    * The next labeled sub-question after line `from`, or "end" when the
    * current question's sub-part run ends first (a numbered question,
    * instruction, heading, OR line, or bare number). Lines that are
@@ -1616,7 +3829,7 @@ export function parseTranscriptToRows(
         NUMBERED_LINE.test(t) ||
         UNIT_HEADING.test(t) ||
         matchInstruction(t) !== null ||
-        /^(OR|অথবা)$/i.test(t.replace(/^[#*\s]+|[#*\s]+$/g, "")) ||
+        isOrLine(t) ||
         /^[\d০-৯]+\s*[।.]$/.test(t)
       ) {
         return "end";
@@ -1744,11 +3957,24 @@ export function parseTranscriptToRows(
     if (n === null) return;
     if (sectionScoped) return;
     if (groupQNum !== null && n !== groupQNum) {
-      group = "";
-      groupMarks = null;
-      groupGuard = null;
-      groupQNum = null;
-      groupBareUnnumbered = false;
+      if (sectionGroupStash !== null) {
+        // G46: the nested instruction's question is over — the
+        // enclosing section group governs again.
+        group = sectionGroupStash.group;
+        groupMarks = sectionGroupStash.groupMarks;
+        groupGuard = sectionGroupStash.groupGuard;
+        rowsAtGroupStart = sectionGroupStash.rowsAtGroupStart;
+        groupQNum = null;
+        groupBareUnnumbered = false;
+        sectionScoped = true;
+        sectionGroupStash = null;
+      } else {
+        group = "";
+        groupMarks = null;
+        groupGuard = null;
+        groupQNum = null;
+        groupBareUnnumbered = false;
+      }
     } else if (groupBareUnnumbered) {
       groupMarks = null;
       groupGuard = null;
@@ -1769,9 +3995,10 @@ export function parseTranscriptToRows(
       // open one (MTMDSM301 UNIT—II).
       if (
         rows.length === rowsAtGroupStart &&
-        lastHeadingKind === "section"
+        (lastHeadingKind === "section" || sectionInstrPending)
       ) {
         sectionScoped = true;
+        sectionInstrPending = false;
         return;
       }
       group = "";
@@ -1785,7 +4012,7 @@ export function parseTranscriptToRows(
       String(n) === qNum &&
       groupGuard !== null &&
       rows.length === rowsAtGroupStart &&
-      lastHeadingKind === "section"
+      (lastHeadingKind === "section" || sectionInstrPending)
     ) {
       // The first numbered question under an unnumbered per-detail
       // instruction IS the number the instruction opened, and no row
@@ -1796,6 +4023,7 @@ export function parseTranscriptToRows(
       // group would be recognised one number too late — Q1 keeps it
       // and Q2 loses it.
       sectionScoped = true;
+      sectionInstrPending = false;
     }
   };
 
@@ -1810,7 +4038,7 @@ export function parseTranscriptToRows(
   /** A line that starts a new row or ends the current group. */
   const isStructuralLine = (l: string): boolean =>
     UNIT_HEADING.test(l) ||
-    /^(OR|অথবা)$/i.test(l.replace(/^[#*\s]+|[#*\s]+$/g, "")) ||
+    isOrLine(l) ||
     matchInstruction(l) !== null ||
     MARKS_EXPR.test(l) ||
     NUMBERED_SUB_LINE.test(l) ||
@@ -1837,6 +4065,16 @@ export function parseTranscriptToRows(
       id: `${paperCode}-Q${num}`,
       keywords: "",
     };
+    if (stripped.marks !== null && !stripped.split) {
+      wholeQuestionParents.add(num);
+    }
+    if (
+      stripped.marks !== null &&
+      stripped.split &&
+      stripped.splitExpr
+    ) {
+      splitParentExpr.set(row, stripped.splitExpr);
+    }
     if (orStripped.isOr) {
       applyOr(row);
       orPending = true;
@@ -1853,28 +4091,66 @@ export function parseTranscriptToRows(
 
     const unitMatch = line.match(UNIT_HEADING);
     if (unitMatch) {
+      const isSectionHeading =
+        unitMatch[1] === "SECTION" || unitMatch[3] !== undefined;
+      // A section instruction survives the UNIT headings inside its
+      // section (batch 37, G29–G32): the group was set by an
+      // instruction matched under a SECTION heading (or shaped
+      // section-level) and no question row has been pushed since, or
+      // it already governs the section. A new SECTION heading still
+      // ends it, and a consumed instruction never preserves (rows
+      // were pushed, so the group belongs to those questions).
+      const preserveSectionGroup =
+        !isSectionHeading &&
+        (sectionScoped ||
+          (sectionInstrPending && rows.length === rowsAtGroupStart));
       unit =
         unitMatch[2] ??
         unitMatch[3] ??
         (unitMatch[4] ? asciiDigits(unitMatch[4]) : "");
-      lastHeadingKind =
-        unitMatch[1] === "SECTION" || unitMatch[3] !== undefined
-          ? "section"
-          : "unit";
+      lastHeadingKind = isSectionHeading ? "section" : "unit";
+      // A new SECTION heading ends the enclosing section group for
+      // good (G46): a stash from the old section must not leak into
+      // the next one. A UNIT heading keeps it — the section
+      // continues, and the next numbered question restores it.
+      if (isSectionHeading) sectionGroupStash = null;
+      if (preserveSectionGroup) {
+        // The section instruction now governs the section: keep its
+        // group and per-part marks, and remember that a section
+        // instruction was seen (a later per-unit instruction must
+        // not inherit a marks line that belonged to the section).
+        sectionScoped = true;
+        sectionInstrPending = false;
+        groupMarksFromLine = false;
+        seenInstructionSinceHeading = true;
+        orPending = false;
+        pendingSub = null;
+        lastSubLetter = "";
+        crossedPageBreak = false;
+        rowsAtLastHeading = rows.length;
+        continue;
+      }
       // A unit is self-contained: every unit starts with its own
       // instruction, so the previous unit's group never carries over.
+      // G46: keep the nested question's number when a section group
+      // is stashed — the next numbered question is what restores it
+      // (clearGroupForNumber keys on groupQNum), and the heading
+      // must not wipe the trigger. A SECTION heading already nulled
+      // the stash above, so nothing is preserved across sections.
       group = "";
       groupMarks = null;
       groupGuard = null;
-      groupQNum = null;
+      groupQNum = sectionGroupStash !== null ? groupQNum : null;
       groupBareUnnumbered = false;
       groupMarksFromLine = false;
       seenInstructionSinceHeading = false;
       sectionScoped = false;
+      sectionInstrPending = false;
       orPending = false;
       pendingSub = null;
       lastSubLetter = "";
       crossedPageBreak = false;
+      rowsAtLastHeading = rows.length;
       continue;
     }
 
@@ -1887,7 +4163,7 @@ export function parseTranscriptToRows(
     // (PHYDSM101T Q8(c) was wrongly grouped OR, double-counting its
     // 3 marks). The question-level alternative is still recorded by
     // orPending for the row below, and by the counter's or_pairs.
-    if (/^(OR|অথবা)$/i.test(line.replace(/^[#*\s]+|[#*\s]+$/g, ""))) {
+    if (isOrLine(line)) {
       if (rows.length > 0 && !rows[rows.length - 1].label.includes("(")) {
         applyOr(rows[rows.length - 1]);
       }
@@ -1925,6 +4201,13 @@ export function parseTranscriptToRows(
     // not end at the first one.
     const instr = matchInstruction(line);
     if (instr) {
+      // A numbered per-question instruction inside a section
+      // temporarily overrides the section group — remember it
+      // (G46); the stash is settled below, once the instruction's
+      // own level is known. Captured before `group` is overwritten.
+      const prevSectionGroup = sectionScoped
+        ? { group, groupMarks, groupGuard, rowsAtGroupStart }
+        : null;
       if (instr.num !== null) {
         qNum = String(instr.num);
         lastQNum = instr.num;
@@ -1986,6 +4269,30 @@ export function parseTranscriptToRows(
       // or dropped because an earlier instruction owns it).
       groupMarksFromLine = false;
       seenInstructionSinceHeading = true;
+      // A section instruction (under a SECTION heading, or shaped
+      // section-level) is pending until a UNIT heading or the first
+      // question confirms it governs the section (batch 37, G29–G32).
+      // The line is folded first: the transcripts mix both য় byte
+      // forms (U+09DF and YA + nukta), and the shape pattern is
+      // written in the U+09DF form.
+      sectionInstrPending =
+        lastHeadingKind === "section" ||
+        SECTION_LEVEL_SHAPE.test(foldBnYy(line));
+      // Settle the G46 stash: a section-level instruction
+      // supersedes the enclosing one; a numbered per-question
+      // instruction stashes it for the next number outside this
+      // question; an unnumbered instruction governs the numbered
+      // questions that follow it indefinitely, so the enclosing
+      // group does not come back after it. A numbered instruction
+      // with no enclosing group keeps any stash an earlier nested
+      // instruction left (consecutive nested instructions share it).
+      if (sectionInstrPending) {
+        sectionGroupStash = null;
+      } else if (prevSectionGroup !== null && instr.num !== null) {
+        sectionGroupStash = prevSectionGroup;
+      } else if (instr.num === null) {
+        sectionGroupStash = null;
+      }
       if (instr.pairEither) {
         // The pair-either instruction is also a row (the question
         // itself): its printed total, when present, is the question's
@@ -2049,6 +4356,46 @@ export function parseTranscriptToRows(
       continue;
     }
 
+    // A bare marks figure on its own line ("10") directly before an
+    // OR marker is that question's marks (ENGDSC202T Q11/Q14, batch
+    // 26: primary puts the margin figure on its own line, then
+    // "<center>**OR**</center>"). Only when the next meaningful line
+    // is an OR marker — a bare number anywhere else is a page number
+    // or list fragment, never marks — and only into a blank cell of
+    // the current direct question (never over a printed figure, and
+    // never onto a sub-part row, whose marks are its own split).
+    const bareFig = line.match(/^([\d০-৯]+)$/);
+    if (bareFig) {
+      const n = asciiNumber(bareFig[1]);
+      let next: string | null = null;
+      for (let j = i + 1; j < lines.length; j++) {
+        const t = lines[j].trim();
+        if (!t || t.startsWith("<!--")) continue;
+        next = t;
+        break;
+      }
+      if (
+        n !== null &&
+        n >= 1 &&
+        n <= 100 &&
+        next !== null &&
+        isOrLine(next)
+      ) {
+        const last = rows[rows.length - 1];
+        if (
+          last &&
+          last.marks === null &&
+          !last.label.includes("(") &&
+          last.label.split("(")[0] === qNum
+        ) {
+          last.marks = n;
+          // A single bare figure: the whole question's marks (G14).
+          wholeQuestionParents.add(qNum);
+        }
+      }
+      continue;
+    }
+
     // "1. (a) What ...?" — a question number with its first part inline.
     const numberedSub = line.match(NUMBERED_SUB_LINE);
     if (numberedSub) {
@@ -2100,9 +4447,12 @@ export function parseTranscriptToRows(
     // A "(ii)"/"(iii)"/"(iv)"/"(v)"/"(vi)" line never starts a
     // sub-question (those are single letters) — it is a continuation
     // of the previous row's sub-parts, or an MCQ option. Join it when
-    // it ends in marks.
+    // it ends in marks; a figure-less one joins only when it continues
+    // a roman sequence the row already holds (G33, see
+    // joinRomanContinuation).
     if (/^\((ii|iii|iv|v|vi)\)\s+.+$/.test(line)) {
-      joinContinuation(line);
+      if (joinContinuation(line)) continue;
+      joinRomanContinuation(line, i);
       continue;
     }
 
@@ -2114,7 +4464,24 @@ export function parseTranscriptToRows(
       // unless it ends in a marks expression, in which case it is the
       // previous sub-question's sub-parts on their own line.
       if (!acceptsSubLetter(letter)) {
-        joinContinuation(line);
+        if (joinContinuation(line)) continue;
+        // A "(i) ..." line with three or more roman items and no
+        // marks figure is the question's own list, not MCQ options
+        // (batch 31, G22: PHIDSC201T Q4(b)'s four propositions,
+        // Q10(a)'s four set operations — the "(v)" line already
+        // joined with its figure). MCQ option lines carry one or
+        // two items (ENGSEC101T "(i) Stationary (ii) Stationery")
+        // and stay dropped. Appends text only — the line has no
+        // figure, so no marks change.
+        const romanItems = line.match(/\((i|ii|iii|iv|v|vi)\)/g) ?? [];
+        const last = rows[rows.length - 1];
+        if (
+          romanItems.length >= 3 &&
+          last &&
+          last.label.split("(")[0] === qNum
+        ) {
+          last.question = `${last.question} ${line}`.trim();
+        }
         continue;
       }
       pushSubRow(letter, subMatch[3]);
@@ -2144,6 +4511,10 @@ export function parseTranscriptToRows(
 
     const numMatch = line.match(NUMBERED_LINE);
     if (numMatch) {
+      // A numbered list item inside the current question folds into
+      // it (batch 31, G22) — it is not a new top-level question.
+      const n0 = asciiNumber(numMatch[1]);
+      if (n0 !== null && foldNumberedListItem(line, n0)) continue;
       // A direct question with no sub-parts. It also becomes the
       // current question number for any (a)/(b) lines that follow it.
       const n = asciiNumber(numMatch[1]);
@@ -2176,6 +4547,12 @@ export function parseTranscriptToRows(
         id: `${paperCode}-Q${qNum}`,
         keywords: "",
       };
+      if (stripped.marks !== null && !stripped.split) {
+        wholeQuestionParents.add(qNum);
+      }
+      if (stripped.marks !== null && stripped.split && stripped.splitExpr) {
+        splitParentExpr.set(row, stripped.splitExpr);
+      }
       if (orStripped.isOr) {
         applyOr(row);
         orPending = true;
@@ -2183,6 +4560,24 @@ export function parseTranscriptToRows(
       } else {
         pushRow(row);
       }
+      continue;
+    }
+    // A trailing ★★★ on its own line is the paper's end mark — it
+    // belongs to the last question's row (batch 40, G43). The
+    // pipeline reflow sometimes joins it onto the last sub-row's
+    // line (MATIDC101T 45(b), via the ≥3-roman-items append) and
+    // sometimes leaves it alone (raw transcripts: 39 files end in a
+    // lone ★★★ line), where this loop dropped it. Append the text
+    // only, never re-derive the marks: the row's marks are already
+    // set, and a re-derive would overwrite them with whatever figure
+    // precedes the star. Placed before the orphan-line fall-through,
+    // which would otherwise consume the line without appending it.
+    // (The joined form — "... are LD. 3 ★★★" on the row's own line —
+    // is handled in stripTrailingMarks' footerMarks branch, which
+    // keeps the star run while taking the figure as marks.)
+    if (/^★+$/.test(line)) {
+      const last = rows[rows.length - 1];
+      if (last) last.question = `${last.question} ${line}`.trim();
       continue;
     }
     // Everything else (title, header lines, "The figures in the
@@ -2202,6 +4597,23 @@ export function parseTranscriptToRows(
   if (pairTotal !== null) fillPairTotalParts(rows, pairTotal);
   fillEitherParentMarks(rows, pairTotal);
   fillPositionalMarks(rows);
+  fillWholeQuestionParentParts(rows, wholeQuestionParents);
+  fillSplitParentParts(
+    rows,
+    splitParentExpr,
+    groupMarksFallback,
+    wholeQuestionParents,
+  );
+  fillSplitSubRowParts(rows, splitSubExpr, groupMarksFallback);
+  // The rename runs before the OR-partner fill: until the second
+  // "23" becomes "23b", its sub-rows look like they belong to the
+  // first "23", and the hybrid guard would wrongly skip the pair.
+  renameDuplicateNumbers(rows, paperCode);
+  fillOrPartnerMarks(rows);
+  fillRemainderSubParts(rows, groupMarksFallback);
+  fillDirectParentRemainder(rows, groupMarksFallback);
+  fillRemainderMarks(rows, transcript, transcript.split("\n"));
+  fillSectionRemainderMarks(rows, transcript, transcript.split("\n"));
   return rows;
 }
 
@@ -2263,7 +4675,16 @@ export function ensureFrontmatter(
     .map((l) => l.trim())
     .filter(Boolean);
 
-  const titleIdx = lines.findIndex((l) => l.startsWith("# "));
+  const titleIdx = lines.findIndex(
+    (l) =>
+      l.startsWith("# ") &&
+      // A header code line the model put first as a heading
+      // ("# 2024/FYUG/EVEN/SEM/SANDSC-151T/070", SANDSC151T batch
+      // 35, ZOODSC151T/ZOOIDC101T batch 36) is printer-code noise,
+      // not the exam name: skip it and take the real title line
+      // after it ("# FYUG Even Semester Exam., 2024").
+      !/^# \d{4}\/FYUG\//.test(l),
+  );
   const titleLine = titleIdx === -1 ? "" : lines[titleIdx].slice(2).trim();
   if (titleLine && !fm.exam) {
     // "# FYUG Even Semester Exam., 2026" — exam name, then the year.
@@ -2304,14 +4725,36 @@ export function ensureFrontmatter(
 
   if (!fm.title) {
     // The paper title is the parenthetical right after the Paper Code
-    // line, e.g. "( Consumer Behaviour )".
+    // line, e.g. "( Consumer Behaviour )". It may also be text with a
+    // parenthetical ("Ethics—I (Indian)", batch 31, G23), wrapped in
+    // square brackets ("[ Persian Poetry (Some Selections) ]"), or
+    // carry markdown heading markers ("### Ethics—II (Western)").
+    // A bare title with no parenthetical is never taken: the next
+    // line could be "Full Marks: 70" or "The figures in the margin
+    // ...".
     const codeIdx = lines.findIndex((l) =>
       /(?:Paper Code|Course No\.)\s*:/.test(l),
     );
     if (codeIdx !== -1 && lines[codeIdx + 1]) {
-      const m = lines[codeIdx + 1].match(/^\*{0,2}\s*\(\s*(.+?)\s*\)\*{0,2}$/);
-      if (m && !/\d+(?:st|nd|rd|th)\s+Semester/.test(m[1])) {
-        fm.title = m[1].trim();
+      let candidate = lines[codeIdx + 1]
+        .replace(/^#{1,6}\s*/, "")
+        .replace(/^\*{0,2}\s*/, "")
+        .replace(/\*{0,2}\s*$/, "")
+        .trim();
+      const bracketed = candidate.match(/^\[\s*(.+?)\s*\]$/);
+      if (bracketed) candidate = bracketed[1].trim();
+      const whole = candidate.match(/^\(\s*(.+?)\s*\)$/);
+      if (whole) {
+        if (!/\d+(?:st|nd|rd|th)\s+Semester/.test(whole[1])) {
+          fm.title = whole[1].trim();
+        }
+      } else if (
+        /\(.+\)/.test(candidate) &&
+        !/\d+(?:st|nd|rd|th)\s+Semester/.test(candidate) &&
+        !/^(Full Marks|Pass Marks|Time)\s*:/.test(candidate) &&
+        !/^(UNIT|SECTION)\b/.test(candidate)
+      ) {
+        fm.title = candidate;
       }
     }
   }
