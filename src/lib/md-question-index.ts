@@ -1191,6 +1191,47 @@ function stripTrailingMarks(
       };
     }
   }
+  // A parenthesised split expression followed by its total after a
+  // colon — "... (4+2+2=8) : 8" (ZOOIDC101T Q43, batch 42; the
+  // pipeline reflow writes a trailing "$a+b+c=T$" as "(a+b+c=T) :
+  // T", batch 41 PHYDSM101T Q21(a) / PHYIDC101T Q38/Q39 same
+  // class). Only the dangling " : N" is stripped: the "(expr)"
+  // stays in the text — the paper prints it, and the G14 guard
+  // reads it (COMDSM-101T Q19 "(3+4+3=10) : 10" must keep its
+  // parts blank in the no-section case, batch 27). split:false:
+  // the ": N" is a single figure, so the parent stays a
+  // whole-question parent (stripping the whole tail and marking it
+  // split would let the section-rule blanking null the
+  // section-fallback subs — COMDSM-101T Q19(a)/(b)/(c) read 10).
+  // The ": N" must agree with the split total, or the branch does
+  // not fire and the bare-number branch below strips just the N,
+  // as before.
+  const splitParenColon = text.match(
+    new RegExp(
+      String.raw`^(.*?)\s*\((${MARKS_NUM}(?:\s*${MARKS_OP}\s*${MARKS_NUM})+)\s*(?:=\s*([\d০-৯]+)?)?\)\s*:\s*([\d০-৯]+)\s*$`,
+    ),
+  );
+  if (splitParenColon) {
+    const derived = marksTotalFromParts(
+      splitParenColon[2],
+      splitParenColon[3],
+    );
+    const tailN = asciiNumber(splitParenColon[4]);
+    if (
+      derived !== null &&
+      tailN !== null &&
+      derived === tailN &&
+      derived >= 1 &&
+      derived <= 100 &&
+      (groupGuard === null || groupGuard === derived)
+    ) {
+      return {
+        text: text.replace(/\s*:\s*[\d০-৯]+\s*$/, "").trim(),
+        marks: derived,
+        split: false,
+      };
+    }
+  }
   // A bracketed split expression at the end is the row's marks —
   // "... [3+4=7]" (PHYDSC101T Q15). Same rule as the parenthesised
   // split above.
@@ -1394,6 +1435,35 @@ function stripTrailingMarks(
         text: `${footerMarks[1].trim()} ${footerMarks[3]}`,
         marks: n,
         split: false,
+      };
+    }
+  }
+  // A split expression before the end mark — "... 5+5=10 ★★★"
+  // (ZOODSC102T Q25, batch 42, G46): the bare-expression branch
+  // above only fires at the very end of the text, and the
+  // footerMarks branch only handles a bare number (its figure must
+  // follow whitespace — "5+5=10" has "=" before the "10"), so the
+  // split fell through and the row read blank. Same shape as
+  // footerMarks: the figure is stripped, the star run stays in the
+  // row text.
+  const footerSplit = text.match(
+    new RegExp(
+      String.raw`^(.*?)\s+\**(${MARKS_TERM}(?:\s*${MARKS_OP}\s*${MARKS_TERM})+)\s*(?:=\s*([\d০-৯]+)?)?\**\s+(★+).*$`,
+    ),
+  );
+  if (footerSplit) {
+    const derived = marksTotalFromParts(footerSplit[2], footerSplit[3]);
+    if (
+      derived !== null &&
+      derived >= 1 &&
+      derived <= 100 &&
+      (groupGuard === null || groupGuard === derived)
+    ) {
+      return {
+        text: `${footerSplit[1].trim()} ${footerSplit[4]}`,
+        marks: derived,
+        split: true,
+        splitExpr: footerSplit[2],
       };
     }
   }
@@ -1734,9 +1804,15 @@ function anyCountProductPerPart(
   expr: string,
   subCount: number,
 ): number | null {
-  const m = parent.question
-    .replace(/^[\s$*#]+/, "")
-    .match(/^(?:Answer|Define|Translate)\s+any\s+\**(\w+)\**/i);
+  // G44: "Write short notes on any two of the following"
+  // (ZOODSC102T Q21) states the same any-N rule without starting
+  // with Answer/Define/Translate — the "any N of the following"
+  // phrase is the marker. The anchored verb form is tried first;
+  // the phrase form matches anywhere in the text.
+  const cleaned = parent.question.replace(/^[\s$*#]+/, "");
+  const m =
+    cleaned.match(/^(?:Answer|Define|Translate)\s+any\s+\**(\w+)\**/i) ??
+    parent.question.match(/\bany\s+\**(\w+)\**\s+of\s+the\s+following/i);
   if (!m) return null;
   const n = wordToNumber(m[1]);
   if (n === null || subCount <= n) return null;
@@ -1855,6 +1931,96 @@ function fillSplitParentParts(
     for (const sub of subs) {
       if (groupMarksFallback.has(sub)) sub.marks = null;
     }
+  }
+}
+
+// Split a trailing split expression on a question's LAST sub-row
+// across the question's sub-rows (batch 42, G45): PLSIDC101T Q43
+// has no parent row — "(a) State the characteristics of
+// sovereignty. / (b) Define external sovereignty ... 5+3=8" —
+// so the "5+3" is the QUESTION's split ((a)=5, (b)=3), not (b)'s
+// own marks. The terms assign in order when they match the
+// sub-row count. Guards: the question has no direct parent row,
+// its sub-rows start at (a), every other sub-row is blank or
+// fallback-only (a printed figure on a sibling means the last
+// line's sum is that sub-row's own composition — PHYDSC102T Q15,
+// PHYDSM201T Q8), the sub-rows are not alternatives under a
+// per-question instruction (ECOIDC101T Q9), and — when any sub-row
+// took the fallback — the split total equals that fallback value
+// (the section per-question value), so a last sub-row's own
+// composition ("(b) ... 3+2=5" where (b) alone is worth 5) is
+// never mistaken for the question's split. Assigned rows leave the
+// fallback map: their values are derived from the printed split
+// now, not from the section rule.
+function fillSplitSubRowParts(
+  rows: QuestionRow[],
+  splitSubExpr: Map<QuestionRow, { expr: string; perQuestion: boolean }>,
+  groupMarksFallback: Map<QuestionRow, number>,
+): void {
+  const byQ = new Map<string, QuestionRow[]>();
+  for (const r of rows) {
+    if (!r.label.includes("(")) continue;
+    const q = r.label.split("(")[0];
+    const arr = byQ.get(q) ?? [];
+    arr.push(r);
+    byQ.set(q, arr);
+  }
+  const parentQs = new Set(
+    rows.filter((r) => !r.label.includes("(")).map((r) => r.label),
+  );
+  for (const [q, subs] of byQ) {
+    if (parentQs.has(q)) continue;
+    if (!subs.some((r) => subLetter(r.label) === "a")) continue;
+    const last = subs[subs.length - 1];
+    const recorded = splitSubExpr.get(last);
+    if (recorded === undefined) continue;
+    // A split on a sub-row governed by a per-question instruction
+    // is that alternative's own composition, never the question's
+    // split across its alternatives (ECOIDC101T Q9: "Answer any
+    // one" — (a)/(b) are alternatives each worth 8, and "$4+4=8$"
+    // on the (b) line is (b)'s own two halves).
+    if (recorded.perQuestion) continue;
+    const expr = recorded.expr;
+    const terms = splitTermsForParts(expr, subs.length);
+    if (terms === null) continue;
+    const total = marksTotalFromParts(expr, undefined);
+    // Every other sub-row must be blank or fallback-only: a PRINTED
+    // figure on a sibling means the last line's sum is that
+    // sub-row's own composition, not the question's split
+    // (PHYDSC102T Q15: (a) prints 4 and (b) prints "4+2=6" — (b)
+    // is worth 6, not 2; PHYDSM201T Q8 the same with "$1+3=4$" on
+    // (a)). Agreement with the term does not save it — (a)'s 4
+    // agrees with the first term yet the split reading is still
+    // wrong there. A fallback value (in groupMarksFallback) is
+    // provisional and is overwritten, as before.
+    if (
+      subs.some(
+        (r) =>
+          r !== last &&
+          r.marks !== null &&
+          !groupMarksFallback.has(r),
+      )
+    ) {
+      continue;
+    }
+    // When the siblings took the section fallback, the split total
+    // must be that value — otherwise the expression is the last
+    // sub-row's own composition, not the question's split.
+    const fbVals = subs
+      .filter((r) => groupMarksFallback.has(r))
+      .map((r) => groupMarksFallback.get(r) as number);
+    if (
+      fbVals.length > 0 &&
+      (total === null ||
+        fbVals.some((v) => v !== fbVals[0]) ||
+        fbVals[0] !== total)
+    ) {
+      continue;
+    }
+    subs.forEach((r, i) => {
+      r.marks = terms[i];
+      groupMarksFallback.delete(r);
+    });
   }
 }
 
@@ -2323,9 +2489,11 @@ function splitTotalOnQuestionLine(
         // answer, not the sub-row count (10 options, 7 answered);
         // the per-part value is the other factor, and the direct
         // figure is the question total. The options must exceed N.
-        const anyM = ln.match(
-          /(?:Answer|Define|Translate)\s+any\s+\**(\w+)\**/i,
-        );
+        // G44: "Write short notes on any two of the following"
+        // (ZOODSC102T Q21) — same rule, no leading verb.
+        const anyM =
+          ln.match(/(?:Answer|Define|Translate)\s+any\s+\**(\w+)\**/i) ??
+          ln.match(/\bany\s+\**(\w+)\**\s+of\s+the\s+following/i);
         const n = anyM ? wordToNumber(anyM[1]) : null;
         if (n !== null && subMarks.length > n) {
           if (b === n) perPart = a;
@@ -2444,6 +2612,59 @@ export function countedTotalExcludingRemainder(
       bySection.set(key, arr);
     }
   }
+  // G46: a question whose rows all carry a nested per-question
+  // "Answer any N" instruction (ZOODSC102T Q17, inside Section B's
+  // "Answer any 5" pool) is one of the pool's candidates — the
+  // pool's N x T already counts any N of them, so the per-question
+  // loop below must not count it a second time. Claimed only when
+  // the pool fires, only inside the pool's question-number span (a
+  // nested question outside the span belongs to another part of the
+  // section and keeps its own count), and only when the question
+  // has no direct row (a direct row would have put it in the pool
+  // itself). The claim assumes the nested value does not exceed the
+  // pool's per-question value — true wherever a nested instruction
+  // splits the section standard (2 x 5 = 10 inside a 10/question
+  // section); a larger nested value would need its own candidate
+  // accounting, which no staged paper shows.
+  const claimNestedInSpan = (
+    poolKey: string,
+    poolQnums: Map<string, QuestionRow[]>,
+  ): void => {
+    const poolScope = poolKey.split("|")[1] ?? "";
+    const nums = [...poolQnums.keys()]
+      .map((q) => parseInt(q, 10))
+      .filter((v) => !Number.isNaN(v));
+    if (nums.length === 0) return;
+    const lo = Math.min(...nums);
+    const hi = Math.max(...nums);
+    for (const [qnum, qrs] of byQnum) {
+      if (sectionQnums.has(qnum) || poolQnums.has(qnum)) continue;
+      const v = parseInt(qnum, 10);
+      if (Number.isNaN(v) || v < lo || v > hi) continue;
+      if (qrs.some((r) => r.label === qnum)) continue;
+      if (!qrs.every((r) => (r.group || "").startsWith("Answer any ")))
+        continue;
+      const qsec = sections.get(qnum);
+      const scope =
+        qsec !== undefined && qsec !== "" ? qsec : qrs[0]?.unit || "";
+      if (scope !== poolScope) continue;
+      // The nested question's own instruction must be a one-off in
+      // this scope: if several questions share its (group, scope)
+      // — MANDSC202T's "Answer any 1" for Q6/Q8/Q10 in unit III —
+      // they are independent per-question choices counted one by
+      // one below, and stealing one into this pool breaks that
+      // accounting (70/70 read 50/70). A singleton (ZOODSC102T
+      // Q17, the only "Answer any 2" in Section B) is a genuine
+      // candidate of the firing pool.
+      const ownGroup = qrs[0]?.group || "";
+      const ownPool = bySection.get(`${ownGroup}|${scope}`) ?? [];
+      const ownQs = new Set(
+        ownPool.map((r) => r.label.split("(")[0]),
+      );
+      if (ownQs.size !== 1) continue;
+      sectionQnums.add(qnum);
+    }
+  };
   for (const [key, rs] of bySection) {
     const g = key.split("|")[0];
     const nOf = (fallback: number): number => {
@@ -2502,6 +2723,7 @@ export function countedTotalExcludingRemainder(
       // (group, unit) set is in the section's answer-any pool, so
       // cover all of them.
       for (const q of byNum.keys()) sectionQnums.add(q);
+      claimNestedInSpan(key, byNum);
       continue;
     }
     // Batch-30 (G19): the sub-part branch used to be skipped whenever
@@ -2543,6 +2765,7 @@ export function countedTotalExcludingRemainder(
     ) {
       sectionTotal += n * strictVals[0];
       for (const q of byNum.keys()) sectionQnums.add(q);
+      claimNestedInSpan(key, byNum);
       continue;
     }
     // Section-level test for the largest-N fallback below (not for
@@ -2579,6 +2802,7 @@ export function countedTotalExcludingRemainder(
     if (lowerVals.length >= n) {
       sectionTotal += lowerVals.slice(0, n).reduce((a, b) => a + b, 0);
       for (const q of byNum.keys()) sectionQnums.add(q);
+      claimNestedInSpan(key, byNum);
       continue;
     }
   }
@@ -3050,6 +3274,25 @@ export function parseTranscriptToRows(
   // instruction branch, cleared by a non-section instruction, a
   // SECTION heading, or once the section scope is confirmed.
   let sectionInstrPending = false;
+  // The enclosing section's group, stashed when a numbered
+  // per-question instruction temporarily overrides it (batch 42,
+  // G46): ZOODSC102T Section B ("Answer any 5") contains Q17,
+  // whose own line is an instruction ("Answer any 2 of the
+  // following questions ..."), so the section group was replaced
+  // by "Answer any 2" and the next UNIT heading cleared it
+  // entirely — Q18–Q25 lost the group and the counter fell back
+  // per question (150/70). The stash restores the section group
+  // at the next numbered question outside the instruction. The
+  // figure-on-next-line in that paper's transcript is NOT the
+  // cause: the formatter joins a lone marks line onto the line
+  // above, and moving the figure onto the instruction line still
+  // reads 150 (verified by experiment) — the clobber is.
+  let sectionGroupStash: {
+    group: string;
+    groupMarks: number | null;
+    groupGuard: number | null;
+    rowsAtGroupStart: number;
+  } | null = null;
   // What the most recent heading was: "section" for বিভাগ/SECTION
   // headings, "unit" for UNIT/গুচ্ছ, null before any heading. Only a
   // section heading can open a section instruction (see below).
@@ -3087,6 +3330,16 @@ export function parseTranscriptToRows(
   // when a roman continuation joins, but never a fallback value.
   const groupMarksFallback = new Map<QuestionRow, number>();
   const printedSubMarks = new Set<QuestionRow>();
+  // Split expressions carried by SUB-rows (batch 42, G45):
+  // PLSIDC101T Q43 has no parent row — "(a) ... / (b) ... 5+3=8"
+  // — so the "5+3" lives on the last sub-row, not on a parent.
+  // The G45 post-pass splits it across the question's sub-rows.
+  // Keyed by row object (labels change under the duplicate-number
+  // rename, objects do not).
+  const splitSubExpr = new Map<
+    QuestionRow,
+    { expr: string; perQuestion: boolean }
+  >();
   // A bare "(b)" label seen on its own line, waiting for the next
   // line to supply that sub-question's text.
   let pendingSub: string | null = null;
@@ -3227,6 +3480,17 @@ export function parseTranscriptToRows(
       printedSubMarks.add(row);
     } else if (groupMarks !== null && sectionScoped) {
       groupMarksFallback.set(row, groupMarks);
+    }
+    if (stripped.split && stripped.splitExpr) {
+      // G45: record whether this sub-row is governed by a
+      // per-question instruction (groupQNum set — ECOIDC101T Q9's
+      // "Answer any one" alternatives). A split on such a row is
+      // that alternative's own composition, never the question's
+      // split across its alternatives.
+      splitSubExpr.set(row, {
+        expr: stripped.splitExpr,
+        perQuestion: groupQNum !== null,
+      });
     }
     return { row, isOr: orStripped.isOr };
   };
@@ -3607,11 +3871,24 @@ export function parseTranscriptToRows(
     if (n === null) return;
     if (sectionScoped) return;
     if (groupQNum !== null && n !== groupQNum) {
-      group = "";
-      groupMarks = null;
-      groupGuard = null;
-      groupQNum = null;
-      groupBareUnnumbered = false;
+      if (sectionGroupStash !== null) {
+        // G46: the nested instruction's question is over — the
+        // enclosing section group governs again.
+        group = sectionGroupStash.group;
+        groupMarks = sectionGroupStash.groupMarks;
+        groupGuard = sectionGroupStash.groupGuard;
+        rowsAtGroupStart = sectionGroupStash.rowsAtGroupStart;
+        groupQNum = null;
+        groupBareUnnumbered = false;
+        sectionScoped = true;
+        sectionGroupStash = null;
+      } else {
+        group = "";
+        groupMarks = null;
+        groupGuard = null;
+        groupQNum = null;
+        groupBareUnnumbered = false;
+      }
     } else if (groupBareUnnumbered) {
       groupMarks = null;
       groupGuard = null;
@@ -3746,6 +4023,11 @@ export function parseTranscriptToRows(
         unitMatch[3] ??
         (unitMatch[4] ? asciiDigits(unitMatch[4]) : "");
       lastHeadingKind = isSectionHeading ? "section" : "unit";
+      // A new SECTION heading ends the enclosing section group for
+      // good (G46): a stash from the old section must not leak into
+      // the next one. A UNIT heading keeps it — the section
+      // continues, and the next numbered question restores it.
+      if (isSectionHeading) sectionGroupStash = null;
       if (preserveSectionGroup) {
         // The section instruction now governs the section: keep its
         // group and per-part marks, and remember that a section
@@ -3764,10 +4046,15 @@ export function parseTranscriptToRows(
       }
       // A unit is self-contained: every unit starts with its own
       // instruction, so the previous unit's group never carries over.
+      // G46: keep the nested question's number when a section group
+      // is stashed — the next numbered question is what restores it
+      // (clearGroupForNumber keys on groupQNum), and the heading
+      // must not wipe the trigger. A SECTION heading already nulled
+      // the stash above, so nothing is preserved across sections.
       group = "";
       groupMarks = null;
       groupGuard = null;
-      groupQNum = null;
+      groupQNum = sectionGroupStash !== null ? groupQNum : null;
       groupBareUnnumbered = false;
       groupMarksFromLine = false;
       seenInstructionSinceHeading = false;
@@ -3828,6 +4115,13 @@ export function parseTranscriptToRows(
     // not end at the first one.
     const instr = matchInstruction(line);
     if (instr) {
+      // A numbered per-question instruction inside a section
+      // temporarily overrides the section group — remember it
+      // (G46); the stash is settled below, once the instruction's
+      // own level is known. Captured before `group` is overwritten.
+      const prevSectionGroup = sectionScoped
+        ? { group, groupMarks, groupGuard, rowsAtGroupStart }
+        : null;
       if (instr.num !== null) {
         qNum = String(instr.num);
         lastQNum = instr.num;
@@ -3898,6 +4192,21 @@ export function parseTranscriptToRows(
       sectionInstrPending =
         lastHeadingKind === "section" ||
         SECTION_LEVEL_SHAPE.test(foldBnYy(line));
+      // Settle the G46 stash: a section-level instruction
+      // supersedes the enclosing one; a numbered per-question
+      // instruction stashes it for the next number outside this
+      // question; an unnumbered instruction governs the numbered
+      // questions that follow it indefinitely, so the enclosing
+      // group does not come back after it. A numbered instruction
+      // with no enclosing group keeps any stash an earlier nested
+      // instruction left (consecutive nested instructions share it).
+      if (sectionInstrPending) {
+        sectionGroupStash = null;
+      } else if (prevSectionGroup !== null && instr.num !== null) {
+        sectionGroupStash = prevSectionGroup;
+      } else if (instr.num === null) {
+        sectionGroupStash = null;
+      }
       if (instr.pairEither) {
         // The pair-either instruction is also a row (the question
         // itself): its printed total, when present, is the question's
@@ -4209,6 +4518,7 @@ export function parseTranscriptToRows(
     groupMarksFallback,
     wholeQuestionParents,
   );
+  fillSplitSubRowParts(rows, splitSubExpr, groupMarksFallback);
   // The rename runs before the OR-partner fill: until the second
   // "23" becomes "23b", its sub-rows look like they belong to the
   // first "23", and the hybrid guard would wrongly skip the pair.

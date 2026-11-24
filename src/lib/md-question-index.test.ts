@@ -4562,3 +4562,463 @@ UNIT—I
     ]);
   });
 });
+
+describe("batch 42 parser fix — section-group restore, 'any N of the following', sub-row splits, parenthesised split rendering (G44–G46)", () => {
+  test("G46: a nested numbered instruction does not kill the enclosing section group — ZOODSC102T Section B shape", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+Full Marks : 70
+
+SECTION—A
+
+Answer ten questions, selecting any two from each Unit : $2 \times 10 = 20$
+
+UNIT—I
+
+1. Define systematics. 2
+
+2. What is binomial nomenclature? 2
+
+UNIT—II
+
+3. Define alpha taxonomy. 2
+
+SECTION—B
+
+Answer five questions, selecting one from each Unit : 10×5=50
+
+UNIT—I
+
+16. Who is the Father of modern taxonomy? 1+2+3+4=10
+
+17. Answer any 2 of the following questions (Write short notes on the following) : $5\times2=10$
+
+(a) Salient features of binomial nomenclature
+
+(b) Newer trends in systematics
+
+(c) DNA barcoding
+
+UNIT—II
+
+18. Define notochord. 2+1+7=10
+
+19. Why are urochordates also called tunicates? 1+4+5=10
+
+UNIT—III
+
+20. Mention the distinguishing characters of Cyclostomata. 4+6=10
+
+21. Write short notes on any two of the following: 5×2=10
+
+(a) Difference between chondrichthyes and osteichthyes
+
+(b) Migration in fishes
+
+(c) Parental care in fishes
+
+UNIT—IV
+
+22. Mention the general characteristics of Amphibia. 4+3+3=10
+
+UNIT—V
+
+25. Mention the general characteristics of mammal. 5+5=10 ★★★
+`;
+    const rows = parseTranscriptToRows(md, "ZOODSC102T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1", 2, "Answer any 10"],
+      ["2", 2, "Answer any 10"],
+      ["3", 2, "Answer any 10"],
+      ["16", 10, "Answer any 5"],
+      // Q17's own instruction governs its parts; the section group
+      // comes back for the questions after it.
+      ["17(a)", 5, "Answer any 2"],
+      ["17(b)", 5, "Answer any 2"],
+      ["17(c)", 5, "Answer any 2"],
+      ["18", 10, "Answer any 5"],
+      ["19", 10, "Answer any 5"],
+      ["20", 10, "Answer any 5"],
+      ["21", 10, "Answer any 5"],
+      // G44: "on any two of the following" fills like "(any two)".
+      ["21(a)", 5, "Answer any 5"],
+      ["21(b)", 5, "Answer any 5"],
+      ["21(c)", 5, "Answer any 5"],
+      ["22", 10, "Answer any 5"],
+      // The split before the end mark extracts; the stars stay.
+      ["25", 10, "Answer any 5"],
+    ]);
+    expect(rows[rows.length - 1].question).toBe(
+      "Mention the general characteristics of mammal. ★★★",
+    );
+    // Section A 10 x 2, Section B 5 x 10 — not 150.
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(70);
+  });
+
+  test("G46: the figure may sit on the line after the section instruction — ZOODSC102T raw transcript shape", () => {
+    // On the printed page "10×5=50" is right-aligned on the SAME
+    // line as the instruction; the transcript line-breaks it onto
+    // the next line. The group must attach either way (the lone
+    // marks line joins the line above in the formatter, and the
+    // instruction branch reads the figure from it).
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+Full Marks : 70
+
+SECTION—B
+
+Answer five questions, selecting one from each Unit :
+10×5=50
+
+UNIT—I
+
+16. Who is the Father of modern taxonomy? 1+2+3+4=10
+
+17. Answer any 2 of the following questions (Write short notes on the following) : $5\times2=10$
+
+(a) Salient features of binomial nomenclature
+
+(b) Newer trends in systematics
+
+(c) DNA barcoding
+
+UNIT—II
+
+18. Define notochord. 2+1+7=10
+
+19. Why are urochordates also called tunicates? 1+4+5=10
+`;
+    const rows = parseTranscriptToRows(md, "ZOODSC102T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["16", 10, "Answer any 5"],
+      ["17(a)", 5, "Answer any 2"],
+      ["17(b)", 5, "Answer any 2"],
+      ["17(c)", 5, "Answer any 2"],
+      ["18", 10, "Answer any 5"],
+      ["19", 10, "Answer any 5"],
+    ]);
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(50);
+  });
+
+  test("G46: two consecutive nested instructions share the stashed section group", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+Full Marks : 70
+
+SECTION—B
+
+Answer five questions, selecting one from each Unit : $10 \times 5 = 50$
+
+UNIT—I
+
+16. First direct question? 10
+
+17. Answer any 2 of the following questions : $5\times2=10$
+
+(a) First option
+
+(b) Second option
+
+(c) Third option
+
+18. Answer any 3 of the following questions : $2\times3=6$
+
+(a) First option
+
+(b) Second option
+
+(c) Third option
+
+(d) Fourth option
+
+UNIT—II
+
+19. Second direct question? 10
+
+20. Third direct question? 10
+`;
+    const rows = parseTranscriptToRows(md, "ZOODSC102T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["16", 10, "Answer any 5"],
+      ["17(a)", 5, "Answer any 2"],
+      ["17(b)", 5, "Answer any 2"],
+      ["17(c)", 5, "Answer any 2"],
+      ["18(a)", 2, "Answer any 3"],
+      ["18(b)", 2, "Answer any 3"],
+      ["18(c)", 2, "Answer any 3"],
+      ["18(d)", 2, "Answer any 3"],
+      ["19", 10, "Answer any 5"],
+      ["20", 10, "Answer any 5"],
+    ]);
+  });
+
+  test("G46: a new SECTION heading ends the stashed group — no leak into the next section", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+Full Marks : 70
+
+SECTION—B
+
+Answer five questions, selecting one from each Unit : $10 \times 5 = 50$
+
+UNIT—I
+
+16. First direct question? 10
+
+17. Answer any 2 of the following questions : $5\times2=10$
+
+(a) First option
+
+(b) Second option
+
+SECTION—C
+
+Answer five questions, selecting one from each Unit : $8 \times 5 = 40$
+
+UNIT—I
+
+18. First direct question? 8
+
+19. Second direct question? 8
+`;
+    const rows = parseTranscriptToRows(md, "ZOODSC102T");
+    // Q17's parts keep "Answer any 2"; Section C's own instruction
+    // governs Q18/Q19 — the Section B stash must not leak across.
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["16", 10, "Answer any 5"],
+      ["17(a)", 5, "Answer any 2"],
+      ["17(b)", 5, "Answer any 2"],
+      ["18", 8, "Answer any 5"],
+      ["19", 8, "Answer any 5"],
+    ]);
+  });
+
+  test("G45: a split on the last sub-row splits across the question's sub-rows — PLSIDC101T Q43 shape", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+Full Marks : 70
+
+SECTION—C
+
+Answer five questions, selecting one from each Unit : 8x5
+
+UNIT—IV
+
+36. First direct question? 8
+
+37. Second direct question? 8
+
+43. (a) State the characteristics of sovereignty.
+
+(b) Define external sovereignty in the context of international relations. 5+3=8
+
+44. What do you mean by Federal Government? 3+5=8
+`;
+    const rows = parseTranscriptToRows(md, "PLSIDC101T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["36", 8],
+      ["37", 8],
+      ["43(a)", 5],
+      ["43(b)", 3],
+      ["44", 8],
+    ]);
+  });
+
+  test("G45: no split when the split total disagrees with the section fallback — the last sub-row's own composition", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+Full Marks : 70
+
+SECTION—C
+
+Answer five questions, selecting one from each Unit : $10 \times 5 = 50$
+
+UNIT—IV
+
+36. First direct question? 10
+
+43. (a) First part, no printed figure.
+
+(b) Second part, worth eight on its own. 5+3=8
+
+44. Second direct question? 10
+`;
+    const rows = parseTranscriptToRows(md, "PLSIDC101T");
+    // The "5+3=8" is (b)'s own composition (8), not the question's
+    // split: the section per-question value is 10, so the split does
+    // NOT fire — (b) keeps 8 and (a) does NOT become 5. (a) takes
+    // the remainder instead (10 − 8 = 2, the established G40 rule
+    // for a single blank sub-row with a printed sibling).
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["36", 10],
+      ["43(a)", 2],
+      ["43(b)", 8],
+      ["44", 10],
+    ]);
+  });
+
+  test("G45: no split when a sibling prints a figure disagreeing with its term", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+Full Marks : 70
+
+SECTION—C
+
+Answer five questions, selecting one from each Unit : 8x5
+
+UNIT—IV
+
+36. First direct question? 8
+
+43. (a) First part, printed six. 6
+
+(b) Second part. 5+3=8
+
+44. Second direct question? 8
+`;
+    const rows = parseTranscriptToRows(md, "PLSIDC101T");
+    // (a)'s printed 6 disagrees with the split term 5: a conflict
+    // is evidence the split does not map to the parts, not a typo
+    // to override — both stay as printed.
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["36", 8],
+      ["43(a)", 6],
+      ["43(b)", 8],
+      ["44", 8],
+    ]);
+  });
+
+  test("cosmetic: a parenthesised split followed by its total after a colon strips cleanly — ZOOIDC101T Q43 shape", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+43. Discuss the composition of human blood with suitable illustrations. Add a note on the important functions of blood. (4+2+2=8) : 8
+`;
+    const rows = parseTranscriptToRows(md, "ZOOIDC101T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([["43", 8]]);
+    // Only the dangling " : 8" is stripped — the "(4+2+2=8)" stays:
+    // the paper prints it, and the G14 guard reads it (COMDSM-101T
+    // Q19 must keep its parts blank). A full strip would also let
+    // the section-rule blanking null Q19's fallback subs.
+    expect(rows[0].question).toBe(
+      "Discuss the composition of human blood with suitable illustrations. Add a note on the important functions of blood. (4+2+2=8)",
+    );
+  });
+
+  test("cosmetic: a disagreeing ': N' after a parenthesised split does not strip the split", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+43. Discuss the composition of human blood. (4+2+2=8) : 7
+`;
+    const rows = parseTranscriptToRows(md, "ZOOIDC101T");
+    // The tail disagrees with the split total, so the new branch
+    // does not fire: the bare-number branch strips just the 7, as
+    // before, and the split stays in the text.
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([["43", 7]]);
+    expect(rows[0].question).toContain("(4+2+2=8) :");
+  });
+
+  test("G46: a split expression before the end mark extracts — ZOODSC102T Q25 in isolation", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+25. Mention the general characteristics of mammal. Classify mammal up to order with suitable examples. 5+5=10 ★★★
+`;
+    const rows = parseTranscriptToRows(md, "ZOODSC102T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([["25", 10]]);
+    expect(rows[0].question).toBe(
+      "Mention the general characteristics of mammal. Classify mammal up to order with suitable examples. ★★★",
+    );
+  });
+
+  test("G45: no split under a per-question instruction — ECOIDC101T Q9 shape", () => {
+    // "9. Answer any one of the following questions :" makes (a)
+    // and (b) alternatives, each worth 8; the "$4+4=8$" on the (b)
+    // line is (b)'s own two halves, not the question's split
+    // across (a)/(b). (a) stays blank, (b) keeps 8.
+    const md = String.raw`# FYUG Odd Semester Exam., 2025
+
+SECTION—B
+
+Answer five questions, selecting one from each Unit : $10 \times 5 = 50$
+
+UNIT—III
+
+9. Answer any one of the following questions :
+
+(a) Why is the long-run average cost (LAC) curve called the 'envelope curve'? Explain with diagram.
+
+(b) Why can two iso-quant curves not intersect each other? In this context discuss producer's equilibrium with the help of isoquants and isocost curves. $4+4=8$
+`;
+    const rows = parseTranscriptToRows(md, "ECOIDC101T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["9(a)", null],
+      ["9(b)", 8],
+    ]);
+  });
+
+  test("G45: no split when a sibling prints its own figure — PHYDSC102T Q15 shape", () => {
+    // (a) prints 4 and (b) prints "4+2=6": (b) is worth 6 on its
+    // own (its two halves), so the question is 4+6=10 — the sum is
+    // (b)'s own composition, not a 4/2 split of the question.
+    const md = String.raw`# FYUG Odd Semester Exam., 2024
+
+15. (a) Obtain the expression of relativistic addition of velocities. 4
+
+(b) Obtain Einstein's mass-energy relation. Show that the rest mass of photon is zero. 4+2=6
+`;
+    const rows = parseTranscriptToRows(md, "PHYDSC102T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["15(a)", 4],
+      ["15(b)", 6],
+    ]);
+  });
+
+  test("G46: a firing pool must not claim questions governed by another instruction — MANDSC202T shape", () => {
+    // One unit, alternating per-question instructions: the
+    // "Answer any 2" questions form a phantom pool that fires the
+    // uniform branch, but the interleaved "Answer any 1" questions
+    // are independent choices counted one by one below — they must
+    // not be claimed into the pool (70/70 read 50/70 before the
+    // singleton guard).
+    const md = String.raw`# FYUG Odd Semester Exam., 2025
+
+UNIT—I
+
+1. First question : $2 \times 2 = 4$
+
+(a) Part one.
+(b) Part two.
+(c) Part three.
+
+2. Second question : 10
+
+(a) Alternative one.
+(b) Alternative two.
+
+3. Third question : $2 \times 2 = 4$
+
+(a) Part one.
+(b) Part two.
+(c) Part three.
+
+4. Fourth question : 10
+
+(a) Alternative one.
+(b) Alternative two.
+
+5. Fifth question : $2 \times 2 = 4$
+
+(a) Part one.
+(b) Part two.
+(c) Part three.
+
+6. Sixth question : 10
+
+(a) Alternative one.
+(b) Alternative two.
+`;
+    const rows = parseTranscriptToRows(md, "MANDSC202T");
+    // Three "any 2" questions at 4 each plus three "any 1"
+    // questions at 10 each.
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(42);
+  });
+});
