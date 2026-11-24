@@ -4088,3 +4088,172 @@ UNIT—I
     expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(70);
   });
 });
+
+describe("batch 39 parser fix — 'as directed' section instructions, 'any N' split parents, currency amounts (G37/G38)", () => {
+  test("G37: 'Answer twenty as directed, selecting four from each Unit' with the figure on the next line — ECOIDC101T Section A", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+SECTION—A
+
+Answer twenty as directed, selecting four from each Unit :
+$1 \times 20 = 20$
+
+UNIT—I
+
+1. First question?
+
+2. Second question?
+`;
+    const rows = parseTranscriptToRows(md, "ECOIDC101T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1", 1, "Answer any 20"],
+      ["2", 1, "Answer any 20"],
+    ]);
+    // The counter counts the full "Answer any 20" allowance (20 x 1),
+    // not just the two questions present here.
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(20);
+  });
+
+  test("G37: 'questions as directed' variant with an inline figure", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+SECTION—A
+
+Answer ten questions as directed, taking two from each Unit : 2×10=20
+
+UNIT—I
+
+1. First question?
+
+2. Second question?
+`;
+    const rows = parseTranscriptToRows(md, "ECOIDC101T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1", 2, "Answer any 10"],
+      ["2", 2, "Answer any 10"],
+    ]);
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(20);
+  });
+
+  test("G38: 'Define any seven ... : $2 \\times 7 = 14$' fills each listed term with 2 and the question still counts 14 once — ENGIDC101T Q1", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+UNIT—I
+
+1. Define any seven literary terms from the following list : $2 \times 7 = 14$
+
+(a) Sonnet
+
+(b) Allegory
+
+(c) Novella
+
+(d) Metaphor
+
+(e) Personification
+
+(f) Elegy
+
+(g) Simile
+
+(h) Ode
+
+(i) Soliloquy
+
+(j) Character
+
+2. Answer any four of the following questions : $1\times4=4$
+
+(a) First?
+
+(b) Second?
+
+(c) Third?
+
+(d) Fourth?
+
+(e) Fifth?
+`;
+    const rows = parseTranscriptToRows(md, "ENGIDC101T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1", 14, ""],
+      ["1(a)", 2, ""],
+      ["1(b)", 2, ""],
+      ["1(c)", 2, ""],
+      ["1(d)", 2, ""],
+      ["1(e)", 2, ""],
+      ["1(f)", 2, ""],
+      ["1(g)", 2, ""],
+      ["1(h)", 2, ""],
+      ["1(i)", 2, ""],
+      ["1(j)", 2, ""],
+      ["2(a)", 1, "Answer any 4"],
+      ["2(b)", 1, "Answer any 4"],
+      ["2(c)", 1, "Answer any 4"],
+      ["2(d)", 1, "Answer any 4"],
+      ["2(e)", 1, "Answer any 4"],
+    ]);
+    // Q1 counts 14 once (the direct figure is the question total),
+    // not 14 + 10 x 2; Q2 counts its "Answer any 4" allowance, 4.
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(18);
+  });
+
+  test("currency: a joined '(v)' line ending in a rupee amount keeps the amount in the text and takes no marks", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+41. [illegible] (ii) Cheques of ₹2,500 were deposited into Bank but were not collected by Bank up to 31-12-2023 (iii) Cheques issued but not presented for payment up to 31-12-2023 is ₹3,000 (iv) Interest on deposit credited by Bank ₹500
+
+(v) Bank charges debited by Bank ₹ 200
+`;
+    const rows = parseTranscriptToRows(md, "COMIDC-101T (B)");
+    expect(rows).toHaveLength(1);
+    expect(rows[0].question).toContain(
+      "(v) Bank charges debited by Bank ₹ 200",
+    );
+    expect(rows[0].marks).toBeNull();
+  });
+
+  test("currency: COMIDC-B Q45 keeps its printed 8 when the adjustments join — the raw transcript counted 162 before this fix", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+SECTION—C
+
+Answer five questions, taking one from each Unit : 8×5=40
+
+UNIT—I
+
+40. Q40 text : 8
+
+41. Q41 text : 8
+
+42. Q42 text : 8
+
+43. Q43 text : 8
+
+44. Q44 text : 8
+
+45. From the following Trial Balance of Shri R. K. Sarma, Prepare a Trading and Profit and Loss Account for the year ended on 31.12.2023 and a Balance Sheet as on that date : 8
+
+### Trial Balance
+
+#### Adjustments :
+(i) Closing stock—₹ 30,000
+
+(ii) Prepaid insurance—₹ 100
+
+(iii) Depreciation for office furniture—10%
+`;
+    const rows = parseTranscriptToRows(md, "COMIDC-101T (B)");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["40", 8, "Answer any 5"],
+      ["41", 8, "Answer any 5"],
+      ["42", 8, "Answer any 5"],
+      ["43", 8, "Answer any 5"],
+      ["44", 8, "Answer any 5"],
+      ["45", 8, "Answer any 5"],
+    ]);
+    // Section C counts its full allowance, 5 x 8 — not 132 with a
+    // phantom 100 on Q45.
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(40);
+  });
+});

@@ -246,9 +246,12 @@ const BN_SECTION_EACH_LINE =
 // count words ("Answer *five* questions, taking *one* from each
 // Unit :"), so asterisks are allowed around both — including the
 // "any" with the per-unit count ("taking *any two* from each Unit",
-// ENGDSC102T Section A raw form).
+// ENGDSC102T Section A raw form). The count may also be followed
+// by "as directed" instead of (or after) "questions" ("Answer
+// twenty as directed, selecting four from each Unit", ECOIDC101T
+// Section A, batch 39, G37).
 const EN_SECTION_INSTRUCTION_LINE =
-  /^(?:([\d০-৯]+)[।.]\s*)?Answer\s+\**(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|\d+)\**\s+questions?,\s+(?:selecting|taking)\s+(?:\**any\s+)?\**(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|\d+)\**\s+from\s+each\s+Unit\b[^\n]*$/i;
+  /^(?:([\d০-৯]+)[।.]\s*)?Answer\s+\**(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|\d+)\**\s+(?:questions?(?:\s+as\s+directed)?|as\s+directed),\s+(?:selecting|taking)\s+(?:\**any\s+)?\**(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|\d+)\**\s+from\s+each\s+Unit\b[^\n]*$/i;
 
 // A section-level instruction's markers: it spans units ("প্রতিটি
 // ইউনিট থেকে" / "from each Unit") or states a total over per-unit
@@ -732,7 +735,7 @@ function splitAppendedSectionInstruction(
   line: string,
 ): [string, string] | null {
   const re =
-    /(প্রতিটি\s+ইউনিট\s+থেকে\s+.+|Answer\s+\S+\s+questions?,\s+(?:selecting|taking)\s+.+)/g;
+    /(প্রতিটি\s+ইউনিট\s+থেকে\s+.+|Answer\s+\S+\s+(?:questions?(?:\s+as\s+directed)?|as\s+directed),\s+(?:selecting|taking)\s+.+)/g;
   let m: RegExpExecArray | null;
   let found: [string, string] | null = null;
   while ((m = re.exec(line)) !== null) {
@@ -1366,8 +1369,30 @@ function stripTrailingMarks(
   // The number may carry *emphasis* ("**10**") or be Bengali digits.
   // A trailing "*" bullet artifact may follow the figure with a space
   // ("... : 10 *", ECODSM101T Q4, batch 25).
+  // A trailing number that is a currency amount is content, never
+  // marks (batch 39, COMIDC-B Q45 raw form: "(ii) Prepaid
+  // insurance—₹ 100" joined onto a row already carrying ": 8" — the
+  // bare-number branch read 100, overwriting the printed 8 and
+  // stripping the amount from the text, so the raw transcript counts
+  // 162 where the staged file counts 70). A currency symbol (₹ $ £ €)
+  // or Rs/INR/টাকা immediately before the number blocks the read.
   const m = text.match(/^(.*?)\s+\**([\d০-৯]+)[\s*]*$/);
   if (!m) return { text, marks: null, split: false };
+  // A currency symbol (₹ £ €), Rs/INR/টাকা, or a standalone "$"
+  // token immediately before the number blocks the read. "Rs" and
+  // "INR" must be whole tokens — a bare suffix match would also
+  // catch "integers", "parameters", "numbers", "calipers" (batch 39
+  // regression, caught by the corpus diff). A "$" that closes a
+  // maths span ("... $$ 5", "... $x$ 5") is NOT currency: it must
+  // be a lone "$" preceded by whitespace or the start, never one
+  // closing "$$" or "$...$".
+  const before = m[1].trim();
+  if (
+    /(?:₹|£|€|(?:^|\s)Rs\.?|(?:^|\s)INR|(?:^|\s)টাকা)$/i.test(before) ||
+    /(?:^|\s)\$$/.test(before)
+  ) {
+    return { text, marks: null, split: false };
+  }
   const n = asciiNumber(m[2]);
   if (n === null || n < 1 || n > 100) return { text, marks: null, split: false };
   if (groupGuard !== null && groupGuard !== n) return { text, marks: null, split: false };
@@ -1658,6 +1683,40 @@ function splitTermsForParts(expr: string, subCount: number): number[] | null {
   return null;
 }
 
+// The per-part value for an "any N" parent whose split expression
+// is a product a×N (or N×a) totalling the parent's marks — or null.
+// "Define any seven literary terms ... : $2 \times 7 = 14$"
+// (ENGIDC101T Q1, batch 39, G38): the candidate defines any seven
+// of the ten listed terms, each worth 2 — the product's factor N is
+// the count to answer, not the sub-row count (10 options, 7
+// answered). The generic splitTermsForParts product branch only
+// fires when a factor equals the sub-row count, so this shape never
+// fills. The options must exceed the answered count (otherwise the
+// generic branch already fired), and the product must total the
+// parent's marks.
+function anyCountProductPerPart(
+  parent: QuestionRow,
+  expr: string,
+  subCount: number,
+): number | null {
+  const m = parent.question
+    .replace(/^[\s$*#]+/, "")
+    .match(/^(?:Answer|Define|Translate)\s+any\s+\**(\w+)\**/i);
+  if (!m) return null;
+  const n = wordToNumber(m[1]);
+  if (n === null || subCount <= n) return null;
+  const norm = expr.replace(/\\times/g, "×");
+  const pm = norm.match(/^\s*([\d০-৯]+)\s*(?:×|x)\s*([\d০-৯]+)\s*$/);
+  if (!pm) return null;
+  const a = asciiNumber(pm[1]);
+  const b = asciiNumber(pm[2]);
+  if (a === null || b === null) return null;
+  if (parent.marks === null || a * b !== parent.marks) return null;
+  if (b === n) return a;
+  if (a === n) return b;
+  return null;
+}
+
 // A split-sum parent's sub-rows take the expression's terms
 // (batch 36, G28): "$5+5=10$" (ZOODSC151T Q19/Q25, ZOODSC201
 // Q6/Q12/Q15, ZOODSC202T Q6/Q9) with (a)/(b) means 5 each — not
@@ -1694,23 +1753,43 @@ function fillSplitParentParts(
     );
     if (subs.length === 0) continue;
     const terms = splitTermsForParts(expr, subs.length);
-    if (terms === null) continue;
-    // Only a PRINTED figure can disagree with its term: a value
-    // taken from the group fallback (ZOODSC151T Q19(a)/(b) read 10
-    // from the section rule, not from the paper) is provisional and
-    // is overwritten by the term, never a conflict.
+    if (terms !== null) {
+      // Only a PRINTED figure can disagree with its term: a value
+      // taken from the group fallback (ZOODSC151T Q19(a)/(b) read 10
+      // from the section rule, not from the paper) is provisional and
+      // is overwritten by the term, never a conflict.
+      if (
+        subs.some(
+          (r, i) =>
+            r.marks !== null &&
+            !groupMarksFallback.has(r) &&
+            r.marks !== terms[i],
+        )
+      ) {
+        continue;
+      }
+      subs.forEach((r, i) => {
+        if (r.marks === null || groupMarksFallback.has(r)) r.marks = terms[i];
+      });
+      continue;
+    }
+    // G38: an "any N" parent whose product is a×N (or N×a) — the
+    // per-part value is the other factor (see anyCountProductPerPart).
+    // Same conflict rule as the generic branch above.
+    const perPart = anyCountProductPerPart(parent, expr, subs.length);
+    if (perPart === null) continue;
     if (
       subs.some(
-        (r, i) =>
+        (r) =>
           r.marks !== null &&
           !groupMarksFallback.has(r) &&
-          r.marks !== terms[i],
+          r.marks !== perPart,
       )
     ) {
       continue;
     }
-    subs.forEach((r, i) => {
-      if (r.marks === null || groupMarksFallback.has(r)) r.marks = terms[i];
+    subs.forEach((r) => {
+      if (r.marks === null || groupMarksFallback.has(r)) r.marks = perPart;
     });
   }
   // A parent with no split expression and no single-figure whole
@@ -2201,8 +2280,23 @@ function splitTotalOnQuestionLine(
       const b = parseInt(pm[2], 10);
       const total = parseInt(pm[3], 10);
       if (total !== directMarks || a * b !== total) continue;
-      const perPart =
+      let perPart =
         subMarks.length === b ? a : subMarks.length === a ? b : null;
+      if (perPart === null) {
+        // G38: "Define any seven ... : $2 \times 7 = 14$"
+        // (ENGIDC101T Q1) — the product's factor N is the count to
+        // answer, not the sub-row count (10 options, 7 answered);
+        // the per-part value is the other factor, and the direct
+        // figure is the question total. The options must exceed N.
+        const anyM = ln.match(
+          /(?:Answer|Define|Translate)\s+any\s+\**(\w+)\**/i,
+        );
+        const n = anyM ? wordToNumber(anyM[1]) : null;
+        if (n !== null && subMarks.length > n) {
+          if (b === n) perPart = a;
+          else if (a === n) perPart = b;
+        }
+      }
       if (perPart !== null && subMarks.every((sm) => sm === perPart)) {
         return true;
       }
