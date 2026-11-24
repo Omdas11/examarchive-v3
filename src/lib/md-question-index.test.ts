@@ -8,6 +8,7 @@
 import {
   buildQuestionIndex,
   countedTotalExcludingRemainder,
+  ensureFrontmatter,
   parseIndexTable,
   parseQuestions,
   parseTranscriptToRows,
@@ -3250,5 +3251,301 @@ $$\text{Or}$$
       ["1(d)", 2, ""],
       ["2", 2, ""],
     ]);
+  });
+});
+
+describe("parser gaps fixed from batch 35/36 (2026-11-24, SANDSC152T / ZOO papers)", () => {
+  test("a trailing HTML-wrapped OR marker reads the figure before it — ZOODSM101T Q2 (G27)", () => {
+    // The (a)/(b) lines end "... $3+7=10$ <div align=\"center\">OR</div>":
+    // the line used to end in "</div>", so no figure was extracted
+    // at all and the Marks cells stayed blank (counter already
+    // 70/70 via the section rule — display only).
+    const md = String.raw`UNIT—I
+
+2. First alternative question. $3+7=10$ <div align="center">OR</div>
+
+3. Second alternative question. $3+7=10$`;
+    const rows = parseTranscriptToRows(md, "ZOODSM101T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["2", 10, "OR"],
+      ["3", 10, "OR"],
+    ]);
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(10);
+  });
+
+  test("a trailing <br> $$\\text{OR}$$ <br> reads the figure before it — ZOOIDC101T Q2 (G27)", () => {
+    // "... 2 <br> $$\\text{OR}$$ <br>": the <br> before the marker
+    // survived into the stripped text, so stripTrailingMarks saw
+    // "... 2 <br>" and found no trailing figure.
+    const md = String.raw`UNIT—I
+
+2. Discuss briefly the different levels of biodiversity. 2 <br> $$\text{OR}$$ <br>
+
+3. What is biodiversity hotspot? 2`;
+    const rows = parseTranscriptToRows(md, "ZOOIDC101T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["2", 2, "OR"],
+      ["3", 2, "OR"],
+    ]);
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(2);
+  });
+
+  test("a trailing <center><b>OR</b></center> reads the figure before it — ZOODSC202T Q14 (G27)", () => {
+    const md = String.raw`UNIT—V
+
+14. First alternative question. $6+4=10$ <center><b>OR</b></center>
+
+15. Second alternative question. $6+4=10$`;
+    const rows = parseTranscriptToRows(md, "ZOODSC202T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["14", 10, "OR"],
+      ["15", 10, "OR"],
+    ]);
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(10);
+  });
+
+  test("an HTML-wrapped span that is not the OR word is not a marker — G27 guard", () => {
+    const md = `UNIT—I
+
+1. What is X? 2 <div align="center">See figure</div>
+
+2. Next question. 2`;
+    const rows = parseTranscriptToRows(md, "TEST-101T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1", null, ""],
+      ["2", 2, ""],
+    ]);
+  });
+
+  test("a split-sum parent's parts take the expression's terms — ZOODSC151T Q19 (G28)", () => {
+    // "$5+5=10$" with (a)/(b) means 5 each — not the full 10,
+    // which the G14 fill used to copy onto the parts. The parts
+    // read 10 from the section rule at push time; a fallback value
+    // is provisional and is overwritten by the term, never a
+    // conflict.
+    const md = `SECTION—B
+
+Answer any five of the following questions : $10 \\times 5 = 50$
+
+19. Write short notes on the following : $5+5=10$
+
+(a) First note.
+(b) Second note.`;
+    const rows = parseTranscriptToRows(md, "ZOODSC151T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["19", 10],
+      ["19(a)", 5],
+      ["19(b)", 5],
+    ]);
+  });
+
+  test("a bare split expression on the parent line splits the same way — ZOODSC202T Q6 (G28)", () => {
+    const md = `SECTION—B
+
+Answer any five of the following questions : $10 \\times 5 = 50$
+
+6. Write short notes on the following : 5+5=10
+
+(a) First note.
+(b) Second note.`;
+    const rows = parseTranscriptToRows(md, "ZOODSC202T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["6", 10],
+      ["6(a)", 5],
+      ["6(b)", 5],
+    ]);
+  });
+
+  test("a LaTeX product on the parent line splits by count, not by term — ZOODSC201 Q12 (G28)", () => {
+    // "$5 \\times 2=10$" means 2 parts of 5 marks each, not 5
+    // and 2: the raw expression holds "\\times" (a backslash
+    // word, no "x" or "×" in it), so the sum branch must not fire
+    // vacuously on an operator-less match.
+    const md = String.raw`SECTION—B
+
+Answer any five of the following questions : $10 \times 5 = 50$
+
+12. Write short notes on the following : $5 \times 2=10$
+
+(a) First note.
+(b) Second note.`;
+    const rows = parseTranscriptToRows(md, "ZOODSC201");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["12", 10],
+      ["12(a)", 5],
+      ["12(b)", 5],
+    ]);
+  });
+
+  test("an instruction parent's parts are never split-filled — PLSDSC101T Q10 (G28 guard)", () => {
+    // "10. Answer the following : 2×2=4" is an instruction row,
+    // not a question: its (a)/(b) stay blank, exactly as the
+    // G14 fill leaves them — the split fill attaches only to
+    // genuine question parents.
+    const md = `UNIT—IV
+
+10. Answer the following : 2×2=4
+
+(a) First question.
+(b) Second question.`;
+    const rows = parseTranscriptToRows(md, "PLSDSC101T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["10", 4],
+      ["10(a)", null],
+      ["10(b)", null],
+    ]);
+  });
+
+  test("a product on the parent line counts the parent alone — ZOODSC201 counter (G28)", () => {
+    // The split-total check used to know "+" sums only, so a
+    // "5×2=10" parent with 5,5 parts counted 10+5+5=20. The
+    // product states the split, so the question counts 10 once.
+    const md = String.raw`UNIT—II
+
+6. Write short notes on the following : 5×2=10
+
+(a) First note.
+(b) Second note.
+
+7. Plain question. 10`;
+    const rows = parseTranscriptToRows(md, "ZOODSC201");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["6", 10],
+      ["6(a)", 5],
+      ["6(b)", 5],
+      ["7", 10],
+    ]);
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(20);
+  });
+
+  test("a parent with no printed figure keeps its parts blank — ZOODSC151T Q21 (G28 guard)", () => {
+    // Q21 prints no figure; its 10 came from the section rule, so
+    // the split is underivable and the parts stay blank — not a
+    // share of the total.
+    const md = `SECTION—B
+
+Answer any five of the following questions : $10 \\times 5 = 50$
+
+21. Write short notes on the following :
+
+(a) First note.
+(b) Second note.`;
+    const rows = parseTranscriptToRows(md, "ZOODSC151T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["21", 10],
+      ["21(a)", null],
+      ["21(b)", null],
+    ]);
+  });
+
+  test("a term count that matches nothing leaves printed parts alone — PHYDSM101T Q8 (G28 guard)", () => {
+    // "1+3+3+3=10" has four terms but only three parts: the "1" is
+    // the stem itself, so the printed 3,3,3 stay.
+    const md = `UNIT—III
+
+8. What is central force? Prove the following for a particle moving under a central force : 1+3+3+3=10
+
+(a) Angular momentum about the centre of force is a constant of motion. 3
+
+(b) The motion of the particle is always confined to a plane. 3
+
+(c) The areal velocity of the line joining the centre of force and the particle is a constant of motion. 3`;
+    const rows = parseTranscriptToRows(md, "PHYDSM101T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["8", 10],
+      ["8(a)", 3],
+      ["8(b)", 3],
+      ["8(c)", 3],
+    ]);
+  });
+
+  test("a printed part disagreeing with its term blocks the whole assignment — G28 guard", () => {
+    const md = `SECTION—B
+
+Answer any five of the following questions : $10 \\times 5 = 50$
+
+6. Write short notes on the following : $5+5=10$
+
+(a) First note. 4
+(b) Second note.`;
+    const rows = parseTranscriptToRows(md, "TEST-101T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["6", 10],
+      ["6(a)", 4],
+      ["6(b)", 10],
+    ]);
+  });
+
+  test("a bracketed figure after a colon is the sub-row's marks — SANDSC152T Q19(a)/(b)", () => {
+    // "(a) Explain the following : [6] '...'" — the figure is the
+    // part's marks, not part of the passage: the colon stays, the
+    // figure goes, the items stay.
+    const md = `SECTION—B
+
+Answer any five of the following questions : $10 \\times 5 = 50$
+
+19. (a) Explain the following : [6] 'Yauvanarambhe cha prayah shastrajalaprakshalana-nirmalapi'
+(b) Translate into English : [4] Tata Chandrapida!`;
+    const rows = parseTranscriptToRows(md, "SANDSC152T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["19(a)", 6],
+      ["19(b)", 4],
+    ]);
+    expect(rows[0].question).toBe(
+      "Explain the following : 'Yauvanarambhe cha prayah shastrajalaprakshalana-nirmalapi'",
+    );
+  });
+
+  test("a merged (i)/(ii) row keeps its figures for the merged sum — MTMDSC202T guard", () => {
+    // "(b) (i) Solve : [3] ... (ii) Find ... [2+2=4] (iii) Solve :
+    // [3] ..." (MTMDSC202T Q4(b), batch 6, verbatim): the figures
+    // belong to the sub-parts and sum to the row's total — the
+    // bracketed-marks branch must not strip the [3] out of it.
+    // The row sits under a numbered "Answer any one" instruction,
+    // so its per-part guard (10) rejects the trailing [3] as a
+    // lone figure and the row takes the fallback 10 with all
+    // three figures still in its text.
+    const md = String.raw`4. Answer any one of the following questions : 10 Solve the following : 3+3+4=10
+
+(a) (i) $(x^2 y - 2x y^2)dx - (x^3 - 3x^2 y)dy = 0$ (ii) $(1 + y^2) + (x - e^{-\tan^{-1} y})\left(\frac{dy}{dx}\right) = 0$ (iii) $x^2(y - px) = yp^2$, where $p \equiv \frac{d}{dx}$
+
+(b) (i) Solve : [3] $$y = 2px + p^4 x^2$$ where $p \equiv \frac{d}{dx}$ (ii) Find the differential equation of the family of circles $$x^2 + y^2 + 2cx + 2c^2 - 1 = 0$$ ($c$ is an arbitrary constant). Determine singular solution of the differential equation. [2+2=4] (iii) Solve : [3] $$\frac{dy}{dx} + x \sin 2y = x^3 \cos^2 y$$`;
+    const rows = parseTranscriptToRows(md, "MTMDSC202T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["4(a)", 10],
+      ["4(b)", 10],
+    ]);
+    expect(rows[1].question).toContain("[3]");
+    expect(rows[1].question).toContain("[2+2=4]");
+  });
+
+  test("a header code line put first as a heading is not the exam field — SANDSC151T / ZOODSC151T / ZOOIDC101T guard", () => {
+    // Primary puts the header code line first as a "#" heading and
+    // the parser used to take it as the exam field. The code line
+    // is printer-code noise; the real title line after it wins.
+    const fm1 = ensureFrontmatter(
+      {},
+      "SANDSC151T",
+      "# 2024/FYUG/EVEN/SEM/SANDSC-151T/070\n\n# FYUG Even Semester Exam., 2024\n\nSANSKRIT\n( 1st Semester )",
+    );
+    expect(fm1.exam).toBe("FYUG Even Semester Exam.");
+    expect(fm1.year).toBe(2024);
+    const fm2 = ensureFrontmatter(
+      {},
+      "ZOOIDC101T",
+      "# 2024/FYUG/ODD/SEM/ZOOIDC-101T/066\n\n# FYUG Odd Semester Exam., 2024\n\nZOOLOGY\n( 1st Semester )",
+    );
+    expect(fm2.exam).toBe("FYUG Odd Semester Exam.");
+    expect(fm2.year).toBe(2024);
+  });
+
+  test("a real exam heading with no code line above it is still taken — heading guard", () => {
+    const fm = ensureFrontmatter(
+      {},
+      "TEST-101T",
+      "# FYUG Odd Semester Exam., 2024\n\nZOOLOGY\n( 1st Semester )",
+    );
+    expect(fm.exam).toBe("FYUG Odd Semester Exam.");
+    expect(fm.year).toBe(2024);
   });
 });

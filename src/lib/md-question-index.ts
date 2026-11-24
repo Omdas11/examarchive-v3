@@ -876,7 +876,23 @@ function stripTrailingMarks(
   text: string,
   groupGuard: number | null,
   group: string,
-): { text: string; marks: number | null; split: boolean } {
+): {
+  text: string;
+  marks: number | null;
+  split: boolean;
+  splitExpr?: string;
+} {
+  // `split` is true when the marks were derived from a multi-term
+  // expression (a total composed of parts: "1+3+3+3=10", "$2+8=10$")
+  // and false for a single figure (": 2", "$10$", "[5]"). The G14
+  // parent fill needs it: a split total must never be copied onto
+  // the parts (PHYDSM101T Q8's parts are 3+3+3, not 10 each), while
+  // a single figure is the whole question's marks (ENGSEC101T Q18).
+  // `splitExpr` is the raw expression the split total came from
+  // ("5+5", "5×2", "1+3+3+3") — the G28 post-pass derives the
+  // sub-rows' marks from it ("$5+5=10$" with (a)/(b) means 5 each);
+  // it is absent for merged (i)/(ii)/(iii) sums, which have no
+  // single expression.
   // `split` is true when the marks were derived from a multi-term
   // expression (a total composed of parts: "1+3+3+3=10", "$2+8=10$")
   // and false for a single figure (": 2", "$10$", "[5]"). The G14
@@ -924,7 +940,12 @@ function stripTrailingMarks(
         derived <= 100 &&
         (groupGuard === null || groupGuard === derived)
       ) {
-        return { text: tailMath[1].trim(), marks: derived, split: true };
+        return {
+          text: tailMath[1].trim(),
+          marks: derived,
+          split: true,
+          splitExpr: expr[1],
+        };
       }
     }
     // A lone "$N$" span is the row's marks figure ("... bond order?
@@ -987,6 +1008,7 @@ function stripTrailingMarks(
           text: `${tailMath[1].trim()} ${block}`.trim(),
           marks: derived,
           split: true,
+          splitExpr: quadSum[2],
         };
       }
     }
@@ -1018,7 +1040,12 @@ function stripTrailingMarks(
       derived <= 100 &&
       (groupGuard === null || groupGuard === derived)
     ) {
-      return { text: bareExpr[1].trim(), marks: derived, split: true };
+      return {
+        text: bareExpr[1].trim(),
+        marks: derived,
+        split: true,
+        splitExpr: bareExpr[2],
+      };
     }
   }
   // A parenthesised trailing figure "(5)" is the row's marks
@@ -1059,7 +1086,12 @@ function stripTrailingMarks(
       derived <= 100 &&
       (groupGuard === null || groupGuard === derived)
     ) {
-      return { text: splitParen[1].trim(), marks: derived, split: true };
+      return {
+        text: splitParen[1].trim(),
+        marks: derived,
+        split: true,
+        splitExpr: splitParen[2],
+      };
     }
   }
   // A bracketed split expression at the end is the row's marks —
@@ -1078,7 +1110,12 @@ function stripTrailingMarks(
       derived <= 100 &&
       (groupGuard === null || groupGuard === derived)
     ) {
-      return { text: bracketSplit[1].trim(), marks: derived, split: true };
+      return {
+        text: bracketSplit[1].trim(),
+        marks: derived,
+        split: true,
+        splitExpr: bracketSplit[2],
+      };
     }
   }
   // A bracketed figure at the end is the row's marks — "... show that
@@ -1142,6 +1179,37 @@ function stripTrailingMarks(
       (groupGuard === null || groupGuard === n)
     ) {
       return { text: `${colonQuote[1]}: ${colonQuote[3]}`.trim(), marks: n, split: false };
+    }
+  }
+  // A bracketed marks figure after a colon, introducing the
+  // question's items — "(a) Explain the following : [6] ‘...’"
+  // (SANDSC152T Q19(a), batch 35), "(b) Translate into English :
+  // [4] ...". Same rule as the bare-figure colon branches: the
+  // colon stays, the figure goes, the items stay. Only when no
+  // sub-question marker appears anywhere in the text — a merged
+  // "(i) Solve : [3] ... (ii) ... [4] ..." row (MTMDSC202T (b),
+  // batch 6) keeps its figures for the merged-sum logic, so any
+  // roman marker, or a letter marker in the rest, blocks the branch.
+  const colonBracket = text.match(/^(.*?):\s*\[([\d০-৯]+)\]\s+(\S.*)$/);
+  if (colonBracket) {
+    const rest = colonBracket[3];
+    const hasSubMarker =
+      /\((i|ii|iii|iv)\)/.test(text) ||
+      /\([a-jকখগঘঙ]\)/.test(rest);
+    if (!hasSubMarker) {
+      const n = asciiNumber(colonBracket[2]);
+      if (
+        n !== null &&
+        n >= 1 &&
+        n <= 100 &&
+        (groupGuard === null || groupGuard === n)
+      ) {
+        return {
+          text: `${colonBracket[1]}: ${rest}`.trim(),
+          marks: n,
+          split: false,
+        };
+      }
     }
   }
   // A marks figure/expression after a colon, with the question's
@@ -1456,6 +1524,132 @@ function fillWholeQuestionParentParts(
   }
 }
 
+// The marks each part of a split-sum parent takes, in sub-row
+// order — or null when the expression cannot be assigned safely.
+// A sum "a+b+..." assigns its terms in order when the term count
+// matches the sub-row count ("$5+5=10$" with (a)/(b) means 5 each;
+// "1+3+3+3" with 3 sub-rows matches nothing, so PHYDSM101T Q8's
+// printed 3,3,3 stay). A product "a×b" means b parts of a marks
+// each, or a parts of b marks each ("5×2" with (a)/(b) means 5
+// each). Anything else (a lone term, a mismatch, a product that
+// matches neither way) is left alone — a wrong guess would corrupt
+// the table more than a blank.
+function splitTermsForParts(expr: string, subCount: number): number[] | null {
+  // Normalise the LaTeX product operator first: the raw expression
+  // may read "5 \\times 2" (a backslash word, no "x" or "×" in it),
+  // and the sum branch below must not fire vacuously on an
+  // operator-less match (an empty ops list passes every()).
+  const norm = expr.replace(/\\times/g, "×");
+  const terms = norm.match(/[\d০-৯]+/g) ?? [];
+  const nums = terms.map((t) => asciiNumber(t));
+  if (nums.some((n) => n === null) || nums.length < 2) return null;
+  const values = nums as number[];
+  const ops = norm.match(/[+×x]/g) ?? [];
+  if (
+    ops.length === values.length - 1 &&
+    ops.every((op) => op === "+") &&
+    values.length === subCount
+  ) {
+    return values;
+  }
+  if (
+    ops.length === 1 &&
+    (ops[0] === "×" || ops[0] === "x") &&
+    values.length === 2
+  ) {
+    const [a, b] = values;
+    if (b === subCount) return Array.from({ length: subCount }, () => a);
+    if (a === subCount) return Array.from({ length: subCount }, () => b);
+  }
+  return null;
+}
+
+// A split-sum parent's sub-rows take the expression's terms
+// (batch 36, G28): "$5+5=10$" (ZOODSC151T Q19/Q25, ZOODSC201
+// Q6/Q12/Q15, ZOODSC202T Q6/Q9) with (a)/(b) means 5 each — not
+// the full 10, which the G14 fill used to copy. A parent whose
+// marks came from anywhere else (the section rule, a standalone
+// marks line) has no expression recorded: its sub-rows stay BLANK,
+// not a share of the total (ZOODSC151T Q21 prints no figure; its
+// 10 is section-rule-derived). The same guard applies to a split
+// parent whose expression cannot be assigned (a term count that
+// matches nothing): a part that already prints a figure keeps it,
+// and one printed figure disagreeing with its term blocks the
+// whole assignment — a conflict is evidence the split does not
+// map to the parts, not a typo to override. A value a part took
+// only from the group fallback is provisional, not printed: it is
+// overwritten by the term, never a conflict (ZOODSC151T Q19(a)/(b)
+// read 10 from the section rule, and take 5 each from "$5+5=10$").
+function fillSplitParentParts(
+  rows: QuestionRow[],
+  splitParentExpr: Map<QuestionRow, string>,
+  groupMarksFallback: Map<QuestionRow, number>,
+  wholeQuestionParents: Set<string>,
+): void {
+  // An instruction row ("Answer the following : 2×2=4",
+  // PLSDSC101T Q10) is not a question: its parts' marks are the
+  // section rule's business, never a split fill's — the G14 fill
+  // skips Answer parents the same way, and Q10(a)/(b) stay blank.
+  const isInstruction = (r: QuestionRow): boolean =>
+    /^Answer\s/i.test(r.question.replace(/^[\s$*#]+/, ""));
+  for (const [parent, expr] of splitParentExpr) {
+    if (isInstruction(parent)) continue;
+    const subs = rows.filter(
+      (r) =>
+        r.label.startsWith(parent.label + "(") && subLetter(r.label) !== null,
+    );
+    if (subs.length === 0) continue;
+    const terms = splitTermsForParts(expr, subs.length);
+    if (terms === null) continue;
+    // Only a PRINTED figure can disagree with its term: a value
+    // taken from the group fallback (ZOODSC151T Q19(a)/(b) read 10
+    // from the section rule, not from the paper) is provisional and
+    // is overwritten by the term, never a conflict.
+    if (
+      subs.some(
+        (r, i) =>
+          r.marks !== null &&
+          !groupMarksFallback.has(r) &&
+          r.marks !== terms[i],
+      )
+    ) {
+      continue;
+    }
+    subs.forEach((r, i) => {
+      if (r.marks === null || groupMarksFallback.has(r)) r.marks = terms[i];
+    });
+  }
+  // A parent with no split expression and no single-figure whole
+  // (not in wholeQuestionParents) is section-rule-derived: any
+  // sub-row whose marks came only from the group fallback was never
+  // printed, so it goes back to blank (ZOODSC151T Q21(a)/(b):
+  // 10 → blank). Only when the sub-rows start at (a) — the parent
+  // is an instruction, not a part: when there is no (a) sub-row
+  // the direct row IS part (a) (MATDSC151T Q25: "25. First part."
+  // with (b)/(c) only), and the parts keep the section fallback
+  // 10, exactly as before. Never overwrite a printed figure.
+  for (const parent of rows) {
+    if (parent.label.includes("(")) continue;
+    if (
+      splitParentExpr.has(parent) ||
+      wholeQuestionParents.has(parent.label) ||
+      parent.marks === null ||
+      isInstruction(parent)
+    ) {
+      continue;
+    }
+    const subs = rows.filter(
+      (r) =>
+        r.label.startsWith(parent.label + "(") &&
+        subLetter(r.label) !== null,
+    );
+    if (!subs.some((r) => subLetter(r.label) === "a")) continue;
+    for (const sub of subs) {
+      if (groupMarksFallback.has(sub)) sub.marks = null;
+    }
+  }
+}
+
 /**
  * Fill a blank OR alternative from its OR partner (batch 28, G17):
  * HISIDC201T/HISSEC201T/ENGDSC202T print the marks figure on the
@@ -1672,7 +1866,15 @@ function orPairs(lines: string[]): Array<[string, string]> {
   const isTrailingOr = (l: string): boolean => {
     const s = stripWrap(l);
     const m = s.match(/\$\$(?:\\text\{)?(OR|অথবা)(?:\})?\$\$\s*$/i);
-    return m !== null && s.slice(0, m.index).trim().length > 0;
+    if (m !== null) return s.slice(0, m.index).trim().length > 0;
+    // A trailing HTML-wrapped OR marker ("... $3+7=10$
+    // <div align=\"center\">OR</div>", ZOODSM101T Q2, batch 36,
+    // G27): stripWrap removes the tags, leaving a bare trailing
+    // "OR" on the question's own line. Case-sensitive, like the
+    // display parser's bare-OR branch — a trailing lowercase "or"
+    // is ordinary text, not a marker.
+    const b = s.match(/(?:^|\s)(OR|অথবা)\s*$/);
+    return b !== null && s.slice(0, b.index).trim().length > 0;
   };
   // Occurrence-suffixed key of each numbered line, in scan order.
   const keyOfLine = new Map<number, string>();
@@ -1889,6 +2091,25 @@ function splitTotalOnQuestionLine(
         covered &&
         rest.reduce((a, b) => a + b, 0) === directMarks - subSum
       ) {
+        return true;
+      }
+    }
+    // Same shape, product form ("5×2=10", "$5 \\times 2=10$",
+    // ZOODSC201 Q6/Q12/Q15, batch 36, G28): the product states
+    // how the total splits — b parts of a marks each (or a parts
+    // of b). It fires only when the total equals the direct
+    // figure, the product equals the total, and every sub-row's
+    // marks equals the per-part value for the sub-row count.
+    const prodRe = /(\d+)\s*(?:×|x|\\times)\s*(\d+)\s*=\s*(\d+)/g;
+    let pm: RegExpExecArray | null;
+    while ((pm = prodRe.exec(ln)) !== null) {
+      const a = parseInt(pm[1], 10);
+      const b = parseInt(pm[2], 10);
+      const total = parseInt(pm[3], 10);
+      if (total !== directMarks || a * b !== total) continue;
+      const perPart =
+        subMarks.length === b ? a : subMarks.length === a ? b : null;
+      if (perPart !== null && subMarks.every((sm) => sm === perPart)) {
         return true;
       }
     }
@@ -2446,6 +2667,14 @@ export function parseTranscriptToRows(
   // a standalone marks line is never in here: its parts have their
   // own values, or none are known.
   const wholeQuestionParents = new Set<string>();
+  // Parent rows whose marks came from a split expression on their
+  // own line ("$5+5=10$", "5×2=10" — batch 36, G28), keyed by row
+  // object (labels change under the duplicate-number rename,
+  // objects do not): the G28 post-pass derives the sub-rows' marks
+  // from the expression ("5+5" with (a)/(b) means 5 each), and a
+  // parent with no printed figure at all (ZOODSC151T Q21: its 10
+  // came from the section rule) is recognised by its ABSENCE here.
+  const splitParentExpr = new Map<QuestionRow, string>();
   // Marks provenance for sub-rows (batch 29, G18b/G18c), keyed by row
   // object — labels change under the duplicate-number rename, objects
   // do not. groupMarksFallback: a sub-row whose marks came from the
@@ -2507,17 +2736,24 @@ export function parseTranscriptToRows(
 
   /** Strip a trailing "OR" / "অথবা" from question text. */
   const stripTrailingOr = (text: string): { text: string; isOr: boolean } => {
-    const m = text.match(/^(.*?)\s+(OR|অথবা)$/);
-    if (m) return { text: m[1].trim(), isOr: true };
+    // A trailing run of <br> tags is a separator, not content:
+    // "2 <br> $$\text{OR}$$ <br>" (ZOOIDC101T Q2/Q4/Q7/Q9, batch
+    // 36, G27) must reduce to the figure before it, and a <br>
+    // before the marker must not survive into the returned text.
+    const stripBr = (s: string): string =>
+      s.replace(/(?:<br\s*\/?>\s*)+$/i, "").trim();
+    const t = stripBr(text);
+    const m = t.match(/^(.*?)\s+(OR|অথবা)$/);
+    if (m) return { text: stripBr(m[1]), isOr: true };
     // A trailing "<br>Or<br>" (HISDSC202T, batch 27): the model writes
     // the OR marker with HTML line breaks, and the pipeline reflow can
     // join it onto the row's line. The <br> before the marker is
     // required — a bare trailing lowercase "or" is ordinary text, not
     // a marker, and must never match.
-    const m2 = text.match(
+    const m2 = t.match(
       /^(.*?)\s*<br\s*\/?>\s*(OR|অথবা)(?:\s*<br\s*\/?>)*\s*$/i,
     );
-    if (m2) return { text: m2[1].trim(), isOr: true };
+    if (m2) return { text: stripBr(m2[1]), isOr: true };
     // A trailing display-maths OR marker ("... [2] $$\text{OR}$$",
     // MATSEC101T Q12/Q13 — the pipeline reflow joins it onto the
     // question line). Any case variant counts ("$$\text{Or}$$",
@@ -2530,10 +2766,22 @@ export function parseTranscriptToRows(
     // either") is deliberately NOT matched here: recognising it
     // would append " (OR)" to the Answer-either group and break
     // that counter branch.
-    const m3 = text.match(
+    const m3 = t.match(
       /^(.*?)\s*\$\$(?:\\text\{)?(OR|অথবা)(?:\})?\$\$\s*$/i,
     );
-    if (m3) return { text: m3[1].trim(), isOr: true };
+    if (m3) return { text: stripBr(m3[1]), isOr: true };
+    // A trailing OR marker wrapped in HTML tags ("... $3+7=10$
+    // <div align="center">OR</div>", ZOODSM101T Q2/Q5/Q8/Q11;
+    // "... $6+4=10$ <center><b>OR</b></center>", ZOODSC202T Q14 —
+    // batch 36, G27). The span must contain ONLY the OR word
+    // (tags and * markers stripped): anything else is content, not
+    // a marker. The figure before the marker is then readable by
+    // stripTrailingMarks — before this the line ended in "</div>"
+    // and no figure was extracted at all.
+    const m4 = t.match(
+      /^(.*?)\s*(?:<[^>]+>)+\s*(?:\*+)?(OR|অথবা)(?:\*+)?\s*(?:<\/[^>]+>)+\s*$/i,
+    );
+    if (m4) return { text: stripBr(m4[1]), isOr: true };
     return { text, isOr: false };
   };
 
@@ -3010,6 +3258,13 @@ export function parseTranscriptToRows(
     if (stripped.marks !== null && !stripped.split) {
       wholeQuestionParents.add(num);
     }
+    if (
+      stripped.marks !== null &&
+      stripped.split &&
+      stripped.splitExpr
+    ) {
+      splitParentExpr.set(row, stripped.splitExpr);
+    }
     if (orStripped.isOr) {
       applyOr(row);
       orPending = true;
@@ -3414,6 +3669,9 @@ export function parseTranscriptToRows(
       if (stripped.marks !== null && !stripped.split) {
         wholeQuestionParents.add(qNum);
       }
+      if (stripped.marks !== null && stripped.split && stripped.splitExpr) {
+        splitParentExpr.set(row, stripped.splitExpr);
+      }
       if (orStripped.isOr) {
         applyOr(row);
         orPending = true;
@@ -3441,6 +3699,12 @@ export function parseTranscriptToRows(
   fillEitherParentMarks(rows, pairTotal);
   fillPositionalMarks(rows);
   fillWholeQuestionParentParts(rows, wholeQuestionParents);
+  fillSplitParentParts(
+    rows,
+    splitParentExpr,
+    groupMarksFallback,
+    wholeQuestionParents,
+  );
   // The rename runs before the OR-partner fill: until the second
   // "23" becomes "23b", its sub-rows look like they belong to the
   // first "23", and the hybrid guard would wrongly skip the pair.
@@ -3510,7 +3774,16 @@ export function ensureFrontmatter(
     .map((l) => l.trim())
     .filter(Boolean);
 
-  const titleIdx = lines.findIndex((l) => l.startsWith("# "));
+  const titleIdx = lines.findIndex(
+    (l) =>
+      l.startsWith("# ") &&
+      // A header code line the model put first as a heading
+      // ("# 2024/FYUG/EVEN/SEM/SANDSC-151T/070", SANDSC151T batch
+      // 35, ZOODSC151T/ZOOIDC101T batch 36) is printer-code noise,
+      // not the exam name: skip it and take the real title line
+      // after it ("# FYUG Even Semester Exam., 2024").
+      !/^# \d{4}\/FYUG\//.test(l),
+  );
   const titleLine = titleIdx === -1 ? "" : lines[titleIdx].slice(2).trim();
   if (titleLine && !fm.exam) {
     // "# FYUG Even Semester Exam., 2026" — exam name, then the year.
