@@ -66,6 +66,11 @@ export const APP_SIDEBAR_ITEMS: AppSidebarItem[] = [
     href: "/notices",
   },
   {
+    label: "Fellowships",
+    icon: "workspace_premium",
+    href: "/fellowships",
+  },
+  {
     label: "Submit a Paper",
     icon: "upload",
     href: "/submit-paper",
