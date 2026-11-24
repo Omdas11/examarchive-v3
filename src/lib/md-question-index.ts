@@ -880,7 +880,14 @@ export function parseIndexTable(md: string): QuestionRow[] {
     if (/^no\.?$/i.test(cells[0])) continue;
     if (/^-+$/.test(cells[0])) continue;
     const isNewShape = cells.length >= 7;
-    const marks = parseInt(cells[2], 10);
+    // Marks are whole numbers — except a fractional split ("2.5",
+    // ZOOSEC101T Q36/Q38, G47). A clean decimal parses as a float;
+    // anything else keeps the old parseInt behaviour (a junk cell
+    // still reads its leading integer, a blank cell stays null).
+    const marksCell = cells[2].trim();
+    const marks = /^\d+(?:\.\d+)?$/.test(marksCell)
+      ? Number(marksCell)
+      : parseInt(marksCell, 10);
     rows.push({
       label: cells[0],
       question: cells[1],
@@ -1379,26 +1386,38 @@ function stripTrailingMarks(
   // (BNGAEC101T Q15), "ব্যাসবাক্যসহ সমাস নির্ণয় করো (যে কোনো
   // পাঁচটি) : ১×৫=৫ দম্পতি; ..." (BNGAEC201T Q25). The figure is
   // the question's marks, not part of the items: the colon stays,
-  // the figure goes, the items stay. Only when the rest carries no
-  // sub-question marker — a merged "(i) ... : 2 ... (ii) ..." row
-  // keeps its figures for the merged-sum logic — and, for a bare
-  // figure, no question mark or list star (the rest is a topic or a
-  // list, not another question).
+  // the figure goes, the items stay. The expression may carry $…$
+  // delimiters — "Write equivalent words ... : $1 \times 4 = 4$
+  // नमस्कारः ; ..." (SANIDC101T Q44(a)/(b), batch 45, G48): the
+  // dollars are the maths span, not currency. The $ form must carry
+  // an operator (a lone ": $100 ..." could be a currency amount, so
+  // it never matches); the bare form is unchanged. Only when the
+  // rest carries no sub-question marker — a merged "(i) ... : 2 ...
+  // (ii) ..." row keeps its figures for the merged-sum logic — and,
+  // for a bare figure, no question mark or list star (the rest is a
+  // topic or a list, not another question).
   const colonMid = text.match(
-    /^(.*?):\s+\**([\d০-৯]+(?:\s*(?:\\times|[×x+])\s*[\d০-৯]+)*)\s*(?:=\s*([\d০-৯]+))?\**\s+(.+)$/,
+    /^(.*?):\s+(?:\**([\d০-৯]+(?:\s*(?:\\times|[×x+])\s*[\d০-৯]+)*)\s*(?:=\s*([\d০-৯]+))?\**|\**\${1,2}([\d০-৯]+(?:\s*(?:\\times|[×x+])\s*[\d০-৯]+)+)\s*(?:=\s*([\d০-৯]+))?\${1,2}\**)\s+(.+)$/,
   );
   if (colonMid) {
-    const rest = colonMid[4];
+    const rest = colonMid[6];
     const hasSubMarker =
       /\([a-jকখগঘঙ]\)/.test(rest) || /\((i|ii|iii|iv)\)/.test(rest);
     if (!hasSubMarker) {
+      // The $…$ alternative is group 4/5, the bare one group 2/3.
+      const exprStr = colonMid[2] ?? colonMid[4];
+      const totalStr = colonMid[3] ?? colonMid[5];
+      // A "\times" word is an operator too: the old /[×x+]/ test
+      // misses it ("times" holds no "x"), so a bare "1 \times 4"
+      // fell through to the bare-figure branch and read 1.
+      const isSplit = /[×x+]|\\times/.test(exprStr);
       let derived: number | null = null;
-      if (/[×x+]/.test(colonMid[2])) {
+      if (isSplit) {
         // An N×M=K expression after the colon is unambiguous marks.
-        derived = marksTotalFromParts(colonMid[2], colonMid[3]);
+        derived = marksTotalFromParts(exprStr, totalStr);
       } else if (!/[?*]/.test(rest)) {
         // A bare figure: only when the rest is a topic or a list.
-        derived = asciiNumber(colonMid[2]);
+        derived = asciiNumber(exprStr);
       }
       if (
         derived !== null &&
@@ -1406,7 +1425,7 @@ function stripTrailingMarks(
         derived <= 100 &&
         (groupGuard === null || groupGuard === derived)
       ) {
-        return { text: `${colonMid[1]}: ${rest}`.trim(), marks: derived, split: /[×x+]/.test(colonMid[2]) };
+        return { text: `${colonMid[1]}: ${rest}`.trim(), marks: derived, split: isSplit };
       }
     }
   }
@@ -1748,6 +1767,61 @@ function fillWholeQuestionParentParts(
   }
 }
 
+// Tokenise a split expression into its number atoms and operators —
+// or null when the expression does not parse cleanly. Atoms are the
+// MARKS_NUM shapes (integers, vulgar fractions "1/2", LaTeX fractions
+// "\frac{1}{2}", mixed numbers "2\frac{1}{2}"), so a fractional
+// per-part figure ("2\frac{1}{2} \times 2", ZOOSEC101T Q36/Q38,
+// batch 43, G47) yields the value 2.5, not the integer fragments
+// 2, 1, 2 the old digit-only scan produced. Only whitespace may sit
+// between tokens; anything else rejects the expression.
+function splitExprParts(expr: string): {
+  values: number[];
+  ops: string[];
+} | null {
+  const norm = expr.replace(/\\times/g, "×");
+  const tokenRe = new RegExp(`(${MARKS_NUM})|([+×x])`, "g");
+  const values: number[] = [];
+  const ops: string[] = [];
+  let pos = 0;
+  let expectValue = true;
+  let m: RegExpExecArray | null;
+  while ((m = tokenRe.exec(norm)) !== null) {
+    if (norm.slice(pos, m.index).trim() !== "") return null;
+    if (expectValue) {
+      if (m[1] === undefined) return null;
+      // A vulgar fraction "1/2": MARKS_NUM tries the plain integer
+      // first, so it matches just "1" and leaves "/2" as a gap.
+      // Extend the atom across "/digits" before evaluating it.
+      let atom = m[1];
+      let end = m.index + m[0].length;
+      const fracExt = /^\/[\d০-৯]+/.exec(norm.slice(end));
+      if (fracExt) {
+        atom += fracExt[0];
+        end += fracExt[0].length;
+        // The regex's lastIndex only advanced past the matched
+        // "1" — move it past the "/2" too, or the next exec
+        // re-reads the fraction's denominator as a fresh atom.
+        tokenRe.lastIndex = end;
+      }
+      const v = evalMarksValue(atom);
+      if (v === null) return null;
+      values.push(v);
+      expectValue = false;
+      pos = end;
+    } else {
+      if (m[2] === undefined) return null;
+      ops.push(m[2]);
+      expectValue = true;
+      pos = m.index + m[0].length;
+    }
+  }
+  if (expectValue) return null;
+  if (norm.slice(pos).trim() !== "") return null;
+  if (values.length < 2) return null;
+  return { values, ops };
+}
+
 // The marks each part of a split-sum parent takes, in sub-row
 // order — or null when the expression cannot be assigned safely.
 // A sum "a+b+..." assigns its terms in order when the term count
@@ -1755,20 +1829,15 @@ function fillWholeQuestionParentParts(
 // "1+3+3+3" with 3 sub-rows matches nothing, so PHYDSM101T Q8's
 // printed 3,3,3 stay). A product "a×b" means b parts of a marks
 // each, or a parts of b marks each ("5×2" with (a)/(b) means 5
-// each). Anything else (a lone term, a mismatch, a product that
-// matches neither way) is left alone — a wrong guess would corrupt
-// the table more than a blank.
+// each). Terms may be fractional ("1+2+1/2+1/2", "2\frac{1}{2}
+// \times 2" — the per-part value is then fractional, e.g. 2.5).
+// Anything else (a lone term, a mismatch, a product that matches
+// neither way) is left alone — a wrong guess would corrupt the
+// table more than a blank.
 function splitTermsForParts(expr: string, subCount: number): number[] | null {
-  // Normalise the LaTeX product operator first: the raw expression
-  // may read "5 \\times 2" (a backslash word, no "x" or "×" in it),
-  // and the sum branch below must not fire vacuously on an
-  // operator-less match (an empty ops list passes every()).
-  const norm = expr.replace(/\\times/g, "×");
-  const terms = norm.match(/[\d০-৯]+/g) ?? [];
-  const nums = terms.map((t) => asciiNumber(t));
-  if (nums.some((n) => n === null) || nums.length < 2) return null;
-  const values = nums as number[];
-  const ops = norm.match(/[+×x]/g) ?? [];
+  const parts = splitExprParts(expr);
+  if (parts === null) return null;
+  const { values, ops } = parts;
   if (
     ops.length === values.length - 1 &&
     ops.every((op) => op === "+") &&
@@ -1816,13 +1885,22 @@ function anyCountProductPerPart(
   if (!m) return null;
   const n = wordToNumber(m[1]);
   if (n === null || subCount <= n) return null;
-  const norm = expr.replace(/\\times/g, "×");
-  const pm = norm.match(/^\s*([\d০-৯]+)\s*(?:×|x)\s*([\d০-৯]+)\s*$/);
-  if (!pm) return null;
-  const a = asciiNumber(pm[1]);
-  const b = asciiNumber(pm[2]);
-  if (a === null || b === null) return null;
-  if (parent.marks === null || a * b !== parent.marks) return null;
+  // G47: the product's factors may be fractional ("2\frac{1}{2}
+  // \times 2", ZOOSEC101T Q36 — "any two" of three notes, each
+  // worth 2.5, total 5). Parse atoms, not bare integers.
+  const parts = splitExprParts(expr);
+  if (parts === null) return null;
+  const { values, ops } = parts;
+  if (
+    ops.length !== 1 ||
+    (ops[0] !== "×" && ops[0] !== "x") ||
+    values.length !== 2
+  ) {
+    return null;
+  }
+  const [a, b] = values;
+  if (parent.marks === null || Math.abs(a * b - parent.marks) > 1e-9)
+    return null;
   if (b === n) return a;
   if (a === n) return b;
   return null;
@@ -2474,13 +2552,21 @@ function splitTotalOnQuestionLine(
     // of b). It fires only when the total equals the direct
     // figure, the product equals the total, and every sub-row's
     // marks equals the per-part value for the sub-row count.
-    const prodRe = /(\d+)\s*(?:×|x|\\times)\s*(\d+)\s*=\s*(\d+)/g;
+    // G47: the product's factors may be fractional
+    // ("$2\frac{1}{2} \times 2 = 5$", ZOOSEC101T Q36/Q38) — match
+    // MARKS_NUM atoms, not bare integers, so the counter's fallback
+    // counts the direct figure once instead of direct + parts.
+    const prodRe = new RegExp(
+      String.raw`(${MARKS_NUM})\s*(?:×|x|\\times)\s*(${MARKS_NUM})\s*=\s*([\d০-৯]+)`,
+      "g",
+    );
     let pm: RegExpExecArray | null;
     while ((pm = prodRe.exec(ln)) !== null) {
-      const a = parseInt(pm[1], 10);
-      const b = parseInt(pm[2], 10);
-      const total = parseInt(pm[3], 10);
-      if (total !== directMarks || a * b !== total) continue;
+      const a = evalMarksValue(pm[1]);
+      const b = evalMarksValue(pm[2]);
+      const total = asciiNumber(pm[3]);
+      if (a === null || b === null || total === null) continue;
+      if (total !== directMarks || Math.abs(a * b - total) > 1e-9) continue;
       let perPart =
         subMarks.length === b ? a : subMarks.length === a ? b : null;
       if (perPart === null) {

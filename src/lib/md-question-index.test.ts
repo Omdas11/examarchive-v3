@@ -5022,3 +5022,153 @@ UNIT—I
     expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(42);
   });
 });
+
+describe("batch 43/45 parser fix — fractional split figures, $-delimited colon figures (G47/G48)", () => {
+  test("G47: '$2\\frac{1}{2} \\times 2 = 5$' splits as 2.5 per sub-row — ZOOSEC101T Q38 shape", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+Full Marks : 50
+
+SECTION—C
+
+Answer five questions, selecting one from each Unit : $5 \times 5 = 25$
+
+UNIT—I
+
+36. Write short notes on the following : $2\frac{1}{2}\times 2=5$
+
+(a) First note
+
+(b) Second note
+
+UNIT—II
+
+37. Second question? 5
+
+UNIT—III
+
+38. Write short notes on any two of the following : $2\frac{1}{2} \times 2 = 5$
+
+(a) American foul brood
+
+(b) Thai sac brood disease
+
+(c) Chalk brood disease
+
+UNIT—IV
+
+39. Fourth question? 5
+
+UNIT—V
+
+40. Fifth question? 5
+`;
+    const rows = parseTranscriptToRows(md, "ZOOSEC101T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["36", 5],
+      ["36(a)", 2.5],
+      ["36(b)", 2.5],
+      ["37", 5],
+      ["38", 5],
+      ["38(a)", 2.5],
+      ["38(b)", 2.5],
+      ["38(c)", 2.5],
+      ["39", 5],
+      ["40", 5],
+    ]);
+    // Section C counts 5 x 5 = 25 — the fractional sub-rows never
+    // add on top of their parent's 5.
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(25);
+  });
+
+  test("G47: a fractional sum splits its terms in order — '1+2+1/2+1/2' with four sub-rows", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+Full Marks : 70
+
+1. Explain the following : $1+2+1/2+1/2=4$
+
+(a) First term
+
+(b) Second term
+
+(c) Third term
+
+(d) Fourth term
+`;
+    const rows = parseTranscriptToRows(md, "TEST");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["1", 4],
+      ["1(a)", 1],
+      ["1(b)", 2],
+      ["1(c)", 0.5],
+      ["1(d)", 0.5],
+    ]);
+  });
+
+  test("G48: a $-delimited split expression after a colon fills the sub-row — SANIDC101T Q44 shape", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+Full Marks : 70
+
+SECTION—C
+
+Answer five questions, selecting one from each Unit : 8x5=40
+
+UNIT—V
+
+44. (a) Write equivalent words (Sanskrit to English) of any four of the following : $1 \times 4 = 4$ नमस्कारः ; धन्यवादः ; स्वागतम् ; क्षम्यताम् ; कृपया ; पुनः मिलामः ।
+
+(b) Write equivalent words (English to Sanskrit) of any four of the following : $1 \times 4 = 4$ Teacher ; Mother ; Father ; Sister ; Brother ; Student.
+
+45. (a) Write four vegetables in Sanskrit or write one to ten in Sanskrit. [4]
+
+(b) Write in English of the following : [4]
+(i) मम नाम (ii) एषः मम मित्रम् (iii) कुतः आगच्छति (iv) अहं न जानामि
+`;
+    const rows = parseTranscriptToRows(md, "SANIDC101T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["44(a)", 4],
+      ["44(b)", 4],
+      ["45(a)", 4],
+      ["45(b)", 4],
+    ]);
+    // The expression leaves the row text; the items stay.
+    expect(rows[0].question).toBe(
+      "Write equivalent words (Sanskrit to English) of any four of the following : नमस्कारः ; धन्यवादः ; स्वागतम् ; क्षम्यताम् ; कृपया ; पुनः मिलामः ।",
+    );
+  });
+
+  test("G48: a lone ': $100 ...' never matches — a currency amount is not a marks expression", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+Full Marks : 70
+
+1. The fee is : $100 per month. Explain.
+`;
+    const rows = parseTranscriptToRows(md, "TEST");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([["1", null]]);
+    expect(rows[0].question).toContain("$100");
+  });
+
+  test("G47: parseIndexTable reads a fractional Marks cell — '2.5' round-trips", () => {
+    const md = `---
+paper_code: ZOOSEC101T
+---
+
+## Question index
+
+| No. | Question | Marks | ID | Unit | Group | Keywords |
+| --- | --- | --- | --- | --- | --- | --- |
+| 36(a) | First note | 2.5 | ZOOSEC101T-Q36a | III | Answer any 5 | x |
+| 36(b) | Second note | 5 | ZOOSEC101T-Q36b | III | Answer any 5 | y |
+| 36(c) | Third note |  | ZOOSEC101T-Q36c | III | Answer any 5 | z |
+`;
+    const rows = parseIndexTable(md);
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["36(a)", 2.5],
+      ["36(b)", 5],
+      ["36(c)", null],
+    ]);
+  });
+});
