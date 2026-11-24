@@ -207,6 +207,16 @@ const PAIR_EITHER_LINE =
 // without "অতি" also occurs ("যে কোনো দশটি প্রশ্নের সংক্ষিপ্ত
 // উত্তর দাও", BNGDSM151T SECTION—A). Neither word
 // contains য়, so they are typed, not escaped.
+// Section instructions add a per-unit count before the total —
+// "প্রতিটি ইউনিট থেকে যে কোনো দুটি প্রশ্ন নিয়ে দশটি প্রশ্নের
+// উত্তর দাও" (BNGDSC102T Section A, batch 37, G29): answer two
+// from each unit, ten in total. The count is the SECOND word
+// (ten), captured as group 3; group 2 is the per-unit count. The
+// "প্রতিটি ইউনিট থেকে" prefix is optional in the pattern. The য়
+// in "নিয়ে" is written as \u09df, never typed (typing it produces
+// the YA + nukta form, which never matches) — and matchInstruction
+// folds the line with foldBnYy first, because the staged transcripts
+// mix both byte forms (BNG1D is YA + nukta, BNGAEC101T is U+09DF).
 // AEC papers put "নিম্নলিখিত" (the following) before "যে কোনো"
 // ("১। নিম্নলিখিত যে কোনো তিনটি প্রশ্নের উত্তর দাও", BNGAEC101T Q1)
 // — same instruction, same rule; without the prefix the line became
@@ -216,7 +226,32 @@ const PAIR_EITHER_LINE =
 // the ে in "প্রশ্নের" is optional because the Assamese form drops it
 // ("প্রশ্নর"). The count word "তিনিটি" is in BN_COUNT_WORDS.
 const BN_INSTRUCTION_LINE =
-  /^(?:([\d০-৯]+)[।.]\s*)?(?:নিম্নলিখিত\s+)?যে[\s-]*কোনো\s*(\S+?)\s*(?:(?:অতি\s+)?সংক্ষিপ্ত\s+)?প্রশ্নে?র\s+(?:(?:অতি\s+)?সংক্ষিপ্ত\s+)?উত্তর\s+দাও(?=\s|:|$)[^\n]*$/;
+  /^(?:([\d০-৯]+)[।.]\s*)?(?:প্রতিটি\s+ইউনিট\s+থেকে\s+)?(?:নিম্নলিখিত\s+)?যে[\s-]*কোনো\s*(\S+?)\s*(?:প্রশ্ন\s+নি\u09dfে\s+(?:মোট\s+)?(\S+?)\s+)?(?:(?:অতি\s+)?সংক্ষিপ্ত\s+)?প্রশ্নে?র\s+(?:(?:অতি\s+)?সংক্ষিপ্ত\s+)?উত্তর\s+দাও(?=\s|:|$)[^\n]*$/;
+
+// Bengali section instruction without "যে কোনো": "প্রতিটি ইউনিট
+// থেকে একটি করে প্রশ্ন নিয়ে মোট পাঁচটি প্রশ্নের উত্তর দাও"
+// (BNGAEC101T Section B/C, BNGSEC101T Section B/C, batch 37,
+// G29/G30) — answer one from each unit, M questions in total;
+// the count is M (group 2).
+const BN_SECTION_EACH_LINE =
+  /^(?:([\d০-৯]+)[।.]\s*)?প্রতিটি\s+ইউনিট\s+থেকে\s+একটি\s+করে\s+প্রশ্ন\s+নি\u09dfে\s+(?:মোট\s+)?(\S+?)\s+প্রশ্নে?র\s+উত্তর\s+দাও(?=\s|:|$)[^\n]*$/;
+
+// English section instruction: "Answer ten questions, selecting any
+// two from each Unit : $2 \times 10 = 20$" (BOTDSC101T/102T Section
+// A, batch 37, G31) — N questions in total, M from each unit; the
+// count is N (group 2). INSTRUCTION_LINE only covers "Answer any
+// N ...", so this shape needs its own pattern.
+const EN_SECTION_INSTRUCTION_LINE =
+  /^(?:([\d০-৯]+)[।.]\s*)?Answer\s+(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|\d+)\s+questions?,\s+selecting\s+(?:any\s+)?(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|\d+)\s+from\s+each\s+Unit\b[^\n]*$/i;
+
+// A section-level instruction's markers: it spans units ("প্রতিটি
+// ইউনিট থেকে" / "from each Unit") or states a total over per-unit
+// counts ("প্রশ্ন নিয়ে মোট M প্রশ্নের"). An instruction carrying
+// one governs the whole section, so it must survive the UNIT
+// headings inside that section (see sectionInstrPending in
+// parseTranscriptToRows).
+const SECTION_LEVEL_SHAPE =
+  /প্রতিটি\s+ইউনিট\s+থেকে|নি\u09dfে\s+(?:মোট\s+)?\S+\s+প্রশ্নের|from\s+each\s+Unit/i;
 
 // Manipuri (Bengali script) count words in instruction lines:
 // "অমতংগী" and "অমখক" are one, "অনীদংগী" two, "অহুমথকী" and
@@ -588,6 +623,17 @@ function matchInstruction(line: string): {
       pairEither: false,
     };
   }
+  const enSection = line.match(EN_SECTION_INSTRUCTION_LINE);
+  if (enSection) {
+    const count = wordToNumber(enSection[2]);
+    if (count === null) return null;
+    return {
+      num: enSection[1] ? asciiNumber(enSection[1]) : null,
+      count,
+      either: false,
+      pairEither: false,
+    };
+  }
   // Either-group lines may arrive with their brackets wrapped in maths
   // spans — "Answer either $[(a)$ and $(b)]$ or $[(c)$ and $(d)]$"
   // (MATDSC253 lite, batch 24). The $ and * carry no meaning here, so
@@ -615,12 +661,26 @@ function matchInstruction(line: string): {
   // Assamese spelling is folded (ৰ -> র) before matching, so
   // "যে কোনো তিনিটি প্ৰশ্নৰ উত্তৰ দাও" (BENSEC201 Q11) matches the
   // same pattern; the count word lookup below covers "তিনিটি".
-  const bn = foldAsmRa(line).match(BN_INSTRUCTION_LINE);
+  const bn = foldBnYy(foldAsmRa(line)).match(BN_INSTRUCTION_LINE);
   if (bn) {
-    const count = BN_COUNT_WORDS.get(foldBnYy(bn[2]));
+    // "প্রশ্ন নিয়ে মোট M প্রশ্নের": the count is M (total to
+    // answer), not N (per unit) — batch 37, G29.
+    const countWord = bn[3] ?? bn[2];
+    const count = BN_COUNT_WORDS.get(foldBnYy(countWord));
     if (count === undefined) return null;
     return {
       num: bn[1] ? asciiNumber(bn[1]) : null,
+      count,
+      either: false,
+      pairEither: false,
+    };
+  }
+  const bnEach = foldBnYy(foldAsmRa(line)).match(BN_SECTION_EACH_LINE);
+  if (bnEach) {
+    const count = BN_COUNT_WORDS.get(foldBnYy(bnEach[2]));
+    if (count === undefined) return null;
+    return {
+      num: bnEach[1] ? asciiNumber(bnEach[1]) : null,
       count,
       either: false,
       pairEither: false,
@@ -649,6 +709,34 @@ function matchInstruction(line: string): {
     };
   }
   return null;
+}
+
+/**
+ * A section instruction the pipeline reflow joined onto the previous
+ * question's line (BNGSEC101T Q20/Q30, batch 37, G32): "20. ...?
+ * প্রতিটি ইউনিট থেকে একটি করে প্রশ্ন নিয়ে পাঁচটি প্রশ্নের উত্তর
+ * দাও : ২×৫=১০". Returns [question part, instruction part]; the
+ * tail must validate as an instruction, so a question that merely
+ * mentions units never splits. The last validating split point wins
+ * (the instruction sits at the end of the line). The English shape
+ * ("... Answer five questions, selecting one from each Unit: ...")
+ * is covered the same way.
+ */
+function splitAppendedSectionInstruction(
+  line: string,
+): [string, string] | null {
+  const re =
+    /(প্রতিটি\s+ইউনিট\s+থেকে\s+.+|Answer\s+\S+\s+questions?,\s+selecting\s+.+)/g;
+  let m: RegExpExecArray | null;
+  let found: [string, string] | null = null;
+  while ((m = re.exec(line)) !== null) {
+    const before = line.slice(0, m.index).trim();
+    const tail = m[0].trim();
+    if (before && matchInstruction(tail) !== null) {
+      found = [before, tail];
+    }
+  }
+  return found;
 }
 
 const WORD_NUMBERS: Record<string, number> = {
@@ -2119,6 +2207,70 @@ function splitTotalOnQuestionLine(
 }
 
 /**
+ * The SECTION each question number sits under, from the transcript
+ * lines (batch 37, G31/G32): a SECTION/বিভাগ heading opens a
+ * section, and so does a section-level instruction with no heading
+ * before it (BNGSEC101T: sections split on an instruction line +
+ * UNIT—I restart). A section instruction right after the SECTION
+ * heading that just opened its section belongs to that section,
+ * not a new one. Questions before any section map to "" and keep
+ * the old (group, unit) pool keying.
+ */
+function sectionOfQuestions(lines: string[]): Map<string, string> {
+  const map = new Map<string, string>();
+  let section = "";
+  let justOpened = false;
+  let counter = 0;
+  const openSection = (): void => {
+    if (!justOpened) {
+      counter += 1;
+      section = `§${counter}`;
+    }
+    justOpened = false;
+  };
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line) continue;
+    const h = line.match(UNIT_HEADING);
+    if (h) {
+      if (h[1] === "SECTION" || h[3] !== undefined) {
+        section = h[2] ?? h[3] ?? "";
+        justOpened = true;
+      }
+      continue;
+    }
+    // A section instruction appended to a numbered question's line
+    // (G32 join): the question closes the old section, the
+    // instruction opens the next one.
+    const app = splitAppendedSectionInstruction(line);
+    if (app) {
+      const n = line.match(/^([\d০-৯]+)[।.]\s+/);
+      if (n) {
+        const qn = asciiNumber(n[1]);
+        if (qn !== null) map.set(String(qn), section);
+      }
+      openSection();
+      continue;
+    }
+    // A standalone section instruction line.
+    if (
+      matchInstruction(line) !== null &&
+      SECTION_LEVEL_SHAPE.test(foldBnYy(line))
+    ) {
+      openSection();
+      continue;
+    }
+    const n = line.match(/^([\d০-৯]+)[।.]\s+/);
+    if (n) {
+      const qn = asciiNumber(n[1]);
+      if (qn !== null) map.set(String(qn), section);
+      justOpened = false;
+    }
+  }
+  return map;
+}
+
+/**
  * The counted total WITHOUT the remainder rule — a line-for-line
  * port of assemble.py counted_total (section sets, per-question
  * rules, OR-pair subtraction), used only by the remainder fill
@@ -2139,11 +2291,19 @@ export function countedTotalExcludingRemainder(
   }
   let sectionTotal = 0;
   const sectionQnums = new Set<string>();
+  const sections = sectionOfQuestions(lines);
   const bySection = new Map<string, QuestionRow[]>();
   for (const r of rows) {
     const g = r.group || "";
     if (g.startsWith("Answer any ")) {
-      const key = `${g}|${r.unit || ""}`;
+      // Pool by section, not by unit (batch 37, G31): one "Answer
+      // any 5" instruction spans all five units of BOTDSC101T
+      // Section B, and pooling by unit counted 5 x 10 once per
+      // unit (100/70). Questions with no section keep the old
+      // (group, unit) key.
+      const qnum = r.label.split("(")[0];
+      const sec = sections.get(qnum);
+      const key = `${g}|${sec !== undefined && sec !== "" ? sec : r.unit || ""}`;
       const arr = bySection.get(key) ?? [];
       arr.push(r);
       bySection.set(key, arr);
@@ -2596,7 +2756,23 @@ export function parseTranscriptToRows(
   const { rest } = parseFrontmatter(md);
   const { transcript } = splitIndexTable(rest);
   const formatted = formatQuestionMd(transcript);
-  const lines = formatted.split("\n");
+  const rawLines = formatted.split("\n");
+  // A section instruction the pipeline reflow joined onto the
+  // previous question's line is split back into its own line (batch
+  // 37, G32), so the question keeps its own marks and the
+  // instruction starts the next section. Only numbered lines split,
+  // and only when the tail validates as an instruction.
+  const lines: string[] = [];
+  for (const l of rawLines) {
+    const app = NUMBERED_LINE.test(l)
+      ? splitAppendedSectionInstruction(l)
+      : null;
+    if (app) {
+      lines.push(app[0], app[1]);
+    } else {
+      lines.push(l);
+    }
+  }
   const rows: QuestionRow[] = [];
   let unit = "";
   let qNum = "";
@@ -2650,6 +2826,16 @@ export function parseTranscriptToRows(
   // BNGDSC152T বিভাগ—ক) survives every numbered question under it;
   // a new heading or instruction ends it.
   let sectionScoped = false;
+  // A section instruction matched but not yet governing any question
+  // (batch 37, G29–G32): an instruction matched directly under a
+  // SECTION/বিভাগ heading, or one carrying a section-level shape
+  // ("প্রতিটি ইউনিট থেকে", "from each Unit"), governs the whole
+  // section — it must survive the UNIT headings inside that section
+  // (see the heading branch below), where the old code reset the
+  // group and only the first question kept it. Set in the
+  // instruction branch, cleared by a non-section instruction, a
+  // SECTION heading, or once the section scope is confirmed.
+  let sectionInstrPending = false;
   // What the most recent heading was: "section" for বিভাগ/SECTION
   // headings, "unit" for UNIT/গুচ্ছ, null before any heading. Only a
   // section heading can open a section instruction (see below).
@@ -3187,9 +3373,10 @@ export function parseTranscriptToRows(
       // open one (MTMDSM301 UNIT—II).
       if (
         rows.length === rowsAtGroupStart &&
-        lastHeadingKind === "section"
+        (lastHeadingKind === "section" || sectionInstrPending)
       ) {
         sectionScoped = true;
+        sectionInstrPending = false;
         return;
       }
       group = "";
@@ -3203,7 +3390,7 @@ export function parseTranscriptToRows(
       String(n) === qNum &&
       groupGuard !== null &&
       rows.length === rowsAtGroupStart &&
-      lastHeadingKind === "section"
+      (lastHeadingKind === "section" || sectionInstrPending)
     ) {
       // The first numbered question under an unnumbered per-detail
       // instruction IS the number the instruction opened, and no row
@@ -3214,6 +3401,7 @@ export function parseTranscriptToRows(
       // group would be recognised one number too late — Q1 keeps it
       // and Q2 loses it.
       sectionScoped = true;
+      sectionInstrPending = false;
     }
   };
 
@@ -3281,14 +3469,40 @@ export function parseTranscriptToRows(
 
     const unitMatch = line.match(UNIT_HEADING);
     if (unitMatch) {
+      const isSectionHeading =
+        unitMatch[1] === "SECTION" || unitMatch[3] !== undefined;
+      // A section instruction survives the UNIT headings inside its
+      // section (batch 37, G29–G32): the group was set by an
+      // instruction matched under a SECTION heading (or shaped
+      // section-level) and no question row has been pushed since, or
+      // it already governs the section. A new SECTION heading still
+      // ends it, and a consumed instruction never preserves (rows
+      // were pushed, so the group belongs to those questions).
+      const preserveSectionGroup =
+        !isSectionHeading &&
+        (sectionScoped ||
+          (sectionInstrPending && rows.length === rowsAtGroupStart));
       unit =
         unitMatch[2] ??
         unitMatch[3] ??
         (unitMatch[4] ? asciiDigits(unitMatch[4]) : "");
-      lastHeadingKind =
-        unitMatch[1] === "SECTION" || unitMatch[3] !== undefined
-          ? "section"
-          : "unit";
+      lastHeadingKind = isSectionHeading ? "section" : "unit";
+      if (preserveSectionGroup) {
+        // The section instruction now governs the section: keep its
+        // group and per-part marks, and remember that a section
+        // instruction was seen (a later per-unit instruction must
+        // not inherit a marks line that belonged to the section).
+        sectionScoped = true;
+        sectionInstrPending = false;
+        groupMarksFromLine = false;
+        seenInstructionSinceHeading = true;
+        orPending = false;
+        pendingSub = null;
+        lastSubLetter = "";
+        crossedPageBreak = false;
+        rowsAtLastHeading = rows.length;
+        continue;
+      }
       // A unit is self-contained: every unit starts with its own
       // instruction, so the previous unit's group never carries over.
       group = "";
@@ -3299,6 +3513,7 @@ export function parseTranscriptToRows(
       groupMarksFromLine = false;
       seenInstructionSinceHeading = false;
       sectionScoped = false;
+      sectionInstrPending = false;
       orPending = false;
       pendingSub = null;
       lastSubLetter = "";
@@ -3415,6 +3630,15 @@ export function parseTranscriptToRows(
       // or dropped because an earlier instruction owns it).
       groupMarksFromLine = false;
       seenInstructionSinceHeading = true;
+      // A section instruction (under a SECTION heading, or shaped
+      // section-level) is pending until a UNIT heading or the first
+      // question confirms it governs the section (batch 37, G29–G32).
+      // The line is folded first: the transcripts mix both য় byte
+      // forms (U+09DF and YA + nukta), and the shape pattern is
+      // written in the U+09DF form.
+      sectionInstrPending =
+        lastHeadingKind === "section" ||
+        SECTION_LEVEL_SHAPE.test(foldBnYy(line));
       if (instr.pairEither) {
         // The pair-either instruction is also a row (the question
         // itself): its printed total, when present, is the question's

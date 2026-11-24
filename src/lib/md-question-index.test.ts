@@ -3549,3 +3549,319 @@ Answer any five of the following questions : $10 \\times 5 = 50$
     expect(fm.year).toBe(2024);
   });
 });
+
+describe("batch 37 parser fix — Bengali section instructions (G29–G32)", () => {
+  test("G29: a Bengali section instruction with a per-unit count and a standalone Bengali-digit marks line — BNGDSC102T Section A", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+BENGALI
+( 1st Semester )
+
+Paper Code : BNGDSC102T
+
+Full Marks : 70
+Pass Marks : 28
+
+Time : 3 hours
+
+SECTION—A
+
+প্রতিটি ইউনিট থেকে যে কোনো দুটি প্রশ্ন নিয়ে দশটি প্রশ্নের উত্তর দাও :
+
+২×১০=২০
+
+UNIT—I
+
+1. First question?
+
+2. Second question?
+
+UNIT—II
+
+3. Third question?
+
+4. Fourth question?
+
+UNIT—III
+
+5. Fifth question?
+
+6. Sixth question?
+
+UNIT—IV
+
+7. Seventh question?
+
+8. Eighth question?
+
+UNIT—V
+
+9. Ninth question?
+
+10. Tenth question?
+`;
+    const rows = parseTranscriptToRows(md, "BNGDSC102T");
+    expect(rows).toHaveLength(10);
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual(
+      Array.from({ length: 10 }, (_, i) => [
+        String(i + 1),
+        2,
+        "Answer any 10",
+      ]),
+    );
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(20);
+  });
+
+  test("G29: Bengali digits inside a $...$ figure evaluate — BNGAEC101T Section A shape", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+SECTION—A
+
+প্রতিটি ইউনিট থেকে যে কোনো তিনটি প্রশ্ন নিয়ে মোট পনেরোটি প্রশ্নের উত্তর দাও : $১ \times ১৫ = ১৫$
+
+UNIT—I
+
+1. First question?
+
+2. Second question?
+
+UNIT—II
+
+3. Third question?
+
+4. Fourth question?
+
+UNIT—III
+
+5. Fifth question?
+`;
+    const rows = parseTranscriptToRows(md, "BNGAEC101T");
+    expect(rows).toHaveLength(5);
+    expect(
+      rows.every((r) => r.marks === 1 && r.group === "Answer any 15"),
+    ).toBe(true);
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(15);
+  });
+
+  test("G29: a plain Bengali-digit figure with spaces evaluates — BNG1D Section C shape", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+SECTION—C
+
+প্রতিটি ইউনিট থেকে যে কোনো একটি প্রশ্ন নিয়ে পাঁচটি প্রশ্নের উত্তর দাও : ৮ × ৫ = ৪০
+
+UNIT—I
+
+1. First question?
+
+UNIT—II
+
+2. Second question?
+
+UNIT—III
+
+3. Third question?
+
+UNIT—IV
+
+4. Fourth question?
+
+UNIT—V
+
+5. Fifth question?
+`;
+    const rows = parseTranscriptToRows(md, "BNG1D");
+    expect(rows).toHaveLength(5);
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual(
+      Array.from({ length: 5 }, (_, i) => [String(i + 1), 8, "Answer any 5"]),
+    );
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(40);
+  });
+
+  test("G30: a standalone marks line after a section instruction belongs to the following section — BNGAEC101T", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+SECTION—A
+
+প্রতিটি ইউনিট থেকে যে কোনো তিনটি প্রশ্ন নিয়ে মোট পনেরোটি প্রশ্নের উত্তর দাও : $১ \times ১৫ = ১৫$
+
+UNIT—I
+
+1. First question?
+
+2. Second question?
+
+UNIT—II
+
+3. Third question?
+
+4. Fourth question?
+
+UNIT—III
+
+5. Fifth question?
+
+SECTION—B
+
+প্রতিটি ইউনিট থেকে একটি করে প্রশ্ন নিয়ে মোট পাঁচটি প্রশ্নের উত্তর দাও :
+
+২×৫=১০
+
+UNIT—I
+
+6. Sixth question?
+
+7. Seventh question?
+`;
+    const rows = parseTranscriptToRows(md, "BNGAEC101T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1", 1, "Answer any 15"],
+      ["2", 1, "Answer any 15"],
+      ["3", 1, "Answer any 15"],
+      ["4", 1, "Answer any 15"],
+      ["5", 1, "Answer any 15"],
+      ["6", 2, "Answer any 5"],
+      ["7", 2, "Answer any 5"],
+    ]);
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(25);
+  });
+
+  test("G31: a section choice applies even when questions carry printed figures — BOTDSC101T", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+BOTANY
+( 1st Semester )
+
+Paper Code : BOTDSC101T
+
+Full Marks : 70
+Pass Marks : 28
+
+Time : 3 hours
+
+SECTION—A
+
+Answer ten questions, selecting any two from each Unit : $2 \times 10 = 20$
+
+UNIT—I
+
+1. First question?
+
+2. Second question?
+
+UNIT—II
+
+3. Third question?
+
+4. Fourth question?
+
+SECTION—B
+
+Answer five questions, selecting one from each Unit: $10 \times 5 = 50$
+
+UNIT—I
+
+5. Fifth question? 10
+
+6. Sixth question? 10
+
+UNIT—II
+
+7. Seventh question? 10
+
+8. Eighth question? 10
+
+UNIT—III
+
+9. Ninth question?
+`;
+    const rows = parseTranscriptToRows(md, "BOTDSC101T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1", 2, "Answer any 10"],
+      ["2", 2, "Answer any 10"],
+      ["3", 2, "Answer any 10"],
+      ["4", 2, "Answer any 10"],
+      ["5", 10, "Answer any 5"],
+      ["6", 10, "Answer any 5"],
+      ["7", 10, "Answer any 5"],
+      ["8", 10, "Answer any 5"],
+      // No printed figure on the paper — the section rule fills it.
+      ["9", 10, "Answer any 5"],
+    ]);
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(70);
+  });
+
+  test("G32: a section instruction joined onto a question's line splits, and sections split without SECTION headings — BNGSEC101T", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+প্রতিটি ইউনিট থেকে যে কোনো তিনটি প্রশ্ন নিয়ে পনেরোটি প্রশ্নের উত্তর দাও : $১ \times ১৫ = ১৫$
+
+UNIT—I
+
+1. First question?
+
+2. Second question?
+
+UNIT—II
+
+3. Third question?
+
+4. Fourth question?
+
+20. যার কাছে পত্র লেখা হয় তাকে বলা হয়—প্রাপক না প্রেরক? প্রতিটি ইউনিট থেকে একটি করে প্রশ্ন নিয়ে পাঁচটি প্রশ্নের উত্তর দাও : ২×৫=১০
+
+UNIT—I
+
+21. Twenty-first question?
+
+22. Twenty-second question?
+`;
+    const rows = parseTranscriptToRows(md, "BNGSEC101T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1", 1, "Answer any 15"],
+      ["2", 1, "Answer any 15"],
+      ["3", 1, "Answer any 15"],
+      ["4", 1, "Answer any 15"],
+      ["20", 1, "Answer any 15"],
+      ["21", 2, "Answer any 5"],
+      ["22", 2, "Answer any 5"],
+    ]);
+    expect(rows[4].question).not.toContain("প্রতিটি");
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(25);
+  });
+
+  test("G29: the U+09DF byte form of য় matches too — BNGAEC101T form", () => {
+    // The staged transcripts mix both য় byte forms: BNG1D writes
+    // "নিয়ে" as YA + nukta, BNGAEC101T as the single codepoint
+    // U+09DF. The instruction must match either form.
+    const yy = "\u09df";
+    const md = `# FYUG Odd Semester Exam., 2023
+
+SECTION—A
+
+প্রতিটি ইউনিট থেকে যে কোনো তিনটি প্রশ্ন নি${yy}ে মোট পনেরোটি প্রশ্নের উত্তর দাও : $১ \\times ১৫ = ১৫$
+
+UNIT—I
+
+1. First question?
+
+2. Second question?
+
+UNIT—II
+
+3. Third question?
+
+4. Fourth question?
+
+UNIT—III
+
+5. Fifth question?
+`;
+    const rows = parseTranscriptToRows(md, "BNGAEC101T");
+    expect(rows).toHaveLength(5);
+    expect(
+      rows.every((r) => r.marks === 1 && r.group === "Answer any 15"),
+    ).toBe(true);
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(15);
+  });
+});
