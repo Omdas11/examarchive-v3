@@ -1215,6 +1215,29 @@ function stripTrailingMarks(
       };
     }
   }
+  // A bracketed figure wrapped in HTML alignment tags at the end —
+  // "... <align right>[4]</align>" (MATSEC101T Q34–Q36, batch 40,
+  // G42). The tags are the pipeline's alignment markup, not question
+  // text: strip them with the figure. Plain "[6]"/"[4]" after a
+  // colon already works (batch 35/36); this is the same figure
+  // inside tags. The tag shape requires a letter right after "<"
+  // (or "</"): a bare "<" in maths ("If $1 < x < 2$ ...") is NOT a
+  // tag — a loose <[^>]+> would swallow the whole question up to
+  // the first ">" (the "<align right>" itself).
+  const bracketTagged = text.match(
+    /^(.*?)\s*(?:<[a-zA-Z][^>]*>\s*)*\[([\d০-৯]+)\]\s*(?:<\/[a-zA-Z][^>]*>\s*)*$/,
+  );
+  if (bracketTagged) {
+    const n = asciiNumber(bracketTagged[2]);
+    if (
+      n !== null &&
+      n >= 1 &&
+      n <= 100 &&
+      (groupGuard === null || groupGuard === n)
+    ) {
+      return { text: bracketTagged[1].trim(), marks: n, split: false };
+    }
+  }
   // A bracketed figure at the end is the row's marks — "... show that
   // [5] $$...$$" (MATDSC303T Q8(d), reached here by the tailMath
   // recursion above, which strips the trailing formula first),
@@ -1349,8 +1372,16 @@ function stripTrailingMarks(
   // A trailing marks figure followed by a page footer ("★★★ J25—..."):
   // the figure is the question's marks, the footer is not question
   // text (BNGAEC101T Q25). The ★ marker is distinctive — exam-code
-  // footers are the only ★ usage in these transcripts.
-  const footerMarks = text.match(/^(.*?)\s+\**([\d০-৯]+)\**\s+★.*$/);
+  // footers are the only ★ usage in these transcripts. The star run
+  // itself stays in the row text (batch 40, G43): MATIDC101T 45(b)
+  // already keeps its ★★★ (it reaches the table through the
+  // ≥3-roman-items append, which never re-derives marks), while rows
+  // through here lost it — "... are LD. 3 ★★★" (MATDSC101T Q25(b))
+  // came out as "... are LD." with no ★★★. Anything after the stars
+  // (the printer code) is still dropped.
+  const footerMarks = text.match(
+    /^(.*?)\s+\**([\d০-৯]+)\**\s+(★+).*$/,
+  );
   if (footerMarks) {
     const n = asciiNumber(footerMarks[2]);
     if (
@@ -1359,7 +1390,11 @@ function stripTrailingMarks(
       n <= 100 &&
       (groupGuard === null || groupGuard === n)
     ) {
-      return { text: footerMarks[1].trim(), marks: n, split: false };
+      return {
+        text: `${footerMarks[1].trim()} ${footerMarks[3]}`,
+        marks: n,
+        split: false,
+      };
     }
   }
   // A bare number at the end of the question is its marks — but only
@@ -2701,6 +2736,23 @@ function fillRemainderSubParts(
       }
       continue;
     }
+    // Batch 40, G40: two or more blank fallback sub-rows with a
+    // printed sibling — the fallback gave EACH blank the full
+    // per-question total (MATDSC102T Q19(a)/(b) read 10 each while
+    // (c) prints 2: 22 for a 10-mark question). The fallback is
+    // provisional, never printed: blank them all and let the section
+    // rule count the question once (the uniform / largest-N branch
+    // counts n x T from the proven questions). A single blank still
+    // takes the remainder below — that split is forced, not guessed.
+    if (blank.length > 1) {
+      const printed = parts.filter(
+        (r) => !fallback.has(r) && r.marks !== null,
+      );
+      if (printed.length > 0) {
+        for (const r of blank) r.marks = null;
+      }
+      continue;
+    }
     if (blank.length !== 1) continue;
     const printed = parts.filter(
       (r) => !fallback.has(r) && r.marks !== null,
@@ -2820,6 +2872,68 @@ function fillRemainderMarks(
   const per = rem / n;
   if (per < 1 || per > 20) return;
   for (const r of urs) r.marks = per;
+}
+
+/**
+ * Fill a wholly markless "Answer any N" section whose instruction
+ * prints no figure (batch 40, G41): MATIDC101T Section B and
+ * MATSEC101T Section B both read "Answer five questions, selecting
+ * one from each Unit :" with no "$…$" figure anywhere, so every
+ * row stays blank even though full-marks arithmetic pins the
+ * per-question marks (70 − 20 − 40 = 10 over 5 answered; 50 − 15 −
+ * 25 = 10 over 5 answered). Same remainder rule as
+ * fillRemainderMarks (G16), but pooled by (group, section): a
+ * section spans units, so the unit grouping never sees it as
+ * markless. Exactly one markless pool, remainder divisible by N,
+ * per in 1..20. Only DIRECT rows are filled — a sub-row of a filled
+ * question would read as part of the total, not the total
+ * (MATSEC101T Q31–Q36 stay blank; their figures are hidden in the
+ * fold). The total cannot change: the section rule then counts n x
+ * per once, exactly the remainder. Runs after fillRemainderMarks
+ * and recomputes the total fresh, so a G16 fill on the same paper
+ * is never double-counted.
+ */
+function fillSectionRemainderMarks(
+  rows: QuestionRow[],
+  transcript: string,
+  lines: string[],
+): void {
+  if (!/SECTION/i.test(transcript)) return;
+  const fm = transcript.match(/full[ _]marks\s*:\s*(\d+)/i);
+  if (!fm) return;
+  const fullMarks = parseInt(fm[1], 10);
+  const sections = sectionOfQuestions(lines);
+  const byPool = new Map<string, QuestionRow[]>();
+  for (const r of rows) {
+    const g = r.group || "";
+    if (!g.startsWith("Answer any ")) continue;
+    const qnum = r.label.split("(")[0];
+    const sec = sections.get(qnum);
+    const key = `${g}|${sec !== undefined && sec !== "" ? sec : r.unit || ""}`;
+    const arr = byPool.get(key) ?? [];
+    arr.push(r);
+    byPool.set(key, arr);
+  }
+  const markless: Array<[string, QuestionRow[]]> = [];
+  for (const [key, pool] of byPool) {
+    if (pool.length > 0 && pool.every((r) => r.marks === null)) {
+      markless.push([key, pool]);
+    }
+  }
+  if (markless.length !== 1) return;
+  const [key, pool] = markless[0];
+  const g = key.split("|")[0];
+  const parsed = parseInt(g.split(" ").pop() ?? "", 10);
+  if (Number.isNaN(parsed)) return;
+  const n = parsed;
+  const total = countedTotalExcludingRemainder(rows, lines);
+  const rem = fullMarks - total;
+  if (rem <= 0 || rem % n !== 0) return;
+  const per = rem / n;
+  if (per < 1 || per > 20) return;
+  for (const r of pool) {
+    if (!r.label.includes("(")) r.marks = per;
+  }
 }
 
 /**
@@ -4053,6 +4167,24 @@ export function parseTranscriptToRows(
       }
       continue;
     }
+    // A trailing ★★★ on its own line is the paper's end mark — it
+    // belongs to the last question's row (batch 40, G43). The
+    // pipeline reflow sometimes joins it onto the last sub-row's
+    // line (MATIDC101T 45(b), via the ≥3-roman-items append) and
+    // sometimes leaves it alone (raw transcripts: 39 files end in a
+    // lone ★★★ line), where this loop dropped it. Append the text
+    // only, never re-derive the marks: the row's marks are already
+    // set, and a re-derive would overwrite them with whatever figure
+    // precedes the star. Placed before the orphan-line fall-through,
+    // which would otherwise consume the line without appending it.
+    // (The joined form — "... are LD. 3 ★★★" on the row's own line —
+    // is handled in stripTrailingMarks' footerMarks branch, which
+    // keeps the star run while taking the figure as marks.)
+    if (/^★+$/.test(line)) {
+      const last = rows[rows.length - 1];
+      if (last) last.question = `${last.question} ${line}`.trim();
+      continue;
+    }
     // Everything else (title, header lines, "The figures in the
     // margin...") is not a question — except a display formula on its
     // own line, which is the last row's equation (and may carry its
@@ -4085,6 +4217,7 @@ export function parseTranscriptToRows(
   fillRemainderSubParts(rows, groupMarksFallback);
   fillDirectParentRemainder(rows, groupMarksFallback);
   fillRemainderMarks(rows, transcript, transcript.split("\n"));
+  fillSectionRemainderMarks(rows, transcript, transcript.split("\n"));
   return rows;
 }
 

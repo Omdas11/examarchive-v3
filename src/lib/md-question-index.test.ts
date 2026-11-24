@@ -2415,7 +2415,14 @@ Answer any five of the following questions : $10 \\times 5 = 50$
     ]);
   });
 
-  test("two blank parts keep the fallback — the split is underivable", () => {
+  test("two blank parts with a printed sibling stay blank — the split is underivable (G40)", () => {
+    // Batch 40, G40: the old behaviour kept the fallback on both
+    // blanks (10 each), so MATDSC102T Q19 read 10+10+2 = 22 for a
+    // 10-mark question and the counter overcounted (82/70). The
+    // fallback is provisional, never printed: blank both and let the
+    // section rule count the question once from the proven
+    // questions. A single blank still takes the forced remainder
+    // (MATDSC151T Q17(a) = 10-4-2 = 4, above).
     const md = `SECTION—B
 
 Answer any five of the following questions : $10 \\times 5 = 50$
@@ -2426,8 +2433,8 @@ Answer any five of the following questions : $10 \\times 5 = 50$
     const rows = parseTranscriptToRows(md, "MATDSC151T");
     expect(rows.map((r) => [r.label, r.marks])).toEqual([
       ["17(a)", 4],
-      ["17(b)", 10],
-      ["17(c)", 10],
+      ["17(b)", null],
+      ["17(c)", null],
     ]);
   });
 
@@ -4255,5 +4262,303 @@ UNIT—I
     // Section C counts its full allowance, 5 x 8 — not 132 with a
     // phantom 100 on Q45.
     expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(40);
+  });
+});
+
+describe("batch 40 parser fix — section-rule overfill, figure-less sections, tagged figures, lone end mark (G40–G43)", () => {
+  test("G40: two blank fallback sub-rows with a printed sibling stay blank — MATDSC102T Q19 shape", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+Full Marks : 70
+
+SECTION—A
+
+Answer ten questions, selecting any two from each Unit : $2 \times 10 = 20$
+
+UNIT—I
+
+1. First question? 2
+
+2. Second question? 2
+
+SECTION—B
+
+Answer any five questions, selecting one from each Unit : $10 \times 5 = 50$
+
+UNIT—I
+
+11. (a) First part of Q11?
+
+(b) Second part of Q11?
+
+12. (a) First part of Q12? 2
+
+(b) Second part of Q12?
+
+UNIT—II
+
+13. (a) First part of Q13?
+
+(b) Second part of Q13?
+
+(c) Third part of Q13? 2
+
+14. (a) First part of Q14? 4
+
+(b) Second part of Q14? 4
+
+(c) Third part of Q14? 2
+
+UNIT—III
+
+15. (a) First part of Q15? 3
+
+(b) Second part of Q15? 4
+
+(c) Third part of Q15? 3
+
+16. (a) First part of Q16? 6
+
+(b) Second part of Q16? 4
+
+17. (a) First part of Q17? 6
+
+(b) Second part of Q17? 4
+
+18. (a) First part of Q18? 4
+
+(b) Second part of Q18? 4
+
+(c) Third part of Q18? 2
+
+19. (a) First part of Q19? 3
+
+(b) Second part of Q19? 4
+
+(c) Third part of Q19? 3
+
+20. (a) First part of Q20? 6
+
+(b) Second part of Q20? 4
+`;
+    const rows = parseTranscriptToRows(md, "MATDSC102T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["1", 2],
+      ["2", 2],
+      ["11(a)", null],
+      ["11(b)", null],
+      ["12(a)", 2],
+      // A single blank still takes the forced remainder, 10 - 2.
+      ["12(b)", 8],
+      // Two blanks with a printed sibling: no invented split, no
+      // full-total-on-each-blank — both stay blank and the section
+      // rule counts the question once.
+      ["13(a)", null],
+      ["13(b)", null],
+      ["13(c)", 2],
+      ["14(a)", 4],
+      ["14(b)", 4],
+      ["14(c)", 2],
+      ["15(a)", 3],
+      ["15(b)", 4],
+      ["15(c)", 3],
+      ["16(a)", 6],
+      ["16(b)", 4],
+      ["17(a)", 6],
+      ["17(b)", 4],
+      ["18(a)", 4],
+      ["18(b)", 4],
+      ["18(c)", 2],
+      ["19(a)", 3],
+      ["19(b)", 4],
+      ["19(c)", 3],
+      ["20(a)", 6],
+      ["20(b)", 4],
+    ]);
+    // Section A counts its full allowance (10 x 2); Section B counts
+    // 50 via largest-N (eight proven 10s, top 5 = 50) — not 82, and
+    // not 22 for Q13 alone.
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(70);
+  });
+
+  test("G41: a figure-less section instruction fills its direct rows from full-marks arithmetic — MATIDC101T Section B shape", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+Full Marks : 70
+
+SECTION—A
+
+Answer twenty questions, selecting four from each Unit : 1×20=20
+
+UNIT—I
+
+1. First question? 1
+
+2. Second question? 1
+
+SECTION—B
+
+Answer five questions, selecting one from each Unit :
+
+UNIT—I
+
+3. Direct question, no printed figure?
+
+4. Direct question, no printed figure?
+
+5. (a) Sub-row, no printed figure?
+
+(b) Sub-row, no printed figure?
+
+SECTION—C
+
+Answer five questions, selecting one from each Unit : $8 \times 5 = 40$
+
+UNIT—I
+
+6. First question? 8
+
+7. Second question? 8
+`;
+    const rows = parseTranscriptToRows(md, "MATIDC101T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1", 1, "Answer any 20"],
+      ["2", 1, "Answer any 20"],
+      // 70 - 20 - 40 = 10 over 5 answered: 2 each.
+      ["3", 2, "Answer any 5"],
+      ["4", 2, "Answer any 5"],
+      // Sub-rows are never filled by the section remainder — a
+      // sub-row's value is part of its question's total, not the
+      // total (MATSEC101T Q31–Q36 stay blank the same way).
+      ["5(a)", null, "Answer any 5"],
+      ["5(b)", null, "Answer any 5"],
+      ["6", 8, "Answer any 5"],
+      ["7", 8, "Answer any 5"],
+    ]);
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(70);
+  });
+
+  test("G41: the section remainder does not fire when two sections are markless — ambiguity guard", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+Full Marks : 70
+
+SECTION—A
+
+Answer ten questions, selecting any two from each Unit : $2 \times 10 = 20$
+
+UNIT—I
+
+1. First question? 2
+
+SECTION—B
+
+Answer five questions, selecting one from each Unit :
+
+UNIT—I
+
+2. Direct question, no printed figure?
+
+SECTION—C
+
+Answer five questions, selecting one from each Unit :
+
+UNIT—I
+
+3. Direct question, no printed figure?
+`;
+    const rows = parseTranscriptToRows(md, "MATIDC101T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["1", 2],
+      ["2", null],
+      ["3", null],
+    ]);
+  });
+
+  test("G42: a bracketed figure inside <align right> tags is the sub-row's marks — MATSEC101T Q34–Q36", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+34. (a) Give an example of a continuous function $f:[0, 1] \to R$ which is not differentiable at 1. Justify your answer. <align right>[4]</align>
+
+(b) If $1 < x < 2$, then what is the value of $[x] + [x + 1] + \left[ \frac{1}{x} \right]$ where $[\cdot]$ is the greatest integer function? <align right>[1]</align>
+
+35. (a) First part of Q35? <align right>[3]</align>
+
+(b) Second part of Q35? <align right>[2]</align>
+`;
+    const rows = parseTranscriptToRows(md, "MATSEC101T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["34(a)", 4],
+      ["34(b)", 1],
+      ["35(a)", 3],
+      ["35(b)", 2],
+    ]);
+    expect(rows[0].question).not.toContain("<align right>");
+    expect(rows[0].question).not.toContain("[4]");
+    // The "<" in "$1 < x < 2$" is maths, not a tag: the whole
+    // question text must survive the tag strip (a loose <[^>]+>
+    // swallowed it up to "<align right>").
+    expect(rows[1].question).toContain("If $1 < x < 2$");
+    expect(rows[1].question).toContain("greatest integer function?");
+    expect(rows[1].question).not.toContain("<align right>");
+  });
+
+  test("G43: a figure before the end mark keeps the ★★★ in the row text — MATDSC101T Q25(b) shape", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+25. (a) First part of Q25? 4
+
+(b) Second part of Q25? 3 ★★★
+`;
+    const rows = parseTranscriptToRows(md, "MATDSC101T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["25(a)", 4],
+      ["25(b)", 3],
+    ]);
+    // The figure is stripped, the end mark stays — the old
+    // footerMarks branch dropped both, so this row came out as
+    // "Second part of Q25?" with no ★★★ while MATIDC101T 45(b)
+    // kept its own.
+    expect(rows[1].question).toBe("Second part of Q25? ★★★");
+  });
+
+  test("G43: a trailing ★★★ on its own line joins the last row without re-deriving its marks", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+25. (a) First part of Q25? 4
+
+(b) Second part of Q25? 3
+
+★★★
+`;
+    const rows = parseTranscriptToRows(md, "MATDSC101T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["25(a)", 4],
+      ["25(b)", 3],
+    ]);
+    // The star survives in the row text (stripTrailingMarks would
+    // have read the 3 as marks and stripped it if the line had gone
+    // through appendToLast).
+    expect(rows[1].question).toContain("★★★");
+    expect(rows[1].question).not.toContain("3 ★★★");
+  });
+
+  test("sum reader: '1+1+1+[illegible]' yields no marks — MATIDC101T Q36(b)", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+36. (a) First part of Q36?
+
+(b) Second part of Q36? 1+1+1+[illegible]
+`;
+    const rows = parseTranscriptToRows(md, "MATIDC101T");
+    // The sum reader returns null for the [illegible] term: it does
+    // not count it as 1. On the real paper the 4s on Q36(a)/(b)
+    // come from fillPositionalMarks (Unit I position-1 witnesses
+    // Q38/Q40/Q42 and position-2 witnesses Q37/Q41/Q43 all (4,4)),
+    // not from this text.
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["36(a)", null],
+      ["36(b)", null],
+    ]);
   });
 });
