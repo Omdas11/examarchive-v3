@@ -2712,3 +2712,266 @@ describe("parser gaps fixed from batch 30 (2026-11-24, MATDSM151T / MATSEC151T /
     expect(countedTotalExcludingRemainder(rows, lines)).toBe(10);
   });
 });
+
+describe("parser gaps fixed from batch 31 (2026-11-24, PHIDSC201T / titles)", () => {
+  test("numbered list items inside a question fold into it, not new top-level rows — PHIDSC201T Q4(b)", () => {
+    const md = String.raw`UNIT—II
+
+3. Answer any two of the following : $2\times2=4$
+
+(a) What is existential import?
+
+(b) Do $A$ and $E$ propositions have existential import according to Boole?
+
+(c) If 'All logicians are philosophers' is false, what will be the truth value of 'some logicians are not philosophers'?
+
+4. (a) What is opposition of proposition? 2+4+4=10
+
+Or
+
+(b) Let (i), (ii), (iii) and (iv) be four propositions as given below :
+
+(i) All successful administrators are hard-working people. (ii) No successful administrators are hard-working people. (iii) Some successful administrators are hard-working people. (iv) Some successful administrators are not hard-working people.
+
+1. What will be the truth value of (ii), (iii) and (iv) if we assume (i) to be true? 3
+
+2. What will be the truth- or falsehood of (ii), (iii) and (iv), if we assume (i) to be false? 3
+
+3. If $I$ proposition is given as false, then what will be the truth- or falsehood of $A$, $E$ and $O$ granted that they have same subject and predicate? 2
+
+4. If $E$ proposition is given as true, then what will be the truth or falsity of $A$, $I$ and $O$ granted that they have the same subject and predicate? 2
+
+UNIT—III
+
+5. Answer any two of the following : $2\times2=4$
+
+(a) Mention two characteristics of analytical reasoning.`;
+    const rows = parseTranscriptToRows(md, "PHIDSC201T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["3(a)", 2, "Answer any 2"],
+      ["3(b)", 2, "Answer any 2"],
+      ["3(c)", 2, "Answer any 2"],
+      ["4(a)", 10, ""],
+      ["4(b)", 10, "OR"],
+      ["5(a)", 2, "Answer any 2"],
+    ]);
+    // No top-level '1'–'4' rows, IDs unique, and the folded items
+    // (plus the four propositions) survive in 4(b)'s text.
+    expect(rows.some((r) => ["1", "2", "3", "4"].includes(r.label))).toBe(
+      false,
+    );
+    expect(new Set(rows.map((r) => r.id)).size).toBe(rows.length);
+    const q4b = rows.find((r) => r.label === "4(b)") as QuestionRow;
+    expect(q4b.question).toContain("hard-working people");
+    expect(q4b.question).toContain("truth value of (ii), (iii) and (iv)");
+    expect(q4b.question).toContain("If $E$ proposition is given as true");
+  });
+
+  test("numbered arguments inside a sub-part fold in and their figures add up — PHIDSC201T Q10(c)", () => {
+    const md = String.raw`UNIT—V
+
+9. Answer any two of the following : $2\times2=4$
+
+(a) What is a set?
+
+(b) What is an empty set?
+
+(c) What is a subset?
+
+10. (a) If $A = \{ 1, 2 \}$ $B = \{ 1, 3, 5 \}$ $C = \{ 2, 3, 5, 7 \}$ $D = \{ 4, 5, 6, 7 \}$ then find
+
+(i) $A \cup B$ (ii) $B \cap C$ (iii) $C \cup D$ (iv) $(A \cup B) \cup C$
+
+(v) $C \cap D$ 5
+
+(b) Which of the following statements are true and which of them are false (for all sets $A, B$ and $C$)? 5
+
+(i) If $A=B$ and $B=C$, then $A=C$. (ii) If $A \in B$ and $B \in C$, then $A \in C$. (iii) If $A \subseteq B$ and $B \subseteq C$, then $A \subseteq C$. (iv) If $A=B$ and $B \in C$, then $A \in C$.
+
+(v) If $A \in B$ and $B=C$, then $A \in C$.
+
+Or
+
+(c) (i) What is wrong with the following arguments? 2+2=4
+
+1. Tomcats are cats. Cats are a species. Therefore, tomcats are a species.
+
+2. Socrates is a man. Men are numerous. Therefore, Socrates is numerous. (ii) What is the principle of extensionality for sets? [2] (iii) What is intersection of sets? [2] (iv) What is domain of individuals? 2`;
+    const rows = parseTranscriptToRows(md, "PHIDSC201T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["9(a)", 2, "Answer any 2"],
+      ["9(b)", 2, "Answer any 2"],
+      ["9(c)", 2, "Answer any 2"],
+      ["10(a)", 5, ""],
+      ["10(b)", 5, ""],
+      ["10(c)", 10, "OR"],
+    ]);
+    // No '1b'/'2b' rows, IDs unique (the old code collided with
+    // Unit-I Q1(b)/Q2(b)).
+    expect(rows.some((r) => r.label === "1b" || r.label === "2b")).toBe(
+      false,
+    );
+    expect(new Set(rows.map((r) => r.id)).size).toBe(rows.length);
+    const q10a = rows.find((r) => r.label === "10(a)") as QuestionRow;
+    expect(q10a.question).toContain("$A \\cup B$");
+    expect(q10a.question).toContain("(v) $C \\cap D$");
+    const q10c = rows.find((r) => r.label === "10(c)") as QuestionRow;
+    expect(q10c.question).toContain("Tomcats are cats");
+    expect(q10c.question).toContain("Socrates is a man");
+    // (a)=5, (b)=5, Or (c)=10 still holds.
+    expect(rows.find((r) => r.label === "10(a)")?.marks).toBe(5);
+    expect(rows.find((r) => r.label === "10(b)")?.marks).toBe(5);
+  });
+
+  test("a '1.' line right after a heading is a new question, not a fold", () => {
+    // A paper that restarts its numbering per unit opens with "1."
+    // right after the heading, with no row pushed since — that "1."
+    // IS a new question.
+    const md = `UNIT—I
+
+3. Answer any two of the following : $2 \\times 2 = 4$
+
+(a) First short.
+
+(b) Second short.
+
+UNIT—II
+
+1. First question of unit two. [2]`;
+    const rows = parseTranscriptToRows(md, "PHIDSC201T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["3(a)", 2],
+      ["3(b)", 2],
+      ["1", 2],
+    ]);
+  });
+
+  test("a duplicate number after a direct row still opens a new question and gets renamed (G15)", () => {
+    const md = `UNIT—I
+
+1. First question. [2]
+
+2. Second question. [2]
+
+1. A repeated first question. [3]`;
+    const rows = parseTranscriptToRows(md, "PHIDSC201T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["1", 2],
+      ["2", 2],
+      ["1b", 3],
+    ]);
+  });
+
+  test("titles: bracketed, text-plus-parenthetical, and heading-marked lines (G23)", () => {
+    const bracketed = `# FYUG Even Semester Exam., 2024
+
+PERSIAN
+
+( 2nd Semester )
+
+Paper Code: PERDSC–151T
+
+[ Persian Poetry (Some Selections) ]
+
+Full Marks: 70
+
+Pass Marks: 28
+
+Time: 3 hours
+
+UNIT—I
+
+1. First question. [2]`;
+    expect(buildQuestionIndex(bracketed, "PERDSC151T")).toContain(
+      "title: Persian Poetry (Some Selections)",
+    );
+
+    const textParen = `# FYUG Even Semester Exam., 2024
+
+PHILOSOPHY
+
+( 2nd Semester )
+
+Paper Code: PHIDSC-151T
+
+Ethics—I (Indian)
+
+Full Marks: 70
+
+Pass Marks: 28
+
+Time: 3 hours
+
+UNIT—I
+
+1. First question. [2]`;
+    expect(buildQuestionIndex(textParen, "PHIDSC151T")).toContain(
+      "title: Ethics—I (Indian)",
+    );
+
+    const headingMarked = `# FYUG Even Semester Exam., 2024
+
+PHILOSOPHY
+
+( 2nd Semester )
+
+Paper Code: PHIDSC-152T
+
+### Ethics—II (Western)
+
+Full Marks: 70
+
+Pass Marks: 28
+
+Time: 3 hours
+
+UNIT—I
+
+1. First question. [2]`;
+    expect(buildQuestionIndex(headingMarked, "PHIDSC152T")).toContain(
+      "title: Ethics—II (Western)",
+    );
+  });
+
+  test("titles: a semester line or a marks line after Paper Code is still not a title (G23)", () => {
+    const semester = `# FYUG Even Semester Exam., 2024
+
+PHILOSOPHY
+
+Paper Code: PHIDSC-151T
+
+( 2nd Semester )
+
+Full Marks: 70
+
+Pass Marks: 28
+
+Time: 3 hours
+
+UNIT—I
+
+1. First question. [2]`;
+    const outSemester = buildQuestionIndex(semester, "PHIDSC151T");
+    expect(outSemester).not.toContain("title:");
+    expect(outSemester).toContain("semester: 2");
+
+    const marksLine = `# FYUG Even Semester Exam., 2024
+
+PHILOSOPHY
+
+Paper Code: PHIDSC-151T
+
+Full Marks: 70
+
+Pass Marks: 28
+
+Time: 3 hours
+
+UNIT—I
+
+1. First question. [2]`;
+    expect(buildQuestionIndex(marksLine, "PHIDSC151T")).not.toContain(
+      "title:",
+    );
+  });
+});

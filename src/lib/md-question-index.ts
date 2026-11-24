@@ -2292,6 +2292,17 @@ export function parseTranscriptToRows(
   let seenInstructionSinceHeading = false;
   // rows.length when the current group was set by an instruction.
   let rowsAtGroupStart = 0;
+  // rows.length when the last UNIT/SECTION heading was seen — a
+  // numbered line is a list item of the current question only when
+  // a row was pushed after that heading (batch 31, G22): a paper
+  // that restarts its numbering per unit opens with "1." right
+  // after the heading, with no row since, and that "1." IS a new
+  // question.
+  let rowsAtLastHeading = 0;
+  // Sub-rows whose marks include figures folded in from numbered
+  // list-item lines (batch 31, G22) — the G18c-style add-back must
+  // never treat a folded figure as a printed single figure.
+  const foldedListMarks = new Set<QuestionRow>();
   // Whether the current group governs the whole section: an
   // unnumbered instruction whose question produced no rows before the
   // next number arrived (see clearGroupForNumber). A section
@@ -2558,6 +2569,54 @@ export function parseTranscriptToRows(
     );
     last.question = rederived.text;
     if (rederived.marks !== null) last.marks = rederived.marks;
+  };
+
+  /**
+   * A bare numbered line ("1.", "2.") inside an open question is a
+   * list item of that question, not a new top-level question (batch
+   * 31, G22: PHIDSC201T Q4(b)'s four numbered things, Q10(c)(i)'s
+   * two arguments — the old code made top-level rows '1'–'4' and
+   * '1b'/'2b', whose IDs collided with Unit-I Q1(b)/Q2(b)). The
+   * line folds into the last row of the current question: its text
+   * joins the row (trailing figure stripped, as usual), and its
+   * printed figures add to the row's marks — the trailing figure
+   * plus bracketed [n] figures after a "?" or "." (Q10(c)(ii)/(iii)
+   * [2] + (iv) 2 = 6 on top of the (i) line's 2+2=4, so Q10(c)
+   * reads 10; Q4(b)'s 3+3+2+2 accumulate to 10). Guards: the number
+   * must already exist (a genuine new question is lastQNum + 1),
+   * the last row must be a sub-row of the current question (a G15
+   * duplicate's twin is a direct row, so it still opens a new
+   * question and gets renamed), a row must have been pushed since
+   * the last heading, and no OR may be pending (the alternative is
+   * a genuine question). A row whose marks came from a groupMarks
+   * fallback never takes folded figures (they would double-count
+   * the fallback). Returns true when folded.
+   */
+  const foldNumberedListItem = (line: string, n: number): boolean => {
+    if (n > lastQNum) return false;
+    if (orPending) return false;
+    if (rows.length <= rowsAtLastHeading) return false;
+    const last = rows[rows.length - 1];
+    if (!last) return false;
+    if (!last.label.includes("(")) return false;
+    if (last.label.split("(")[0] !== qNum) return false;
+    const probe = stripTrailingMarks(line, null, "");
+    let contribution = probe.marks ?? 0;
+    for (const m of line.matchAll(/(?:[?.])\s*\[([\d০-৯]+)\]/g)) {
+      const v = asciiNumber(m[1]);
+      if (v !== null) contribution += v;
+    }
+    last.question = `${last.question} ${probe.text}`.trim();
+    if (contribution > 0) {
+      if (last.marks === null) {
+        last.marks = contribution;
+        foldedListMarks.add(last);
+      } else if (printedSubMarks.has(last) || foldedListMarks.has(last)) {
+        last.marks += contribution;
+      }
+      // else: marks came from a groupMarks fallback — never add.
+    }
+    return true;
   };
 
   /**
@@ -2854,6 +2913,7 @@ export function parseTranscriptToRows(
       pendingSub = null;
       lastSubLetter = "";
       crossedPageBreak = false;
+      rowsAtLastHeading = rows.length;
       continue;
     }
 
@@ -3133,7 +3193,24 @@ export function parseTranscriptToRows(
       // unless it ends in a marks expression, in which case it is the
       // previous sub-question's sub-parts on their own line.
       if (!acceptsSubLetter(letter)) {
-        joinContinuation(line);
+        if (joinContinuation(line)) continue;
+        // A "(i) ..." line with three or more roman items and no
+        // marks figure is the question's own list, not MCQ options
+        // (batch 31, G22: PHIDSC201T Q4(b)'s four propositions,
+        // Q10(a)'s four set operations — the "(v)" line already
+        // joined with its figure). MCQ option lines carry one or
+        // two items (ENGSEC101T "(i) Stationary (ii) Stationery")
+        // and stay dropped. Appends text only — the line has no
+        // figure, so no marks change.
+        const romanItems = line.match(/\((i|ii|iii|iv|v|vi)\)/g) ?? [];
+        const last = rows[rows.length - 1];
+        if (
+          romanItems.length >= 3 &&
+          last &&
+          last.label.split("(")[0] === qNum
+        ) {
+          last.question = `${last.question} ${line}`.trim();
+        }
         continue;
       }
       pushSubRow(letter, subMatch[3]);
@@ -3163,6 +3240,10 @@ export function parseTranscriptToRows(
 
     const numMatch = line.match(NUMBERED_LINE);
     if (numMatch) {
+      // A numbered list item inside the current question folds into
+      // it (batch 31, G22) — it is not a new top-level question.
+      const n0 = asciiNumber(numMatch[1]);
+      if (n0 !== null && foldNumberedListItem(line, n0)) continue;
       // A direct question with no sub-parts. It also becomes the
       // current question number for any (a)/(b) lines that follow it.
       const n = asciiNumber(numMatch[1]);
@@ -3334,14 +3415,36 @@ export function ensureFrontmatter(
 
   if (!fm.title) {
     // The paper title is the parenthetical right after the Paper Code
-    // line, e.g. "( Consumer Behaviour )".
+    // line, e.g. "( Consumer Behaviour )". It may also be text with a
+    // parenthetical ("Ethics—I (Indian)", batch 31, G23), wrapped in
+    // square brackets ("[ Persian Poetry (Some Selections) ]"), or
+    // carry markdown heading markers ("### Ethics—II (Western)").
+    // A bare title with no parenthetical is never taken: the next
+    // line could be "Full Marks: 70" or "The figures in the margin
+    // ...".
     const codeIdx = lines.findIndex((l) =>
       /(?:Paper Code|Course No\.)\s*:/.test(l),
     );
     if (codeIdx !== -1 && lines[codeIdx + 1]) {
-      const m = lines[codeIdx + 1].match(/^\*{0,2}\s*\(\s*(.+?)\s*\)\*{0,2}$/);
-      if (m && !/\d+(?:st|nd|rd|th)\s+Semester/.test(m[1])) {
-        fm.title = m[1].trim();
+      let candidate = lines[codeIdx + 1]
+        .replace(/^#{1,6}\s*/, "")
+        .replace(/^\*{0,2}\s*/, "")
+        .replace(/\*{0,2}\s*$/, "")
+        .trim();
+      const bracketed = candidate.match(/^\[\s*(.+?)\s*\]$/);
+      if (bracketed) candidate = bracketed[1].trim();
+      const whole = candidate.match(/^\(\s*(.+?)\s*\)$/);
+      if (whole) {
+        if (!/\d+(?:st|nd|rd|th)\s+Semester/.test(whole[1])) {
+          fm.title = whole[1].trim();
+        }
+      } else if (
+        /\(.+\)/.test(candidate) &&
+        !/\d+(?:st|nd|rd|th)\s+Semester/.test(candidate) &&
+        !/^(Full Marks|Pass Marks|Time)\s*:/.test(candidate) &&
+        !/^(UNIT|SECTION)\b/.test(candidate)
+      ) {
+        fm.title = candidate;
       }
     }
   }
