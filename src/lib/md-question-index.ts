@@ -823,6 +823,21 @@ function segmentMarksFigure(segment: string): number | null {
     const n = asciiNumber(quad[1]);
     if (n !== null && n >= 1 && n <= 100) return n;
   }
+  // Same shape, split-sum form ("$$... \quad 1+5=6$$", PHYDSC101T
+  // 2(a)/3(b), batch 33): the stated total, verified against the
+  // parts' sum.
+  const quadSum = segment.match(
+    /\\(?:quad|qquad)\s*([\d০-৯]+(?:\s*[+×x]\s*[\d০-৯]+)+)\s*=\s*([\d০-৯]+)\s*\${1,2}\s*$/,
+  );
+  if (quadSum) {
+    const total = asciiNumber(quadSum[2]);
+    const terms = (quadSum[1].match(/[\d০-৯]+/g) ?? []).map(
+      (t) => asciiNumber(t) ?? 0,
+    );
+    const sum = terms.reduce((a, b) => a + b, 0);
+    if (total !== null && total >= 1 && total <= 100 && sum === total)
+      return total;
+  }
   // Maths spans collapse to a bare "$" so a figure after one still
   // reads ("$$...$$ 2" -> "$ 2"), while a figure inside one vanishes
   // with the span ("$x=5$" -> "$").
@@ -948,6 +963,30 @@ function stripTrailingMarks(
           text: `${tailMath[1].trim()} ${block}`.trim(),
           marks: n,
           split: false,
+        };
+      }
+    }
+    // Same shape, split-sum form ("$$... \quad 1+5=6$$",
+    // PHYDSC101T 2(a)/3(b), batch 33): the stated total is the
+    // row's marks, split: true (a total composed of parts).
+    const quadSum = tailMath[2].match(
+      new RegExp(
+        String.raw`^([\s\S]*?)\\(?:quad|qquad)\s*(${MARKS_TERM}(?:\s*${MARKS_OP}\s*${MARKS_TERM})+)\s*=\s*([\d০-৯]+)\s*(\${1,2})$`,
+      ),
+    );
+    if (quadSum) {
+      const derived = marksTotalFromParts(quadSum[2], quadSum[3]);
+      if (
+        derived !== null &&
+        derived >= 1 &&
+        derived <= 100 &&
+        (groupGuard === null || groupGuard === derived)
+      ) {
+        const block = `${quadSum[1].trim()}${quadSum[4]}`;
+        return {
+          text: `${tailMath[1].trim()} ${block}`.trim(),
+          marks: derived,
+          split: true,
         };
       }
     }
@@ -2171,6 +2210,57 @@ function fillRemainderSubParts(
 }
 
 /**
+ * Fill a blank sub-row of a direct parent row from the remainder
+ * (batch 33, G24b): PHYDSC151T Q25 — the (a) part was folded into
+ * the direct row by the pipeline's inline-(a) handling, so the
+ * parent carries (a)'s 6 and the question total is 10: (b) is
+ * 10−6=4, never the section per-question total 10. Only when the
+ * parent carries a printed figure, exactly one sub-row is blank,
+ * and every other sub-row carries a printed figure — the question
+ * total is the blank row's fallback value (the section per-question
+ * total). A parent with no figure (MATDSC151T Q25: no figure
+ * anywhere), two or more blank sub-rows (COMIDC-151T (B) Q45,
+ * IFFIDC151T Q39), or a blank row with no fallback value all stay
+ * blank — the split is underivable. This only ever fills blank
+ * cells; a printed figure is never overwritten. The (a)/(b) pair
+ * shape (no parent row) is handled by fillRemainderSubParts above
+ * and is untouched here.
+ */
+function fillDirectParentRemainder(
+  rows: QuestionRow[],
+  fallback: Map<QuestionRow, number>,
+): void {
+  const byQ = new Map<string, QuestionRow[]>();
+  for (const r of rows) {
+    if (!r.label.includes("(")) continue;
+    const q = r.label.split("(")[0];
+    const arr = byQ.get(q) ?? [];
+    arr.push(r);
+    byQ.set(q, arr);
+  }
+  const parents = new Map<string, QuestionRow>();
+  for (const r of rows) {
+    if (!r.label.includes("(")) parents.set(r.label, r);
+  }
+  for (const [q, parts] of byQ) {
+    const parent = parents.get(q);
+    if (!parent || parent.marks === null) continue;
+    const blank = parts.filter((r) => fallback.has(r) || r.marks === null);
+    if (blank.length !== 1) continue;
+    const b = blank[0];
+    if (!fallback.has(b)) continue;
+    const t = fallback.get(b) as number;
+    const others = parts.filter((r) => r !== b);
+    if (others.some((r) => fallback.has(r) || r.marks === null)) continue;
+    const rem =
+      t -
+      (parent.marks as number) -
+      others.reduce((a, r) => a + (r.marks as number), 0);
+    if (rem >= 1 && rem <= 100) b.marks = rem;
+  }
+}
+
+/**
  * Fill a wholly markless section's rows from the full-marks
  * remainder (batch 28, G16): HISSEC151T Section C (Q31–Q40) counts
  * 50/50 through the pipeline's remainder rule, but every row's
@@ -3312,6 +3402,7 @@ export function parseTranscriptToRows(
   renameDuplicateNumbers(rows, paperCode);
   fillOrPartnerMarks(rows);
   fillRemainderSubParts(rows, groupMarksFallback);
+  fillDirectParentRemainder(rows, groupMarksFallback);
   fillRemainderMarks(rows, transcript, transcript.split("\n"));
   return rows;
 }

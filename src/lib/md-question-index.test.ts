@@ -2975,3 +2975,129 @@ UNIT—I
     );
   });
 });
+
+describe("parser gaps fixed from batch 33 (2026-11-24, PHYDSC151T / PHYDSC101T)", () => {
+  test("a blank sub-row of a direct parent row takes the remainder — PHYDSC151T Q25 (G24b)", () => {
+    // The (a) part was folded into the direct row by the pipeline's
+    // inline-(a) handling, so the parent carries (a)'s 6 and the
+    // question total is 10: (b) is 10−6=4, never the section
+    // per-question total 10. Before the fix this read 25=6,
+    // 25(b)=10 (16 for the question, 76/70 overall).
+    const md = `SECTION—B
+
+Answer any five of the following questions : $10 \\times 5 = 50$
+
+25. State and prove Thevenin's theorem. 6
+(b) Calculate the current flowing through the resistance using Thevenin's theorem.`;
+    const rows = parseTranscriptToRows(md, "PHYDSC151T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["25", 6],
+      ["25(b)", 4],
+    ]);
+  });
+
+  test("the direct-parent remainder uses the printed siblings too", () => {
+    // Parent 6, (b) printed 2, (c) blank: (c) is 10−6−2=2.
+    const md = `SECTION—B
+
+Answer any five of the following questions : $10 \\times 5 = 50$
+
+25. First part folded into the parent. 6
+(b) Second part. 2
+(c) Third part.`;
+    const rows = parseTranscriptToRows(md, "PHYDSC151T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["25", 6],
+      ["25(b)", 2],
+      ["25(c)", 2],
+    ]);
+  });
+
+  test("a direct parent with no printed figure does not remainder-fill its blank sub-rows", () => {
+    // No printed figure anywhere: the split is underivable, so the
+    // remainder rule must not invent one from the section total.
+    // (The parent and the sub-rows all keep the section fallback
+    // 10, exactly as before this fix — the new pass requires a
+    // parent figure, and the arithmetic alone would give 10−10=0.)
+    const md = `SECTION—B
+
+Answer any five of the following questions : $10 \\times 5 = 50$
+
+25. First part.
+(b) Second part.
+(c) Third part.`;
+    const rows = parseTranscriptToRows(md, "PHYDSC151T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["25", 10],
+      ["25(b)", 10],
+      ["25(c)", 10],
+    ]);
+  });
+
+  test("two blank sub-rows of a direct parent are not remainder-filled", () => {
+    // Two blanks make the split underivable: neither takes the
+    // 10−6=4 remainder; both keep the section fallback (10).
+    const md = `SECTION—B
+
+Answer any five of the following questions : $10 \\times 5 = 50$
+
+45. First part folded into the parent. 6
+(b) Second part.
+(c) Third part.`;
+    const rows = parseTranscriptToRows(md, "PHYDSC151T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["45", 6],
+      ["45(b)", 10],
+      ["45(c)", 10],
+    ]);
+  });
+
+  test("the (a)/(b) pair shape still fills without a parent row — no regression on G18b", () => {
+    const md = `SECTION—B
+
+Answer any five of the following questions : $10 \\times 5 = 50$
+
+17. (a) First part.
+(b) Second part. 4
+(c) Third part. 2`;
+    const rows = parseTranscriptToRows(md, "MATDSC151T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["17(a)", 4],
+      ["17(b)", 4],
+      ["17(c)", 2],
+    ]);
+  });
+
+  test("a trailing \\quad split-sum inside a display formula is the row's marks — PHYDSC101T 2(a)", () => {
+    // "$$... \\quad 1+5=6$$" is 6 (the stated total), not a bare
+    // figure; the formula stays as question text.
+    const md = String.raw`SECTION—A
+
+Answer any ten of the following questions : $2 \times 10 = 20$
+
+2. (a) Define vector triple product. Show that $$\vec{A} \times (\vec{B} \times \vec{C}) = (\vec{A} \cdot \vec{C})\vec{B} - (\vec{A} \cdot \vec{B})\vec{C} \quad 1+5=6$$
+(b) Second part. 4`;
+    const rows = parseTranscriptToRows(md, "PHYDSC101T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["2(a)", 6],
+      ["2(b)", 4],
+    ]);
+    expect(rows[0].question).not.toContain("\\quad");
+  });
+
+  test("a \\quad split-sum reads its stated total, like a bare split expression", () => {
+    // marksTotalFromParts trusts the stated total for "+" splits
+    // ("$2+8=10$" is 10); the quad-sum form follows the same rule.
+    const md = String.raw`SECTION—A
+
+Answer any ten of the following questions : $2 \times 10 = 20$
+
+2. (a) A formula with a stray sum $$x + y = 1 \quad 1+5=7$$
+(b) Second part. 4`;
+    const rows = parseTranscriptToRows(md, "PHYDSC101T");
+    expect(rows.map((r) => [r.label, r.marks])).toEqual([
+      ["2(a)", 7],
+      ["2(b)", 4],
+    ]);
+  });
+});
