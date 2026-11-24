@@ -7,10 +7,12 @@
  */
 import {
   buildQuestionIndex,
+  countedTotalExcludingRemainder,
   parseIndexTable,
   parseQuestions,
   parseTranscriptToRows,
 } from "./md-question-index";
+import type { QuestionRow } from "./md-question-index";
 
 const COMDSC_352T = String.raw`# FYUG Even Semester Exam., 2026
 
@@ -2491,5 +2493,222 @@ Answer any two of the following questions :
       ["5", 5],
       ["6", 5],
     ]);
+  });
+});
+
+describe("parser gaps fixed from batch 30 (2026-11-24, MATDSM151T / MATSEC151T / MATIDC151T / MATSEC101T)", () => {
+  const row = (
+    label: string,
+    marks: number | null,
+    unit: string,
+    group: string,
+  ): QuestionRow => ({
+    label,
+    question: `${label} question text.`,
+    marks,
+    unit,
+    group,
+    id: `TEST-Q${label.replace(/[()]/g, "")}`,
+    keywords: "",
+  });
+
+  test("G19 largest-N: non-uniform section-level choice counts the N largest question totals — MATDSM151T Section B", () => {
+    // Section B, "Answer any five questions", 10 questions worth
+    // 5–10 each (two partly known: a blank part). The old fallback
+    // counted 5 x max-part per question (285/70); the section
+    // contributes the five largest question totals = 50.
+    const rows: QuestionRow[] = [
+      row("16(a)", 5, "B", "Answer any 5"),
+      row("16(b)", null, "B", "Answer any 5"),
+      row("17(a)", 3, "B", "Answer any 5"),
+      row("17(b)", 2, "B", "Answer any 5"),
+      row("18(a)", 4, "B", "Answer any 5"),
+      row("18(b)", 6, "B", "Answer any 5"),
+      row("19(a)", 4, "B", "Answer any 5"),
+      row("19(b)", 6, "B", "Answer any 5"),
+      row("20(a)", 5, "B", "Answer any 5"),
+      row("20(b)", 5, "B", "Answer any 5"),
+      row("21(a)", 5, "B", "Answer any 5"),
+      row("21(b)", null, "B", "Answer any 5"),
+      row("22(a)", 4, "B", "Answer any 5"),
+      row("22(b)", 6, "B", "Answer any 5"),
+      row("23(a)", 5, "B", "Answer any 5"),
+      row("23(b)", 5, "B", "Answer any 5"),
+      row("24(a)", 5, "B", "Answer any 5"),
+      row("24(b)", 5, "B", "Answer any 5"),
+      row("25(a)", 5, "B", "Answer any 5"),
+      row("25(b)", 5, "B", "Answer any 5"),
+    ];
+    const lines = [
+      "Answer any five questions:",
+      "16. (a) First question.",
+      "17. (a) Second question.",
+      "18. (a) Third question.",
+    ];
+    expect(countedTotalExcludingRemainder(rows, lines)).toBe(50);
+  });
+
+  test("G19 uniform with all-blank questions: blanks neither prove nor break uniformity — MATSEC151T Section C", () => {
+    // Section C, "Answer any five", Q31–Q40 each worth 5, but only
+    // Q33–Q36 print a figure; the rest are blank. The old fallback
+    // counted 5 x 5 per question (85/50); the section contributes
+    // 5 x 5 = 25.
+    const rows: QuestionRow[] = [];
+    for (let q = 31; q <= 40; q++) {
+      rows.push(
+        row(`${q}(a)`, q >= 33 && q <= 36 ? 5 : null, "C", "Answer any 5"),
+      );
+    }
+    const lines = [
+      "Answer any five questions from the following : $5 \\times 5 = 25$",
+      "31. (a) First question.",
+    ];
+    expect(countedTotalExcludingRemainder(rows, lines)).toBe(25);
+  });
+
+  test("G19b direct branch: a question's value is direct + parts, not the direct figure alone — MATIDC151T Section C", () => {
+    // Section C, "Answer any five", Q36–Q40 each (direct 4 + (b) 4
+    // = 8). The old section rule used the direct row's 4 (50/70);
+    // the section contributes 5 x 8 = 40.
+    const rows: QuestionRow[] = [];
+    for (let q = 36; q <= 40; q++) {
+      rows.push(row(`${q}`, 4, "C", "Answer any 5"));
+      rows.push(row(`${q}(b)`, 4, "C", "Answer any 5"));
+    }
+    const lines = [
+      "Answer any five of the following questions :",
+      "36. First question. 4",
+      "37. Second question. 4",
+    ];
+    expect(countedTotalExcludingRemainder(rows, lines)).toBe(40);
+  });
+
+  test("G20 OR alternatives count once: standalone $$\\text{OR}$$ line and bare number lines — MATSEC101T", () => {
+    // Q2 and Q3 are OR alternatives (5 each); Q4 is a bare-number
+    // question (5). The old counter read 15; the pair counts once.
+    const rows: QuestionRow[] = [
+      row("2(a)", 5, "A", ""),
+      row("3(a)", 5, "A", ""),
+      row("4(a)", 5, "A", ""),
+    ];
+    const lines = [
+      "2. First question. 5",
+      "$$\\text{OR}$$",
+      "3. Second question. 5",
+      "4.",
+      "(a) Fourth question. 5",
+    ];
+    expect(countedTotalExcludingRemainder(rows, lines)).toBe(10);
+  });
+
+  test("G20 trailing $$\\text{OR}$$ on a question line pairs that question with the next", () => {
+    const rows: QuestionRow[] = [
+      row("12(a)", 2, "A", ""),
+      row("13(a)", 2, "A", ""),
+    ];
+    const lines = [
+      "12. Twelfth question. [2] $$\\text{OR}$$",
+      "13. Thirteenth question. [2]",
+    ];
+    expect(countedTotalExcludingRemainder(rows, lines)).toBe(2);
+  });
+
+  test("instruction placement: on-line instructions are per-question, not section-level — CHMDSM151", () => {
+    // Q2/Q4/Q6 each say "Answer any one of the following
+    // questions: 10" on their own line, each worth 10 — three
+    // independent questions, not one section-level choice of one.
+    // A section rule would count 1 x 20 = 20 (60/70); the paper
+    // is 4 + 10 + 10 + 10 = 34 for this fragment.
+    const rows: QuestionRow[] = [
+      row("1(a)", 2, "I", "Answer any 2"),
+      row("1(b)", 2, "I", "Answer any 2"),
+      row("1(c)", 2, "I", "Answer any 2"),
+      row("2(a)", 10, "I", "Answer any 1"),
+      row("2(b)", 10, "I", "Answer any 1"),
+      row("4(a)", 10, "I", "Answer any 1"),
+      row("4(b)", 10, "I", "Answer any 1"),
+      row("6(a)", 10, "I", "Answer any 1"),
+      row("6(b)", 10, "I", "Answer any 1"),
+    ];
+    const lines = [
+      "1. Answer any two of the following questions :",
+      "2. Answer any one of the following questions: 10",
+      "4. Answer any one of the following questions : 10",
+      "6. Answer any one of the following questions : 10",
+    ];
+    expect(countedTotalExcludingRemainder(rows, lines)).toBe(34);
+  });
+
+  test("instruction placement: a standalone instruction IS section-level — MATDSC202T", () => {
+    // "Answer any one of the following : 10" stands alone above Q2
+    // (4+3+3) and Q3 (5+5): answer ONE question, worth 10. Q1 is
+    // per-question (2 x 2 = 4). Total for this fragment: 14.
+    const rows: QuestionRow[] = [
+      row("1(a)", 2, "I", "Answer any 2"),
+      row("1(b)", 2, "I", "Answer any 2"),
+      row("1(c)", 2, "I", "Answer any 2"),
+      row("2(a)", 4, "I", "Answer any 1"),
+      row("2(b)", 3, "I", "Answer any 1"),
+      row("2(c)", 3, "I", "Answer any 1"),
+      row("3(a)", 5, "I", "Answer any 1"),
+      row("3(b)", 5, "I", "Answer any 1"),
+    ];
+    const lines = [
+      "1. Answer any two of the following : $2 \\times 2 = 4$",
+      "Answer any one of the following : 10",
+      "2. (a) First question. 4",
+      "3. (a) Second question. 5",
+    ];
+    expect(countedTotalExcludingRemainder(rows, lines)).toBe(14);
+  });
+
+  test("per-question choice stays per-question: ENGAEC201T Q9/Q10 do not become a section choice", () => {
+    // "9. Answer any one ... : 2" and "10. Answer any one ... : 5"
+    // are on the question lines: Q9 contributes 2, Q10 contributes
+    // 5 — not the largest-N 10 a section reading would give.
+    const rows: QuestionRow[] = [
+      row("9(a)", 2, "IV", "Answer any 1"),
+      row("9(b)", 2, "IV", "Answer any 1"),
+      row("10(a)", 5, "IV", "Answer any 1"),
+      row("10(b)", 5, "IV", "Answer any 1"),
+    ];
+    const lines = [
+      "9. Answer any one from the following questions : 2",
+      "10. Answer any one from the following questions : 5",
+    ];
+    expect(countedTotalExcludingRemainder(rows, lines)).toBe(7);
+  });
+
+  test("G21 split total on the question line is the question total — PHYDSM101T Q8", () => {
+    // "8. ... : 1+3+3+3=10" — the direct row's 10 is the whole
+    // question (1 for the definition + 3 each for (a)/(b)/(c)).
+    // Counting direct + parts would read 19; the question is 10.
+    const rows: QuestionRow[] = [
+      row("8", 10, "III", ""),
+      row("8(a)", 3, "III", ""),
+      row("8(b)", 3, "III", ""),
+      row("8(c)", 3, "III", ""),
+      row("9(a)", 5, "III", ""),
+      row("9(b)", 5, "III", ""),
+    ];
+    const lines = [
+      "8. What is central force? Prove the following for a particle moving under a central force : 1+3+3+3=10",
+      "9. (a) Ninth question. 5",
+    ];
+    expect(countedTotalExcludingRemainder(rows, lines)).toBe(20);
+  });
+
+  test("G21 does not fire for a no-(a) question: the identity is part (a)'s own composition — PHYDSC101T Q15", () => {
+    // "15. ... [3+4=7]" — the direct row IS part (a) (7) and (b)
+    // adds 3: the question is 7+3=10, not 7 alone.
+    const rows: QuestionRow[] = [
+      row("15", 7, "V", ""),
+      row("15(b)", 3, "V", ""),
+    ];
+    const lines = [
+      "15. Explain the method. Find the real root of the equation $x^3 - x - 1 = 0$. [3+4=7]",
+      "15. (b) Second part. 3",
+    ];
+    expect(countedTotalExcludingRemainder(rows, lines)).toBe(10);
   });
 });

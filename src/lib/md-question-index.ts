@@ -1580,19 +1580,39 @@ function rowMarksForCount(r: QuestionRow): number | null {
  * line-for-line port of assemble.py or_pairs, so the remainder fill
  * below subtracts exactly what the pipeline counter subtracts. The
  * numbered lines may start with a sub-part marker ('2. (a) ...') —
- * the pair counts when the two question numbers differ. Duplicate
- * question numbers (G15) are disambiguated by occurrence: the
- * second "23." line is key "23b", matching the renamed row labels.
+ * the pair counts when the two question numbers differ. A question
+ * number on a line by itself ('4.' — the question's text follows as
+ * sub-part lines, MATSEC101T Q4/Q5/Q10) counts as a numbered line
+ * too. The OR marker may also be display maths ('$$\\text{OR}$$'):
+ * on its own line it is a standalone OR; trailing on a question line
+ * ('12. ... [2] $$\\text{OR}$$' — the pipeline reflow joins it
+ * there, MATSEC101T Q12/Q13, Q14/Q15, Q17/Q18, Q19/Q20) the pair is
+ * that line's own question and the next one. Duplicate question
+ * numbers (G15) are disambiguated by occurrence: the second "23."
+ * line is key "23b", matching the renamed row labels.
  */
 function orPairs(lines: string[]): Array<[string, string]> {
-  const numbered = /^([\d০-৯]+)\.\s+/;
-  const isOr = (l: string): boolean =>
+  const numbered = /^([\d০-৯]+)\.(?:\s+|$)/;
+  const stripWrap = (l: string): string =>
     l
       .replace(/<[^>]+>/g, "")
       .trim()
       .replace(/^[#*]+/, "")
       .replace(/[#*]+$/, "")
-      .trim() === "OR";
+      .trim();
+  const isOr = (l: string): boolean => {
+    const bare = stripWrap(l)
+      .replace(/\$\$/g, "")
+      .replace(/\\text\{/g, "")
+      .replace(/\}/g, "")
+      .trim();
+    return bare === "OR";
+  };
+  const isTrailingOr = (l: string): boolean => {
+    const s = stripWrap(l);
+    const m = s.match(/\$\$(?:\\text\{)?(OR|অথবা)(?:\})?\$\$\s*$/);
+    return m !== null && s.slice(0, m.index).trim().length > 0;
+  };
   // Occurrence-suffixed key of each numbered line, in scan order.
   const keyOfLine = new Map<number, string>();
   {
@@ -1619,13 +1639,31 @@ function orPairs(lines: string[]): Array<[string, string]> {
   };
   const pairs: Array<[string, string]> = [];
   for (let i = 0; i < lines.length; i++) {
-    if (!isOr(lines[i])) continue;
+    const trailing = isTrailingOr(lines[i]);
+    if (!trailing && !isOr(lines[i])) continue;
     let above: string | null = null;
-    for (let j = i - 1; j >= 0; j--) {
-      const k = keyOfLine.get(j);
-      if (k !== undefined) {
-        above = k;
-        break;
+    if (trailing) {
+      // The marker trails the question's own line ("12. ...
+      // [2] $$\\text{OR}$$") — or a sub-part line of it ("(b) ...
+      // [3] $$\\text{OR}$$", MATSEC101T Q14/Q15), in which case
+      // the question is the closest numbered line above.
+      above = keyOfLine.get(i) ?? null;
+      if (!above) {
+        for (let j = i - 1; j >= 0; j--) {
+          const k = keyOfLine.get(j);
+          if (k !== undefined) {
+            above = k;
+            break;
+          }
+        }
+      }
+    } else {
+      for (let j = i - 1; j >= 0; j--) {
+        const k = keyOfLine.get(j);
+        if (k !== undefined) {
+          above = k;
+          break;
+        }
       }
     }
     let below: string | null = null;
@@ -1644,6 +1682,160 @@ function orPairs(lines: string[]): Array<[string, string]> {
   return pairs;
 }
 
+/** Sub-part letter of a row label ("40(b)" -> "b"; "40" -> null). */
+function subLetter(label: string): string | null {
+  if (!label.includes("(")) return null;
+  return label.split("(").pop()?.replace(/\)$/, "") ?? null;
+}
+
+/**
+ * One question's total marks, for a section-level "Answer any N" set
+ * (batch 30, G19/G19b) — the TS port of assemble.py question_value.
+ * A question's marks live either on its direct row alone or split
+ * across its parts, depending on the shape of its rows:
+ * - Sub-rows starting at (a) mean the direct row is a parent /
+ *   instruction carrying the whole question ("Write the structure
+ *   and function of the following : 10", BOTDSC151T Q19, whose
+ *   (a)/(b) copy the 10 by the G14 fill; "Change the mode of
+ *   narration : 2", ENGSEC101T Q18). Its value is the direct row's
+ *   figure, or the sum of its parts when the direct row is blank.
+ * - No (a) sub-row means the direct row IS part (a): its text is
+ *   (a)'s text and its figure is (a)'s figure (MATIDC151T Q40:
+ *   "Show that ... 4" + "(b) ... 4" = 8; PHYDSC101T Q15: 7+3=10).
+ *   Its value is the direct figure plus its sub-rows'.
+ * strict=true (uniformity test): a question counts as a witness
+ * only when every component is known — a partly blank question
+ * neither proves nor breaks uniformity. strict=false (largest-N
+ * ranking): blank components count 0, a lower bound; only an
+ * all-blank question is unknown (null).
+ */
+function questionValue(qrows: QuestionRow[], strict: boolean): number | null {
+  if (qrows.length === 0) return null;
+  const qnum = qrows[0].label.split("(")[0];
+  const direct = qrows.find((r) => r.label === qnum) ?? null;
+  const subs = qrows.filter((r) => r.label !== qnum);
+  if (direct && subs.some((r) => subLetter(r.label) === "a")) {
+    const v = rowMarksForCount(direct);
+    if (v !== null) return v;
+    const vals = subs.map((r) => rowMarksForCount(r));
+    if (vals.length > 0 && vals.every((x) => x !== null)) {
+      return (vals as number[]).reduce((a, b) => a + b, 0);
+    }
+    return null;
+  }
+  const comps = [...(direct ? [direct] : []), ...subs];
+  const vals = comps.map((r) => rowMarksForCount(r));
+  if (vals.every((v) => v === null)) return null;
+  if (strict && vals.some((v) => v === null)) return null;
+  return vals
+    .filter((v): v is number => v !== null)
+    .reduce((a, b) => a + b, 0);
+}
+
+/**
+ * True when some — but not all — of the components that make up a
+ * question's total are known. An all-blank question is false
+ * (batch-29 G18d: it neither proves nor breaks uniformity); a partly
+ * blank one breaks it — its total is not proven equal to the rest.
+ * Mirrors questionValue's shape logic: a parent-shaped question's
+ * total is its direct row alone, so blank sub-rows do not make it
+ * partial.
+ */
+function questionPartiallyKnown(qrows: QuestionRow[]): boolean {
+  if (qrows.length === 0) return false;
+  const qnum = qrows[0].label.split("(")[0];
+  const direct = qrows.find((r) => r.label === qnum) ?? null;
+  const subs = qrows.filter((r) => r.label !== qnum);
+  let vals: Array<number | null>;
+  if (direct && subs.some((r) => subLetter(r.label) === "a")) {
+    if (rowMarksForCount(direct) !== null) return false;
+    vals = subs.map((r) => rowMarksForCount(r));
+  } else {
+    const comps = [...(direct ? [direct] : []), ...subs];
+    vals = comps.map((r) => rowMarksForCount(r));
+  }
+  return vals.some((v) => v !== null) && vals.some((v) => v === null);
+}
+
+function instructionOnQuestionLine(
+  qnum: string,
+  lines: string[],
+): boolean | null {
+  // True if the question's own numbered line carries an "Answer any"
+  // instruction (per-question choice: the choice is among the
+  // question's own parts); false if the question line has no such
+  // instruction (the choice is governed by a standalone instruction
+  // line, i.e. section-level); null if the question's line is not
+  // found. CHMDSM151 ("2. Answer any one of the following
+  // questions: 10") vs MATDSC202T (standalone "Answer any one of
+  // the following : 10" above "2. (a) ..."): the two papers are
+  // identical at row level, only the instruction's placement differs.
+  const escaped = qnum.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pat = new RegExp(`^\\s*${escaped}\\.(?:\\s|$)`);
+  for (const ln of lines) {
+    if (pat.test(ln)) return ln.toLowerCase().includes("answer any");
+  }
+  return null;
+}
+
+function splitTotalOnQuestionLine(
+  qnum: string,
+  lines: string[],
+  directMarks: number,
+  subMarks: Array<number | null>,
+): boolean {
+  // True when the question's own numbered line states its total as a
+  // sum of parts (batch-30 G21): PHYDSM101T Q8's line reads
+  // "... : 1+3+3+3=10" — the direct row's 10 IS the question total
+  // (1 for the definition + 3 each for (a)/(b)/(c)), so the parts
+  // must not be added on top (19/70). An identity counts only when
+  // its terms sum to its total, the total equals the direct figure,
+  // and every sub-row's marks appears among the terms, the leftover
+  // terms summing to direct minus the parts. It fires ONLY for a
+  // parent-shaped question (sub-rows starting at (a)): PHYDSC101T
+  // Q15's "[3+4=7]" is part (a)'s own composition — its direct row
+  // IS part (a) (7) and (b) adds 3 (7+3=10) — so a no-(a) question
+  // never fires here. A question line that merely contains maths
+  // (e.g. "$x^2+2x+1=0$") has no all-integer identity and never
+  // fires. The caller checks the parent shape.
+  const escaped = qnum.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pat = new RegExp(`^\\s*${escaped}\\.(?:\\s|$)`);
+  for (const ln of lines) {
+    if (!pat.test(ln)) continue;
+    const re = /(\d+(?:\s*\+\s*\d+)+)\s*=\s*(\d+)/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(ln)) !== null) {
+      const terms = m[1].split(/\s*\+\s*/).map((x) => parseInt(x, 10));
+      const total = parseInt(m[2], 10);
+      if (total !== directMarks) continue;
+      if (terms.reduce((a, b) => a + b, 0) !== total) continue;
+      const rest = [...terms];
+      let covered = true;
+      for (const sm of subMarks) {
+        if (sm === null) {
+          covered = false;
+          break;
+        }
+        const i = rest.indexOf(sm);
+        if (i < 0) {
+          covered = false;
+          break;
+        }
+        rest.splice(i, 1);
+      }
+      const subSum = subMarks.reduce<number>((a, v) => a + (v ?? 0), 0);
+      if (
+        covered &&
+        rest.reduce((a, b) => a + b, 0) === directMarks - subSum
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }
+  return false;
+}
+
 /**
  * The counted total WITHOUT the remainder rule — a line-for-line
  * port of assemble.py counted_total (section sets, per-question
@@ -1652,7 +1844,7 @@ function orPairs(lines: string[]): Array<[string, string]> {
  * diff (Python counted_total before vs after a refresh) is the
  * check that any fill it justifies is total-neutral.
  */
-function countedTotalExcludingRemainder(
+export function countedTotalExcludingRemainder(
   rows: QuestionRow[],
   lines: string[],
 ): number {
@@ -1681,18 +1873,6 @@ function countedTotalExcludingRemainder(
       const parsed = parseInt(g.split(" ").pop() ?? "", 10);
       return Number.isNaN(parsed) ? fallback : parsed;
     };
-    const directRs = rs.filter((r) => r.label === r.label.split("(")[0]);
-    const qnums = new Set(directRs.map((r) => r.label.split("(")[0]));
-    const marked = directRs
-      .map((r) => r.marks)
-      .filter((m): m is number => m !== null);
-    if (qnums.size > 1 && marked.length >= 2 && new Set(marked).size === 1) {
-      sectionTotal += nOf(rs.length) * marked[0];
-      for (const q of qnums) sectionQnums.add(q);
-      for (const r of rs) sectionQnums.add(r.label.split("(")[0]);
-      continue;
-    }
-    if (directRs.length > 0) continue;
     const byNum = new Map<string, QuestionRow[]>();
     for (const r of rs) {
       const q = r.label.split("(")[0];
@@ -1700,29 +1880,129 @@ function countedTotalExcludingRemainder(
       arr.push(r);
       byNum.set(q, arr);
     }
-    if (byNum.size <= 1) continue;
-    const sums: number[] = [];
-    let ok = true;
-    for (const qrs of byNum.values()) {
-      const ms = qrs.map((r) => rowMarksForCount(r));
-      // An all-blank question (MATDSC151T Q25, batch 29: no printed
-      // figure on any part) neither proves nor breaks uniformity — it
-      // is consistent with the section's per-question total and
-      // contributes no sum to test. A question with SOME blank parts
-      // still breaks the test.
-      if (ms.every((m) => m === null)) continue;
-      if (ms.some((m) => m === null)) {
-        ok = false;
-        break;
-      }
-      sums.push((ms as number[]).reduce((a, b) => a + b, 0));
+    // Batch-30 (CHMDSM151 vs MATDSC202T): a (group, unit) set is a
+    // section-level pool only when its instruction is a standalone
+    // line. When EVERY question in the set carries the instruction
+    // on its own numbered line ("2. Answer any one of the following
+    // questions: 10"), the choice is within each question — the
+    // questions are independent and worth their own figures, so NO
+    // section rule fires for the set at all (CHMDSM151 would read
+    // 60/70 instead of 70/70). A question whose line is not found
+    // votes unknown (allow), so a missing line can never silently
+    // block a real section rule (MATDSC202T's standalone
+    // "Answer any one : 10").
+    const onLine = [...byNum.keys()].map((qn) =>
+      instructionOnQuestionLine(qn, lines),
+    );
+    if (onLine.length > 0 && onLine.every((v) => v === true)) continue;
+    // Batch-30 (G19b): the direct branch's per-question value is the
+    // question's total, not the direct row's single figure — a direct
+    // row that IS part (a) splits its marks across its sub-rows
+    // (MATIDC151T Section C: Q40 direct 4 + (b) 4 = 8). Batch-21
+    // (BOTDSC151T Q19/Q22) and batch-27 (ENGSEC101T Q18) still hold:
+    // a question whose sub-rows start at (a) has a parent direct row,
+    // whose figure is the whole question. Uniformity is tested over
+    // fully-known values only (batch-25 ECOSEC151T: blank rows are
+    // ignored, two witnesses minimum, zero disagreement).
+    const directQs = [...byNum.keys()].filter((qn) =>
+      (byNum.get(qn) ?? []).some((r) => r.label === qn),
+    );
+    const known = new Map<string, number>();
+    for (const qn of directQs) {
+      const v = questionValue(byNum.get(qn) as QuestionRow[], true);
+      if (v !== null) known.set(qn, v);
     }
-    if (ok && new Set(sums).size === 1) {
-      const n = nOf(byNum.size);
-      if (n < byNum.size) {
-        sectionTotal += n * sums[0];
-        for (const q of byNum.keys()) sectionQnums.add(q);
+    if (
+      directQs.length > 1 &&
+      known.size >= 2 &&
+      new Set(known.values()).size === 1
+    ) {
+      sectionTotal += nOf(rs.length) * [...known.values()][0];
+      // Batch-23 (COMIDC-151T-B Section C): a split question in the
+      // same section has no direct row, so its qnum never enters the
+      // direct set — the per-question fallback would then count the
+      // allowance a second time (110/70). Every question in this
+      // (group, unit) set is in the section's answer-any pool, so
+      // cover all of them.
+      for (const q of byNum.keys()) sectionQnums.add(q);
+      continue;
+    }
+    // Batch-30 (G19): the sub-part branch used to be skipped whenever
+    // ANY direct row existed, but a section's direct rows can all be
+    // blank while its sub-rows carry the figures (MATSEC151T Section
+    // C: Q31/Q32 and Q37–Q40 blank, Q33–Q36 worth 5 each). It runs
+    // whenever the direct branch above did not fire. The
+    // per-question sums are the questionValue totals (a parent-shaped
+    // question counts its direct figure alone, never direct + parts).
+    if (byNum.size <= 1) continue;
+    // Uniform branch (batch-22 CHMDSM151T): when every question in
+    // the set sums to the same total T, count n x T once. A partly
+    // known question breaks uniformity (its total is not proven equal
+    // to the rest); an all-blank one neither proves nor breaks it
+    // (batch-29 G18d). The batch-26 guard (N < len(by_num)) still
+    // applies: a set with no question-level choice at all is
+    // per-question counting.
+    const strictVals: number[] = [];
+    let uniformOk = true;
+    for (const qrs of byNum.values()) {
+      const v = questionValue(qrs, true);
+      if (v !== null) strictVals.push(v);
+      else if (questionPartiallyKnown(qrs)) {
+        // A partly known question breaks uniformity (its total is
+        // not proven equal to the rest); an all-blank one neither
+        // proves nor breaks it (G18d).
+        uniformOk = false;
       }
+    }
+    const n = nOf(byNum.size);
+    // A single witness fires (batch-29 G18d: Section B's Q3=10
+    // alone, Q4 all-blank, counts 1 x 10) — the two-witness minimum
+    // belongs to the direct branch above, not here.
+    if (
+      uniformOk &&
+      strictVals.length >= 1 &&
+      new Set(strictVals).size === 1 &&
+      n < byNum.size
+    ) {
+      sectionTotal += n * strictVals[0];
+      for (const q of byNum.keys()) sectionQnums.add(q);
+      continue;
+    }
+    // Section-level test for the largest-N fallback below (not for
+    // the uniform branch above it): the "Answer any N" must choose
+    // among QUESTIONS, not among one question's parts. N exceeds
+    // every question's sub-part count, so no question has N parts to
+    // choose within (DSM151T Section B: 5 > 2; CHMDSM151T
+    // SECTION—B: 5 > 4; SEC151T Section C: 5 > 2). A per-question
+    // choice (ENGAEC201T Q9/Q10: N=1 of 2 parts) fails it and keeps
+    // per-question counting. MATDSC202T is the counter-case for
+    // gating the UNIFORM branch this way: its "Answer any one : 10"
+    // is a standalone instruction covering Q2 (4+3+3) and Q3 (5+5) —
+    // a real section-level choice with N=1 <= 3 parts — and the
+    // uniform branch must still fire (1 x 10 = 10). The batch-26
+    // guard (N < len(by_num)) still applies: a set with no
+    // question-level choice at all is per-question counting.
+    const maxParts = Math.max(
+      ...[...byNum.entries()].map(
+        ([qn, qrs]) => qrs.filter((r) => r.label !== qn).length,
+      ),
+    );
+    if (!(n < byNum.size && n > maxParts)) continue;
+    // Largest-N fallback (G19, non-uniform per-question totals):
+    // "Answer any N" over questions worth different marks counts the
+    // N largest question totals (DSM151T Section B: five questions
+    // worth 10, the rest 5–8 — top 5 = 50). Values are lower bounds
+    // (blank parts count 0); an all-blank question is unknown and
+    // excluded. At least N known values are required, or the set
+    // falls through to per-question counting below.
+    const lowerVals = [...byNum.values()]
+      .map((qrs) => questionValue(qrs, false))
+      .filter((v): v is number => v !== null)
+      .sort((a, b) => b - a);
+    if (lowerVals.length >= n) {
+      sectionTotal += lowerVals.slice(0, n).reduce((a, b) => a + b, 0);
+      for (const q of byNum.keys()) sectionQnums.add(q);
+      continue;
     }
   }
   const perQnum = new Map<string, number>();
@@ -1778,6 +2058,29 @@ function countedTotalExcludingRemainder(
         first.marks !== null &&
         subs.length > 0 &&
         subs.every((r) => r.marks !== null && r.marks === first.marks)
+      ) {
+        add(qnum, first.marks);
+      } else if (
+        first &&
+        first.label === qnum &&
+        first.marks !== null &&
+        subs.length > 0 &&
+        // Batch-30 G21 (PHYDSM101T Q8): a parent-shaped question
+        // whose line states its total as a split sum
+        // ("1+3+3+3=10") — the direct figure IS the question total,
+        // the parts must not be added on top. Parent shape only
+        // (sub-rows start at (a)); a no-(a) question's identity is
+        // part (a)'s own composition (PHYDSC101T Q15 "[3+4=7]",
+        // 7+3=10).
+        subs.some(
+          (r) => subLetter(r.label) === "a",
+        ) &&
+        splitTotalOnQuestionLine(
+          qnum,
+          lines,
+          first.marks,
+          subs.map((r) => r.marks),
+        )
       ) {
         add(qnum, first.marks);
       } else if (
