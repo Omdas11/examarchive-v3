@@ -240,9 +240,15 @@ const BN_SECTION_EACH_LINE =
 // two from each Unit : $2 \times 10 = 20$" (BOTDSC101T/102T Section
 // A, batch 37, G31) — N questions in total, M from each unit; the
 // count is N (group 2). INSTRUCTION_LINE only covers "Answer any
-// N ...", so this shape needs its own pattern.
+// N ...", so this shape needs its own pattern. "taking" is the same
+// verb as "selecting" (COMIDC-A, COMDSM-101T, ENGDSC101T/102T,
+// batch 38/39, G34/G35/G36) — and the raw transcripts emphasise the
+// count words ("Answer *five* questions, taking *one* from each
+// Unit :"), so asterisks are allowed around both — including the
+// "any" with the per-unit count ("taking *any two* from each Unit",
+// ENGDSC102T Section A raw form).
 const EN_SECTION_INSTRUCTION_LINE =
-  /^(?:([\d০-৯]+)[।.]\s*)?Answer\s+(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|\d+)\s+questions?,\s+selecting\s+(?:any\s+)?(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|\d+)\s+from\s+each\s+Unit\b[^\n]*$/i;
+  /^(?:([\d০-৯]+)[।.]\s*)?Answer\s+\**(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|\d+)\**\s+questions?,\s+(?:selecting|taking)\s+(?:\**any\s+)?\**(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|\d+)\**\s+from\s+each\s+Unit\b[^\n]*$/i;
 
 // A section-level instruction's markers: it spans units ("প্রতিটি
 // ইউনিট থেকে" / "from each Unit") or states a total over per-unit
@@ -726,7 +732,7 @@ function splitAppendedSectionInstruction(
   line: string,
 ): [string, string] | null {
   const re =
-    /(প্রতিটি\s+ইউনিট\s+থেকে\s+.+|Answer\s+\S+\s+questions?,\s+selecting\s+.+)/g;
+    /(প্রতিটি\s+ইউনিট\s+থেকে\s+.+|Answer\s+\S+\s+questions?,\s+(?:selecting|taking)\s+.+)/g;
   let m: RegExpExecArray | null;
   let found: [string, string] | null = null;
   while ((m = re.exec(line)) !== null) {
@@ -3189,6 +3195,51 @@ export function parseTranscriptToRows(
   };
 
   /**
+   * A figure-less "(ii)"/"(iii)"/... line that continues a roman
+   * sequence the current row already holds joins that row (batch 38,
+   * G33: COMIDC-B Q41 — "(ii)"–"(iv)" folded in, the lone "(v)" line
+   * dropped). Two shapes only, so MCQ option runs stay dropped:
+   *  - sequence: the row's text already contains the previous numeral
+   *    ("(iii)" joins a row holding "(ii)"), and
+   *  - cut-off stem: the row's text is only "[illegible]" (the stem
+   *    and earlier parts were cut off at a page edge) and the next
+   *    non-empty line is the next numeral in sequence.
+   * Appends text only — the line has no figure, so no marks change.
+   * Returns true when joined.
+   */
+  const ROMAN_SEQ = ["i", "ii", "iii", "iv", "v", "vi"] as const;
+  const joinRomanContinuation = (line: string, idx: number): boolean => {
+    const m = line.match(/^\((ii|iii|iv|v|vi)\)\s/);
+    if (!m) return false;
+    const last = rows[rows.length - 1];
+    if (!last) return false;
+    if (last.label.split("(")[0] !== qNum) return false;
+    // The pair-either instruction row is not a question to continue.
+    if (last.label === qNum && last.group === "Answer either") return false;
+    const pos = ROMAN_SEQ.indexOf(m[1] as (typeof ROMAN_SEQ)[number]);
+    if (pos <= 0) return false;
+    const prev = ROMAN_SEQ[pos - 1];
+    if (new RegExp(`\\(${prev}\\)`).test(last.question)) {
+      appendToLast(line);
+      return true;
+    }
+    if (last.question.trim() === "[illegible]") {
+      const nextNum = ROMAN_SEQ[pos + 1];
+      if (!nextNum) return false;
+      for (let j = idx + 1; j < lines.length; j++) {
+        const t = lines[j].trim();
+        if (!t || t.startsWith("<!--")) continue;
+        if (new RegExp(`^\\(${nextNum}\\)\\s`).test(t)) {
+          appendToLast(line);
+          return true;
+        }
+        return false;
+      }
+    }
+    return false;
+  };
+
+  /**
    * The next labeled sub-question after line `from`, or "end" when the
    * current question's sub-part run ends first (a numbered question,
    * instruction, heading, OR line, or bare number). Lines that are
@@ -3793,9 +3844,12 @@ export function parseTranscriptToRows(
     // A "(ii)"/"(iii)"/"(iv)"/"(v)"/"(vi)" line never starts a
     // sub-question (those are single letters) — it is a continuation
     // of the previous row's sub-parts, or an MCQ option. Join it when
-    // it ends in marks.
+    // it ends in marks; a figure-less one joins only when it continues
+    // a roman sequence the row already holds (G33, see
+    // joinRomanContinuation).
     if (/^\((ii|iii|iv|v|vi)\)\s+.+$/.test(line)) {
-      joinContinuation(line);
+      if (joinContinuation(line)) continue;
+      joinRomanContinuation(line, i);
       continue;
     }
 

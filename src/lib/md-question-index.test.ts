@@ -3865,3 +3865,226 @@ UNIT—III
     expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(15);
   });
 });
+
+describe("batch 38 parser fix — lone roman continuations, 'taking' section instructions (G33–G35)", () => {
+  test("G33: a lone '(v)' line joins a row already holding '(ii)'–'(iv)' — COMIDC-B Q41 staged form", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+COMMERCE
+( 1st Semester )
+
+Paper Code : COMIDC-101T (B)
+
+Full Marks : 70
+Pass Marks : 28
+
+Time : 3 hours
+
+41. [illegible] (ii) Cheques of ₹2,500 were deposited into Bank but were not collected by Bank up to 31-12-2023 (iii) Cheques issued but not presented for payment up to 31-12-2023 is ₹3,000 (iv) Interest on deposit credited by Bank ₹500
+
+(v) Bank charges debited by Bank ₹200
+`;
+    const rows = parseTranscriptToRows(md, "COMIDC-101T (B)");
+    expect(rows).toHaveLength(1);
+    expect(rows[0].label).toBe("41");
+    expect(rows[0].question).toContain("(ii) Cheques of ₹2,500");
+    expect(rows[0].question).toContain("(iv) Interest on deposit");
+    expect(rows[0].question).toContain("(v) Bank charges debited by Bank ₹200");
+  });
+
+  test("G33: separate '(ii)'–'(v)' lines join an '[illegible]' stem in sequence — COMIDC-B Q41 raw form", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+41. [illegible]
+
+(ii) Second part of the question.
+
+(iii) Third part of the question.
+
+(iv) Fourth part of the question.
+
+(v) Fifth part of the question.
+`;
+    const rows = parseTranscriptToRows(md, "COMIDC-101T (B)");
+    expect(rows).toHaveLength(1);
+    expect(rows[0].question).toContain("(ii) Second part");
+    expect(rows[0].question).toContain("(iii) Third part");
+    expect(rows[0].question).toContain("(iv) Fourth part");
+    expect(rows[0].question).toContain("(v) Fifth part");
+  });
+
+  test("G33: a figure-less '(ii)' after a substantive stem stays dropped — short-notes list, not a continuation", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+2. Write short notes on the following :
+
+(i) Benefit-sharing
+
+(ii) IPR
+`;
+    const rows = parseTranscriptToRows(md, "COMDSC-102T");
+    expect(rows).toHaveLength(1);
+    expect(rows[0].question).toBe("Write short notes on the following :");
+    expect(rows[0].question).not.toContain("(ii)");
+  });
+
+  test("G34: 'taking' section instructions fire with inline figures — COMIDC-A shape", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+COMMERCE
+( 1st Semester )
+
+Paper Code : COMIDC-101T (A)
+
+Full Marks : 70
+Pass Marks : 28
+
+Time : 3 hours
+
+SECTION—A
+
+Answer twenty questions, taking any four from each Unit : $1 \times 20 = 20$
+
+UNIT—I
+
+1. What is market?
+
+2. Define marketing?
+
+SECTION—B
+
+Answer five questions, taking one from each Unit : 2×5=10
+
+UNIT—I
+
+3. Third question?
+
+SECTION—C
+
+Answer five questions, taking one from each Unit : 8×5=40
+
+UNIT—I
+
+4. Fourth question?
+`;
+    const rows = parseTranscriptToRows(md, "COMIDC-101T (A)");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1", 1, "Answer any 20"],
+      ["2", 1, "Answer any 20"],
+      ["3", 2, "Answer any 5"],
+      ["4", 8, "Answer any 5"],
+    ]);
+    // The counter counts each section's full group allowance, not
+    // just the questions present here: A 20 x 1, B 5 x 2, C 5 x 8.
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(70);
+  });
+
+  test("G34: an emphasised 'taking' instruction with the figure on the next line — COMIDC-A Section B raw form", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+SECTION—B
+
+Answer *five* questions, taking *one* from each Unit :
+2×5=10
+
+UNIT—I
+
+21. First B question?
+
+22. Second B question?
+`;
+    const rows = parseTranscriptToRows(md, "COMIDC-101T (A)");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["21", 2, "Answer any 5"],
+      ["22", 2, "Answer any 5"],
+    ]);
+    // The counter counts the full "Answer any 5" allowance (5 x 2),
+    // not just the two questions present here.
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(10);
+  });
+
+  test("G34: emphasis spanning 'any' and the per-unit count — ENGDSC102T Section A raw form", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+SECTION—A
+
+Answer *ten* questions, taking *any two* from each Unit :
+
+2×10=20
+
+UNIT—I
+
+1. First question?
+
+2. Second question?
+`;
+    const rows = parseTranscriptToRows(md, "ENGDSC102T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1", 2, "Answer any 10"],
+      ["2", 2, "Answer any 10"],
+    ]);
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(20);
+  });
+
+  test("G35: the section choice caps Section B's printed figures — COMDSM-101T shape", () => {
+    const md = String.raw`# FYUG Odd Semester Exam., 2023
+
+COMMERCE
+( 1st Semester )
+
+Paper Code : COMDSM-101T
+
+Full Marks : 70
+Pass Marks : 28
+
+Time : 3 hours
+
+SECTION—A
+
+Answer ten questions, taking any two from each Unit : 2×10=20
+
+UNIT—I
+
+1. First question?
+
+2. Second question?
+
+3. Third question?
+
+SECTION—B
+
+Answer five questions, taking one from each Unit : 10×5=50
+
+UNIT—I
+
+4. Fourth question? 10
+
+5. Fifth question? 10
+
+6. Sixth question? 10
+
+7. Seventh question? 10
+
+8. Eighth question? 10
+
+9. Ninth question? 10
+`;
+    const rows = parseTranscriptToRows(md, "COMDSM-101T");
+    expect(rows.map((r) => [r.label, r.marks, r.group])).toEqual([
+      ["1", 2, "Answer any 10"],
+      ["2", 2, "Answer any 10"],
+      ["3", 2, "Answer any 10"],
+      ["4", 10, "Answer any 5"],
+      ["5", 10, "Answer any 5"],
+      ["6", 10, "Answer any 5"],
+      ["7", 10, "Answer any 5"],
+      ["8", 10, "Answer any 5"],
+      ["9", 10, "Answer any 5"],
+    ]);
+    // Section A: 3 x 2 = 6 present, full allowance 10 x 2 = 20.
+    // Section B: 6 x 10 = 60 printed, capped at the section total
+    // 5 x 10 = 50. Total 70 — the real COMDSM-101T reads 100/70
+    // without this rule and 70/70 with it.
+    expect(countedTotalExcludingRemainder(rows, md.split("\n"))).toBe(70);
+  });
+});
