@@ -203,6 +203,8 @@ export interface AdminUser {
   subject_admin_subject?: string | null;
   tier: UserTier;
   upload_count: number;
+  /** Current semester (FYUGP 1-8) from users.semester; null = not set yet. */
+  semester: number | null;
   /** Verifications submitted (set by callers that count them; optional). */
   verified_count?: number;
   /** Last seen across any recorded signal (page visit, paper view/download,
@@ -246,6 +248,7 @@ export function toAdminUser(doc: Record<string, unknown>): AdminUser {
     // Tier is derived from XP alone (roles.ts xpTier), never from the stored value.
     tier: xpTier(xpScore),
     upload_count: toNumber(doc.upload_count ?? 0),
+    semester: doc.semester == null ? null : toNumber(doc.semester),
     xp: xpScore,
     streak_days: toNumber(doc.streak_days ?? doc.streak ?? 0),
     last_login: ((doc.last_login ?? doc.last_activity ?? "") as string),

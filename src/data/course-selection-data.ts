@@ -78,6 +78,33 @@ export const ALL_IDC_SUBJECTS: ReadonlyArray<string> = Array.from(
 
 export const AEC_OPTIONS: ReadonlyArray<string> = ["English", "Bengali", "Other"];
 
+/** Current semester options (FYUGP 1st–8th). Stored as "1".."8". */
+export const SEMESTER_OPTIONS: ReadonlyArray<string> = [
+  "1",
+  "2",
+  "3",
+  "4",
+  "5",
+  "6",
+  "7",
+  "8",
+];
+
+/** "1" -> "1st Semester", "2" -> "2nd Semester", ...; "" -> "". */
+export function semesterLabel(semester: string | number | null | undefined): string {
+  if (semester === "" || semester === null || semester === undefined) return "";
+  const n = typeof semester === "number" ? semester : parseInt(semester, 10);
+  if (!Number.isFinite(n) || n < 1 || n > 8) return "";
+  const suffix = n === 1 ? "st" : n === 2 ? "nd" : n === 3 ? "rd" : "th";
+  return `${n}${suffix} Semester`;
+}
+
+/** "1" -> "1st Sem", ...; "" -> "". Short form for table cells. */
+export function semesterShort(semester: string | number | null | undefined): string {
+  const label = semesterLabel(semester);
+  return label ? label.replace(" Semester", " Sem") : "";
+}
+
 export const VAC_OPTIONS: ReadonlyArray<string> = [
   "UI",
   "NSS",
@@ -91,6 +118,8 @@ export const VAC_OPTIONS: ReadonlyArray<string> = [
 
 /** Stored user course preferences. */
 export interface CoursePreferences {
+  /** Current semester ("1".."8"); "" when not set yet. */
+  semester: string;
   /** Discipline Specific Core subject. */
   dsc: string;
   /** First DSM (Discipline Specific Minor). */
@@ -148,6 +177,7 @@ export function loadCoursePrefs(): CoursePreferences | null {
     const parsed = JSON.parse(raw) as Partial<CoursePreferences> | null;
     if (!parsed) return null;
     return {
+      semester: parsed.semester ?? "",
       dsc: parsed.dsc ?? "",
       dsm1: parsed.dsm1 ?? "",
       dsm2: parsed.dsm2 ?? "",
@@ -212,6 +242,7 @@ export async function syncCoursePrefsToServer(prefs: CoursePreferences): Promise
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        semester: prefs.semester ?? "",
         dsc: prefs.dsc ?? "",
         dsm1: prefs.dsm1 ?? "",
         dsm2: prefs.dsm2 ?? "",
@@ -248,9 +279,10 @@ export async function syncLocalCoursePrefsIfNeeded(): Promise<void> {
     const res = await fetch("/api/profile/course-prefs");
     if (!res.ok) return;
     const data = (await res.json()) as { prefs?: Partial<CoursePreferences> | null };
-    if (data.prefs && (data.prefs.dsc || data.prefs.dsm1 || data.prefs.dsm2)) {
+    if (data.prefs && (data.prefs.dsc || data.prefs.dsm1 || data.prefs.dsm2 || data.prefs.semester)) {
       const now = new Date().toISOString();
       saveCoursePrefs({
+        semester: data.prefs.semester ?? "",
         dsc: data.prefs.dsc ?? "",
         dsm1: data.prefs.dsm1 ?? "",
         dsm2: data.prefs.dsm2 ?? "",

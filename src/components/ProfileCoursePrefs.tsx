@@ -13,6 +13,7 @@ import { IconGraduation } from "@/components/Icons";
 import {
   COURSE_PREFS_UPDATED_EVENT,
   loadCoursePrefs,
+  semesterLabel,
   syncLocalCoursePrefsIfNeeded,
   type CoursePreferences,
 } from "@/data/course-selection-data";
@@ -63,6 +64,7 @@ export default function ProfileCoursePrefs({ compact = false }: ProfileCoursePre
         {prefs ? (
           <div className="space-y-1 text-xs">
             {[
+              { label: "Semester", value: semesterLabel(prefs.semester) },
               { label: "DSC", value: prefs.dsc },
               { label: "DSM 1", value: prefs.dsm1 },
               { label: "DSM 2", value: prefs.dsm2 },
@@ -122,6 +124,7 @@ export default function ProfileCoursePrefs({ compact = false }: ProfileCoursePre
       {prefs ? (
         <dl className="space-y-2 text-sm">
           {[
+            { label: "Semester", value: semesterLabel(prefs.semester) },
             { label: "DSC (Core)", value: prefs.dsc },
             { label: "DSM 1 (First Minor)", value: prefs.dsm1 },
             { label: "DSM 2 (Second Minor)", value: prefs.dsm2 },

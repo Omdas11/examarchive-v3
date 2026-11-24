@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { AdminUser } from "@/types";
+import { semesterShort } from "@/data/course-selection-data";
 import { RoleBadge } from "@/components/RoleBadge";
 import AvatarRing from "@/components/AvatarRing";
 import RoleEditModal from "@/components/RoleEditModal";
@@ -139,6 +140,7 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
               <th className="whitespace-nowrap text-left text-xs font-semibold">Achievements</th>
               <th className="whitespace-nowrap text-right text-xs font-semibold">Streak</th>
               <th className="whitespace-nowrap text-left text-xs font-semibold">Seen</th>
+              <th className="whitespace-nowrap text-left text-xs font-semibold">Semester</th>
               {COURSE_SLOT_LABELS.map((label) => (
                 <th
                   key={label}
@@ -256,6 +258,19 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
                     title={u.last_seen_at ? new Date(u.last_seen_at).toLocaleString("en-IN") : "No recorded activity"}
                   >
                     {formatLastSeen(u.last_seen_at)}
+                  </td>
+
+                  {/* Current semester (users.semester, 1-8); "—" until the
+                      user picks one in the course-setup modal. */}
+                  <td
+                    className="whitespace-nowrap text-sm font-medium"
+                    title={u.semester ? `Semester ${u.semester}` : "Semester not set yet"}
+                  >
+                    {u.semester ? (
+                      semesterShort(u.semester)
+                    ) : (
+                      <span style={{ color: "var(--color-text-muted)" }}>—</span>
+                    )}
                   </td>
 
                   {/* Courses: one column per paper slot (DSC, DSM-1,

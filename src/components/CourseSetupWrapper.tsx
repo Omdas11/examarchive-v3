@@ -4,12 +4,13 @@
  * CourseSetupWrapper
  *
  * Client component mounted in the root layout. Detects when a logged-in user
- * has not yet set up their course preferences and shows the CourseSelectionModal
- * automatically.
+ * has not yet set up their course preferences (or has not picked a current
+ * semester yet) and shows the CourseSelectionModal automatically.
  *
  * Preferences are persisted in localStorage under the key `ea_course_prefs`.
  * If the user dismisses ("Skip for now") a flag is set in `ea_course_prefs_skipped`
- * so the popup is not shown again on the same session.
+ * so the popup is not shown again on the same session — but it comes back on
+ * the next visit, so every user is eventually asked for their semester too.
  */
 
 import { useEffect, useState } from "react";
@@ -41,9 +42,10 @@ export default function CourseSetupWrapper({
     const prefs = loadCoursePrefs();
     setExistingPrefs(prefs);
 
-    // Show the modal automatically when prefs are missing and not previously
-    // skipped in this browser session.
-    if (!prefs) {
+    // Show the modal automatically when prefs are missing OR the current
+    // semester was never picked (older saved prefs have no semester), and
+    // not previously skipped in this browser session.
+    if (!prefs || !prefs.semester) {
       const skipped = sessionStorage.getItem(SKIPPED_KEY);
       if (!skipped) {
         setModalOpen(true);

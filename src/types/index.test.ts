@@ -234,6 +234,7 @@ describe("toAdminUser", () => {
       subject_admin_subject: null,
       tier: "gold",
       upload_count: 5,
+      semester: 3,
       xp: 100,
       streak_days: 10,
       last_login: "2023-01-01T00:00:00Z",
@@ -255,6 +256,7 @@ describe("toAdminUser", () => {
     // Tier is derived from XP (100 → silver), ignoring the stored "gold".
     expect(user.tier).toBe("silver");
     expect(user.upload_count).toBe(5);
+    expect(user.semester).toBe(3);
     expect(user.xp).toBe(100);
     expect(user.streak_days).toBe(10);
     expect(user.last_login).toBe("2023-01-01T00:00:00Z");
@@ -281,6 +283,7 @@ describe("toAdminUser", () => {
     expect(user.specialist_subject).toBeNull();
     expect(user.tier).toBe("bronze");
     expect(user.upload_count).toBe(0);
+    expect(user.semester).toBeNull();
     expect(user.xp).toBe(0);
     expect(user.streak_days).toBe(5);
     expect(user.last_login).toBe("2023-01-01T00:00:00Z");

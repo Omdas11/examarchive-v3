@@ -8,6 +8,8 @@ import {
   VAC_OPTIONS,
   DSM_ONLY_SUBJECTS,
   LITERATURE_SUBJECTS,
+  SEMESTER_OPTIONS,
+  semesterLabel,
   saveCoursePrefs,
   type CoursePreferences,
 } from "@/data/course-selection-data";
@@ -18,9 +20,9 @@ interface CourseSelectionModalProps {
   initialPrefs?: CoursePreferences | null;
 }
 
-const STEPS = ["DSC", "DSM", "SEC", "IDC", "AEC & VAC"] as const;
+const STEPS = ["Semester", "DSC", "DSM", "SEC", "IDC", "AEC & VAC"] as const;
 
-type Step = 0 | 1 | 2 | 3 | 4;
+type Step = 0 | 1 | 2 | 3 | 4 | 5;
 
 const TITLE_ID = "course-selection-title";
 
@@ -69,6 +71,7 @@ export default function CourseSelectionModal({
   initialPrefs,
 }: CourseSelectionModalProps) {
   const [step, setStep] = useState<Step>(0);
+  const [semester, setSemester] = useState(initialPrefs?.semester ?? "");
   const [dsc, setDsc] = useState(initialPrefs?.dsc ?? "");
   const [dsm1, setDsm1] = useState(initialPrefs?.dsm1 ?? "");
   const [dsm2, setDsm2] = useState(initialPrefs?.dsm2 ?? "");
@@ -82,6 +85,7 @@ export default function CourseSelectionModal({
   useEffect(() => {
     if (!open) return;
     setStep(0);
+    setSemester(initialPrefs?.semester ?? "");
     setDsc(initialPrefs?.dsc ?? "");
     setDsm1(initialPrefs?.dsm1 ?? "");
     setDsm2(initialPrefs?.dsm2 ?? "");
@@ -134,19 +138,26 @@ export default function CourseSelectionModal({
   function canAdvance(): boolean {
     switch (step) {
       case 0:
-        return dsc !== "";
+        return semester !== "";
       case 1:
-        return dsm1 !== "" && dsm2 !== "";
+        return dsc !== "";
       case 2:
-        return sec !== "";
+        return dsm1 !== "" && dsm2 !== "";
       case 3:
-        return idc !== "";
+        return sec !== "";
       case 4:
+        return idc !== "";
+      case 5:
         return aec !== "" && vac !== "";
       default:
         return false;
     }
   }
+
+  /** True when every subject step is already filled (returning user who
+   * only lacks a semester) — the semester step can then save directly. */
+  const subjectsComplete =
+    dsc !== "" && dsm1 !== "" && dsm2 !== "" && sec !== "" && idc !== "" && aec !== "" && vac !== "";
 
   function handleDscSelect(subject: string) {
     setDsc(subject);
@@ -174,6 +185,7 @@ export default function CourseSelectionModal({
 
   function handleSave() {
     saveCoursePrefs({
+      semester,
       dsc,
       dsm1,
       dsm2,
@@ -194,6 +206,25 @@ export default function CourseSelectionModal({
         return (
           <div className="space-y-3">
             <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
+              Which semester are you in right now? Your papers follow this,
+              and it shows on your profile and in user management.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {SEMESTER_OPTIONS.map((option) => (
+                <SubjectPill
+                  key={option}
+                  label={semesterLabel(option)}
+                  selected={semester === option}
+                  onClick={() => setSemester(option)}
+                />
+              ))}
+            </div>
+          </div>
+        );
+      case 1:
+        return (
+          <div className="space-y-3">
+            <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
               Choose your <strong>DSC</strong> (Discipline Specific Core) directly from the subject list.
             </p>
             <div className="flex flex-wrap gap-2">
@@ -208,7 +239,7 @@ export default function CourseSelectionModal({
             </div>
           </div>
         );
-      case 1:
+      case 2:
         return (
           <div className="space-y-4">
             <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
@@ -259,7 +290,7 @@ export default function CourseSelectionModal({
             </div>
           </div>
         );
-      case 2:
+      case 3:
         return (
           <div className="space-y-3">
             <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
@@ -283,7 +314,7 @@ export default function CourseSelectionModal({
             </div>
           </div>
         );
-      case 3:
+      case 4:
         return (
           <div className="space-y-3">
             <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
@@ -314,7 +345,7 @@ export default function CourseSelectionModal({
             </div>
           </div>
         );
-      case 4:
+      case 5:
         return (
           <div className="space-y-5">
             <div>
@@ -357,6 +388,7 @@ export default function CourseSelectionModal({
             >
               <p className="font-semibold text-sm mb-2">Your Course Selection</p>
               {[
+                { label: "Semester", value: semesterLabel(semester) },
                 { label: "DSC", value: dsc },
                 { label: "DSM 1", value: dsm1 },
                 { label: "DSM 2", value: dsm2 },
@@ -452,7 +484,16 @@ export default function CourseSelectionModal({
             </button>
           )}
 
-          {step < STEPS.length - 1 ? (
+          {step === 0 && subjectsComplete ? (
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={!canAdvance()}
+              className="btn-primary text-sm px-5 py-2 disabled:opacity-40"
+            >
+              Save semester
+            </button>
+          ) : step < STEPS.length - 1 ? (
             <button
               type="button"
               onClick={() => setStep((current) => (current + 1) as Step)}
