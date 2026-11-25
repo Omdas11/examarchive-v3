@@ -88,6 +88,7 @@ export default function RightSidebar({
   const joinedDate = useMemo(() => {
     if (!profile?.created_at) return "—";
     return new Date(profile.created_at).toLocaleDateString(undefined, {
+      day: "numeric",
       month: "short",
       year: "numeric",
     });

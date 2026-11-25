@@ -322,6 +322,7 @@ export default function ProfilePanel({ user, open, onClose }: ProfilePanelProps)
             <p className="text-center text-[11px]" style={{ color: "var(--color-text-muted)" }}>
               Member since{" "}
               {new Date(user.created_at).toLocaleDateString("en-US", {
+                day: "numeric",
                 month: "long",
                 year: "numeric",
               })}

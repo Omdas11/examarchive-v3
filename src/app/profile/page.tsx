@@ -194,12 +194,11 @@ export default async function ProfilePage({
     getRecentUserActivityD1(user.id, "download", 10),
   ]);
 
-  // Date format: "Jan 2026" matches v2 screenshot "Member since Feb 2026".
-  // Using en-US with { month: 'short', year: 'numeric' } gives the same output
-  // regardless of browser locale (e.g. "Feb 2026"), which is what v2 renders.
+  // Date format: "18 Nov 2026" — the exact join date, not just month + year.
   const joinedDate = new Date(user.created_at).toLocaleDateString("en-US", {
-    year: "numeric",
+    day: "numeric",
     month: "short",
+    year: "numeric",
   });
 
   const xpScore = user.xp;

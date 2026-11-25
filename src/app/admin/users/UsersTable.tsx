@@ -78,6 +78,22 @@ function formatLastSeen(iso: string | null | undefined): string {
   });
 }
 
+/** Exact join date ("18 Nov 2026") from users.created_at, which is epoch
+ * milliseconds in D1 but an ISO string on legacy Appwrite rows. */
+function formatJoined(value: string | number | null | undefined): string {
+  if (value == null || value === "") return "—";
+  const ms =
+    typeof value === "number" || /^\d+$/.test(String(value))
+      ? Number(value)
+      : new Date(value).getTime();
+  if (Number.isNaN(ms)) return "—";
+  return new Date(ms).toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 /**
  * Generate a deterministic neutral background colour for avatar initials
  * based on the user's display name so each user gets a consistent but varied
@@ -140,6 +156,7 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
               <th className="whitespace-nowrap text-left text-xs font-semibold">Achievements</th>
               <th className="whitespace-nowrap text-right text-xs font-semibold">Streak</th>
               <th className="whitespace-nowrap text-left text-xs font-semibold">Seen</th>
+              <th className="whitespace-nowrap text-left text-xs font-semibold">Joined</th>
               <th className="whitespace-nowrap text-left text-xs font-semibold">Semester</th>
               {COURSE_SLOT_LABELS.map((label) => (
                 <th
@@ -258,6 +275,22 @@ export default function UsersTable({ users, currentAdminId, currentAdminRole }: 
                     title={u.last_seen_at ? new Date(u.last_seen_at).toLocaleString("en-IN") : "No recorded activity"}
                   >
                     {formatLastSeen(u.last_seen_at)}
+                  </td>
+
+                  {/* Joined: exact account creation date from users.created_at */}
+                  <td
+                    className="whitespace-nowrap text-sm"
+                    title={
+                      u.created_at
+                        ? new Date(
+                            typeof u.created_at === "number" || /^\d+$/.test(String(u.created_at))
+                              ? Number(u.created_at)
+                              : u.created_at,
+                          ).toLocaleString("en-IN")
+                        : "Join date unknown"
+                    }
+                  >
+                    {formatJoined(u.created_at)}
                   </td>
 
                   {/* Current semester (users.semester, 1-8); "—" until the
