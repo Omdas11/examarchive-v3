@@ -58,11 +58,10 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
   for (const p of papers) {
     if (p.year) yearSet.add(p.year);
     if (p.department) {
-      const upper = p.department.toUpperCase();
-      if (upper.includes("SCIENCE")) streamSet.add("SCIENCE");
-      else if (upper.includes("ARTS")) streamSet.add("ARTS");
-      else if (upper.includes("COMMERCE")) streamSet.add("COMMERCE");
-      else streamSet.add(p.department.toUpperCase());
+      // One chip per department. Collapsing by keyword ("SCIENCE",
+      // "ARTS", "COMMERCE") hid Political Science and Library Science
+      // inside a generic SCIENCE chip with no way to pick them.
+      streamSet.add(p.department.toUpperCase());
     }
     if (p.paper_type) paperTypeSet.add(p.paper_type);
     if (p.institute) universitySet.add(p.institute);
