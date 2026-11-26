@@ -176,20 +176,21 @@ export default async function RootLayout({
         <script>{THEME_INIT_SCRIPT}</script>
         <script>{SERVICE_WORKER_SCRIPT}</script>
         {/* AdSense site-connection script, exactly as Google gives it.
-            Only emitted while ADS_ENABLED. It is in the HTML head on every
-            page so Google can detect it without needing a cookie choice
-            first. The script alone shows no ads and creates no ad units:
-            ads only appear after AdSense approval, and personalised ads
-            only after the visitor accepts cookies. Google Analytics, by
-            contrast, stays fully gated by the cookie banner. */}
-        {ADS_ENABLED && (
-          <script
-            async
-            fetchPriority="low"
-            src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2814629639937169"
-            crossOrigin="anonymous"
-          />
-        )}
+            Always emitted, even while ADS_ENABLED is false, so Google can
+            detect and verify the site for AdSense approval. It is in the
+            HTML head on every page so Google can detect it without needing
+            a cookie choice first. The script alone shows no ads and creates
+            no ad units: ads only appear after AdSense approval, and
+            personalised ads only after the visitor accepts cookies. Google
+            Analytics, by contrast, stays fully gated by the cookie banner.
+            (Was gated by ADS_ENABLED until 26 Nov 2026, which switched the
+            script off on the live site and made the code undetectable.) */}
+        <script
+          async
+          fetchPriority="low"
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2814629639937169"
+          crossOrigin="anonymous"
+        />
         <script type="application/ld+json">
           {JSON.stringify(jsonLd).replace(/</g, "\\u003c")}
         </script>
