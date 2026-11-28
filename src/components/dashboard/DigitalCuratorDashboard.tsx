@@ -307,7 +307,7 @@ export default function DigitalCuratorDashboard({
               <div className="relative z-10">
                 <h4 className="font-black text-xl mb-2 tracking-tight">Keep ExamArchive alive</h4>
                 <p className="text-sm text-white/80 mb-6 leading-relaxed font-medium">
-                  The domain costs ₹2,254.75 a year, due 27 Jan 2027. Support from ₹20 keeps the archive running for every student.
+                  The domain costs ₹2,201.37 a year, due 27 Jan 2027. Support from ₹20 keeps the archive running for every student.
                 </p>
                 <a
                   href="/maintenance-cost"
