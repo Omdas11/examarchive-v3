@@ -15,6 +15,8 @@ interface ProfileEditorProps {
   initialUsernameLastChanged?: string | null;
   /** User role – used to colour the avatar ring. */
   role?: UserRole;
+  /** Leaderboard name choice: 1 = show real name, 0 = username only, null = not chosen yet. */
+  initialLeaderboardNameVisible?: number | null;
 }
 
 function toErrorMessage(err: unknown, fallback: string): string {
@@ -39,11 +41,18 @@ export default function ProfileEditor({
   initialAvatarUrl,
   initialUsernameLastChanged,
   role,
+  initialLeaderboardNameVisible,
 }: ProfileEditorProps) {
   const router = useRouter();
   const [name, setName] = useState(initialName);
   const [username, setUsername] = useState(initialUsername);
   const [saving, setSaving] = useState(false);
+  const [leaderboardChoice, setLeaderboardChoice] = useState<boolean | null>(
+    initialLeaderboardNameVisible == null
+      ? null
+      : initialLeaderboardNameVisible === 1,
+  );
+  const [consentSaving, setConsentSaving] = useState(false);
   const [usernameLastChanged, setUsernameLastChanged] = useState<string | null | undefined>(initialUsernameLastChanged);
   const [editingUsername, setEditingUsername] = useState(false);
   const usernameInputRef = useRef<HTMLInputElement>(null);
@@ -90,6 +99,31 @@ export default function ProfileEditor({
       showToast(toErrorMessage(err, "Network error – please try again"), "error");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function saveLeaderboardChoice(showName: boolean) {
+    if (consentSaving) return;
+    setConsentSaving(true);
+    try {
+      const res = await fetch("/api/profile/leaderboard-consent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ showName }),
+      });
+      if (!res.ok) throw new Error("save failed");
+      setLeaderboardChoice(showName);
+      showToast(
+        showName
+          ? "Your real name will show on the leaderboard"
+          : "Only your username will show on the leaderboard",
+        "success",
+      );
+      router.refresh();
+    } catch (err) {
+      showToast(toErrorMessage(err, "Could not save — please try again"), "error");
+    } finally {
+      setConsentSaving(false);
     }
   }
 
@@ -163,6 +197,52 @@ export default function ProfileEditor({
       >
         {saving ? "Saving…" : "Save Changes"}
       </button>
+
+      {/* Leaderboard name — change the login-time choice anytime */}
+      <div className="mt-3 w-full max-w-xs">
+        <p className="text-sm font-semibold">Leaderboard name</p>
+        <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+          The XP leaderboard is public. Choose what appears next to your XP.
+        </p>
+        <div className="mt-2 flex gap-2">
+          <button
+            type="button"
+            disabled={consentSaving}
+            onClick={() => void saveLeaderboardChoice(true)}
+            aria-pressed={leaderboardChoice === true}
+            className="flex-1 rounded-lg px-3 py-2 text-xs font-bold disabled:opacity-60"
+            style={
+              leaderboardChoice === true
+                ? { background: "#047857", color: "#fff" }
+                : {
+                    background: "var(--color-surface)",
+                    color: "var(--color-text)",
+                    border: "1px solid var(--color-border)",
+                  }
+            }
+          >
+            Show my name
+          </button>
+          <button
+            type="button"
+            disabled={consentSaving}
+            onClick={() => void saveLeaderboardChoice(false)}
+            aria-pressed={leaderboardChoice === false}
+            className="flex-1 rounded-lg px-3 py-2 text-xs font-bold disabled:opacity-60"
+            style={
+              leaderboardChoice === false
+                ? { background: "#047857", color: "#fff" }
+                : {
+                    background: "var(--color-surface)",
+                    color: "var(--color-text)",
+                    border: "1px solid var(--color-border)",
+                  }
+            }
+          >
+            Username only
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

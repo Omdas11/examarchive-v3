@@ -266,6 +266,7 @@ export default async function ProfilePage({
             initialAvatarUrl={user.avatar_url}
             initialUsernameLastChanged={usernameLastChanged}
             role={user.role}
+            initialLeaderboardNameVisible={user.leaderboard_name_visible ?? null}
           />
 
           {/* Member since */}

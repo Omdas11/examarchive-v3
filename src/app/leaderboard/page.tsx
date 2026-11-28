@@ -21,6 +21,8 @@ interface LeaderboardRow {
   role: string;
   xp: number;
   created_at: number | string;
+  /** 1 = user chose to show their real name, 0/null = username only. */
+  leaderboard_name_visible: number | null;
 }
 
 const KV_KEY = "leaderboard-v1";
@@ -31,7 +33,9 @@ const PAGE_SIZE = 50;
  * Top 50 users by XP, ties broken by earliest join. Cached in KV for 1h
  * (same pattern as /stats): one small SELECT per hour at most, ~43 rows
  * read per cache miss, so the board costs ~0 D1 reads on normal traffic.
- * Names only — never emails — are shown on the public board.
+ * Names appear ONLY for users who opted in on login
+ * (users.leaderboard_name_visible = 1); everyone else shows by username,
+ * or "Anonymous" when no username is set. Emails are never shown.
  */
 async function fetchLeaderboard(): Promise<LeaderboardRow[]> {
   try {
@@ -44,7 +48,7 @@ async function fetchLeaderboard(): Promise<LeaderboardRow[]> {
     const db = await getD1();
     const { results } = await db
       .prepare(
-        "SELECT id, username, name, role, xp, created_at FROM users " +
+        "SELECT id, username, name, role, xp, created_at, leaderboard_name_visible FROM users " +
           "ORDER BY xp DESC, created_at ASC LIMIT ?",
       )
       .bind(PAGE_SIZE)
@@ -60,7 +64,7 @@ async function fetchLeaderboard(): Promise<LeaderboardRow[]> {
     const db = await getD1();
     const { results } = await db
       .prepare(
-        "SELECT id, username, name, role, xp, created_at FROM users " +
+        "SELECT id, username, name, role, xp, created_at, leaderboard_name_visible FROM users " +
           "ORDER BY xp DESC, created_at ASC LIMIT ?",
       )
       .bind(PAGE_SIZE)
@@ -70,7 +74,10 @@ async function fetchLeaderboard(): Promise<LeaderboardRow[]> {
 }
 
 function displayName(row: LeaderboardRow): string {
-  return row.name || row.username || "Anonymous";
+  if (row.leaderboard_name_visible === 1) {
+    return row.name || row.username || "Anonymous";
+  }
+  return row.username || "Anonymous";
 }
 
 function rankMedal(rank: number): { bg: string; fg: string } | null {
@@ -209,8 +216,9 @@ export default async function LeaderboardPage() {
         </div>
 
         <p className="mt-4 text-xs" style={{ color: "var(--color-text-muted)" }}>
-          Showing top {rows.length} of all registered users. Only names and XP
-          are shown, never email addresses.
+          Showing top {rows.length} of all registered users. A real name
+          appears only for users who chose to show it on login; everyone
+          else appears by username. Email addresses are never shown.
         </p>
       </section>
     </MainLayout>

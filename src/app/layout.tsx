@@ -11,6 +11,7 @@ import { ADS_ENABLED } from "@/lib/site-flags";
 import DebugPanel from "@/components/DebugPanel";
 import { ToastProvider } from "@/components/ToastContext";
 import CourseSetupWrapper from "@/components/CourseSetupWrapper";
+import LeaderboardConsentWrapper from "@/components/LeaderboardConsentWrapper";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/next";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
@@ -200,6 +201,7 @@ export default async function RootLayout({
           <ToastProvider>
             {children}
             <CourseSetupWrapper isLoggedIn={!!user} />
+            <LeaderboardConsentWrapper />
             {process.env.NODE_ENV !== "production" &&
               process.env.NEXT_PUBLIC_ENABLE_DEBUG_PANEL === "true" && (
                 <DebugPanel />

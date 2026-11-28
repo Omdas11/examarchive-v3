@@ -106,6 +106,12 @@ export interface UserProfile {
   streak_days: number;
   last_activity: string;
   created_at: string;
+  /**
+   * Leaderboard name consent: null = not asked yet (mandatory prompt
+   * shows on login), 1 = show real name on the leaderboard,
+   * 0 = username only.
+   */
+  leaderboard_name_visible?: number | null;
   /** Linked Discord account (OAuth2), if any. */
   discord_id?: string | null;
   discord_username?: string | null;

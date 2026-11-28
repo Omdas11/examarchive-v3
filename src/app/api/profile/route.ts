@@ -266,6 +266,24 @@ export async function GET() {
     // ignore — popup shows
   }
 
+  // Leaderboard name consent: has this user chosen whether their real name
+  // may appear on the public board? Separate lookup so a missing column
+  // (migration not applied) never breaks the profile response — it just
+  // means the mandatory prompt shows.
+  let leaderboard_name_visible: number | null = null;
+  try {
+    const db = await getD1();
+    const consentRow = await db
+      .prepare(
+        "SELECT leaderboard_name_visible FROM users WHERE id = ? LIMIT 1",
+      )
+      .bind(user.id)
+      .first<{ leaderboard_name_visible: number | null }>();
+    leaderboard_name_visible = consentRow?.leaderboard_name_visible ?? null;
+  } catch {
+    // ignore — prompt shows
+  }
+
   const approval_pct = total_uploads > 0 ? Math.round((approved_upload_count / total_uploads) * 100) : 0;
 
   // Verifications submitted (verify-to-earn ledger).
@@ -307,6 +325,7 @@ export async function GET() {
     created_at: user.created_at,
     daily_reward: dailyReward,
     whatsapp_channel_joined,
+    leaderboard_name_visible,
     approved_upload_count,
     approved_count: approved_upload_count,
     total_uploads,

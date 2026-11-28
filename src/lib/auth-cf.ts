@@ -52,6 +52,7 @@ const USER_COLUMNS = [
   "last_activity",
   "ai_credits",
   "created_at",
+  "leaderboard_name_visible",
 ] as const;
 
 type UserRow = Record<string, unknown>;
@@ -145,6 +146,10 @@ export function userRowToProfile(row: UserRow): UserProfile {
     streak_days: Number(row.streak_days ?? 0),
     last_activity: lastActivity,
     created_at: createdAt,
+    leaderboard_name_visible:
+      row.leaderboard_name_visible == null
+        ? null
+        : Number(row.leaderboard_name_visible),
   };
 }
 
