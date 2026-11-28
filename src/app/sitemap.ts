@@ -78,6 +78,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE_URL}/exam-timetable`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.8 },
     { url: `${SITE_URL}/notices`, lastModified: new Date(), changeFrequency: "daily", priority: 0.8 },
     { url: `${SITE_URL}/fellowships`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.8 },
+    { url: `${SITE_URL}/leaderboard`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.7 },
   ];
 
   // Department landing pages (regional SEO)

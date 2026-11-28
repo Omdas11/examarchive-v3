@@ -106,6 +106,11 @@ export const APP_SIDEBAR_ITEMS: AppSidebarItem[] = [
     icon: "shopping_cart",
     href: "/store",
   },
+  {
+    label: "Leaderboard",
+    icon: "leaderboard",
+    href: "/leaderboard",
+  },
   // ── Info ──────────────────────────────────────────────
   {
     label: "About",
